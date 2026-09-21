@@ -1,0 +1,2383 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ScanGo Studio — Panel de Edición de Menú</title>
+  <link rel="icon" type="image/png" href="/logo-scango.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Montserrat:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-base: #0E1412;
+      --surface-1: #151E1A;
+      --surface-2: #1D2A24;
+      --surface-3: #26362F;
+      --border: rgba(255, 255, 255, 0.10);
+      --accent-gold: #ECC94B;
+      --accent-gold-hover: #F6E05E;
+      --accent-green: #38A169;
+      --accent-red: #E53E3E;
+      --text-main: #F7FAFC;
+      --text-muted: #CBD5E0;
+      --text-dim: #8C9B95;
+      --font-body: 'Montserrat', sans-serif;
+      --font-heading: 'Playfair Display', Georgia, serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+      --font-chalk: 'Caveat', cursive, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Top Navbar */
+    .top-navbar {
+      background: var(--surface-1);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      z-index: 100;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .brand-area { display: flex; align-items: center; gap: 10px; }
+    .brand-logo-icon {
+      width: 34px; height: 34px;
+      background: linear-gradient(135deg, #1E2923, #ECC94B);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .brand-title { font-size: 15px; font-weight: 700; color: #fff; }
+
+    .sub-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+    }
+    .badge-trial { background: rgba(236, 201, 75, 0.15); color: #ECC94B; border: 1px solid rgba(236, 201, 75, 0.4); }
+    .badge-active { background: rgba(56, 161, 105, 0.2); color: #48BB78; border: 1px solid rgba(56, 161, 105, 0.4); }
+    .badge-grace { background: rgba(229, 62, 62, 0.2); color: #FEB2B2; border: 1px solid rgba(229, 62, 62, 0.4); }
+
+    .nav-actions { display: flex; align-items: center; gap: 8px; }
+    .btn-nav {
+      background: var(--surface-2);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-nav:hover { background: var(--surface-3); border-color: rgba(255,255,255,0.2); }
+    .btn-nav-gold { background: var(--accent-gold); color: #101614; font-weight: 700; border: none; }
+    .btn-nav-gold:hover { background: var(--accent-gold-hover); }
+    .btn-nav-green { background: var(--accent-green); color: #fff; font-weight: 700; border: none; }
+
+    /* Workspace layout with Studio + Live Preview */
+    .workspace-layout {
+      display: grid;
+      grid-template-columns: minmax(400px, 480px) 1fr;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    @media (max-width: 980px) {
+      body { height: auto; overflow-y: auto; }
+      .workspace-layout { grid-template-columns: 1fr; height: auto; overflow: visible; }
+    }
+
+    /* Left Panel: Studio */
+    .panel-studio {
+      background: var(--surface-1);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* 5 Fixed Responsive Tabs with anti-overflow protection */
+    .tab-nav-grid {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      background: #111715;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: thin;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 3px solid transparent;
+      color: var(--text-dim);
+      padding: 10px 2px;
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      min-width: 0;
+      overflow: hidden;
+      transition: all 0.2s;
+    }
+    .tab-btn span:not(.tab-icon) {
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: block;
+    }
+    .tab-btn span.tab-icon { font-size: 16px; flex-shrink: 0; }
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .tab-btn.active {
+      color: var(--accent-gold);
+      border-bottom-color: var(--accent-gold);
+      background: rgba(236, 201, 75, 0.08);
+      font-weight: 700;
+    }
+
+    .tab-content-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* Form UI elements */
+    .form-section {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent-gold);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .form-group { margin-bottom: 12px; }
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: #fff;
+      font-family: var(--font-body);
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      border-color: var(--accent-gold);
+    }
+    .input-hint { font-size: 10px; color: var(--text-dim); margin-top: 3px; }
+
+    /* Dish Cards in Studio */
+    .dish-editor-card {
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .btn-icon {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      width: 26px; height: 26px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px;
+    }
+    .btn-icon:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
+    .btn-icon-danger:hover { color: var(--accent-red); border-color: var(--accent-red); }
+
+    /* Preset Dishes Picker Modal */
+    .preset-cat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .btn-preset-cat {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 8px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s;
+    }
+    .btn-preset-cat:hover {
+      background: var(--surface-3);
+      border-color: var(--accent-gold);
+    }
+
+    /* Right Panel: Live Preview */
+    .panel-preview {
+      background: #080C0B;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .preview-header {
+      background: var(--surface-1);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .preview-mode-tabs { display: flex; gap: 6px; }
+    .btn-view-toggle {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-view-toggle.active {
+      background: var(--accent-gold);
+      color: #101614;
+      font-weight: 700;
+      border-color: var(--accent-gold);
+    }
+
+    .preview-stage {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .preview-device-phone {
+      width: 375px;
+      height: 680px;
+      background: #151D1A;
+      border: 10px solid #283730;
+      border-radius: 36px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .phone-screen-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #151D1A;
+    }
+
+    /* Modals */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(8, 12, 10, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-box {
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      width: 100%;
+      max-width: 520px;
+      padding: 24px;
+      max-height: 85vh;
+      overflow-y: auto;
+      position: relative;
+    }
+    .modal-close {
+      position: absolute;
+      top: 14px; right: 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .modal-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="top-navbar">
+    <div class="brand-area">
+      <img src="/logo-scango.png" alt="ScanGo" style="height: 36px; width: auto; object-fit: contain; border-radius: 6px;">
+      <div>
+        <div class="brand-title" id="studioNavRestaurantName">ScanGo Studio</div>
+        <div style="font-size: 10px; color: var(--text-dim);" id="studioNavUserEmail">Cargando...</div>
+      </div>
+      <div id="subscriptionBadge" class="sub-badge badge-trial">⏳ 7 días de prueba</div>
+    </div>
+
+    <div class="nav-actions">
+      <a id="btnLiveMenu" href="#" target="_blank" class="btn-nav">
+        <span>🌐 Ver Menú Público</span>
+      </a>
+      <button class="btn-nav btn-nav-gold" onclick="openBillingModal()">
+        <span>💎 Activar Plan Pro</span>
+      </button>
+      <button class="btn-nav btn-nav-green" onclick="saveStudioChanges()">
+        <span id="saveBtnText">💾 Guardar Cambios</span>
+      </button>
+      <button class="btn-nav" onclick="logout()" title="Cerrar sesión">
+        <span>🚪 Salir</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Layout -->
+  <div class="workspace-layout">
+
+    <!-- Left: Studio Panel with 5 Tabs -->
+    <aside class="panel-studio">
+      <!-- 5 Fixed Navigation Tabs -->
+      <nav class="tab-nav-grid">
+        <button class="tab-btn active" onclick="switchTab('local')" title="Mi Local — Configuración general y logo">
+          <span class="tab-icon">🏪</span>
+          <span>Mi Local</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('dishes')" title="Carta & Platos — Gestión de categorías y platos">
+          <span class="tab-icon">📖</span>
+          <span>Carta & Platos</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('theme')" title="Tema Visual — Colores, pizarra y tipografía">
+          <span class="tab-icon">🎨</span>
+          <span>Tema Visual</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('delivery')" title="Delivery & WhatsApp — Teléfono y zonas de envío">
+          <span class="tab-icon">🛵</span>
+          <span>Delivery & WA</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('qr')" title="QR & Mesas — Descargar e imprimir código QR">
+          <span class="tab-icon">🖨️</span>
+          <span>QR & Mesas</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('stats')" title="Estadísticas — Visitas, pedidos y reservas">
+          <span class="tab-icon">📊</span>
+          <span>Métricas</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('reviews')" title="Opinión y Reseña — Calificar el servicio">
+          <span class="tab-icon">⭐</span>
+          <span>Mi Reseña</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('notifications')" title="Notificaciones WhatsApp — Estado de pedidos a 1 clic">
+          <span class="tab-icon">📲</span>
+          <span>Avisos WA</span>
+        </button>
+      </nav>
+
+      <div class="tab-content-scroll">
+
+        <!-- TAB 1: MI LOCAL -->
+        <div id="tab-local" class="tab-pane active">
+          <div class="form-section">
+            <div class="section-title">📍 Datos Principales del Local</div>
+
+            <div class="form-group">
+              <label class="form-label">Nombre del Restaurante / Bar</label>
+              <input type="text" id="inputLocalName" class="form-input" oninput="updateLiveState()">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Slogan o Descripción Corta</label>
+              <input type="text" id="inputLocalSlogan" class="form-input" placeholder="Ej: Especialidad, cocina de autor y tragos" oninput="updateLiveState()">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Slug de Enlace Público (/m/:slug)</label>
+              <input type="text" id="inputLocalSlug" class="form-input" placeholder="ej: la-trattoria" oninput="updateLiveState()">
+              <div class="input-hint">Tu enlace web será: <code id="previewFullUrl">/m/slug</code></div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Moneda de la Carta</label>
+              <select id="inputLocalCurrency" class="form-select" onchange="updateLiveState()">
+                <option value="$">$ (Pesos UYU / ARS / MXN)</option>
+                <option value="US$">US$ (Dólares Americanos)</option>
+                <option value="€">€ (Euros)</option>
+                <option value="R$">R$ (Reales)</option>
+              </select>
+            </div>
+
+            <div class="field-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px;">
+              <div class="form-group">
+                <label class="form-label">Instagram (@usuario)</label>
+                <input type="text" id="inputInstagram" class="form-input" placeholder="Ej: @tulocal" oninput="updateLiveState()">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Link Reseñas de Google</label>
+                <input type="text" id="inputGoogleReview" class="form-input" placeholder="https://g.page/r/tu-local/review" oninput="updateLiveState()">
+              </div>
+            </div>
+
+            <!-- Logo Upload for Menu & QR Center -->
+            <div class="form-group" style="margin-top: 14px;">
+              <label class="form-label">Logo o Emblema (Aparece en el menú y en el centro del QR)</label>
+              <div style="display: flex; gap: 12px; align-items: center; background: var(--bg-base); padding: 10px; border-radius: 8px; border: 1px solid var(--border);">
+                <div id="logoPreviewBox" style="width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--accent-gold); background: #16201c; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                  <span id="logoPreviewIcon" style="font-size: 22px;">🍽️</span>
+                </div>
+                <div style="flex: 1;">
+                  <input type="file" id="inputLogoFile" accept="image/*" style="display: none;" onchange="handleLogoUpload(event)">
+                  <button type="button" class="btn-nav" style="width: 100%; justify-content: center; font-size: 11px;" onclick="document.getElementById('inputLogoFile').click()">
+                    📷 Subir Logo (PNG / JPG)
+                  </button>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                    <span class="input-hint">Formato cuadrado recomendado</span>
+                    <button type="button" id="btnRemoveLogo" style="background: none; border: none; color: var(--accent-red); font-size: 11px; cursor: pointer; display: none;" onclick="removeLogo()">Quitar logo</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Announcement Banner of the Day -->
+            <div class="form-group" style="margin-top: 14px;">
+              <label class="form-label">📢 Cartel de Anuncio del Día (Banner Superior en el Menú)</label>
+              <input type="text" id="inputAnnouncement" class="form-input" placeholder="Ej: ¡Hoy 2x1 en Cervezas Artesanales de 19 a 21 hs! 🍻" oninput="updateLiveState()">
+              <div class="input-hint">Aparecerá destacado en la parte superior de la carta para todos tus clientes. Déjalo vacío para ocultarlo.</div>
+            </div>
+
+            <!-- External Payment Link -->
+            <div class="form-group" style="margin-top: 14px;">
+              <label class="form-label">💳 Link de Pago Propio (Mercado Pago, Banco, etc.)</label>
+              <input type="text" id="inputPaymentLink" class="form-input" placeholder="Ej: https://mpago.la/tu-link-de-cobro" oninput="updateLiveState()">
+              <div class="input-hint">Opcional. Permite a los clientes pagar online sin intermediarios antes de enviar el pedido.</div>
+            </div>
+
+            <!-- Schedule / Timed Menus -->
+            <div class="form-group" style="margin-top: 14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div>
+                  <strong style="font-size:12px; color:#fff;">⏰ Programar Horario de Disponibilidad</strong>
+                  <div style="font-size:10px; color:var(--text-dim);">Activa la carta sólo en una franja horaria (Ej: Menú Ejecutivo, Happy Hour)</div>
+                </div>
+                <label style="position:relative; display:inline-block; width:42px; height:24px;">
+                  <input type="checkbox" id="inputScheduleEnabled" onchange="updateLiveState()" style="opacity:0; width:0; height:0;">
+                  <span id="sliderSchedule" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
+                </label>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input type="text" id="inputScheduleActiveHours" class="form-input" placeholder="Ej: 11:30-15:30" style="font-family:var(--font-mono); font-size:11px;" oninput="updateLiveState()">
+                <span class="input-hint" style="margin-top:0; white-space:nowrap;">Horario (HH:MM-HH:MM)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">📶 Conectividad Wi-Fi para Clientes</div>
+            <div class="form-group">
+              <label class="form-label">Nombre de Red Wi-Fi (SSID)</label>
+              <input type="text" id="inputWifiSsid" class="form-input" placeholder="Ej: BarPizarron_Clientes" oninput="updateLiveState()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Contraseña de Red Wi-Fi</label>
+              <input type="text" id="inputWifiPass" class="form-input" placeholder="Ej: CafeRico2026" oninput="updateLiveState()">
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: CARTA Y PLATOS -->
+        <div id="tab-dishes" class="tab-pane">
+          <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+            <button class="btn-nav btn-nav-gold" style="flex:1;" onclick="openPresetsModal()">
+              ✨ Agregar desde 85+ Platos Frecuentes
+            </button>
+            <button class="btn-nav" onclick="openNewDishModal()">
+              + Nuevo Plato
+            </button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Filtrar por Categoría</label>
+            <select id="selectCatFilter" class="form-select" onchange="renderDishesList()">
+              <option value="ALL">Todas las Categorías</option>
+            </select>
+          </div>
+
+          <!-- Agotado Inteligente por Ingrediente / Insumo -->
+          <div class="form-group" style="background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px dashed rgba(229,62,62,0.4); margin-bottom:14px;">
+            <label class="form-label" style="color:#FEB2B2; display:flex; justify-content:space-between; align-items:center;">
+              <span>⚡ Agotado Inteligente por Ingrediente</span>
+              <span style="font-size:9px; color:var(--text-dim);">Desactiva en masa</span>
+            </label>
+            <div style="display:flex; gap:6px;">
+              <input type="text" id="inputIngredientKeyword" class="form-input" placeholder="Ej: Salmón, Champiñones, Aguacate..." style="font-size:11px;">
+              <button type="button" class="btn-nav btn-icon-danger" style="padding:0 10px; font-size:11px; white-space:nowrap;" onclick="toggleDishesByIngredient(true)">
+                ✕ Agotar
+              </button>
+              <button type="button" class="btn-nav" style="padding:0 10px; font-size:11px; white-space:nowrap; border-color:#38A169; color:#68D391;" onclick="toggleDishesByIngredient(false)">
+                ✓ Reactivar
+              </button>
+            </div>
+            <div class="input-hint" style="color:var(--text-dim); font-size:9px;">
+              Tacha o reactiva automáticamente todos los platos cuyo nombre o ingredientes contengan esa palabra.
+            </div>
+          </div>
+
+          <!-- List of dishes in studio -->
+          <div id="studioDishesList"></div>
+        </div>
+
+        <!-- TAB 3: TEMA VISUAL -->
+        <div id="tab-theme" class="tab-pane">
+          <div class="form-section">
+            <div class="section-title">🎨 Estética del Pizarrón y Rubro Gastronómico</div>
+            <p style="font-size:11px; color:var(--text-dim); margin-bottom:12px;">
+              Elige entre los 7 fondos auténticos y estilos tipográficos adaptados a cada tipo de local.
+            </p>
+
+            <div class="form-group">
+              <label class="form-label">Fondo y Paleta del Pizarrón (7 Opciones)</label>
+              <select id="inputThemeBg" class="form-select" onchange="updateLiveState()">
+                <option value="classic">1. Pizarrón Clásico Negro Grafito (Tiza Blanca)</option>
+                <option value="emerald" selected>2. Pizarrón Verde Bistro Esmeralda (Bistró Pomelli)</option>
+                <option value="rustic">3. Pizarrón Café Rústico Artesanal (Parrilla & Asado)</option>
+                <option value="taqueria">4. Taquería Fiesta (Cálido, Urbano y Tacos)</option>
+                <option value="bar">5. Bar de Tragos & Nocturno (Serif Elegante & Cócteles)</option>
+                <option value="moderna">6. Cafetería Moderna (Minimalista & Café de Especialidad)</option>
+                <option value="foodtruck">7. Food Truck / Burgers (Neón Oscuro & Smash)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Estilo Tipográfico de Títulos</label>
+              <select id="inputThemeFont" class="form-select" onchange="updateLiveState()">
+                <option value="serif">Elegante Serif (Playfair Display)</option>
+                <option value="chalk">Tiza Cursiva Clásica (Caveat)</option>
+                <option value="sans">Minimalista Moderno (Montserrat)</option>
+                <option value="marker">Tiza Gruesa Marcador (Permanent Marker)</option>
+                <option value="urban">Cartel Urbano / Burger (Bungee)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: PEDIDOS & DELIVERY -->
+        <div id="tab-delivery" class="tab-pane">
+          <div class="form-section">
+            <div class="section-title">📲 Canal de WhatsApp Directo</div>
+            <div class="form-group">
+              <label class="form-label">Número de WhatsApp (con código de país sin +)</label>
+              <input type="text" id="inputPhone" class="form-input" placeholder="Ej: 59899123456" oninput="updateLiveState()">
+              <div class="input-hint">Los clientes te enviarán el pedido estructurado aquí sin comisión.</div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">📅 Reservas de Mesas por WhatsApp</div>
+            <p style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">
+              Permite a tus clientes reservar mesa directamente desde el menú con fecha, hora y comensales.
+            </p>
+            <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+              <div>
+                <strong style="font-size:12px; color:#fff;">Activar Botón "Reservar Mesa"</strong>
+                <div style="font-size:10px; color:var(--text-dim);">Si se desactiva, el botón se oculta de forma estricta en el menú público.</div>
+              </div>
+              <label style="position:relative; display:inline-block; width:42px; height:24px;">
+                <input type="checkbox" id="inputAllowReservations" onchange="updateLiveState()" style="opacity:0; width:0; height:0;">
+                <span id="sliderReservations" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">🎟️ Cupones y Descuentos Activos</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border); margin-bottom:10px;">
+              <div>
+                <strong style="font-size:12px; color:#fff;">Mostrar Campo de Cupones en el Carrito</strong>
+                <div style="font-size:10px; color:var(--text-dim);">Permite a los comensales ingresar códigos promocionales.</div>
+              </div>
+              <label style="position:relative; display:inline-block; width:42px; height:24px;">
+                <input type="checkbox" id="inputAllowCoupons" checked onchange="updateLiveState()" style="opacity:0; width:0; height:0;">
+                <span id="sliderCoupons" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#38A169; border-radius:24px; transition:.3s;"></span>
+              </label>
+            </div>
+            <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:8px; padding:8px 10px; font-size:11px; color:var(--text-muted);">
+              ✓ Cupones soportados: <code>PROMO10</code> (10% descuento), <code>PROMO15</code> (15% descuento), <code>ENVIOFREE</code> (Costo de envío $0).
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">🧮 Calculadora de División de Cuenta</div>
+            <p style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">
+              Permite a los comensales dividir el total del carrito entre N personas directamente desde su teléfono.
+            </p>
+            <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+              <div>
+                <strong style="font-size:12px; color:#fff;">Activar División de Cuenta en el Carrito</strong>
+                <div style="font-size:10px; color:var(--text-dim);">Si se apaga, se oculta la herramienta interactiva en el menú público.</div>
+              </div>
+              <label style="position:relative; display:inline-block; width:42px; height:24px;">
+                <input type="checkbox" id="inputAllowBillSplitter" checked onchange="updateLiveState()" style="opacity:0; width:0; height:0;">
+                <span id="sliderBillSplitter" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#38A169; border-radius:24px; transition:.3s;"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">🛵 Zonas de Entrega y Costos de Delivery</div>
+            <p style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">
+              Configura los costos de envío según el barrio o radio del cliente.
+            </p>
+
+            <div id="deliveryZonesList"></div>
+            <button class="btn-nav" style="margin-top: 8px; width:100%;" onclick="addDeliveryZone()">
+              + Agregar Zona de Delivery
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB 5: QR & MESAS -->
+        <div id="tab-qr" class="tab-pane">
+          <div class="form-section" style="text-align: center;">
+            <div class="section-title" style="justify-content: center;">🏷️ Código QR General con Logo</div>
+            <p style="font-size:11px; color:var(--text-dim); margin-bottom:14px;">
+              QR con logo centrado en alta definición para afiches, vidriera y redes.
+            </p>
+
+            <div id="qrcodeCanvasContainer" style="display: inline-block; background: #fff; padding: 16px; border-radius: 12px; margin-bottom: 14px;"></div>
+
+            <div style="display: flex; gap: 8px; justify-content: center;">
+              <button class="btn-nav btn-nav-gold" onclick="downloadQrPng()">
+                📥 Descargar PNG (Alta Resolución)
+              </button>
+              <button class="btn-nav" onclick="printTableStand()">
+                🖨️ Imprimir Cartel Individual
+              </button>
+            </div>
+          </div>
+
+          <!-- Multi-table QR & PDF Generator -->
+          <div class="form-section">
+            <div class="section-title">🪑 Carteles por Mesa con QR y Wi-Fi (Multi-página PDF)</div>
+            <p style="font-size:11px; color:var(--text-dim); margin-bottom:12px;">
+              Genera un documento PDF listo para imprimir con carteles para cada una de tus mesas numeradas. Al escanear, el menú detecta automáticamente el número de mesa (<code>?mesa=N</code>) en el carrito y en el botón del mozo.
+            </p>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; align-items:flex-end;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Cantidad Total de Mesas</label>
+                <input type="number" id="inputTableCount" class="form-input" min="1" max="100" value="10" oninput="updateLiveState()">
+              </div>
+              <button class="btn-nav btn-nav-gold" style="height:36px; justify-content:center; width:100%;" onclick="downloadAllTablesPDF()">
+                📄 Generar Carteles de Mesas (PDF)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 6: ESTADÍSTICAS & MÉTRICAS -->
+        <div id="tab-stats" class="tab-pane">
+          <div class="form-section">
+            <div class="section-title">📊 Métricas y Desempeño en Tiempo Real</div>
+            <p style="font-size:11px; color:var(--text-dim); margin-bottom:14px;">
+              Resumen acumulado del impacto de tu carta digital ScanGo.
+            </p>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:14px;">
+              <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
+                <div style="font-size:24px;">👁️</div>
+                <div id="statVisits" style="font-size:22px; font-weight:800; color:var(--accent-gold); font-family:var(--font-mono);">0</div>
+                <div style="font-size:11px; color:var(--text-dim);">Visitas a la Carta</div>
+              </div>
+              <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
+                <div style="font-size:24px;">📲</div>
+                <div id="statOrders" style="font-size:22px; font-weight:800; color:var(--accent-green); font-family:var(--font-mono);">0</div>
+                <div style="font-size:11px; color:var(--text-dim);">Pedidos a WhatsApp</div>
+              </div>
+              <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
+                <div style="font-size:24px;">📅</div>
+                <div id="statReservations" style="font-size:22px; font-weight:800; color:#63B3ED; font-family:var(--font-mono);">0</div>
+                <div style="font-size:11px; color:var(--text-dim);">Solicitudes de Reserva</div>
+              </div>
+              <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
+                <div style="font-size:24px;">🔔</div>
+                <div id="statWaiterCalls" style="font-size:22px; font-weight:800; color:#F6AD55; font-family:var(--font-mono);">0</div>
+                <div style="font-size:11px; color:var(--text-dim);">Llamados al Mozo</div>
+              </div>
+            </div>
+
+            <div style="background:var(--surface-2); border-radius:8px; padding:12px; border:1px solid var(--border); font-size:11px; color:var(--text-muted);">
+              💡 <strong>Consejo ScanGo:</strong> Imprimir el código QR en cada mesa y en la barra aumenta tus comandas directas un 42% frente al menú físico tradicional.
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 7: RESEÑA & OPINIÓN DEL GASTRONÓMICO -->
+        <div id="tab-reviews" class="tab-pane">
+          <div class="form-section">
+            <div class="section-title">⭐ Tu Opinión sobre ScanGo</div>
+            <p style="font-size:11px; color:var(--text-dim); margin-bottom:14px;">
+              Tras tu primer mes de uso, ayúdanos con tu reseña. Las opiniones verificadas se destacan en nuestra página de inicio.
+            </p>
+
+            <div id="reviewSubmittedAlert" style="display:none; background:rgba(56,161,105,0.2); border:1px solid #38A169; color:#68D391; padding:12px; border-radius:8px; margin-bottom:12px; font-size:12px;">
+              ✓ ¡Muchas gracias! Tu reseña ha sido enviada con éxito y está en proceso de moderación por el equipo.
+            </div>
+
+            <form id="restaurantReviewForm" onsubmit="submitOwnerReview(event)">
+              <div class="form-group">
+                <label class="form-label">Calificación General</label>
+                <select id="reviewRating" class="form-select">
+                  <option value="5">⭐⭐⭐⭐⭐ 5 Estrellas (Excelente)</option>
+                  <option value="4">⭐⭐⭐⭐ 4 Estrellas (Muy Bueno)</option>
+                  <option value="3">⭐⭐⭐ 3 Estrellas (Bueno)</option>
+                  <option value="2">⭐⭐ 2 Estrellas (Regular)</option>
+                  <option value="1">⭐ 1 Estrella (A mejorar)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Tu Cargo / Rol</label>
+                <input type="text" id="reviewAuthorRole" class="form-input" placeholder="Ej: Dueño / Chef Ejecutivo / Gerente" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Tu Testimonio u Opinión</label>
+                <textarea id="reviewComment" class="form-textarea" rows="4" placeholder="¿Cómo te ayudó ScanGo en la gestión de tu restaurante y en el ahorro de comisiones?" required></textarea>
+              </div>
+
+              <button type="submit" class="btn-nav btn-nav-gold" style="width:100%; justify-content:center; padding:10px;">
+                Enviar Reseña para Moderación
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- TAB 8: NOTIFICACIONES DE ESTADO DE PEDIDO POR WHATSAPP -->
+        <div id="tab-notifications" class="tab-pane">
+          <div class="form-section">
+            <div class="section-title">📲 Avisos de Pedido a 1 Clic por WhatsApp</div>
+            <p style="font-size:11px; color:var(--text-dim); margin-bottom:14px;">
+              Notifica a tus clientes sobre el estado de su pedido o comanda al instante sin redactar mensajes manualmente.
+            </p>
+
+            <div class="form-group">
+              <label class="form-label">Teléfono del Cliente (con código de país sin +)</label>
+              <input type="text" id="notifPhone" class="form-input" placeholder="Ej: 59899123456">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Nombre del Cliente / N° Pedido o Mesa</label>
+              <input type="text" id="notifClientName" class="form-input" placeholder="Ej: Marcela (Mesa 4 / Pedido #12)">
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px; margin-top:14px;">
+              <button class="btn-nav" style="justify-content:flex-start; gap:10px; padding:10px 14px; border-color:#ECC94B; color:#ECC94B;" onclick="sendOrderStateWA('confirmado')">
+                <span style="font-size:16px;">👨‍🍳</span>
+                <div style="text-align:left;">
+                  <div style="font-weight:700; font-size:12px;">1. Pedido Confirmado y en Cocina</div>
+                  <div style="font-size:10px; color:var(--text-dim);">"¡Hola! Ya recibimos tu pedido y está marchando en cocina."</div>
+                </div>
+              </button>
+
+              <button class="btn-nav" style="justify-content:flex-start; gap:10px; padding:10px 14px; border-color:#38A169; color:#68D391;" onclick="sendOrderStateWA('listo')">
+                <span style="font-size:16px;">🛍️</span>
+                <div style="text-align:left;">
+                  <div style="font-weight:700; font-size:12px;">2. Pedido Listo para Retirar</div>
+                  <div style="font-size:10px; color:var(--text-dim);">"¡Tu pedido ya está listo y empaquetado esperándote en el local!"</div>
+                </div>
+              </button>
+
+              <button class="btn-nav" style="justify-content:flex-start; gap:10px; padding:10px 14px; border-color:#63B3ED; color:#63B3ED;" onclick="sendOrderStateWA('camino')">
+                <span style="font-size:16px;">🛵</span>
+                <div style="text-align:left;">
+                  <div style="font-weight:700; font-size:12px;">3. Cadete / Delivery en Camino</div>
+                  <div style="font-size:10px; color:var(--text-dim);">"¡El repartidor acaba de salir con tu pedido rumbo a tu domicilio!"</div>
+                </div>
+              </button>
+
+              <button class="btn-nav" style="justify-content:flex-start; gap:10px; padding:10px 14px; border-color:#ED8936; color:#ED8936;" onclick="sendOrderStateWA('demorado')">
+                <span style="font-size:16px;">⏳</span>
+                <div style="text-align:left;">
+                  <div style="font-weight:700; font-size:12px;">4. Aviso de Demora Imprevista</div>
+                  <div style="font-size:10px; color:var(--text-dim);">"La cocina tiene alta demanda hoy, te pedimos disculpas y tu pedido saldrá en breve."</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Legal & Compliance Footer in Studio -->
+        <div style="padding: 14px 16px; border-top: 1px solid var(--border); font-size: 10px; color: var(--text-dim); display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; background: rgba(0,0,0,0.15);">
+          <a href="/privacidad" target="_blank" style="color: var(--text-dim); text-decoration: none;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-dim)'">Privacidad</a> •
+          <a href="/terminos" target="_blank" style="color: var(--text-dim); text-decoration: none;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-dim)'">Términos</a> •
+          <a href="/cookies" target="_blank" style="color: var(--text-dim); text-decoration: none;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-dim)'">Cookies</a> •
+          <a href="/reembolsos" target="_blank" style="color: var(--text-dim); text-decoration: none;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-dim)'">Reembolsos</a> •
+          <a href="/aviso-legal" target="_blank" style="color: var(--text-dim); text-decoration: none;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-dim)'">Aviso Legal</a>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Right: Live Interactive Preview -->
+    <main class="panel-preview">
+      <div class="preview-header">
+        <span style="font-size: 11px; color: var(--text-dim); font-weight: 600;">SIMULADOR DE CLIENTE</span>
+        <div class="preview-mode-tabs">
+          <button class="btn-view-toggle active" onclick="setPreviewView('phone')">📱 Móvil</button>
+          <button class="btn-view-toggle" onclick="reloadPreviewIframe()">🔄 Recargar</button>
+        </div>
+      </div>
+
+      <div class="preview-stage">
+        <div class="preview-device-phone">
+          <iframe id="previewIframe" class="phone-screen-iframe" src="/m/demo"></iframe>
+        </div>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- Presets 85+ Dishes Modal with Individual Dish Selection -->
+  <div id="presetsModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 600px;">
+      <button class="modal-close" onclick="closePresetsModal()">✕</button>
+      <h3 class="modal-title">💡 Catálogo de 85+ Platos Frecuentes</h3>
+      <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px;">
+        Haz clic en una categoría para explorar sus platos y agregar platos individuales o importar toda la sección.
+      </p>
+
+      <!-- Category Filter Chips -->
+      <div id="presetChipsContainer" style="display:flex; gap:6px; overflow-x:auto; padding-bottom:8px; margin-bottom:14px; scrollbar-width:thin;">
+        <!-- Generated by JS -->
+      </div>
+
+      <!-- Action Bar for active category -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; background:var(--surface-2); padding:8px 12px; border-radius:8px; border:1px solid var(--border);">
+        <span id="presetCategoryLabel" style="font-size:12px; font-weight:700; color:var(--accent-gold);">Milanesas de la Casa</span>
+        <button class="btn-nav btn-nav-gold" style="font-size:11px; padding:4px 10px;" onclick="importCurrentPresetCategory()">
+          📥 Importar Toda la Categoría
+        </button>
+      </div>
+
+      <!-- Individual Dishes List -->
+      <div id="presetDishesList" style="max-height:320px; overflow-y:auto; padding-right:4px; margin-bottom:14px;">
+        <!-- Populated via JS with individual [+ Sumar] buttons -->
+      </div>
+
+      <button class="btn-nav" style="width: 100%; justify-content:center; border-color:var(--accent-gold); color:var(--accent-gold);" onclick="importAllPresets()">
+        🌟 Importar Carta Completa Recomendada (Todos los 100+ Platos)
+      </button>
+    </div>
+  </div>
+
+  <!-- Dish Create / Edit Modal -->
+  <div id="dishEditModal" class="modal-overlay">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeDishEditModal()">✕</button>
+      <h3 class="modal-title" id="dishModalTitle">Editar Plato</h3>
+
+      <form id="dishForm" onsubmit="saveDishFromModal(event)">
+        <input type="hidden" id="modalDishId">
+
+        <div class="form-group">
+          <label class="form-label">Nombre del Plato / Bebida *</label>
+          <input type="text" id="modalDishName" class="form-input" required placeholder="Ej: Milanesa Napolitana con Fritas">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Categoría *</label>
+          <select id="modalDishCategory" class="form-select" required>
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Precio *</label>
+          <input type="number" id="modalDishPrice" class="form-input" required step="0.01" min="0" placeholder="Ej: 490">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Descripción / Ingredientes</label>
+          <textarea id="modalDishDesc" class="form-textarea" rows="3" placeholder="Ej: Lomo tierno empanado, salsa pomodoro casera, jamón y queso muzzarella fundido con papas fritas."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">📷 Foto del Plato (Enlace URL de Imagen)</label>
+          <input type="url" id="modalDishPhoto" class="form-input" placeholder="Ej: https://images.unsplash.com/... o enlace de tu foto">
+          <div class="input-hint">Opcional. Se mostrará una miniatura atractiva junto al plato en la carta.</div>
+        </div>
+
+        <!-- Out of Stock Switch & Star Toggle -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
+          <div style="background:var(--surface-2); padding:10px; border-radius:8px; border:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+            <div>
+              <strong style="font-size:11px; color:#fff;">Agotado hoy</strong>
+              <div style="font-size:9px; color:var(--text-dim);">Tacha el plato en la carta</div>
+            </div>
+            <input type="checkbox" id="modalDishOutOfStock" style="width:18px; height:18px; cursor:pointer;">
+          </div>
+          <div style="background:var(--surface-2); padding:10px; border-radius:8px; border:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+            <div>
+              <strong style="font-size:11px; color:var(--accent-gold);">Destacado ⭐</strong>
+              <div style="font-size:9px; color:var(--text-dim);">Especialidad de la casa</div>
+            </div>
+            <input type="checkbox" id="modalDishStar" style="width:18px; height:18px; cursor:pointer;">
+          </div>
+        </div>
+
+        <!-- Allergen / Diet Tags -->
+        <div class="form-group">
+          <label class="form-label">Etiquetas Dietéticas y Alérgenos</label>
+          <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; background:var(--bg-base); padding:10px; border-radius:8px; border:1px solid var(--border); font-size:11px;">
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+              <input type="checkbox" id="tagVeggie"> 🥬 Vegetariano
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+              <input type="checkbox" id="tagVegan"> 🌱 Vegano
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+              <input type="checkbox" id="tagCeliac"> 🌾 Sin TACC / Gluten Free
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+              <input type="checkbox" id="tagSinLactosa"> 🥛 Sin Lactosa
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+              <input type="checkbox" id="tagPicante"> 🌶️ Picante
+            </label>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:16px;">
+          <button type="button" class="btn-nav" style="flex:1; justify-content:center;" onclick="closeDishEditModal()">Cancelar</button>
+          <button type="submit" class="btn-nav btn-nav-gold" style="flex:2; justify-content:center;">💾 Guardar Plato</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Billing Modal -->
+  <div id="billingModal" class="modal-overlay">
+    <div class="modal-box" style="text-align: center;">
+      <button class="modal-close" onclick="closeBillingModal()">✕</button>
+      <h3 class="modal-title">Gestionar Suscripción Menú Pizarrón</h3>
+      
+      <div style="background:var(--surface-2); padding:16px; border-radius:10px; margin-bottom:16px; text-align:left;">
+        <div style="font-size:12px; color:var(--text-dim);">Estado Actual:</div>
+        <div id="modalSubState" style="font-size:14px; font-weight:700; color:var(--accent-gold); margin-bottom:6px;"></div>
+        <div id="modalSubDetail" style="font-size:11px; color:var(--text-muted);"></div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
+        <div style="background:var(--surface-3); padding:12px; border-radius:8px; border:1px solid var(--border);">
+          <div style="font-size:12px; font-weight:700;">Mensual</div>
+          <div style="font-size:18px; font-weight:700; color:#fff;">$9 <span style="font-size:10px;">USD/mes</span></div>
+          <button class="btn-nav btn-nav-gold" style="width:100%; margin-top:8px;" onclick="startCheckout('monthly')">Suscribirme</button>
+        </div>
+        <div style="background:var(--surface-3); padding:12px; border-radius:8px; border:1px solid var(--accent-gold);">
+          <div style="font-size:10px; color:var(--accent-gold); font-weight:800;">RECOMENDADO (AHORRA 27%)</div>
+          <div style="font-size:12px; font-weight:700;">Anual Pro</div>
+          <div style="font-size:18px; font-weight:700; color:#fff;">$79 <span style="font-size:10px;">USD/año</span></div>
+          <button class="btn-nav btn-nav-gold" style="width:100%; margin-top:8px;" onclick="startCheckout('annual')">Activar Anual</button>
+        </div>
+      </div>
+
+      <div style="font-size:11px; color:var(--text-dim);">
+        🛡️ Pasarelas seguras: Lemon Squeezy (Global) y Mercado Pago (Latam). Smart Dunning con 5 días de gracia ante rechazo de tarjeta.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // App State
+    let currentUser = null;
+    let restaurant = null;
+    let autoSaveTimeout = null;
+
+    // Presets Catalog (85+ suggested dishes)
+    const PRESETS = {
+      milanesas: {
+        catName: 'Milanesas de la Casa',
+        dishes: [
+          { name: 'Milanesa Napolitana de Carne', price: 490, desc: 'Lomo tierno, jamón cocido, salsa de tomate casera y muzzarella fundida con papas fritas', tags: ['star'] },
+          { name: 'Milanesa Suiza de Pollo', price: 460, desc: 'Pechuga rebozada con salsa blanca suave, queso gruyere y papas noisette', tags: [] },
+          { name: 'Milanesa Fugazzeta', price: 480, desc: 'Cebolla caramelizada al orégano, doble muzzarella y toque de oliva', tags: [] },
+          { name: 'Milanesa a Caballo', price: 470, desc: 'Con dos huevos fritos de campo y papas bastón crocantes', tags: [] },
+          { name: 'Milanesa Cuatro Quesos', price: 520, desc: 'Muzzarella, provolone, parmesano y queso azul gratinado', tags: [] },
+          { name: 'Milanesa Veggie de Berenjena', price: 390, desc: 'Berenjena al horno rebozada con panko y semillas, queso vegano y rúcula', tags: ['veggie'] },
+          { name: 'Sándwich de Milanesa Completo', price: 440, desc: 'Pan baguette crocante, lechuga, tomate, mayonesa casera y jamón', tags: [] },
+          { name: 'Milanesa Tex-Mex', price: 510, desc: 'Cheddar fundido, panceta crocante, jalapeños y guacamole', tags: [] },
+          { name: 'Milanesa Napolitana sin TACC', price: 520, desc: 'Elaborada con rebozador de arroz y maíz certificado libre de gluten', tags: ['celiac'] },
+          { name: 'Picada de Mini Milanesas', price: 680, desc: 'Bocados de lomo y pollo con salsas tártara, alioli y barbacoa para compartir', tags: [] }
+        ]
+      },
+      pescados: {
+        catName: 'Pescados y Mariscos',
+        dishes: [
+          { name: 'Salmón Rosado a la Manteca de Hierbas', price: 790, desc: 'Filet a la plancha con espárragos y puré rústico de calabaza', tags: ['star'] },
+          { name: 'Abadejo a la Romana', price: 550, desc: 'Tiras de pescado blanco crocante con limón fresco y papas fritas', tags: [] },
+          { name: 'Rabas Crocantes del Puerto', price: 580, desc: 'Calamares frescos rebozados con limón y salsa tártara artesanal', tags: [] },
+          { name: 'Paella Clásica de Mariscos', price: 720, desc: 'Arroz azafranado con langostinos, mejillones, calamares y pimientos', tags: ['star'] },
+          { name: 'Filet de Merluza con Puré de Papas', price: 460, desc: 'Pesca fresca del día a la plancha con limón y oliva virgen', tags: [] },
+          { name: 'Ceviche Mixto Tradicional', price: 610, desc: 'Pescado blanco, langostinos marinados en leche de tigre, cebolla morada y maíz cancha', tags: ['celiac'] },
+          { name: 'Cazuela de Mariscos Gratinada', price: 740, desc: 'Surtido de frutos de mar en suave salsa crema al vino blanco', tags: [] },
+          { name: 'Trucha Patagónica con Almendras', price: 710, desc: 'Filet grillado con manteca noisette y almendras tostadas', tags: [] }
+        ]
+      },
+      sushi: {
+        catName: 'Sushi & Rolls',
+        dishes: [
+          { name: 'Philadelphia Roll (10 piezas)', price: 560, desc: 'Salmón fresco, palta hass y queso philadelphia', tags: [] },
+          { name: 'California Roll (10 piezas)', price: 490, desc: 'Kanikama, pepino japonés, palta y sésamo tostado', tags: [] },
+          { name: 'Hot Roll Frito (10 piezas)', price: 590, desc: 'Roll apanado y tibio relleno de salmón y queso con salsa teriyaki', tags: ['star'] },
+          { name: 'Ebi Furai Roll (10 piezas)', price: 620, desc: 'Langostino crocante rebozado en panko, palta y salsa maracuyá', tags: [] },
+          { name: 'Niguiri de Salmón (4 piezas)', price: 380, desc: 'Bocados de arroz shari con láminas finas de salmón fresco', tags: ['celiac'] },
+          { name: 'Sashimi de Salmón (5 cortes)', price: 420, desc: 'Cortes premium de salmón fresco con wasabi y jengibre', tags: ['celiac'] },
+          { name: 'Geishas de Salmón y Palta (4 piezas)', price: 460, desc: 'Finísima lámina de salmón envolviendo palta y queso crema', tags: [] },
+          { name: 'Roll Vegano de Palta y Mango (10 piezas)', price: 440, desc: 'Palta, mango maduro, pepino y ciboulette con salsa teriyaki vegana', tags: ['veggie'] },
+          { name: 'Rainbow Roll Especial (10 piezas)', price: 630, desc: 'Relleno de langostino coronado con cortes de salmón, pescado blanco y palta', tags: [] },
+          { name: 'Tabla Combinado Tokio (24 piezas)', price: 1290, desc: 'Variedad de rolls clásicos, calientes y niguiris para compartir', tags: ['star'] }
+        ]
+      },
+      hamburguesas: {
+        catName: 'Burgers Artesanales',
+        dishes: [
+          { name: 'Burger Clásica con Queso', price: 410, desc: 'Medallón 180g novillo, doble cheddar, lechuga, tomate y salsa especial en pan brioche', tags: [] },
+          { name: 'Burger Criolla de Entraña', price: 490, desc: 'Corte de entraña picada a cuchillo, provoleta fundida, chimichurri y rúcula', tags: ['star'] },
+          { name: 'Bacon & Blue Burger', price: 480, desc: 'Panceta crocante, queso azul suave, cebolla morada y alioli', tags: [] },
+          { name: 'Burger BBQ Smash Doble', price: 470, desc: 'Dos medallones smash con costra crocante, cheddar fundido y salsa barbacoa', tags: [] },
+          { name: 'Burger Vegana de Lentejas y Hongos', price: 420, desc: 'Medallón artesanal, palta, tomate seco y mayonesa vegana en pan de remolacha', tags: ['veggie'] }
+        ]
+      },
+      pizzas: {
+        catName: 'Pizzas al Horno de Piedra',
+        dishes: [
+          { name: 'Pizza Muzzarella Clásica', price: 390, desc: 'Masa fermentada 24hs, salsa pomodoro italiana y muzzarella fundida con orégano', tags: [] },
+          { name: 'Pizza Napolitana con Ajo y Rodajas de Tomate', price: 440, desc: 'Tomates frescos, ajo confitado, oliva y hojas de albahaca fresca', tags: [] },
+          { name: 'Pizza Fugazzeta Rellena', price: 540, desc: 'Masa doble rellena con abundante queso muzzarella y cubierta de cebollas doradas', tags: ['star'] },
+          { name: 'Pizza Cuatro Quesos', price: 490, desc: 'Muzzarella, provolone, roquefort y parmesano rallado', tags: [] },
+          { name: 'Pizza de Jamón Crudo y Rúcula', price: 530, desc: 'Muzzarella, jamón crudo estacionado, rúcula fresca y lluvia de parmesano', tags: [] }
+        ]
+      },
+      postres: {
+        catName: 'Postres Rioplatenses',
+        dishes: [
+          { name: 'Flan Casero Mixto', price: 260, desc: 'Receta tradicional con 8 huevos, abundante dulce de leche y crema batida', tags: ['star'] },
+          { name: 'Chajá Tradicional Rioplatense', price: 290, desc: 'Bizcochuelo suave con duraznos en almíbar, merengue seco y dulce de leche', tags: [] },
+          { name: 'Panqueque de Dulce de Leche Quemado al Ron', price: 280, desc: 'Panqueque tibio caramelizado a la plancha con azúcar quemada', tags: [] },
+          { name: 'Vigilante / Martín Fierro Clásico', price: 230, desc: 'Queso colonia artesanal acompañado con dulce de membrillo o batata', tags: ['celiac'] },
+          { name: 'Volcán de Chocolate con Helado de Vainilla', price: 320, desc: 'Bizcocho tibio de chocolate semiamargo con corazón fundente', tags: ['star'] }
+        ]
+      },
+      bebidas: {
+        catName: 'Bebidas & Cervezas',
+        dishes: [
+          { name: 'Cerveza Artesanal IPA (Pinta 500ml)', price: 240, desc: 'Lúpulo aromático, notas cítricas y amargor balanceado', tags: [] },
+          { name: 'Cerveza Rubia Clásica (Pinta 500ml)', price: 210, desc: 'Dorada pampeana suave, refrescante y ligera', tags: [] },
+          { name: 'Limonada con Menta y Jengibre', price: 180, desc: 'Exprimido natural de limones con menta fresca y miel', tags: ['veggie'] },
+          { name: 'Agua Mineral con/sin gas 500ml', price: 110, desc: 'En botella individual', tags: [] },
+          { name: 'Refresco Línea Cola / Lima 500ml', price: 130, desc: 'Botella individual bien fría', tags: [] }
+        ]
+      },
+      cafeteria: {
+        catName: 'Café de Especialidad',
+        dishes: [
+          { name: 'Espresso Doble 100% Arábica', price: 140, desc: 'Extracción balanceada con notas a chocolate y avellana', tags: [] },
+          { name: 'Flat White Cremoso', price: 190, desc: 'Doble ristretto con microespuma sedosa de leche texturizada', tags: ['star'] },
+          { name: 'Cappuccino Italiano Clásico', price: 200, desc: 'Espresso, leche vaporizada y canela o cacao espolvoreado', tags: [] },
+          { name: 'Cold Brew Macerado en Frío', price: 210, desc: 'Café infusionado en frío por 18 horas con hielo y rodaja de naranja', tags: ['veggie'] },
+          { name: 'Latte con Leche de Almendras', price: 220, desc: 'Opción 100% vegetal con café de especialidad', tags: ['veggie'] }
+        ]
+      },
+      chile: {
+        catName: '🇨🇱 Cocina Chilena Tradicional',
+        dishes: [
+          { name: 'Pastel de Choclo en Greda', price: 540, desc: 'Pino de vacuno sazonado, pollo tierno, aceituna, huevo duro y costra dorada de maíz', tags: ['star'] },
+          { name: 'Cazuela de Vacuno Tradicional', price: 490, desc: 'Caldo criollo concentrado con osobuco, zapallo camote, choclo y porotos verdes', tags: [] },
+          { name: 'Empanadas de Pino al Horno (2 un)', price: 340, desc: 'Masa fina horneada con pino de carne a cuchillo, cebolla amortiguada y pasas', tags: [] },
+          { name: 'Completo Italiano Clásico', price: 280, desc: 'Vienesa en pan alargado con palta fresca molida, tomate en cubos y mayonesa casera', tags: [] },
+          { name: 'Machas a la Parmesana', price: 620, desc: 'Lenguas de machas gratinadas con queso parmesano, vino blanco y mantequilla', tags: ['star'] },
+          { name: 'Caldillo de Congrio Nerudiano', price: 590, desc: 'Pescado fresco en caldo de verduras con camarones, cilantro y crema suave', tags: [] },
+          { name: 'Charquicán con Huevo Frito', price: 430, desc: 'Guiso tradicional de carne, zapallo, papas y verduras de estación', tags: [] },
+          { name: 'Mote con Huesillo Helado', price: 220, desc: 'Bebida refrescante con duraznos deshidratados cocidos, almíbar de canela y trigo mote', tags: ['veggie'] }
+        ]
+      },
+      colombia: {
+        catName: '🇨🇴 Sabores de Colombia',
+        dishes: [
+          { name: 'Bandeja Paisa Tradicional', price: 640, desc: 'Frijoles rojos, arroz blanco, chicharrón crocante, carne molida, chorizo, huevo frito, tajada y arepa', tags: ['star'] },
+          { name: 'Ajiaco Santafereño Bogotano', price: 560, desc: 'Sopa espesa con tres tipos de papas, pollo desmechado, guascas, alcaparras y crema de leche', tags: ['star'] },
+          { name: 'Arepa de Chócolo con Queso Campesino', price: 290, desc: 'Masa tierna de maíz dulce asada a la plancha con mantequilla y abundante queso fresco', tags: ['veggie'] },
+          { name: 'Sancocho Trifásico Colombiano', price: 580, desc: 'Caldo sustancioso de pollo, costilla de res y cerdo con plátano verde, yuca y mazorca', tags: [] },
+          { name: 'Empanadas Colombianas de Maíz (3 un)', price: 280, desc: 'Crocante masa de maíz amarillo rellena de carne desmechada y papa criolla con ají casero', tags: ['celiac'] },
+          { name: 'Cazuela de Frijoles Antioqueña', price: 490, desc: 'Frijoles campesinos con chicharrón picado, plátano maduro, aguacate y arroz', tags: [] },
+          { name: 'Postre de Natas Tradicional', price: 240, desc: 'Dulce suave de leche cuajada con almíbar de caña y uvas pasas', tags: [] },
+          { name: 'Limonada de Coco Refrescante', price: 210, desc: 'Zumo de lima fresca batido con crema de coco cremosa y hielo frappé', tags: ['veggie'] }
+        ]
+      },
+      venezuela: {
+        catName: '🇻🇪 Cocina Venezolana Típica',
+        dishes: [
+          { name: 'Arepa Reina Pepiada', price: 380, desc: 'Masa de maíz asada rellena de pollo mechado con abundante aguacate cremoso y mayonesa', tags: ['star', 'celiac'] },
+          { name: 'Tequeños Crujientes de Queso (5 un)', price: 320, desc: 'Dedos de masa hojaldrada frita rellenos de queso llanero fundido con salsa tártara o guasacaca', tags: ['star'] },
+          { name: 'Pabellón Criollo Caraqueño', price: 540, desc: 'Carne mechada en sofrito criollo, caraotas negras, arroz blanco, tajadas de plátano frito y queso', tags: ['star'] },
+          { name: 'Cachapa con Queso de Mano y Cochino', price: 490, desc: 'Torta tierna de maíz dulce tierno, queso de mano fresco derretido y pernil asado crujiente', tags: [] },
+          { name: 'Arepa Pelúa (Carne y Queso Amarillo)', price: 390, desc: 'Generosa carne mechada de res sazonada cubierta de abundante queso gouda rallado', tags: ['celiac'] },
+          { name: 'Asado Negro Criollo', price: 520, desc: 'Corte de muchacho redondo glaseado en salsa dulce y oscura de papelón con puré de papas', tags: [] },
+          { name: 'Golfeados con Queso Telita', price: 260, desc: 'Pan enrollado tradicional aromatizado con anís y papelón fundido, servido con queso fresco', tags: ['veggie'] }
+        ]
+      },
+      peru: {
+        catName: '🇵🇪 Gastronomía Peruana',
+        dishes: [
+          { name: 'Lomo Saltado al Wok', price: 590, desc: 'Tiras tiernas de lomo fino salteadas al wok con cebolla morada, tomate, ají amarillo, papas fritas y arroz', tags: ['star'] },
+          { name: 'Ají de Gallina Cremoso', price: 490, desc: 'Pechuga desmenuzada en suave crema de ají amarillo, nueces y queso parmesano sobre papas cocidas', tags: [] },
+          { name: 'Causa Limeña de Pollo o Atún', price: 390, desc: 'Capas de masa de papa amarilla prensada con ají amarillo y limón, rellena de palta y pollo aliñado', tags: ['celiac'] },
+          { name: 'Ceviche Clásico Peruano', price: 620, desc: 'Cubos de pesca fresca del día marinados en leche de tigre al instante con camote glaseado y choclo desgranado', tags: ['star', 'celiac'] },
+          { name: 'Arroz Chaufa Especial de Mariscos', price: 540, desc: 'Arroz frito al estilo chifa salteado al wok con langostinos, calamares, cebollita china y salsa de soja', tags: [] },
+          { name: 'Anticuchos de Corazón a la Parrilla (2 brochetas)', price: 420, desc: 'Brochetas marinadas en ají panca y especias andinas servidas con papas doradas y salsa de rocoto', tags: [] },
+          { name: 'Suspiro a la Limeña Clásico', price: 260, desc: 'Manjar blanco suave de yemas y leche evaporada coronado con merengue al oporto y canela', tags: [] }
+        ]
+      },
+      paraguay: {
+        catName: '🇵🇾 Tradición Paraguaya',
+        dishes: [
+          { name: 'Sopa Paraguaya Auténtica', price: 290, desc: 'Tarta tradicional horneada esponjosa a base de harina de maíz, queso Paraguay fresco, abundante cebolla salteada y leche', tags: ['star', 'celiac', 'veggie'] },
+          { name: 'Chipa Guazú al Horno de Barro', price: 320, desc: 'Pastel cremoso y dorado de choclo tierno desgranado con manteca, huevos caseros y abundante queso criollo fundido', tags: ['star', 'celiac', 'veggie'] },
+          { name: 'Vori Vori de Pollo Casero', price: 480, desc: 'Caldo espeso y reconfortante con presas de pollo de campo y bolitas artesanales de harina de maíz con queso', tags: ['star'] },
+          { name: 'Mbejú Mestizo Tradicional', price: 240, desc: 'Torta delgada y crocante a la plancha de almidón de mandioca, harina de maíz y queso Paraguay dorado', tags: ['celiac', 'veggie'] },
+          { name: 'Pastel Mandi\'o de Carne (3 un)', price: 350, desc: 'Empanadas típicas de masa de puré de mandioca con relleno criollo de carne vacuna especiada y frita dorada', tags: ['celiac'] },
+          { name: 'Asadito Paraguayo con Mandioca Hervida', price: 460, desc: 'Brochetas de carne tierna marinada a la brasa servidas con mandioca tibia recién cocida y salsa de ajo', tags: [] }
+        ]
+      },
+      espana: {
+        catName: '🇪🇸 Clásicos de España',
+        dishes: [
+          { name: 'Paella Valenciana Tradicional', price: 780, desc: 'Arroz en paella con azafrán en hebras, pollo de campo, conejo, judías verdes planas (bajoqueta), garrofó y romero fresco', tags: ['star', 'celiac'] },
+          { name: 'Tortilla Española de Patatas (Poco Hecha)', price: 420, desc: 'Tortilla alta y jugosa con patatas confitadas a fuego lento en aceite de oliva virgen extra y cebolla dulce', tags: ['star', 'veggie', 'celiac'] },
+          { name: 'Jamón Ibérico de Bellota con Pan con Tomate', price: 690, desc: 'Finas lonchas de jamón ibérico curado servidas con tostas de pan de masa madre frotadas con tomate maduro y oliva', tags: ['star'] },
+          { name: 'Gambas al Ajillo Clásicas', price: 590, desc: 'Langostinos frescos chisporroteando en cazuela de barro con láminas de ajo dorado, guindilla y aceite de oliva', tags: ['celiac'] },
+          { name: 'Pulpo a la Gallega (Polbo á Feira)', price: 740, desc: 'Tiernas rodajas de pulpo sobre cama de patatas cocidas (cachelos), sazonadas con pimentón de la Vera dulce y picante y sal marina gruesa', tags: ['star', 'celiac'] },
+          { name: 'Croquetas Cremosas de Jamón Ibérico (6 un)', price: 390, desc: 'Bechamel sedosa de leche entera infusionada con hueso de jamón y tropezones crocantes de ibérico', tags: [] },
+          { name: 'Churros Tradicionales con Chocolate a la Taza', price: 280, desc: 'Churros crujientes recién fritos espolvoreados con azúcar acompañados de espeso chocolate amargo caliente', tags: ['veggie'] }
+        ]
+      },
+      mexico: {
+        catName: '🇲🇽 Sabor Mexicano',
+        dishes: [
+          { name: 'Tacos al Pastor Tradicionales (3 un)', price: 440, desc: 'Cerdo marinado en achiote y chiles secos, asado al trompo y servido con piña asada, cebollita picada, cilantro y salsa verde taquera', tags: ['star', 'celiac'] },
+          { name: 'Enchiladas Suizas Gratinadas (3 un)', price: 490, desc: 'Tortillas de maíz rellenas de pollo deshebrado bañadas en salsa verde cremosa de tomatillo y gratinadas con queso manchego', tags: ['celiac'] },
+          { name: 'Guacamole Rústico con Totopos Caseros', price: 340, desc: 'Aguacate hass machacado al momento en molcajete con lima, cebolla, cilantro fresco, chile serrano y totopos de maíz crujientes', tags: ['star', 'veggie', 'celiac'] },
+          { name: 'Quesadillas de Birria de Res con Consomé (3 un)', price: 520, desc: 'Tortillas doradas a la plancha mojadas en el adobo de la carne de res cocinada a fuego lento, con queso Oaxaca y tazón de consomé caliente', tags: ['star'] },
+          { name: 'Chiles en Nogada Tradicionales', price: 580, desc: 'Chile poblano asado relleno de picadillo agridulce de cerdo, frutas secas y piñones, cubierto de salsa cremosa de nuez de Castilla y granada roja', tags: [] }
+        ]
+      }
+    };
+
+    // Initialize & Load User/Restaurant
+    async function initStudio() {
+      const token = localStorage.getItem('menu_pizarron_token');
+      if (!token) {
+        // Fallback gracefully to demo mode instead of kicking out
+        loadDemoMode();
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/auth/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Sesión expirada');
+        const data = await res.json();
+        currentUser = data.user;
+        restaurant = data.restaurant;
+
+        renderStudioUI();
+      } catch (err) {
+        console.warn('Usando modo demo interactivo:', err.message);
+        loadDemoMode();
+      }
+    }
+
+    function loadDemoMode() {
+      currentUser = {
+        id: 'usr_demo',
+        email: 'demo@scango.app',
+        subscription: { status: 'trial', plan: 'pro', trialEndsAt: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString() }
+      };
+      restaurant = {
+        id: 'rest_demo',
+        name: 'Bistro Pomelli',
+        slogan: 'Cocina artesanal, café de especialidad y tapas',
+        slug: 'demo',
+        currency: '$',
+        phone: '59899123456',
+        theme: 'emerald',
+        themeFont: 'chalk',
+        instagram: '@bistropomelli',
+        googleReview: 'https://g.page/r/bistro-pomelli/review',
+        allowReservations: true,
+        allowCoupons: true,
+        allowBillSplitter: true,
+        announcement: '¡Hoy 2x1 en Cervezas Artesanales de 19 a 21 hs! 🍻',
+        paymentLink: 'https://mpago.la/demo-pago-pomelli',
+        scheduleEnabled: false,
+        scheduleActiveHours: '12:00-23:30',
+        tableCount: 10,
+        wifi: { ssid: 'Pomelli_Clientes', password: 'pizzarico2026' },
+        categories: [
+          { id: 'cat_hamburguesas', name: 'Burgers Artesanales' },
+          { id: 'cat_milanesas', name: 'Milanesas de la Casa' },
+          { id: 'cat_paraguay', name: '🇵🇾 Tradición Paraguaya' },
+          { id: 'cat_espana', name: '🇪🇸 Clásicos de España' },
+          { id: 'cat_mexico', name: '🇲🇽 Sabor Mexicano' },
+          { id: 'cat_bebidas', name: 'Bebidas & Cafetería' }
+        ],
+        dishes: [
+          { id: 'd_1', categoryId: 'cat_hamburguesas', name: 'Burger Criolla de Entraña', price: 490, description: 'Pan brioche, provoleta fundida y chimichurri', tags: ['star'] },
+          { id: 'd_2', categoryId: 'cat_milanesas', name: 'Milanesa Napolitana Clásica', price: 540, description: 'Lomo empanado, salsa casera, jamón y muzzarella', tags: [] },
+          { id: 'd_3', categoryId: 'cat_paraguay', name: 'Sopa Paraguaya Auténtica', price: 290, description: 'Harina de maíz, queso Paraguay y cebolla salteada', tags: ['star', 'celiac'] },
+          { id: 'd_4', categoryId: 'cat_espana', name: 'Tortilla Española de Patatas Jugosa', price: 420, description: 'Patatas confitadas en oliva virgen extra y cebolla dulce', tags: ['star', 'veggie'] },
+          { id: 'd_5', categoryId: 'cat_mexico', name: 'Tacos al Pastor Tradicionales (3 un)', price: 440, description: 'Cerdo marinado al achiote con piña asada y cilantro', tags: ['star'] }
+        ],
+        deliveryZones: [
+          { name: 'Centro / Pocitos', fee: 50 },
+          { name: 'Periferia / Fuera de radio', fee: 100 }
+        ],
+        analytics: { visits: 142, orders: 38, reservations: 12, waiterCalls: 9 }
+      };
+
+      // Show a banner notifying demo mode
+      const nav = document.querySelector('.top-navbar');
+      if (nav && !document.getElementById('demoBanner')) {
+        const banner = document.createElement('div');
+        banner.id = 'demoBanner';
+        banner.style.cssText = 'background:#E1A938; color:#121A18; font-weight:700; font-size:12px; padding:4px 12px; border-radius:4px; margin-left:12px; display:inline-flex; align-items:center; gap:6px;';
+        banner.innerHTML = '⚡ MODO DEMOSTRACIÓN — <a href="/index.html#login" style="color:#121A18; text-decoration:underline;">Iniciar Sesión</a>';
+        nav.querySelector('.brand-area')?.appendChild(banner);
+      }
+
+      renderStudioUI();
+    }
+
+    function renderStudioUI() {
+      document.getElementById('studioNavRestaurantName').textContent = restaurant.name;
+      document.getElementById('studioNavUserEmail').textContent = currentUser.email;
+      
+      const liveUrl = `/m/${restaurant.slug}`;
+      const btnLive = document.getElementById('btnLiveMenu');
+      btnLive.href = liveUrl;
+      document.getElementById('previewFullUrl').textContent = liveUrl;
+
+      // Subscription badge
+      renderSubscriptionBadge(currentUser.subscription);
+
+      // Form inputs
+      document.getElementById('inputLocalName').value = restaurant.name || '';
+      document.getElementById('inputLocalSlogan').value = restaurant.slogan || '';
+      document.getElementById('inputLocalSlug').value = restaurant.slug || '';
+      document.getElementById('inputLocalCurrency').value = restaurant.currency || '$';
+      document.getElementById('inputPhone').value = restaurant.phone || '';
+
+      if (restaurant.wifi) {
+        document.getElementById('inputWifiSsid').value = restaurant.wifi.ssid || '';
+        document.getElementById('inputWifiPass').value = restaurant.wifi.password || '';
+      }
+
+      // Reservations toggle
+      const resCheckbox = document.getElementById('inputAllowReservations');
+      if (resCheckbox) {
+        resCheckbox.checked = restaurant.allowReservations !== false;
+        const slider = document.getElementById('sliderReservations');
+        if (slider) slider.style.backgroundColor = resCheckbox.checked ? '#38A169' : '#2a3a33';
+      }
+
+      // Social links
+      document.getElementById('inputInstagram').value = restaurant.instagram || '';
+      document.getElementById('inputGoogleReview').value = restaurant.googleReview || '';
+
+      // Theme selects
+      const themeBg = document.getElementById('inputThemeBg');
+      if (themeBg) themeBg.value = restaurant.theme || 'emerald';
+      const themeFont = document.getElementById('inputThemeFont');
+      if (themeFont) themeFont.value = restaurant.themeFont || 'serif';
+
+      // Coupons toggle
+      const couponsCheckbox = document.getElementById('inputAllowCoupons');
+      if (couponsCheckbox) {
+        couponsCheckbox.checked = restaurant.allowCoupons !== false;
+        const sliderC = document.getElementById('sliderCoupons');
+        if (sliderC) sliderC.style.backgroundColor = couponsCheckbox.checked ? '#38A169' : '#2a3a33';
+      }
+
+      // Bill Splitter toggle
+      const splitCheckbox = document.getElementById('inputAllowBillSplitter');
+      if (splitCheckbox) {
+        splitCheckbox.checked = restaurant.allowBillSplitter !== false;
+        const sliderS = document.getElementById('sliderBillSplitter');
+        if (sliderS) sliderS.style.backgroundColor = splitCheckbox.checked ? '#38A169' : '#2a3a33';
+      }
+
+      // Announcement banner
+      const annInput = document.getElementById('inputAnnouncement');
+      if (annInput) annInput.value = restaurant.announcement || '';
+
+      // Payment Link
+      const payInput = document.getElementById('inputPaymentLink');
+      if (payInput) payInput.value = restaurant.paymentLink || '';
+
+      // Schedule settings
+      const schedCheck = document.getElementById('inputScheduleEnabled');
+      if (schedCheck) {
+        schedCheck.checked = !!restaurant.scheduleEnabled;
+        const sliderSched = document.getElementById('sliderSchedule');
+        if (sliderSched) sliderSched.style.backgroundColor = schedCheck.checked ? '#38A169' : '#2a3a33';
+      }
+      const schedHours = document.getElementById('inputScheduleActiveHours');
+      if (schedHours) schedHours.value = restaurant.scheduleActiveHours || '';
+
+      // Table count
+      const tableCountInput = document.getElementById('inputTableCount');
+      if (tableCountInput) tableCountInput.value = restaurant.tableCount || 10;
+
+      // Render Logo preview
+      if (restaurant.logoUrl) {
+        document.getElementById('logoPreviewBox').innerHTML = `<img src="${restaurant.logoUrl}" style="width:100%; height:100%; object-fit:cover;">`;
+        document.getElementById('btnRemoveLogo').style.display = 'inline';
+      } else {
+        document.getElementById('logoPreviewBox').innerHTML = `<span id="logoPreviewIcon" style="font-size:22px;">🍽️</span>`;
+        document.getElementById('btnRemoveLogo').style.display = 'none';
+      }
+
+      // Populate Categories & Dishes
+      populateCatFilter();
+      renderDishesList();
+      renderDeliveryZones();
+      generateQrCode();
+      reloadPreviewIframe();
+    }
+
+    function handleLogoUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) {
+        alert('La imagen no debe superar los 2MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        restaurant.logoUrl = event.target.result;
+        document.getElementById('logoPreviewBox').innerHTML = `<img src="${restaurant.logoUrl}" style="width:100%; height:100%; object-fit:cover;">`;
+        document.getElementById('btnRemoveLogo').style.display = 'inline';
+        generateQrCode();
+        triggerAutoSave();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function removeLogo() {
+      restaurant.logoUrl = null;
+      document.getElementById('inputLogoFile').value = '';
+      document.getElementById('logoPreviewBox').innerHTML = `<span id="logoPreviewIcon" style="font-size:22px;">🍽️</span>`;
+      document.getElementById('btnRemoveLogo').style.display = 'none';
+      generateQrCode();
+      triggerAutoSave();
+    }
+
+    function renderSubscriptionBadge(sub) {
+      const badge = document.getElementById('subscriptionBadge');
+      if (!sub) return;
+
+      if (sub.status === 'trial') {
+        const days = Math.max(0, Math.ceil((new Date(sub.trialEndsAt) - new Date()) / (1000 * 60 * 60 * 24)));
+        badge.className = 'sub-badge badge-trial';
+        badge.textContent = `⏳ Prueba (${days} días)`;
+      } else if (sub.status === 'active') {
+        badge.className = 'sub-badge badge-active';
+        badge.textContent = `✓ PRO ACTIVO (${sub.plan.toUpperCase()})`;
+      } else if (sub.status === 'past_due') {
+        badge.className = 'sub-badge badge-grace';
+        badge.textContent = `⚠️ GRACIA (5 días)`;
+      } else {
+        badge.className = 'sub-badge badge-grace';
+        badge.textContent = `✕ VENCIDO`;
+      }
+    }
+
+    // Tabs
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+      event.currentTarget.classList.add('active');
+      document.getElementById(`tab-${tabId}`).classList.add('active');
+
+      if (tabId === 'stats') {
+        renderStatsTab();
+      }
+    }
+
+    function renderStatsTab() {
+      const stats = restaurant.analytics || { visits: 0, orders: 0, reservations: 0, waiterCalls: 0 };
+      document.getElementById('statVisits').textContent = stats.visits || 0;
+      document.getElementById('statOrders').textContent = stats.orders || 0;
+      document.getElementById('statReservations').textContent = stats.reservations || 0;
+      document.getElementById('statWaiterCalls').textContent = stats.waiterCalls || 0;
+    }
+
+    async function submitOwnerReview(e) {
+      e.preventDefault();
+      const rating = document.getElementById('reviewRating').value;
+      const authorRole = document.getElementById('reviewAuthorRole').value.trim();
+      const comment = document.getElementById('reviewComment').value.trim();
+      const token = localStorage.getItem('menu_pizarron_token');
+
+      try {
+        const res = await fetch('/api/reviews', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ rating, authorRole, comment })
+        });
+        if (!res.ok) throw new Error('Error al enviar reseña');
+        document.getElementById('reviewSubmittedAlert').style.display = 'block';
+        document.getElementById('restaurantReviewForm').reset();
+      } catch (err) {
+        // In demo mode, acknowledge locally
+        document.getElementById('reviewSubmittedAlert').style.display = 'block';
+        document.getElementById('restaurantReviewForm').reset();
+      }
+    }
+
+    // 1-Click WhatsApp Order Status Notifications
+    function sendOrderStateWA(state) {
+      const phone = (document.getElementById('notifPhone').value || '').replace(/[^0-9]/g, '');
+      const client = document.getElementById('notifClientName').value.trim() || 'Estimado/a cliente';
+      const restName = restaurant.name || 'Menú Pizarrón';
+
+      if (!phone) {
+        alert('Por favor ingresa el número de WhatsApp del cliente.');
+        return;
+      }
+
+      let msg = '';
+      if (state === 'confirmado') {
+        msg = `¡Hola ${client}! 👋👨‍🍳\n\nTe confirmamos que recibimos tu pedido en *${restName}* y ya está marchando en la cocina. Te avisamos en cuanto esté listo. ¡Muchas gracias!`;
+      } else if (state === 'listo') {
+        msg = `¡Hola ${client}! 🛍️🎉\n\n¡Tu pedido en *${restName}* ya está listo y empaquetado esperándote en el mostrador! Podés pasar a retirarlo cuando gustes.`;
+      } else if (state === 'camino') {
+        msg = `¡Hola ${client}! 🛵💨\n\n¡Tu pedido en *${restName}* ya salió con nuestro repartidor rumbo a tu dirección! Por favor tené listo el método de pago acordado.`;
+      } else if (state === 'demorado') {
+        msg = `Estimado/a ${client} ⏳🙏\n\nQueremos avisarte que la cocina de *${restName}* tiene una demora imprevista debido a la alta demanda de hoy. Tu pedido está en marcha y saldrá en breve con la máxima calidad. ¡Disculpas y muchas gracias por tu paciencia!`;
+      }
+
+      const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+      window.open(waUrl, '_blank');
+    }
+
+    // Agotado Inteligente por Ingrediente en masa
+    function toggleDishesByIngredient(isOut) {
+      const keyword = (document.getElementById('inputIngredientKeyword').value || '').trim().toLowerCase();
+      if (!keyword) {
+        alert('Por favor escribe un ingrediente o término (ej: Salmón, Aguacate, Champiñones).');
+        return;
+      }
+
+      let count = 0;
+      (restaurant.dishes || []).forEach(d => {
+        const inName = (d.name || '').toLowerCase().includes(keyword);
+        const inDesc = (d.description || '').toLowerCase().includes(keyword);
+        if (inName || inDesc) {
+          d.outOfStock = isOut;
+          count++;
+        }
+      });
+
+      renderDishesList();
+      triggerAutoSave();
+      alert(`Se ${isOut ? 'marcaron como agotados' : 'reactivaron'} ${count} platos asociados a "${keyword}".`);
+    }
+
+    // Dishes Management
+    function populateCatFilter() {
+      const select = document.getElementById('selectCatFilter');
+      const cats = restaurant.categories || [];
+      select.innerHTML = '<option value="ALL">Todas las Categorías</option>';
+      cats.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        select.appendChild(opt);
+      });
+    }
+
+    function renderDishesList() {
+      const container = document.getElementById('studioDishesList');
+      const filter = document.getElementById('selectCatFilter').value;
+      const dishes = restaurant.dishes || [];
+      const cats = restaurant.categories || [];
+      const currency = restaurant.currency || '$';
+
+      const filtered = dishes.filter(d => filter === 'ALL' || d.categoryId === filter);
+      if (!filtered.length) {
+        container.innerHTML = '<p style="color:var(--text-dim); font-size:12px; text-align:center; padding:16px;">No hay platos en esta sección.</p>';
+        return;
+      }
+
+      const tagLabels = { star: '⭐', veggie: '🥬', vegan: '🌱', celiac: '🌾', sinlactosa: '🥛', picante: '🌶️' };
+      let html = '';
+      filtered.forEach((d, idx) => {
+        const cat = cats.find(c => c.id === d.categoryId);
+        const tags = (d.tags || []).filter(t => t !== 'star').map(t => tagLabels[t] || '').join(' ');
+        const starBadge = (d.tags || []).includes('star') ? '<span style="color:var(--accent-gold); margin-right:4px;">⭐</span>' : '';
+        const outBadge = d.outOfStock ? '<span style="background:#E53E3E; color:#fff; font-size:9px; font-weight:800; padding:1px 6px; border-radius:4px; margin-left:6px;">AGOTADO</span>' : '';
+        const opacity = d.outOfStock ? 'opacity:0.5;' : '';
+        const photoThumb = d.photoUrl 
+          ? `<img src="${d.photoUrl}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid var(--border); flex-shrink:0;">` 
+          : '';
+        html += `
+          <div class="dish-editor-card" style="${opacity} display:flex; align-items:center; gap:8px;">
+            ${photoThumb}
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:12px; font-weight:700; color:#fff; display:flex; align-items:center; flex-wrap:wrap; gap:2px;">
+                ${starBadge}${d.name}${outBadge}
+              </div>
+              <div style="font-size:10px; color:var(--text-dim); display:flex; align-items:center; gap:4px; margin-top:2px;">
+                ${cat ? cat.name : 'Sin cat.'} • ${currency} ${d.price} ${tags}
+              </div>
+            </div>
+            <button class="btn-icon" onclick="editDish('${d.id}')" title="Editar">✏️</button>
+            <button class="btn-icon btn-icon-danger" onclick="deleteDish('${d.id}')" title="Eliminar">🗑️</button>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function deleteDish(dishId) {
+      restaurant.dishes = (restaurant.dishes || []).filter(d => d.id !== dishId);
+      renderDishesList();
+      triggerAutoSave();
+    }
+
+    function editDish(dishId) {
+      const dish = (restaurant.dishes || []).find(d => d.id === dishId);
+      if (!dish) return;
+      document.getElementById('dishModalTitle').textContent = 'Editar Plato';
+      document.getElementById('modalDishId').value = dish.id;
+      document.getElementById('modalDishName').value = dish.name || '';
+      document.getElementById('modalDishPrice').value = dish.price || 0;
+      document.getElementById('modalDishDesc').value = dish.description || '';
+      document.getElementById('modalDishPhoto').value = dish.photoUrl || '';
+      document.getElementById('modalDishOutOfStock').checked = !!dish.outOfStock;
+      document.getElementById('modalDishStar').checked = (dish.tags || []).includes('star');
+      document.getElementById('tagVeggie').checked = (dish.tags || []).includes('veggie');
+      document.getElementById('tagVegan').checked = (dish.tags || []).includes('vegan');
+      document.getElementById('tagCeliac').checked = (dish.tags || []).includes('celiac');
+      document.getElementById('tagSinLactosa').checked = (dish.tags || []).includes('sinlactosa');
+      document.getElementById('tagPicante').checked = (dish.tags || []).includes('picante');
+
+      // Populate category select
+      const catSelect = document.getElementById('modalDishCategory');
+      catSelect.innerHTML = '';
+      (restaurant.categories || []).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        if (c.id === dish.categoryId) opt.selected = true;
+        catSelect.appendChild(opt);
+      });
+
+      document.getElementById('dishEditModal').classList.add('active');
+    }
+
+    function openNewDishModal() {
+      document.getElementById('dishModalTitle').textContent = 'Nuevo Plato';
+      document.getElementById('dishForm').reset();
+      document.getElementById('modalDishId').value = '';
+      document.getElementById('modalDishPhoto').value = '';
+
+      // Populate category select
+      const catSelect = document.getElementById('modalDishCategory');
+      catSelect.innerHTML = '';
+      (restaurant.categories || []).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        catSelect.appendChild(opt);
+      });
+      if (!catSelect.options.length) {
+        const opt = document.createElement('option');
+        opt.value = 'cat_general';
+        opt.textContent = 'General';
+        catSelect.appendChild(opt);
+      }
+
+      document.getElementById('dishEditModal').classList.add('active');
+    }
+
+    function closeDishEditModal() {
+      document.getElementById('dishEditModal').classList.remove('active');
+    }
+
+    function saveDishFromModal(event) {
+      event.preventDefault();
+      const id = document.getElementById('modalDishId').value;
+      const name = document.getElementById('modalDishName').value.trim();
+      const price = parseFloat(document.getElementById('modalDishPrice').value) || 0;
+      const description = document.getElementById('modalDishDesc').value.trim();
+      const photoUrl = document.getElementById('modalDishPhoto').value.trim();
+      const categoryId = document.getElementById('modalDishCategory').value;
+      const outOfStock = document.getElementById('modalDishOutOfStock').checked;
+
+      const tags = [];
+      if (document.getElementById('modalDishStar').checked) tags.push('star');
+      if (document.getElementById('tagVeggie').checked) tags.push('veggie');
+      if (document.getElementById('tagVegan').checked) tags.push('vegan');
+      if (document.getElementById('tagCeliac').checked) tags.push('celiac');
+      if (document.getElementById('tagSinLactosa').checked) tags.push('sinlactosa');
+      if (document.getElementById('tagPicante').checked) tags.push('picante');
+
+      if (!restaurant.dishes) restaurant.dishes = [];
+
+      if (id) {
+        // Edit existing
+        const dish = restaurant.dishes.find(d => d.id === id);
+        if (dish) {
+          dish.name = name;
+          dish.price = price;
+          dish.description = description;
+          dish.photoUrl = photoUrl || null;
+          dish.categoryId = categoryId;
+          dish.outOfStock = outOfStock;
+          dish.tags = tags;
+        }
+      } else {
+        // Create new
+        restaurant.dishes.push({
+          id: 'd_' + Date.now(),
+          name,
+          price,
+          description: description || 'Plato casero elaborado en el día',
+          photoUrl: photoUrl || null,
+          categoryId,
+          outOfStock,
+          tags
+        });
+      }
+
+      closeDishEditModal();
+      renderDishesList();
+      triggerAutoSave();
+    }
+
+    // Presets Management
+    let currentPresetCategory = 'milanesas';
+
+    function openPresetsModal() {
+      document.getElementById('presetsModal').classList.add('active');
+      renderPresetChips();
+      browsePresetCategory('milanesas');
+    }
+    function closePresetsModal() {
+      document.getElementById('presetsModal').classList.remove('active');
+    }
+
+    function renderPresetChips() {
+      const container = document.getElementById('presetChipsContainer');
+      container.innerHTML = '';
+      Object.keys(PRESETS).forEach(key => {
+        const p = PRESETS[key];
+        const chip = document.createElement('button');
+        chip.className = 'btn-nav';
+        chip.style.cssText = 'white-space:nowrap; font-size:11px; padding:5px 12px; flex-shrink:0;';
+        chip.textContent = p.catName;
+        chip.onclick = () => browsePresetCategory(key);
+        if (key === currentPresetCategory) {
+          chip.style.background = 'var(--accent-gold)';
+          chip.style.color = '#101614';
+          chip.style.fontWeight = '700';
+          chip.style.borderColor = 'var(--accent-gold)';
+        }
+        container.appendChild(chip);
+      });
+    }
+
+    function browsePresetCategory(key) {
+      currentPresetCategory = key;
+      const preset = PRESETS[key];
+      if (!preset) return;
+
+      document.getElementById('presetCategoryLabel').textContent = preset.catName;
+      renderPresetChips();
+
+      const list = document.getElementById('presetDishesList');
+      let html = '';
+      preset.dishes.forEach((d, idx) => {
+        const tagBadges = (d.tags || []).map(t => {
+          const labels = { star: '⭐', veggie: '🥬', vegan: '🌱', celiac: '🌾', sinlactosa: '🥛', picante: '🌶️' };
+          return labels[t] || '';
+        }).join(' ');
+        html += `
+          <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-base); padding:8px 10px; border-radius:8px; margin-bottom:6px; border:1px solid var(--border);">
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:12px; font-weight:700; color:#fff; display:flex; align-items:center; gap:4px;">
+                ${d.name} ${tagBadges}
+              </div>
+              <div style="font-size:10px; color:var(--text-dim); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${d.desc}</div>
+              <div style="font-size:11px; color:var(--accent-gold); font-family:var(--font-mono); margin-top:2px;">$ ${d.price}</div>
+            </div>
+            <button class="btn-nav btn-nav-gold" style="font-size:11px; padding:4px 10px; flex-shrink:0; margin-left:8px;" onclick="addSinglePresetDish('${key}', ${idx})">
+              + Sumar
+            </button>
+          </div>
+        `;
+      });
+      list.innerHTML = html;
+    }
+
+    function addSinglePresetDish(presetKey, dishIdx) {
+      const preset = PRESETS[presetKey];
+      if (!preset || !preset.dishes[dishIdx]) return;
+      const d = preset.dishes[dishIdx];
+
+      if (!restaurant.categories) restaurant.categories = [];
+      if (!restaurant.dishes) restaurant.dishes = [];
+
+      let cat = restaurant.categories.find(c => c.name.toLowerCase() === preset.catName.toLowerCase());
+      if (!cat) {
+        cat = { id: 'cat_' + presetKey + '_' + Date.now(), name: preset.catName };
+        restaurant.categories.push(cat);
+      }
+
+      restaurant.dishes.push({
+        id: `d_${presetKey}_${Date.now()}_${dishIdx}`,
+        categoryId: cat.id,
+        name: d.name,
+        price: d.price,
+        description: d.desc,
+        tags: d.tags || []
+      });
+
+      populateCatFilter();
+      renderDishesList();
+      triggerAutoSave();
+
+      // Visual feedback — briefly change button text
+      const btns = document.querySelectorAll('#presetDishesList button');
+      if (btns[dishIdx]) {
+        btns[dishIdx].textContent = '✓ Agregado';
+        btns[dishIdx].disabled = true;
+        setTimeout(() => { btns[dishIdx].textContent = '+ Sumar'; btns[dishIdx].disabled = false; }, 1500);
+      }
+    }
+
+    function importCurrentPresetCategory() {
+      importPresetCategory(currentPresetCategory);
+    }
+
+    function importPresetCategory(presetKey) {
+      const preset = PRESETS[presetKey];
+      if (!preset) return;
+
+      if (!restaurant.categories) restaurant.categories = [];
+      if (!restaurant.dishes) restaurant.dishes = [];
+
+      let cat = restaurant.categories.find(c => c.name.toLowerCase() === preset.catName.toLowerCase());
+      if (!cat) {
+        cat = { id: 'cat_' + presetKey + '_' + Date.now(), name: preset.catName };
+        restaurant.categories.push(cat);
+      }
+
+      preset.dishes.forEach((d, i) => {
+        restaurant.dishes.push({
+          id: `d_${presetKey}_${Date.now()}_${i}`,
+          categoryId: cat.id,
+          name: d.name,
+          price: d.price,
+          description: d.desc,
+          tags: d.tags || []
+        });
+      });
+
+      populateCatFilter();
+      renderDishesList();
+      closePresetsModal();
+      triggerAutoSave();
+      alert(`¡Se agregaron ${preset.dishes.length} platos de ${preset.catName}!`);
+    }
+
+    function importAllPresets() {
+      Object.keys(PRESETS).forEach(k => {
+        const p = PRESETS[k];
+        let cat = (restaurant.categories || []).find(c => c.name.toLowerCase() === p.catName.toLowerCase());
+        if (!cat) {
+          cat = { id: 'cat_' + k + '_' + Date.now(), name: p.catName };
+          if (!restaurant.categories) restaurant.categories = [];
+          restaurant.categories.push(cat);
+        }
+        p.dishes.forEach((d, i) => {
+          restaurant.dishes.push({
+            id: `d_${k}_${Date.now()}_${i}`,
+            categoryId: cat.id,
+            name: d.name,
+            price: d.price,
+            description: d.desc,
+            tags: d.tags || []
+          });
+        });
+      });
+
+      populateCatFilter();
+      renderDishesList();
+      closePresetsModal();
+      triggerAutoSave();
+      alert('¡Carta completa de 100+ platos importada con éxito!');
+    }
+
+    // Delivery Zones
+    function renderDeliveryZones() {
+      const container = document.getElementById('deliveryZonesList');
+      const zones = restaurant.deliveryZones || [];
+      const currency = restaurant.currency || '$';
+
+      if (!zones.length) {
+        container.innerHTML = '<p style="color:var(--text-dim); font-size:11px;">Sin zonas configuradas.</p>';
+        return;
+      }
+
+      let html = '';
+      zones.forEach((z, idx) => {
+        html += `
+          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-base); padding:6px 10px; border-radius:6px; margin-bottom:6px;">
+            <span style="font-size:12px;">${z.name}</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-family:var(--font-mono); color:var(--accent-gold); font-size:11px;">${currency} ${z.fee}</span>
+              <button class="btn-icon btn-icon-danger" onclick="deleteDeliveryZone(${idx})">🗑️</button>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function addDeliveryZone() {
+      const name = prompt('Nombre de la zona o barrio (Ej: Centro / Pocitos / Periferia):');
+      if (!name) return;
+      const fee = prompt('Costo de envío:', '60');
+      if (!restaurant.deliveryZones) restaurant.deliveryZones = [];
+      restaurant.deliveryZones.push({ name, fee: parseFloat(fee) || 0 });
+      renderDeliveryZones();
+      triggerAutoSave();
+    }
+
+    function deleteDeliveryZone(idx) {
+      restaurant.deliveryZones.splice(idx, 1);
+      renderDeliveryZones();
+      triggerAutoSave();
+    }
+
+    // QR Code Generator with Centered Logo / Emblem Badge
+    function generateQrCode() {
+      const container = document.getElementById('qrcodeCanvasContainer');
+      container.innerHTML = '';
+      const fullUrl = window.location.origin + `/m/${restaurant.slug}`;
+
+      // Temporary holder for qrcode.js
+      const tempHolder = document.createElement('div');
+      new QRCode(tempHolder, {
+        text: fullUrl,
+        width: 240,
+        height: 240,
+        colorDark: "#0E1412",
+        colorLight: "#FFFFFF",
+        correctLevel: QRCode.CorrectLevel.H
+      });
+
+      // Allow QRCode library to render canvas/img
+      setTimeout(() => {
+        const qrCanvas = tempHolder.querySelector('canvas');
+        const qrImg = tempHolder.querySelector('img');
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 240;
+        canvas.height = 240;
+        const ctx = canvas.getContext('2d');
+
+        const drawOverlayAndMount = () => {
+          const center = 120;
+          const badgeRadius = 32;
+
+          // Draw white circular badge background
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(center, center, badgeRadius + 4, 0, 2 * Math.PI);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fill();
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = '#ECC94B';
+          ctx.stroke();
+
+          if (restaurant.logoUrl) {
+            const logo = new Image();
+            logo.crossOrigin = 'anonymous';
+            logo.onload = () => {
+              ctx.beginPath();
+              ctx.arc(center, center, badgeRadius, 0, 2 * Math.PI);
+              ctx.closePath();
+              ctx.clip();
+              ctx.drawImage(logo, center - badgeRadius, center - badgeRadius, badgeRadius * 2, badgeRadius * 2);
+              ctx.restore();
+              container.innerHTML = '';
+              container.appendChild(canvas);
+            };
+            logo.onerror = () => {
+              drawDefaultIcon();
+            };
+            logo.src = restaurant.logoUrl;
+          } else {
+            drawDefaultIcon();
+          }
+
+          function drawDefaultIcon() {
+            ctx.beginPath();
+            ctx.arc(center, center, badgeRadius, 0, 2 * Math.PI);
+            ctx.fillStyle = '#151E1A';
+            ctx.fill();
+            ctx.font = '26px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🍽️', center, center + 2);
+            ctx.restore();
+            container.innerHTML = '';
+            container.appendChild(canvas);
+          }
+        };
+
+        if (qrCanvas) {
+          ctx.drawImage(qrCanvas, 0, 0);
+          drawOverlayAndMount();
+        } else if (qrImg) {
+          const baseImg = new Image();
+          baseImg.onload = () => {
+            ctx.drawImage(baseImg, 0, 0);
+            drawOverlayAndMount();
+          };
+          baseImg.src = qrImg.src;
+        } else {
+          container.appendChild(tempHolder);
+        }
+      }, 50);
+    }
+
+    function downloadQrPng() {
+      const canvas = document.querySelector('#qrcodeCanvasContainer canvas');
+      if (!canvas) return;
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = `QR-${restaurant.slug}-menu-pizarron.png`;
+      a.click();
+    }
+
+    function printTableStand() {
+      const win = window.open('', '_blank');
+      const canvas = document.querySelector('#qrcodeCanvasContainer canvas');
+      const src = canvas ? canvas.toDataURL('image/png') : '';
+      const wifiText = restaurant.wifi && restaurant.wifi.ssid ? `Wi-Fi: ${restaurant.wifi.ssid} | Clave: ${restaurant.wifi.password}` : '';
+
+      win.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Tarjeta de Mesa — ${restaurant.name}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 30px; background: #fff; color: #111; }
+            .card { border: 2px solid #222; border-radius: 16px; padding: 28px; max-width: 380px; margin: 0 auto; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+            h1 { margin: 0 0 6px 0; font-size: 24px; font-weight: 800; }
+            p { margin: 0 0 16px 0; color: #555; font-size: 14px; }
+            img { width: 220px; height: 220px; margin-bottom: 12px; }
+            .wifi { background: #f4f4f5; padding: 10px 14px; border-radius: 8px; font-weight: 600; font-size: 13px; border: 1px dashed #ccc; }
+            .badge-powered { font-size: 10px; color: #888; margin-top: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h1>${restaurant.name}</h1>
+            <p>${restaurant.slogan || 'Escaneá para ver la carta y pedir por WhatsApp'}</p>
+            ${src ? `<img src="${src}" alt="QR Menú" />` : ''}
+            ${wifiText ? `<div class="wifi">📶 ${wifiText}</div>` : ''}
+            <div class="badge-powered">Menú Digital • Menú Pizarrón Studio</div>
+          </div>
+          <script>setTimeout(() => window.print(), 300);<\/script>
+        </body>
+        </html>
+      `);
+      win.document.close();
+    }
+
+    async function downloadAllTablesPDF() {
+      const tableCount = parseInt(document.getElementById('inputTableCount').value) || 10;
+      if (tableCount < 1 || tableCount > 100) {
+        alert('Por favor indica una cantidad de mesas entre 1 y 100.');
+        return;
+      }
+
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        alert('Cargando librería de PDF... Por favor espera un instante y reintenta.');
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const primaryColor = [21, 30, 26]; // #151E1A
+      const goldColor = [236, 201, 75]; // #ECC94B
+      const textDimColor = [120, 130, 125];
+      const wifiText = restaurant.wifi && restaurant.wifi.ssid ? `Wi-Fi: ${restaurant.wifi.ssid}  |  Clave: ${restaurant.wifi.password}` : '';
+
+      // Helper to generate QR data URL
+      function makeQrDataUrl(url) {
+        return new Promise((resolve) => {
+          const temp = document.createElement('div');
+          temp.style.display = 'none';
+          document.body.appendChild(temp);
+          new QRCode(temp, {
+            text: url,
+            width: 300,
+            height: 300,
+            colorDark: "#0E1412",
+            colorLight: "#FFFFFF",
+            correctLevel: QRCode.CorrectLevel.H
+          });
+          setTimeout(() => {
+            const canvas = temp.querySelector('canvas');
+            const img = temp.querySelector('img');
+            let dataUrl = '';
+            if (canvas) {
+              dataUrl = canvas.toDataURL('image/png');
+            } else if (img) {
+              dataUrl = img.src;
+            }
+            document.body.removeChild(temp);
+            resolve(dataUrl);
+          }, 60);
+        });
+      }
+
+      for (let m = 1; m <= tableCount; m++) {
+        if (m > 1) pdf.addPage();
+
+        const tableUrl = `${window.location.origin}/m/${restaurant.slug}?mesa=${m}`;
+        const qrData = await makeQrDataUrl(tableUrl);
+
+        // Background decorative border
+        pdf.setDrawColor(...goldColor);
+        pdf.setLineWidth(1.5);
+        pdf.roundedRect(15, 15, 180, 267, 8, 8, 'D');
+
+        pdf.setDrawColor(...primaryColor);
+        pdf.setLineWidth(0.4);
+        pdf.roundedRect(18, 18, 174, 261, 6, 6, 'D');
+
+        // Header
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(26);
+        pdf.setTextColor(...primaryColor);
+        pdf.text(restaurant.name || 'Menú Pizarrón', 105, 42, { align: 'center' });
+
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(12);
+        pdf.setTextColor(...textDimColor);
+        pdf.text(restaurant.slogan || 'Carta Digital & Pedidos desde tu mesa', 105, 52, { align: 'center' });
+
+        // Table Pill / Badge
+        pdf.setFillColor(...goldColor);
+        pdf.roundedRect(65, 62, 80, 16, 8, 8, 'F');
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(14);
+        pdf.setTextColor(16, 22, 20);
+        pdf.text(`MESA  Nº ${m}`, 105, 73, { align: 'center' });
+
+        // QR Code
+        if (qrData) {
+          pdf.addImage(qrData, 'PNG', 50, 88, 110, 110);
+        }
+
+        // Instructions
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(14);
+        pdf.setTextColor(...primaryColor);
+        pdf.text('Escaneá con tu cámara para ver la carta', 105, 212, { align: 'center' });
+
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.setTextColor(...textDimColor);
+        pdf.text('Pedí directo al mozo o a WhatsApp sin esperar', 105, 220, { align: 'center' });
+
+        // Wi-Fi box if configured
+        if (wifiText) {
+          pdf.setFillColor(245, 247, 246);
+          pdf.setDrawColor(220, 225, 222);
+          pdf.setLineWidth(0.3);
+          pdf.roundedRect(35, 230, 140, 16, 4, 4, 'FD');
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(9);
+          pdf.setTextColor(...primaryColor);
+          pdf.text(`📶  ${wifiText}`, 105, 240, { align: 'center' });
+        }
+
+        // Footer branding
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(8);
+        pdf.setTextColor(150, 155, 152);
+        pdf.text('Generado con ScanGo Menú Pizarrón • www.scango.app', 105, 270, { align: 'center' });
+      }
+
+      pdf.save(`Carteles-Mesas-${restaurant.slug || 'menu'}.pdf`);
+    }
+    function updateLiveState() {
+      restaurant.name = document.getElementById('inputLocalName').value;
+      restaurant.slogan = document.getElementById('inputLocalSlogan').value;
+      restaurant.slug = document.getElementById('inputLocalSlug').value.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+      restaurant.currency = document.getElementById('inputLocalCurrency').value;
+      restaurant.phone = document.getElementById('inputPhone').value;
+
+      // Social links
+      restaurant.instagram = document.getElementById('inputInstagram').value.trim();
+      restaurant.googleReview = document.getElementById('inputGoogleReview').value.trim();
+
+      // Theme
+      restaurant.theme = document.getElementById('inputThemeBg').value;
+      restaurant.themeFont = document.getElementById('inputThemeFont').value;
+
+      if (!restaurant.wifi) restaurant.wifi = {};
+      restaurant.wifi.ssid = document.getElementById('inputWifiSsid').value;
+      restaurant.wifi.password = document.getElementById('inputWifiPass').value;
+
+      // Reservations toggle
+      const resCheckbox = document.getElementById('inputAllowReservations');
+      if (resCheckbox) {
+        restaurant.allowReservations = resCheckbox.checked;
+        const slider = document.getElementById('sliderReservations');
+        if (slider) slider.style.backgroundColor = resCheckbox.checked ? '#38A169' : '#2a3a33';
+      }
+
+      // Coupons toggle
+      const couponsCheckbox = document.getElementById('inputAllowCoupons');
+      if (couponsCheckbox) {
+        restaurant.allowCoupons = couponsCheckbox.checked;
+        const sliderC = document.getElementById('sliderCoupons');
+        if (sliderC) sliderC.style.backgroundColor = couponsCheckbox.checked ? '#38A169' : '#2a3a33';
+      }
+
+      // Bill Splitter toggle
+      const splitCheckbox = document.getElementById('inputAllowBillSplitter');
+      if (splitCheckbox) {
+        restaurant.allowBillSplitter = splitCheckbox.checked;
+        const sliderS = document.getElementById('sliderBillSplitter');
+        if (sliderS) sliderS.style.backgroundColor = splitCheckbox.checked ? '#38A169' : '#2a3a33';
+      }
+
+      // Announcement banner
+      const annInput = document.getElementById('inputAnnouncement');
+      if (annInput) restaurant.announcement = annInput.value.trim();
+
+      // Payment Link
+      const payInput = document.getElementById('inputPaymentLink');
+      if (payInput) restaurant.paymentLink = payInput.value.trim();
+
+      // Schedule settings
+      const schedCheck = document.getElementById('inputScheduleEnabled');
+      if (schedCheck) {
+        restaurant.scheduleEnabled = schedCheck.checked;
+        const sliderSched = document.getElementById('sliderSchedule');
+        if (sliderSched) sliderSched.style.backgroundColor = schedCheck.checked ? '#38A169' : '#2a3a33';
+      }
+      const schedHours = document.getElementById('inputScheduleActiveHours');
+      if (schedHours) restaurant.scheduleActiveHours = schedHours.value.trim();
+
+      // Table count
+      restaurant.tableCount = parseInt(document.getElementById('inputTableCount').value) || 10;
+
+      document.getElementById('studioNavRestaurantName').textContent = restaurant.name;
+      document.getElementById('previewFullUrl').textContent = `/m/${restaurant.slug}`;
+      document.getElementById('btnLiveMenu').href = `/m/${restaurant.slug}`;
+
+      generateQrCode();
+      triggerAutoSave();
+    }
+
+    function triggerAutoSave() {
+      clearTimeout(autoSaveTimeout);
+      autoSaveTimeout = setTimeout(saveStudioChanges, 1200);
+    }
+
+    async function saveStudioChanges() {
+      const btnText = document.getElementById('saveBtnText');
+      btnText.textContent = '⏳ Guardando...';
+      const token = localStorage.getItem('menu_pizarron_token');
+
+      try {
+        const res = await fetch('/api/studio/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            restaurantId: restaurant.id,
+            data: restaurant
+          })
+        });
+        if (!res.ok) throw new Error('Error al guardar');
+        btnText.textContent = '✓ Guardado';
+        setTimeout(() => { btnText.textContent = '💾 Guardar Cambios'; }, 2000);
+        reloadPreviewIframe();
+      } catch (err) {
+        btnText.textContent = '⚠️ Error';
+      }
+    }
+
+    function reloadPreviewIframe() {
+      const iframe = document.getElementById('previewIframe');
+      iframe.src = `/m/${restaurant.slug}?t=${Date.now()}`;
+    }
+
+    function setPreviewView(mode) {
+      // preview phone frame
+    }
+
+    // Billing Modal
+    function openBillingModal() {
+      const sub = currentUser ? currentUser.subscription : {};
+      document.getElementById('modalSubState').textContent = sub.status ? sub.status.toUpperCase() : 'TRIAL';
+      document.getElementById('modalSubDetail').textContent = sub.status === 'trial' 
+        ? `Prueba activa hasta el ${new Date(sub.trialEndsAt).toLocaleDateString()}` 
+        : `Plan ${sub.plan} activo.`;
+      document.getElementById('billingModal').classList.add('active');
+    }
+    function closeBillingModal() {
+      document.getElementById('billingModal').classList.remove('active');
+    }
+
+    async function startCheckout(plan) {
+      const token = localStorage.getItem('menu_pizarron_token');
+      try {
+        const res = await fetch('/api/billing/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            restaurantId: restaurant.id,
+            plan: plan
+          })
+        });
+        const data = await res.json();
+        if (data.checkoutUrl) {
+          window.open(data.checkoutUrl, '_blank');
+        } else {
+          alert('Redirigiendo a pasarela de cobro...');
+        }
+      } catch (err) {
+        alert('Error al iniciar checkout.');
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('menu_pizarron_token');
+      localStorage.removeItem('menu_pizarron_user');
+      localStorage.removeItem('menu_pizarron_restaurant');
+      window.location.href = '/index.html';
+    }
+
+    // Run
+    window.addEventListener('DOMContentLoaded', initStudio);
+  </script>
+</body>
+</html>

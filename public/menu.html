@@ -1,0 +1,1621 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Menú Digital — ScanGo</title>
+  <link rel="icon" type="image/png" href="/logo-scango.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Montserrat:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&family=Baloo+2:wght@600;700&family=Bungee&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-chalkboard: #151D1A;
+      --surface-card: #1D2824;
+      --surface-card-hover: #24322D;
+      --chalk-white: #FAFDFB;
+      --chalk-gold: #ECC94B;
+      --chalk-gold-dim: rgba(236, 201, 75, 0.15);
+      --chalk-green: #48BB78;
+      --chalk-muted: #CBD5E0;
+      --chalk-dim: #8C9B95;
+      --border-chalk: rgba(255, 255, 255, 0.12);
+      --border-gold: rgba(236, 201, 75, 0.35);
+      --font-chalk: 'Caveat', cursive, sans-serif;
+      --font-body: 'Montserrat', system-ui, sans-serif;
+      --font-heading: 'Playfair Display', Georgia, serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+    }
+
+    /* 7 AUTHENTIC GASTRONOMIC THEMES */
+    body.theme-classic {
+      --bg-chalkboard: #121514;
+      --surface-card: #181C1B;
+      --surface-card-hover: #202624;
+      --chalk-gold: #ECC94B;
+      --border-gold: rgba(236, 201, 75, 0.35);
+      background-color: #121514;
+    }
+    body.theme-emerald {
+      --bg-chalkboard: #151D1A;
+      --surface-card: #1D2824;
+      --surface-card-hover: #24322D;
+      --chalk-gold: #ECC94B;
+      --border-gold: rgba(236, 201, 75, 0.35);
+      background-color: #151D1A;
+    }
+    body.theme-rustic {
+      --bg-chalkboard: #1E1815;
+      --surface-card: #28211D;
+      --surface-card-hover: #342B26;
+      --chalk-gold: #E2A03F;
+      --border-gold: rgba(226, 160, 63, 0.4);
+      background-color: #1E1815;
+    }
+    body.theme-taqueria {
+      --bg-chalkboard: #2B1515;
+      --surface-card: #3A1D1D;
+      --surface-card-hover: #482525;
+      --chalk-gold: #F6AD55;
+      --border-gold: rgba(246, 173, 85, 0.4);
+      background-color: #2B1515;
+    }
+    body.theme-bar {
+      --bg-chalkboard: #121422;
+      --surface-card: #1A1D30;
+      --surface-card-hover: #242842;
+      --chalk-gold: #B794F4;
+      --border-gold: rgba(183, 148, 244, 0.4);
+      background-color: #121422;
+    }
+    body.theme-moderna {
+      --bg-chalkboard: #1A202C;
+      --surface-card: #2D3748;
+      --surface-card-hover: #4A5568;
+      --chalk-gold: #63B3ED;
+      --border-gold: rgba(99, 179, 237, 0.4);
+      background-color: #1A202C;
+    }
+    body.theme-foodtruck {
+      --bg-chalkboard: #141414;
+      --surface-card: #202020;
+      --surface-card-hover: #2B2B2B;
+      --chalk-gold: #FF6B35;
+      --border-gold: rgba(255, 107, 53, 0.5);
+      background-color: #141414;
+    }
+
+    /* Font Styles */
+    body.font-serif { --font-heading: 'Playfair Display', Georgia, serif; }
+    body.font-chalk { --font-heading: 'Caveat', cursive, sans-serif; }
+    body.font-sans { --font-heading: 'Montserrat', system-ui, sans-serif; }
+    body.font-marker { --font-heading: 'Permanent Marker', cursive, sans-serif; }
+    body.font-urban { --font-heading: 'Bungee', cursive, sans-serif; }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg-chalkboard);
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(255,255,255,0.02) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(236,201,75,0.03) 0%, transparent 40%);
+      color: var(--chalk-white);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 90px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Chalkboard Frame & Header */
+    .menu-header {
+      background: #101614;
+      border-bottom: 2px solid var(--border-gold);
+      padding: 24px 16px 20px 16px;
+      text-align: center;
+      position: relative;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .restaurant-logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: 2px solid var(--chalk-gold);
+      object-fit: cover;
+      margin: 0 auto 10px auto;
+      display: block;
+      background: #1C2723;
+    }
+    .restaurant-title {
+      font-family: var(--font-heading);
+      font-size: clamp(1.6rem, 5vw, 2.3rem);
+      color: #fff;
+      margin-bottom: 4px;
+      letter-spacing: -0.01em;
+    }
+    .restaurant-slogan {
+      font-family: var(--font-chalk);
+      font-size: 1.25rem;
+      color: var(--chalk-gold);
+      margin-bottom: 12px;
+    }
+    .restaurant-meta-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 0.82rem;
+      color: var(--chalk-dim);
+    }
+    .meta-chip {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border-chalk);
+      padding: 4px 10px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      color: inherit;
+    }
+    .meta-chip:hover {
+      border-color: var(--chalk-gold);
+      color: var(--chalk-gold);
+      background: var(--chalk-gold-dim);
+    }
+
+    /* Announcement Banner */
+    .announcement-banner {
+      background: linear-gradient(90deg, #ECC94B, #F6AD55);
+      color: #101614;
+      font-weight: 700;
+      font-size: 0.88rem;
+      padding: 10px 16px;
+      text-align: center;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 2px 10px rgba(236,201,75,0.25);
+    }
+
+    /* Dish Thumbnail Image */
+    .dish-thumb {
+      width: 76px;
+      height: 76px;
+      border-radius: 10px;
+      object-fit: cover;
+      flex-shrink: 0;
+      border: 1px solid var(--border-chalk);
+      background: #151E1A;
+    }
+
+    /* Bill Splitter Tool in Cart */
+    .bill-splitter-box {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-chalk);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-top: 10px;
+      margin-bottom: 12px;
+      font-size: 0.85rem;
+    }
+
+    /* Container */
+    .menu-container {
+      width: 100%;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    /* Search & Filter Bar */
+    .controls-wrapper {
+      position: sticky;
+      top: 0;
+      background: rgba(21, 29, 26, 0.96);
+      backdrop-filter: blur(10px);
+      z-index: 100;
+      padding: 12px 0 10px 0;
+      border-bottom: 1px solid var(--border-chalk);
+      margin-bottom: 18px;
+    }
+    .search-box {
+      width: 100%;
+      background: #0E1412;
+      border: 1px solid var(--border-chalk);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: #fff;
+      font-size: 0.9rem;
+      outline: none;
+      margin-bottom: 10px;
+      transition: border-color 0.2s;
+    }
+    .search-box:focus { border-color: var(--chalk-gold); }
+
+    .category-pills {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+    .category-pills::-webkit-scrollbar { display: none; }
+    .cat-pill {
+      background: var(--surface-card);
+      border: 1px solid var(--border-chalk);
+      color: var(--chalk-muted);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .cat-pill.active {
+      background: var(--chalk-gold);
+      color: #101614;
+      border-color: var(--chalk-gold);
+      font-weight: 700;
+    }
+
+    /* Accessibility / Inclusive Notice */
+    .a11y-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(236, 201, 75, 0.08);
+      border: 1px dashed var(--border-gold);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.78rem;
+      color: var(--chalk-gold);
+      margin-bottom: 16px;
+    }
+    .btn-a11y-tts {
+      background: transparent;
+      border: 1px solid var(--border-gold);
+      color: var(--chalk-gold);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+
+    /* Categories & Dishes */
+    .category-section {
+      margin-bottom: 30px;
+    }
+    .category-title {
+      font-family: var(--font-heading);
+      font-size: 1.35rem;
+      color: var(--chalk-gold);
+      border-bottom: 1px solid var(--border-chalk);
+      padding-bottom: 6px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .category-badge-count {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--chalk-dim);
+      font-weight: normal;
+    }
+
+    .dishes-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .dish-card {
+      background: var(--surface-card);
+      border: 1px solid var(--border-chalk);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      transition: all 0.2s;
+    }
+    .dish-card:hover {
+      background: var(--surface-card-hover);
+      border-color: rgba(255,255,255,0.2);
+    }
+    .dish-body { flex: 1; }
+    .dish-title-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+      flex-wrap: wrap;
+    }
+    .dish-name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .dish-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .badge-veggie { background: rgba(72, 187, 120, 0.2); color: #68D391; border: 1px solid rgba(72, 187, 120, 0.4); }
+    .badge-celiac { background: rgba(236, 201, 75, 0.2); color: #F6E05E; border: 1px solid rgba(236, 201, 75, 0.4); }
+    .badge-star { background: rgba(229, 62, 62, 0.2); color: #FC8181; border: 1px solid rgba(229, 62, 62, 0.4); }
+
+    .dish-desc {
+      font-size: 0.85rem;
+      color: var(--chalk-dim);
+      line-height: 1.4;
+      margin-bottom: 6px;
+    }
+    .dish-price {
+      font-family: var(--font-mono);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--chalk-gold);
+    }
+
+    /* Actions / Add button */
+    .dish-action {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-add {
+      background: var(--chalk-green);
+      color: #0E1412;
+      border: none;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      font-size: 1.2rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+    .btn-add:active { transform: scale(0.9); }
+    .qty-counter {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--chalk-green);
+      font-weight: 700;
+    }
+
+    /* Bottom Floating Cart Bar */
+    .floating-cart-bar {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 32px);
+      max-width: 540px;
+      background: #25D366;
+      color: #0E1412;
+      border-radius: 30px;
+      padding: 12px 20px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      cursor: pointer;
+      z-index: 200;
+      font-weight: 700;
+      font-size: 0.95rem;
+      animation: slideUp 0.3s ease;
+    }
+    .floating-cart-bar.active { display: flex; }
+
+    /* Waiter Call Floating Button */
+    .waiter-fab {
+      position: fixed;
+      bottom: 80px;
+      right: 16px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #F6AD55;
+      color: #0E1412;
+      border: none;
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 20px rgba(246, 173, 85, 0.5);
+      cursor: pointer;
+      z-index: 199;
+      transition: transform 0.2s, box-shadow 0.2s;
+      animation: slideUp 0.3s ease;
+    }
+    .waiter-fab:hover { transform: scale(1.1); box-shadow: 0 8px 28px rgba(246, 173, 85, 0.7); }
+    .waiter-fab:active { transform: scale(0.95); }
+    @keyframes slideUp {
+      from { transform: translate(-50%, 40px); opacity: 0; }
+      to { transform: translate(-50%, 0); opacity: 1; }
+    }
+
+    /* Modals (Cart & Wi-Fi) */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(8, 12, 10, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-box {
+      background: var(--surface-card);
+      border: 1px solid var(--border-gold);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 500px;
+      padding: 24px;
+      max-height: 90vh;
+      overflow-y: auto;
+      position: relative;
+    }
+    .modal-close {
+      position: absolute;
+      top: 14px; right: 16px;
+      background: transparent;
+      border: none;
+      color: var(--chalk-dim);
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .modal-title {
+      font-family: var(--font-heading);
+      font-size: 1.35rem;
+      color: #fff;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border-chalk);
+      padding-bottom: 8px;
+    }
+
+    .cart-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border-chalk);
+      gap: 10px;
+    }
+    .cart-item-title { font-size: 0.92rem; font-weight: 600; color: #fff; }
+    .cart-item-price { font-family: var(--font-mono); font-size: 0.88rem; color: var(--chalk-gold); }
+    .cart-qty-ctrl {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-qty {
+      background: var(--bg-chalkboard);
+      border: 1px solid var(--border-chalk);
+      color: #fff;
+      width: 26px; height: 26px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .form-section { margin-top: 16px; }
+    .form-label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--chalk-muted);
+      margin-bottom: 6px;
+    }
+    .form-select, .form-input, .form-textarea {
+      width: 100%;
+      background: #0E1412;
+      border: 1px solid var(--border-chalk);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #fff;
+      font-family: var(--font-body);
+      font-size: 0.9rem;
+      margin-bottom: 12px;
+      outline: none;
+    }
+    .form-select:focus, .form-input:focus, .form-textarea:focus {
+      border-color: var(--chalk-gold);
+    }
+
+    .total-summary {
+      background: #111715;
+      border: 1px solid var(--border-chalk);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin: 16px 0;
+    }
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: var(--chalk-muted);
+      margin-bottom: 4px;
+    }
+    .summary-row.total-row {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #fff;
+      border-top: 1px solid var(--border-chalk);
+      padding-top: 8px;
+      margin-top: 6px;
+    }
+    .summary-row.total-row span.total-amount { color: var(--chalk-gold); font-family: var(--font-mono); }
+
+    .btn-wa-submit {
+      width: 100%;
+      background: #25D366;
+      color: #0E1412;
+      border: none;
+      padding: 14px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .btn-wa-submit:hover { background: #20BA5A; }
+
+    /* Empty state or Loading */
+    .loading-spinner {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--chalk-gold);
+      font-family: var(--font-chalk);
+      font-size: 1.6rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Announcement Banner -->
+  <div id="announcementBanner" class="announcement-banner">
+    <span id="announcementBannerText">📢 Anuncio del día</span>
+  </div>
+
+  <!-- Header -->
+  <header class="menu-header">
+    <div id="restaurantLogoContainer"></div>
+    <h1 id="restaurantName" class="restaurant-title">Cargando Menú...</h1>
+    <div id="restaurantSlogan" class="restaurant-slogan"></div>
+
+    <div class="restaurant-meta-bar">
+      <span id="reservationChip" class="meta-chip" onclick="openReservationModal()" style="display:none; background: rgba(56, 161, 105, 0.2); border-color: rgba(56, 161, 105, 0.5); color: #68D391; font-weight: 700;">
+        📅 Reservar Mesa
+      </span>
+      <span id="wifiChip" class="meta-chip" onclick="openWifiModal()" style="display:none;">
+        📶 Conectar a Wi-Fi
+      </span>
+      <a id="instagramChip" class="meta-chip" href="#" target="_blank" style="display:none;">
+        📸 <span id="instagramText">@instagram</span>
+      </a>
+      <a id="googleReviewChip" class="meta-chip" href="#" target="_blank" style="display:none; color:var(--chalk-gold); border-color:rgba(236, 201, 75, 0.4);">
+        ⭐ Dejar Reseña en Google
+      </a>
+      <span id="phoneChip" class="meta-chip" style="display:none;">
+        📞 <span id="phoneText"></span>
+      </span>
+      <span id="addressChip" class="meta-chip" style="display:none;">
+        📍 <span id="addressText"></span>
+      </span>
+    </div>
+  </header>
+
+  <!-- Container -->
+  <main class="menu-container">
+    <div class="controls-wrapper">
+      <input type="text" id="searchFilter" class="search-box" placeholder="🔍 Buscar plato, ingrediente..." oninput="filterDishes()">
+      
+      <div id="categoryPills" class="category-pills">
+        <button class="cat-pill active" onclick="selectCategory('ALL')">Todos</button>
+      </div>
+    </div>
+
+    <!-- Accessibility Audio Assistance -->
+    <div class="a11y-bar">
+      <span>👁️ Menú adaptado para lectores de pantalla y accesibilidad visual</span>
+      <button class="btn-a11y-tts" onclick="readSelectedCategoryTTS()">🔊 Escuchar categoría</button>
+    </div>
+
+    <!-- Menu Items List -->
+    <div id="dishesContainer">
+      <div class="loading-spinner">Cargando pizarrón...</div>
+    </div>
+  </main>
+
+  <!-- Floating Cart Bar -->
+  <div id="floatingCart" class="floating-cart-bar" onclick="openCartModal()">
+    <span id="cartCountBadge">🛒 0 ítems</span>
+    <span>Ver Pedido (<span id="cartTotalBadge">$0</span>) →</span>
+  </div>
+
+  <!-- Cart & Order Modal -->
+  <div id="cartModal" class="modal-overlay">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeCartModal()">✕</button>
+      <h3 class="modal-title">Tu Comanda WhatsApp</h3>
+
+      <div id="cartItemsList"></div>
+
+      <!-- Mode Selector -->
+      <div class="form-section">
+        <label class="form-label">Modalidad del Pedido</label>
+        <select id="orderMode" class="form-select" onchange="handleOrderModeChange()">
+          <option value="LOCAL">🍽️ Comer en el local</option>
+          <option value="TAKEAWAY">🛍️ Retiro en el local / Take Away</option>
+          <option value="DELIVERY">🛵 Envío a domicilio (Delivery)</option>
+        </select>
+      </div>
+
+      <!-- Table number (if local) -->
+      <div id="tableField" class="form-group">
+        <label class="form-label">Número de Mesa</label>
+        <input type="text" id="orderTable" class="form-input" placeholder="Ej: Mesa 4">
+      </div>
+
+      <!-- Delivery zones (if delivery) -->
+      <div id="deliveryZoneField" style="display: none;">
+        <label class="form-label">Zona de Envío</label>
+        <select id="deliveryZoneSelect" class="form-select" onchange="updateDeliveryFee()">
+          <option value="0" data-fee="0">Selecciona tu zona...</option>
+        </select>
+
+        <label class="form-label">Dirección de Entrega</label>
+        <input type="text" id="orderAddress" class="form-input" placeholder="Calle, número, esquina, depto...">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Tu Nombre</label>
+        <input type="text" id="orderCustomerName" class="form-input" placeholder="Ej: Sofía Martínez">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Aclaraciones especiales</label>
+        <input type="text" id="orderNotes" class="form-input" placeholder="Ej: Sin cebolla, aderezo aparte...">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Forma de Pago</label>
+        <select id="orderPayment" class="form-select">
+          <option value="Efectivo">💵 Efectivo al recibir</option>
+          <option value="Transferencia Bancaria">🏦 Transferencia Bancaria</option>
+          <option value="Mercado Pago / Tarjeta">💳 Mercado Pago / Tarjeta</option>
+        </select>
+      </div>
+
+      <!-- Coupon Code Input -->
+      <div id="couponSectionBox" class="form-group" style="background: rgba(236, 201, 75, 0.06); padding: 10px; border-radius: 8px; border: 1px dashed var(--border-gold);">
+        <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>🎟️ ¿Tenés cupón de descuento?</span>
+          <span id="couponMsg" style="font-size:10px; font-weight:700;"></span>
+        </label>
+        <div style="display:flex; gap:6px;">
+          <input type="text" id="inputCouponCode" class="form-input" placeholder="Ej: PROMO10, ENVIOFREE" style="text-transform:uppercase; font-family:var(--font-mono); font-weight:700;">
+          <button type="button" class="btn-a11y-tts" onclick="applyCoupon()" style="padding: 0 12px; font-weight:700;">Aplicar</button>
+        </div>
+      </div>
+
+      <!-- Total summary -->
+      <div class="total-summary">
+        <div class="summary-row">
+          <span>Subtotal de platos:</span>
+          <span id="summarySubtotal">$0</span>
+        </div>
+        <div id="summaryDiscountRow" class="summary-row" style="display:none; color:#68D391;">
+          <span>Descuento aplicado:</span>
+          <span id="summaryDiscount">-$0</span>
+        </div>
+        <div id="summaryDeliveryRow" class="summary-row" style="display:none;">
+          <span>Costo de envío:</span>
+          <span id="summaryDeliveryFee">$0</span>
+        </div>
+        <div class="summary-row total-row">
+          <span>Total a Pagar:</span>
+          <span id="summaryTotal" class="total-amount">$0</span>
+        </div>
+      </div>
+
+      <!-- Bill Splitter (Calculadora división de cuenta) -->
+      <div id="billSplitterSection" class="bill-splitter-box" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span style="font-weight:700; color:var(--chalk-gold);">🧮 Dividir la Cuenta</span>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:11px; color:var(--chalk-dim);">Entre:</label>
+            <input type="number" id="splitCountInput" min="1" max="50" value="2" oninput="updateSplitCalculation()" style="width:52px; background:#0E1412; border:1px solid var(--border-chalk); color:#fff; border-radius:6px; padding:2px 6px; text-align:center; font-weight:700;">
+            <span style="font-size:11px; color:var(--chalk-dim);">personas</span>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; background:rgba(236,201,75,0.08); padding:6px 10px; border-radius:6px;">
+          <span style="color:var(--chalk-muted);">Cada persona paga aprox:</span>
+          <strong id="splitPerPersonDisplay" style="color:var(--chalk-gold); font-family:var(--font-mono); font-size:13px;">$0</strong>
+        </div>
+      </div>
+
+      <!-- External Payment Link Button (if configured) -->
+      <div id="externalPaymentBox" style="display:none; margin-bottom:12px;">
+        <a id="btnExternalPay" href="#" target="_blank" class="btn-wa-submit" style="background:#009EE3; color:#fff; text-decoration:none; margin-bottom:6px;">
+          <span>💳 Pagar Ahora Online (Link de Pago)</span>
+        </a>
+        <div style="font-size:10px; color:var(--chalk-dim); text-align:center;">Luego de pagar, envía la comanda por WhatsApp adjuntando el comprobante.</div>
+      </div>
+
+      <button class="btn-wa-submit" onclick="submitWhatsAppOrder()">
+        <span>📲 Enviar Pedido por WhatsApp</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Table Reservation Modal -->
+  <div id="reservationModal" class="modal-overlay">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeReservationModal()">✕</button>
+      <h3 class="modal-title">📅 Reservar Mesa</h3>
+      <p style="color:var(--chalk-dim); font-size:0.85rem; margin-bottom:14px;">Envía tu solicitud de reserva directamente al WhatsApp del local.</p>
+
+      <form onsubmit="submitReservation(event)">
+        <div class="form-group">
+          <label class="form-label">Nombre del Titular</label>
+          <input type="text" id="resName" class="form-input" placeholder="Ej: Marcela González" required>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label class="form-label">Fecha</label>
+            <input type="date" id="resDate" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Horario</label>
+            <input type="time" id="resTime" class="form-input" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Cantidad de Personas</label>
+          <select id="resGuests" class="form-select">
+            <option value="1">1 persona</option>
+            <option value="2" selected>2 personas</option>
+            <option value="3">3 personas</option>
+            <option value="4">4 personas</option>
+            <option value="5">5 personas</option>
+            <option value="6">6 personas</option>
+            <option value="8+">8 o más personas (Mesa larga)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Preferencia / Ocasión Especial</label>
+          <input type="text" id="resNotes" class="form-input" placeholder="Ej: Cumpleaños, mesa cerca de la ventana, afuera...">
+        </div>
+
+        <button type="submit" class="btn-wa-submit" style="background:#25D366; width:100%; margin-top:8px;">
+          <span>📲 Solicitar Reserva por WhatsApp</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Waiter Call / Bill Request Floating Button -->
+  <button class="waiter-fab" onclick="openWaiterModal()" title="Llamar al Mozo o Pedir la Cuenta">🔔</button>
+
+  <!-- Waiter Call Modal -->
+  <div id="waiterModal" class="modal-overlay">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeWaiterModal()">✕</button>
+      <h3 class="modal-title">🔔 Servicio de Mesa</h3>
+      <p style="color:var(--chalk-dim); font-size:0.85rem; margin-bottom:14px;">Envía una notificación rápida al personal del restaurante por WhatsApp.</p>
+
+      <div class="form-group">
+        <label class="form-label">N° de Mesa (opcional)</label>
+        <input type="text" id="waiterTableNum" class="form-input" placeholder="Ej: Mesa 4, Barra, Terraza">
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:12px;">
+        <button class="btn-wa-submit" style="background:#F6AD55; color:#0E1412;" onclick="sendWaiterCall('mozo')">
+          <span>🙋 Llamar al Mozo</span>
+        </button>
+        <button class="btn-wa-submit" style="background:#63B3ED; color:#0E1412;" onclick="sendWaiterCall('cuenta_efectivo')">
+          <span>🧾 Pedir la Cuenta (Efectivo)</span>
+        </button>
+        <button class="btn-wa-submit" style="background:#B794F4; color:#0E1412;" onclick="sendWaiterCall('cuenta_tarjeta')">
+          <span>💳 Pedir la Cuenta (Tarjeta)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Wi-Fi Modal -->
+  <div id="wifiModal" class="modal-overlay">
+    <div class="modal-box" style="text-align: center;">
+      <button class="modal-close" onclick="closeWifiModal()">✕</button>
+      <h3 class="modal-title">Red Wi-Fi del Local</h3>
+      <p style="color:var(--chalk-dim); font-size:0.88rem; margin-bottom:16px;">Conéctate gratis durante tu estadía.</p>
+      
+      <div style="background:#0E1412; padding:16px; border-radius:12px; border:1px solid var(--border-chalk); margin-bottom:16px;">
+        <div style="font-size:0.8rem; color:var(--chalk-dim);">Nombre de Red (SSID):</div>
+        <div id="wifiSsidDisplay" style="font-size:1.1rem; font-weight:700; color:#fff; margin-bottom:10px;"></div>
+
+        <div style="font-size:0.8rem; color:var(--chalk-dim);">Contraseña:</div>
+        <div id="wifiPassDisplay" style="font-family:var(--font-mono); font-size:1.2rem; font-weight:700; color:var(--chalk-gold); margin-bottom:12px;"></div>
+
+        <button class="meta-chip" onclick="copyWifiPassword()" style="margin:0 auto; padding:6px 14px; font-weight:bold;">
+          📋 Copiar Contraseña
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let restaurantData = null;
+    let selectedCategory = 'ALL';
+    let cart = {}; // { dishId: { dish, qty } }
+    let deliveryFee = 0;
+    let appliedCoupon = null; // { code: 'PROMO10', type: 'percent', value: 10 }
+    let discountAmount = 0;
+
+    // XSS Sanitizer Helper
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Waiter Call & Analytics Tracking
+    function openWaiterModal() {
+      document.getElementById('waiterModal').classList.add('active');
+    }
+    function closeWaiterModal() {
+      document.getElementById('waiterModal').classList.remove('active');
+    }
+    function sendWaiterCall(type) {
+      if (!restaurantData || !restaurantData.phone) {
+        alert('Este restaurante no tiene WhatsApp configurado.');
+        return;
+      }
+      const mesa = document.getElementById('waiterTableNum').value.trim() || 'No especificada';
+      let msg = '';
+      if (type === 'mozo') {
+        msg = `🔔 *LLAMADO AL MOZO*%0A📍 Mesa: ${mesa}%0A🕐 ${new Date().toLocaleTimeString()}%0A%0A_Enviado desde el menú digital ScanGo_`;
+      } else if (type === 'cuenta_efectivo') {
+        msg = `🧾 *CUENTA SOLICITADA*%0A📍 Mesa: ${mesa}%0A💵 Forma de pago: *Efectivo*%0A🕐 ${new Date().toLocaleTimeString()}%0A%0A_Enviado desde el menú digital ScanGo_`;
+      } else if (type === 'cuenta_tarjeta') {
+        msg = `🧾 *CUENTA SOLICITADA*%0A📍 Mesa: ${mesa}%0A💳 Forma de pago: *Tarjeta*%0A🕐 ${new Date().toLocaleTimeString()}%0A%0A_Enviado desde el menú digital ScanGo_`;
+      }
+      // Track analytics
+      fetch('/api/analytics/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: getSlug(), event: 'waiter' })
+      }).catch(() => {});
+      window.open(`https://wa.me/${restaurantData.phone}?text=${msg}`, '_blank');
+      closeWaiterModal();
+    }
+
+    // Detect slug
+    function getSlug() {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('slug')) return urlParams.get('slug');
+      const parts = window.location.pathname.split('/');
+      const mIndex = parts.indexOf('m');
+      if (mIndex !== -1 && parts[mIndex + 1]) {
+        return parts[mIndex + 1];
+      }
+      return 'demo';
+    }
+
+    // Fetch Restaurant Menu
+    async function loadMenu() {
+      const slug = getSlug();
+      try {
+        const res = await fetch(`/api/menu/${slug}`);
+        if (!res.ok) {
+          if (res.status === 402) {
+            renderUnavailable('El menú se encuentra temporalmente en actualización. Por favor consulta al mozo o en la barra.');
+            return;
+          }
+          renderUnavailable('Restaurante no encontrado.');
+          return;
+        }
+        const data = await res.json();
+        restaurantData = data.restaurant;
+        renderHeader();
+        renderCategories();
+        renderDishes();
+        // Track visit analytics
+        fetch('/api/analytics/event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug, event: 'visit' })
+        }).catch(() => {});
+      } catch (err) {
+        renderUnavailable('No se pudo conectar con el servidor.');
+      }
+    }
+
+    function renderUnavailable(msg) {
+      document.getElementById('restaurantName').textContent = 'Menú no disponible';
+      document.getElementById('dishesContainer').innerHTML = `
+        <div style="text-align:center; padding:50px 20px; background:#1C2723; border:1px solid rgba(255,255,255,0.1); border-radius:12px;">
+          <p style="color:#ECC94B; font-size:1.1rem; margin-bottom:10px;">📋 Aviso del establecimiento</p>
+          <p style="color:#CBD5E0;">${msg}</p>
+        </div>
+      `;
+    }
+
+    function renderHeader() {
+      document.title = `${restaurantData.name} — Menú Digital`;
+      document.getElementById('restaurantName').textContent = restaurantData.name;
+      document.getElementById('restaurantSlogan').textContent = restaurantData.slogan || 'Carta Gastronómica';
+
+      // Apply 7 Authentic Themes & Fonts to body
+      const validThemes = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck'];
+      const themeClass = validThemes.includes(restaurantData.theme) ? `theme-${restaurantData.theme}` : 'theme-emerald';
+      document.body.className = `${themeClass} font-${restaurantData.themeFont || 'serif'}`;
+
+      if (restaurantData.logoUrl) {
+        document.getElementById('restaurantLogoContainer').innerHTML = `
+          <img src="${restaurantData.logoUrl}" alt="Logo" class="restaurant-logo">
+        `;
+      }
+
+      // Show or Hide Reservation Chip strictly
+      const resChip = document.getElementById('reservationChip');
+      if (resChip) {
+        resChip.style.display = (restaurantData.allowReservations !== false) ? 'inline-flex' : 'none';
+      }
+
+      // Wi-Fi Chip
+      if (restaurantData.wifi && restaurantData.wifi.ssid) {
+        const wifiChip = document.getElementById('wifiChip');
+        wifiChip.style.display = 'inline-flex';
+        document.getElementById('wifiSsidDisplay').textContent = restaurantData.wifi.ssid;
+        document.getElementById('wifiPassDisplay').textContent = restaurantData.wifi.password || '(Sin clave)';
+      }
+
+      // Instagram Link Chip
+      const instaChip = document.getElementById('instagramChip');
+      if (instaChip) {
+        if (restaurantData.instagram) {
+          instaChip.style.display = 'inline-flex';
+          instaChip.href = `https://instagram.com/${restaurantData.instagram.replace('@', '')}`;
+          document.getElementById('instagramText').textContent = `@${restaurantData.instagram.replace('@', '')}`;
+        } else {
+          instaChip.style.display = 'none';
+        }
+      }
+
+      // Google Reviews Link Chip
+      const gReviewChip = document.getElementById('googleReviewChip');
+      if (gReviewChip) {
+        if (restaurantData.googleReview) {
+          gReviewChip.style.display = 'inline-flex';
+          gReviewChip.href = restaurantData.googleReview;
+        } else {
+          gReviewChip.style.display = 'none';
+        }
+      }
+
+      // Coupon Box Visibility Control
+      const couponBox = document.getElementById('couponSectionBox');
+      if (couponBox) {
+        couponBox.style.display = (restaurantData.allowCoupons !== false) ? 'block' : 'none';
+      }
+
+      // Phone & Address
+      if (restaurantData.phone) {
+        const pChip = document.getElementById('phoneChip');
+        pChip.style.display = 'inline-flex';
+        document.getElementById('phoneText').textContent = restaurantData.phone;
+      }
+
+      // Announcement Banner
+      const banner = document.getElementById('announcementBanner');
+      const bannerText = document.getElementById('announcementBannerText');
+      if (banner && bannerText) {
+        if (restaurantData.announcement && restaurantData.announcement.trim()) {
+          banner.style.display = 'flex';
+          bannerText.textContent = `📢 ${restaurantData.announcement.trim()}`;
+        } else {
+          banner.style.display = 'none';
+        }
+      }
+
+      // External Payment Link Setup
+      const payBox = document.getElementById('externalPaymentBox');
+      const btnPay = document.getElementById('btnExternalPay');
+      if (payBox && btnPay) {
+        if (restaurantData.paymentLink && restaurantData.paymentLink.trim()) {
+          payBox.style.display = 'block';
+          btnPay.href = restaurantData.paymentLink.trim();
+        } else {
+          payBox.style.display = 'none';
+        }
+      }
+
+      // Bill Splitter Feature Check
+      const billSplitterSection = document.getElementById('billSplitterSection');
+      if (billSplitterSection) {
+        billSplitterSection.style.display = (restaurantData.allowBillSplitter !== false) ? 'block' : 'none';
+      }
+
+      // Auto-detect Mesa Query Param (?mesa=N)
+      const urlParams = new URLSearchParams(window.location.search);
+      const mesaParam = urlParams.get('mesa');
+      if (mesaParam) {
+        const orderTable = document.getElementById('orderTable');
+        const waiterTableNum = document.getElementById('waiterTableNum');
+        if (orderTable && !orderTable.value) orderTable.value = `Mesa ${mesaParam}`;
+        if (waiterTableNum && !waiterTableNum.value) waiterTableNum.value = `Mesa ${mesaParam}`;
+      }
+
+      if (restaurantData.address) {
+        const aChip = document.getElementById('addressChip');
+        aChip.style.display = 'inline-flex';
+        document.getElementById('addressText').textContent = restaurantData.address;
+      }
+    }
+
+    function renderCategories() {
+      const pillsContainer = document.getElementById('categoryPills');
+      const cats = restaurantData.categories || [];
+      const hasFeatured = (restaurantData.dishes || []).some(d => d.tags && d.tags.includes('star'));
+
+      let html = `<button class="cat-pill ${selectedCategory === 'ALL' ? 'active' : ''}" onclick="selectCategory('ALL')">Todos</button>`;
+      if (hasFeatured) {
+        html += `<button class="cat-pill ${selectedCategory === 'POPULAR' ? 'active' : ''}" onclick="selectCategory('POPULAR')" style="color:var(--chalk-gold); border-color:rgba(236,201,75,0.4);">⭐ Populares</button>`;
+      }
+
+      cats.forEach(c => {
+        html += `<button class="cat-pill ${selectedCategory === c.id ? 'active' : ''}" onclick="selectCategory('${c.id}')">${escapeHtml(c.name)}</button>`;
+      });
+      pillsContainer.innerHTML = html;
+    }
+
+    function selectCategory(catId) {
+      selectedCategory = catId;
+      document.querySelectorAll('.cat-pill').forEach(btn => {
+        const isSelected = (catId === 'ALL' && btn.textContent.trim() === 'Todos') ||
+                           (catId === 'POPULAR' && btn.textContent.trim().includes('Populares')) ||
+                           (restaurantData.categories && (restaurantData.categories.find(c => c.id === catId) || {}).name === btn.textContent.trim());
+        btn.classList.toggle('active', isSelected);
+      });
+      renderDishes();
+    }
+
+    function renderDishes() {
+      const container = document.getElementById('dishesContainer');
+      const searchTerm = document.getElementById('searchFilter').value.toLowerCase().trim();
+      const currency = restaurantData.currency || '$';
+      const categories = restaurantData.categories || [];
+      const dishes = restaurantData.dishes || [];
+
+      if (!dishes.length) {
+        container.innerHTML = '<div class="loading-spinner">No hay platos cargados aún.</div>';
+        return;
+      }
+
+      // Check for scheduled menu restriction
+      if (restaurantData.scheduleEnabled && restaurantData.scheduleActiveHours) {
+        const now = new Date();
+        const currentHour = now.getHours() + (now.getMinutes() / 60);
+        const [startH, endH] = (restaurantData.scheduleActiveHours || '00:00-23:59').split('-').map(t => {
+          const [h, m] = t.split(':').map(Number);
+          return h + (m || 0) / 60;
+        });
+        if (startH !== undefined && endH !== undefined && (currentHour < startH || currentHour > endH)) {
+          container.innerHTML = `
+            <div style="text-align:center; padding:40px 20px; background:rgba(236,201,75,0.06); border:1px dashed var(--border-gold); border-radius:12px;">
+              <p style="font-size:1.2rem; color:var(--chalk-gold); font-family:var(--font-heading); margin-bottom:8px;">Carta Fuera de Horario</p>
+              <p style="color:var(--chalk-dim); font-size:0.9rem;">Esta carta está disponible de ${restaurantData.scheduleActiveHours} hs. Por favor consulta con el personal.</p>
+            </div>
+          `;
+          return;
+        }
+      }
+
+      let html = '';
+
+      // Special Mode: Popular / Featured Dishes
+      if (selectedCategory === 'POPULAR') {
+        const popularDishes = dishes.filter(d => {
+          const isStar = d.tags && d.tags.includes('star');
+          const matchesSearch = !searchTerm || d.name.toLowerCase().includes(searchTerm) || (d.description && d.description.toLowerCase().includes(searchTerm));
+          return isStar && matchesSearch;
+        });
+
+        if (!popularDishes.length) {
+          container.innerHTML = '<div class="loading-spinner">No se encontraron platos destacados.</div>';
+          return;
+        }
+
+        html += `
+          <div class="category-section">
+            <div class="category-title">
+              <span>⭐ Favoritos & Especialidades de la Casa</span>
+              <span class="category-badge-count">${popularDishes.length} platos</span>
+            </div>
+            <div class="dishes-grid">
+        `;
+        popularDishes.forEach(d => { html += renderSingleDishCard(d, currency); });
+        html += `</div></div>`;
+        container.innerHTML = html;
+        return;
+      }
+
+      // Standard Mode: Loop through categories
+      categories.forEach(cat => {
+        if (selectedCategory !== 'ALL' && selectedCategory !== cat.id) return;
+
+        const catDishes = dishes.filter(d => {
+          const matchesCat = d.categoryId === cat.id;
+          const matchesSearch = !searchTerm || d.name.toLowerCase().includes(searchTerm) || (d.description && d.description.toLowerCase().includes(searchTerm));
+          return matchesCat && matchesSearch;
+        });
+
+        if (!catDishes.length) return;
+
+        html += `
+          <div class="category-section" id="cat_${cat.id}">
+            <div class="category-title">
+              <span>${escapeHtml(cat.name)}</span>
+              <span class="category-badge-count">${catDishes.length} platos</span>
+            </div>
+            <div class="dishes-grid">
+        `;
+
+        catDishes.forEach(d => { html += renderSingleDishCard(d, currency); });
+
+        html += `
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html || '<div class="loading-spinner">No se encontraron platos con ese término.</div>';
+    }
+
+    function renderSingleDishCard(d, currency) {
+      const inCart = cart[d.id] ? cart[d.id].qty : 0;
+      const isSold = Boolean(d.outOfStock);
+      let badgeHtml = '';
+      if (isSold) badgeHtml += '<span class="dish-badge" style="background:#E53E3E; color:#fff;">✕ AGOTADO HOY</span> ';
+      if (d.tags && (d.tags.includes('veggie') || d.tags.includes('vegetariano'))) badgeHtml += '<span class="dish-badge badge-veggie">🥬 Vegetariano</span> ';
+      if (d.tags && (d.tags.includes('vegano') || d.tags.includes('vegan'))) badgeHtml += '<span class="dish-badge badge-veggie">🌱 Vegano</span> ';
+      if (d.tags && (d.tags.includes('celiac') || d.tags.includes('singluten'))) badgeHtml += '<span class="dish-badge badge-celiac">🌾 Sin TACC</span> ';
+      if (d.tags && d.tags.includes('sinlactosa')) badgeHtml += '<span class="dish-badge" style="background:rgba(99,179,237,0.2); color:#63B3ED; border:1px solid rgba(99,179,237,0.4);">🥛 Sin Lactosa</span> ';
+      if (d.tags && d.tags.includes('picante')) badgeHtml += '<span class="dish-badge" style="background:rgba(237,137,54,0.2); color:#ED8936; border:1px solid rgba(237,137,54,0.4);">🌶️ Picante</span> ';
+      if (d.tags && d.tags.includes('star')) badgeHtml += '<span class="dish-badge badge-star">⭐ Destacado</span> ';
+
+      const photoHtml = d.photoUrl 
+        ? `<img src="${d.photoUrl}" alt="${escapeHtml(d.name)}" class="dish-thumb" loading="lazy">` 
+        : '';
+
+      return `
+        <div class="dish-card ${isSold ? 'dish-sold' : ''}" id="dish_card_${d.id}" style="${isSold ? 'opacity:0.5; filter:grayscale(0.6);' : ''}">
+          ${photoHtml}
+          <div class="dish-body">
+            <div class="dish-title-line">
+              <span class="dish-name" style="${isSold ? 'text-decoration:line-through;' : ''}">${escapeHtml(d.name)}</span>
+              ${badgeHtml}
+            </div>
+            ${d.description ? `<p class="dish-desc">${escapeHtml(d.description)}</p>` : ''}
+            <div class="dish-price">${isSold ? '<span style="color:#E53E3E; font-size:0.85rem;">Agotado</span>' : `${currency} ${d.price}`}</div>
+          </div>
+          <div class="dish-action">
+            ${isSold 
+              ? '<button class="btn-add" disabled style="background:#4A5568; cursor:not-allowed; opacity:0.6;">✕</button>' 
+              : `<button class="btn-add" onclick="addToCart('${d.id}')" aria-label="Agregar ${escapeHtml(d.name)}">+</button>`}
+            ${inCart > 0 ? `<span class="qty-counter">${inCart} en comanda</span>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    function filterDishes() {
+      renderDishes();
+    }
+
+    // Cart Handlers
+    function addToCart(dishId) {
+      const dish = restaurantData.dishes.find(d => d.id === dishId);
+      if (!dish) return;
+
+      if (!cart[dishId]) {
+        cart[dishId] = { dish, qty: 1 };
+      } else {
+        cart[dishId].qty += 1;
+      }
+      updateCartUI();
+      renderDishes();
+    }
+
+    function changeCartQty(dishId, delta) {
+      if (!cart[dishId]) return;
+      cart[dishId].qty += delta;
+      if (cart[dishId].qty <= 0) {
+        delete cart[dishId];
+      }
+      updateCartUI();
+      renderDishes();
+      renderCartModalList();
+    }
+
+    function updateCartUI() {
+      const totalCount = Object.values(cart).reduce((sum, item) => sum + item.qty, 0);
+      const subtotal = Object.values(cart).reduce((sum, item) => sum + (item.qty * item.dish.price), 0);
+      const currency = restaurantData.currency || '$';
+
+      const bar = document.getElementById('floatingCart');
+      if (totalCount > 0) {
+        bar.classList.add('active');
+        document.getElementById('cartCountBadge').textContent = `🛒 ${totalCount} ítems`;
+        document.getElementById('cartTotalBadge').textContent = `${currency} ${subtotal}`;
+      } else {
+        bar.classList.remove('active');
+      }
+    }
+
+    function openCartModal() {
+      document.getElementById('cartModal').classList.add('active');
+      populateDeliveryZones();
+      renderCartModalList();
+    }
+
+    function closeCartModal() {
+      document.getElementById('cartModal').classList.remove('active');
+    }
+
+    function renderCartModalList() {
+      const list = document.getElementById('cartItemsList');
+      const currency = restaurantData.currency || '$';
+      const items = Object.values(cart);
+
+      if (!items.length) {
+        list.innerHTML = '<p style="color:var(--chalk-dim); text-align:center; padding:16px;">El pedido está vacío.</p>';
+        updateTotals();
+        return;
+      }
+
+      let html = '';
+      items.forEach(item => {
+        html += `
+          <div class="cart-item">
+            <div>
+              <div class="cart-item-title">${item.dish.name}</div>
+              <div class="cart-item-price">${currency} ${item.dish.price} x ${item.qty} = ${currency} ${item.dish.price * item.qty}</div>
+            </div>
+            <div class="cart-qty-ctrl">
+              <button class="btn-qty" onclick="changeCartQty('${item.dish.id}', -1)">-</button>
+              <span style="font-family:var(--font-mono);">${item.qty}</span>
+              <button class="btn-qty" onclick="changeCartQty('${item.dish.id}', 1)">+</button>
+            </div>
+          </div>
+        `;
+      });
+      list.innerHTML = html;
+      updateTotals();
+    }
+
+    function populateDeliveryZones() {
+      const select = document.getElementById('deliveryZoneSelect');
+      const zones = (restaurantData && restaurantData.deliveryZones) || [];
+      const currency = restaurantData.currency || '$';
+
+      select.innerHTML = '<option value="0" data-fee="0">Selecciona zona de entrega...</option>';
+      zones.forEach(z => {
+        const opt = document.createElement('option');
+        opt.value = z.name;
+        opt.dataset.fee = z.fee;
+        opt.textContent = `${z.name} (${currency} ${z.fee})`;
+        select.appendChild(opt);
+      });
+    }
+
+    function handleOrderModeChange() {
+      const mode = document.getElementById('orderMode').value;
+      const tableField = document.getElementById('tableField');
+      const deliveryField = document.getElementById('deliveryZoneField');
+
+      if (mode === 'LOCAL') {
+        tableField.style.display = 'block';
+        deliveryField.style.display = 'none';
+        deliveryFee = 0;
+      } else if (mode === 'DELIVERY') {
+        tableField.style.display = 'none';
+        deliveryField.style.display = 'block';
+        updateDeliveryFee();
+      } else { // TAKEAWAY
+        tableField.style.display = 'none';
+        deliveryField.style.display = 'none';
+        deliveryFee = 0;
+      }
+      updateTotals();
+    }
+
+    function updateDeliveryFee() {
+      const select = document.getElementById('deliveryZoneSelect');
+      const selectedOpt = select.options[select.selectedIndex];
+      deliveryFee = selectedOpt ? parseFloat(selectedOpt.dataset.fee || 0) : 0;
+      updateTotals();
+    }
+
+    function applyCoupon() {
+      const input = document.getElementById('inputCouponCode');
+      const code = (input.value || '').trim().toUpperCase();
+      const msg = document.getElementById('couponMsg');
+
+      if (!code) {
+        appliedCoupon = null;
+        msg.textContent = '';
+        updateTotals();
+        return;
+      }
+
+      if (code === 'PROMO10') {
+        appliedCoupon = { code: 'PROMO10', type: 'percent', value: 10, label: '10% OFF' };
+        msg.style.color = '#68D391';
+        msg.textContent = '✓ 10% Descuento aplicado';
+      } else if (code === 'PROMO15') {
+        appliedCoupon = { code: 'PROMO15', type: 'percent', value: 15, label: '15% OFF' };
+        msg.style.color = '#68D391';
+        msg.textContent = '✓ 15% Descuento aplicado';
+      } else if (code === 'ENVIOFREE') {
+        appliedCoupon = { code: 'ENVIOFREE', type: 'free_delivery', value: 0, label: 'Envío Gratis' };
+        msg.style.color = '#68D391';
+        msg.textContent = '✓ Costo de envío bonificado';
+      } else {
+        appliedCoupon = null;
+        msg.style.color = '#FEB2B2';
+        msg.textContent = '✕ Cupón inválido';
+      }
+      updateTotals();
+    }
+
+    function updateTotals() {
+      const currency = restaurantData.currency || '$';
+      const subtotal = Object.values(cart).reduce((sum, item) => sum + (item.qty * item.dish.price), 0);
+      const mode = document.getElementById('orderMode').value;
+
+      document.getElementById('summarySubtotal').textContent = `${currency} ${subtotal}`;
+      const deliveryRow = document.getElementById('summaryDeliveryRow');
+      const discountRow = document.getElementById('summaryDiscountRow');
+
+      let currentDelivery = (mode === 'DELIVERY' ? deliveryFee : 0);
+      discountAmount = 0;
+
+      if (appliedCoupon) {
+        if (appliedCoupon.type === 'percent') {
+          discountAmount = Math.round(subtotal * (appliedCoupon.value / 100));
+        } else if (appliedCoupon.type === 'free_delivery' && mode === 'DELIVERY') {
+          discountAmount = currentDelivery;
+        }
+      }
+
+      if (discountAmount > 0) {
+        discountRow.style.display = 'flex';
+        document.getElementById('summaryDiscount').textContent = `-${currency} ${discountAmount} (${appliedCoupon.label})`;
+      } else {
+        discountRow.style.display = 'none';
+      }
+
+      if (mode === 'DELIVERY' && deliveryFee > 0) {
+        deliveryRow.style.display = 'flex';
+        document.getElementById('summaryDeliveryFee').textContent = `${currency} ${deliveryFee}`;
+      } else {
+        deliveryRow.style.display = 'none';
+      }
+
+      const total = Math.max(0, subtotal + currentDelivery - discountAmount);
+      document.getElementById('summaryTotal').textContent = `${currency} ${total}`;
+      updateSplitCalculation();
+    }
+
+    function updateSplitCalculation() {
+      const splitBox = document.getElementById('billSplitterSection');
+      if (!splitBox || splitBox.style.display === 'none') return;
+
+      const currency = restaurantData.currency || '$';
+      const countInput = document.getElementById('splitCountInput');
+      const count = parseInt(countInput ? countInput.value : 2) || 1;
+      const subtotal = Object.values(cart).reduce((sum, item) => sum + (item.qty * item.dish.price), 0);
+      const mode = document.getElementById('orderMode').value;
+      const currentDelivery = (mode === 'DELIVERY' ? deliveryFee : 0);
+      const total = Math.max(0, subtotal + currentDelivery - discountAmount);
+
+      const perPerson = Math.ceil(total / Math.max(1, count));
+      const display = document.getElementById('splitPerPersonDisplay');
+      if (display) {
+        display.textContent = `${currency} ${perPerson} c/u (${count} personas)`;
+      }
+    }
+
+    function submitWhatsAppOrder() {
+      const items = Object.values(cart);
+      if (!items.length) {
+        alert('Por favor agrega platos a tu pedido primero.');
+        return;
+      }
+
+      const mode = document.getElementById('orderMode').value;
+      const customerName = document.getElementById('orderCustomerName').value.trim() || 'Cliente';
+      const notes = document.getElementById('orderNotes').value.trim();
+      const payment = document.getElementById('orderPayment').value;
+      const currency = restaurantData.currency || '$';
+      const subtotal = items.reduce((sum, item) => sum + (item.qty * item.dish.price), 0);
+      const currentDelivery = (mode === 'DELIVERY' ? deliveryFee : 0);
+      const total = Math.max(0, subtotal + currentDelivery - discountAmount);
+
+      let msg = `📋 *NUEVO PEDIDO - ${restaurantData.name.toUpperCase()}*\n`;
+      msg += `👤 *Cliente:* ${customerName}\n`;
+
+      if (mode === 'LOCAL') {
+        const table = document.getElementById('orderTable').value.trim() || 'Mesa no especificada';
+        msg += `🍽️ *Modalidad:* En el local - *${table}*\n\n`;
+      } else if (mode === 'TAKEAWAY') {
+        msg += `🛍️ *Modalidad:* Retiro en el local (Take Away)\n\n`;
+      } else {
+        const zoneSelect = document.getElementById('deliveryZoneSelect');
+        const zoneName = zoneSelect.options[zoneSelect.selectedIndex].text;
+        const address = document.getElementById('orderAddress').value.trim() || 'Dirección no especificada';
+        msg += `🛵 *Modalidad:* Envío a Domicilio\n`;
+        msg += `📍 *Zona:* ${zoneName}\n`;
+        msg += `🏠 *Dirección:* ${address}\n\n`;
+      }
+
+      msg += `*DETALLE DE LA COMANDA:*\n`;
+      items.forEach(it => {
+        msg += `▪ ${it.qty}x ${it.dish.name} - ${currency} ${it.dish.price * it.qty}\n`;
+      });
+
+      if (notes) {
+        msg += `\n📝 *Aclaraciones:* ${notes}\n`;
+      }
+
+      msg += `\n💵 *Subtotal:* ${currency} ${subtotal}\n`;
+      if (appliedCoupon && discountAmount > 0) {
+        msg += `🎟️ *Descuento Cupón (${appliedCoupon.code}):* -${currency} ${discountAmount}\n`;
+      }
+      if (mode === 'DELIVERY' && deliveryFee > 0) {
+        msg += `🛵 *Envío:* ${currency} ${deliveryFee}\n`;
+      }
+      msg += `💰 *TOTAL A PAGAR:* ${currency} ${total}\n`;
+      msg += `💳 *Método de Pago Seleccionado:* [${payment.toUpperCase()}]\n`;
+      if (payment.includes('Transferencia')) {
+        msg += `ℹ️ _Se adjuntará el comprobante de transferencia por este chat._\n`;
+      }
+      if (restaurantData.paymentLink) {
+        msg += `🔗 _Link de Pago:_ ${restaurantData.paymentLink}\n`;
+      }
+      msg += `\n_Enviado desde ScanGo (Menú Digital)_`;
+
+      const rawPhone = (restaurantData.phone || '').replace(/[^0-9]/g, '');
+      const waUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`;
+      // Track order analytics
+      fetch('/api/analytics/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: getSlug(), event: 'order' })
+      }).catch(() => {});
+      window.open(waUrl, '_blank');
+    }
+
+    // Reservation Modal Logic
+    function openReservationModal() {
+      const today = new Date().toISOString().split('T')[0];
+      const dateInput = document.getElementById('resDate');
+      if (dateInput) {
+        dateInput.min = today;
+        if (!dateInput.value) dateInput.value = today;
+      }
+      document.getElementById('reservationModal').classList.add('active');
+    }
+
+    function closeReservationModal() {
+      document.getElementById('reservationModal').classList.remove('active');
+    }
+
+    function submitReservation(e) {
+      e.preventDefault();
+      const name = document.getElementById('resName').value.trim();
+      const date = document.getElementById('resDate').value;
+      const time = document.getElementById('resTime').value;
+      const guests = document.getElementById('resGuests').value;
+      const notes = document.getElementById('resNotes').value.trim();
+
+      let msg = `📅 *SOLICITUD DE RESERVA - ${restaurantData.name.toUpperCase()}*\n\n`;
+      msg += `👤 *Titular:* ${name}\n`;
+      msg += `📆 *Fecha:* ${date}\n`;
+      msg += `⏰ *Hora:* ${time} hs\n`;
+      msg += `👥 *Comensales:* ${guests}\n`;
+      if (notes) {
+        msg += `📝 *Observaciones:* ${notes}\n`;
+      }
+      msg += `\n_¿Tienen disponibilidad para confirmar la reserva?_\n`;
+      msg += `_Enviado desde ScanGo_`;
+
+      const rawPhone = (restaurantData.phone || '').replace(/[^0-9]/g, '');
+      const waUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`;
+      // Track reservation analytics
+      fetch('/api/analytics/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: getSlug(), event: 'reservation' })
+      }).catch(() => {});
+      window.open(waUrl, '_blank');
+      closeReservationModal();
+    }
+
+    // Wi-Fi Modal
+    function openWifiModal() {
+      document.getElementById('wifiModal').classList.add('active');
+    }
+    function closeWifiModal() {
+      document.getElementById('wifiModal').classList.remove('active');
+    }
+    function copyWifiPassword() {
+      const pass = restaurantData.wifi ? restaurantData.wifi.password : '';
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(pass).then(() => alert('Contraseña copiada al portapapeles'));
+      } else {
+        prompt('Copia la contraseña:', pass);
+      }
+    }
+
+    // TTS Accessibility
+    function readSelectedCategoryTTS() {
+      if (!('speechSynthesis' in window)) {
+        alert('La síntesis de voz no está soportada en este navegador.');
+        return;
+      }
+      const category = selectedCategory === 'ALL' 
+        ? 'Todos los platos disponibles' 
+        : (restaurantData.categories.find(c => c.id === selectedCategory) || {}).name;
+      
+      const dishes = restaurantData.dishes.filter(d => selectedCategory === 'ALL' || d.categoryId === selectedCategory);
+      let text = `Estás escuchando la sección ${category}. `;
+      dishes.forEach(d => {
+        text += `${d.name}, precio ${d.price} pesos. ${d.description || ''}. `;
+      });
+
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'es-ES';
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utter);
+    }
+
+    // Init
+    window.addEventListener('DOMContentLoaded', loadMenu);
+  </script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "appId": "com.menupizarron.studio",
+  "appName": "Menú Pizarrón Studio",
+  "webDir": "public",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "buildOptions": {
+      "releaseType": "AAB"
+    }
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "backgroundColor": "#121A18",
+      "showSpinner": false
+    }
+  }
+}

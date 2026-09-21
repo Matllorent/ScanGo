@@ -1,0 +1,667 @@
+const express = require('express');
+const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken');
+const path = require('path');
+const bcrypt = require('bcryptjs');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const db = require('../src/db/db');
+const billingOrchestrator = require('../src/billing/orchestrator');
+const emailService = require('../src/email/emailService');
+const { hashPassword, comparePassword } = require('./utils/hash');
+const { registerSchema, loginSchema, validateBody } = require('./middleware/validation');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_menu_pizarron_2026';
+const ADMIN_KEY = process.env.ADMIN_KEY || 'pizarron_admin_master_key_2026';
+
+// Resolve public directory reliably across environments
+const fs = require('fs');
+let PUBLIC_DIR = path.resolve(__dirname, '..', 'public');
+if (!fs.existsSync(PUBLIC_DIR)) {
+  PUBLIC_DIR = path.resolve(process.cwd(), 'public');
+}
+if (!fs.existsSync(PUBLIC_DIR)) {
+  PUBLIC_DIR = path.resolve(__dirname, 'public');
+}
+
+// Security headers with Helmet (disabling CSP to allow external CDNs like Google Fonts, FontAwesome, etc.)
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+
+// CORS setup
+app.use(cors({ origin: true, credentials: true }));
+app.use(cookieParser());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Rate limiter for authentication to prevent brute force
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 30, // max 30 intentos por IP en esa ventana
+  message: { error: 'Demasiados intentos de acceso desde esta IP. Por favor intentá nuevamente en 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Strict rate limiter for Admin Master login
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 6, // max 6 intentos para proteger la clave maestra
+  message: { error: 'Demasiados intentos erróneos de clave maestra. Acceso temporalmente bloqueado por 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Production-ready secure cookie flags
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax',
+  maxAge: 30 * 24 * 3600 * 1000
+};
+
+// Input Sanitizer to prevent malicious or malformed restaurant data
+function sanitizeRestaurantPayload(data) {
+  if (!data || typeof data !== 'object') return {};
+  const clean = { ...data };
+  if (clean.name) clean.name = String(clean.name).slice(0, 80);
+  if (clean.bizName) clean.bizName = String(clean.bizName).slice(0, 80);
+  if (clean.slogan) clean.slogan = String(clean.slogan).slice(0, 150);
+  if (clean.phone) clean.phone = String(clean.phone).replace(/[^0-9+]/g, '').slice(0, 20);
+  if (clean.currency) clean.currency = String(clean.currency).slice(0, 5);
+  if (clean.theme) clean.theme = String(clean.theme).slice(0, 30);
+  if (clean.themeFont) clean.themeFont = String(clean.themeFont).slice(0, 30);
+  if (clean.instagram) clean.instagram = String(clean.instagram).replace(/[^a-zA-Z0-9._]/g, '').slice(0, 40);
+  if (clean.googleReview) clean.googleReview = String(clean.googleReview).slice(0, 300);
+  if (typeof clean.allowReservations !== 'undefined') clean.allowReservations = Boolean(clean.allowReservations);
+  if (typeof clean.allowCoupons !== 'undefined') clean.allowCoupons = Boolean(clean.allowCoupons);
+  if (typeof clean.allowBillSplitter !== 'undefined') clean.allowBillSplitter = Boolean(clean.allowBillSplitter);
+  if (clean.announcement) clean.announcement = String(clean.announcement).slice(0, 300);
+  if (clean.paymentLink) clean.paymentLink = String(clean.paymentLink).slice(0, 500);
+  if (typeof clean.scheduleEnabled !== 'undefined') clean.scheduleEnabled = Boolean(clean.scheduleEnabled);
+  if (clean.scheduleActiveHours) clean.scheduleActiveHours = String(clean.scheduleActiveHours).slice(0, 30);
+  if (clean.tableCount) clean.tableCount = Math.max(1, Math.min(100, parseInt(clean.tableCount) || 1));
+
+  if (clean.logoUrl && typeof clean.logoUrl === 'string' && clean.logoUrl.length > 5000000) {
+    clean.logoUrl = clean.logoUrl.slice(0, 5000000);
+  }
+
+  if (Array.isArray(clean.dishes)) {
+    clean.dishes = clean.dishes.slice(0, 400).map(d => ({
+      id: String(d.id || ('d_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4))),
+      categoryId: String(d.categoryId || ''),
+      name: String(d.name || 'Sin nombre').slice(0, 100),
+      price: Math.max(0, parseFloat(d.price) || 0),
+      description: String(d.description || '').slice(0, 400),
+      photoUrl: d.photoUrl && typeof d.photoUrl === 'string' ? d.photoUrl.slice(0, 1500) : null,
+      outOfStock: Boolean(d.outOfStock),
+      tags: Array.isArray(d.tags) ? d.tags.slice(0, 8).map(t => String(t).slice(0, 25)) : []
+    }));
+  }
+  if (Array.isArray(clean.categories)) {
+    clean.categories = clean.categories.slice(0, 60).map(c => ({
+      id: String(c.id || ('cat_' + Date.now())),
+      name: String(c.name || 'Categoría').slice(0, 60)
+    }));
+  }
+  if (Array.isArray(clean.deliveryZones)) {
+    clean.deliveryZones = clean.deliveryZones.slice(0, 25).map(z => ({
+      name: String(z.name || 'Zona').slice(0, 60),
+      fee: Math.max(0, parseFloat(z.fee) || 0)
+    }));
+  }
+  if (Array.isArray(clean.customCoupons)) {
+    clean.customCoupons = clean.customCoupons.slice(0, 20).map(cp => ({
+      code: String(cp.code || '').trim().toUpperCase().slice(0, 20),
+      type: cp.type === 'free_delivery' ? 'free_delivery' : 'percent',
+      value: Math.max(0, Math.min(100, parseFloat(cp.value) || 0)),
+      label: String(cp.label || '').slice(0, 40)
+    })).filter(cp => cp.code.length >= 2);
+  }
+  if (Array.isArray(clean.teamMembers)) {
+    clean.teamMembers = clean.teamMembers.slice(0, 15).map(m => ({
+      email: String(m.email || '').trim().toLowerCase().slice(0, 80),
+      role: ['admin', 'waiter', 'kitchen'].includes(m.role) ? m.role : 'waiter',
+      name: String(m.name || '').slice(0, 60),
+      addedAt: m.addedAt || new Date().toISOString()
+    })).filter(m => m.email.includes('@'));
+  }
+  return clean;
+}
+
+// In-Memory Cache with Mutex / Single-Flight to prevent Cache Stampede
+const menuCache = new Map(); // slug -> { data, expiresAt, fetchingPromise }
+function getCachedMenu(slug, fetcherFn) {
+  const now = Date.now();
+  const entry = menuCache.get(slug);
+
+  // Cache hit and still fresh (5 seconds TTL)
+  if (entry && entry.expiresAt > now && entry.data) {
+    return Promise.resolve(entry.data);
+  }
+
+  // Mutex: If a fetch is already in progress for this slug, join the existing promise (Prevents Cache Stampede!)
+  if (entry && entry.fetchingPromise) {
+    return entry.fetchingPromise;
+  }
+
+  // Stale-While-Revalidate: If stale data is available, return immediately while refreshing in background
+  if (entry && entry.data) {
+    const refreshPromise = Promise.resolve().then(fetcherFn).then(freshData => {
+      menuCache.set(slug, { data: freshData, expiresAt: Date.now() + 5000, fetchingPromise: null });
+      return freshData;
+    }).catch(() => {});
+    entry.fetchingPromise = refreshPromise;
+    return Promise.resolve(entry.data);
+  }
+
+  // Cold cache: First request fetches and sets promise
+  const fetchingPromise = Promise.resolve().then(fetcherFn).then(freshData => {
+    menuCache.set(slug, { data: freshData, expiresAt: Date.now() + 5000, fetchingPromise: null });
+    return freshData;
+  }).catch(err => {
+    menuCache.delete(slug);
+    throw err;
+  });
+
+  menuCache.set(slug, { data: null, expiresAt: 0, fetchingPromise });
+  return fetchingPromise;
+}
+
+function invalidateMenuCache(slug) {
+  if (slug) menuCache.delete(slug.toLowerCase());
+}
+
+// Static files (allow dotfiles because workspace path contains .gemini)
+app.use(express.static(PUBLIC_DIR, { dotfiles: 'allow' }));
+
+// Helper: Verify Auth
+function authMiddleware(req, res, next) {
+  const token = req.cookies.auth_token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
+  if (!token) return res.status(401).json({ error: 'No autorizado' });
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido o expirado' });
+  }
+}
+
+// Helper: Admin Master Auth with optional TOTP (Google Authenticator)
+const crypto = require('crypto');
+function verifyTotpToken(token, secret) {
+  if (!secret) return true;
+  if (!token) return false;
+  function base32Decode(base32) {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    let bits = '';
+    for (let i = 0; i < base32.length; i++) {
+      const val = alphabet.indexOf(base32.charAt(i).toUpperCase());
+      if (val !== -1) bits += val.toString(2).padStart(5, '0');
+    }
+    const bytes = [];
+    for (let i = 0; i + 8 <= bits.length; i += 8) {
+      bytes.push(parseInt(bits.substr(i, 8), 2));
+    }
+    return Buffer.from(bytes);
+  }
+  try {
+    const keyBuffer = base32Decode(secret.replace(/\s+/g, ''));
+    const epoch = Math.floor(Date.now() / 1000);
+    const currentStep = Math.floor(epoch / 30);
+    for (let offset = -1; offset <= 1; offset++) {
+      const step = currentStep + offset;
+      const timeBuffer = Buffer.alloc(8);
+      timeBuffer.writeUInt32BE(0, 0);
+      timeBuffer.writeUInt32BE(step, 4);
+      const hmac = crypto.createHmac('sha1', keyBuffer);
+      hmac.update(timeBuffer);
+      const digest = hmac.digest();
+      const hmacOffset = digest[digest.length - 1] & 0xf;
+      const code = ((digest[hmacOffset] & 0x7f) << 24 |
+        (digest[hmacOffset + 1] & 0xff) << 16 |
+        (digest[hmacOffset + 2] & 0xff) << 8 |
+        (digest[hmacOffset + 3] & 0xff)) % 1000000;
+      if (code.toString().padStart(6, '0') === String(token).trim()) {
+        return true;
+      }
+    }
+  } catch (e) {}
+  return false;
+}
+
+function adminMiddleware(req, res, next) {
+  const key = req.headers['x-admin-key'] || req.query.adminKey || req.cookies.admin_key;
+  const totp = req.headers['x-admin-totp'] || req.query.adminTotp || req.body?.totp;
+  const adminTotpSecret = process.env.ADMIN_TOTP_SECRET;
+
+  if (key && key === ADMIN_KEY) {
+    if (adminTotpSecret && !verifyTotpToken(totp, adminTotpSecret)) {
+      return res.status(403).json({ error: 'Código Google Authenticator inválido o expirado' });
+    }
+    return next();
+  }
+  return res.status(403).json({ error: 'Acceso denegado al panel de administración' });
+}
+
+// ==================== AUTH ROUTES ====================
+app.post('/api/auth/register', authLimiter, validateBody(registerSchema), async (req, res) => {
+  try {
+    const { email, password, name, restaurantName, bizName } = req.body;
+
+    // Anti-abuse: Block disposable email domains
+    const disposableDomains = ['yopmail.com','tempmail.com','guerrillamail.com','10minutemail.com','throwaway.email','mailinator.com','trashmail.com','fakeinbox.com','sharklasers.com','guerrillamailblock.com','grr.la','dispostable.com','temp-mail.org','mohmal.com','maildrop.cc'];
+    const emailDomain = email.split('@')[1]?.toLowerCase();
+    if (disposableDomains.includes(emailDomain)) {
+      return res.status(400).json({ error: 'No se permiten correos temporales o desechables. Usá tu email profesional.' });
+    }
+
+    const existing = db.findUserByEmail(email);
+    if (existing) return res.status(400).json({ error: 'El email ya está registrado' });
+
+    // Hash password with bcrypt for security (salt rounds 12)
+    const hashedPassword = await hashPassword(password);
+    const user = db.createUser({ email, password: hashedPassword, name: name || 'Responsable' });
+    const finalBizName = restaurantName || bizName || 'Mi Restaurante';
+    const restaurant = db.saveRestaurant(user.id, {
+      name: finalBizName,
+      bizName: finalBizName,
+      slogan: 'Especialidad, masas artesanales y cocina de autor',
+      currency: '$',
+      phone: '59899123456',
+      theme: 'emerald',
+      wifi: { ssid: 'Restaurante_Clientes', password: 'pizarronrico' },
+      categories: [
+        { id: 'cat_hamburguesas', name: 'Burgers Artesanales' },
+        { id: 'cat_milanesas', name: 'Milanesas de la Casa' },
+        { id: 'cat_postres', name: 'Postres Rioplatenses' },
+        { id: 'cat_bebidas', name: 'Bebidas & Cafetería' }
+      ],
+      dishes: [
+        { id: 'd_1', categoryId: 'cat_hamburguesas', name: 'Burger Criolla de Entraña', price: 490, description: 'Pan brioche, provoleta fundida y chimichurri', tags: ['star'] },
+        { id: 'd_2', categoryId: 'cat_milanesas', name: 'Milanesa Napolitana Clásica', price: 540, description: 'Lomo empanado, salsa casera, jamón y muzzarella', tags: [] },
+        { id: 'd_3', categoryId: 'cat_postres', name: 'Flan Casero con Dulce de Leche', price: 260, description: 'Receta tradicional con crema batida', tags: ['star'] },
+        { id: 'd_4', categoryId: 'cat_bebidas', name: 'Flat White Cremoso', price: 190, description: 'Café de especialidad con leche texturizada', tags: ['veggie'] }
+      ],
+      deliveryZones: [
+        { name: 'Zona Centro / Pocitos', fee: 50 },
+        { name: 'Zona Periférica / Fuera de radio', fee: 100 }
+      ]
+    });
+
+    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+    res.cookie('auth_token', token, COOKIE_OPTIONS);
+
+    const appUrl = process.env.APP_URL || `http://localhost:${PORT}`;
+    emailService.sendWelcome({
+      to: user.email,
+      restaurantName: restaurant.name || restaurant.bizName,
+      menuUrl: `${appUrl}/m/${restaurant.slug}`,
+      studioUrl: `${appUrl}/studio`
+    });
+
+    // Sanitize user output (remove password)
+    const { password: _, ...safeUser } = user;
+    res.json({ success: true, user: safeUser, restaurant, token });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = db.findUserByEmail(email);
+    if (!user) {
+      return res.status(401).json({ error: 'Credenciales incorrectas' });
+    }
+
+    // Verify bcrypt hash or plaintext fallback for legacy accounts
+    const isMatch = user.password.startsWith('$2')
+      ? await comparePassword(password, user.password)
+      : user.password === password;
+
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Credenciales incorrectas' });
+    }
+
+    const restaurant = db.findRestaurantByUserId(user.id);
+    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+    res.cookie('auth_token', token, COOKIE_OPTIONS);
+
+    // Sanitize user output (remove password)
+    const { password: _, ...safeUser } = user;
+    res.json({ success: true, user: safeUser, restaurant, token });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/auth/me', authMiddleware, (req, res) => {
+  const user = db.findUserById(req.user.userId);
+  const restaurant = db.findRestaurantByUserId(req.user.userId);
+  res.json({ user, restaurant });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  res.clearCookie('auth_token');
+  res.json({ success: true });
+});
+
+// ==================== STUDIO & RESTAURANT ROUTES ====================
+app.post('/api/studio/save', authMiddleware, (req, res) => {
+  try {
+    const payload = req.body.data || req.body;
+    const cleanPayload = sanitizeRestaurantPayload(payload);
+    const restaurant = db.saveRestaurant(req.user.userId, cleanPayload);
+    if (restaurant && restaurant.slug) {
+      invalidateMenuCache(restaurant.slug);
+    }
+    res.json({ success: true, restaurant });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ==================== PUBLIC MENU VIEWER (WITH CACHE STAMPEDE PROTECTION) ====================
+app.get('/api/menu/:slug', async (req, res) => {
+  const slug = (req.params.slug || '').toLowerCase();
+  try {
+    const data = await getCachedMenu(slug, async () => {
+      const restaurant = db.findRestaurantBySlug(slug);
+      if (!restaurant) return null;
+
+      // Verify Subscription & Grace Period
+      const access = billingOrchestrator.verifyAccess(restaurant.id);
+      if (!access.allowed) {
+        return {
+          inactive: true,
+          warning: access.warning
+        };
+      }
+
+      // Sanitize public payload: exclude internal userId, billing identifiers, etc.
+      const publicData = {
+        id: restaurant.id,
+        slug: restaurant.slug,
+        name: restaurant.name || restaurant.bizName,
+        bizName: restaurant.bizName || restaurant.name,
+        slogan: restaurant.slogan || '',
+        currency: restaurant.currency || '$',
+        phone: restaurant.phone || '',
+        theme: restaurant.theme || 'emerald',
+        themeFont: restaurant.themeFont || 'serif',
+        instagram: restaurant.instagram || '',
+        googleReview: restaurant.googleReview || '',
+        allowReservations: restaurant.allowReservations !== false,
+        allowCoupons: restaurant.allowCoupons !== false,
+        allowBillSplitter: restaurant.allowBillSplitter !== false,
+        announcement: restaurant.announcement || '',
+        paymentLink: restaurant.paymentLink || '',
+        scheduleEnabled: Boolean(restaurant.scheduleEnabled),
+        scheduleActiveHours: restaurant.scheduleActiveHours || '',
+        tableCount: restaurant.tableCount || 10,
+        customCoupons: restaurant.customCoupons || [],
+        logoUrl: restaurant.logoUrl || null,
+        wifi: restaurant.wifi || { ssid: '', password: '' },
+        categories: restaurant.categories || [],
+        dishes: restaurant.dishes || [],
+        deliveryZones: restaurant.deliveryZones || [],
+        updatedAt: restaurant.updatedAt
+      };
+
+      return {
+        restaurant: publicData,
+        access: {
+          inGracePeriod: access.inGracePeriod,
+          daysRemaining: access.gracePeriodDaysRemaining
+        }
+      };
+    });
+
+    if (!data) {
+      return res.status(404).json({ error: 'Restaurante no encontrado' });
+    }
+    if (data.inactive) {
+      return res.status(402).json({
+        error: 'MenuTemporalmenteInactivo',
+        message: 'Este menú se encuentra temporalmente en pausa por renovación de suscripción.',
+        warning: data.warning
+      });
+    }
+
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ==================== BILLING ROUTES ====================
+app.post('/api/billing/checkout', authMiddleware, (req, res) => {
+  try {
+    const restaurant = db.findRestaurantByUserId(req.user.userId);
+    if (!restaurant) return res.status(404).json({ error: 'Restaurante no encontrado' });
+
+    const { planId, countryCode, currency } = req.body;
+    const checkout = billingOrchestrator.createCheckout({
+      restaurantId: restaurant.id,
+      planId: planId || 'pro_monthly',
+      customerEmail: req.user.email,
+      countryCode: countryCode || 'UY',
+      currency: currency || restaurant.currency || 'USD'
+    });
+
+    res.json(checkout);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/billing/webhook/:provider', async (req, res) => {
+  try {
+    const provider = req.params.provider;
+    const rawBody = JSON.stringify(req.body);
+    const result = await billingOrchestrator.processWebhook(provider, req.headers, rawBody, req.body);
+    res.json(result);
+  } catch (e) {
+    console.error(`[Webhook Error ${req.params.provider}]`, e.message);
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.get('/api/billing/status', authMiddleware, (req, res) => {
+  const restaurant = db.findRestaurantByUserId(req.user.userId);
+  if (!restaurant) return res.status(404).json({ error: 'No encontrado' });
+
+  const access = billingOrchestrator.verifyAccess(restaurant.id);
+  res.json({
+    subscription: restaurant.subscription,
+    access
+  });
+});
+
+// ==================== OWNER ADMIN ROUTES ====================
+app.post('/api/admin/login', adminLimiter, (req, res) => {
+  const { key, totp } = req.body;
+  const adminTotpSecret = process.env.ADMIN_TOTP_SECRET;
+
+  if (key === ADMIN_KEY) {
+    if (adminTotpSecret && !verifyTotpToken(totp, adminTotpSecret)) {
+      return res.status(401).json({ error: 'Código Google Authenticator (TOTP) incorrecto o expirado' });
+    }
+    res.cookie('admin_key', key, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 3600 * 1000 });
+    return res.json({ success: true, message: 'Acceso autorizado como administrador maestro' });
+  }
+  return res.status(401).json({ error: 'Clave de administración incorrecta' });
+});
+
+app.get('/api/admin/overview', adminMiddleware, (req, res) => {
+  const restaurants = db.getAllRestaurants();
+  const users = db.getAllUsers();
+
+  const totalRestaurants = restaurants.length;
+  const activeSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'active').length;
+  const trialingSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'trialing').length;
+  const pastDueSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'past_due').length;
+  const mrrEst = activeSubs * 9; // Estimado base USD
+
+  res.json({
+    metrics: {
+      totalRestaurants,
+      totalUsers: users.length,
+      activeSubs,
+      trialingSubs,
+      pastDueSubs,
+      mrrEst
+    },
+    restaurants,
+    users
+  });
+});
+
+app.post('/api/admin/restaurant/:id/status', adminMiddleware, (req, res) => {
+  const { status } = req.body;
+  const valid = ['active', 'trialing', 'past_due', 'canceled', 'paused'];
+  if (!valid.includes(status)) return res.status(400).json({ error: 'Estado de suscripción inválido' });
+
+  const updated = db.setRestaurantStatus(req.params.id, status);
+  if (!updated) return res.status(404).json({ error: 'Restaurante no encontrado' });
+  res.json({ success: true, restaurant: updated });
+});
+
+// ==================== ANALYTICS ROUTES ====================
+app.post('/api/analytics/event', (req, res) => {
+  try {
+    const { slug, event } = req.body;
+    if (!slug || !event) return res.status(400).json({ error: 'slug y event requeridos' });
+    const validEvents = ['visit', 'order', 'reservation', 'waiter'];
+    if (!validEvents.includes(event)) return res.status(400).json({ error: 'Evento inválido' });
+    const analytics = db.recordAnalyticsEvent(slug, event);
+    if (!analytics) return res.status(404).json({ error: 'Restaurante no encontrado' });
+    res.json({ success: true, analytics });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/analytics/:slug', authMiddleware, (req, res) => {
+  try {
+    const restaurant = db.findRestaurantByUserId(req.user.userId);
+    if (!restaurant || restaurant.slug !== req.params.slug) {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+    res.json({ analytics: restaurant.analytics || { visits: 0, orders: 0, reservations: 0, waiterCalls: 0 } });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ==================== REVIEWS ROUTES ====================
+app.post('/api/reviews', authMiddleware, (req, res) => {
+  try {
+    const { rating, comment, authorRole } = req.body;
+    if (!rating || !comment) return res.status(400).json({ error: 'Calificación y comentario requeridos' });
+    const restaurant = db.findRestaurantByUserId(req.user.userId);
+    if (!restaurant) return res.status(404).json({ error: 'Restaurante no encontrado' });
+    const review = db.addReview({
+      restaurantId: restaurant.id,
+      restaurantName: restaurant.name,
+      userId: req.user.userId,
+      email: req.user.email,
+      rating: parseInt(rating),
+      comment: String(comment).slice(0, 500),
+      authorRole: String(authorRole || '').slice(0, 60)
+    });
+    res.json({ success: true, review });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/reviews/approved', (req, res) => {
+  try {
+    const reviews = db.getApprovedReviews();
+    res.json({ reviews });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/reviews', adminMiddleware, (req, res) => {
+  try {
+    const reviews = db.getAllReviews();
+    res.json({ reviews });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/reviews/:id/moderate', adminMiddleware, (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Estado debe ser approved o rejected' });
+    }
+    const review = db.updateReviewStatus(req.params.id, status);
+    if (!review) return res.status(404).json({ error: 'Reseña no encontrada' });
+    res.json({ success: true, review });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Specific HTML routing (allowing dotfiles for paths containing .gemini)
+const SEND_FILE_OPTIONS = { dotfiles: 'allow' };
+
+app.get('/m/:slug', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'menu.html'), SEND_FILE_OPTIONS);
+});
+
+app.get('/studio', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'studio.html'), SEND_FILE_OPTIONS);
+});
+
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'admin.html'), SEND_FILE_OPTIONS);
+});
+
+app.get('/terminos', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'legal', 'terms.html'), SEND_FILE_OPTIONS);
+});
+
+app.get('/privacidad', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'legal', 'privacy.html'), SEND_FILE_OPTIONS);
+});
+
+app.get('/cookies', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'legal', 'cookies.html'), SEND_FILE_OPTIONS);
+});
+
+app.get('/reembolsos', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'legal', 'refunds.html'), SEND_FILE_OPTIONS);
+});
+
+app.get('/aviso-legal', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'legal', 'disclaimer.html'), SEND_FILE_OPTIONS);
+});
+
+// Client diagnostic logging endpoint (production-grade debugging)
+app.post('/api/logs', (req, res) => {
+  const { level, message, stack, url, ua } = req.body || {};
+  const timestamp = new Date().toISOString();
+  console.log(`[CLIENT-LOG] [${timestamp}] [${level || 'INFO'}] ${message || ''} | URL: ${url || ''}`);
+  if (stack) console.error(stack);
+  res.json({ received: true });
+});
+
+// Fallback for direct node execution (not when imported or in Vercel Serverless)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Menú Pizarrón SaaS corriendo en http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;

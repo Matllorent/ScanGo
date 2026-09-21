@@ -1,0 +1,41 @@
+{
+  "name": "menu-pizarron-saas",
+  "version": "2.0.0",
+  "description": "Plataforma SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js",
+    "dev": "nodemon api/index.js",
+    "test:billing": "node tests/test-billing.js",
+    "mobile:sync": "npx cap sync",
+    "mobile:build": "npx cap copy android"
+  },
+  "keywords": [
+    "saas",
+    "menu-digital",
+    "qr",
+    "whatsapp",
+    "restaurantes",
+    "vercel",
+    "play-store",
+    "billing",
+    "subscriptions"
+  ],
+  "author": "Menú Pizarrón Studio",
+  "license": "PROPRIETARY",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

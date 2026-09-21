@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Política de Privacidad — ScanGo / Menú Pizarrón</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #121917;
+      --card: #182320;
+      --border: #23352f;
+      --text: #e8eceb;
+      --muted: #8ca39b;
+      --gold: #e5a93b;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Montserrat', sans-serif;
+      line-height: 1.7;
+      padding: 2rem 1rem;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 3rem 2.5rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    }
+    h1 {
+      font-family: 'Playfair Display', serif;
+      color: var(--gold);
+      font-size: 2.2rem;
+      margin-bottom: 0.5rem;
+    }
+    .date { color: var(--muted); font-size: 0.85rem; margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
+    h2 { color: var(--gold); font-size: 1.25rem; margin: 1.8rem 0 0.6rem; }
+    p { margin-bottom: 1rem; color: #d0ded8; font-size: 0.95rem; }
+    ul { margin-left: 1.5rem; margin-bottom: 1rem; color: #d0ded8; font-size: 0.95rem; }
+    li { margin-bottom: 0.5rem; }
+    a { color: var(--gold); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .back-btn {
+      display: inline-block;
+      margin-top: 2rem;
+      padding: 0.6rem 1.2rem;
+      background: var(--border);
+      color: #fff;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Política de Privacidad</h1>
+    <div class="date">Última actualización: Septiembre 2026 — Válido para Web y App Móvil (Google Play Store)</div>
+
+    <p>En <strong>ScanGo / Menú Pizarrón SaaS</strong> valoramos y respetamos la privacidad de nuestros usuarios y comensales. Esta Política de Privacidad describe cómo recopilamos, utilizamos, almacenamos y protegemos la información personal en conformidad con las legislaciones aplicables de protección de datos personales.</p>
+
+    <h2>1. Responsable del Tratamiento de Datos</h2>
+    <p>El responsable del tratamiento de los datos es la administración de ScanGo. Para cualquier consulta referente a datos personales, puedes contactarnos a través del panel de soporte o al correo electrónico oficial del servicio.</p>
+
+    <h2>2. Datos que Recopilamos</h2>
+    <ul>
+      <li><strong>Datos de Restaurantes / Administradores:</strong> Nombre comercial, correo electrónico, teléfono de contacto comercial, lista de productos y precios, logo del negocio y credenciales de acceso protegidas mediante algoritmos de cifrado irreversible (bcrypt).</li>
+      <li><strong>Datos de Comensales:</strong> Los pedidos y llamadas a mozo son enviados directamente al canal de WhatsApp o sistema local del restaurante. ScanGo no comercializa ni rastrea datos personales de los clientes finales con terceros.</li>
+      <li><strong>Datos Técnicos de Navegación:</strong> Dirección IP anonimizada, tipo de navegador y cookies estrictamente necesarias para la persistencia de sesión segura (HTTPOnly, SameSite).</li>
+    </ul>
+
+    <h2>3. Finalidad del Tratamiento</h2>
+    <ul>
+      <li>Proveer la funcionalidad del menú digital QR interactivo y el panel de administración.</li>
+      <li>Gestionar suscripciones y facturación mediante pasarelas de pago seguras y certificadas PCI-DSS (Stripe, Lemon Squeezy, Mercado Pago).</li>
+      <li>Garantizar la seguridad, prevenir ataques de fuerza bruta y mitigar abusos mediante limitadores de tasa (rate limiting).</li>
+    </ul>
+
+    <h2>4. Derechos de los Usuarios (ARCO)</h2>
+    <p>Tienes derecho a acceder, rectificar, cancelar u oponerte al tratamiento de tus datos personales en cualquier momento solicitándolo desde tu cuenta o por soporte.</p>
+
+    <a href="/studio" class="back-btn">← Volver al Panel</a>
+  </div>
+</body>
+</html>

@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Master — ScanGo</title>
+  <link rel="icon" type="image/png" href="/logo-scango.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d1312;
+      --card-bg: #151f1c;
+      --card-border: #23352f;
+      --text: #f0f3f2;
+      --text-muted: #8ca39b;
+      --gold: #e5a93b;
+      --gold-hover: #c9902b;
+      --accent: #22c55e;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --info: #3b82f6;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Montserrat', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: rgba(13, 19, 18, 0.9);
+      border-bottom: 1px solid var(--card-border);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--gold);
+    }
+    .brand span { color: var(--text-muted); font-weight: 400; font-size: 0.85rem; }
+    .header-actions { display: flex; gap: 1rem; align-items: center; }
+    .btn {
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+    .btn-gold { background: var(--gold); color: #0d1312; }
+    .btn-gold:hover { background: var(--gold-hover); transform: translateY(-1px); }
+    .btn-outline { background: transparent; border: 1px solid var(--card-border); color: var(--text); }
+    .btn-outline:hover { background: var(--card-bg); border-color: var(--gold); }
+    .btn-danger { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .btn-danger:hover { background: var(--danger); color: #fff; }
+    .btn-success { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+    .btn-success:hover { background: var(--accent); color: #fff; }
+    .btn-xs { padding: 0.3rem 0.6rem; font-size: 0.75rem; border-radius: 6px; }
+
+    main {
+      padding: 2rem;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+      flex: 1;
+    }
+
+    /* Auth screen */
+    #auth-view {
+      max-width: 420px;
+      margin: 5rem auto;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 2.5rem;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+    #auth-view h2 { font-family: 'Playfair Display', serif; font-size: 1.8rem; margin-bottom: 0.5rem; color: var(--gold); }
+    #auth-view p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem; }
+    .form-group { margin-bottom: 1.25rem; text-align: left; }
+    .form-group label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-control {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: #0d1312;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-control:focus { border-color: var(--gold); }
+
+    /* Dashboard view */
+    #dashboard-view { display: none; }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .metric-title { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+    .metric-value { font-size: 2rem; font-weight: 800; color: var(--text); }
+    .metric-badge { font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px; align-self: flex-start; }
+
+    .table-container {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+    .table-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .table-title { font-size: 1.1rem; font-weight: 700; color: #fff; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th {
+      background: #111a17;
+      padding: 0.9rem 1.2rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    td {
+      padding: 1rem 1.2rem;
+      font-size: 0.85rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      vertical-align: middle;
+    }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .badge-status {
+      padding: 0.25rem 0.65rem;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: inline-block;
+    }
+    .badge-active { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
+    .badge-trialing { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+    .badge-past_due { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    .badge-canceled { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    .badge-paused { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; }
+
+    .actions-cell { display: flex; gap: 0.5rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <img src="/logo-scango.png" alt="ScanGo" style="height: 36px; width: auto; object-fit: contain; border-radius: 6px;">
+      <span>ADMIN MASTER</span> ScanGo
+    </div>
+    <div class="header-actions">
+      <a href="/studio" class="btn btn-outline"><i class="fa-solid fa-sliders"></i> Abrir Studio</a>
+      <a href="/" class="btn btn-outline" target="_blank"><i class="fa-solid fa-globe"></i> Ver Web</a>
+      <button id="btn-logout" class="btn btn-outline" style="display:none;" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Salir</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- View: Login with Master Key -->
+    <div id="auth-view">
+      <img src="/logo-scango.png" alt="ScanGo Logo" style="height: 60px; width: auto; margin-bottom: 1rem; border-radius: 8px;">
+      <h2>Acceso Maestro ScanGo</h2>
+      <p>Ingresá la clave maestra del dueño del emprendimiento y tu código 2FA opcional para administrar clientes e ingresos.</p>
+      <form id="admin-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>Clave Maestra (ADMIN_KEY)</label>
+          <input type="password" id="admin-key" class="form-control" placeholder="••••••••••••••••" required autofocus>
+        </div>
+        <div class="form-group">
+          <label style="display:flex; justify-content:space-between;">
+            <span>Código 2FA (Google Authenticator)</span>
+            <span style="font-size:0.7rem; color:var(--text-muted);">(Opcional)</span>
+          </label>
+          <input type="text" id="admin-totp" class="form-control" placeholder="Ej: 123456" maxlength="6" style="font-family: monospace; letter-spacing: 2px;">
+        </div>
+        <button type="submit" class="btn btn-gold" style="width: 100%; padding: 0.85rem; justify-content: center;">
+          <i class="fa-solid fa-lock-open"></i> Entrar al Panel ScanGo
+        </button>
+      </form>
+      <div id="login-error" style="color: var(--danger); font-size: 0.85rem; margin-top: 1rem; display: none;"></div>
+    </div>
+
+    <!-- View: Master Dashboard -->
+    <div id="dashboard-view">
+      <!-- Top Metrics -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-title"><i class="fa-solid fa-utensils"></i> Total Restaurantes</div>
+          <div class="metric-value" id="m-total-rest">0</div>
+          <div class="metric-badge" style="background: rgba(255,255,255,0.06); color: #fff;">Negocios a bordo</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title"><i class="fa-solid fa-circle-check"></i> Suscripciones Activas</div>
+          <div class="metric-value" id="m-active" style="color: var(--accent);">0</div>
+          <div class="metric-badge" style="background: rgba(34,197,94,0.15); color: #4ade80;">Facturando</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title"><i class="fa-solid fa-clock"></i> En Prueba Gratuita</div>
+          <div class="metric-value" id="m-trialing" style="color: var(--info);">0</div>
+          <div class="metric-badge" style="background: rgba(59,130,246,0.15); color: #60a5fa;">7 días activos</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title"><i class="fa-solid fa-triangle-exclamation"></i> En Período de Gracia</div>
+          <div class="metric-value" id="m-grace" style="color: var(--warning);">0</div>
+          <div class="metric-badge" style="background: rgba(245,158,11,0.15); color: #fbbf24;">7 días de gracia</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title"><i class="fa-solid fa-sack-dollar"></i> MRR Estimado</div>
+          <div class="metric-value" id="m-mrr" style="color: var(--gold);">$0</div>
+          <div class="metric-badge" style="background: rgba(229,169,59,0.15); color: var(--gold);">USD / Mes recurrente</div>
+        </div>
+      </div>
+
+      <!-- Analytics Charts Section -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <div class="table-container" style="padding: 1.25rem;">
+          <div class="table-header" style="margin-bottom: 1rem;">
+            <div class="table-title"><i class="fa-solid fa-chart-pie" style="color:var(--gold);"></i> Distribución de Suscripciones</div>
+          </div>
+          <div style="height: 240px; position: relative;">
+            <canvas id="subsChart"></canvas>
+          </div>
+        </div>
+
+        <div class="table-container" style="padding: 1.25rem;">
+          <div class="table-header" style="margin-bottom: 1rem;">
+            <div class="table-title"><i class="fa-solid fa-chart-line" style="color:var(--accent);"></i> Actividad Global de Clientes (Eventos)</div>
+          </div>
+          <div style="height: 240px; position: relative;">
+            <canvas id="eventsChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Clients Table -->
+      <div class="table-container">
+        <div class="table-header">
+          <div class="table-title"><i class="fa-solid fa-shop"></i> Directorio de Restaurantes y Clientes</div>
+          <div style="display: flex; gap: 0.75rem;">
+            <button class="btn btn-outline btn-xs" onclick="loadOverview()"><i class="fa-solid fa-rotate-right"></i> Actualizar</button>
+            <button class="btn btn-gold btn-xs" onclick="exportCSV()"><i class="fa-solid fa-file-csv"></i> Descargar CSV</button>
+          </div>
+        </div>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Restaurante</th>
+                <th>Slug / Enlace</th>
+                <th>Estado Suscripción</th>
+                <th>Plan / Pasarela</th>
+                <th>Platos</th>
+                <th>Fecha Alta</th>
+                <th>Acciones de Control</th>
+              </tr>
+            </thead>
+            <tbody id="restaurants-tbody">
+              <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">Cargando clientes...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Reviews Moderation Table -->
+      <div class="table-container" style="margin-top: 2rem;">
+        <div class="table-header">
+          <div class="table-title"><i class="fa-solid fa-star" style="color:var(--gold);"></i> Moderación de Reseñas de Clientes</div>
+          <button class="btn btn-outline btn-xs" onclick="loadReviews()"><i class="fa-solid fa-rotate-right"></i> Actualizar Reseñas</button>
+        </div>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Restaurante / Emisor</th>
+                <th>Calificación</th>
+                <th>Opinión / Testimonio</th>
+                <th>Estado</th>
+                <th>Fecha</th>
+                <th>Acción de Moderación</th>
+              </tr>
+            </thead>
+            <tbody id="reviews-tbody">
+              <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">Sin reseñas pendientes.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let currentKey = localStorage.getItem('pizarron_admin_key') || '';
+    let currentRestaurants = [];
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if (currentKey) {
+        verifyAndLoad(currentKey);
+      }
+    });
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const key = document.getElementById('admin-key').value.trim();
+      const totp = (document.getElementById('admin-totp')?.value || '').trim();
+      if (!key) return;
+      await verifyAndLoad(key, totp);
+    }
+
+    async function verifyAndLoad(key, totp = '') {
+      const errBox = document.getElementById('login-error');
+      errBox.style.display = 'none';
+      try {
+        const headers = { 'x-admin-key': key };
+        if (totp) headers['x-admin-totp'] = totp;
+
+        const res = await fetch('/api/admin/overview', { headers });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'Clave o código 2FA incorrecto');
+        }
+        currentKey = key;
+        localStorage.setItem('pizarron_admin_key', key);
+        document.getElementById('auth-view').style.display = 'none';
+        document.getElementById('dashboard-view').style.display = 'block';
+        document.getElementById('btn-logout').style.display = 'inline-flex';
+
+        const data = await res.json();
+        renderDashboard(data);
+        loadReviews();
+      } catch (err) {
+        errBox.textContent = err.message;
+        errBox.style.display = 'block';
+        localStorage.removeItem('pizarron_admin_key');
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('pizarron_admin_key');
+      currentKey = '';
+      document.getElementById('auth-view').style.display = 'block';
+      document.getElementById('dashboard-view').style.display = 'none';
+      document.getElementById('btn-logout').style.display = 'none';
+    }
+
+    async function loadOverview() {
+      if (!currentKey) return;
+      try {
+        const res = await fetch('/api/admin/overview', {
+          headers: { 'x-admin-key': currentKey }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          renderDashboard(data);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function renderDashboard(data) {
+      const { metrics, restaurants, users } = data;
+      currentRestaurants = restaurants;
+
+      document.getElementById('m-total-rest').textContent = metrics.totalRestaurants;
+      document.getElementById('m-active').textContent = metrics.activeSubs;
+      document.getElementById('m-trialing').textContent = metrics.trialingSubs;
+      document.getElementById('m-grace').textContent = metrics.pastDueSubs;
+      document.getElementById('m-mrr').textContent = `$${metrics.mrrEst}`;
+
+      renderCharts(metrics, restaurants);
+
+      const tbody = document.getElementById('restaurants-tbody');
+      if (!restaurants.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay restaurantes registrados aún.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = restaurants.map(r => {
+        const sub = r.subscription || {};
+        const status = sub.status || 'trialing';
+        const badgeClass = `badge-${status}`;
+        const dishesCount = (r.dishes || []).length;
+        const createdDate = r.createdAt ? new Date(r.createdAt).toLocaleDateString('es-UY') : '-';
+
+        return `
+          <tr>
+            <td>
+              <strong style="color: #fff; font-size: 0.95rem;">${r.name || r.bizName || 'Sin Nombre'}</strong>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">${r.phone || 'Sin teléfono'}</div>
+            </td>
+            <td>
+              <a href="/m/${r.slug}" target="_blank" style="color: var(--gold); text-decoration: none; font-weight: 600;">
+                /m/${r.slug} <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.7rem;"></i>
+              </a>
+            </td>
+            <td>
+              <span class="badge-status ${badgeClass}">${status}</span>
+            </td>
+            <td>
+              <span style="font-weight: 600;">${sub.plan || 'pro_monthly'}</span>
+              <div style="font-size: 0.72rem; color: var(--text-muted);">${sub.provider || 'trial'}</div>
+            </td>
+            <td><strong>${dishesCount}</strong> platos</td>
+            <td style="color: var(--text-muted);">${createdDate}</td>
+            <td>
+              <div class="actions-cell">
+                ${status === 'active' 
+                  ? `<button class="btn btn-danger btn-xs" onclick="updateStatus('${r.id}', 'paused')"><i class="fa-solid fa-pause"></i> Pausar</button>`
+                  : `<button class="btn btn-success btn-xs" onclick="updateStatus('${r.id}', 'active')"><i class="fa-solid fa-check"></i> Activar PRO</button>`
+                }
+                <a href="/m/${r.slug}" target="_blank" class="btn btn-outline btn-xs"><i class="fa-solid fa-eye"></i> Ver</a>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function updateStatus(restaurantId, newStatus) {
+      if (!confirm(`¿Confirmás cambiar el estado a "${newStatus}"?`)) return;
+      try {
+        const res = await fetch(`/api/admin/restaurant/${restaurantId}/status`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': currentKey
+          },
+          body: JSON.stringify({ status: newStatus })
+        });
+        if (res.ok) {
+          loadOverview();
+        } else {
+          alert('Error al actualizar el estado');
+        }
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    function exportCSV() {
+      if (!currentRestaurants.length) return alert('No hay datos para exportar');
+      const headers = ['ID', 'Restaurante', 'Slug', 'Teléfono', 'Estado Suscripción', 'Plan', 'Pasarela', 'Platos', 'Fecha Alta'];
+      const rows = currentRestaurants.map(r => [
+        r.id,
+        `"${(r.name || r.bizName || '').replace(/"/g, '""')}"`,
+        r.slug,
+        r.phone || '',
+        (r.subscription && r.subscription.status) || 'trialing',
+        (r.subscription && r.subscription.plan) || 'pro_monthly',
+        (r.subscription && r.subscription.provider) || 'trial',
+        (r.dishes || []).length,
+        r.createdAt || ''
+      ]);
+
+      const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `clientes_scango_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    async function loadReviews() {
+      if (!currentKey) return;
+      try {
+        const res = await fetch('/api/admin/reviews', {
+          headers: { 'x-admin-key': currentKey }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const reviews = data.reviews || [];
+        const tbody = document.getElementById('reviews-tbody');
+        if (!reviews.length) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay opiniones registradas aún.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = reviews.map(rev => {
+          const stars = '⭐'.repeat(rev.rating || 5);
+          const statusBadge = rev.status === 'approved' 
+            ? '<span class="status-badge status-active">Aprobada</span>'
+            : rev.status === 'rejected'
+            ? '<span class="status-badge status-past-due">Rechazada</span>'
+            : '<span class="status-badge status-trialing">Pendiente</span>';
+
+          return `
+            <tr>
+              <td>
+                <div style="font-weight: 700; color: #fff;">${rev.restaurantName || 'Local'}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">${rev.authorRole || 'Responsable'} (${rev.email || ''})</div>
+              </td>
+              <td>${stars}</td>
+              <td style="max-width: 320px; font-size: 0.85rem; color: var(--text-main); font-style: italic;">"${rev.comment}"</td>
+              <td>${statusBadge}</td>
+              <td style="font-size: 0.75rem; color: var(--text-muted);">${new Date(rev.createdAt).toLocaleDateString()}</td>
+              <td>
+                <div style="display:flex; gap:6px;">
+                  ${rev.status !== 'approved' ? `<button class="btn btn-success btn-xs" onclick="moderateReview('${rev.id}', 'approved')"><i class="fa-solid fa-check"></i> Aprobar</button>` : ''}
+                  ${rev.status !== 'rejected' ? `<button class="btn btn-warning btn-xs" onclick="moderateReview('${rev.id}', 'rejected')"><i class="fa-solid fa-xmark"></i> Rechazar</button>` : ''}
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Error cargando reseñas:', err);
+      }
+    }
+
+    async function moderateReview(id, status) {
+      if (!confirm(`¿Deseas marcar esta reseña como ${status === 'approved' ? 'APROBADA' : 'RECHAZADA'}?`)) return;
+      try {
+        const res = await fetch(`/api/admin/reviews/${id}/moderate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': currentKey
+          },
+          body: JSON.stringify({ status })
+        });
+        if (res.ok) {
+          loadReviews();
+        } else {
+          alert('Error al moderar reseña');
+        }
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    let subsChartInstance = null;
+    let eventsChartInstance = null;
+
+    function renderCharts(metrics, restaurants) {
+      if (typeof Chart === 'undefined') return;
+
+      // 1. Subscription Distribution Pie Chart
+      const ctxSubs = document.getElementById('subsChart')?.getContext('2d');
+      if (ctxSubs) {
+        if (subsChartInstance) subsChartInstance.destroy();
+        subsChartInstance = new Chart(ctxSubs, {
+          type: 'doughnut',
+          data: {
+            labels: ['Activas (Facturando)', 'Prueba Gratuita', 'Período de Gracia'],
+            datasets: [{
+              data: [metrics.activeSubs || 0, metrics.trialingSubs || 0, metrics.pastDueSubs || 0],
+              backgroundColor: ['#22c55e', '#3b82f6', '#f59e0b'],
+              borderColor: '#151f1c',
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom', labels: { color: '#8ca39b', font: { size: 11 } } }
+            }
+          }
+        });
+      }
+
+      // 2. Global Aggregated Events Bar Chart
+      let totalVisits = 0;
+      let totalOrders = 0;
+      let totalReservations = 0;
+      let totalWaiters = 0;
+
+      (restaurants || []).forEach(r => {
+        if (r.analytics) {
+          totalVisits += (r.analytics.visits || 0);
+          totalOrders += (r.analytics.orders || 0);
+          totalReservations += (r.analytics.reservations || 0);
+          totalWaiters += (r.analytics.waiterCalls || 0);
+        }
+      });
+
+      const ctxEvents = document.getElementById('eventsChart')?.getContext('2d');
+      if (ctxEvents) {
+        if (eventsChartInstance) eventsChartInstance.destroy();
+        eventsChartInstance = new Chart(ctxEvents, {
+          type: 'bar',
+          data: {
+            labels: ['Visitas QR', 'Pedidos Enviados', 'Reservas', 'Llamados Mozo'],
+            datasets: [{
+              label: 'Acciones de Comensales',
+              data: [totalVisits, totalOrders, totalReservations, totalWaiters],
+              backgroundColor: ['#3b82f6', '#22c55e', '#e5a93b', '#ef4444'],
+              borderRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#8ca39b' } },
+              x: { grid: { display: false }, ticks: { color: '#8ca39b' } }
+            },
+            plugins: {
+              legend: { display: false }
+            }
+          }
+        });
+      }
+    }
+  </script>
+</body>
+</html>
