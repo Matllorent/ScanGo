@@ -1226,11 +1226,11 @@
       }
     ],
     "analytics": {
-      "visits": 36,
+      "visits": 46,
       "orders": 0,
       "reservations": 0,
       "waiterCalls": 0,
-      "lastUpdated": "2026-09-19T04:45:43.621Z"
+      "lastUpdated": "2026-09-23T21:29:33.255Z"
     },
     "allowReservations": true,
     "updatedAt": "2026-09-18T03:40:38.376Z",
@@ -2623,7 +2623,7 @@
     "slogan": "Especialidad, masas artesanales y cocina de autor",
     "currency": "$",
     "phone": "59899123456",
-    "theme": "moderna",
+    "theme": "infantil",
     "wifi": {
       "ssid": "Restaurante_Clientes",
       "password": "pizarronrico"
@@ -2670,7 +2670,7 @@
         "fee": 100
       }
     ],
-    "updatedAt": "2026-09-18T23:17:45.373Z",
+    "updatedAt": "2026-09-23T21:27:46.212Z",
     "instagram": "",
     "googleReview": "",
     "themeFont": "serif",
@@ -2682,5 +2682,239 @@
     "scheduleEnabled": false,
     "scheduleActiveHours": "",
     "tableCount": 10
+  },
+  {
+    "id": "rest_1790197026503_j8evc5",
+    "userId": "usr_1790197026495_r8v6yi",
+    "slug": "bistro-don-alberto",
+    "subscription": {
+      "status": "active",
+      "plan": "pro_monthly",
+      "provider": "lemonsqueezy",
+      "trialEndsAt": "2026-09-30T20:57:06.503Z",
+      "currentPeriodEnd": "2026-10-23T20:57:06.654Z",
+      "gracePeriodDaysRemaining": 7,
+      "lastPaymentError": null,
+      "updatedAt": "2026-09-23T20:57:06.670Z"
+    },
+    "createdAt": "2026-09-23T20:57:06.503Z",
+    "name": "Bistro Don Alberto",
+    "bizName": "Bistro Don Alberto",
+    "slogan": "Cocina de autor y carnes maduradas",
+    "currency": "$",
+    "phone": "59899123456",
+    "theme": "emerald",
+    "wifi": {
+      "ssid": "Restaurante_Clientes",
+      "password": "pizarronrico"
+    },
+    "categories": [
+      {
+        "id": "cat_hamburguesas",
+        "name": "Burgers Artesanales"
+      },
+      {
+        "id": "cat_milanesas",
+        "name": "Milanesas de la Casa"
+      },
+      {
+        "id": "cat_postres",
+        "name": "Postres Rioplatenses"
+      },
+      {
+        "id": "cat_bebidas",
+        "name": "Bebidas & Cafetería"
+      }
+    ],
+    "dishes": [
+      {
+        "id": "d_1",
+        "categoryId": "cat_hamburguesas",
+        "name": "Burger Criolla de Entraña",
+        "price": 490,
+        "description": "Pan brioche, provoleta fundida y chimichurri",
+        "photoUrl": null,
+        "outOfStock": false,
+        "tags": [
+          "star"
+        ]
+      },
+      {
+        "id": "d_2",
+        "categoryId": "cat_milanesas",
+        "name": "Milanesa Napolitana Clásica",
+        "price": 540,
+        "description": "Lomo empanado, salsa casera, jamón y muzzarella",
+        "photoUrl": null,
+        "outOfStock": false,
+        "tags": []
+      },
+      {
+        "id": "d_3",
+        "categoryId": "cat_postres",
+        "name": "Flan Casero con Dulce de Leche",
+        "price": 260,
+        "description": "Receta tradicional con crema batida",
+        "photoUrl": null,
+        "outOfStock": false,
+        "tags": [
+          "star"
+        ]
+      },
+      {
+        "id": "d_4",
+        "categoryId": "cat_bebidas",
+        "name": "Flat White Cremoso",
+        "price": 190,
+        "description": "Café de especialidad con leche texturizada",
+        "photoUrl": null,
+        "outOfStock": false,
+        "tags": [
+          "veggie"
+        ]
+      }
+    ],
+    "deliveryZones": [
+      {
+        "name": "Zona 1 (Centro)",
+        "fee": 40
+      },
+      {
+        "name": "Zona 2 (Periferia)",
+        "fee": 90
+      }
+    ],
+    "updatedAt": "2026-09-23T20:57:06.596Z"
+  },
+  {
+    "id": "rest_1790199040016_2c4kk5",
+    "userId": "usr_1790199040011_rwxm27",
+    "slug": "el-imperio",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-09-30T21:30:40.016Z",
+      "currentPeriodEnd": "2026-09-30T21:30:40.016Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-09-23T21:30:40.016Z",
+    "name": "El Imperio",
+    "bizName": "El Imperio",
+    "slogan": "Especialidad, masas artesanales y cocina de autor",
+    "currency": "$",
+    "phone": "59899123456",
+    "theme": "foodtruck",
+    "wifi": {
+      "ssid": "Restaurante_Clientes",
+      "password": "pizarronrico"
+    },
+    "categories": [
+      {
+        "id": "cat_hamburguesas",
+        "name": "Burgers Artesanales"
+      },
+      {
+        "id": "cat_milanesas",
+        "name": "Milanesas de la Casa"
+      },
+      {
+        "id": "cat_postres",
+        "name": "Postres Rioplatenses"
+      },
+      {
+        "id": "cat_bebidas",
+        "name": "Bebidas & Cafetería"
+      }
+    ],
+    "dishes": [
+      {
+        "id": "d_1",
+        "categoryId": "cat_hamburguesas",
+        "name": "Burger Criolla de Entraña",
+        "price": 490,
+        "description": "Pan brioche, provoleta fundida y chimichurri",
+        "photoUrl": null,
+        "outOfStock": false,
+        "tags": [
+          "star"
+        ]
+      },
+      {
+        "id": "d_2",
+        "categoryId": "cat_milanesas",
+        "name": "Milanesa Napolitana Clásica",
+        "price": 540,
+        "description": "Lomo empanado, salsa casera, jamón y muzzarella",
+        "photoUrl": null,
+        "outOfStock": false,
+        "tags": []
+      },
+      {
+        "id": "d_3",
+        "categoryId": "cat_postres",
+        "name": "Flan Casero con Dulce de Leche",
+        "price": 260,
+        "description": "Receta tradicional con crema batida",
+        "photoUrl": null,
+        "outOfStock": false,
+        "tags": [
+          "star"
+        ]
+      },
+      {
+        "id": "d_4",
+        "categoryId": "cat_bebidas",
+        "name": "Flat White Cremoso",
+        "price": 190,
+        "description": "Café de especialidad con leche texturizada",
+        "photoUrl": null,
+        "outOfStock": false,
+        "tags": [
+          "veggie"
+        ]
+      },
+      {
+        "id": "d_milanesas_1790199185789_8",
+        "categoryId": "cat_milanesas",
+        "name": "Milanesa Napolitana sin TACC",
+        "price": 520,
+        "description": "Elaborada con rebozador de arroz y maíz certificado libre de gluten",
+        "photoUrl": null,
+        "outOfStock": false,
+        "tags": [
+          "celiac"
+        ]
+      }
+    ],
+    "deliveryZones": [
+      {
+        "name": "Zona Centro / Pocitos",
+        "fee": 50
+      },
+      {
+        "name": "Zona Periférica / Fuera de radio",
+        "fee": 100
+      }
+    ],
+    "analytics": {
+      "visits": 14,
+      "orders": 0,
+      "reservations": 0,
+      "waiterCalls": 0,
+      "lastUpdated": "2026-09-23T21:33:07.206Z"
+    },
+    "instagram": "",
+    "googleReview": "",
+    "themeFont": "urban",
+    "allowReservations": true,
+    "allowCoupons": true,
+    "allowBillSplitter": true,
+    "announcement": "",
+    "paymentLink": "",
+    "scheduleEnabled": false,
+    "scheduleActiveHours": "",
+    "tableCount": 10,
+    "updatedAt": "2026-09-23T21:33:07.007Z"
   }
 ]

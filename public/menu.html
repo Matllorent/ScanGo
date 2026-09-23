@@ -27,7 +27,7 @@
       --font-mono: 'IBM Plex Mono', monospace;
     }
 
-    /* 7 AUTHENTIC GASTRONOMIC THEMES */
+    /* 7 AUTHENTIC GASTRONOMIC THEMES + 7 NEW SPECIAL THEMES */
     body.theme-classic {
       --bg-chalkboard: #121514;
       --surface-card: #181C1B;
@@ -83,6 +83,123 @@
       --chalk-gold: #FF6B35;
       --border-gold: rgba(255, 107, 53, 0.5);
       background-color: #141414;
+    }
+
+    /* NUEVOS TEMAS ESPECIALES */
+    body.theme-gamer {
+      --bg-chalkboard: #0A0E17;
+      --surface-card: #111A29;
+      --surface-card-hover: #18253B;
+      --chalk-gold: #00F0FF;
+      --chalk-green: #39FF14;
+      --chalk-muted: #CBD5E0;
+      --border-chalk: rgba(0, 240, 255, 0.25);
+      --border-gold: rgba(0, 240, 255, 0.55);
+      background-color: #0A0E17;
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(0,240,255,0.05) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(57,255,20,0.04) 0%, transparent 40%),
+        linear-gradient(rgba(255,255,255,0.01) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.01) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 20px 20px, 20px 20px;
+    }
+    body.theme-gamer .restaurant-title {
+      text-shadow: 0 0 12px rgba(0, 240, 255, 0.45);
+    }
+
+    body.theme-otaku {
+      --bg-chalkboard: #18121F;
+      --surface-card: #251B30;
+      --surface-card-hover: #342544;
+      --chalk-gold: #FF70A6;
+      --chalk-green: #70D6FF;
+      --chalk-muted: #E2D9F3;
+      --border-chalk: rgba(255, 112, 166, 0.28);
+      --border-gold: rgba(255, 112, 166, 0.55);
+      background-color: #18121F;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(255,112,166,0.06) 0%, transparent 45%),
+        radial-gradient(circle at 85% 85%, rgba(112,214,255,0.05) 0%, transparent 45%);
+    }
+    body.theme-otaku .dish-card { border-radius: 16px; }
+
+    body.theme-explosivo {
+      --bg-chalkboard: #170E0B;
+      --surface-card: #26150F;
+      --surface-card-hover: #381E16;
+      --chalk-gold: #FFE600;
+      --chalk-green: #FF3344;
+      --chalk-muted: #FEE2E2;
+      --border-chalk: rgba(255, 230, 0, 0.35);
+      --border-gold: rgba(255, 230, 0, 0.75);
+      background-color: #170E0B;
+      background-image: 
+        radial-gradient(circle at 50% 10%, rgba(255,230,0,0.06) 0%, transparent 40%),
+        radial-gradient(circle at 80% 90%, rgba(255,51,68,0.05) 0%, transparent 40%);
+    }
+    body.theme-explosivo .dish-badge { box-shadow: 0 0 8px rgba(255, 230, 0, 0.3); }
+
+    body.theme-infantil {
+      --bg-chalkboard: #121D24;
+      --surface-card: #1A2A35;
+      --surface-card-hover: #233947;
+      --chalk-gold: #FFD166;
+      --chalk-green: #06D6A0;
+      --chalk-muted: #D3EEF9;
+      --border-chalk: rgba(255, 209, 102, 0.3);
+      --border-gold: rgba(255, 209, 102, 0.6);
+      background-color: #121D24;
+    }
+    body.theme-infantil .dish-card,
+    body.theme-infantil .cat-pill,
+    body.theme-infantil .search-box {
+      border-radius: 20px;
+    }
+
+    body.theme-alegre {
+      --bg-chalkboard: #1B160E;
+      --surface-card: #292013;
+      --surface-card-hover: #3A2E1A;
+      --chalk-gold: #FFB703;
+      --chalk-green: #52B788;
+      --chalk-muted: #F8ECD7;
+      --border-chalk: rgba(255, 183, 3, 0.3);
+      --border-gold: rgba(255, 183, 3, 0.6);
+      background-color: #1B160E;
+      background-image: 
+        radial-gradient(circle at 20% 20%, rgba(255,183,3,0.05) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(82,183,136,0.04) 0%, transparent 50%);
+    }
+
+    body.theme-basketball {
+      --bg-chalkboard: #19120C;
+      --surface-card: #261910;
+      --surface-card-hover: #372316;
+      --chalk-gold: #FF7700;
+      --chalk-green: #F4A261;
+      --chalk-muted: #EAD8C7;
+      --border-chalk: rgba(255, 119, 0, 0.3);
+      --border-gold: rgba(255, 119, 0, 0.6);
+      background-color: #19120C;
+      background-image: 
+        radial-gradient(circle at 50% 50%, rgba(255,119,0,0.04) 0%, transparent 60%),
+        radial-gradient(circle at 50% 0%, transparent 120px, rgba(255,255,255,0.02) 121px, rgba(255,255,255,0.02) 122px, transparent 123px);
+    }
+
+    body.theme-football {
+      --bg-chalkboard: #0B1911;
+      --surface-card: #11281A;
+      --surface-card-hover: #193B26;
+      --chalk-gold: #E0E722;
+      --chalk-green: #25D366;
+      --chalk-muted: #D3EBD9;
+      --border-chalk: rgba(224, 231, 34, 0.28);
+      --border-gold: rgba(224, 231, 34, 0.58);
+      background-color: #0B1911;
+      background-image: 
+        radial-gradient(circle at 50% 50%, transparent 80px, rgba(255,255,255,0.025) 81px, rgba(255,255,255,0.025) 83px, transparent 84px),
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 60px;
     }
 
     /* Font Styles */
@@ -449,6 +566,91 @@
       to { transform: translate(-50%, 0); opacity: 1; }
     }
 
+    /* Buttons & Nav Pills */
+    .btn-nav {
+      background: var(--surface-card);
+      border: 1px solid var(--border-chalk);
+      color: var(--chalk-white);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn-nav:hover {
+      border-color: var(--chalk-gold);
+      color: var(--chalk-gold);
+    }
+    .btn-nav-gold {
+      background: var(--chalk-gold);
+      color: #101614;
+      border-color: var(--chalk-gold);
+      font-weight: 700;
+    }
+    .btn-nav-gold:hover {
+      background: #dfb83b;
+      color: #101614;
+    }
+
+    /* Wizard Steps Indicators */
+    .wizard-steps-indicator {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .step-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border-chalk);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.78rem;
+      color: var(--chalk-dim);
+      font-weight: 600;
+    }
+    .step-pill.active {
+      background: var(--chalk-gold-dim);
+      border-color: var(--chalk-gold);
+      color: var(--chalk-gold);
+      font-weight: 700;
+    }
+    .step-pill.completed {
+      border-color: var(--chalk-green);
+      color: var(--chalk-green);
+    }
+    .step-num {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+    }
+    .step-pill.active .step-num {
+      background: var(--chalk-gold);
+      color: #101614;
+      font-weight: 800;
+    }
+    .step-pill.completed .step-num {
+      background: var(--chalk-green);
+      color: #101614;
+      font-weight: 800;
+    }
+    .step-divider {
+      flex: 1;
+      height: 1px;
+      background: var(--border-chalk);
+    }
+
     /* Modals (Cart & Wi-Fi) */
     .modal-overlay {
       position: fixed;
@@ -607,6 +809,9 @@
     <div id="restaurantSlogan" class="restaurant-slogan"></div>
 
     <div class="restaurant-meta-bar">
+      <span id="loyaltyChip" class="meta-chip" onclick="openLoyaltyModal()" style="background: rgba(236, 201, 75, 0.15); border-color: rgba(236, 201, 75, 0.5); color: var(--chalk-gold); font-weight: 700;">
+        ⭐ Club Puntos
+      </span>
       <span id="reservationChip" class="meta-chip" onclick="openReservationModal()" style="display:none; background: rgba(56, 161, 105, 0.2); border-color: rgba(56, 161, 105, 0.5); color: #68D391; font-weight: 700;">
         📅 Reservar Mesa
       </span>
@@ -631,10 +836,38 @@
   <!-- Container -->
   <main class="menu-container">
     <div class="controls-wrapper">
-      <input type="text" id="searchFilter" class="search-box" placeholder="🔍 Buscar plato, ingrediente..." oninput="filterDishes()">
-      
+      <!-- Barra de Selector de Idioma (ES, EN, PT) y Moneda ($UYU, $USD, $ARS) -->
+      <div id="i18nCurrencyBarContainer"></div>
+
+      <!-- Buscador con botón de limpiar -->
+      <div style="position: relative; margin-bottom: 10px;">
+        <input type="text" id="searchFilter" class="search-box" style="margin-bottom:0; padding-right:32px;" placeholder="🔍 Buscar plato, ingrediente..." oninput="filterDishes()">
+        <button type="button" id="btnClearSearch" onclick="clearSearchFilter()" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--chalk-dim); font-size:16px; cursor:pointer; display:none;">✕</button>
+      </div>
+
+      <!-- Accesos Directos a Vistas Especiales (Heladería & Perfumería) -->
+      <div id="specialActionsBar" class="special-actions-bar" style="display: flex; gap: 8px; margin-bottom: 10px; overflow-x: auto; scrollbar-width: none;">
+        <button type="button" id="btnOpenIceCreamWizard" class="btn-nav" style="border-color: #68D391; color: #68D391; font-size: 11px; white-space: nowrap; padding: 4px 10px;" onclick="openIceCreamWizard()">
+          🍧 Armá tu Helado Artesanal
+        </button>
+        <button type="button" id="btnTogglePerfumeryMode" class="btn-nav" style="border-color: #B794F4; color: #B794F4; font-size: 11px; white-space: nowrap; padding: 4px 10px;" onclick="togglePerfumeryMode()">
+          ✨ Colección Perfumería
+        </button>
+      </div>
+
+      <!-- Filtro de Categorías -->
       <div id="categoryPills" class="category-pills">
         <button class="cat-pill active" onclick="selectCategory('ALL')">Todos</button>
+      </div>
+
+      <!-- Filtros Dietéticos Rápidos -->
+      <div id="dietaryFilterPills" style="display: flex; gap: 6px; overflow-x: auto; padding-top: 6px; scrollbar-width: none;">
+        <button class="cat-pill active" style="font-size: 0.72rem; padding: 3px 8px;" onclick="selectDietFilter('ALL')">Todos los estilos</button>
+        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" onclick="selectDietFilter('veggie')">🥬 Vegetariano</button>
+        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" onclick="selectDietFilter('vegan')">🌱 Vegano</button>
+        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" onclick="selectDietFilter('celiac')">🌾 Sin TACC</button>
+        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" onclick="selectDietFilter('sinlactosa')">🥛 Sin Lactosa</button>
+        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" onclick="selectDietFilter('picante')">🌶️ Picante</button>
       </div>
     </div>
 
@@ -643,6 +876,9 @@
       <span>👁️ Menú adaptado para lectores de pantalla y accesibilidad visual</span>
       <button class="btn-a11y-tts" onclick="readSelectedCategoryTTS()">🔊 Escuchar categoría</button>
     </div>
+
+    <!-- Contenedor Alternativo para Perfumería -->
+    <div id="perfumeryContainer" style="display: none;"></div>
 
     <!-- Menu Items List -->
     <div id="dishesContainer">
@@ -937,9 +1173,23 @@
     // Fetch Restaurant Menu
     async function loadMenu() {
       const slug = getSlug();
+      // Check local storage for interactive demo mode
+      if (slug === 'demo') {
+        try {
+          const localDemo = localStorage.getItem('scango_demo_restaurant');
+          if (localDemo) {
+            restaurantData = JSON.parse(localDemo);
+            renderHeader();
+            renderCategories();
+            renderDishes();
+          }
+        } catch (e) {}
+      }
+
       try {
         const res = await fetch(`/api/menu/${slug}`);
         if (!res.ok) {
+          if (restaurantData) return;
           if (res.status === 402) {
             renderUnavailable('El menú se encuentra temporalmente en actualización. Por favor consulta al mozo o en la barra.');
             return;
@@ -959,9 +1209,34 @@
           body: JSON.stringify({ slug, event: 'visit' })
         }).catch(() => {});
       } catch (err) {
-        renderUnavailable('No se pudo conectar con el servidor.');
+        if (!restaurantData) {
+          try {
+            const localDemo = localStorage.getItem('scango_demo_restaurant');
+            if (localDemo) {
+              restaurantData = JSON.parse(localDemo);
+              renderHeader();
+              renderCategories();
+              renderDishes();
+              return;
+            }
+          } catch (e) {}
+          renderUnavailable('No se pudo conectar con el servidor.');
+        }
       }
     }
+
+    // Live sync via postMessage from Studio Editor (real-time preview)
+    window.addEventListener('message', (event) => {
+      if (event.data && (event.data.type === 'UPDATE_LIVE_PREVIEW' || event.data.type === 'UPDATE_RESTAURANT')) {
+        const updated = event.data.data || event.data.restaurant;
+        if (!updated) return;
+        // Merge or replace restaurantData
+        restaurantData = Object.assign({}, restaurantData || {}, updated);
+        renderHeader();
+        renderCategories();
+        renderDishes();
+      }
+    });
 
     function renderUnavailable(msg) {
       document.getElementById('restaurantName').textContent = 'Menú no disponible';
@@ -978,8 +1253,8 @@
       document.getElementById('restaurantName').textContent = restaurantData.name;
       document.getElementById('restaurantSlogan').textContent = restaurantData.slogan || 'Carta Gastronómica';
 
-      // Apply 7 Authentic Themes & Fonts to body
-      const validThemes = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck'];
+      // Apply 14 Authentic & Special Themes & Fonts to body
+      const validThemes = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football'];
       const themeClass = validThemes.includes(restaurantData.theme) ? `theme-${restaurantData.theme}` : 'theme-emerald';
       document.body.className = `${themeClass} font-${restaurantData.themeFont || 'serif'}`;
 
@@ -1079,6 +1354,34 @@
         if (waiterTableNum && !waiterTableNum.value) waiterTableNum.value = `Mesa ${mesaParam}`;
       }
 
+      // Loyalty Points Chip Visibility Control
+      const loyaltyChip = document.getElementById('loyaltyChip');
+      if (loyaltyChip) {
+        loyaltyChip.style.display = (restaurantData.allowLoyaltyPoints === true) ? 'inline-flex' : 'none';
+      }
+
+      // Vertical / Special Features Visibility Control (Heladería & Perfumería)
+      // Only show if explicitly enabled, or if businessType matches and hasn't been disabled
+      const isHeladeria = restaurantData.allowIceCreamWizard === true || 
+        (restaurantData.businessType === 'heladeria' && restaurantData.allowIceCreamWizard !== false);
+      const isPerfumeria = restaurantData.allowPerfumery === true || 
+        (restaurantData.businessType === 'perfumeria' && restaurantData.allowPerfumery !== false);
+
+      const btnIceCream = document.getElementById('btnOpenIceCreamWizard');
+      if (btnIceCream) {
+        btnIceCream.style.display = isHeladeria ? 'inline-flex' : 'none';
+      }
+
+      const btnPerf = document.getElementById('btnTogglePerfumeryMode');
+      if (btnPerf) {
+        btnPerf.style.display = isPerfumeria ? 'inline-flex' : 'none';
+      }
+
+      const specialBar = document.getElementById('specialActionsBar');
+      if (specialBar) {
+        specialBar.style.display = (isHeladeria || isPerfumeria) ? 'flex' : 'none';
+      }
+
       if (restaurantData.address) {
         const aChip = document.getElementById('addressChip');
         aChip.style.display = 'inline-flex';
@@ -1113,9 +1416,39 @@
       renderDishes();
     }
 
+    let selectedDietFilter = 'ALL';
+
+    function selectDietFilter(diet) {
+      selectedDietFilter = diet;
+      document.querySelectorAll('#dietaryFilterPills .cat-pill').forEach(btn => {
+        const isSel = (diet === 'ALL' && btn.textContent.includes('Todos')) ||
+                      (diet === 'veggie' && btn.textContent.includes('Vegetariano')) ||
+                      (diet === 'vegan' && btn.textContent.includes('Vegano')) ||
+                      (diet === 'celiac' && btn.textContent.includes('Sin TACC')) ||
+                      (diet === 'sinlactosa' && btn.textContent.includes('Sin Lactosa')) ||
+                      (diet === 'picante' && btn.textContent.includes('Picante'));
+        btn.classList.toggle('active', isSel);
+      });
+      renderDishes();
+    }
+
+    function clearSearchFilter() {
+      const input = document.getElementById('searchFilter');
+      if (input) input.value = '';
+      const btnClear = document.getElementById('btnClearSearch');
+      if (btnClear) btnClear.style.display = 'none';
+      renderDishes();
+    }
+
     function renderDishes() {
       const container = document.getElementById('dishesContainer');
-      const searchTerm = document.getElementById('searchFilter').value.toLowerCase().trim();
+      const searchInput = document.getElementById('searchFilter');
+      const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+      const btnClear = document.getElementById('btnClearSearch');
+      if (btnClear) {
+        btnClear.style.display = searchTerm.length > 0 ? 'block' : 'none';
+      }
+
       const currency = restaurantData.currency || '$';
       const categories = restaurantData.categories || [];
       const dishes = restaurantData.dishes || [];
@@ -1144,6 +1477,18 @@
         }
       }
 
+      // Dietary filter predicate
+      const matchesDiet = (d) => {
+        if (selectedDietFilter === 'ALL') return true;
+        if (!d.tags) return false;
+        if (selectedDietFilter === 'veggie') return d.tags.includes('veggie') || d.tags.includes('vegetariano');
+        if (selectedDietFilter === 'vegan') return d.tags.includes('vegan') || d.tags.includes('vegano');
+        if (selectedDietFilter === 'celiac') return d.tags.includes('celiac') || d.tags.includes('singluten');
+        if (selectedDietFilter === 'sinlactosa') return d.tags.includes('sinlactosa');
+        if (selectedDietFilter === 'picante') return d.tags.includes('picante');
+        return true;
+      };
+
       let html = '';
 
       // Special Mode: Popular / Featured Dishes
@@ -1151,7 +1496,7 @@
         const popularDishes = dishes.filter(d => {
           const isStar = d.tags && d.tags.includes('star');
           const matchesSearch = !searchTerm || d.name.toLowerCase().includes(searchTerm) || (d.description && d.description.toLowerCase().includes(searchTerm));
-          return isStar && matchesSearch;
+          return isStar && matchesSearch && matchesDiet(d);
         });
 
         if (!popularDishes.length) {
@@ -1180,7 +1525,7 @@
         const catDishes = dishes.filter(d => {
           const matchesCat = d.categoryId === cat.id;
           const matchesSearch = !searchTerm || d.name.toLowerCase().includes(searchTerm) || (d.description && d.description.toLowerCase().includes(searchTerm));
-          return matchesCat && matchesSearch;
+          return matchesCat && matchesSearch && matchesDiet(d);
         });
 
         if (!catDishes.length) return;
@@ -1202,7 +1547,7 @@
         `;
       });
 
-      container.innerHTML = html || '<div class="loading-spinner">No se encontraron platos con ese término.</div>';
+      container.innerHTML = html || '<div class="loading-spinner">No se encontraron platos con ese criterio.</div>';
     }
 
     function renderSingleDishCard(d, currency) {
@@ -1221,6 +1566,10 @@
         ? `<img src="${d.photoUrl}" alt="${escapeHtml(d.name)}" class="dish-thumb" loading="lazy">` 
         : '';
 
+      const formattedPrice = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
+        ? window.i18nManager.formatPrice(d.price) 
+        : `${currency} ${d.price}`;
+
       return `
         <div class="dish-card ${isSold ? 'dish-sold' : ''}" id="dish_card_${d.id}" style="${isSold ? 'opacity:0.5; filter:grayscale(0.6);' : ''}">
           ${photoHtml}
@@ -1230,7 +1579,7 @@
               ${badgeHtml}
             </div>
             ${d.description ? `<p class="dish-desc">${escapeHtml(d.description)}</p>` : ''}
-            <div class="dish-price">${isSold ? '<span style="color:#E53E3E; font-size:0.85rem;">Agotado</span>' : `${currency} ${d.price}`}</div>
+            <div class="dish-price">${isSold ? '<span style="color:#E53E3E; font-size:0.85rem;">Agotado</span>' : formattedPrice}</div>
           </div>
           <div class="dish-action">
             ${isSold 
@@ -1275,12 +1624,15 @@
       const totalCount = Object.values(cart).reduce((sum, item) => sum + item.qty, 0);
       const subtotal = Object.values(cart).reduce((sum, item) => sum + (item.qty * item.dish.price), 0);
       const currency = restaurantData.currency || '$';
+      const formattedSubtotal = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
+        ? window.i18nManager.formatPrice(subtotal) 
+        : `${currency} ${subtotal}`;
 
       const bar = document.getElementById('floatingCart');
       if (totalCount > 0) {
         bar.classList.add('active');
         document.getElementById('cartCountBadge').textContent = `🛒 ${totalCount} ítems`;
-        document.getElementById('cartTotalBadge').textContent = `${currency} ${subtotal}`;
+        document.getElementById('cartTotalBadge').textContent = `${formattedSubtotal}`;
       } else {
         bar.classList.remove('active');
       }
@@ -1309,11 +1661,20 @@
 
       let html = '';
       items.forEach(item => {
+        const itemDesc = item.dish.description ? `<div style="font-size:0.75rem; color:var(--chalk-dim); margin-top:2px;">${escapeHtml(item.dish.description)}</div>` : '';
+        const formattedPrice = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
+          ? window.i18nManager.formatPrice(item.dish.price) 
+          : `${currency} ${item.dish.price}`;
+        const formattedLineTotal = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
+          ? window.i18nManager.formatPrice(item.dish.price * item.qty) 
+          : `${currency} ${item.dish.price * item.qty}`;
+
         html += `
           <div class="cart-item">
-            <div>
-              <div class="cart-item-title">${item.dish.name}</div>
-              <div class="cart-item-price">${currency} ${item.dish.price} x ${item.qty} = ${currency} ${item.dish.price * item.qty}</div>
+            <div style="flex:1; min-width:0;">
+              <div class="cart-item-title">${escapeHtml(item.dish.name)}</div>
+              ${itemDesc}
+              <div class="cart-item-price">${formattedPrice} x ${item.qty} = ${formattedLineTotal}</div>
             </div>
             <div class="cart-qty-ctrl">
               <button class="btn-qty" onclick="changeCartQty('${item.dish.id}', -1)">-</button>
@@ -1407,7 +1768,11 @@
       const subtotal = Object.values(cart).reduce((sum, item) => sum + (item.qty * item.dish.price), 0);
       const mode = document.getElementById('orderMode').value;
 
-      document.getElementById('summarySubtotal').textContent = `${currency} ${subtotal}`;
+      const formatP = (amt) => (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
+        ? window.i18nManager.formatPrice(amt) 
+        : `${currency} ${amt}`;
+
+      document.getElementById('summarySubtotal').textContent = formatP(subtotal);
       const deliveryRow = document.getElementById('summaryDeliveryRow');
       const discountRow = document.getElementById('summaryDiscountRow');
 
@@ -1424,20 +1789,20 @@
 
       if (discountAmount > 0) {
         discountRow.style.display = 'flex';
-        document.getElementById('summaryDiscount').textContent = `-${currency} ${discountAmount} (${appliedCoupon.label})`;
+        document.getElementById('summaryDiscount').textContent = `-${formatP(discountAmount)} (${appliedCoupon.label})`;
       } else {
         discountRow.style.display = 'none';
       }
 
       if (mode === 'DELIVERY' && deliveryFee > 0) {
         deliveryRow.style.display = 'flex';
-        document.getElementById('summaryDeliveryFee').textContent = `${currency} ${deliveryFee}`;
+        document.getElementById('summaryDeliveryFee').textContent = `${formatP(deliveryFee)}`;
       } else {
         deliveryRow.style.display = 'none';
       }
 
       const total = Math.max(0, subtotal + currentDelivery - discountAmount);
-      document.getElementById('summaryTotal').textContent = `${currency} ${total}`;
+      document.getElementById('summaryTotal').textContent = formatP(total);
       updateSplitCalculation();
     }
 
@@ -1496,6 +1861,9 @@
       msg += `*DETALLE DE LA COMANDA:*\n`;
       items.forEach(it => {
         msg += `▪ ${it.qty}x ${it.dish.name} - ${currency} ${it.dish.price * it.qty}\n`;
+        if (it.dish.description && (it.dish.isCustomIceCream || (it.dish.id && it.dish.id.startsWith('perfume_')))) {
+          msg += `   ↳ _${it.dish.description}_\n`;
+        }
       });
 
       if (notes) {
@@ -1616,6 +1984,137 @@
 
     // Init
     window.addEventListener('DOMContentLoaded', loadMenu);
+  </script>
+
+  <!-- ES6 Specialty Components & i18n Integration -->
+  <script type="module">
+    import { IceCreamWizard } from '/js/components/IceCreamWizard.js';
+    import { PerfumeryView } from '/js/components/PerfumeryView.js';
+    import { LoyaltyRewardsModal } from '/js/components/LoyaltyRewardsModal.js';
+    import { I18nCurrencyManager } from '/js/components/I18nCurrencyManager.js';
+
+    // Expose classes on window
+    window.IceCreamWizard = IceCreamWizard;
+    window.PerfumeryView = PerfumeryView;
+    window.LoyaltyRewardsModal = LoyaltyRewardsModal;
+    window.I18nCurrencyManager = I18nCurrencyManager;
+
+    // Initialize i18n & Currency Manager
+    window.i18nManager = new I18nCurrencyManager({
+      defaultLang: 'es',
+      defaultCurrency: '$UYU',
+      onStateChange: () => {
+        if (window.renderDishes) window.renderDishes();
+        if (window.updateCartUI) window.updateCartUI();
+        if (window.updateTotals) window.updateTotals();
+        if (window.updateSplitCalculation) window.updateSplitCalculation();
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      window.i18nManager.renderControlsBar('i18nCurrencyBarContainer');
+    });
+
+    // Loyalty Rewards Modal Handler
+    window.openLoyaltyModal = function() {
+      const restName = window.restaurantData ? window.restaurantData.name : 'ScanGo';
+      const phone = window.restaurantData ? window.restaurantData.phone : '';
+      if (!window.activeLoyaltyModalInstance) {
+        window.activeLoyaltyModalInstance = new LoyaltyRewardsModal({ restaurantName: restName, phone: phone });
+      } else {
+        window.activeLoyaltyModalInstance.restaurantName = restName;
+        window.activeLoyaltyModalInstance.phone = phone;
+      }
+      window.activeLoyaltyModalInstance.open();
+    };
+
+    // Ice Cream Wizard Handler
+    window.openIceCreamWizard = function() {
+      const curr = window.i18nManager ? window.i18nManager.getCurrencySymbol() : (window.restaurantData ? window.restaurantData.currency : '$');
+      
+      // Chequear si el restaurante tiene sabores de heladería propios cargados
+      let customFlavors = null;
+      if (window.restaurantData && window.restaurantData.dishes) {
+        const iceDishes = window.restaurantData.dishes.filter(d => {
+          const cat = (window.restaurantData.categories || []).find(c => c.id === d.categoryId);
+          const catName = cat ? cat.name.toLowerCase() : '';
+          return catName.includes('helad') || d.name.toLowerCase().includes('helad') || d.name.toLowerCase().includes('sabor');
+        });
+        if (iceDishes.length > 0) {
+          customFlavors = iceDishes.map(d => ({
+            id: d.id,
+            categoryId: d.categoryId,
+            categoryName: 'Carta de la Casa',
+            name: d.name,
+            price: d.price,
+            description: d.description || '',
+            tags: d.tags || [],
+            outOfStock: Boolean(d.outOfStock)
+          }));
+        }
+      }
+
+      window.iceCreamWizardInstance = new IceCreamWizard({
+        currency: curr,
+        customFlavors: customFlavors,
+        onAddToCart: (customItem) => {
+          if (!window.cart) window.cart = {};
+          if (!window.cart[customItem.id]) {
+            window.cart[customItem.id] = { dish: customItem, qty: 1 };
+          } else {
+            window.cart[customItem.id].qty += 1;
+          }
+          if (window.updateCartUI) window.updateCartUI();
+          if (window.renderDishes) window.renderDishes();
+          if (window.openCartModal) window.openCartModal();
+        }
+      });
+
+      window.iceCreamWizardInstance.open();
+    };
+
+    // Perfumery Mode Toggle Handler
+    let isPerfumeryActive = false;
+    window.togglePerfumeryMode = function() {
+      isPerfumeryActive = !isPerfumeryActive;
+      const perfContainer = document.getElementById('perfumeryContainer');
+      const dishesContainer = document.getElementById('dishesContainer');
+      const btnToggle = document.getElementById('btnTogglePerfumeryMode');
+
+      if (isPerfumeryActive) {
+        perfContainer.style.display = 'block';
+        dishesContainer.style.display = 'none';
+        btnToggle.style.background = 'var(--chalk-gold)';
+        btnToggle.style.color = '#101614';
+        btnToggle.textContent = '🍽️ Volver a la Carta Gastronómica';
+
+        const curr = window.i18nManager ? window.i18nManager.getCurrencySymbol() : (window.restaurantData ? window.restaurantData.currency : '$');
+        if (!window.perfumeryViewInstance) {
+          window.perfumeryViewInstance = new PerfumeryView({
+            currency: curr,
+            onAddToCart: (perfumeDish) => {
+              if (!window.cart) window.cart = {};
+              if (!window.cart[perfumeDish.id]) {
+                window.cart[perfumeDish.id] = { dish: perfumeDish, qty: 1 };
+              } else {
+                window.cart[perfumeDish.id].qty += 1;
+              }
+              if (window.updateCartUI) window.updateCartUI();
+              if (window.renderDishes) window.renderDishes();
+              if (window.openCartModal) window.openCartModal();
+            }
+          });
+        }
+        window.perfumeryViewInstance.currency = curr;
+        window.perfumeryViewInstance.renderToContainer('perfumeryContainer');
+      } else {
+        perfContainer.style.display = 'none';
+        dishesContainer.style.display = 'block';
+        btnToggle.style.background = 'transparent';
+        btnToggle.style.color = '#B794F4';
+        btnToggle.textContent = '✨ Colección Perfumería';
+      }
+    };
   </script>
 </body>
 </html>

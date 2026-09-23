@@ -624,5 +624,20 @@
       "renewsAt": "2026-09-18T23:02:30.547Z",
       "provider": "lemonsqueezy"
     }
+  },
+  {
+    "provider": "lemonsqueezy",
+    "eventId": "sub_evt_1790197026654",
+    "eventType": "subscription_payment_success",
+    "receivedAt": "2026-09-23T20:57:06.677Z",
+    "data": {
+      "eventId": "sub_evt_1790197026654",
+      "eventName": "subscription_payment_success",
+      "restaurantId": "rest_1790197026503_j8evc5",
+      "status": "active",
+      "rawStatus": "active",
+      "renewsAt": "2026-10-23T20:57:06.654Z",
+      "provider": "lemonsqueezy"
+    }
   }
 ]

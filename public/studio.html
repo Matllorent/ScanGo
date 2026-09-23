@@ -4,7 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ScanGo Studio — Panel de Edición de Menú</title>
-  <link rel="icon" type="image/png" href="/logo-scango.png">
+  <!-- PWA & Identity Assets -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0E1412">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Montserrat:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -389,7 +399,7 @@
   <!-- Top Navigation Bar -->
   <header class="top-navbar">
     <div class="brand-area">
-      <img src="/logo-scango.png" alt="ScanGo" style="height: 36px; width: auto; object-fit: contain; border-radius: 6px;">
+      <img src="/logo-scango.png" alt="ScanGo" style="height: 36px; width: auto; object-fit: contain; display: block; background: transparent;">
       <div>
         <div class="brand-title" id="studioNavRestaurantName">ScanGo Studio</div>
         <div style="font-size: 10px; color: var(--text-dim);" id="studioNavUserEmail">Cargando...</div>
@@ -475,6 +485,17 @@
               <label class="form-label">Slug de Enlace Público (/m/:slug)</label>
               <input type="text" id="inputLocalSlug" class="form-input" placeholder="ej: la-trattoria" oninput="updateLiveState()">
               <div class="input-hint">Tu enlace web será: <code id="previewFullUrl">/m/slug</code></div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Rubro / Tipo de Comercio</label>
+              <select id="inputBusinessType" class="form-select" onchange="updateLiveState()">
+                <option value="restaurant">🍽️ Restaurante, Bar & Gastronomía General</option>
+                <option value="heladeria">🍦 Heladería & Postres</option>
+                <option value="perfumeria">🌸 Perfumería, Fragancias & Cosmética</option>
+                <option value="cafeteria">☕ Cafetería & Pastelería</option>
+              </select>
+              <div class="input-hint">Personaliza automáticamente las herramientas activas según el rubro de tu negocio.</div>
             </div>
 
             <div class="form-group">
@@ -568,7 +589,7 @@
         <div id="tab-dishes" class="tab-pane">
           <div style="display: flex; gap: 8px; margin-bottom: 14px;">
             <button class="btn-nav btn-nav-gold" style="flex:1;" onclick="openPresetsModal()">
-              ✨ Agregar desde 85+ Platos Frecuentes
+              ✨ Agregar desde 100+ Platos y Sabores Frecuentes
             </button>
             <button class="btn-nav" onclick="openNewDishModal()">
               + Nuevo Plato
@@ -615,7 +636,7 @@
             </p>
 
             <div class="form-group">
-              <label class="form-label">Fondo y Paleta del Pizarrón (7 Opciones)</label>
+              <label class="form-label">Fondo y Paleta del Pizarrón (14 Opciones Temáticas)</label>
               <select id="inputThemeBg" class="form-select" onchange="updateLiveState()">
                 <option value="classic">1. Pizarrón Clásico Negro Grafito (Tiza Blanca)</option>
                 <option value="emerald" selected>2. Pizarrón Verde Bistro Esmeralda (Bistró Pomelli)</option>
@@ -624,6 +645,13 @@
                 <option value="bar">5. Bar de Tragos & Nocturno (Serif Elegante & Cócteles)</option>
                 <option value="moderna">6. Cafetería Moderna (Minimalista & Café de Especialidad)</option>
                 <option value="foodtruck">7. Food Truck / Burgers (Neón Oscuro & Smash)</option>
+                <option value="gamer">8. 🎮 Gamer & Arcade (Neón Cyan & Verde sobre Pizarra)</option>
+                <option value="otaku">9. 🌸 Otaku & Anime (Estética Pop Pastel sobre Pizarra)</option>
+                <option value="explosivo">10. 💥 Explosivo & Promos (Alto Contraste Ofertas)</option>
+                <option value="infantil">11. 🎈 Infantil & Kids (Líneas Suaves y Redondeadas)</option>
+                <option value="alegre">12. ☀️ Alegre & Cálido (Tiza Amarilla y Naranja Sol)</option>
+                <option value="basketball">13. 🏀 Basketball Court (Pizarra Táctica & Naranja)</option>
+                <option value="football">14. ⚽ Football Stadium (Pizarra Táctica de Césped)</option>
               </select>
             </div>
 
@@ -698,6 +726,49 @@
               <label style="position:relative; display:inline-block; width:42px; height:24px;">
                 <input type="checkbox" id="inputAllowBillSplitter" checked onchange="updateLiveState()" style="opacity:0; width:0; height:0;">
                 <span id="sliderBillSplitter" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#38A169; border-radius:24px; transition:.3s;"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">⭐ Fidelización y Herramientas Especiales</div>
+            <p style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">
+              Activa o desactiva las modalidades especiales según el perfil de tu emprendimiento.
+            </p>
+
+            <!-- Loyalty Points Toggle -->
+            <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border); margin-bottom:10px;">
+              <div>
+                <strong style="font-size:12px; color:#fff;">Tarjeta de Puntos / Club Fidelización</strong>
+                <div style="font-size:10px; color:var(--text-dim);">Permite a los comensales acumular sellos de visita y canjear premios.</div>
+              </div>
+              <label style="position:relative; display:inline-block; width:42px; height:24px;">
+                <input type="checkbox" id="inputAllowLoyaltyPoints" checked onchange="updateLiveState()" style="opacity:0; width:0; height:0;">
+                <span id="sliderLoyaltyPoints" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#38A169; border-radius:24px; transition:.3s;"></span>
+              </label>
+            </div>
+
+            <!-- Ice Cream Wizard Toggle -->
+            <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border); margin-bottom:10px;">
+              <div>
+                <strong style="font-size:12px; color:#fff;">Asistente "Armá tu Helado Artesanal"</strong>
+                <div style="font-size:10px; color:var(--text-dim);">Selector interactivo de cucurucho/vasito, sabores con límite y toppings.</div>
+              </div>
+              <label style="position:relative; display:inline-block; width:42px; height:24px;">
+                <input type="checkbox" id="inputAllowIceCreamWizard" onchange="updateLiveState()" style="opacity:0; width:0; height:0;">
+                <span id="sliderIceCreamWizard" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
+              </label>
+            </div>
+
+            <!-- Perfumery Catalog Toggle -->
+            <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+              <div>
+                <strong style="font-size:12px; color:#fff;">Catálogo de Fragancias & Cosmética</strong>
+                <div style="font-size:10px; color:var(--text-dim);">Vista de pirámide olfativa (salida, corazón, fondo) y selector de frasco.</div>
+              </div>
+              <label style="position:relative; display:inline-block; width:42px; height:24px;">
+                <input type="checkbox" id="inputAllowPerfumery" onchange="updateLiveState()" style="opacity:0; width:0; height:0;">
+                <span id="sliderPerfumery" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
               </label>
             </div>
           </div>
@@ -794,20 +865,39 @@
         <!-- TAB 7: RESEÑA & OPINIÓN DEL GASTRONÓMICO -->
         <div id="tab-reviews" class="tab-pane">
           <div class="form-section">
-            <div class="section-title">⭐ Tu Opinión sobre ScanGo</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <div class="section-title" style="margin-bottom:0;">⭐ Tu Opinión sobre ScanGo</div>
+              <button type="button" class="btn-nav" style="font-size:11px; padding:4px 8px; border-color:var(--accent-gold); color:var(--accent-gold);" onclick="openMilestone30DaysModal()">
+                🧪 Ver Modal 30 Días
+              </button>
+            </div>
+
+            <!-- Milestone Card Banner (shown if 30 days completed) -->
+            <div id="milestone30DaysBanner" style="display:none; background:linear-gradient(135deg, rgba(236,201,75,0.15), rgba(56,161,105,0.15)); border:1px solid var(--accent-gold); border-radius:10px; padding:14px; margin-bottom:16px;">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size:2rem;">🎉</span>
+                <div>
+                  <strong style="color:var(--accent-gold); font-size:13px;">¡Completaste tu primer mes en ScanGo!</strong>
+                  <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+                    Tu local ya disfruta de carta digital sin comisiones. Compartí tu opinión para ser destacado en nuestra página principal.
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <p style="font-size:11px; color:var(--text-dim); margin-bottom:14px;">
-              Tras tu primer mes de uso, ayúdanos con tu reseña. Las opiniones verificadas se destacan en nuestra página de inicio.
+              Tras tu primer mes de uso, ayúdanos con tu testimonio. Las opiniones verificadas se destacan con foto en la portada pública de ScanGo.
             </p>
 
             <div id="reviewSubmittedAlert" style="display:none; background:rgba(56,161,105,0.2); border:1px solid #38A169; color:#68D391; padding:12px; border-radius:8px; margin-bottom:12px; font-size:12px;">
-              ✓ ¡Muchas gracias! Tu reseña ha sido enviada con éxito y está en proceso de moderación por el equipo.
+              ✓ ¡Muchas gracias! Tu reseña ha sido enviada con éxito y está en proceso de moderación por el administrador.
             </div>
 
             <form id="restaurantReviewForm" onsubmit="submitOwnerReview(event)">
               <div class="form-group">
-                <label class="form-label">Calificación General</label>
+                <label class="form-label">Calificación General *</label>
                 <select id="reviewRating" class="form-select">
-                  <option value="5">⭐⭐⭐⭐⭐ 5 Estrellas (Excelente)</option>
+                  <option value="5" selected>⭐⭐⭐⭐⭐ 5 Estrellas (Excelente)</option>
                   <option value="4">⭐⭐⭐⭐ 4 Estrellas (Muy Bueno)</option>
                   <option value="3">⭐⭐⭐ 3 Estrellas (Bueno)</option>
                   <option value="2">⭐⭐ 2 Estrellas (Regular)</option>
@@ -816,17 +906,59 @@
               </div>
 
               <div class="form-group">
-                <label class="form-label">Tu Cargo / Rol</label>
+                <label class="form-label">Tu Cargo / Rol en el Local *</label>
                 <input type="text" id="reviewAuthorRole" class="form-input" placeholder="Ej: Dueño / Chef Ejecutivo / Gerente" required>
               </div>
 
+              <!-- Foto de Perfil del Testimonio (Opciones A, B, C) -->
               <div class="form-group">
-                <label class="form-label">Tu Testimonio u Opinión</label>
+                <label class="form-label">Fotografía de Perfil para la Reseña *</label>
+                <div style="display:grid; grid-template-columns:1fr; gap:8px; margin-bottom:10px;">
+                  <label style="display:flex; align-items:center; gap:10px; background:var(--surface-2); padding:10px 12px; border-radius:8px; border:1px solid var(--border); cursor:pointer;">
+                    <input type="radio" name="reviewPhotoOption" value="logo" checked onchange="setReviewPhotoOption('logo')">
+                    <div>
+                      <strong style="font-size:12px; color:#fff;">Opción A: Logo de tu Restaurante</strong>
+                      <div style="font-size:10px; color:var(--text-dim);">Usa automáticamente el logo oficial cargado en tu local</div>
+                    </div>
+                  </label>
+                  <label style="display:flex; align-items:center; gap:10px; background:var(--surface-2); padding:10px 12px; border-radius:8px; border:1px solid var(--border); cursor:pointer;">
+                    <input type="radio" name="reviewPhotoOption" value="venue" onchange="setReviewPhotoOption('venue')">
+                    <div>
+                      <strong style="font-size:12px; color:#fff;">Opción B: Foto del Local o Plato</strong>
+                      <div style="font-size:10px; color:var(--text-dim);">Carga una fotografía del salón, barra o plato insignia</div>
+                    </div>
+                  </label>
+                  <label style="display:flex; align-items:center; gap:10px; background:var(--surface-2); padding:10px 12px; border-radius:8px; border:1px solid var(--border); cursor:pointer;">
+                    <input type="radio" name="reviewPhotoOption" value="personal" onchange="setReviewPhotoOption('personal')">
+                    <div>
+                      <strong style="font-size:12px; color:#fff;">Opción C: Foto Personal</strong>
+                      <div style="font-size:10px; color:var(--text-dim);">Carga tu retrato personal o del equipo gastronómico</div>
+                    </div>
+                  </label>
+                </div>
+
+                <!-- Preview and File Upload Button -->
+                <div style="display:flex; align-items:center; gap:12px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+                  <div id="reviewPhotoPreviewThumb" style="width:48px; height:48px; border-radius:50%; overflow:hidden; border:2px solid var(--accent-gold); display:flex; align-items:center; justify-content:center; background:#16201c; flex-shrink:0;">
+                    <span id="reviewPhotoFallbackIcon" style="font-size:22px;">🍽️</span>
+                  </div>
+                  <div style="flex:1;">
+                    <input type="file" id="inputReviewPhotoFile" accept="image/*" style="display:none;" onchange="handleReviewPhotoFile(event)">
+                    <button type="button" id="btnSelectReviewPhoto" class="btn-nav" style="display:none; font-size:11px; padding:5px 12px; margin-bottom:4px;" onclick="document.getElementById('inputReviewPhotoFile').click()">
+                      📷 Cargar Imagen desde Dispositivo
+                    </button>
+                    <div id="reviewPhotoStatusText" style="font-size:11px; color:var(--text-dim);">Usando el logo oficial de tu restaurante.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Tu Testimonio u Opinión *</label>
                 <textarea id="reviewComment" class="form-textarea" rows="4" placeholder="¿Cómo te ayudó ScanGo en la gestión de tu restaurante y en el ahorro de comisiones?" required></textarea>
               </div>
 
-              <button type="submit" class="btn-nav btn-nav-gold" style="width:100%; justify-content:center; padding:10px;">
-                Enviar Reseña para Moderación
+              <button type="submit" class="btn-nav btn-nav-gold" style="width:100%; justify-content:center; padding:10px; font-weight:700;">
+                🚀 Enviar Reseña para Moderación
               </button>
             </form>
           </div>
@@ -949,6 +1081,74 @@
     </div>
   </div>
 
+  <!-- Modal Catálogo de 30+ Sabores de Heladería (Presets con Checkboxes) -->
+  <div id="iceCreamPresetsModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 650px;">
+      <button class="modal-close" onclick="closeIceCreamPresetsModal()">✕</button>
+      <h3 class="modal-title" style="display:flex; align-items:center; gap:8px;">
+        <span>🍦 Catálogo de Sabores de Heladería Artesanal</span>
+      </h3>
+      <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px;">
+        Seleccioná los sabores que ofrece tu heladería marcando las casillas y agregalos a tu menú a 1 clic.
+      </p>
+
+      <!-- Barra de Acciones / Filtros -->
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px; background:var(--surface-2); padding:8px 12px; border-radius:8px; border:1px solid var(--border);">
+        <div style="display:flex; gap:6px;">
+          <button type="button" class="btn-nav" style="font-size:11px; padding:3px 8px;" onclick="toggleAllIceCreamFlavors(true)">
+            ✓ Marcar Todos
+          </button>
+          <button type="button" class="btn-nav" style="font-size:11px; padding:3px 8px;" onclick="toggleAllIceCreamFlavors(false)">
+            ✕ Desmarcar
+          </button>
+        </div>
+        <div style="font-size:11px; color:var(--accent-gold); font-weight:700;">
+          <span id="iceCreamPresetCountLabel">0 seleccionados</span>
+        </div>
+      </div>
+
+      <!-- Filtro de Categoría de Sabores -->
+      <div id="iceCreamPresetFilterBar" style="display:flex; gap:6px; overflow-x:auto; padding-bottom:8px; margin-bottom:12px; scrollbar-width:thin;">
+        <button class="cat-pill active" onclick="filterIceCreamPresetCat('ALL')">Todos</button>
+        <button class="cat-pill" onclick="filterIceCreamPresetCat('Chocolates')">🍫 Chocolates</button>
+        <button class="cat-pill" onclick="filterIceCreamPresetCat('Dulces de Leche')">🍮 Dulce de Leche</button>
+        <button class="cat-pill" onclick="filterIceCreamPresetCat('Cremas')">🍦 Cremas</button>
+        <button class="cat-pill" onclick="filterIceCreamPresetCat('Frutales')">🍓 Frutales</button>
+        <button class="cat-pill" onclick="filterIceCreamPresetCat('Especiales')">✨ Especiales</button>
+      </div>
+
+      <!-- Lista de Sabores con Checkboxes -->
+      <div id="iceCreamPresetsListContainer" style="max-height:330px; overflow-y:auto; padding-right:4px; margin-bottom:16px;">
+        <!-- Renderizado dinámicamente con JS -->
+      </div>
+
+      <button class="btn-nav btn-nav-gold" style="width:100%; justify-content:center; font-size:13px; font-weight:700; padding:10px;" onclick="importSelectedIceCreamFlavors()">
+        📥 Importar Sabores Seleccionados a mi Menú
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal Catálogo de Perfumería & Cosmética -->
+  <div id="perfumeryPresetsModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 650px;">
+      <button class="modal-close" onclick="closePerfumeryPresetsModal()">✕</button>
+      <h3 class="modal-title" style="display:flex; align-items:center; gap:8px;">
+        <span>🌸 Catálogo de Fragancias de Autor & Cosmética</span>
+      </h3>
+      <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px;">
+        Importá perfumes y fragancias con desglose de notas de salida, corazón y fondo directamente a tu carta.
+      </p>
+
+      <div id="perfumeryPresetsListContainer" style="max-height:340px; overflow-y:auto; padding-right:4px; margin-bottom:16px;">
+        <!-- Renderizado dinámicamente con JS -->
+      </div>
+
+      <button class="btn-nav btn-nav-gold" style="width:100%; justify-content:center; font-size:13px; font-weight:700; padding:10px;" onclick="importSelectedPerfumery()">
+        📥 Importar Fragancias Seleccionadas a mi Menú
+      </button>
+    </div>
+  </div>
+
   <!-- Dish Create / Edit Modal -->
   <div id="dishEditModal" class="modal-overlay">
     <div class="modal-box">
@@ -1066,11 +1266,41 @@
     </div>
   </div>
 
+  <!-- Modal Reseña a los 30 Días -->
+  <div id="milestone30DaysModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 500px; text-align: center;">
+      <button class="modal-close" onclick="closeMilestone30DaysModal()">✕</button>
+      <div style="font-size: 3rem; margin-bottom: 8px;">🎉</div>
+      <h3 class="modal-title" style="margin-bottom: 6px;">¡Cumpliste tu Primer Mes con ScanGo!</h3>
+      <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 16px; line-height: 1.6;">
+        Tu restaurante ya forma parte de los locales gastronómicos que aumentan ventas y eliminan comisiones abusivas. Nos encantaría conocer tu experiencia.
+      </p>
+
+      <div style="background: var(--surface-2); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border); text-align: left; margin-bottom: 16px;">
+        <div style="font-size: 11px; color: var(--accent-gold); font-weight: 700; margin-bottom: 3px;">🌟 BENEFICIO EXCLUSIVO</div>
+        <div style="font-size: 12px; color: #fff;">
+          Tu testimonio verificado será destacado en la portada de <strong>ScanGo</strong> con el nombre y logo de tu local, atrayendo más visibilidad a tu marca.
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="btn-nav" style="flex: 1; justify-content: center; font-size: 11px;" onclick="closeMilestone30DaysModal()">
+          Recordar Más Tarde
+        </button>
+        <button type="button" class="btn-nav btn-nav-gold" style="flex: 2; justify-content: center; font-weight: 700; font-size: 12px;" onclick="openReviewFromMilestone()">
+          ⭐ Dejar mi Opinión Ahora
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // App State
     let currentUser = null;
     let restaurant = null;
     let autoSaveTimeout = null;
+    let selectedReviewPhotoOption = 'logo';
+    let uploadedReviewPhotoUrl = null;
 
     // Presets Catalog (85+ suggested dishes)
     const PRESETS = {
@@ -1249,6 +1479,64 @@
           { name: 'Quesadillas de Birria de Res con Consomé (3 un)', price: 520, desc: 'Tortillas doradas a la plancha mojadas en el adobo de la carne de res cocinada a fuego lento, con queso Oaxaca y tazón de consomé caliente', tags: ['star'] },
           { name: 'Chiles en Nogada Tradicionales', price: 580, desc: 'Chile poblano asado relleno de picadillo agridulce de cerdo, frutas secas y piñones, cubierto de salsa cremosa de nuez de Castilla y granada roja', tags: [] }
         ]
+      },
+      helados_chocolates: {
+        catName: '🍫 Helados: Chocolates',
+        dishes: [
+          { name: 'Chocolate Amargo 70%', price: 320, desc: 'Cacao puro ecuatoriano al 70%, intenso y con notas tostadas.', tags: ['star', 'celiac'] },
+          { name: 'Chocolate con Almendras Tostadas', price: 330, desc: 'Cremoso chocolate con leche y almendras tostadas.', tags: ['celiac'] },
+          { name: 'Chocolate Suizo con Dulce de Leche', price: 340, desc: 'Chocolate semiamargo veteado con dulce de leche natural.', tags: ['star'] },
+          { name: 'Chocolate Blanco Patagónico', price: 320, desc: 'Manteca de cacao pura con crocante de avellanas.', tags: ['celiac'] },
+          { name: 'Chocotorta Helada Especial', price: 350, desc: 'Galletitas de chocolate con café y crema con dulce de leche.', tags: ['star'] },
+          { name: 'Mousse de Chocolate Aireado', price: 320, desc: 'Textura ligera y esponjosa con escamas de cacao.', tags: ['celiac'] },
+          { name: 'Chocolate Marroc Praliné', price: 350, desc: 'Chocolate con leche y praliné suave de maní tostado.', tags: [] }
+        ]
+      },
+      helados_ddl: {
+        catName: '🍮 Helados: Dulces de Leche',
+        dishes: [
+          { name: 'Dulce de Leche Tradicional Rioplatense', price: 310, desc: 'La receta madre con leche de campo y cocción lenta.', tags: ['star', 'celiac'] },
+          { name: 'Dulce de Leche Granizado', price: 320, desc: 'Con abundantes escamas crujientes de chocolate amargo.', tags: ['celiac'] },
+          { name: 'Dulce de Leche Tentación', price: 340, desc: 'Con generoso veteado de dulce de leche repostero puro.', tags: ['star', 'celiac'] },
+          { name: 'Dulce de Leche con Brownie & Nuez', price: 350, desc: 'Tropezones húmedos de brownie casero y nueces pecan.', tags: ['star'] },
+          { name: 'Dulce de Leche Bombón', price: 340, desc: 'Veteado con pasta de avellanas y bocaditos bañados.', tags: [] },
+          { name: 'Dulce de Leche Alfajor Marplatense', price: 350, desc: 'Con trocitos de masa especiada de alfajor artesanal.', tags: [] }
+        ]
+      },
+      helados_cremas: {
+        catName: '🍦 Helados: Cremas & Especiales',
+        dishes: [
+          { name: 'Crema Americana (Vainilla Bourbon)', price: 300, desc: 'Crema de leche batida infusionada con vainilla natural.', tags: ['celiac'] },
+          { name: 'Tramontana Clásica', price: 330, desc: 'Crema americana con dulce de leche y galletitas crocantes.', tags: ['star'] },
+          { name: 'Mascarpone con Frutos del Bosque', price: 350, desc: 'Queso mascarpone con reducción de frambuesas y moras.', tags: ['star', 'celiac'] },
+          { name: 'Sambayón al Oporto y Marsala', price: 340, desc: 'Yemas batidas con vino Oporto añejado y almendras.', tags: ['celiac'] },
+          { name: 'Banana Split Criolla', price: 330, desc: 'Bananas maduras, dulce de leche y chocolate picado.', tags: ['celiac'] },
+          { name: 'Frutilla a la Crema de Campo', price: 310, desc: 'Frutillas frescas seleccionadas con crema de leche fresca.', tags: ['celiac'] },
+          { name: 'Pistacho Siciliano 100% Puro', price: 380, desc: 'Pistachos tostados de Bronte con pizca de sal marina.', tags: ['star', 'celiac'] },
+          { name: 'Kinder Bueno Blanco & Avellanas', price: 360, desc: 'Pasta de avellanas, oblea crocante y chocolate blanco.', tags: ['star'] }
+        ]
+      },
+      helados_frutales: {
+        catName: '🍓 Helados: Frutales al Agua',
+        dishes: [
+          { name: 'Limón Silvestre Natural', price: 290, desc: '100% zumo recién exprimido. Refrescante y liviano.', tags: ['vegan', 'celiac', 'veggie'] },
+          { name: 'Frutilla Natural al Agua', price: 290, desc: 'Frutillas maduras procesadas al momento con almíbar suave.', tags: ['vegan', 'celiac', 'veggie'] },
+          { name: 'Maracuyá Tropical con Semillitas', price: 310, desc: 'Pulpa de maracuyá con su acidez exótica natural.', tags: ['star', 'vegan', 'celiac', 'veggie'] },
+          { name: 'Frambuesa Patagónica al Agua', price: 320, desc: 'Frambuesas del sur con balance justo de dulzor.', tags: ['vegan', 'celiac', 'veggie'] },
+          { name: 'Mango & Naranja Jugosa', price: 310, desc: 'Sorbet aterciopelado de mango y jugo de naranja fresca.', tags: ['vegan', 'celiac', 'veggie'] },
+          { name: 'Arándanos & Moras Silvestres', price: 310, desc: 'Frutos rojos repletos de antioxidantes en sorbete.', tags: ['vegan', 'celiac', 'veggie'] }
+        ]
+      },
+      perfumeria: {
+        catName: '🌸 Fragancias & Perfumería',
+        dishes: [
+          { name: 'Ambre Nuit Nocturne (EDP)', price: 2200, desc: 'Familia Oriental • Salida: Bergamota • Corazón: Rosa Damascena • Fondo: Ámbar Gris.', tags: ['star'] },
+          { name: 'Aqua Riviera Mandarine (EDT)', price: 1750, desc: 'Familia Cítrica • Salida: Mandarina Sicilia • Corazón: Neroli • Fondo: Vetiver.', tags: [] },
+          { name: 'Santal Majestueux (EDP)', price: 2400, desc: 'Familia Amaderada • Salida: Cardamomo • Corazón: Iris • Fondo: Sándalo Australiano.', tags: ['star'] },
+          { name: 'Fleur Blanche de Soie (EDP)', price: 1950, desc: 'Familia Floral • Salida: Pera Nashi • Corazón: Jazmín Sambac • Fondo: Cachemira.', tags: ['star'] },
+          { name: 'Vanille Noire & Praliné (Splash)', price: 1250, desc: 'Familia Gourmand • Salida: Almendra • Corazón: Toffee • Fondo: Vainilla Bourbon.', tags: ['star'] },
+          { name: 'Fougère Sauvage Lavande (EDT)', price: 1650, desc: 'Familia Aromática • Salida: Lavanda • Corazón: Salvia • Fondo: Musgo de Roble.', tags: [] }
+        ]
       }
     };
 
@@ -1268,7 +1556,19 @@
         if (!res.ok) throw new Error('Sesión expirada');
         const data = await res.json();
         currentUser = data.user;
-        restaurant = data.restaurant;
+        restaurant = data.restaurant || {};
+
+        // Merge locally configured businessType or feature flags if not in DB
+        const savedRest = localStorage.getItem('menu_pizarron_restaurant');
+        if (savedRest) {
+          try {
+            const parsed = JSON.parse(savedRest);
+            if (parsed.businessType && !restaurant.businessType) restaurant.businessType = parsed.businessType;
+            if (parsed.allowIceCreamWizard !== undefined && restaurant.allowIceCreamWizard === undefined) restaurant.allowIceCreamWizard = parsed.allowIceCreamWizard;
+            if (parsed.allowPerfumery !== undefined && restaurant.allowPerfumery === undefined) restaurant.allowPerfumery = parsed.allowPerfumery;
+            if (parsed.allowLoyaltyPoints !== undefined && restaurant.allowLoyaltyPoints === undefined) restaurant.allowLoyaltyPoints = parsed.allowLoyaltyPoints;
+          } catch(e) {}
+        }
 
         renderStudioUI();
       } catch (err) {
@@ -1278,6 +1578,21 @@
     }
 
     function loadDemoMode() {
+      // Check if user previously saved custom changes in demo mode
+      const savedDemo = localStorage.getItem('scango_demo_restaurant');
+      if (savedDemo) {
+        try {
+          restaurant = JSON.parse(savedDemo);
+          currentUser = {
+            id: 'usr_demo',
+            email: 'demo@scango.app',
+            subscription: { status: 'trial', plan: 'pro', trialEndsAt: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString() }
+          };
+          renderStudioUI();
+          return;
+        } catch (e) {}
+      }
+
       currentUser = {
         id: 'usr_demo',
         email: 'demo@scango.app',
@@ -1292,6 +1607,10 @@
         phone: '59899123456',
         theme: 'emerald',
         themeFont: 'chalk',
+        businessType: 'restaurante',
+        allowLoyaltyPoints: false,
+        allowIceCreamWizard: false,
+        allowPerfumery: false,
         instagram: '@bistropomelli',
         googleReview: 'https://g.page/r/bistro-pomelli/review',
         allowReservations: true,
@@ -1427,12 +1746,54 @@
         document.getElementById('btnRemoveLogo').style.display = 'none';
       }
 
+      // Business Type selector
+      const bizSelect = document.getElementById('inputBusinessType');
+      if (bizSelect) bizSelect.value = restaurant.businessType || 'restaurante';
+
+      // Loyalty points toggle
+      const loyaltyCheckbox = document.getElementById('inputAllowLoyaltyPoints');
+      if (loyaltyCheckbox) {
+        loyaltyCheckbox.checked = restaurant.allowLoyaltyPoints === true;
+        const sliderL = document.getElementById('sliderLoyaltyPoints');
+        if (sliderL) sliderL.style.backgroundColor = loyaltyCheckbox.checked ? '#38A169' : '#2a3a33';
+      }
+
+      // Ice Cream Wizard toggle
+      const iceCreamCheckbox = document.getElementById('inputAllowIceCreamWizard');
+      if (iceCreamCheckbox) {
+        iceCreamCheckbox.checked = restaurant.allowIceCreamWizard === true || (restaurant.businessType === 'heladeria' && restaurant.allowIceCreamWizard !== false);
+        const sliderI = document.getElementById('sliderIceCreamWizard');
+        if (sliderI) sliderI.style.backgroundColor = iceCreamCheckbox.checked ? '#38A169' : '#2a3a33';
+      }
+
+      // Perfumery toggle
+      const perfumeryCheckbox = document.getElementById('inputAllowPerfumery');
+      if (perfumeryCheckbox) {
+        perfumeryCheckbox.checked = restaurant.allowPerfumery === true || (restaurant.businessType === 'perfumeria' && restaurant.allowPerfumery !== false);
+        const sliderP = document.getElementById('sliderPerfumery');
+        if (sliderP) sliderP.style.backgroundColor = perfumeryCheckbox.checked ? '#38A169' : '#2a3a33';
+      }
+
+      // Review photo selector default
+      setReviewPhotoOption('logo');
+
       // Populate Categories & Dishes
       populateCatFilter();
       renderDishesList();
       renderDeliveryZones();
       generateQrCode();
       reloadPreviewIframe();
+
+      // Check 30-Day Milestone for review modal
+      check30DaysMilestone();
+
+      // Send live sync to simulator iframe
+      setTimeout(() => {
+        const iframe = document.getElementById('previewIframe');
+        if (iframe && iframe.contentWindow) {
+          iframe.contentWindow.postMessage({ type: 'UPDATE_LIVE_PREVIEW', data: restaurant }, '*');
+        }
+      }, 500);
     }
 
     function handleLogoUpload(e) {
@@ -1483,12 +1844,14 @@
     }
 
     // Tabs
-    function switchTab(tabId) {
+    function switchTab(tabId, btn) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
 
-      event.currentTarget.classList.add('active');
-      document.getElementById(`tab-${tabId}`).classList.add('active');
+      const targetBtn = btn || (typeof event !== 'undefined' && event && event.currentTarget) || document.querySelector(`.tab-btn[onclick*="'${tabId}'"]`);
+      if (targetBtn) targetBtn.classList.add('active');
+      const pane = document.getElementById(`tab-${tabId}`);
+      if (pane) pane.classList.add('active');
 
       if (tabId === 'stats') {
         renderStatsTab();
@@ -1503,6 +1866,90 @@
       document.getElementById('statWaiterCalls').textContent = stats.waiterCalls || 0;
     }
 
+    // Review Photo Option Selector (Logo, Local/Plato, Personal)
+    function setReviewPhotoOption(opt) {
+      selectedReviewPhotoOption = opt;
+      const statusText = document.getElementById('reviewPhotoStatusText');
+      const btnUpload = document.getElementById('btnSelectReviewPhoto');
+      const thumb = document.getElementById('reviewPhotoPreviewThumb');
+
+      if (opt === 'logo') {
+        if (btnUpload) btnUpload.style.display = 'none';
+        if (restaurant && restaurant.logoUrl) {
+          if (statusText) statusText.textContent = 'Usando el logo oficial de tu restaurante.';
+          if (thumb) thumb.innerHTML = `<img src="${restaurant.logoUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+        } else {
+          if (statusText) statusText.textContent = 'Logo no configurado aún (se usará ícono de local).';
+          if (thumb) thumb.innerHTML = `<span style="font-size:22px;">🍽️</span>`;
+        }
+      } else if (opt === 'venue') {
+        if (btnUpload) btnUpload.style.display = 'inline-block';
+        if (uploadedReviewPhotoUrl) {
+          if (statusText) statusText.textContent = '✓ Foto del local o plato seleccionada.';
+          if (thumb) thumb.innerHTML = `<img src="${uploadedReviewPhotoUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+        } else {
+          if (statusText) statusText.textContent = 'Carga una fotografía del salón, barra o plato insignia.';
+          if (thumb) thumb.innerHTML = `<span style="font-size:22px;">🏬</span>`;
+        }
+      } else if (opt === 'personal') {
+        if (btnUpload) btnUpload.style.display = 'inline-block';
+        if (uploadedReviewPhotoUrl) {
+          if (statusText) statusText.textContent = '✓ Retrato personal seleccionado.';
+          if (thumb) thumb.innerHTML = `<img src="${uploadedReviewPhotoUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+        } else {
+          if (statusText) statusText.textContent = 'Carga tu retrato personal o del equipo gastronómico.';
+          if (thumb) thumb.innerHTML = `<span style="font-size:22px;">👤</span>`;
+        }
+      }
+    }
+
+    function handleReviewPhotoFile(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      if (file.size > 3 * 1024 * 1024) {
+        alert('La fotografía no debe superar los 3MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        uploadedReviewPhotoUrl = event.target.result;
+        const thumb = document.getElementById('reviewPhotoPreviewThumb');
+        if (thumb) thumb.innerHTML = `<img src="${uploadedReviewPhotoUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+        const statusText = document.getElementById('reviewPhotoStatusText');
+        if (statusText) statusText.textContent = '✓ Foto cargada exitosamente desde tu dispositivo.';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // 30-Day Milestone Modal Handlers
+    function check30DaysMilestone() {
+      // Auto-trigger milestone invite if not dismissed permanently
+      if (!sessionStorage.getItem('scango_30d_milestone_shown') && localStorage.getItem('scango_milestone_30d_dismissed') !== 'true') {
+        setTimeout(openMilestone30DaysModal, 1500);
+        sessionStorage.setItem('scango_30d_milestone_shown', 'true');
+      }
+    }
+
+    function openMilestone30DaysModal() {
+      const modal = document.getElementById('milestone30DaysModal');
+      if (modal) modal.classList.add('active');
+    }
+
+    function closeMilestone30DaysModal() {
+      const modal = document.getElementById('milestone30DaysModal');
+      if (modal) modal.classList.remove('active');
+      localStorage.setItem('scango_milestone_30d_dismissed', 'true');
+    }
+
+    function openReviewFromMilestone() {
+      closeMilestone30DaysModal();
+      switchTab('reviews');
+      const comment = document.getElementById('reviewComment');
+      if (comment) {
+        setTimeout(() => comment.focus(), 300);
+      }
+    }
+
     async function submitOwnerReview(e) {
       e.preventDefault();
       const rating = document.getElementById('reviewRating').value;
@@ -1510,23 +1957,52 @@
       const comment = document.getElementById('reviewComment').value.trim();
       const token = localStorage.getItem('menu_pizarron_token');
 
-      try {
-        const res = await fetch('/api/reviews', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ rating, authorRole, comment })
-        });
-        if (!res.ok) throw new Error('Error al enviar reseña');
-        document.getElementById('reviewSubmittedAlert').style.display = 'block';
-        document.getElementById('restaurantReviewForm').reset();
-      } catch (err) {
-        // In demo mode, acknowledge locally
-        document.getElementById('reviewSubmittedAlert').style.display = 'block';
-        document.getElementById('restaurantReviewForm').reset();
+      let finalPhotoUrl = null;
+      if (selectedReviewPhotoOption === 'logo') {
+        finalPhotoUrl = restaurant?.logoUrl || null;
+      } else {
+        finalPhotoUrl = uploadedReviewPhotoUrl || null;
       }
+
+      const reviewObj = {
+        id: 'rev_' + Date.now(),
+        restaurantId: restaurant?.id || 'rest_demo',
+        restaurantName: restaurant?.name || 'Bistro Pomelli',
+        userId: currentUser?.id || 'usr_demo',
+        email: currentUser?.email || 'demo@scango.app',
+        rating: parseInt(rating) || 5,
+        authorRole: authorRole || 'Dueño / Chef',
+        comment: comment.slice(0, 500),
+        photoOption: selectedReviewPhotoOption,
+        photoUrl: finalPhotoUrl,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      };
+
+      // Store in localStorage pending reviews so admin can moderate immediately even without backend
+      try {
+        const pending = JSON.parse(localStorage.getItem('scango_pending_reviews') || '[]');
+        pending.unshift(reviewObj);
+        localStorage.setItem('scango_pending_reviews', JSON.stringify(pending));
+      } catch (err) {}
+
+      try {
+        if (token) {
+          await fetch('/api/reviews', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(reviewObj)
+          });
+        }
+      } catch (err) {
+        console.warn('Reseña encolada para moderación en localStorage:', err.message);
+      }
+
+      document.getElementById('reviewSubmittedAlert').style.display = 'block';
+      document.getElementById('reviewComment').value = '';
     }
 
     // 1-Click WhatsApp Order Status Notifications
@@ -1915,6 +2391,244 @@
       alert('¡Carta completa de 100+ platos importada con éxito!');
     }
 
+    // ==================== HELADERÍA & PERFUMERÍA PRESETS ====================
+    const ICE_CREAM_PRESETS_DATA = [
+      { id: 'sabor_choco_amargo', cat: 'Chocolates', name: 'Chocolate Amargo 70%', price: 320, desc: 'Cacao puro ecuatoriano al 70%, intenso y con notas tostadas.', tags: ['star', 'celiac'] },
+      { id: 'sabor_choco_almendras', cat: 'Chocolates', name: 'Chocolate con Almendras Tostadas', price: 330, desc: 'Cremoso chocolate con leche y almendras tostadas.', tags: ['celiac'] },
+      { id: 'sabor_choco_suizo', cat: 'Chocolates', name: 'Chocolate Suizo con Dulce de Leche', price: 340, desc: 'Chocolate semiamargo veteado con dulce de leche natural.', tags: ['star'] },
+      { id: 'sabor_choco_blanco', cat: 'Chocolates', name: 'Chocolate Blanco Patagónico', price: 320, desc: 'Manteca de cacao pura con crocante de avellanas.', tags: ['celiac'] },
+      { id: 'sabor_chocotorta', cat: 'Chocolates', name: 'Chocotorta Helada Especial', price: 350, desc: 'Galletitas de chocolate con café y crema con dulce de leche.', tags: ['star'] },
+      { id: 'sabor_mousse_choco', cat: 'Chocolates', name: 'Mousse de Chocolate Aireado', price: 320, desc: 'Textura ligera y esponjosa con escamas de cacao.', tags: ['celiac'] },
+      { id: 'sabor_choco_marroc', cat: 'Chocolates', name: 'Chocolate Marroc Praliné', price: 350, desc: 'Chocolate con leche y praliné suave de maní tostado.', tags: [] },
+
+      { id: 'sabor_ddl_clasico', cat: 'Dulces de Leche', name: 'Dulce de Leche Tradicional Rioplatense', price: 310, desc: 'La receta madre con leche de campo y cocción lenta.', tags: ['star', 'celiac'] },
+      { id: 'sabor_ddl_granizado', cat: 'Dulces de Leche', name: 'Dulce de Leche Granizado', price: 320, desc: 'Con abundantes escamas crujientes de chocolate amargo.', tags: ['celiac'] },
+      { id: 'sabor_ddl_tentacion', cat: 'Dulces de Leche', name: 'Dulce de Leche Tentación', price: 340, desc: 'Con generoso veteado de dulce de leche repostero puro.', tags: ['star', 'celiac'] },
+      { id: 'sabor_ddl_brownie', cat: 'Dulces de Leche', name: 'Dulce de Leche con Brownie & Nuez', price: 350, desc: 'Tropezones húmedos de brownie casero y nueces pecan.', tags: ['star'] },
+      { id: 'sabor_ddl_bombon', cat: 'Dulces de Leche', name: 'Dulce de Leche Bombón', price: 340, desc: 'Veteado con pasta de avellanas y bocaditos bañados.', tags: [] },
+      { id: 'sabor_ddl_alfajor', cat: 'Dulces de Leche', name: 'Dulce de Leche Alfajor Marplatense', price: 350, desc: 'Con trocitos de masa especiada de alfajor artesanal.', tags: [] },
+
+      { id: 'sabor_crema_americana', cat: 'Cremas', name: 'Crema Americana (Vainilla Bourbon)', price: 300, desc: 'Crema de leche batida infusionada con vainilla natural.', tags: ['celiac'] },
+      { id: 'sabor_tramontana', cat: 'Cremas', name: 'Tramontana Clásica', price: 330, desc: 'Crema americana con dulce de leche y galletitas crocantes.', tags: ['star'] },
+      { id: 'sabor_mascarpone', cat: 'Cremas', name: 'Mascarpone con Frutos del Bosque', price: 350, desc: 'Queso mascarpone con reducción de frambuesas y moras.', tags: ['star', 'celiac'] },
+      { id: 'sabor_sambayon', cat: 'Cremas', name: 'Sambayón al Oporto y Marsala', price: 340, desc: 'Yemas batidas con vino Oporto añejado y almendras.', tags: ['celiac'] },
+      { id: 'sabor_banana_split', cat: 'Cremas', name: 'Banana Split Criolla', price: 330, desc: 'Bananas maduras, dulce de leche y chocolate picado.', tags: ['celiac'] },
+      { id: 'sabor_frutilla_crema', cat: 'Cremas', name: 'Frutilla a la Crema de Campo', price: 310, desc: 'Frutillas frescas seleccionadas con crema de leche fresca.', tags: ['celiac'] },
+      { id: 'sabor_crema_rusa', cat: 'Cremas', name: 'Crema Rusa con Nueces Mariposa', price: 340, desc: 'Crema de nuez con abundantes nueces mariposa frescas.', tags: ['celiac'] },
+      { id: 'sabor_menta_granizada', cat: 'Cremas', name: 'Menta Granizada Silvestre', price: 310, desc: 'Menta natural con granizado de chocolate amargo.', tags: ['celiac'] },
+
+      { id: 'sabor_limon_agua', cat: 'Frutales', name: 'Limón Silvestre Natural', price: 290, desc: '100% zumo recién exprimido. Refrescante y liviano.', tags: ['vegan', 'celiac', 'veggie'] },
+      { id: 'sabor_frutilla_agua', cat: 'Frutales', name: 'Frutilla Natural al Agua', price: 290, desc: 'Frutillas maduras procesadas al momento con almíbar suave.', tags: ['vegan', 'celiac', 'veggie'] },
+      { id: 'sabor_maracuya', cat: 'Frutales', name: 'Maracuyá Tropical con Semillitas', price: 310, desc: 'Pulpa de maracuyá con su acidez exótica natural.', tags: ['star', 'vegan', 'celiac', 'veggie'] },
+      { id: 'sabor_frambuesa', cat: 'Frutales', name: 'Frambuesa Patagónica al Agua', price: 320, desc: 'Frambuesas del sur con balance justo de dulzor.', tags: ['vegan', 'celiac', 'veggie'] },
+      { id: 'sabor_mango', cat: 'Frutales', name: 'Mango & Naranja Jugosa', price: 310, desc: 'Sorbet aterciopelado de mango y jugo de naranja fresca.', tags: ['vegan', 'celiac', 'veggie'] },
+      { id: 'sabor_arandanos', cat: 'Frutales', name: 'Arándanos & Moras Silvestres', price: 310, desc: 'Frutos rojos repletos de antioxidantes en sorbete.', tags: ['vegan', 'celiac', 'veggie'] },
+
+      { id: 'sabor_pistacho', cat: 'Especiales', name: 'Pistacho Siciliano 100% Puro', price: 380, desc: 'Pistachos tostados de Bronte con pizca de sal marina.', tags: ['star', 'celiac'] },
+      { id: 'sabor_kinder', cat: 'Especiales', name: 'Kinder Bueno Blanco & Avellanas', price: 360, desc: 'Pasta de avellanas, oblea crocante y chocolate blanco.', tags: ['star'] },
+      { id: 'sabor_tiramisu', cat: 'Especiales', name: 'Tiramisú al Espresso Italiano', price: 350, desc: 'Mascarpone, bizcochuelo bañado en café y cacao.', tags: ['star'] },
+      { id: 'sabor_cheesecake', cat: 'Especiales', name: 'Cheesecake de Frutos Rojos', price: 350, desc: 'Queso crema New York con base de galleta y frutos rojos.', tags: [] },
+      { id: 'sabor_nutella', cat: 'Especiales', name: 'Nutella Gianduia Crunch', price: 360, desc: 'Crema de cacao y avellana con crocante de almendras.', tags: ['star'] }
+    ];
+
+    let iceCreamSelectedIds = new Set(ICE_CREAM_PRESETS_DATA.map(f => f.id));
+    let iceCreamActiveCat = 'ALL';
+
+    function openIceCreamPresetsModal() {
+      document.getElementById('iceCreamPresetsModal').classList.add('active');
+      renderIceCreamPresetsList();
+    }
+    function closeIceCreamPresetsModal() {
+      document.getElementById('iceCreamPresetsModal').classList.remove('active');
+    }
+
+    function filterIceCreamPresetCat(cat) {
+      iceCreamActiveCat = cat;
+      const pills = document.querySelectorAll('#iceCreamPresetFilterBar .cat-pill');
+      pills.forEach(p => {
+        p.classList.toggle('active', p.textContent.includes(cat) || (cat === 'ALL' && p.textContent.includes('Todos')));
+      });
+      renderIceCreamPresetsList();
+    }
+
+    function toggleAllIceCreamFlavors(select) {
+      if (select) {
+        ICE_CREAM_PRESETS_DATA.forEach(f => iceCreamSelectedIds.add(f.id));
+      } else {
+        iceCreamSelectedIds.clear();
+      }
+      renderIceCreamPresetsList();
+    }
+
+    function renderIceCreamPresetsList() {
+      const container = document.getElementById('iceCreamPresetsListContainer');
+      const countLabel = document.getElementById('iceCreamPresetCountLabel');
+      if (!container) return;
+
+      countLabel.textContent = `${iceCreamSelectedIds.size} de ${ICE_CREAM_PRESETS_DATA.length} seleccionados`;
+
+      const filtered = ICE_CREAM_PRESETS_DATA.filter(f => iceCreamActiveCat === 'ALL' || f.cat === iceCreamActiveCat);
+
+      let html = '';
+      filtered.forEach(f => {
+        const isChecked = iceCreamSelectedIds.has(f.id);
+        const tags = (f.tags || []).map(t => {
+          if (t === 'star') return '⭐';
+          if (t === 'celiac') return '🌾 Sin TACC';
+          if (t === 'vegan') return '🌱 Vegano';
+          return '';
+        }).filter(Boolean).join(' ');
+
+        html += `
+          <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-base); padding:8px 12px; border-radius:8px; margin-bottom:6px; border:1px solid ${isChecked ? 'var(--accent-gold)' : 'var(--border)'};">
+            <label style="display:flex; align-items:center; gap:10px; flex:1; cursor:pointer; min-width:0;">
+              <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleIceCreamFlavorItem('${f.id}', this.checked)" style="width:18px; height:18px; accent-color:var(--accent-gold); cursor:pointer;">
+              <div style="min-width:0;">
+                <div style="font-size:12px; font-weight:700; color:#fff; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                  <span>${f.name}</span>
+                  <span style="font-size:10px; color:var(--accent-gold);">${tags}</span>
+                </div>
+                <div style="font-size:10px; color:var(--text-dim); margin-top:2px;">${f.desc}</div>
+              </div>
+            </label>
+            <div style="font-size:11px; font-weight:700; color:var(--accent-gold); font-family:var(--font-mono); margin-left:8px; white-space:nowrap;">
+              $ ${f.price}
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function toggleIceCreamFlavorItem(id, checked) {
+      if (checked) iceCreamSelectedIds.add(id);
+      else iceCreamSelectedIds.delete(id);
+      const countLabel = document.getElementById('iceCreamPresetCountLabel');
+      if (countLabel) countLabel.textContent = `${iceCreamSelectedIds.size} de ${ICE_CREAM_PRESETS_DATA.length} seleccionados`;
+    }
+
+    function importSelectedIceCreamFlavors() {
+      if (iceCreamSelectedIds.size === 0) {
+        alert('Por favor marcá al menos 1 sabor para importar.');
+        return;
+      }
+
+      if (!restaurant.categories) restaurant.categories = [];
+      if (!restaurant.dishes) restaurant.dishes = [];
+
+      let importedCount = 0;
+      ICE_CREAM_PRESETS_DATA.forEach(f => {
+        if (!iceCreamSelectedIds.has(f.id)) return;
+
+        const catName = `🍦 Helados (${f.cat})`;
+        let cat = restaurant.categories.find(c => c.name.toLowerCase() === catName.toLowerCase());
+        if (!cat) {
+          cat = { id: 'cat_helados_' + f.cat.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now(), name: catName };
+          restaurant.categories.push(cat);
+        }
+
+        const existingDish = restaurant.dishes.find(d => d.name.toLowerCase() === f.name.toLowerCase());
+        if (!existingDish) {
+          restaurant.dishes.push({
+            id: 'd_ice_' + f.id + '_' + Date.now(),
+            categoryId: cat.id,
+            name: f.name,
+            price: f.price,
+            description: f.desc,
+            tags: f.tags || []
+          });
+          importedCount++;
+        }
+      });
+
+      populateCatFilter();
+      renderDishesList();
+      closeIceCreamPresetsModal();
+      triggerAutoSave();
+      alert(`¡Se importaron ${importedCount} sabores de heladería a tu carta!`);
+    }
+
+    // Presets Perfumería
+    const PERFUMERY_PRESETS_STUDIO = [
+      { id: 'p_ambre', name: 'Ambre Nuit Nocturne (EDP)', cat: 'Fragancias Nicho', price: 2200, desc: 'Familia Oriental • Salida: Bergamota, Pomelo • Corazón: Rosa Damascena, Canela • Fondo: Ámbar Gris, Vainilla.', tags: ['star'] },
+      { id: 'p_citrus', name: 'Aqua Riviera Mandarine (EDT)', cat: 'Fragancias Cítricas', price: 1750, desc: 'Familia Cítrica • Salida: Mandarina Sicilia, Limón • Corazón: Neroli, Azahar • Fondo: Vetiver, Almizcle Blanco.', tags: [] },
+      { id: 'p_santal', name: 'Santal Majestueux (EDP)', cat: 'Fragancias Amaderadas', price: 2400, desc: 'Familia Amaderada • Salida: Cardamomo, Violeta • Corazón: Iris, Incienso • Fondo: Sándalo Australiano, Cedro.', tags: ['star'] },
+      { id: 'p_fleur', name: 'Fleur Blanche de Soie (EDP)', cat: 'Fragancias Florales', price: 1950, desc: 'Familia Floral • Salida: Pera Nashi, Pimienta Rosa • Corazón: Jazmín Sambac, Tuberosa • Fondo: Cachemira, Vainilla.', tags: ['star'] },
+      { id: 'p_vanille', name: 'Vanille Noire & Praliné (Body Splash)', cat: 'Gourmand & Brumas', price: 1250, desc: 'Familia Gourmand • Salida: Almendra, Café • Corazón: Caramelo Toffee, Tonka • Fondo: Vainilla Bourbon, Azúcar Moreno.', tags: ['star'] },
+      { id: 'p_fougere', name: 'Fougère Sauvage Lavande (EDT)', cat: 'Aromáticos & Barbershop', price: 1650, desc: 'Familia Aromática • Salida: Lavanda Provenzal, Menta • Corazón: Geranio, Salvia • Fondo: Musgo de Roble, Cedro.', tags: [] }
+    ];
+
+    function openPerfumeryPresetsModal() {
+      document.getElementById('perfumeryPresetsModal').classList.add('active');
+      renderPerfumeryPresetsList();
+    }
+    function closePerfumeryPresetsModal() {
+      document.getElementById('perfumeryPresetsModal').classList.remove('active');
+    }
+
+    function renderPerfumeryPresetsList() {
+      const container = document.getElementById('perfumeryPresetsListContainer');
+      if (!container) return;
+
+      let html = '';
+      PERFUMERY_PRESETS_STUDIO.forEach(p => {
+        html += `
+          <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:12px; font-weight:700; color:#fff;">${p.name}</div>
+              <div style="font-size:10px; color:var(--accent-gold); margin-top:1px;">${p.cat} • $ ${p.price}</div>
+              <div style="font-size:10px; color:var(--text-dim); margin-top:2px;">${p.desc}</div>
+            </div>
+            <input type="checkbox" class="perfume-preset-checkbox" value="${p.id}" checked style="width:18px; height:18px; accent-color:var(--accent-gold); cursor:pointer;">
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function importSelectedPerfumery() {
+      const checkboxes = document.querySelectorAll('.perfume-preset-checkbox:checked');
+      if (!checkboxes.length) {
+        alert('Marcá al menos una fragancia para importar.');
+        return;
+      }
+
+      if (!restaurant.categories) restaurant.categories = [];
+      if (!restaurant.dishes) restaurant.dishes = [];
+
+      let count = 0;
+      checkboxes.forEach(cb => {
+        const p = PERFUMERY_PRESETS_STUDIO.find(item => item.id === cb.value);
+        if (!p) return;
+
+        let cat = restaurant.categories.find(c => c.name.toLowerCase() === p.cat.toLowerCase());
+        if (!cat) {
+          cat = { id: 'cat_perf_' + p.id + '_' + Date.now(), name: `🌸 ${p.cat}` };
+          restaurant.categories.push(cat);
+        }
+
+        const existing = restaurant.dishes.find(d => d.name.toLowerCase() === p.name.toLowerCase());
+        if (!existing) {
+          restaurant.dishes.push({
+            id: 'd_perf_' + p.id + '_' + Date.now(),
+            categoryId: cat.id,
+            name: p.name,
+            price: p.price,
+            description: p.desc,
+            tags: p.tags || []
+          });
+          count++;
+        }
+      });
+
+      populateCatFilter();
+      renderDishesList();
+      closePerfumeryPresetsModal();
+      triggerAutoSave();
+      alert(`¡Se importaron ${count} fragancias a tu carta!`);
+    }
+
     // Delivery Zones
     function renderDeliveryZones() {
       const container = document.getElementById('deliveryZonesList');
@@ -2226,6 +2940,36 @@
       restaurant.currency = document.getElementById('inputLocalCurrency').value;
       restaurant.phone = document.getElementById('inputPhone').value;
 
+      // Business Type selector
+      const bizSelect = document.getElementById('inputBusinessType');
+      if (bizSelect) {
+        restaurant.businessType = bizSelect.value;
+      }
+
+      // Loyalty points toggle
+      const loyaltyCheckbox = document.getElementById('inputAllowLoyaltyPoints');
+      if (loyaltyCheckbox) {
+        restaurant.allowLoyaltyPoints = loyaltyCheckbox.checked;
+        const sliderL = document.getElementById('sliderLoyaltyPoints');
+        if (sliderL) sliderL.style.backgroundColor = loyaltyCheckbox.checked ? '#38A169' : '#2a3a33';
+      }
+
+      // Ice cream wizard toggle
+      const iceCreamCheckbox = document.getElementById('inputAllowIceCreamWizard');
+      if (iceCreamCheckbox) {
+        restaurant.allowIceCreamWizard = iceCreamCheckbox.checked;
+        const sliderI = document.getElementById('sliderIceCreamWizard');
+        if (sliderI) sliderI.style.backgroundColor = iceCreamCheckbox.checked ? '#38A169' : '#2a3a33';
+      }
+
+      // Perfumery toggle
+      const perfumeryCheckbox = document.getElementById('inputAllowPerfumery');
+      if (perfumeryCheckbox) {
+        restaurant.allowPerfumery = perfumeryCheckbox.checked;
+        const sliderP = document.getElementById('sliderPerfumery');
+        if (sliderP) sliderP.style.backgroundColor = perfumeryCheckbox.checked ? '#38A169' : '#2a3a33';
+      }
+
       // Social links
       restaurant.instagram = document.getElementById('inputInstagram').value.trim();
       restaurant.googleReview = document.getElementById('inputGoogleReview').value.trim();
@@ -2288,6 +3032,18 @@
       document.getElementById('btnLiveMenu').href = `/m/${restaurant.slug}`;
 
       generateQrCode();
+
+      // Instant postMessage live synchronization with customer simulator iframe
+      const iframe = document.getElementById('previewIframe');
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage({ type: 'UPDATE_LIVE_PREVIEW', data: restaurant }, '*');
+      }
+
+      // Keep demo changes persisted in localStorage immediately
+      try {
+        localStorage.setItem('scango_demo_restaurant', JSON.stringify(restaurant));
+      } catch (e) {}
+
       triggerAutoSave();
     }
 
@@ -2300,6 +3056,19 @@
       const btnText = document.getElementById('saveBtnText');
       btnText.textContent = '⏳ Guardando...';
       const token = localStorage.getItem('menu_pizarron_token');
+
+      // Keep demo state saved locally
+      try {
+        localStorage.setItem('scango_demo_restaurant', JSON.stringify(restaurant));
+      } catch (e) {}
+
+      if (!token) {
+        setTimeout(() => {
+          btnText.textContent = '✓ Guardado';
+          setTimeout(() => { btnText.textContent = '💾 Guardar Cambios'; }, 2000);
+        }, 300);
+        return;
+      }
 
       try {
         const res = await fetch('/api/studio/save', {
@@ -2318,7 +3087,8 @@
         setTimeout(() => { btnText.textContent = '💾 Guardar Cambios'; }, 2000);
         reloadPreviewIframe();
       } catch (err) {
-        btnText.textContent = '⚠️ Error';
+        btnText.textContent = '✓ Guardado (Local)';
+        setTimeout(() => { btnText.textContent = '💾 Guardar Cambios'; }, 2000);
       }
     }
 

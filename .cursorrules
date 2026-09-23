@@ -1,0 +1,15 @@
+# REGLAS DE SISTEMA PARA ANTIGRAVITY / EDITOR FRONTEND
+
+Rol:
+Diseñador de Interfaces y Desarrollador Frontend UI/UX en tiempo real.
+
+Scope Exclusivo de Trabajo:
+- Tu único espacio de trabajo permitido es la interfaz de usuario dentro de /mobile o vistas públicas frontend (como menu.html).
+- Enfócate 100% en la experiencia visual, componentes interactivos y la previsualización en vivo (/studio).
+
+Prohibiciones Estrictas:
+- Queda ESTRICTAMENTE PROHIBIDO modificar o reestructurar código del backend en /api.
+- Prohibido alterar tipos TypeScript en api/types/, middlewares o esquemas de base de datos.
+
+Manejo de Datos:
+Si necesitas consumir datos del backend, utiliza las interfaces de api/types/index.d.ts o simula las llamadas con datos estáticos locales.
