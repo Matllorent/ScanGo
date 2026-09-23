@@ -11,6 +11,7 @@ const billingOrchestrator = require('../src/billing/orchestrator');
 const emailService = require('../src/email/emailService');
 const { hashPassword, comparePassword } = require('./utils/hash');
 const { registerSchema, loginSchema, validateBody } = require('./middleware/validation');
+const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -656,6 +657,9 @@ app.post('/api/logs', (req, res) => {
   if (stack) console.error(stack);
   res.json({ received: true });
 });
+
+// Mount Global Error Handler Middleware
+app.use(errorHandler);
 
 // Fallback for direct node execution (not when imported or in Vercel Serverless)
 if (require.main === module) {

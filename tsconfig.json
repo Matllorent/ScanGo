@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "allowJs": true,
+    "checkJs": false,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist",
+    "rootDir": "./",
+    "baseUrl": "./",
+    "typeRoots": ["./node_modules/@types", "./api/types"]
+  },
+  "include": [
+    "api/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "mobile",
+    "data"
+  ]
+}
