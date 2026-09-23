@@ -12,6 +12,9 @@ const emailService = require('../src/email/emailService');
 const { hashPassword, comparePassword } = require('./utils/hash');
 const { registerSchema, loginSchema, validateBody } = require('./middleware/validation');
 const errorHandler = require('./middleware/errorHandler');
+const { errorResponse } = require('./utils/response');
+const reviewsRouter = require('./routes/reviews');
+const storageRouter = require('./routes/storage');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -656,6 +659,15 @@ app.post('/api/logs', (req, res) => {
   console.log(`[CLIENT-LOG] [${timestamp}] [${level || 'INFO'}] ${message || ''} | URL: ${url || ''}`);
   if (stack) console.error(stack);
   res.json({ received: true });
+});
+
+// Mount modular API routers
+app.use('/api/reviews', reviewsRouter);
+app.use('/api/storage', storageRouter);
+
+// 404 Not Found Handler for unmatched API routes
+app.use('/api', (req, res) => {
+  return errorResponse(res, 'Ruta de API no encontrada', 404, null, 'NOT_FOUND');
 });
 
 // Mount Global Error Handler Middleware

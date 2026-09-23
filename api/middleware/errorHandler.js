@@ -28,6 +28,11 @@ function errorHandler(err, req, res, next) {
     return errorResponse(res, 'Sintaxis JSON malformada en el cuerpo de la solicitud', 400, null, 'BAD_REQUEST');
   }
 
+  // Handle 404 Not Found explicit errors
+  if (err.status === 404 || err.statusCode === 404) {
+    return errorResponse(res, err.message || 'Recurso no encontrado', 404, null, 'NOT_FOUND');
+  }
+
   // Handle custom API operational errors (errors with status/statusCode)
   const statusCode = err.statusCode || err.status || 500;
   const message = err.message || 'Error interno del servidor';
@@ -36,7 +41,7 @@ function errorHandler(err, req, res, next) {
 
   // Log server error details for debugging
   if (statusCode >= 500) {
-    console.error(`[API Error] ${req.method} ${req.originalUrl}:`, err);
+    console.error(`[API 500 Error] ${req.method} ${req.originalUrl}:`, err);
   }
 
   return errorResponse(res, message, statusCode, details, errorCode);
