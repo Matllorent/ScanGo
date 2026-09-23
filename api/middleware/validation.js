@@ -1,4 +1,5 @@
 const { z } = require('zod');
+const { errorResponse } = require('../utils/response');
 
 // Schema for registration payload
 const registerSchema = z.object({
@@ -19,23 +20,110 @@ const loginSchema = z.object({
 const dishSchema = z.object({
   id: z.string().optional(),
   categoryId: z.string().default(''),
-  name: z.string().min(1).max(100),
-  price: z.number().nonnegative(),
+  name: z.string().min(1, { message: 'Nombre del platillo requerido' }).max(100),
+  price: z.number().nonnegative({ message: 'El precio debe ser un número positivo' }),
   description: z.string().max(400).optional().default(''),
-  photoUrl: z.string().url().max(1500).nullable().optional().or(z.literal('')),
+  photoUrl: z.string().url({ message: 'URL de foto inválida' }).max(1500).nullable().optional().or(z.literal('')),
   outOfStock: z.boolean().optional().default(false),
   tags: z.array(z.string().max(25)).max(8).optional().default([])
 });
 
-// Validation middleware factory
-function validateBody(schema) {
+// Schema for orders
+const orderItemSchema = z.object({
+  dishId: z.string().min(1, { message: 'ID de platillo requerido' }),
+  name: z.string().min(1),
+  price: z.number().nonnegative(),
+  quantity: z.number().int().positive({ message: 'La cantidad debe ser mayor a 0' }),
+  options: z.record(z.any()).optional()
+});
+
+const orderSchema = z.object({
+  restaurantId: z.string().min(1, { message: 'ID de restaurante requerido' }),
+  tableNumber: z.union([z.string(), z.number()]).optional(),
+  items: z.array(orderItemSchema).min(1, { message: 'El pedido debe incluir al menos un producto' }),
+  total: z.number().nonnegative(),
+  customerName: z.string().max(100).optional(),
+  customerPhone: z.string().max(30).optional(),
+  deliveryAddress: z.string().max(200).optional(),
+  paymentMethod: z.string().max(50).optional(),
+  notes: z.string().max(300).optional()
+});
+
+// Schema for webhooks
+const webhookSchema = z.object({
+  provider: z.string().min(1, { message: 'Proveedor requerido' }),
+  event: z.string().min(1, { message: 'Tipo de evento requerido' }),
+  payload: z.record(z.any()),
+  signature: z.string().optional()
+});
+
+/**
+ * Reusable Zod validation middleware generator.
+ * @param {import('zod').ZodSchema} schema - Zod schema to validate against
+ * @param {'body'|'query'|'params'} [source='body'] - Request target property to validate
+ * @returns {import('express').RequestHandler}
+ */
+function validate(schema, source = 'body') {
   return (req, res, next) => {
-    const result = schema.safeParse(req.body);
+    const target = req[source] || {};
+    const result = schema.safeParse(target);
+
     if (!result.success) {
-      const firstError = result.error.errors[0]?.message || 'Datos de entrada inválidos';
-      return res.status(400).json({ error: firstError, details: result.error.format() });
+      const firstError = result.error.issues?.[0]?.message || result.error.errors?.[0]?.message || 'Datos de entrada inválidos';
+      const details = typeof result.error.format === 'function' ? result.error.format() : (result.error.issues || result.error.errors);
+      return errorResponse(res, firstError, 400, details, 'VALIDATION_ERROR');
     }
-    req.validatedBody = result.data;
+
+    // Attach validated data to request
+    req[`validated${source.charAt(0).toUpperCase() + source.slice(1)}`] = result.data;
+    if (source === 'body') {
+      req.validatedBody = result.data;
+    }
+    next();
+  };
+}
+
+/**
+ * Middleware factory for validating req.body against a Zod schema.
+ * @param {import('zod').ZodSchema} schema
+ */
+function validateBody(schema) {
+  return validate(schema, 'body');
+}
+
+/**
+ * Middleware factory for validating req.query against a Zod schema.
+ * @param {import('zod').ZodSchema} schema
+ */
+function validateQuery(schema) {
+  return validate(schema, 'query');
+}
+
+/**
+ * Middleware factory for validating req.params against a Zod schema.
+ * @param {import('zod').ZodSchema} schema
+ */
+function validateParams(schema) {
+  return validate(schema, 'params');
+}
+
+/**
+ * Validates request components (body, query, params) simultaneously.
+ * @param {{ body?: z.ZodSchema, query?: z.ZodSchema, params?: z.ZodSchema }} schemas
+ */
+function validateRequest(schemas) {
+  return (req, res, next) => {
+    for (const source of ['body', 'query', 'params']) {
+      if (schemas[source]) {
+        const result = schemas[source].safeParse(req[source] || {});
+        if (!result.success) {
+          const firstError = result.error.issues?.[0]?.message || result.error.errors?.[0]?.message || `Datos de ${source} inválidos`;
+          const details = typeof result.error.format === 'function' ? result.error.format() : (result.error.issues || result.error.errors);
+          return errorResponse(res, firstError, 400, details, 'VALIDATION_ERROR');
+        }
+        req[`validated${source.charAt(0).toUpperCase() + source.slice(1)}`] = result.data;
+      }
+    }
     next();
   };
 }
@@ -44,5 +132,11 @@ module.exports = {
   registerSchema,
   loginSchema,
   dishSchema,
-  validateBody
+  orderSchema,
+  webhookSchema,
+  validate,
+  validateBody,
+  validateQuery,
+  validateParams,
+  validateRequest
 };
