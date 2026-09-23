@@ -1,0 +1,25 @@
+# Dependencias descargables
+node_modules/
+.pnpm-store/
+
+# Archivos de configuración con variables de entorno
+.env
+.env.local
+.env.*.local
+
+# Builds y empaquetado de mobile
+dist/
+build/
+www/
+android/
+ios/
+
+# Logs y archivos del sistema
+npm-debug.log*
+yarn-debug.log*
+.vercel
+.DS_Store
+Thumbs.db
+
+# Datos locales / Mocks
+data/*.json
