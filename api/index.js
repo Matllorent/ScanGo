@@ -852,6 +852,7 @@ function adminHtmlAuthMiddleware(req, res, next) {
     .card { background: #1e293b; padding: 2.5rem; border-radius: 1rem; width: 100%; max-width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center; border: 1px solid #334155; }
     h2 { margin-top: 0; color: #f8fafc; }
     p { font-size: 0.9rem; color: #94a3b8; margin-bottom: 1.5rem; }
+    .error-msg { display: none; color: #f87171; background: #451a1a; padding: 0.6rem; border-radius: 0.5rem; font-size: 0.875rem; margin-bottom: 1rem; border: 1px solid #7f1d1d; }
     input { width: 100%; padding: 0.75rem 1rem; margin-bottom: 1.25rem; border-radius: 0.5rem; border: 1px solid #334155; background: #0f172a; color: #fff; font-size: 1rem; box-sizing: border-box; outline: none; }
     input:focus { border-color: #10b981; }
     button { width: 100%; padding: 0.75rem; border-radius: 0.5rem; border: none; background: #10b981; color: #fff; font-weight: 600; font-size: 1rem; cursor: pointer; transition: background 0.2s; }
@@ -862,11 +863,30 @@ function adminHtmlAuthMiddleware(req, res, next) {
   <div class="card">
     <h2>Acceso Panel Admin</h2>
     <p>Se requiere clave de administración para acceder a este panel.</p>
-    <form onsubmit="event.preventDefault(); const val = document.getElementById('key').value.trim(); if(val){ document.cookie='admin_key=' + encodeURIComponent(val) + '; path=/; max-age=604800'; location.reload(); }">
-      <input type="password" id="key" placeholder="Clave de administración" required autofocus />
+    <div id="error-msg" class="error-msg"></div>
+    <form id="admin-form">
+      <input type="password" id="admin-key-input" placeholder="Clave de administración" autofocus />
       <button type="submit">Ingresar al Panel</button>
     </form>
   </div>
+  <script>
+    document.getElementById('admin-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const errDiv = document.getElementById('error-msg');
+      const val = document.getElementById('admin-key-input').value.trim();
+      if (!val) {
+        errDiv.textContent = 'Por favor ingresá la clave de administración.';
+        errDiv.style.display = 'block';
+        return;
+      }
+      errDiv.style.display = 'none';
+      document.cookie = 'admin_key=' + encodeURIComponent(val) + '; path=/; max-age=604800';
+      localStorage.setItem('admin_key', val);
+      const url = new URL(window.location.href);
+      url.searchParams.set('key', val);
+      window.location.href = url.toString();
+    });
+  </script>
 </body>
 </html>`);
 }
