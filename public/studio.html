@@ -1175,9 +1175,15 @@
           </select>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Precio *</label>
-          <input type="number" id="modalDishPrice" class="form-input" required step="0.01" min="0" placeholder="Ej: 490">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Precio Actual *</label>
+            <input type="number" id="modalDishPrice" class="form-input" required step="0.01" min="0" placeholder="Ej: 490">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Precio Anterior (Tachado)</label>
+            <input type="number" id="modalDishOriginalPrice" class="form-input" step="0.01" min="0" placeholder="Ej: 590 (Opcional)">
+          </div>
         </div>
 
         <div class="form-group">
@@ -1186,26 +1192,48 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">📷 Foto del Plato (Enlace URL de Imagen)</label>
-          <input type="url" id="modalDishPhoto" class="form-input" placeholder="Ej: https://images.unsplash.com/... o enlace de tu foto">
-          <div class="input-hint">Opcional. Se mostrará una miniatura atractiva junto al plato en la carta.</div>
+          <label class="form-label">📷 Foto del Plato</label>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <input type="url" id="modalDishPhoto" class="form-input" placeholder="https://... o seleccioná una foto de tu dispositivo">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <label for="modalDishPhotoFile" class="btn-nav" style="font-size:11px; padding:5px 10px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+                📁 Subir foto de dispositivo
+              </label>
+              <input type="file" id="modalDishPhotoFile" accept="image/*" style="display:none;" onchange="handleDishPhotoUpload(this)">
+              <span id="dishPhotoFileName" style="font-size:10px; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;"></span>
+              <button type="button" id="btnClearDishPhoto" onclick="clearDishPhoto()" style="display:none; background:none; border:none; color:#E53E3E; font-size:11px; cursor:pointer;">✕ Quitar</button>
+            </div>
+            <div id="dishPhotoPreviewContainer" style="display:none; margin-top:4px;">
+              <img id="dishPhotoPreview" src="" alt="Vista previa" style="width:64px; height:64px; object-fit:cover; border-radius:6px; border:1px solid var(--border);">
+            </div>
+          </div>
+          <div class="input-hint">Podés usar un enlace web o cargar una foto desde tu galería o cámara.</div>
         </div>
 
-        <!-- Out of Stock Switch & Star Toggle -->
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
-          <div style="background:var(--surface-2); padding:10px; border-radius:8px; border:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
-            <div>
-              <strong style="font-size:11px; color:#fff;">Agotado hoy</strong>
-              <div style="font-size:9px; color:var(--text-dim);">Tacha el plato en la carta</div>
+        <!-- Out of Stock, Star & Chef's Special Toggles -->
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:14px;">
+          <div style="background:var(--surface-2); padding:8px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; justify-content:space-between; min-height:60px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+              <strong style="font-size:11px; color:#fff;">Agotado</strong>
+              <input type="checkbox" id="modalDishOutOfStock" style="width:16px; height:16px; cursor:pointer;">
             </div>
-            <input type="checkbox" id="modalDishOutOfStock" style="width:18px; height:18px; cursor:pointer;">
+            <div style="font-size:9px; color:var(--text-dim);">Tacha el plato</div>
           </div>
-          <div style="background:var(--surface-2); padding:10px; border-radius:8px; border:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
-            <div>
+
+          <div style="background:var(--surface-2); padding:8px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; justify-content:space-between; min-height:60px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
               <strong style="font-size:11px; color:var(--accent-gold);">Destacado ⭐</strong>
-              <div style="font-size:9px; color:var(--text-dim);">Especialidad de la casa</div>
+              <input type="checkbox" id="modalDishStar" style="width:16px; height:16px; cursor:pointer;">
             </div>
-            <input type="checkbox" id="modalDishStar" style="width:18px; height:18px; cursor:pointer;">
+            <div style="font-size:9px; color:var(--text-dim);">Especialidad</div>
+          </div>
+
+          <div style="background:rgba(236,201,75,0.08); padding:8px; border-radius:8px; border:1px solid rgba(236,201,75,0.3); display:flex; flex-direction:column; justify-content:space-between; min-height:60px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+              <strong style="font-size:11px; color:var(--accent-gold);">👨‍🍳 Menú del Día</strong>
+              <input type="checkbox" id="modalDishChefSpecial" style="width:16px; height:16px; cursor:pointer;">
+            </div>
+            <div style="font-size:9px; color:var(--text-dim);">Sugerencia Chef</div>
           </div>
         </div>
 
@@ -2187,22 +2215,27 @@
       let html = '';
       filtered.forEach((d, idx) => {
         const cat = cats.find(c => c.id === d.categoryId);
-        const tags = (d.tags || []).filter(t => t !== 'star').map(t => tagLabels[t] || '').join(' ');
+        const tags = (d.tags || []).filter(t => t !== 'star' && t !== 'chef_special').map(t => tagLabels[t] || '').join(' ');
         const starBadge = (d.tags || []).includes('star') ? '<span style="color:var(--accent-gold); margin-right:4px;">⭐</span>' : '';
+        const chefBadge = (d.isChefSpecial || (d.tags || []).includes('chef_special')) ? '<span style="background:rgba(236,201,75,0.2); color:var(--accent-gold); font-size:9px; font-weight:800; padding:1px 6px; border-radius:4px; margin-right:4px; border:1px solid rgba(236,201,75,0.4);">👨‍🍳 CHEF</span>' : '';
         const outBadge = d.outOfStock ? '<span style="background:#E53E3E; color:#fff; font-size:9px; font-weight:800; padding:1px 6px; border-radius:4px; margin-left:6px;">AGOTADO</span>' : '';
         const opacity = d.outOfStock ? 'opacity:0.5;' : '';
         const photoThumb = d.photoUrl 
           ? `<img src="${d.photoUrl}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid var(--border); flex-shrink:0;">` 
           : '';
+        const priceDisplay = (d.originalPrice && Number(d.originalPrice) > Number(d.price)) 
+          ? `<span style="text-decoration:line-through; opacity:0.6; margin-right:4px;">${currency} ${d.originalPrice}</span> ${currency} ${d.price}` 
+          : `${currency} ${d.price}`;
+
         html += `
           <div class="dish-editor-card" style="${opacity} display:flex; align-items:center; gap:8px;">
             ${photoThumb}
             <div style="flex:1; min-width:0;">
               <div style="font-size:12px; font-weight:700; color:#fff; display:flex; align-items:center; flex-wrap:wrap; gap:2px;">
-                ${starBadge}${d.name}${outBadge}
+                ${chefBadge}${starBadge}${d.name}${outBadge}
               </div>
               <div style="font-size:10px; color:var(--text-dim); display:flex; align-items:center; gap:4px; margin-top:2px;">
-                ${cat ? cat.name : 'Sin cat.'} • ${currency} ${d.price} ${tags}
+                ${cat ? cat.name : 'Sin cat.'} • ${priceDisplay} ${tags}
               </div>
             </div>
             <button class="btn-icon" onclick="editDish('${d.id}')" title="Editar">✏️</button>
@@ -2230,6 +2263,42 @@
       });
     }
 
+    function handleDishPhotoUpload(input) {
+      if (!input.files || !input.files[0]) return;
+      const file = input.files[0];
+      const fileNameSpan = document.getElementById('dishPhotoFileName');
+      const clearBtn = document.getElementById('btnClearDishPhoto');
+      const previewContainer = document.getElementById('dishPhotoPreviewContainer');
+      const previewImg = document.getElementById('dishPhotoPreview');
+      const urlInput = document.getElementById('modalDishPhoto');
+      
+      if (fileNameSpan) fileNameSpan.textContent = file.name;
+      if (clearBtn) clearBtn.style.display = 'inline';
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const dataUrl = e.target.result;
+        if (urlInput) urlInput.value = dataUrl;
+        if (previewImg) previewImg.src = dataUrl;
+        if (previewContainer) previewContainer.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearDishPhoto() {
+      const urlInput = document.getElementById('modalDishPhoto');
+      const fileInput = document.getElementById('modalDishPhotoFile');
+      const fileNameSpan = document.getElementById('dishPhotoFileName');
+      const clearBtn = document.getElementById('btnClearDishPhoto');
+      const previewContainer = document.getElementById('dishPhotoPreviewContainer');
+      
+      if (urlInput) urlInput.value = '';
+      if (fileInput) fileInput.value = '';
+      if (fileNameSpan) fileNameSpan.textContent = '';
+      if (clearBtn) clearBtn.style.display = 'none';
+      if (previewContainer) previewContainer.style.display = 'none';
+    }
+
     function editDish(dishId) {
       const dish = (restaurant.dishes || []).find(d => d.id === dishId);
       if (!dish) return;
@@ -2237,15 +2306,34 @@
       document.getElementById('modalDishId').value = dish.id;
       document.getElementById('modalDishName').value = dish.name || '';
       document.getElementById('modalDishPrice').value = dish.price || 0;
+      document.getElementById('modalDishOriginalPrice').value = dish.originalPrice || '';
       document.getElementById('modalDishDesc').value = dish.description || '';
       document.getElementById('modalDishPhoto').value = dish.photoUrl || '';
       document.getElementById('modalDishOutOfStock').checked = !!dish.outOfStock;
       document.getElementById('modalDishStar').checked = (dish.tags || []).includes('star');
+      document.getElementById('modalDishChefSpecial').checked = !!dish.isChefSpecial || (dish.tags || []).includes('chef_special');
       document.getElementById('tagVeggie').checked = (dish.tags || []).includes('veggie');
       document.getElementById('tagVegan').checked = (dish.tags || []).includes('vegan');
       document.getElementById('tagCeliac').checked = (dish.tags || []).includes('celiac');
       document.getElementById('tagSinLactosa').checked = (dish.tags || []).includes('sinlactosa');
       document.getElementById('tagPicante').checked = (dish.tags || []).includes('picante');
+
+      // Photo preview
+      const previewContainer = document.getElementById('dishPhotoPreviewContainer');
+      const previewImg = document.getElementById('dishPhotoPreview');
+      const clearBtn = document.getElementById('btnClearDishPhoto');
+      const fileNameSpan = document.getElementById('dishPhotoFileName');
+      if (fileNameSpan) fileNameSpan.textContent = '';
+      if (dish.photoUrl) {
+        if (previewContainer && previewImg) {
+          previewImg.src = dish.photoUrl;
+          previewContainer.style.display = 'block';
+        }
+        if (clearBtn) clearBtn.style.display = 'inline';
+      } else {
+        if (previewContainer) previewContainer.style.display = 'none';
+        if (clearBtn) clearBtn.style.display = 'none';
+      }
 
       // Populate category select
       const catSelect = document.getElementById('modalDishCategory');
@@ -2265,7 +2353,13 @@
       document.getElementById('dishModalTitle').textContent = 'Nuevo Plato';
       document.getElementById('dishForm').reset();
       document.getElementById('modalDishId').value = '';
+      document.getElementById('modalDishPrice').value = '';
+      document.getElementById('modalDishOriginalPrice').value = '';
       document.getElementById('modalDishPhoto').value = '';
+      document.getElementById('modalDishOutOfStock').checked = false;
+      document.getElementById('modalDishStar').checked = false;
+      document.getElementById('modalDishChefSpecial').checked = false;
+      clearDishPhoto();
 
       // Populate category select
       const catSelect = document.getElementById('modalDishCategory');
@@ -2310,13 +2404,17 @@
       const id = document.getElementById('modalDishId').value;
       const name = document.getElementById('modalDishName').value.trim();
       const price = parseFloat(document.getElementById('modalDishPrice').value) || 0;
+      const originalPriceVal = parseFloat(document.getElementById('modalDishOriginalPrice').value);
+      const originalPrice = isNaN(originalPriceVal) ? null : originalPriceVal;
       const description = document.getElementById('modalDishDesc').value.trim();
       const photoUrl = document.getElementById('modalDishPhoto').value.trim();
       const categoryId = document.getElementById('modalDishCategory').value;
       const outOfStock = document.getElementById('modalDishOutOfStock').checked;
+      const isChefSpecial = document.getElementById('modalDishChefSpecial').checked;
 
       const tags = [];
       if (document.getElementById('modalDishStar').checked) tags.push('star');
+      if (isChefSpecial) tags.push('chef_special');
       if (document.getElementById('tagVeggie').checked) tags.push('veggie');
       if (document.getElementById('tagVegan').checked) tags.push('vegan');
       if (document.getElementById('tagCeliac').checked) tags.push('celiac');
@@ -2331,10 +2429,12 @@
         if (dish) {
           dish.name = name;
           dish.price = price;
+          dish.originalPrice = originalPrice;
           dish.description = description;
           dish.photoUrl = photoUrl || null;
           dish.categoryId = categoryId;
           dish.outOfStock = outOfStock;
+          dish.isChefSpecial = isChefSpecial;
           dish.tags = tags;
         }
       } else {
@@ -2343,10 +2443,12 @@
           id: 'd_' + Date.now(),
           name,
           price,
+          originalPrice: originalPrice,
           description: description || 'Plato casero elaborado en el día',
           photoUrl: photoUrl || null,
           categoryId,
           outOfStock,
+          isChefSpecial,
           tags
         });
       }

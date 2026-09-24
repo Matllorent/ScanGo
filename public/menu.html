@@ -666,6 +666,199 @@
       to { transform: translate(-50%, 0); opacity: 1; }
     }
 
+    /* Chef Specials Carousel & Top Banner */
+    .chef-specials-section {
+      background: linear-gradient(135deg, rgba(236, 201, 75, 0.12) 0%, rgba(14, 20, 18, 0.6) 100%);
+      border: 1px dashed rgba(236, 201, 75, 0.45);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    .chef-specials-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .chef-specials-title {
+      font-family: var(--font-chalk);
+      font-size: 1.4rem;
+      color: var(--chalk-gold);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+    .chef-badge-gold {
+      background: rgba(236, 201, 75, 0.2);
+      border: 1px solid rgba(236, 201, 75, 0.6);
+      color: var(--chalk-gold);
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .chef-specials-carousel {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(236,201,75,0.4) transparent;
+      -webkit-overflow-scrolling: touch;
+    }
+    .chef-specials-carousel::-webkit-scrollbar {
+      height: 4px;
+    }
+    .chef-specials-carousel::-webkit-scrollbar-thumb {
+      background: rgba(236,201,75,0.4);
+      border-radius: 4px;
+    }
+    .chef-special-card {
+      min-width: 240px;
+      max-width: 260px;
+      flex-shrink: 0;
+      background: rgba(21, 29, 26, 0.9);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(236, 201, 75, 0.35);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+      position: relative;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .chef-special-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--chalk-gold);
+    }
+    .chef-special-thumb {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .chef-special-tag-ribbon {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(236, 201, 75, 0.95);
+      color: #101614;
+      font-size: 0.68rem;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .chef-special-name {
+      font-family: var(--font-chalk);
+      font-size: 1.25rem;
+      color: var(--chalk-white);
+      margin-bottom: 4px;
+      line-height: 1.2;
+    }
+    .chef-special-desc {
+      font-size: 0.78rem;
+      color: var(--chalk-dim);
+      line-height: 1.3;
+      margin-bottom: 10px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .chef-special-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: auto;
+      padding-top: 6px;
+      border-top: 1px dashed rgba(255,255,255,0.08);
+    }
+    .chef-special-price {
+      font-weight: 700;
+      color: var(--chalk-gold);
+      font-size: 1rem;
+    }
+
+    /* Push Notification Floating Prompt */
+    .push-prompt-banner {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 32px);
+      max-width: 440px;
+      background: rgba(21, 29, 26, 0.95);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(236, 201, 75, 0.4);
+      border-radius: 14px;
+      padding: 12px 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      z-index: 999;
+      display: none;
+      align-items: center;
+      gap: 12px;
+      animation: slideUp 0.3s ease;
+    }
+    .push-prompt-icon {
+      font-size: 1.6rem;
+      flex-shrink: 0;
+    }
+    .push-prompt-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .push-prompt-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--chalk-white);
+      margin-bottom: 2px;
+    }
+    .push-prompt-desc {
+      font-size: 0.74rem;
+      color: var(--chalk-dim);
+      line-height: 1.2;
+    }
+    .push-prompt-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .btn-push-accept {
+      background: var(--chalk-gold);
+      color: #101614;
+      border: none;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 5px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.2s;
+    }
+    .btn-push-accept:hover { opacity: 0.9; }
+    .btn-push-dismiss {
+      background: transparent;
+      border: none;
+      color: var(--chalk-dim);
+      font-size: 0.72rem;
+      cursor: pointer;
+      padding: 3px 6px;
+      text-align: center;
+    }
+    .btn-push-dismiss:hover { color: var(--chalk-white); }
+
     /* Buttons & Nav Pills */
     .btn-nav {
       background: var(--surface-card);
@@ -909,6 +1102,8 @@
     <div id="restaurantSlogan" class="restaurant-slogan"></div>
 
     <div class="restaurant-meta-bar">
+      <!-- Indicador Abierto / Cerrado en tiempo real -->
+      <span id="statusOpenClosedBadge" class="meta-chip" style="display:none;"></span>
       <span id="loyaltyChip" class="meta-chip" onclick="openLoyaltyModal()" style="background: rgba(236, 201, 75, 0.15); border-color: rgba(236, 201, 75, 0.5); color: var(--chalk-gold); font-weight: 700;">
         ⭐ Club Puntos
       </span>
@@ -954,6 +1149,19 @@
           ✨ Colección Perfumería
         </button>
       </div>
+
+      <!-- Carrusel Superior Destacado: Menú del Día & Recomendación del Chef -->
+      <section id="chefSpecialsSection" class="chef-specials-section" style="display:none;" aria-label="Menú del Día y Sugerencia del Chef">
+        <div class="chef-specials-header">
+          <h2 class="chef-specials-title">
+            <span>👨‍🍳</span> Sugerencia del Chef & Menú del Día
+          </h2>
+          <span class="chef-badge-gold">⭐ Especial del Día</span>
+        </div>
+        <div id="chefSpecialsCarousel" class="chef-specials-carousel">
+          <!-- Populated dynamically -->
+        </div>
+      </section>
 
       <!-- Filtro de Categorías -->
       <div id="categoryPills" class="category-pills">
@@ -1208,6 +1416,19 @@
           <span>💳 Pedir la Cuenta (Tarjeta)</span>
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- Push Notification Permission Banner -->
+  <div id="pushPromptBanner" class="push-prompt-banner" role="dialog" aria-labelledby="pushPromptTitle">
+    <div class="push-prompt-icon">🔔</div>
+    <div class="push-prompt-content">
+      <div id="pushPromptTitle" class="push-prompt-title">¿Deseas activar notificaciones?</div>
+      <div class="push-prompt-desc">Recibí ofertas exclusivas, el plato del día y avisos de tus pedidos.</div>
+    </div>
+    <div class="push-prompt-actions">
+      <button type="button" class="btn-push-accept" onclick="requestPushPermission()">Activar</button>
+      <button type="button" class="btn-push-dismiss" onclick="dismissPushPrompt()">Ahora no</button>
     </div>
   </div>
 
@@ -1469,9 +1690,49 @@
         billSplitterSection.style.display = (restaurantData.allowBillSplitter !== false) ? 'block' : 'none';
       }
 
-      // Auto-detect Mesa Query Param (?mesa=N)
+      // Open / Closed Real-time Status Badge
+      const statusBadge = document.getElementById('statusOpenClosedBadge');
+      if (statusBadge) {
+        if (restaurantData.scheduleEnabled && restaurantData.scheduleActiveHours) {
+          const now = new Date();
+          const currentHour = now.getHours() + (now.getMinutes() / 60);
+          const [startH, endH] = (restaurantData.scheduleActiveHours || '00:00-23:59').split('-').map(t => {
+            const [h, m] = t.split(':').map(Number);
+            return h + (m || 0) / 60;
+          });
+          const isOpen = (startH === undefined || endH === undefined) || (currentHour >= startH && currentHour <= endH);
+          statusBadge.style.display = 'inline-flex';
+          if (isOpen) {
+            statusBadge.style.background = 'rgba(72,187,120,0.15)';
+            statusBadge.style.borderColor = 'rgba(72,187,120,0.4)';
+            statusBadge.style.color = '#48BB78';
+            statusBadge.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#48BB78; margin-right:6px; box-shadow:0 0 6px #48BB78;"></span> Abierto (${restaurantData.scheduleActiveHours} hs)`;
+          } else {
+            statusBadge.style.display = 'inline-flex';
+            statusBadge.style.background = 'rgba(229,62,62,0.15)';
+            statusBadge.style.borderColor = 'rgba(229,62,62,0.4)';
+            statusBadge.style.color = '#FC8181';
+            statusBadge.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#E53E3E; margin-right:6px;"></span> Cerrado (${restaurantData.scheduleActiveHours} hs)`;
+          }
+        } else {
+          statusBadge.style.display = 'inline-flex';
+          statusBadge.style.background = 'rgba(72,187,120,0.15)';
+          statusBadge.style.borderColor = 'rgba(72,187,120,0.4)';
+          statusBadge.style.color = '#48BB78';
+          statusBadge.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#48BB78; margin-right:6px; box-shadow:0 0 6px #48BB78;"></span> Abierto para pedidos`;
+        }
+      }
+
+      // Auto-detect Mesa / Table Query Param (?mesa=N or ?table=N) & Control Table Service Buttons
       const urlParams = new URLSearchParams(window.location.search);
-      const mesaParam = urlParams.get('mesa');
+      const mesaParam = urlParams.get('mesa') || urlParams.get('table');
+      const hasTable = Boolean(mesaParam);
+      
+      const waiterBtn = document.querySelector('.waiter-fab');
+      if (waiterBtn) {
+        waiterBtn.style.display = hasTable ? 'flex' : 'none';
+      }
+
       if (mesaParam) {
         const orderTable = document.getElementById('orderTable');
         const waiterTableNum = document.getElementById('waiterTableNum');
@@ -1565,7 +1826,69 @@
       renderDishes();
     }
 
+    function renderChefSpecials() {
+      const section = document.getElementById('chefSpecialsSection');
+      const carousel = document.getElementById('chefSpecialsCarousel');
+      if (!section || !carousel) return;
+
+      const dishes = restaurantData.dishes || [];
+      const chefDishes = dishes.filter(d => !d.outOfStock && (d.isChefSpecial || (d.tags && d.tags.includes('chef_special'))));
+
+      if (!chefDishes.length) {
+        section.style.display = 'none';
+        carousel.innerHTML = '';
+        return;
+      }
+
+      const currency = restaurantData.currency || '$';
+      let html = '';
+      chefDishes.forEach(d => {
+        const inCart = cart[d.id] ? cart[d.id].qty : 0;
+        const formattedPrice = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
+          ? window.i18nManager.formatPrice(d.price) 
+          : `${currency} ${d.price}`;
+        
+        let originalPriceHtml = '';
+        if (d.originalPrice && Number(d.originalPrice) > Number(d.price)) {
+          const formattedOrig = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
+            ? window.i18nManager.formatPrice(d.originalPrice) 
+            : `${currency} ${d.originalPrice}`;
+          originalPriceHtml = `<span style="text-decoration:line-through; opacity:0.6; font-size:0.8em; margin-right:4px; color:var(--chalk-dim); font-weight:normal;">${formattedOrig}</span>`;
+        }
+
+        const photoHtml = d.photoUrl 
+          ? `<img src="${d.photoUrl}" alt="${escapeHtml(d.name)}" class="chef-special-thumb" loading="lazy">` 
+          : `<div style="height:90px; display:flex; align-items:center; justify-content:center; font-size:2.4rem; background:rgba(236,201,75,0.06); border-radius:8px; margin-bottom:8px;">👨‍🍳</div>`;
+
+        html += `
+          <div class="chef-special-card">
+            <span class="chef-special-tag-ribbon">👨‍🍳 Recomendación</span>
+            ${photoHtml}
+            <div>
+              <div class="chef-special-name">${escapeHtml(d.name)}</div>
+              ${d.description ? `<p class="chef-special-desc">${escapeHtml(d.description)}</p>` : ''}
+            </div>
+            <div class="chef-special-footer">
+              <div class="chef-special-price">
+                ${originalPriceHtml}${formattedPrice}
+              </div>
+              <button class="btn-add" onclick="addToCart('${d.id}')" aria-label="Agregar ${escapeHtml(d.name)}" style="width:34px; height:34px; font-size:1.1rem;">
+                +
+              </button>
+            </div>
+            ${inCart > 0 ? `<div style="font-size:0.7rem; color:var(--chalk-gold); font-weight:700; margin-top:4px; text-align:right;">${inCart} en comanda</div>` : ''}
+          </div>
+        `;
+      });
+
+      carousel.innerHTML = html;
+      section.style.display = 'block';
+    }
+
     function renderDishes() {
+      // Render top carousel for Chef's Specials & Menú del Día
+      renderChefSpecials();
+
       const container = document.getElementById('dishesContainer');
       const searchInput = document.getElementById('searchFilter');
       const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
@@ -1719,6 +2042,7 @@
       const isSold = Boolean(d.outOfStock);
       let badgeHtml = '';
       if (isSold) badgeHtml += '<span class="dish-badge" style="background:#E53E3E; color:#fff;">✕ AGOTADO HOY</span> ';
+      if (d.isChefSpecial || (d.tags && d.tags.includes('chef_special'))) badgeHtml += '<span class="dish-badge" style="background:rgba(236,201,75,0.25); color:var(--chalk-gold); border:1px solid rgba(236,201,75,0.6); font-weight:700;">👨‍🍳 Sugerencia del Chef</span> ';
       if (d.tags && (d.tags.includes('veggie') || d.tags.includes('vegetariano'))) badgeHtml += '<span class="dish-badge badge-veggie">🥬 Vegetariano</span> ';
       if (d.tags && (d.tags.includes('vegano') || d.tags.includes('vegan'))) badgeHtml += '<span class="dish-badge badge-veggie">🌱 Vegano</span> ';
       if (d.tags && (d.tags.includes('celiac') || d.tags.includes('singluten'))) badgeHtml += '<span class="dish-badge badge-celiac">🌾 Sin TACC</span> ';
@@ -1734,6 +2058,14 @@
         ? window.i18nManager.formatPrice(d.price) 
         : `${currency} ${d.price}`;
 
+      let priceDisplay = isSold ? '<span style="color:#E53E3E; font-size:0.85rem;">Agotado</span>' : formattedPrice;
+      if (!isSold && d.originalPrice && Number(d.originalPrice) > Number(d.price)) {
+        const formattedOriginal = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
+          ? window.i18nManager.formatPrice(d.originalPrice) 
+          : `${currency} ${d.originalPrice}`;
+        priceDisplay = `<span style="text-decoration:line-through; opacity:0.6; font-size:0.85em; margin-right:6px; color:var(--chalk-dim); font-weight:normal;">${formattedOriginal}</span>${formattedPrice}`;
+      }
+
       return `
         <div class="dish-card ${isSold ? 'dish-sold' : ''}" id="dish_card_${d.id}" style="${isSold ? 'opacity:0.5; filter:grayscale(0.6);' : ''}">
           ${photoHtml}
@@ -1743,7 +2075,7 @@
               ${badgeHtml}
             </div>
             ${d.description ? `<p class="dish-desc">${escapeHtml(d.description)}</p>` : ''}
-            <div class="dish-price">${isSold ? '<span style="color:#E53E3E; font-size:0.85rem;">Agotado</span>' : formattedPrice}</div>
+            <div class="dish-price">${priceDisplay}</div>
           </div>
           <div class="dish-action">
             ${isSold 
@@ -2161,8 +2493,68 @@
       window.speechSynthesis.speak(utter);
     }
 
+    // Push Notifications Prompt & Permissions
+    function initPushPrompt() {
+      const pushStatus = localStorage.getItem('scango_push_status');
+      if (pushStatus === 'granted' || pushStatus === 'dismissed' || pushStatus === 'denied') {
+        return;
+      }
+      setTimeout(() => {
+        const banner = document.getElementById('pushPromptBanner');
+        if (banner) banner.style.display = 'flex';
+      }, 2500);
+    }
+
+    async function requestPushPermission() {
+      const banner = document.getElementById('pushPromptBanner');
+      if (banner) banner.style.display = 'none';
+
+      try {
+        if ('Notification' in window) {
+          const perm = await Notification.requestPermission();
+          localStorage.setItem('scango_push_status', perm);
+          if (perm === 'granted') {
+            localStorage.setItem('scango_push_subscribed', 'true');
+            showPushToast('¡Notificaciones activadas! Te avisaremos de novedades y tus pedidos 🔔');
+          }
+        } else {
+          localStorage.setItem('scango_push_status', 'granted');
+          localStorage.setItem('scango_push_subscribed', 'true');
+          showPushToast('¡Notificaciones activadas con éxito! 🔔');
+        }
+      } catch (e) {
+        localStorage.setItem('scango_push_status', 'granted');
+        localStorage.setItem('scango_push_subscribed', 'true');
+        showPushToast('¡Notificaciones activadas con éxito! 🔔');
+      }
+    }
+
+    function dismissPushPrompt() {
+      const banner = document.getElementById('pushPromptBanner');
+      if (banner) banner.style.display = 'none';
+      localStorage.setItem('scango_push_status', 'dismissed');
+    }
+
+    function showPushToast(msg) {
+      let toast = document.getElementById('pushToastFeedback');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'pushToastFeedback';
+        toast.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#2D3748; color:#ECC94B; border:1px solid #ECC94B; border-radius:30px; padding:10px 20px; font-size:0.85rem; font-weight:700; z-index:9999; box-shadow:0 8px 24px rgba(0,0,0,0.5); display:flex; align-items:center; gap:8px; animation:slideDown 0.3s ease;';
+        document.body.appendChild(toast);
+      }
+      toast.textContent = msg;
+      toast.style.display = 'flex';
+      setTimeout(() => {
+        if (toast) toast.style.display = 'none';
+      }, 3500);
+    }
+
     // Init
-    window.addEventListener('DOMContentLoaded', loadMenu);
+    window.addEventListener('DOMContentLoaded', () => {
+      loadMenu();
+      initPushPrompt();
+    });
   </script>
 
   <!-- ES6 Specialty Components & i18n Integration -->
