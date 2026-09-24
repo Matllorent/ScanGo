@@ -3,7 +3,7 @@ const { createClient } = require('@supabase/supabase-js');
 let supabase = null;
 
 /**
- * Get or initialize Supabase client
+ * Get or initialize Supabase client strictly from process.env credentials
  */
 function getSupabaseClient() {
   const supabaseUrl = process.env.SUPABASE_URL;

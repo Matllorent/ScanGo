@@ -21,7 +21,7 @@ const emailService = {
     }
 
     const resendApiKey = process.env.RESEND_API_KEY;
-    const fromEmail = process.env.RESEND_FROM_EMAIL || process.env.EMAIL_FROM || 'onboarding@resend.dev';
+    const fromEmail = process.env.EMAIL_FROM || process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
     if (!resendApiKey) {
       console.log(`✉️ [Local Email Service Fallback] [${new Date().toISOString()}] To: ${to} | Subject: ${subject}`);
