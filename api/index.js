@@ -88,11 +88,15 @@ const ordersLimiter = rateLimit({
   legacyHeaders: false
 });
 
-// Strict rate limiter for Admin Master login
+// Strict rate limiter for Admin Master login (max 5 consecutive attempts per 15 minutes)
 const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 6, // max 6 intentos para proteger la clave maestra
-  message: { error: 'Demasiados intentos erróneos de clave maestra. Acceso temporalmente bloqueado por 15 minutos.' },
+  max: 5, // Exactamente 5 intentos consecutivos antes de bloquear
+  message: {
+    success: false,
+    error: 'Acceso temporalmente bloqueado por seguridad: has superado el límite de 5 intentos. Esperá 15 minutos antes de volver a intentar.',
+    code: 'ADMIN_RATE_LIMIT_EXCEEDED'
+  },
   standardHeaders: true,
   legacyHeaders: false
 });
@@ -274,19 +278,17 @@ function verifyTotpToken(token, secret) {
 }
 
 function adminMiddleware(req, res, next) {
-  const key = req.headers['x-admin-key'] || req.query.adminKey || req.query.key || req.cookies.admin_key;
+  const key = req.headers['x-admin-key'] || req.query.adminKey || req.query.key || req.cookies?.admin_key;
   const totp = req.headers['x-admin-totp'] || req.query.adminTotp || req.body?.totp;
   const adminTotpSecret = process.env.ADMIN_TOTP_SECRET;
 
-  const isLocalDev = process.env.NODE_ENV === 'development' && (req.hostname === 'localhost' || req.hostname === '127.0.0.1');
-
-  if ((key && key === ADMIN_KEY) || isLocalDev) {
+  if (key && key === ADMIN_KEY) {
     if (adminTotpSecret && !verifyTotpToken(totp, adminTotpSecret)) {
-      return res.status(403).json({ error: 'Código Google Authenticator inválido o expirado' });
+      return res.status(403).json({ error: 'Código Google Authenticator (TOTP) inválido o expirado' });
     }
     return next();
   }
-  return res.status(403).json({ error: 'Acceso denegado al panel de administración' });
+  return res.status(403).json({ error: 'Acceso denegado: Clave maestra de administración no válida o faltante' });
 }
 
 // ==================== STUDIO & RESTAURANT ROUTES ====================
@@ -523,41 +525,106 @@ app.get('/api/billing/status', authMiddleware, (req, res) => {
 
 // ==================== OWNER ADMIN ROUTES ====================
 app.post('/api/admin/login', adminLimiter, (req, res) => {
-  const { key, totp } = req.body;
+  const { key, adminKey, totp } = req.body || {};
+  const providedKey = key || adminKey || req.headers['x-admin-key'];
   const adminTotpSecret = process.env.ADMIN_TOTP_SECRET;
 
-  if (key === ADMIN_KEY) {
+  if (providedKey === ADMIN_KEY) {
     if (adminTotpSecret && !verifyTotpToken(totp, adminTotpSecret)) {
       return res.status(401).json({ error: 'Código Google Authenticator (TOTP) incorrecto o expirado' });
     }
-    res.cookie('admin_key', key, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 3600 * 1000 });
+    res.cookie('admin_key', providedKey, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 3600 * 1000 });
     return res.json({ success: true, message: 'Acceso autorizado como administrador maestro' });
   }
   return res.status(401).json({ error: 'Clave de administración incorrecta' });
 });
 
-app.get('/api/admin/overview', adminMiddleware, (req, res) => {
-  const restaurants = db.getAllRestaurants();
-  const users = db.getAllUsers();
+app.get('/api/admin/overview', adminMiddleware, async (req, res) => {
+  try {
+    const { getSupabaseClient } = require('./utils/supabase');
+    const supabase = getSupabaseClient();
+    let restaurants = [];
+    let users = [];
 
-  const totalRestaurants = restaurants.length;
-  const activeSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'active').length;
-  const trialingSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'trialing').length;
-  const pastDueSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'past_due').length;
-  const mrrEst = activeSubs * 9; // Estimado base USD
+    if (supabase) {
+      try {
+        const { data: rData, error: rError } = await supabase.from('restaurants').select('*');
+        if (!rError && Array.isArray(rData)) {
+          restaurants = rData.map(r => ({
+            id: r.id,
+            userId: r.user_id,
+            slug: r.slug,
+            name: r.name || r.biz_name,
+            bizName: r.biz_name || r.name,
+            slogan: r.slogan,
+            currency: r.currency,
+            phone: r.phone,
+            theme: r.theme,
+            logoUrl: r.logo_url,
+            wifi: r.wifi,
+            categories: r.categories || [],
+            dishes: r.dishes || [],
+            deliveryZones: r.delivery_zones || [],
+            subscription: r.subscription || {},
+            analytics: r.analytics || { visits: 0, orders: 0, reservations: 0, waiterCalls: 0 },
+            createdAt: r.created_at,
+            updatedAt: r.updated_at
+          }));
+        } else if (rError) {
+          console.warn('⚠️ [Supabase Overview Warning]', rError.message);
+        }
 
-  res.json({
-    metrics: {
-      totalRestaurants,
-      totalUsers: users.length,
-      activeSubs,
-      trialingSubs,
-      pastDueSubs,
-      mrrEst
-    },
-    restaurants,
-    users
-  });
+        const { data: uData, error: uError } = await supabase.from('users').select('id, email, name, created_at');
+        if (!uError && Array.isArray(uData)) {
+          users = uData.map(u => ({
+            id: u.id,
+            email: u.email,
+            name: u.name,
+            createdAt: u.created_at
+          }));
+        } else if (uError) {
+          console.warn('⚠️ [Supabase Users Overview Warning]', uError.message);
+        }
+      } catch (err) {
+        console.warn('⚠️ [Supabase Query Exception]', err.message);
+      }
+    }
+
+    // If Supabase wasn't connected or errored, use clean local store (no mocks)
+    if (!restaurants.length) {
+      const localR = db.getAllRestaurants();
+      if (Array.isArray(localR) && localR.length) {
+        restaurants = localR;
+      }
+    }
+    if (!users.length) {
+      const localU = db.getAllUsers();
+      if (Array.isArray(localU) && localU.length) {
+        users = localU;
+      }
+    }
+
+    const totalRestaurants = restaurants.length;
+    const activeSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'active').length;
+    const trialingSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'trialing').length;
+    const pastDueSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'past_due').length;
+    const mrrEst = activeSubs * 9; // Estimado base USD
+
+    res.json({
+      metrics: {
+        totalRestaurants,
+        totalUsers: users.length,
+        activeSubs,
+        trialingSubs,
+        pastDueSubs,
+        mrrEst
+      },
+      restaurants,
+      users
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/admin/restaurant/:id/status', adminMiddleware, (req, res) => {
@@ -810,12 +877,7 @@ app.get('/m/:slug', (req, res) => {
 
 // Server-side Auth Guard for Studio HTML View
 function studioHtmlAuthMiddleware(req, res, next) {
-  const token = req.cookies.auth_token || (req.headers.authorization && req.headers.authorization.split(' ')[1]) || req.query.token;
-  const isLocalDev = process.env.NODE_ENV === 'development' && (req.hostname === 'localhost' || req.hostname === '127.0.0.1');
-
-  if (isLocalDev) {
-    return next();
-  }
+  const token = req.cookies?.auth_token || (req.headers.authorization && req.headers.authorization.split(' ')[1]) || req.query.token;
 
   if (!token) {
     return res.redirect('/?auth=required');
@@ -831,60 +893,320 @@ function studioHtmlAuthMiddleware(req, res, next) {
 
 // Server-side Auth Guard for Admin HTML View
 function adminHtmlAuthMiddleware(req, res, next) {
-  const key = req.cookies.admin_key || req.headers['x-admin-key'] || req.query.adminKey || req.query.key;
-  const isLocalDev = process.env.NODE_ENV === 'development' && (req.hostname === 'localhost' || req.hostname === '127.0.0.1');
+  const key = req.cookies?.admin_key || req.headers['x-admin-key'] || req.query.adminKey || req.query.key;
 
-  if ((key && key === ADMIN_KEY) || isLocalDev) {
-    if (key === ADMIN_KEY) {
-      res.cookie('admin_key', key, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 3600 * 1000 });
-    }
+  if (key && key === ADMIN_KEY) {
+    res.cookie('admin_key', key, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 3600 * 1000 });
     return next();
   }
 
   return res.status(403).send(`<!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Acceso Admin — Menú Pizarrón</title>
+  <title>403 — Acceso Restringido • ScanGo</title>
+  <link rel="icon" type="image/png" href="/logo-scango.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #0f172a; color: #f8fafc; margin: 0; }
-    .card { background: #1e293b; padding: 2.5rem; border-radius: 1rem; width: 100%; max-width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center; border: 1px solid #334155; }
-    h2 { margin-top: 0; color: #f8fafc; }
-    p { font-size: 0.9rem; color: #94a3b8; margin-bottom: 1.5rem; }
-    .error-msg { display: none; color: #f87171; background: #451a1a; padding: 0.6rem; border-radius: 0.5rem; font-size: 0.875rem; margin-bottom: 1rem; border: 1px solid #7f1d1d; }
-    input { width: 100%; padding: 0.75rem 1rem; margin-bottom: 1.25rem; border-radius: 0.5rem; border: 1px solid #334155; background: #0f172a; color: #fff; font-size: 1rem; box-sizing: border-box; outline: none; }
-    input:focus { border-color: #10b981; }
-    button { width: 100%; padding: 0.75rem; border-radius: 0.5rem; border: none; background: #10b981; color: #fff; font-weight: 600; font-size: 1rem; cursor: pointer; transition: background 0.2s; }
-    button:hover { background: #059669; }
+    :root {
+      --bg: #0d1312;
+      --card-bg: #151f1c;
+      --card-border: #23352f;
+      --text: #f0f3f2;
+      --text-muted: #8ca39b;
+      --gold: #e5a93b;
+      --gold-hover: #c9902b;
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.12);
+      --accent: #22c55e;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Montserrat', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #172421 0%, var(--bg) 70%);
+      color: var(--text);
+      padding: 1.5rem;
+    }
+    .card {
+      background: var(--card-bg);
+      padding: 2.5rem;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6);
+      text-align: center;
+      border: 1px solid var(--card-border);
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    }
+    .brand-logo {
+      height: 48px;
+      width: auto;
+      margin-bottom: 1.25rem;
+      border-radius: 8px;
+      object-fit: contain;
+    }
+    .status-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--gold);
+      background: rgba(229, 169, 59, 0.12);
+      border: 1px solid rgba(229, 169, 59, 0.3);
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-bottom: 0.85rem;
+      text-transform: uppercase;
+    }
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+    p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 1.75rem;
+    }
+    .form-group {
+      text-align: left;
+      margin-bottom: 1.25rem;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+    }
+    .input-wrapper {
+      position: relative;
+    }
+    input {
+      width: 100%;
+      padding: 0.8rem 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      background: #0d1312;
+      color: #fff;
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+    input:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(229, 169, 59, 0.15);
+    }
+    input:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .alert-box {
+      display: none;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      line-height: 1.4;
+      margin-bottom: 1.25rem;
+      text-align: left;
+    }
+    .alert-danger {
+      background: var(--danger-bg);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+    }
+    .alert-success {
+      background: rgba(34, 197, 94, 0.12);
+      border: 1px solid rgba(34, 197, 94, 0.35);
+      color: #86efac;
+    }
+    button {
+      width: 100%;
+      padding: 0.85rem;
+      border-radius: 8px;
+      border: none;
+      background: var(--gold);
+      color: #0d1312;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    button:hover:not(:disabled) {
+      background: var(--gold-hover);
+      transform: translateY(-1px);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .footer-link {
+      margin-top: 1.5rem;
+      font-size: 0.8rem;
+    }
+    .footer-link a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .footer-link a:hover {
+      color: var(--gold);
+    }
   </style>
 </head>
 <body>
   <div class="card">
-    <h2>Acceso Panel Admin</h2>
-    <p>Se requiere clave de administración para acceder a este panel.</p>
-    <div id="error-msg" class="error-msg"></div>
-    <form id="admin-form">
-      <input type="password" id="admin-key-input" placeholder="Clave de administración" autofocus />
-      <button type="submit">Ingresar al Panel</button>
+    <img src="/logo-scango.png" alt="ScanGo" class="brand-logo" onerror="this.style.display='none'">
+    <div><span class="status-badge">403 • ACCESO RESTRINGIDO</span></div>
+    <h2>Acceso Maestro ScanGo</h2>
+    <p>Ingresá la clave maestra configurada en el servidor (ADMIN_KEY) para acceder al panel de administración.</p>
+
+    <div id="alert-box" class="alert-box"></div>
+
+    <form id="login-form">
+      <div class="form-group">
+        <label for="admin-key">Clave de Administración</label>
+        <div class="input-wrapper">
+          <input type="password" id="admin-key" placeholder="••••••••••••••••" autocomplete="current-password" autofocus required />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="admin-totp" style="display:flex; justify-content:space-between;">
+          <span>Código 2FA (Google Auth)</span>
+          <span style="font-weight:400; font-size:0.7rem; color:var(--text-muted);">(Opcional)</span>
+        </label>
+        <div class="input-wrapper">
+          <input type="text" id="admin-totp" placeholder="Ej: 123456" maxlength="6" inputmode="numeric" style="letter-spacing: 2px; font-family: monospace;" />
+        </div>
+      </div>
+      <button type="submit" id="submit-btn">
+        <span>Ingresar al Panel</span>
+      </button>
     </form>
+
+    <div class="footer-link">
+      <a href="/">&larr; Volver al sitio principal</a>
+    </div>
   </div>
+
   <script>
-    document.getElementById('admin-form').addEventListener('submit', function(e) {
+    const MAX_FAILED_ATTEMPTS = 5;
+    const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutos
+
+    const alertBox = document.getElementById('alert-box');
+    const submitBtn = document.getElementById('submit-btn');
+    const keyInput = document.getElementById('admin-key');
+    const totpInput = document.getElementById('admin-totp');
+
+    function checkLockout() {
+      const lockUntil = parseInt(localStorage.getItem('scango_admin_lockout_until') || '0', 10);
+      const now = Date.now();
+      if (lockUntil > now) {
+        const remainingMin = Math.ceil((lockUntil - now) / 60000);
+        showAlert(\`🔒 Acceso bloqueado temporalmente por seguridad. Superaste el límite de 5 intentos fallidos consecutivos. Por favor esperá \${remainingMin} minuto(s) antes de volver a intentar.\`, 'danger');
+        submitBtn.disabled = true;
+        keyInput.disabled = true;
+        totpInput.disabled = true;
+        return true;
+      }
+      return false;
+    }
+
+    function showAlert(msg, type) {
+      alertBox.textContent = msg;
+      alertBox.className = 'alert-box alert-' + type;
+      alertBox.style.display = 'block';
+    }
+
+    function recordFailedAttempt() {
+      let attempts = parseInt(localStorage.getItem('scango_admin_failed_attempts') || '0', 10) + 1;
+      localStorage.setItem('scango_admin_failed_attempts', attempts);
+      if (attempts >= MAX_FAILED_ATTEMPTS) {
+        localStorage.setItem('scango_admin_lockout_until', Date.now() + LOCKOUT_DURATION_MS);
+        checkLockout();
+      } else {
+        const remaining = MAX_FAILED_ATTEMPTS - attempts;
+        showAlert(\`Clave incorrecta. Te quedan \${remaining} intento(s) antes del bloqueo temporal.\`, 'danger');
+      }
+    }
+
+    function clearLockout() {
+      localStorage.removeItem('scango_admin_failed_attempts');
+      localStorage.removeItem('scango_admin_lockout_until');
+    }
+
+    // Initial lockout check on mount
+    checkLockout();
+
+    document.getElementById('login-form').addEventListener('submit', async function(e) {
       e.preventDefault();
-      const errDiv = document.getElementById('error-msg');
-      const val = document.getElementById('admin-key-input').value.trim();
-      if (!val) {
-        errDiv.textContent = 'Por favor ingresá la clave de administración.';
-        errDiv.style.display = 'block';
+      if (checkLockout()) return;
+
+      const key = keyInput.value.trim();
+      const totp = totpInput.value.trim();
+      if (!key) {
+        showAlert('Por favor ingresá la clave de administración.', 'danger');
         return;
       }
-      errDiv.style.display = 'none';
-      document.cookie = 'admin_key=' + encodeURIComponent(val) + '; path=/; max-age=604800';
-      localStorage.setItem('admin_key', val);
-      const url = new URL(window.location.href);
-      url.searchParams.set('key', val);
-      window.location.href = url.toString();
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span>Verificando...</span>';
+
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key, totp })
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          recordFailedAttempt();
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<span>Ingresar al Panel</span>';
+          return;
+        }
+
+        // Success
+        clearLockout();
+        document.cookie = 'admin_key=' + encodeURIComponent(key) + '; path=/; max-age=604800; SameSite=Lax';
+        localStorage.setItem('pizarron_admin_key', key);
+        showAlert('✓ Acceso autorizado exitosamente. Redirigiendo...', 'success');
+        submitBtn.innerHTML = '<span>Ingresando...</span>';
+
+        setTimeout(() => {
+          window.location.href = '/admin';
+        }, 400);
+      } catch (err) {
+        showAlert('Error de conexión con el servidor. Intentá de nuevo.', 'danger');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>Ingresar al Panel</span>';
+      }
     });
   </script>
 </body>

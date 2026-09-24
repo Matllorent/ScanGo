@@ -25,12 +25,18 @@ function writeJson(file, data) {
 
 // Supabase Cloud PostgreSQL Dual-Mode Adapter
 let supabase = null;
-if (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY)) {
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_KEY ||
+  process.env.SUPABASE_KEY ||
+  process.env.SUPABASE_ANON_KEY;
+
+if (process.env.SUPABASE_URL && supabaseKey) {
   try {
     const { createClient } = require('@supabase/supabase-js');
     supabase = createClient(
       process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY,
+      supabaseKey,
       { auth: { persistSession: false } }
     );
     console.log('⚡ [DB] Conectado a Cloud Supabase (PostgreSQL)');

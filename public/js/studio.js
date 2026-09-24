@@ -321,12 +321,11 @@
       }
     };
 
-    // Initialize & Load User/Restaurant
+    // Initialize & Load User/Restaurant from Real Database
     async function initStudio() {
       const token = localStorage.getItem('menu_pizarron_token');
       if (!token) {
-        // Fallback gracefully to demo mode instead of kicking out
-        loadDemoMode();
+        window.location.href = '/?auth=required';
         return;
       }
 
@@ -334,12 +333,51 @@
         const res = await fetch('/api/auth/me', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        if (!res.ok) throw new Error('Sesión expirada');
+        if (!res.ok) {
+          localStorage.removeItem('menu_pizarron_token');
+          window.location.href = '/?auth=expired';
+          return;
+        }
         const data = await res.json();
-        currentUser = data.user;
+        currentUser = data.user || {};
         restaurant = data.restaurant || {};
 
-        // Merge locally configured businessType or feature flags if not in DB
+        // If authenticated user does not have a restaurant yet, initialize a clean real template (no mocks)
+        if (!restaurant.id) {
+          const defaultSlug = (currentUser.name || 'mi-restaurante').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30);
+          restaurant = {
+            id: '',
+            userId: currentUser.id,
+            name: currentUser.name || 'Mi Restaurante',
+            slogan: '',
+            slug: defaultSlug,
+            currency: '$',
+            phone: '',
+            theme: 'emerald',
+            themeFont: 'sans',
+            businessType: 'restaurante',
+            allowLoyaltyPoints: false,
+            allowIceCreamWizard: false,
+            allowPerfumery: false,
+            instagram: '',
+            googleReview: '',
+            allowReservations: false,
+            allowCoupons: false,
+            allowBillSplitter: false,
+            announcement: '',
+            paymentLink: '',
+            scheduleEnabled: false,
+            scheduleActiveHours: '12:00-23:30',
+            tableCount: 1,
+            wifi: { ssid: '', password: '' },
+            categories: [],
+            dishes: [],
+            deliveryZones: [],
+            analytics: { visits: 0, orders: 0, reservations: 0, waiterCalls: 0 }
+          };
+        }
+
+        // Merge locally configured preferences if present
         const savedRest = localStorage.getItem('menu_pizarron_restaurant');
         if (savedRest) {
           try {
@@ -353,89 +391,10 @@
 
         renderStudioUI();
       } catch (err) {
-        console.warn('Usando modo demo interactivo:', err.message);
-        loadDemoMode();
+        console.warn('Error al verificar sesión en Studio:', err.message);
+        localStorage.removeItem('menu_pizarron_token');
+        window.location.href = '/?auth=expired';
       }
-    }
-
-    function loadDemoMode() {
-      // Check if user previously saved custom changes in demo mode
-      const savedDemo = localStorage.getItem('scango_demo_restaurant');
-      if (savedDemo) {
-        try {
-          restaurant = JSON.parse(savedDemo);
-          currentUser = {
-            id: 'usr_demo',
-            email: 'demo@scango.app',
-            subscription: { status: 'trial', plan: 'pro', trialEndsAt: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString() }
-          };
-          renderStudioUI();
-          return;
-        } catch (e) {}
-      }
-
-      currentUser = {
-        id: 'usr_demo',
-        email: 'demo@scango.app',
-        subscription: { status: 'trial', plan: 'pro', trialEndsAt: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString() }
-      };
-      restaurant = {
-        id: 'rest_demo',
-        name: 'Bistro Pomelli',
-        slogan: 'Cocina artesanal, café de especialidad y tapas',
-        slug: 'demo',
-        currency: '$',
-        phone: '59899123456',
-        theme: 'emerald',
-        themeFont: 'chalk',
-        businessType: 'restaurante',
-        allowLoyaltyPoints: false,
-        allowIceCreamWizard: false,
-        allowPerfumery: false,
-        instagram: '@bistropomelli',
-        googleReview: 'https://g.page/r/bistro-pomelli/review',
-        allowReservations: true,
-        allowCoupons: true,
-        allowBillSplitter: true,
-        announcement: '¡Hoy 2x1 en Cervezas Artesanales de 19 a 21 hs! 🍻',
-        paymentLink: 'https://mpago.la/demo-pago-pomelli',
-        scheduleEnabled: false,
-        scheduleActiveHours: '12:00-23:30',
-        tableCount: 10,
-        wifi: { ssid: 'Pomelli_Clientes', password: 'pizzarico2026' },
-        categories: [
-          { id: 'cat_hamburguesas', name: 'Burgers Artesanales' },
-          { id: 'cat_milanesas', name: 'Milanesas de la Casa' },
-          { id: 'cat_paraguay', name: '🇵🇾 Tradición Paraguaya' },
-          { id: 'cat_espana', name: '🇪🇸 Clásicos de España' },
-          { id: 'cat_mexico', name: '🇲🇽 Sabor Mexicano' },
-          { id: 'cat_bebidas', name: 'Bebidas & Cafetería' }
-        ],
-        dishes: [
-          { id: 'd_1', categoryId: 'cat_hamburguesas', name: 'Burger Criolla de Entraña', price: 490, description: 'Pan brioche, provoleta fundida y chimichurri', tags: ['star'] },
-          { id: 'd_2', categoryId: 'cat_milanesas', name: 'Milanesa Napolitana Clásica', price: 540, description: 'Lomo empanado, salsa casera, jamón y muzzarella', tags: [] },
-          { id: 'd_3', categoryId: 'cat_paraguay', name: 'Sopa Paraguaya Auténtica', price: 290, description: 'Harina de maíz, queso Paraguay y cebolla salteada', tags: ['star', 'celiac'] },
-          { id: 'd_4', categoryId: 'cat_espana', name: 'Tortilla Española de Patatas Jugosa', price: 420, description: 'Patatas confitadas en oliva virgen extra y cebolla dulce', tags: ['star', 'veggie'] },
-          { id: 'd_5', categoryId: 'cat_mexico', name: 'Tacos al Pastor Tradicionales (3 un)', price: 440, description: 'Cerdo marinado al achiote con piña asada y cilantro', tags: ['star'] }
-        ],
-        deliveryZones: [
-          { name: 'Centro / Pocitos', fee: 50 },
-          { name: 'Periferia / Fuera de radio', fee: 100 }
-        ],
-        analytics: { visits: 142, orders: 38, reservations: 12, waiterCalls: 9 }
-      };
-
-      // Show a banner notifying demo mode
-      const nav = document.querySelector('.top-navbar');
-      if (nav && !document.getElementById('demoBanner')) {
-        const banner = document.createElement('div');
-        banner.id = 'demoBanner';
-        banner.style.cssText = 'background:#E1A938; color:#121A18; font-weight:700; font-size:12px; padding:4px 12px; border-radius:4px; margin-left:12px; display:inline-flex; align-items:center; gap:6px;';
-        banner.innerHTML = '⚡ MODO DEMOSTRACIÓN — <a href="/index.html#login" style="color:#121A18; text-decoration:underline;">Iniciar Sesión</a>';
-        nav.querySelector('.brand-area')?.appendChild(banner);
-      }
-
-      renderStudioUI();
     }
 
     function renderStudioUI() {
@@ -757,25 +716,18 @@
 
         const reviewObj = {
           id: 'rev_' + Date.now(),
-          restaurantId: restaurant?.id || 'rest_demo',
-          restaurantName: restaurant?.name || 'Bistro Pomelli',
-          userId: currentUser?.id || 'usr_demo',
-          email: currentUser?.email || 'demo@scango.app',
+          restaurantId: restaurant?.id || '',
+          restaurantName: restaurant?.name || 'Restaurante',
+          userId: currentUser?.id || '',
+          email: currentUser?.email || '',
           rating: parseInt(rating) || 5,
-          authorRole: authorRole || 'Dueño / Chef',
+          authorRole: authorRole || 'Dueño / Responsable',
           comment: comment.slice(0, 500),
           photoOption: selectedReviewPhotoOption,
           photoUrl: finalPhotoUrl,
           status: 'pending',
           createdAt: new Date().toISOString()
         };
-
-        // Store in localStorage pending reviews so admin can moderate immediately even without backend
-        try {
-          const pending = JSON.parse(localStorage.getItem('scango_pending_reviews') || '[]');
-          pending.unshift(reviewObj);
-          localStorage.setItem('scango_pending_reviews', JSON.stringify(pending));
-        } catch (err) {}
 
         try {
           if (token) {
@@ -1953,9 +1905,9 @@
         iframe.contentWindow.postMessage({ type: 'UPDATE_LIVE_PREVIEW', data: restaurant }, '*');
       }
 
-      // Keep demo changes persisted in localStorage immediately
+      // Keep user changes persisted in localStorage cache
       try {
-        localStorage.setItem('scango_demo_restaurant', JSON.stringify(restaurant));
+        localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(restaurant));
       } catch (e) {}
 
       triggerAutoSave();
@@ -1979,9 +1931,9 @@
       showSaveFeedback('saving');
       const token = localStorage.getItem('menu_pizarron_token');
 
-      // Keep demo state saved locally
+      // Keep state saved locally
       try {
-        localStorage.setItem('scango_demo_restaurant', JSON.stringify(restaurant));
+        localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(restaurant));
       } catch (e) {}
 
       const finishSave = (label, feedbackState = 'saved') => {

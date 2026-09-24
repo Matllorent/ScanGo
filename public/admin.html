@@ -301,9 +301,21 @@
       <div class="table-container">
         <div class="table-header">
           <div class="table-title"><i class="fa-solid fa-shop"></i> Directorio de Restaurantes y Clientes</div>
-          <div style="display: flex; gap: 0.75rem;">
+          <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            <button class="btn btn-gold btn-xs" onclick="openInviteModal()"><i class="fa-solid fa-paper-plane"></i> + Invitar Restaurante</button>
             <button class="btn btn-outline btn-xs" onclick="loadOverview()"><i class="fa-solid fa-rotate-right"></i> Actualizar</button>
-            <button class="btn btn-gold btn-xs" onclick="exportCSV()"><i class="fa-solid fa-file-csv"></i> Descargar CSV</button>
+            <button class="btn btn-outline btn-xs" onclick="exportCSV()"><i class="fa-solid fa-file-csv"></i> Descargar CSV</button>
+          </div>
+        </div>
+        <div id="empty-state-container" style="display: none; text-align: center; padding: 3rem 1.5rem; background: var(--card-bg); border: 1px dashed var(--card-border); border-radius: 12px; margin: 1rem 0;">
+          <div style="font-size: 2.8rem; color: var(--gold); margin-bottom: 0.8rem;"><i class="fa-solid fa-store-slash"></i></div>
+          <h3 style="font-size: 1.3rem; margin-bottom: 0.4rem; color: #fff;">0 Restaurantes Registrados</h3>
+          <p style="color: var(--text-muted); font-size: 0.88rem; max-width: 500px; margin: 0 auto 1.5rem auto; line-height: 1.5;">
+            La base de datos de Supabase no contiene restaurantes registrados actualmente. Podés invitar a un nuevo cliente con un enlace oficial o crear un nuevo restaurante directamente desde Studio.
+          </p>
+          <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+            <button class="btn btn-gold" onclick="openInviteModal()"><i class="fa-solid fa-paper-plane"></i> Invitar Restaurante Real</button>
+            <a href="/studio" class="btn btn-outline"><i class="fa-solid fa-sliders"></i> Crear en Studio</a>
           </div>
         </div>
         <div style="overflow-x: auto;">
@@ -352,6 +364,44 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal: Invitar Restaurante Real -->
+    <div id="inviteModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px); padding:1rem;">
+      <div style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:16px; padding:2rem; width:100%; max-width:460px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.7); position:relative;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+          <h3 style="color:var(--gold); font-size:1.25rem; font-weight:700; display:flex; align-items:center; gap:0.5rem;">
+            <i class="fa-solid fa-paper-plane"></i> Invitar Restaurante Real
+          </h3>
+          <button onclick="closeInviteModal()" style="background:transparent; border:none; color:var(--text-muted); font-size:1.25rem; cursor:pointer; padding:0.25rem;">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.5rem; line-height:1.4;">
+          El sistema creará o vinculará la cuenta en Supabase y enviará un correo con el enlace directo para configurar su menú digital.
+        </p>
+        <form id="inviteForm" onsubmit="handleInviteRestaurant(event)">
+          <div class="form-group">
+            <label>Email del Dueño / Negocio *</label>
+            <input type="email" id="invite-email" class="form-control" placeholder="dueño@restaurante.com" required>
+          </div>
+          <div class="form-group">
+            <label>Nombre del Restaurante *</label>
+            <input type="text" id="invite-name" class="form-control" placeholder="Ej: Pizzería Bella Napoli" required>
+          </div>
+          <div class="form-group">
+            <label>Slug URL (Opcional)</label>
+            <input type="text" id="invite-slug" class="form-control" placeholder="pizzeria-bella-napoli">
+          </div>
+          <div id="invite-alert" style="display:none; padding:0.75rem 1rem; border-radius:8px; font-size:0.85rem; margin-bottom:1.25rem;"></div>
+          <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
+            <button type="button" class="btn btn-outline" onclick="closeInviteModal()">Cancelar</button>
+            <button type="submit" id="btn-submit-invite" class="btn btn-gold">
+              <i class="fa-solid fa-paper-plane"></i> Enviar Invitación
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </main>
 
   <script>
@@ -368,7 +418,57 @@
         .replace(/'/g, '&#039;');
     }
 
+    const MAX_FAILED_ATTEMPTS = 5;
+    const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutos
+
+    function checkLockout() {
+      const lockUntil = parseInt(localStorage.getItem('scango_admin_lockout_until') || '0', 10);
+      const now = Date.now();
+      const errBox = document.getElementById('login-error');
+      const submitBtn = document.querySelector('#admin-form button[type="submit"]');
+      const keyInput = document.getElementById('admin-key');
+      const totpInput = document.getElementById('admin-totp');
+
+      if (lockUntil > now) {
+        const remainingMin = Math.ceil((lockUntil - now) / 60000);
+        if (errBox) {
+          errBox.textContent = `🔒 Acceso bloqueado temporalmente por seguridad. Superaste el límite de 5 intentos fallidos consecutivos. Podrás volver a intentar en ${remainingMin} minuto(s).`;
+          errBox.style.display = 'block';
+        }
+        if (submitBtn) submitBtn.disabled = true;
+        if (keyInput) keyInput.disabled = true;
+        if (totpInput) totpInput.disabled = true;
+        return true;
+      } else {
+        if (keyInput) keyInput.disabled = false;
+        if (totpInput) totpInput.disabled = false;
+      }
+      return false;
+    }
+
+    function recordFailedAttempt() {
+      let attempts = parseInt(localStorage.getItem('scango_admin_failed_attempts') || '0', 10) + 1;
+      localStorage.setItem('scango_admin_failed_attempts', attempts);
+      if (attempts >= MAX_FAILED_ATTEMPTS) {
+        localStorage.setItem('scango_admin_lockout_until', Date.now() + LOCKOUT_DURATION_MS);
+        checkLockout();
+      } else {
+        const remaining = MAX_FAILED_ATTEMPTS - attempts;
+        const errBox = document.getElementById('login-error');
+        if (errBox) {
+          errBox.textContent = `Clave o código incorrecto. Te quedan ${remaining} intento(s) antes del bloqueo temporal de seguridad.`;
+          errBox.style.display = 'block';
+        }
+      }
+    }
+
+    function clearLockout() {
+      localStorage.removeItem('scango_admin_failed_attempts');
+      localStorage.removeItem('scango_admin_lockout_until');
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
+      checkLockout();
       if (currentKey) {
         verifyAndLoad(currentKey);
       }
@@ -376,6 +476,8 @@
 
     async function handleLogin(e) {
       e.preventDefault();
+      if (checkLockout()) return;
+
       const submitBtn = e.target.querySelector('button[type="submit"]');
       const originalText = submitBtn ? submitBtn.innerHTML : '';
       if (submitBtn) {
@@ -406,17 +508,37 @@
     async function verifyAndLoad(key, totp = '') {
       const errBox = document.getElementById('login-error');
       errBox.style.display = 'none';
+      if (checkLockout()) return;
+
       try {
+        // Step 1: Explicit login to set cookie and validate master key + TOTP
+        const loginRes = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key, totp })
+        });
+        const loginData = await loginRes.json().catch(() => ({}));
+        if (!loginRes.ok) {
+          recordFailedAttempt();
+          throw new Error(loginData.error || 'Clave o código 2FA incorrecto');
+        }
+
+        // Step 2: Clear failure lockout and persist session
+        clearLockout();
+        currentKey = key;
+        localStorage.setItem('pizarron_admin_key', key);
+        document.cookie = 'admin_key=' + encodeURIComponent(key) + '; path=/; max-age=604800; SameSite=Lax';
+
+        // Step 3: Fetch overview
         const headers = { 'x-admin-key': key };
         if (totp) headers['x-admin-totp'] = totp;
 
         const res = await fetch('/api/admin/overview', { headers });
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || 'Clave o código 2FA incorrecto');
+          throw new Error(errData.error || 'Error al recuperar datos de administración');
         }
-        currentKey = key;
-        localStorage.setItem('pizarron_admin_key', key);
+
         document.getElementById('auth-view').style.display = 'none';
         document.getElementById('dashboard-view').style.display = 'block';
         document.getElementById('btn-logout').style.display = 'inline-flex';
@@ -433,6 +555,7 @@
 
     function logout() {
       localStorage.removeItem('pizarron_admin_key');
+      document.cookie = 'admin_key=; path=/; max-age=0';
       currentKey = '';
       document.getElementById('auth-view').style.display = 'block';
       document.getElementById('dashboard-view').style.display = 'none';
@@ -454,6 +577,76 @@
       }
     }
 
+    // Modal: Invitar Restaurante Real
+    function openInviteModal() {
+      document.getElementById('inviteModal').style.display = 'flex';
+      const alertBox = document.getElementById('invite-alert');
+      if (alertBox) alertBox.style.display = 'none';
+      document.getElementById('invite-email').focus();
+    }
+
+    function closeInviteModal() {
+      document.getElementById('inviteModal').style.display = 'none';
+      document.getElementById('inviteForm').reset();
+    }
+
+    async function handleInviteRestaurant(e) {
+      e.preventDefault();
+      const alertBox = document.getElementById('invite-alert');
+      const submitBtn = document.getElementById('btn-submit-invite');
+      alertBox.style.display = 'none';
+
+      const email = document.getElementById('invite-email').value.trim();
+      const name = document.getElementById('invite-name').value.trim();
+      const slug = document.getElementById('invite-slug').value.trim();
+
+      if (!email || !name) return;
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando...';
+
+      try {
+        const res = await fetch('/api/admin/invite-restaurant', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': currentKey
+          },
+          body: JSON.stringify({ email, name, slug })
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          alertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+          alertBox.style.color = '#fca5a5';
+          alertBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+          alertBox.textContent = data.error || 'Error al enviar la invitación';
+          alertBox.style.display = 'block';
+          return;
+        }
+
+        alertBox.style.background = 'rgba(34, 197, 94, 0.15)';
+        alertBox.style.color = '#86efac';
+        alertBox.style.border = '1px solid rgba(34, 197, 94, 0.3)';
+        alertBox.textContent = '✓ Invitación generada y enviada exitosamente.';
+        alertBox.style.display = 'block';
+
+        setTimeout(() => {
+          closeInviteModal();
+          loadOverview();
+        }, 1200);
+      } catch (err) {
+        alertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+        alertBox.style.color = '#fca5a5';
+        alertBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+        alertBox.textContent = 'Error de conexión al enviar invitación';
+        alertBox.style.display = 'block';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Enviar Invitación';
+      }
+    }
+
     function renderDashboard(data) {
       const { metrics, restaurants, users } = data;
       currentRestaurants = restaurants;
@@ -467,10 +660,15 @@
       renderCharts(metrics, restaurants);
 
       const tbody = document.getElementById('restaurants-tbody');
+      const emptyContainer = document.getElementById('empty-state-container');
+
       if (!restaurants.length) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay restaurantes registrados aún.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">0 restaurantes registrados en Supabase.</td></tr>';
+        if (emptyContainer) emptyContainer.style.display = 'block';
         return;
       }
+
+      if (emptyContainer) emptyContainer.style.display = 'none';
 
       tbody.innerHTML = restaurants.map(r => {
         const sub = r.subscription || {};
@@ -568,35 +766,20 @@
     async function loadReviews() {
       if (!currentKey) return;
       try {
-        let apiReviews = [];
+        let reviews = [];
         try {
           const res = await fetch('/api/admin/reviews', {
             headers: { 'x-admin-key': currentKey }
           });
           if (res.ok) {
             const data = await res.json();
-            apiReviews = data.reviews || [];
+            reviews = data.reviews || data.data || [];
           }
-        } catch (e) { /* API may not be available */ }
+        } catch (e) {
+          console.warn('Error al consultar /api/admin/reviews:', e);
+        }
 
-        // Merge with localStorage pending reviews (submitted from studio demo mode)
-        const localPending = JSON.parse(localStorage.getItem('scango_pending_reviews') || '[]');
-        const localApproved = JSON.parse(localStorage.getItem('scango_approved_reviews') || '[]');
-        const localRejected = JSON.parse(localStorage.getItem('scango_rejected_reviews') || '[]');
-
-        // Build a set of API review IDs to avoid duplicates
-        const apiIds = new Set(apiReviews.map(r => r.id));
-
-        // Merge local reviews that aren't already in API response
-        const allLocal = [
-          ...localPending.map(r => ({ ...r, status: r.status || 'pending' })),
-          ...localApproved.map(r => ({ ...r, status: 'approved' })),
-          ...localRejected.map(r => ({ ...r, status: 'rejected' }))
-        ].filter(r => !apiIds.has(r.id));
-
-        const reviews = [...apiReviews, ...allLocal].sort((a, b) =>
-          new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
-        );
+        reviews.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
         const tbody = document.getElementById('reviews-tbody');
         if (!reviews.length) {
