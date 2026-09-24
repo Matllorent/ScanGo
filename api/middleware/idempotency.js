@@ -1,68 +1,79 @@
 const db = require('../../src/db/db');
 const { getSupabaseClient } = require('../utils/supabase');
-const { successResponse } = require('../utils/response');
+const logger = require('../utils/logger');
+
+// Cache store for processed idempotency keys
+const idempotencyStore = new Map(); // key -> { statusCode, body, expiresAt }
 
 /**
- * Webhook Idempotency Middleware
- * Verifies if `event_id` was already processed in `processed_webhooks` table.
- * If processed, returns 200 OK immediately. Otherwise, allows execution and marks as processed.
+ * Enhanced Webhook & Order Idempotency Middleware
+ * Reads `Idempotency-Key`, `X-Idempotency-Key`, or `event_id`
  */
-async function webhookIdempotency(req, res, next) {
-  const provider = req.params.provider || req.headers['x-provider'] || req.body?.provider || 'generic';
-  const eventId = req.headers['x-event-id'] || req.headers['x-request-id'] || req.body?.id || req.body?.event_id || req.body?.eventId || req.query.eventId;
+async function idempotencyMiddleware(req, res, next) {
+  const idempotencyKey = req.headers['idempotency-key'] || req.headers['x-idempotency-key'] || req.headers['x-event-id'] || req.body?.idempotencyKey || req.body?.idempotency_key;
 
-  if (!eventId) {
-    // If no eventId header/field present, proceed to standard handler
+  if (!idempotencyKey) {
     return next();
   }
 
-  req.webhookContext = { provider, eventId };
+  const cleanKey = String(idempotencyKey).trim();
+  const provider = req.params.provider || req.headers['x-provider'] || 'order_payment';
 
-  // Check local DB cache or Supabase processed_webhooks
-  let isProcessed = db.hasProcessedWebhook(provider, String(eventId));
+  // Check in-memory store
+  const cached = idempotencyStore.get(cleanKey);
+  if (cached && Date.now() < cached.expiresAt) {
+    logger.info('Idempotent request intercepted', { idempotencyKey: cleanKey });
+    res.setHeader('X-Idempotent-Response', 'true');
+    return res.status(cached.statusCode).json({
+      ...cached.body,
+      idempotent: true
+    });
+  }
 
+  // Check local DB adapter
+  let isProcessed = db.hasProcessedWebhook(provider, cleanKey);
   const supabase = getSupabaseClient();
+
   if (!isProcessed && supabase) {
     try {
       const { data } = await supabase
         .from('processed_webhooks')
         .select('id')
         .eq('provider', provider)
-        .eq('event_id', String(eventId))
+        .eq('event_id', cleanKey)
         .single();
-
-      if (data) {
-        isProcessed = true;
-      }
-    } catch (e) {
-      // Record not found or error, proceed
-    }
+      if (data) isProcessed = true;
+    } catch (e) {}
   }
 
   if (isProcessed) {
+    res.setHeader('X-Idempotent-Response', 'true');
     return res.status(200).json({
       success: true,
-      message: 'Evento duplicado ya procesado anteriormente (idempotencia activada)',
+      message: 'Solicitud duplicada ignorada (Clave de idempotencia procesada)',
       idempotent: true,
-      provider,
-      eventId: String(eventId),
+      idempotencyKey: cleanKey,
       timestamp: new Date().toISOString()
     });
   }
 
-  // Intercept res.send / res.json to mark webhook as processed on success response
+  // Intercept res.json to cache response payload for future retries
   const originalJson = res.json.bind(res);
   res.json = function (body) {
     if (res.statusCode >= 200 && res.statusCode < 300) {
-      const utcNow = new Date().toISOString();
-      db.markWebhookProcessed(provider, String(eventId), req.body?.type || req.body?.event || 'webhook', req.body);
+      idempotencyStore.set(cleanKey, {
+        statusCode: res.statusCode,
+        body,
+        expiresAt: Date.now() + 24 * 3600 * 1000 // 24 hours TTL
+      });
 
+      db.markWebhookProcessed(provider, cleanKey, 'idempotent_operation', req.body);
       if (supabase) {
         supabase.from('processed_webhooks').insert([{
           provider,
-          event_id: String(eventId),
-          processed_at: utcNow
-        }]).then().catch(e => console.warn('[Supabase Insert Processed Webhook]', e.message));
+          event_id: cleanKey,
+          processed_at: new Date().toISOString()
+        }]).then().catch(e => console.warn('[Supabase Insert Idempotency]', e.message));
       }
     }
     return originalJson(body);
@@ -71,4 +82,4 @@ async function webhookIdempotency(req, res, next) {
   next();
 }
 
-module.exports = webhookIdempotency;
+module.exports = idempotencyMiddleware;
