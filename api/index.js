@@ -12,7 +12,7 @@ const emailService = require('../src/email/emailService');
 const { hashPassword, comparePassword } = require('./utils/hash');
 const { registerSchema, loginSchema, validateBody } = require('./middleware/validation');
 const errorHandler = require('./middleware/errorHandler');
-const { errorResponse } = require('./utils/response');
+const { successResponse, errorResponse } = require('./utils/response');
 const requireVerifiedEmail = require('./middleware/requireVerifiedEmail');
 const requestIdMiddleware = require('./middleware/requestId');
 const { menuCacheMiddleware, invalidateMenuCache } = require('./middleware/cache');
@@ -525,6 +525,78 @@ app.post('/api/admin/restaurant/:id/status', adminMiddleware, (req, res) => {
   const updated = db.setRestaurantStatus(req.params.id, status);
   if (!updated) return res.status(404).json({ error: 'Restaurante no encontrado' });
   res.json({ success: true, restaurant: updated });
+});
+
+// Admin Manual Restaurant Invitation
+app.post('/api/admin/invite-restaurant', adminMiddleware, async (req, res, next) => {
+  try {
+    const rawEmail = String(req.body.email || '').trim().toLowerCase();
+    const name = String(req.body.name || 'Dueño de Restaurante').trim();
+    const rawSlug = String(req.body.slug || name.toLowerCase().replace(/[^a-z0-9]/g, '-')).trim();
+
+    if (!rawEmail || !rawEmail.includes('@')) {
+      return errorResponse(res, 'Email válido requerido para enviar la invitación', 400, null, 'INVALID_EMAIL');
+    }
+
+    const appUrl = process.env.APP_URL || `http://localhost:${PORT}`;
+    const redirectUrl = `${appUrl}/studio`;
+    const { getSupabaseClient } = require('./utils/supabase');
+    const supabase = getSupabaseClient();
+
+    let sbUserId = null;
+    if (supabase) {
+      try {
+        const { data: inviteData, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(rawEmail, {
+          redirectTo: redirectUrl,
+          data: { name, slug: rawSlug }
+        });
+        if (!inviteError && inviteData?.user) {
+          sbUserId = inviteData.user.id;
+        } else if (inviteError) {
+          console.warn('[Supabase Invite Warning]', inviteError.message);
+        }
+      } catch (err) {
+        console.warn('[Supabase Invite Exception]', err.message);
+      }
+    }
+
+    // Create user in local DB
+    const user = db.createUser({
+      ...(sbUserId ? { id: sbUserId } : {}),
+      email: rawEmail,
+      name,
+      email_confirmed_at: new Date().toISOString()
+    });
+
+    const finalBizName = req.body.restaurantName || req.body.bizName || name;
+    const cleanSlug = rawSlug.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30);
+
+    const restaurant = db.saveRestaurant(user.id, {
+      name: finalBizName,
+      bizName: finalBizName,
+      slug: cleanSlug,
+      slogan: 'Especialidad, masas artesanales y cocina de autor',
+      currency: '$',
+      phone: req.body.phone || '59899123456',
+      subscription: {
+        status: 'active',
+        plan: 'pro_monthly',
+        provider: 'admin_invite',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    });
+
+    const { password: _, ...safeUser } = user;
+    return successResponse(
+      res,
+      { user: safeUser, restaurant },
+      `Invitación enviada exitosamente a ${rawEmail}. El cliente podrá establecer su contraseña mediante el enlace recibido.`,
+      201
+    );
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ==================== ANALYTICS ROUTES ====================
