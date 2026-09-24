@@ -3,11 +3,17 @@ const { retryQueue } = require('../utils/retryQueue');
 
 /**
  * Email Service for Transactional & Marketing Emails
- * Supports Resend, SendGrid, and Brevo API clients with API Keys
+ * Integrates Resend API client via native fetch with environment variable credentials
  */
 const emailService = {
   /**
-   * Send a transactional or promotional email via configured provider
+   * Send a transactional or promotional email via Resend API
+   * @param {object} options
+   * @param {string|string[]} options.to - Recipient email(s)
+   * @param {string} options.subject - Email subject
+   * @param {string} [options.html] - HTML content
+   * @param {string} [options.text] - Text content
+   * @returns {Promise<object>} Response with messageId / status
    */
   async sendEmail({ to, subject, html, text }) {
     if (!to || !subject) {
@@ -15,91 +21,42 @@ const emailService = {
     }
 
     const resendApiKey = process.env.RESEND_API_KEY;
-    const sendgridApiKey = process.env.SENDGRID_API_KEY;
-    const brevoApiKey = process.env.BREVO_API_KEY || process.env.SIB_API_KEY;
-    const fromEmail = process.env.EMAIL_FROM || 'hola@menupizarron.com';
+    const fromEmail = process.env.RESEND_FROM_EMAIL || process.env.EMAIL_FROM || 'onboarding@resend.dev';
 
-    // 1. Try Resend Provider
-    if (resendApiKey) {
-      try {
-        const response = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            from: fromEmail,
-            to: Array.isArray(to) ? to : [to],
-            subject,
-            html: html || text,
-            text
-          })
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          return { provider: 'resend', id: data.id, success: true };
-        }
-      } catch (e) {
-        console.warn('[Resend Email Error]', e.message);
-      }
+    if (!resendApiKey) {
+      console.log(`✉️ [Local Email Service Fallback] [${new Date().toISOString()}] To: ${to} | Subject: ${subject}`);
+      return { provider: 'local_mock', success: true, timestamp: new Date().toISOString() };
     }
 
-    // 2. Try SendGrid Provider
-    if (sendgridApiKey) {
-      try {
-        const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${sendgridApiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            personalizations: [{ to: (Array.isArray(to) ? to : [to]).map(e => ({ email: e })) }],
-            from: { email: fromEmail },
-            subject,
-            content: [{ type: 'text/html', value: html || text }]
-          })
-        });
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: Array.isArray(to) ? to : [to],
+          subject,
+          html: html || text || '<p>Menú Pizarrón</p>',
+          text
+        })
+      });
 
-        if (response.ok) {
-          return { provider: 'sendgrid', success: true };
-        }
-      } catch (e) {
-        console.warn('[SendGrid Email Error]', e.message);
+      const responseData = await response.json().catch(() => ({}));
+
+      if (response.ok) {
+        console.log(`✉️ [Resend Email Sent] To: ${to} | ID: ${responseData.id}`);
+        return { provider: 'resend', id: responseData.id, success: true, responseData };
+      } else {
+        console.warn(`⚠️ [Resend Email Warning] Status ${response.status}:`, responseData);
+        return { provider: 'resend', success: false, error: responseData.message || responseData, statusCode: response.status };
       }
+    } catch (e) {
+      console.error('❌ [Resend Email Exception]', e.message);
+      return { provider: 'resend', success: false, error: e.message };
     }
-
-    // 3. Try Brevo Provider
-    if (brevoApiKey) {
-      try {
-        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-          method: 'POST',
-          headers: {
-            'api-key': brevoApiKey,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            sender: { email: fromEmail, name: 'Menú Pizarrón' },
-            to: (Array.isArray(to) ? to : [to]).map(e => ({ email: e })),
-            subject,
-            htmlContent: html || text
-          })
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          return { provider: 'brevo', messageId: data.messageId, success: true };
-        }
-      } catch (e) {
-        console.warn('[Brevo Email Error]', e.message);
-      }
-    }
-
-    // Fallback: Local Development Mode Email Logging
-    console.log(`✉️ [Local Email Service] [${new Date().toISOString()}] To: ${to} | Subject: ${subject}`);
-    return { provider: 'local_mock', success: true, timestamp: new Date().toISOString() };
   },
 
   /**
@@ -116,10 +73,29 @@ const emailService = {
     const subject = `¡Bienvenido a Menú Pizarrón, ${restaurantName}!`;
     const html = `
       <div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
-        <h2>¡Tu menú digital de ${restaurantName} ya está casi listo!</h2>
+        <h2 style="color: #10b981;">¡Tu menú digital de ${restaurantName} ya está activo!</h2>
         <p>Gracias por unirte a Menú Pizarrón SaaS. Ya podés cargar tus platos, ajustar precios y personalizar la estética de tu menú.</p>
-        <p><a href="${studioUrl}" style="background: #10b981; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Acceder al Panel Studio</a></p>
-        <p>Tu menú público: <a href="${menuUrl}">${menuUrl}</a></p>
+        <p><a href="${studioUrl || 'https://menupizarron.com/studio'}" style="background: #10b981; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Acceder al Panel Studio</a></p>
+        ${menuUrl ? `<p>Tu menú público: <a href="${menuUrl}">${menuUrl}</a></p>` : ''}
+      </div>
+    `;
+    return this.sendEmail({ to, subject, html });
+  },
+
+  /**
+   * Send Admin Invitation Email
+   */
+  async sendAdminInvitationEmail({ to, name, restaurantName, inviteLink }) {
+    const subject = `Invitación especial a Menú Pizarrón — ${restaurantName}`;
+    const html = `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: #2563eb;">Hola ${name}, te invitamos a Menú Pizarrón SaaS</h2>
+        <p>Has sido invitado como administrador del restaurante <strong>${restaurantName}</strong> con suscripción Pro activa.</p>
+        <p>Para activar tu cuenta y establecer tu contraseña, hacé clic en el siguiente enlace seguro:</p>
+        <p style="margin: 25px 0;">
+          <a href="${inviteLink}" style="background: #2563eb; color: #ffffff; padding: 14px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Activar mi Cuenta y Configurar Clave</a>
+        </p>
+        <p style="font-size: 13px; color: #64748b;">Si no solicitaste esta invitación, podés ignorar este correo de forma segura.</p>
       </div>
     `;
     return this.sendEmail({ to, subject, html });
