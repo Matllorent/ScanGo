@@ -1,50 +1,73 @@
 const { ZodError } = require('zod');
-const { errorResponse } = require('../utils/response');
+const AppError = require('../utils/AppError');
 
 /**
  * Global Express Error Handler Middleware
- * Captures uncaught exceptions, Zod validation errors, and custom API errors.
+ * Standardizes responses and formats all timestamps exclusively in UTC (ISO 8601).
  *
- * @param {Error} err - Error object
- * @param {import('express').Request} req - Express Request
- * @param {import('express').Response} res - Express Response
- * @param {import('express').NextFunction} next - Express Next Function
+ * @param {Error} err
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
  */
 function errorHandler(err, req, res, next) {
-  // If headers already sent, delegate to default Express error handler
   if (res.headersSent) {
     return next(err);
+  }
+
+  const utcTimestamp = new Date().toISOString(); // ISO 8601 UTC
+
+  // Handle Custom AppError operational exceptions
+  if (err instanceof AppError) {
+    return res.status(err.statusCode).json({
+      success: false,
+      error: err.message,
+      code: err.code || 'OPERATIONAL_ERROR',
+      ...(err.details ? { details: err.details } : {}),
+      timestamp: utcTimestamp
+    });
   }
 
   // Handle Zod Validation Errors
   if (err instanceof ZodError || err.name === 'ZodError' || (err.issues && Array.isArray(err.issues))) {
     const firstError = err.issues?.[0]?.message || err.errors?.[0]?.message || 'Error de validación en los datos de entrada';
     const formattedDetails = typeof err.format === 'function' ? err.format() : (err.issues || err.errors);
-    return errorResponse(res, firstError, 400, formattedDetails, 'VALIDATION_ERROR');
+    return res.status(400).json({
+      success: false,
+      error: firstError,
+      code: 'VALIDATION_ERROR',
+      details: formattedDetails,
+      timestamp: utcTimestamp
+    });
   }
 
-  // Handle Syntax Errors (e.g., malformed JSON payload)
+  // Handle Malformed JSON Syntax Errors
   if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
-    return errorResponse(res, 'Sintaxis JSON malformada en el cuerpo de la solicitud', 400, null, 'BAD_REQUEST');
+    return res.status(400).json({
+      success: false,
+      error: 'Sintaxis JSON malformada en el cuerpo de la solicitud',
+      code: 'BAD_REQUEST',
+      timestamp: utcTimestamp
+    });
   }
 
-  // Handle 404 Not Found explicit errors
-  if (err.status === 404 || err.statusCode === 404) {
-    return errorResponse(res, err.message || 'Recurso no encontrado', 404, null, 'NOT_FOUND');
-  }
-
-  // Handle custom API operational errors (errors with status/statusCode)
+  // Handle standard HTTP / unhandled errors
   const statusCode = err.statusCode || err.status || 500;
   const message = err.message || 'Error interno del servidor';
   const errorCode = err.code || (statusCode >= 500 ? 'INTERNAL_SERVER_ERROR' : 'API_ERROR');
   const details = process.env.NODE_ENV !== 'production' && err.stack ? { stack: err.stack } : null;
 
-  // Log server error details for debugging
   if (statusCode >= 500) {
-    console.error(`[API 500 Error] ${req.method} ${req.originalUrl}:`, err);
+    console.error(`[API Error 500] [${utcTimestamp}] ${req.method} ${req.originalUrl}:`, err);
   }
 
-  return errorResponse(res, message, statusCode, details, errorCode);
+  return res.status(statusCode).json({
+    success: false,
+    error: message,
+    code: errorCode,
+    ...(details ? { details } : {}),
+    timestamp: utcTimestamp
+  });
 }
 
 module.exports = errorHandler;

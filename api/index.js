@@ -13,8 +13,11 @@ const { hashPassword, comparePassword } = require('./utils/hash');
 const { registerSchema, loginSchema, validateBody } = require('./middleware/validation');
 const errorHandler = require('./middleware/errorHandler');
 const { errorResponse } = require('./utils/response');
+const requireVerifiedEmail = require('./middleware/requireVerifiedEmail');
+const authRouter = require('./routes/auth');
 const reviewsRouter = require('./routes/reviews');
 const storageRouter = require('./routes/storage');
+const webhooksRouter = require('./routes/webhooks');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,11 +43,27 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Rate limiter for authentication to prevent brute force
+// Rate limiters for sensitive and public API endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 30, // max 30 intentos por IP en esa ventana
-  message: { error: 'Demasiados intentos de acceso desde esta IP. Por favor intentá nuevamente en 15 minutos.' },
+  max: 30,
+  message: { success: false, error: 'Demasiados intentos desde esta IP. Por favor intentá nuevamente en 15 minutos.', code: 'RATE_LIMIT_EXCEEDED' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const reviewsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { success: false, error: 'Demasiadas solicitudes de reseñas. Por favor intentá nuevamente en 15 minutos.', code: 'RATE_LIMIT_EXCEEDED' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const ordersLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: { success: false, error: 'Límite de solicitudes de pedidos excedido. Por favor aguardá unos minutos.', code: 'RATE_LIMIT_EXCEEDED' },
   standardHeaders: true,
   legacyHeaders: false
 });
@@ -251,112 +270,8 @@ function adminMiddleware(req, res, next) {
   return res.status(403).json({ error: 'Acceso denegado al panel de administración' });
 }
 
-// ==================== AUTH ROUTES ====================
-app.post('/api/auth/register', authLimiter, validateBody(registerSchema), async (req, res) => {
-  try {
-    const { email, password, name, restaurantName, bizName } = req.body;
-
-    // Anti-abuse: Block disposable email domains
-    const disposableDomains = ['yopmail.com','tempmail.com','guerrillamail.com','10minutemail.com','throwaway.email','mailinator.com','trashmail.com','fakeinbox.com','sharklasers.com','guerrillamailblock.com','grr.la','dispostable.com','temp-mail.org','mohmal.com','maildrop.cc'];
-    const emailDomain = email.split('@')[1]?.toLowerCase();
-    if (disposableDomains.includes(emailDomain)) {
-      return res.status(400).json({ error: 'No se permiten correos temporales o desechables. Usá tu email profesional.' });
-    }
-
-    const existing = db.findUserByEmail(email);
-    if (existing) return res.status(400).json({ error: 'El email ya está registrado' });
-
-    // Hash password with bcrypt for security (salt rounds 12)
-    const hashedPassword = await hashPassword(password);
-    const user = db.createUser({ email, password: hashedPassword, name: name || 'Responsable' });
-    const finalBizName = restaurantName || bizName || 'Mi Restaurante';
-    const restaurant = db.saveRestaurant(user.id, {
-      name: finalBizName,
-      bizName: finalBizName,
-      slogan: 'Especialidad, masas artesanales y cocina de autor',
-      currency: '$',
-      phone: '59899123456',
-      theme: 'emerald',
-      wifi: { ssid: 'Restaurante_Clientes', password: 'pizarronrico' },
-      categories: [
-        { id: 'cat_hamburguesas', name: 'Burgers Artesanales' },
-        { id: 'cat_milanesas', name: 'Milanesas de la Casa' },
-        { id: 'cat_postres', name: 'Postres Rioplatenses' },
-        { id: 'cat_bebidas', name: 'Bebidas & Cafetería' }
-      ],
-      dishes: [
-        { id: 'd_1', categoryId: 'cat_hamburguesas', name: 'Burger Criolla de Entraña', price: 490, description: 'Pan brioche, provoleta fundida y chimichurri', tags: ['star'] },
-        { id: 'd_2', categoryId: 'cat_milanesas', name: 'Milanesa Napolitana Clásica', price: 540, description: 'Lomo empanado, salsa casera, jamón y muzzarella', tags: [] },
-        { id: 'd_3', categoryId: 'cat_postres', name: 'Flan Casero con Dulce de Leche', price: 260, description: 'Receta tradicional con crema batida', tags: ['star'] },
-        { id: 'd_4', categoryId: 'cat_bebidas', name: 'Flat White Cremoso', price: 190, description: 'Café de especialidad con leche texturizada', tags: ['veggie'] }
-      ],
-      deliveryZones: [
-        { name: 'Zona Centro / Pocitos', fee: 50 },
-        { name: 'Zona Periférica / Fuera de radio', fee: 100 }
-      ]
-    });
-
-    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
-    res.cookie('auth_token', token, COOKIE_OPTIONS);
-
-    const appUrl = process.env.APP_URL || `http://localhost:${PORT}`;
-    emailService.sendWelcome({
-      to: user.email,
-      restaurantName: restaurant.name || restaurant.bizName,
-      menuUrl: `${appUrl}/m/${restaurant.slug}`,
-      studioUrl: `${appUrl}/studio`
-    });
-
-    // Sanitize user output (remove password)
-    const { password: _, ...safeUser } = user;
-    res.json({ success: true, user: safeUser, restaurant, token });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const user = db.findUserByEmail(email);
-    if (!user) {
-      return res.status(401).json({ error: 'Credenciales incorrectas' });
-    }
-
-    // Verify bcrypt hash or plaintext fallback for legacy accounts
-    const isMatch = user.password.startsWith('$2')
-      ? await comparePassword(password, user.password)
-      : user.password === password;
-
-    if (!isMatch) {
-      return res.status(401).json({ error: 'Credenciales incorrectas' });
-    }
-
-    const restaurant = db.findRestaurantByUserId(user.id);
-    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
-    res.cookie('auth_token', token, COOKIE_OPTIONS);
-
-    // Sanitize user output (remove password)
-    const { password: _, ...safeUser } = user;
-    res.json({ success: true, user: safeUser, restaurant, token });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.get('/api/auth/me', authMiddleware, (req, res) => {
-  const user = db.findUserById(req.user.userId);
-  const restaurant = db.findRestaurantByUserId(req.user.userId);
-  res.json({ user, restaurant });
-});
-
-app.post('/api/auth/logout', (req, res) => {
-  res.clearCookie('auth_token');
-  res.json({ success: true });
-});
-
 // ==================== STUDIO & RESTAURANT ROUTES ====================
-app.post('/api/studio/save', authMiddleware, (req, res) => {
+app.post('/api/studio/save', authMiddleware, requireVerifiedEmail, (req, res) => {
   try {
     const payload = req.body.data || req.body;
     const cleanPayload = sanitizeRestaurantPayload(payload);
@@ -661,9 +576,11 @@ app.post('/api/logs', (req, res) => {
   res.json({ received: true });
 });
 
-// Mount modular API routers
-app.use('/api/reviews', reviewsRouter);
+// Mount modular API routers with rate limiting
+app.use('/api/auth', authLimiter, authRouter);
+app.use('/api/reviews', reviewsLimiter, reviewsRouter);
 app.use('/api/storage', storageRouter);
+app.use('/api/webhooks', webhooksRouter);
 
 // 404 Not Found Handler for unmatched API routes
 app.use('/api', (req, res) => {

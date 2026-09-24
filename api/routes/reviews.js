@@ -3,8 +3,9 @@ const { z } = require('zod');
 const db = require('../../src/db/db');
 const { getSupabaseClient } = require('../utils/supabase');
 const { successResponse, errorResponse } = require('../utils/response');
-const { validateBody } = require('../middleware/validation');
-const requireEmailVerified = require('../middleware/requireEmailVerified');
+const { validateBody, validateQuery } = require('../middleware/validation');
+const requireVerifiedEmail = require('../middleware/requireVerifiedEmail');
+const AppError = require('../utils/AppError');
 
 const router = express.Router();
 
@@ -18,31 +19,36 @@ const createReviewSchema = z.object({
   author_photo_url: z.string().url().nullable().optional().or(z.literal(''))
 });
 
+// Zod Schema for pagination query params
+const paginationQuerySchema = z.object({
+  limit: z.string().optional().transform(val => (val ? Math.max(1, Math.min(100, parseInt(val))) : 10)),
+  offset: z.string().optional().transform(val => (val ? Math.max(0, parseInt(val)) : 0))
+});
+
 /**
- * Helper middleware to check +30 days of active subscription/account
+ * Middleware to verify >= 30 days of subscription/account age
  */
 function require30DaysSubscription(req, res, next) {
   const userId = req.user.userId;
   const restaurant = db.findRestaurantByUserId(userId);
 
   if (!restaurant) {
-    return errorResponse(res, 'Restaurante no encontrado para este usuario', 404, null, 'RESTAURANT_NOT_FOUND');
+    return next(new AppError('Restaurante no encontrado para este usuario', 404, 'RESTAURANT_NOT_FOUND'));
   }
 
-  // Calculate account / subscription duration in days
   const createdAt = new Date(restaurant.createdAt || restaurant.subscription?.createdAt || Date.now());
   const now = new Date();
   const diffDays = (now.getTime() - createdAt.getTime()) / (1000 * 3600 * 24);
 
   if (diffDays < 30) {
     const daysRemaining = Math.ceil(30 - diffDays);
-    return errorResponse(
-      res,
-      `Se requieren al menos 30 días de antigüedad de suscripción para enviar reseñas. Te faltan ${daysRemaining} días.`,
-      403,
-      { daysRemaining, daysActive: Math.floor(diffDays) },
-      'SUBSCRIPTION_AGE_INSUFFICIENT'
-    );
+    return res.status(403).json({
+      success: false,
+      error: `Se requieren al menos 30 días transcurridos desde el registro para enviar reseñas. Te faltan ${daysRemaining} días.`,
+      code: 'SUBSCRIPTION_AGE_INSUFFICIENT',
+      details: { daysRemaining, daysActive: Math.floor(diffDays) },
+      timestamp: new Date().toISOString()
+    });
   }
 
   req.restaurant = restaurant;
@@ -51,13 +57,14 @@ function require30DaysSubscription(req, res, next) {
 
 /**
  * POST /api/reviews
- * Creates a new customer review (requires auth, email verification, and +30 days subscription)
+ * Creates a new review (requires verified email and >= 30 days subscription)
  */
-router.post('/', requireEmailVerified, validateBody(createReviewSchema), require30DaysSubscription, async (req, res, next) => {
+router.post('/', requireVerifiedEmail, validateBody(createReviewSchema), require30DaysSubscription, async (req, res, next) => {
   try {
     const { rating, comment, authorPhotoUrl, author_photo_url, restaurantId, restaurant_id } = req.body;
     const restId = restaurantId || restaurant_id || req.restaurant.id;
     const photoUrl = author_photo_url || authorPhotoUrl || null;
+    const utcNow = new Date().toISOString(); // TIMESTAMPTZ UTC
 
     const newReview = {
       id: 'rev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
@@ -66,17 +73,15 @@ router.post('/', requireEmailVerified, validateBody(createReviewSchema), require
       restaurantName: req.restaurant.name || req.restaurant.bizName,
       userId: req.user.userId,
       rating: parseInt(rating),
-      comment: String(comment).slice(0, 500),
+      comment: String(comment).trim().slice(0, 500),
       author_photo_url: photoUrl,
       authorPhotoUrl: photoUrl,
       status: 'pending',
-      created_at: new Date().toISOString()
+      created_at: utcNow
     };
 
-    // Save to local DB adapter
     db.addReview(newReview);
 
-    // Save to Supabase Cloud PostgreSQL table `reviews` if connected
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -90,11 +95,11 @@ router.post('/', requireEmailVerified, validateBody(createReviewSchema), require
           created_at: newReview.created_at
         }]);
       } catch (err) {
-        console.warn('[Supabase Insert Review]', err.message);
+        console.warn('[Supabase Insert Review Warning]', err.message);
       }
     }
 
-    return successResponse(res, newReview, 'Reseña enviada exitosamente. Estará visible una vez sea aprobada.', 201);
+    return successResponse(res, newReview, 'Reseña enviada exitosamente. Estará visible una vez aprobada.', 201);
   } catch (err) {
     next(err);
   }
@@ -102,30 +107,55 @@ router.post('/', requireEmailVerified, validateBody(createReviewSchema), require
 
 /**
  * GET /api/reviews/public
- * Returns approved reviews only (status = 'approved')
+ * Returns paginated approved reviews (status = 'approved')
  */
-router.get('/public', async (req, res, next) => {
+router.get('/public', validateQuery(paginationQuerySchema), async (req, res, next) => {
   try {
+    const { limit, offset } = req.validatedQuery || { limit: 10, offset: 0 };
     const supabase = getSupabaseClient();
+
     if (supabase) {
       try {
-        const { data, error } = await supabase
+        const { data, error, count } = await supabase
           .from('reviews')
-          .select('*')
+          .select('*', { count: 'exact' })
           .eq('status', 'approved')
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1);
 
         if (!error && data) {
-          return successResponse(res, data, 'Reseñas públicas recuperadas');
+          return res.status(200).json({
+            success: true,
+            message: 'Reseñas públicas recuperadas',
+            data,
+            pagination: {
+              limit,
+              offset,
+              total: count || data.length
+            },
+            timestamp: new Date().toISOString()
+          });
         }
       } catch (e) {
         console.warn('[Supabase Get Public Reviews]', e.message);
       }
     }
 
-    // Fallback to local DB adapter
-    const approved = db.getApprovedReviews();
-    return successResponse(res, approved, 'Reseñas públicas recuperadas');
+    // Local DB Adapter fallback
+    const allApproved = db.getApprovedReviews();
+    const paginated = allApproved.slice(offset, offset + limit);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Reseñas públicas recuperadas',
+      data: paginated,
+      pagination: {
+        limit,
+        offset,
+        total: allApproved.length
+      },
+      timestamp: new Date().toISOString()
+    });
   } catch (err) {
     next(err);
   }
@@ -133,9 +163,9 @@ router.get('/public', async (req, res, next) => {
 
 /**
  * GET /api/admin/reviews
- * Returns all reviews for moderation (admin master key required)
+ * Returns all reviews for admin moderation
  */
-router.get('/admin/all', async (req, res, next) => {
+router.get('/admin', async (req, res, next) => {
   try {
     const supabase = getSupabaseClient();
     if (supabase) {
@@ -167,11 +197,8 @@ router.get('/admin/all', async (req, res, next) => {
 router.patch('/admin/:id/approve', async (req, res, next) => {
   try {
     const reviewId = req.params.id;
-
-    // Update in local DB adapter
     const updatedLocal = db.updateReviewStatus(reviewId, 'approved');
 
-    // Update in Supabase Cloud PostgreSQL
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -185,10 +212,10 @@ router.patch('/admin/:id/approve', async (req, res, next) => {
     }
 
     if (!updatedLocal) {
-      return errorResponse(res, 'Reseña no encontrada', 404, null, 'REVIEW_NOT_FOUND');
+      throw new AppError('Reseña no encontrada', 404, 'REVIEW_NOT_FOUND');
     }
 
-    return successResponse(res, updatedLocal, 'Reseña aprobada y publicada exitosamente');
+    return successResponse(res, updatedLocal, 'Reseña aprobada exitosamente');
   } catch (err) {
     next(err);
   }

@@ -3,6 +3,7 @@ export interface User {
   email: string;
   password?: string;
   name?: string;
+  email_confirmed_at?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -49,6 +50,7 @@ export interface Subscription {
   provider?: string;
   customerId?: string;
   subscriptionId?: string;
+  createdAt?: string;
 }
 
 export interface Analytics {
@@ -123,11 +125,28 @@ export interface Order {
 
 export interface Webhook {
   id: string;
-  provider: 'mercadopago' | 'stripe' | 'dlocal' | string;
+  provider: 'mercadopago' | 'stripe' | 'dlocal' | 'lemonsqueezy' | string;
   event: string;
   payload: Record<string, any>;
   timestamp: string | Date;
   status: 'received' | 'processed' | 'failed';
   signature?: string;
   error?: string;
+}
+
+export interface Review {
+  id: string;
+  restaurant_id: string;
+  rating: number;
+  comment: string;
+  author_photo_url?: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+}
+
+export interface ProcessedWebhook {
+  id?: string;
+  provider: string;
+  event_id: string;
+  processed_at: string;
 }
