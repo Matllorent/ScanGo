@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>¡Cuenta Verificada con Éxito! — ScanGo</title>
+  <meta name="description" content="Tu cuenta de ScanGo ha sido verificada. Ingresa ahora a tu panel de control y configura tu carta digital con QR.">
+  <meta property="og:title" content="¡Cuenta Verificada con Éxito! — ScanGo">
+  <meta property="og:description" content="Tu cuenta ha sido activada correctamente. Accedé a tu Studio y empezá a recibir pedidos por WhatsApp.">
+  <meta property="og:image" content="/logo-scango.png">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#151D1A">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" href="/logo-scango.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Montserrat:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #151D1A;
+      --surface: #1B2622;
+      --surface-border: #2B3D37;
+      --chalk-white: #E6EAE8;
+      --chalk-dim: #95A5A0;
+      --chalk-gold: #E1A938;
+      --chalk-gold-hover: #ECC94B;
+      --chalk-green: #38A169;
+      --font-body: 'Montserrat', sans-serif;
+      --font-heading: 'Playfair Display', serif;
+      --font-chalk: 'Caveat', cursive;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background: var(--bg);
+      background-image: 
+        radial-gradient(circle at 50% 15%, rgba(56, 161, 105, 0.12) 0%, transparent 60%),
+        radial-gradient(circle at 80% 85%, rgba(225, 169, 56, 0.08) 0%, transparent 50%);
+      color: var(--chalk-white);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+    .chalk-frame {
+      max-width: 580px;
+      width: 100%;
+      background: var(--surface);
+      border: 2px dashed rgba(56, 161, 105, 0.4);
+      border-radius: 24px;
+      padding: 52px 36px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55), inset 0 0 40px rgba(0, 0, 0, 0.2);
+      position: relative;
+    }
+    .check-badge {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 20px;
+      border-radius: 50%;
+      background: rgba(56, 161, 105, 0.15);
+      border: 2px solid var(--chalk-green);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.8rem;
+      color: var(--chalk-green);
+      box-shadow: 0 0 30px rgba(56, 161, 105, 0.25);
+      animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes popIn {
+      0% { transform: scale(0.3); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .celebration-stars {
+      font-family: var(--font-chalk);
+      font-size: 1.6rem;
+      color: var(--chalk-gold);
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+    h1 {
+      font-family: var(--font-heading);
+      font-size: 1.85rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 14px;
+    }
+    p {
+      color: var(--chalk-dim);
+      font-size: 0.95rem;
+      line-height: 1.65;
+      max-width: 460px;
+      margin: 0 auto 28px;
+    }
+    .benefit-chips {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 32px;
+    }
+    .benefit-chip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--surface-border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 0.8rem;
+      color: var(--chalk-white);
+    }
+    .benefit-chip strong {
+      color: var(--chalk-gold);
+    }
+    .btn-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-width: 380px;
+      margin: 0 auto;
+    }
+    .btn-chalk-gold {
+      background: var(--chalk-gold);
+      color: #0E1412;
+      font-weight: 700;
+      font-size: 1rem;
+      padding: 14px 28px;
+      border-radius: 12px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 6px 20px rgba(225, 169, 56, 0.35);
+    }
+    .btn-chalk-gold:hover {
+      background: var(--chalk-gold-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(225, 169, 56, 0.5);
+    }
+    .btn-chalk-outline {
+      background: transparent;
+      color: var(--chalk-dim);
+      border: 1px solid var(--surface-border);
+      font-weight: 600;
+      font-size: 0.88rem;
+      padding: 10px 20px;
+      border-radius: 10px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .btn-chalk-outline:hover {
+      border-color: var(--chalk-gold);
+      color: var(--chalk-gold);
+    }
+    .brand-footer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 36px;
+      font-size: 0.8rem;
+      color: var(--chalk-dim);
+    }
+    .brand-footer img {
+      height: 20px;
+      width: auto;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="chalk-frame">
+    <div class="check-badge">✓</div>
+    <div class="celebration-stars">✦ ¡Tu cuenta ya está lista! ✦</div>
+    <h1>¡Correo Verificado con Éxito!</h1>
+    <p>
+      Tu identidad ha sido confirmada en la red de restaurantes <strong>ScanGo</strong>. Ya tienes acceso total a tu panel de control para crear tu carta digital y activar tus pedidos por WhatsApp.
+    </p>
+
+    <div class="benefit-chips">
+      <span class="benefit-chip">🚫 <strong>0% comisiones</strong></span>
+      <span class="benefit-chip">📲 <strong>WhatsApp directo</strong></span>
+      <span class="benefit-chip">🏷️ <strong>QR en alta definición</strong></span>
+    </div>
+
+    <div class="btn-actions">
+      <a href="/studio.html" class="btn-chalk-gold">
+        🚀 Ingresar a ScanGo Studio
+      </a>
+      <a href="/m/demo" class="btn-chalk-outline">
+        👀 Ver Menú de Ejemplo
+      </a>
+    </div>
+
+    <div class="brand-footer">
+      <img src="/logo-scango.png" alt="ScanGo">
+      <span>ScanGo • Plataforma de Cartas Digitales y Menús QR</span>
+    </div>
+  </div>
+</body>
+</html>

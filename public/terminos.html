@@ -3,93 +3,203 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Términos y Condiciones — Menú Pizarrón Studio</title>
+  <title>Términos y Condiciones de Servicio — ScanGo</title>
+  <meta name="description" content="Términos y Condiciones de Servicio de ScanGo. Condiciones de uso, suscripciones y Smart Dunning.">
+  <meta property="og:title" content="Términos y Condiciones de Servicio — ScanGo">
+  <meta property="og:description" content="Conocé los términos de uso y condiciones de la plataforma ScanGo.">
+  <meta property="og:image" content="/logo-scango.png">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#151D1A">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" href="/logo-scango.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Montserrat:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #121917;
-      --card: #182320;
-      --border: #23352f;
-      --text: #e8eceb;
-      --muted: #8ca39b;
-      --gold: #e5a93b;
+      --bg: #151D1A;
+      --surface: #1B2622;
+      --surface-border: #2B3D37;
+      --chalk-white: #E6EAE8;
+      --chalk-dim: #95A5A0;
+      --chalk-gold: #E1A938;
+      --chalk-gold-hover: #ECC94B;
+      --font-body: 'Montserrat', sans-serif;
+      --font-heading: 'Playfair Display', serif;
+      --font-chalk: 'Caveat', cursive;
     }
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
       background: var(--bg);
-      color: var(--text);
-      font-family: 'Montserrat', sans-serif;
+      background-image: 
+        radial-gradient(circle at 50% 10%, rgba(225, 169, 56, 0.05) 0%, transparent 60%),
+        radial-gradient(circle at 90% 90%, rgba(43, 61, 55, 0.3) 0%, transparent 50%);
+      color: var(--chalk-white);
+      font-family: var(--font-body);
       line-height: 1.7;
-      padding: 2rem 1rem;
+      padding: 2.5rem 1rem;
     }
     .container {
-      max-width: 800px;
+      max-width: 840px;
       margin: 0 auto;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 3rem 2.5rem;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 20px;
+      padding: 3.5rem 2.8rem;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    }
+    .brand-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--surface-border);
+      padding-bottom: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+    .brand-logo img {
+      height: 38px;
+      width: auto;
+      border-radius: 6px;
+    }
+    .brand-logo span {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+    .brand-badge {
+      font-family: var(--font-chalk);
+      font-size: 1.15rem;
+      color: var(--chalk-gold);
     }
     h1 {
-      font-family: 'Playfair Display', serif;
-      color: var(--gold);
-      font-size: 2.2rem;
+      font-family: var(--font-heading);
+      color: var(--chalk-gold);
+      font-size: 2.3rem;
+      line-height: 1.2;
       margin-bottom: 0.5rem;
     }
-    .date { color: var(--muted); font-size: 0.85rem; margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
-    h2 { color: var(--gold); font-size: 1.25rem; margin: 1.8rem 0 0.6rem; }
-    p { margin-bottom: 1rem; color: #d0ded8; font-size: 0.95rem; }
-    ul { margin-left: 1.5rem; margin-bottom: 1rem; color: #d0ded8; font-size: 0.95rem; }
-    li { margin-bottom: 0.5rem; }
-    a { color: var(--gold); text-decoration: none; }
-    a:hover { text-decoration: underline; }
+    .date {
+      color: var(--chalk-dim);
+      font-size: 0.85rem;
+      margin-bottom: 2rem;
+    }
+    h2 {
+      font-family: var(--font-heading);
+      color: #fff;
+      font-size: 1.3rem;
+      margin: 2.2rem 0 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h2::before {
+      content: "✦";
+      color: var(--chalk-gold);
+      font-size: 1rem;
+    }
+    p { margin-bottom: 1.1rem; color: #D5E0DC; font-size: 0.95rem; }
+    ul { margin-left: 1.5rem; margin-bottom: 1.2rem; color: #D5E0DC; font-size: 0.95rem; }
+    li { margin-bottom: 0.6rem; }
+    strong { color: #fff; }
+    code { background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; color: var(--chalk-gold); font-size: 0.88rem; }
+    a { color: var(--chalk-gold); text-decoration: none; transition: color 0.2s; }
+    a:hover { color: var(--chalk-gold-hover); text-decoration: underline; }
+    .highlight-card {
+      background: rgba(225, 169, 56, 0.08);
+      border: 1px solid rgba(225, 169, 56, 0.25);
+      border-radius: 12px;
+      padding: 1rem 1.4rem;
+      margin: 1.2rem 0;
+      color: var(--chalk-white);
+      font-size: 0.92rem;
+    }
+    .back-nav {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--surface-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
     .back-btn {
-      display: inline-block;
-      margin-top: 2rem;
-      padding: 0.6rem 1.2rem;
-      background: var(--border);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0.7rem 1.4rem;
+      background: var(--surface-border);
       color: #fff;
       border-radius: 8px;
       font-weight: 600;
-      font-size: 0.85rem;
+      font-size: 0.88rem;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .back-btn:hover {
+      background: var(--chalk-gold);
+      color: #101614;
+      text-decoration: none;
+      transform: translateY(-1px);
     }
   </style>
 </head>
 <body>
   <div class="container">
+    <div class="brand-header">
+      <a href="/" class="brand-logo">
+        <img src="/logo-scango.png" alt="ScanGo">
+        <span>ScanGo</span>
+      </a>
+      <span class="brand-badge">Marco Legal y Transparencia</span>
+    </div>
+
     <h1>Términos y Condiciones de Servicio</h1>
-    <div class="date">Última actualización: Septiembre de 2026 • Menú Pizarrón Studio</div>
+    <div class="date">Última actualización: Septiembre de 2026 • ScanGo SaaS</div>
 
     <h2>1. Objeto del Servicio</h2>
-    <p>Menú Pizarrón Studio es una plataforma tecnológica que provee a establecimientos gastronómicos un software como servicio (SaaS) para la creación, personalización y publicación de menús digitales interactivos mediante código QR y canal de pedidos por WhatsApp.</p>
+    <p>ScanGo es una plataforma tecnológica que provee a establecimientos gastronómicos, comerciales y de servicios un software como servicio (SaaS) para la creación, personalización y publicación de cartas digitales interactivas con código QR y canal de recepción de pedidos directos por WhatsApp sin comisiones por venta.</p>
 
     <h2>2. Registro y Seguridad de la Cuenta</h2>
-    <p>Para utilizar el servicio es necesario registrar una cuenta con un correo electrónico válido y una contraseña segura. El usuario es el único responsable de preservar la confidencialidad de sus credenciales y de todas las actividades realizadas en su cuenta.</p>
+    <p>Para utilizar el servicio es necesario registrar una cuenta con un correo electrónico profesional válido y una contraseña segura. El usuario es el único responsable de preservar la confidencialidad de sus credenciales y de todas las actividades realizadas en su cuenta.</p>
 
-    <h2>3. Período de Prueba y Suscripciones</h2>
+    <h2>3. Período de Prueba, Suscripciones y Pagos</h2>
     <ul>
-      <li><strong>Prueba Gratuita:</strong> Se ofrece un período de prueba de 14 días sin necesidad de ingresar tarjeta de crédito. Finalizado este período, el usuario podrá optar por suscribirse a un plan pago.</li>
+      <li><strong>Prueba Gratuita (7 Días):</strong> Se ofrece un período de prueba de 7 días sin necesidad de ingresar tarjeta de crédito al momento del alta. Finalizado este período, el usuario podrá optar por suscribirse a un plan pago para mantener su carta activa.</li>
       <li><strong>Planes de Suscripción:</strong> Los planes se facturan por adelantado de forma mensual o anual, según el plan seleccionado por el usuario.</li>
-      <li><strong>Smart Dunning (Período de Gracia):</strong> En caso de fallo o rechazo en el cobro de la renovación, se otorga un período de gracia de 5 días corridos en el cual el menú público continuará online para no interrumpir la operativa del restaurante mientras se regulariza el medio de pago.</li>
-      <li><strong>Cancelación:</strong> El cliente puede cancelar su suscripción en cualquier momento desde el panel de control o contactando a soporte. La cancelación tendrá efecto al finalizar el ciclo de facturación vigente.</li>
+      <li><strong>Smart Dunning (Período de Gracia):</strong> En caso de fallo o rechazo en el cobro de la renovación automática, se otorga un período de gracia de 5 días corridos en el cual el menú público continuará online para no interrumpir la operativa comercial del restaurante mientras se regulariza el medio de pago.</li>
+      <li><strong>Cancelación Libre:</strong> El cliente puede cancelar su suscripción en cualquier momento desde el panel de control o contactando a soporte. La cancelación tendrá efecto al finalizar el ciclo de facturación vigente.</li>
     </ul>
 
-    <h2>4. Contenido y Responsabilidad del Restaurante</h2>
-    <p>El restaurante es el único y exclusivo responsable de la veracidad, exactitud y actualización de los precios, descripciones de platos, información de alérgenos, disponibilidad de stock y datos de contacto cargados en su menú digital. Menú Pizarrón Studio no interviene en las transacciones comerciales ni en la elaboración o entrega de alimentos pactados entre el restaurante y sus comensales.</p>
+    <div class="highlight-card">
+      💡 <strong>ScanGo no cobra comisiones:</strong> A diferencia de las apps de delivery tradicionales que retienen entre un 15% y un 35% de tus ventas, con ScanGo recibís el 100% de lo que cobrás directamente a tu cuenta bancaria o billetera virtual.
+    </div>
+
+    <h2>4. Contenido y Responsabilidad del Establecimiento</h2>
+    <p>El restaurante o comercio es el único y exclusivo responsable de la veracidad, exactitud y actualización de los precios, descripciones de platos, información de alérgenos, disponibilidad de stock y datos de contacto cargados en su menú digital. ScanGo no interviene en las transacciones comerciales ni en la elaboración o entrega de alimentos pactados entre el restaurante y sus clientes.</p>
 
     <h2>5. Disponibilidad y Mantenimiento</h2>
-    <p>Nos esforzamos por mantener una disponibilidad continua del servicio superior al 99.5%. Sin embargo, el servicio puede interrumpirse ocasionalmente por tareas programadas de mantenimiento o causas de fuerza mayor.</p>
+    <p>Nos esforzamos por mantener una disponibilidad continua del servicio superior al 99.5%. El servicio puede interrumpirse ocasionalmente por tareas programadas de mantenimiento preventivo o causas de fuerza mayor fuera de nuestro control.</p>
 
     <h2>6. Modificaciones de los Términos</h2>
-    <p>Nos reservamos el derecho de modificar estos términos en cualquier momento. Las modificaciones sustanciales serán comunicadas por correo electrónico con al menos 15 días de anticipación.</p>
+    <p>Nos reservamos el derecho de actualizar estos términos cuando sea necesario. Las modificaciones sustanciales serán comunicadas por correo electrónico con al menos 15 días de anticipación.</p>
 
     <h2>7. Contacto</h2>
-    <p>Para dudas, reclamos o asistencia legal, podés comunicarte con nuestro equipo en <a href="mailto:soporte@menupizarron.com">soporte@menupizarron.com</a>.</p>
+    <p>Para dudas, reclamos o asistencia legal, podés comunicarte con nuestro equipo en <a href="mailto:soporte@scango.app">soporte@scango.app</a>.</p>
 
-    <a href="/" class="back-btn">← Volver al Inicio</a>
+    <div class="back-nav">
+      <a href="/" class="back-btn">← Volver al Inicio</a>
+      <a href="/privacidad.html" style="font-size:0.85rem;">Ver Política de Privacidad →</a>
+    </div>
   </div>
 </body>
 </html>

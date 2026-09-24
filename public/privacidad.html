@@ -3,92 +3,202 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Política de Privacidad — Menú Pizarrón Studio</title>
+  <title>Política de Privacidad y Protección de Datos — ScanGo</title>
+  <meta name="description" content="Política de Privacidad de ScanGo. Cumplimiento con Google Play Store y leyes de protección de datos personales.">
+  <meta property="og:title" content="Política de Privacidad — ScanGo">
+  <meta property="og:description" content="Conocé cómo protegemos los datos de tu restaurante y tus comensales en ScanGo.">
+  <meta property="og:image" content="/logo-scango.png">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#151D1A">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" href="/logo-scango.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Montserrat:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #121917;
-      --card: #182320;
-      --border: #23352f;
-      --text: #e8eceb;
-      --muted: #8ca39b;
-      --gold: #e5a93b;
+      --bg: #151D1A;
+      --surface: #1B2622;
+      --surface-border: #2B3D37;
+      --chalk-white: #E6EAE8;
+      --chalk-dim: #95A5A0;
+      --chalk-gold: #E1A938;
+      --chalk-gold-hover: #ECC94B;
+      --font-body: 'Montserrat', sans-serif;
+      --font-heading: 'Playfair Display', serif;
+      --font-chalk: 'Caveat', cursive;
     }
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
       background: var(--bg);
-      color: var(--text);
-      font-family: 'Montserrat', sans-serif;
+      background-image: 
+        radial-gradient(circle at 50% 10%, rgba(225, 169, 56, 0.05) 0%, transparent 60%),
+        radial-gradient(circle at 90% 90%, rgba(43, 61, 55, 0.3) 0%, transparent 50%);
+      color: var(--chalk-white);
+      font-family: var(--font-body);
       line-height: 1.7;
-      padding: 2rem 1rem;
+      padding: 2.5rem 1rem;
     }
     .container {
-      max-width: 800px;
+      max-width: 840px;
       margin: 0 auto;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 3rem 2.5rem;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 20px;
+      padding: 3.5rem 2.8rem;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    }
+    .brand-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--surface-border);
+      padding-bottom: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+    .brand-logo img {
+      height: 38px;
+      width: auto;
+      border-radius: 6px;
+    }
+    .brand-logo span {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+    .brand-badge {
+      font-family: var(--font-chalk);
+      font-size: 1.15rem;
+      color: var(--chalk-gold);
     }
     h1 {
-      font-family: 'Playfair Display', serif;
-      color: var(--gold);
-      font-size: 2.2rem;
+      font-family: var(--font-heading);
+      color: var(--chalk-gold);
+      font-size: 2.3rem;
+      line-height: 1.2;
       margin-bottom: 0.5rem;
     }
-    .date { color: var(--muted); font-size: 0.85rem; margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
-    h2 { color: var(--gold); font-size: 1.25rem; margin: 1.8rem 0 0.6rem; }
-    p { margin-bottom: 1rem; color: #d0ded8; font-size: 0.95rem; }
-    ul { margin-left: 1.5rem; margin-bottom: 1rem; color: #d0ded8; font-size: 0.95rem; }
-    li { margin-bottom: 0.5rem; }
-    a { color: var(--gold); text-decoration: none; }
-    a:hover { text-decoration: underline; }
+    .date {
+      color: var(--chalk-dim);
+      font-size: 0.85rem;
+      margin-bottom: 2rem;
+    }
+    h2 {
+      font-family: var(--font-heading);
+      color: #fff;
+      font-size: 1.3rem;
+      margin: 2.2rem 0 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h2::before {
+      content: "✦";
+      color: var(--chalk-gold);
+      font-size: 1rem;
+    }
+    p { margin-bottom: 1.1rem; color: #D5E0DC; font-size: 0.95rem; }
+    ul { margin-left: 1.5rem; margin-bottom: 1.2rem; color: #D5E0DC; font-size: 0.95rem; }
+    li { margin-bottom: 0.6rem; }
+    strong { color: #fff; }
+    code { background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; color: var(--chalk-gold); font-size: 0.88rem; }
+    a { color: var(--chalk-gold); text-decoration: none; transition: color 0.2s; }
+    a:hover { color: var(--chalk-gold-hover); text-decoration: underline; }
+    .highlight-card {
+      background: rgba(56, 161, 105, 0.08);
+      border: 1px solid rgba(56, 161, 105, 0.25);
+      border-radius: 12px;
+      padding: 1rem 1.4rem;
+      margin: 1.2rem 0;
+      color: var(--chalk-white);
+      font-size: 0.92rem;
+    }
+    .back-nav {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--surface-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
     .back-btn {
-      display: inline-block;
-      margin-top: 2rem;
-      padding: 0.6rem 1.2rem;
-      background: var(--border);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0.7rem 1.4rem;
+      background: var(--surface-border);
       color: #fff;
       border-radius: 8px;
       font-weight: 600;
-      font-size: 0.85rem;
+      font-size: 0.88rem;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .back-btn:hover {
+      background: var(--chalk-gold);
+      color: #101614;
+      text-decoration: none;
+      transform: translateY(-1px);
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Política de Privacidad</h1>
-    <div class="date">Última actualización: Septiembre de 2026 • Conforme a Google Play Store y Leyes de Protección de Datos Personales</div>
+    <div class="brand-header">
+      <a href="/" class="brand-logo">
+        <img src="/logo-scango.png" alt="ScanGo">
+        <span>ScanGo</span>
+      </a>
+      <span class="brand-badge">Privacidad y Seguridad</span>
+    </div>
+
+    <h1>Política de Privacidad y Datos</h1>
+    <div class="date">Última actualización: Septiembre de 2026 • Conforme a Google Play Store y Normativas Internacionales de Privacidad</div>
 
     <h2>1. Responsable del Tratamiento</h2>
-    <p>Menú Pizarrón Studio es responsable del tratamiento de los datos personales recopilados a través del sitio web, aplicaciones móviles (disponibles en Google Play Store) y servicios asociados.</p>
+    <p>ScanGo es responsable del tratamiento de los datos personales recopilados a través de su sitio web, aplicaciones móviles (incluyendo Android y PWA) y servicios asociados a la carta digital interactiva.</p>
 
     <h2>2. Datos que Recopilamos</h2>
     <ul>
-      <li><strong>Datos de Cuenta de Restaurantes:</strong> Correo electrónico, nombre de contacto, nombre comercial del restaurante, número telefónico de WhatsApp y contraseña (almacenada de forma encriptada e irreversible con algoritmo bcrypt).</li>
-      <li><strong>Datos del Menú:</strong> Platos, descripciones, precios, fotos, categorías y configuración de delivery.</li>
-      <li><strong>Datos de Comensales / Clientes Finales:</strong> La aplicación del menú no almacena perfiles personales ni historial de los comensales. Al generar un pedido por WhatsApp, el mensaje se transfiere directamente a la aplicación WhatsApp del usuario sin pasar por servidores intermediarios.</li>
+      <li><strong>Datos de Cuenta de Restaurantes:</strong> Correo electrónico, nombre de contacto del responsable, nombre del local/marca, número telefónico de WhatsApp y contraseña (cifrada con salt rounds 12 mediante algoritmo bcrypt irreversible).</li>
+      <li><strong>Datos del Menú y Catálogo:</strong> Platos, descripciones, precios, fotos, categorías y configuración de delivery o servicio de mesas.</li>
+      <li><strong>Datos de Comensales:</strong> La aplicación del menú ScanGo <strong>NO almacena perfiles personales ni historial de pedidos de los comensales</strong>. Al enviar un pedido por WhatsApp, la comanda se despacha directamente a la app de WhatsApp del comensal hacia el teléfono del restaurante, sin intermediación de servidores que retengan los mensajes.</li>
     </ul>
 
-    <h2>3. Seguridad de Medios de Pago</h2>
-    <p>Menú Pizarrón Studio <strong>NO almacena ni procesa números de tarjetas de crédito o débito</strong>. Todas las transacciones de suscripción se procesan a través de proveedores certificados con estándar PCI-DSS Nivel 1 (Lemon Squeezy, Stripe y Mercado Pago), quienes actúan como pasarelas seguras.</p>
+    <div class="highlight-card">
+      🛡️ <strong>Privacidad del Comensal Garantizada:</strong> No rastreamos la ubicación de tus clientes, no vendemos datos a terceros ni mostramos publicidad invasiva dentro de la carta digital de tu restaurante.
+    </div>
 
-    <h2>4. Uso de Cookies y Sesión</h2>
-    <p>Utilizamos cookies técnicas y estrictamente necesarias denominadas <code>auth_token</code> para mantener la sesión segura del usuario registrado en el Studio. No utilizamos cookies de rastreo publicitario de terceros.</p>
+    <h2>3. Seguridad de Medios de Pago</h2>
+    <p>ScanGo <strong>NO almacena ni procesa números de tarjetas de crédito o débito</strong>. Todas las transacciones de suscripción se procesan a través de proveedores certificados con el máximo estándar de seguridad PCI-DSS Nivel 1 (Lemon Squeezy, Stripe y Mercado Pago).</p>
+
+    <h2>4. Uso de Cookies Técnicas</h2>
+    <p>Utilizamos únicamente cookies técnicas y de sesión estrictamente necesarias (<code>auth_token</code> y <code>admin_key</code>) para mantener autenticada la sesión del usuario en el Studio o en el panel de administración. No utilizamos cookies de rastreo publicitario ni vendemos perfiles de navegación.</p>
 
     <h2>5. Permisos en la Aplicación Móvil (Android / Google Play)</h2>
-    <p>La aplicación móvil publicada en Google Play Store solicita únicamente acceso a Internet (<code>android.permission.INTERNET</code>) para sincronizar en tiempo real el menú y la configuración del Studio. No solicita acceso a cámara, contactos ni ubicación en segundo plano.</p>
+    <p>La aplicación ScanGo solicita únicamente acceso a Internet (<code>android.permission.INTERNET</code>) para sincronizar en tiempo real el menú y la configuración del Studio. No solicita acceso a cámara, micrófono, contactos ni ubicación en segundo plano.</p>
 
     <h2>6. Derechos de los Titulares (ARCO)</h2>
-    <p>Cualquier usuario puede ejercer sus derechos de acceso, rectificación, cancelación, oposición o supresión de sus datos personales enviando un correo electrónico a <a href="mailto:privacidad@menupizarron.com">privacidad@menupizarron.com</a>.</p>
+    <p>Cualquier usuario puede ejercer sus derechos de acceso, rectificación, cancelación, oposición o supresión definitiva de su cuenta y sus datos personales enviando un correo a <a href="mailto:privacidad@scango.app">privacidad@scango.app</a>.</p>
 
     <h2>7. Contacto</h2>
-    <p>Para consultas sobre privacidad y protección de datos, comunicate con nuestro delegado de protección de datos en <a href="mailto:privacidad@menupizarron.com">privacidad@menupizarron.com</a>.</p>
+    <p>Para consultas o solicitudes relacionadas con privacidad y protección de datos, comunicate con nuestro equipo en <a href="mailto:privacidad@scango.app">privacidad@scango.app</a>.</p>
 
-    <a href="/" class="back-btn">← Volver al Inicio</a>
+    <div class="back-nav">
+      <a href="/" class="back-btn">← Volver al Inicio</a>
+      <a href="/terminos.html" style="font-size:0.85rem;">Ver Términos y Condiciones →</a>
+    </div>
   </div>
 </body>
 </html>

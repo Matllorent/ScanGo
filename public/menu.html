@@ -322,6 +322,106 @@
       font-size: 0.85rem;
     }
 
+    /* Skeleton Loader Shimmer */
+    .skeleton-grid {
+      display: grid;
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .skeleton-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-chalk);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .skeleton-shimmer {
+      background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.03) 100%);
+      background-size: 200% 100%;
+      animation: shimmerAnimation 1.6s infinite;
+      border-radius: 6px;
+    }
+    @keyframes shimmerAnimation {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton-thumb {
+      width: 76px;
+      height: 76px;
+      border-radius: 10px;
+      flex-shrink: 0;
+    }
+    .skeleton-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .skeleton-line {
+      height: 14px;
+    }
+    .skeleton-line.title {
+      width: 65%;
+      height: 18px;
+    }
+    .skeleton-line.desc {
+      width: 90%;
+      height: 12px;
+    }
+    .skeleton-line.price {
+      width: 30%;
+      height: 16px;
+    }
+
+    /* Enhanced Empty State */
+    .empty-state-card {
+      text-align: center;
+      padding: 48px 20px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px dashed var(--border-chalk);
+      border-radius: 16px;
+      margin: 20px 0;
+    }
+    .empty-state-icon {
+      font-size: 3.2rem;
+      margin-bottom: 12px;
+      display: inline-block;
+      animation: floatPlate 3s ease-in-out infinite alternate;
+    }
+    .empty-state-title {
+      font-family: var(--font-heading);
+      font-size: 1.25rem;
+      color: var(--chalk-gold);
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .empty-state-desc {
+      font-size: 0.88rem;
+      color: var(--chalk-dim);
+      max-width: 360px;
+      margin: 0 auto 16px;
+      line-height: 1.5;
+    }
+    .empty-state-btn {
+      background: transparent;
+      border: 1px solid var(--chalk-gold);
+      color: var(--chalk-gold);
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 8px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .empty-state-btn:hover {
+      background: var(--chalk-gold);
+      color: #101614;
+    }
+
     /* Container */
     .menu-container {
       width: 100%;
@@ -882,7 +982,32 @@
 
     <!-- Menu Items List -->
     <div id="dishesContainer">
-      <div class="loading-spinner">Cargando pizarrón...</div>
+      <div class="skeleton-grid">
+        <div class="skeleton-card">
+          <div class="skeleton-thumb skeleton-shimmer"></div>
+          <div class="skeleton-info">
+            <div class="skeleton-line title skeleton-shimmer"></div>
+            <div class="skeleton-line desc skeleton-shimmer"></div>
+            <div class="skeleton-line price skeleton-shimmer"></div>
+          </div>
+        </div>
+        <div class="skeleton-card">
+          <div class="skeleton-thumb skeleton-shimmer"></div>
+          <div class="skeleton-info">
+            <div class="skeleton-line title skeleton-shimmer"></div>
+            <div class="skeleton-line desc skeleton-shimmer"></div>
+            <div class="skeleton-line price skeleton-shimmer"></div>
+          </div>
+        </div>
+        <div class="skeleton-card">
+          <div class="skeleton-thumb skeleton-shimmer"></div>
+          <div class="skeleton-info">
+            <div class="skeleton-line title skeleton-shimmer"></div>
+            <div class="skeleton-line desc skeleton-shimmer"></div>
+            <div class="skeleton-line price skeleton-shimmer"></div>
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 
@@ -1002,7 +1127,7 @@
         <div style="font-size:10px; color:var(--chalk-dim); text-align:center;">Luego de pagar, envía la comanda por WhatsApp adjuntando el comprobante.</div>
       </div>
 
-      <button class="btn-wa-submit" onclick="submitWhatsAppOrder()">
+      <button id="btnSubmitOrderWA" class="btn-wa-submit" onclick="submitWhatsAppOrder()">
         <span>📲 Enviar Pedido por WhatsApp</span>
       </button>
     </div>
@@ -1454,7 +1579,13 @@
       const dishes = restaurantData.dishes || [];
 
       if (!dishes.length) {
-        container.innerHTML = '<div class="loading-spinner">No hay platos cargados aún.</div>';
+        container.innerHTML = `
+          <div class="empty-state-card">
+            <span class="empty-state-icon">📋</span>
+            <div class="empty-state-title">Aún no hay platos en la carta</div>
+            <div class="empty-state-desc">El establecimiento está preparando las opciones del menú. Por favor vuelve a consultar en unos instantes.</div>
+          </div>
+        `;
         return;
       }
 
@@ -1547,7 +1678,40 @@
         `;
       });
 
-      container.innerHTML = html || '<div class="loading-spinner">No se encontraron platos con ese criterio.</div>';
+      if (!html) {
+        if (searchTerm) {
+          container.innerHTML = `
+            <div class="empty-state-card">
+              <span class="empty-state-icon">🔍</span>
+              <div class="empty-state-title">Sin resultados para "${escapeHtml(searchTerm)}"</div>
+              <div class="empty-state-desc">Probá con otro nombre o término más general para encontrar lo que buscas.</div>
+              <button type="button" class="empty-state-btn" onclick="clearSearchFilter()">✕ Limpiar búsqueda</button>
+            </div>
+          `;
+        } else if (selectedCategory !== 'ALL') {
+          const currentCatObj = categories.find(c => c.id === selectedCategory);
+          const catName = currentCatObj ? currentCatObj.name : 'esta sección';
+          container.innerHTML = `
+            <div class="empty-state-card">
+              <span class="empty-state-icon">🍽️</span>
+              <div class="empty-state-title">Sección sin platos disponibles</div>
+              <div class="empty-state-desc">No hay platos activos en "${escapeHtml(catName)}" en este momento.</div>
+              <button type="button" class="empty-state-btn" onclick="selectCategory('ALL')">Ver todos los platos</button>
+            </div>
+          `;
+        } else {
+          container.innerHTML = `
+            <div class="empty-state-card">
+              <span class="empty-state-icon">🥗</span>
+              <div class="empty-state-title">Sin platos con los filtros seleccionados</div>
+              <div class="empty-state-desc">Probá cambiando los filtros dietéticos para explorar la carta completa.</div>
+              <button type="button" class="empty-state-btn" onclick="selectDietFilter('ALL')">Restablecer filtros</button>
+            </div>
+          `;
+        }
+      } else {
+        container.innerHTML = html;
+      }
     }
 
     function renderSingleDishCard(d, currency) {
@@ -1830,6 +1994,21 @@
       if (!items.length) {
         alert('Por favor agrega platos a tu pedido primero.');
         return;
+      }
+
+      // UX Resilience: Prevent double-click
+      const btn = document.getElementById('btnSubmitOrderWA');
+      if (btn) {
+        if (btn.dataset.submitting === 'true') return;
+        btn.dataset.submitting = 'true';
+        btn.disabled = true;
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<span>⏳ Conectando con WhatsApp...</span>';
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.dataset.submitting = 'false';
+          btn.innerHTML = originalHtml;
+        }, 3500);
       }
 
       const mode = document.getElementById('orderMode').value;
