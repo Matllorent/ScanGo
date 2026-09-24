@@ -86,7 +86,7 @@ router.post('/register', normalizeEmailInput, validateBody(registerSchema), asyn
       email,
       password: hashedPassword,
       name: name || 'Responsable',
-      email_confirmed_at: sbUser?.email_confirmed_at || null
+      email_confirmed_at: sbUser ? (sbUser.email_confirmed_at || null) : new Date().toISOString()
     });
 
     const finalBizName = restaurantName || bizName || 'Mi Restaurante';
@@ -124,7 +124,7 @@ router.post('/register', normalizeEmailInput, validateBody(registerSchema), asyn
     });
 
     const { password: _, ...safeUser } = user;
-    return successResponse(res, { user: safeUser, restaurant, token }, 'Registro exitoso. Se ha enviado un correo de confirmación.', 201);
+    return successResponse(res, { user: safeUser, restaurant, token }, 'Registro exitoso. Se ha enviado un correo de confirmación.', 200, { flatData: true });
   } catch (err) {
     next(err);
   }
@@ -155,7 +155,7 @@ router.post('/login', normalizeEmailInput, validateBody(loginSchema), async (req
     res.cookie('auth_token', token, COOKIE_OPTIONS);
 
     const { password: _, ...safeUser } = user;
-    return successResponse(res, { user: safeUser, restaurant, token }, 'Inicio de sesión exitoso');
+    return successResponse(res, { user: safeUser, restaurant, token }, 'Inicio de sesión exitoso', 200, { flatData: true });
   } catch (err) {
     next(err);
   }
@@ -179,7 +179,7 @@ router.get('/me', (req, res, next) => {
     }
 
     const { password: _, ...safeUser } = user;
-    return successResponse(res, { user: safeUser, restaurant });
+    return successResponse(res, { user: safeUser, restaurant }, 'Operación exitosa', 200, { flatData: true });
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
       return next(new AppError('Token inválido o expirado', 401, 'INVALID_TOKEN'));
