@@ -16,16 +16,25 @@ const loginSchema = z.object({
   password: z.string().min(1, { message: 'Contraseña requerida' })
 });
 
-// Schema for individual dishes
+// Schema for individual dishes with smart menu attributes
 const dishSchema = z.object({
   id: z.string().optional(),
   categoryId: z.string().default(''),
   name: z.string().min(1, { message: 'Nombre del platillo requerido' }).max(100),
   price: z.number().nonnegative({ message: 'El precio debe ser un número positivo' }),
+  previous_price: z.number().nonnegative().optional().nullable(),
+  previousPrice: z.number().nonnegative().optional().nullable(),
   description: z.string().max(400).optional().default(''),
   photoUrl: z.string().url({ message: 'URL de foto inválida' }).max(1500).nullable().optional().or(z.literal('')),
   outOfStock: z.boolean().optional().default(false),
-  tags: z.array(z.string().max(25)).max(8).optional().default([])
+  tags: z.array(z.string().max(25)).max(8).optional().default([]),
+  is_chef_recommended: z.boolean().optional().default(false),
+  isChefRecommended: z.boolean().optional().default(false),
+  available_hours: z.array(z.string()).optional().default([]),
+  availableHours: z.array(z.string()).optional().default([]),
+  available_days: z.array(z.number().min(0).max(6)).optional().default([0, 1, 2, 3, 4, 5, 6]),
+  availableDays: z.array(z.number().min(0).max(6)).optional().default([0, 1, 2, 3, 4, 5, 6]),
+  translations: z.record(z.any()).optional().default({})
 });
 
 // Schema for orders

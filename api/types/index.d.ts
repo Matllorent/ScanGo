@@ -1,3 +1,10 @@
+export interface Translations {
+  es?: { name?: string; description?: string };
+  en?: { name?: string; description?: string };
+  pt?: { name?: string; description?: string };
+  [key: string]: any;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -13,10 +20,19 @@ export interface Dish {
   categoryId: string;
   name: string;
   price: number;
+  previous_price?: number | null;
+  previousPrice?: number | null;
   description?: string;
   photoUrl?: string | null;
   outOfStock?: boolean;
   tags?: string[];
+  is_chef_recommended?: boolean;
+  isChefRecommended?: boolean;
+  available_hours?: string[] | string;
+  availableHours?: string[];
+  available_days?: number[];
+  availableDays?: number[];
+  translations?: Translations;
 }
 
 export interface Category {
@@ -97,6 +113,20 @@ export interface Restaurant {
   analytics?: Analytics;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface PushSubscriptionKeys {
+  p256dh: string;
+  auth: string;
+}
+
+export interface PushSubscription {
+  id: string;
+  user_id?: string;
+  restaurant_id?: string;
+  endpoint: string;
+  keys: PushSubscriptionKeys;
+  created_at: string;
 }
 
 export interface OrderItem {
