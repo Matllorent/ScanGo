@@ -1,4 +1,5 @@
 const AppError = require('../utils/AppError');
+const { retryQueue } = require('../utils/retryQueue');
 
 /**
  * Email Service for Transactional & Marketing Emails
@@ -99,6 +100,13 @@ const emailService = {
     // Fallback: Local Development Mode Email Logging
     console.log(`✉️ [Local Email Service] [${new Date().toISOString()}] To: ${to} | Subject: ${subject}`);
     return { provider: 'local_mock', success: true, timestamp: new Date().toISOString() };
+  },
+
+  /**
+   * Resilient Non-blocking Background Queue Email Dispatcher
+   */
+  sendEmailAsync(emailData) {
+    retryQueue.enqueue(() => this.sendEmail(emailData), { taskName: 'send_email' });
   },
 
   /**

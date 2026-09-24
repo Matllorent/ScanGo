@@ -14,12 +14,15 @@ const { registerSchema, loginSchema, validateBody } = require('./middleware/vali
 const errorHandler = require('./middleware/errorHandler');
 const { errorResponse } = require('./utils/response');
 const requireVerifiedEmail = require('./middleware/requireVerifiedEmail');
+const requestIdMiddleware = require('./middleware/requestId');
+const { menuCacheMiddleware, invalidateMenuCache } = require('./middleware/cache');
 const authRouter = require('./routes/auth');
 const reviewsRouter = require('./routes/reviews');
 const storageRouter = require('./routes/storage');
 const webhooksRouter = require('./routes/webhooks');
 const notificationsRouter = require('./routes/notifications');
 const emailRouter = require('./routes/email');
+const healthRouter = require('./routes/health');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,6 +39,9 @@ if (!fs.existsSync(PUBLIC_DIR)) {
   PUBLIC_DIR = path.resolve(__dirname, 'public');
 }
 
+// Tracing Middleware (X-Request-ID)
+app.use(requestIdMiddleware);
+
 // Security headers with Helmet (disabling CSP to allow external CDNs like Google Fonts, FontAwesome, etc.)
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 
@@ -45,11 +51,17 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Rate limiters for sensitive and public API endpoints
+// Dynamic Tenant & IP Rate Limiter
+const tenantKeyGenerator = (req) => {
+  return req.headers['x-tenant-id'] || req.headers['x-restaurant-id'] || req.user?.userId || req.ip;
+};
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
   max: 30,
-  message: { success: false, error: 'Demasiados intentos desde esta IP. Por favor intentá nuevamente en 15 minutos.', code: 'RATE_LIMIT_EXCEEDED' },
+  keyGenerator: tenantKeyGenerator,
+  validate: { keyGeneratorIpFallback: false },
+  message: { success: false, error: 'Demasiados intentos de acceso. Por favor intentá nuevamente en 15 minutos.', code: 'RATE_LIMIT_EXCEEDED' },
   standardHeaders: true,
   legacyHeaders: false
 });
@@ -57,6 +69,8 @@ const authLimiter = rateLimit({
 const reviewsLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
+  keyGenerator: tenantKeyGenerator,
+  validate: { keyGeneratorIpFallback: false },
   message: { success: false, error: 'Demasiadas solicitudes de reseñas. Por favor intentá nuevamente en 15 minutos.', code: 'RATE_LIMIT_EXCEEDED' },
   standardHeaders: true,
   legacyHeaders: false
@@ -65,6 +79,8 @@ const reviewsLimiter = rateLimit({
 const ordersLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 60,
+  keyGenerator: tenantKeyGenerator,
+  validate: { keyGeneratorIpFallback: false },
   message: { success: false, error: 'Límite de solicitudes de pedidos excedido. Por favor aguardá unos minutos.', code: 'RATE_LIMIT_EXCEEDED' },
   standardHeaders: true,
   legacyHeaders: false
@@ -195,9 +211,6 @@ function getCachedMenu(slug, fetcherFn) {
   return fetchingPromise;
 }
 
-function invalidateMenuCache(slug) {
-  if (slug) menuCache.delete(slug.toLowerCase());
-}
 
 // Static files (allow dotfiles because workspace path contains .gemini)
 app.use(express.static(PUBLIC_DIR, { dotfiles: 'allow' }));
@@ -273,13 +286,13 @@ function adminMiddleware(req, res, next) {
 }
 
 // ==================== STUDIO & RESTAURANT ROUTES ====================
-app.post('/api/studio/save', authMiddleware, requireVerifiedEmail, (req, res) => {
+app.post('/api/studio/save', authMiddleware, requireVerifiedEmail, async (req, res) => {
   try {
     const payload = req.body.data || req.body;
     const cleanPayload = sanitizeRestaurantPayload(payload);
     const restaurant = db.saveRestaurant(req.user.userId, cleanPayload);
     if (restaurant && restaurant.slug) {
-      invalidateMenuCache(restaurant.slug);
+      await invalidateMenuCache(restaurant.slug);
     }
     res.json({ success: true, restaurant });
   } catch (e) {
@@ -287,8 +300,8 @@ app.post('/api/studio/save', authMiddleware, requireVerifiedEmail, (req, res) =>
   }
 });
 
-// ==================== PUBLIC MENU VIEWER (WITH CACHE STAMPEDE PROTECTION) ====================
-app.get('/api/menu/:slug', async (req, res) => {
+// ==================== PUBLIC MENU VIEWER (WITH CACHE STAMPEDE PROTECTION & LRU CACHING) ====================
+app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
   const slug = (req.params.slug || '').toLowerCase();
   try {
     const data = await getCachedMenu(slug, async () => {
@@ -624,6 +637,7 @@ app.use('/api/storage', storageRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/email', emailRouter);
+app.use('/api', healthRouter);
 
 // 404 Not Found Handler for unmatched API routes
 app.use('/api', (req, res) => {

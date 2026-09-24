@@ -180,3 +180,20 @@ export interface ProcessedWebhook {
   event_id: string;
   processed_at: string;
 }
+
+export interface HealthStatus {
+  status: 'healthy' | 'degraded';
+  timestamp: string;
+  uptimeSeconds: number;
+  environment: string;
+  database: {
+    connected: boolean;
+    provider: string;
+    latencyMs: number;
+  };
+  memory: {
+    heapUsedMb: number;
+    heapTotalMb: number;
+    rssMb: number;
+  };
+}
