@@ -60,6 +60,31 @@
       return 'demo';
     }
 
+    // Offline resilience banner
+    function showOfflineBanner(isOffline, customMsg) {
+      let banner = document.getElementById('offlineNoticeBanner');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'offlineNoticeBanner';
+        banner.style.cssText = 'position:fixed; bottom:16px; left:50%; transform:translateX(-50%); z-index:9999; background:rgba(229,62,62,0.92); color:#fff; font-size:12px; font-weight:600; padding:8px 16px; border-radius:20px; box-shadow:0 4px 12px rgba(0,0,0,0.4); display:flex; align-items:center; gap:8px; backdrop-filter:blur(4px); transition:opacity .3s ease;';
+        document.body.appendChild(banner);
+      }
+      if (isOffline) {
+        banner.innerHTML = `<span>⚠️</span> <span>${escapeHtml(customMsg || 'Sin conexión a internet. Mostrando carta guardada.')}</span>`;
+        banner.style.display = 'flex';
+        banner.style.opacity = '1';
+      } else {
+        banner.style.background = 'rgba(56,161,105,0.92)';
+        banner.innerHTML = '<span>✓</span> <span>Conexión restablecida</span>';
+        setTimeout(() => {
+          if (banner) banner.style.display = 'none';
+        }, 2500);
+      }
+    }
+
+    window.addEventListener('offline', () => showOfflineBanner(true));
+    window.addEventListener('online', () => showOfflineBanner(false));
+
     // Fetch Restaurant Menu
     async function loadMenu() {
       const slug = getSlug();
@@ -89,6 +114,9 @@
         }
         const data = await res.json();
         restaurantData = data.restaurant;
+        try {
+          localStorage.setItem('scango_cached_menu_' + slug, JSON.stringify(data.restaurant));
+        } catch (e) {}
         renderHeader();
         renderCategories();
         renderDishes();
@@ -101,12 +129,13 @@
       } catch (err) {
         if (!restaurantData) {
           try {
-            const localDemo = localStorage.getItem('scango_demo_restaurant');
-            if (localDemo) {
-              restaurantData = JSON.parse(localDemo);
+            const cached = localStorage.getItem('scango_cached_menu_' + slug) || (slug === 'demo' ? localStorage.getItem('scango_demo_restaurant') : null);
+            if (cached) {
+              restaurantData = JSON.parse(cached);
               renderHeader();
               renderCategories();
               renderDishes();
+              showOfflineBanner(true, 'Modo sin conexión: mostrando carta guardada');
               return;
             }
           } catch (e) {}
@@ -330,7 +359,7 @@
       }
 
       cats.forEach(c => {
-        html += `<button class="cat-pill ${selectedCategory === c.id ? 'active' : ''}" onclick="selectCategory('${c.id}')">${escapeHtml(c.name)}</button>`;
+        html += `<button class="cat-pill ${selectedCategory === c.id ? 'active' : ''}" data-cat-id="${escapeHtml(c.id)}" onclick="selectCategory(this.dataset.catId)">${escapeHtml(c.name)}</button>`;
       });
       pillsContainer.innerHTML = html;
     }
@@ -416,7 +445,7 @@
               <div class="chef-special-price">
                 ${originalPriceHtml}${formattedPrice}
               </div>
-              <button class="btn-add" onclick="addToCart('${d.id}')" aria-label="Agregar ${escapeHtml(d.name)}" style="width:34px; height:34px; font-size:1.1rem;">
+              <button class="btn-add" data-dish-id="${escapeHtml(d.id)}" onclick="addToCart(this.dataset.dishId)" aria-label="Agregar ${escapeHtml(d.name)}" style="width:34px; height:34px; font-size:1.1rem;">
                 +
               </button>
             </div>
@@ -624,7 +653,7 @@
           <div class="dish-action">
             ${isSold 
               ? '<button class="btn-add" disabled style="background:#4A5568; cursor:not-allowed; opacity:0.6;">✕</button>' 
-              : `<button class="btn-add" onclick="addToCart('${d.id}')" aria-label="Agregar ${escapeHtml(d.name)}">+</button>`}
+              : `<button class="btn-add" data-dish-id="${escapeHtml(d.id)}" onclick="addToCart(this.dataset.dishId)" aria-label="Agregar ${escapeHtml(d.name)}">+</button>`}
             ${inCart > 0 ? `<span class="qty-counter">${inCart} en comanda</span>` : ''}
           </div>
         </div>
@@ -717,9 +746,9 @@
               <div class="cart-item-price">${formattedPrice} x ${item.qty} = ${formattedLineTotal}</div>
             </div>
             <div class="cart-qty-ctrl">
-              <button class="btn-qty" onclick="changeCartQty('${item.dish.id}', -1)">-</button>
+              <button class="btn-qty" data-dish-id="${escapeHtml(item.dish.id)}" onclick="changeCartQty(this.dataset.dishId, -1)">-</button>
               <span style="font-family:var(--font-mono);">${item.qty}</span>
-              <button class="btn-qty" onclick="changeCartQty('${item.dish.id}', 1)">+</button>
+              <button class="btn-qty" data-dish-id="${escapeHtml(item.dish.id)}" onclick="changeCartQty(this.dataset.dishId, 1)">+</button>
             </div>
           </div>
         `;
@@ -970,6 +999,15 @@
 
     function submitReservation(e) {
       e.preventDefault();
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const originalText = submitBtn ? submitBtn.innerHTML : '';
+      if (submitBtn) {
+        if (submitBtn.disabled || submitBtn.dataset.busy === 'true') return;
+        submitBtn.disabled = true;
+        submitBtn.dataset.busy = 'true';
+        submitBtn.innerHTML = '<span>⏳ Conectando con WhatsApp...</span>';
+      }
+
       const name = document.getElementById('resName').value.trim();
       const date = document.getElementById('resDate').value;
       const time = document.getElementById('resTime').value;
@@ -996,7 +1034,15 @@
         body: JSON.stringify({ slug: getSlug(), event: 'reservation' })
       }).catch(() => {});
       window.open(waUrl, '_blank');
-      closeReservationModal();
+
+      setTimeout(() => {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.dataset.busy = 'false';
+          submitBtn.innerHTML = originalText;
+        }
+        closeReservationModal();
+      }, 1500);
     }
 
     // Wi-Fi Modal

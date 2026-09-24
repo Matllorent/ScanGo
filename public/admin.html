@@ -230,9 +230,6 @@
         <div class="form-group">
           <label>Clave Maestra (ADMIN_KEY)</label>
           <input type="password" id="admin-key" class="form-control" placeholder="••••••••••••••••" required autofocus>
-          <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 6px;">
-            Clave por defecto: <code style="color:var(--gold); background:rgba(225,169,56,0.1); padding:2px 6px; border-radius:4px; cursor:pointer; font-weight:600;" onclick="document.getElementById('admin-key').value='pizarron_admin_master_key_2026'" title="Clic para autocompletar">pizarron_admin_master_key_2026</code>
-          </div>
         </div>
         <div class="form-group">
           <label style="display:flex; justify-content:space-between;">
@@ -361,6 +358,16 @@
     let currentKey = localStorage.getItem('pizarron_admin_key') || '';
     let currentRestaurants = [];
 
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       if (currentKey) {
         verifyAndLoad(currentKey);
@@ -369,10 +376,31 @@
 
     async function handleLogin(e) {
       e.preventDefault();
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const originalText = submitBtn ? submitBtn.innerHTML : '';
+      if (submitBtn) {
+        if (submitBtn.disabled) return;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando acceso...';
+      }
+
       const key = document.getElementById('admin-key').value.trim();
       const totp = (document.getElementById('admin-totp')?.value || '').trim();
-      if (!key) return;
-      await verifyAndLoad(key, totp);
+      if (!key) {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalText;
+        }
+        return;
+      }
+      try {
+        await verifyAndLoad(key, totp);
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalText;
+        }
+      }
     }
 
     async function verifyAndLoad(key, totp = '') {
@@ -450,34 +478,40 @@
         const badgeClass = `badge-${status}`;
         const dishesCount = (r.dishes || []).length;
         const createdDate = r.createdAt ? new Date(r.createdAt).toLocaleDateString('es-UY') : '-';
+        const cleanName = escapeHtml(r.name || r.bizName || 'Sin Nombre');
+        const cleanPhone = escapeHtml(r.phone || 'Sin teléfono');
+        const cleanSlug = encodeURIComponent(r.slug || '');
+        const cleanId = escapeHtml(r.id || '');
+        const cleanPlan = escapeHtml(sub.plan || 'pro_monthly');
+        const cleanProvider = escapeHtml(sub.provider || 'trial');
 
         return `
           <tr>
             <td>
-              <strong style="color: #fff; font-size: 0.95rem;">${r.name || r.bizName || 'Sin Nombre'}</strong>
-              <div style="font-size: 0.75rem; color: var(--text-muted);">${r.phone || 'Sin teléfono'}</div>
+              <strong style="color: #fff; font-size: 0.95rem;">${cleanName}</strong>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">${cleanPhone}</div>
             </td>
             <td>
-              <a href="/m/${r.slug}" target="_blank" style="color: var(--gold); text-decoration: none; font-weight: 600;">
-                /m/${r.slug} <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.7rem;"></i>
+              <a href="/m/${cleanSlug}" target="_blank" style="color: var(--gold); text-decoration: none; font-weight: 600;">
+                /m/${cleanSlug} <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.7rem;"></i>
               </a>
             </td>
             <td>
-              <span class="badge-status ${badgeClass}">${status}</span>
+              <span class="badge-status ${badgeClass}">${escapeHtml(status)}</span>
             </td>
             <td>
-              <span style="font-weight: 600;">${sub.plan || 'pro_monthly'}</span>
-              <div style="font-size: 0.72rem; color: var(--text-muted);">${sub.provider || 'trial'}</div>
+              <span style="font-weight: 600;">${cleanPlan}</span>
+              <div style="font-size: 0.72rem; color: var(--text-muted);">${cleanProvider}</div>
             </td>
             <td><strong>${dishesCount}</strong> platos</td>
             <td style="color: var(--text-muted);">${createdDate}</td>
             <td>
               <div class="actions-cell">
                 ${status === 'active' 
-                  ? `<button class="btn btn-danger btn-xs" onclick="updateStatus('${r.id}', 'paused')"><i class="fa-solid fa-pause"></i> Pausar</button>`
-                  : `<button class="btn btn-success btn-xs" onclick="updateStatus('${r.id}', 'active')"><i class="fa-solid fa-check"></i> Activar PRO</button>`
+                  ? `<button class="btn btn-danger btn-xs" onclick="updateStatus('${cleanId}', 'paused')"><i class="fa-solid fa-pause"></i> Pausar</button>`
+                  : `<button class="btn btn-success btn-xs" onclick="updateStatus('${cleanId}', 'active')"><i class="fa-solid fa-check"></i> Activar PRO</button>`
                 }
-                <a href="/m/${r.slug}" target="_blank" class="btn btn-outline btn-xs"><i class="fa-solid fa-eye"></i> Ver</a>
+                <a href="/m/${cleanSlug}" target="_blank" class="btn btn-outline btn-xs"><i class="fa-solid fa-eye"></i> Ver</a>
               </div>
             </td>
           </tr>
@@ -583,10 +617,11 @@
           const photoOption = rev.photoOption || '';
           let photoCell = '<span style="color:var(--text-muted); font-size:0.75rem;">—</span>';
           if (rev.photoUrl) {
+            const cleanUrl = escapeHtml(rev.photoUrl);
             photoCell = `
               <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
-                <img src="${rev.photoUrl}" class="review-photo-thumb" alt="Foto reseña">
-                <span class="photo-type-badge ${photoOption}">${photoLabels[photoOption] || 'Foto'}</span>
+                <img src="${cleanUrl}" class="review-photo-thumb" alt="Foto reseña">
+                <span class="photo-type-badge ${escapeHtml(photoOption)}">${photoLabels[photoOption] || 'Foto'}</span>
               </div>`;
           } else if (photoOption === 'logo') {
             photoCell = `
@@ -596,21 +631,27 @@
               </div>`;
           }
 
+          const cleanRest = escapeHtml(rev.restaurantName || 'Local');
+          const cleanRole = escapeHtml(rev.authorRole || 'Responsable');
+          const cleanEmail = escapeHtml(rev.email || '');
+          const cleanComment = escapeHtml(rev.comment || '');
+          const cleanRevId = escapeHtml(rev.id || '');
+
           return `
             <tr>
               <td>
-                <div style="font-weight: 700; color: #fff;">${rev.restaurantName || 'Local'}</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">${rev.authorRole || 'Responsable'} (${rev.email || ''})</div>
+                <div style="font-weight: 700; color: #fff;">${cleanRest}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">${cleanRole} (${cleanEmail})</div>
               </td>
               <td>${photoCell}</td>
               <td>${stars}</td>
-              <td style="max-width: 320px; font-size: 0.85rem; color: var(--text-main); font-style: italic;">"${rev.comment}"</td>
+              <td style="max-width: 320px; font-size: 0.85rem; color: var(--text-main); font-style: italic;">"${cleanComment}"</td>
               <td>${statusBadge}</td>
               <td style="font-size: 0.75rem; color: var(--text-muted);">${new Date(rev.createdAt).toLocaleDateString()}</td>
               <td>
                 <div style="display:flex; gap:6px;">
-                  ${rev.status !== 'approved' ? `<button class="btn btn-success btn-xs" onclick="moderateReview('${rev.id}', 'approved')"><i class="fa-solid fa-check"></i> Aprobar</button>` : ''}
-                  ${rev.status !== 'rejected' ? `<button class="btn btn-warning btn-xs" onclick="moderateReview('${rev.id}', 'rejected')"><i class="fa-solid fa-xmark"></i> Rechazar</button>` : ''}
+                  ${rev.status !== 'approved' ? `<button class="btn btn-success btn-xs" onclick="moderateReview('${cleanRevId}', 'approved')"><i class="fa-solid fa-check"></i> Aprobar</button>` : ''}
+                  ${rev.status !== 'rejected' ? `<button class="btn btn-warning btn-xs" onclick="moderateReview('${cleanRevId}', 'rejected')"><i class="fa-solid fa-xmark"></i> Rechazar</button>` : ''}
                 </div>
               </td>
             </tr>

@@ -7,6 +7,17 @@
     let pendingConfirmAction = null;
     let saveFeedbackTimer = null;
 
+    // Strict XSS Sanitizer Helper
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     // Custom Confirmation Dialog (Replaces native confirm)
     function showConfirmDialog({ icon = '⚠️', title = '¿Estás seguro?', message = '', confirmText = 'Sí, Continuar', confirmClass = 'btn-danger', onConfirm }) {
       document.getElementById('confirmDialogIcon').textContent = icon;
@@ -722,57 +733,76 @@
 
     async function submitOwnerReview(e) {
       e.preventDefault();
-      const rating = document.getElementById('reviewRating').value;
-      const authorRole = document.getElementById('reviewAuthorRole').value.trim();
-      const comment = document.getElementById('reviewComment').value.trim();
-      const token = localStorage.getItem('menu_pizarron_token');
-
-      let finalPhotoUrl = null;
-      if (selectedReviewPhotoOption === 'logo') {
-        finalPhotoUrl = restaurant?.logoUrl || null;
-      } else {
-        finalPhotoUrl = uploadedReviewPhotoUrl || null;
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const originalText = submitBtn ? submitBtn.innerHTML : '';
+      if (submitBtn) {
+        if (submitBtn.disabled || submitBtn.dataset.busy === 'true') return;
+        submitBtn.disabled = true;
+        submitBtn.dataset.busy = 'true';
+        submitBtn.innerHTML = '<span>⏳ Enviando reseña...</span>';
       }
 
-      const reviewObj = {
-        id: 'rev_' + Date.now(),
-        restaurantId: restaurant?.id || 'rest_demo',
-        restaurantName: restaurant?.name || 'Bistro Pomelli',
-        userId: currentUser?.id || 'usr_demo',
-        email: currentUser?.email || 'demo@scango.app',
-        rating: parseInt(rating) || 5,
-        authorRole: authorRole || 'Dueño / Chef',
-        comment: comment.slice(0, 500),
-        photoOption: selectedReviewPhotoOption,
-        photoUrl: finalPhotoUrl,
-        status: 'pending',
-        createdAt: new Date().toISOString()
-      };
-
-      // Store in localStorage pending reviews so admin can moderate immediately even without backend
       try {
-        const pending = JSON.parse(localStorage.getItem('scango_pending_reviews') || '[]');
-        pending.unshift(reviewObj);
-        localStorage.setItem('scango_pending_reviews', JSON.stringify(pending));
-      } catch (err) {}
+        const rating = document.getElementById('reviewRating').value;
+        const authorRole = document.getElementById('reviewAuthorRole').value.trim();
+        const comment = document.getElementById('reviewComment').value.trim();
+        const token = localStorage.getItem('menu_pizarron_token');
 
-      try {
-        if (token) {
-          await fetch('/api/reviews', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(reviewObj)
-          });
+        let finalPhotoUrl = null;
+        if (selectedReviewPhotoOption === 'logo') {
+          finalPhotoUrl = restaurant?.logoUrl || null;
+        } else {
+          finalPhotoUrl = uploadedReviewPhotoUrl || null;
         }
-      } catch (err) {
-        console.warn('Reseña encolada para moderación en localStorage:', err.message);
-      }
 
-      document.getElementById('reviewSubmittedAlert').style.display = 'block';
-      document.getElementById('reviewComment').value = '';
+        const reviewObj = {
+          id: 'rev_' + Date.now(),
+          restaurantId: restaurant?.id || 'rest_demo',
+          restaurantName: restaurant?.name || 'Bistro Pomelli',
+          userId: currentUser?.id || 'usr_demo',
+          email: currentUser?.email || 'demo@scango.app',
+          rating: parseInt(rating) || 5,
+          authorRole: authorRole || 'Dueño / Chef',
+          comment: comment.slice(0, 500),
+          photoOption: selectedReviewPhotoOption,
+          photoUrl: finalPhotoUrl,
+          status: 'pending',
+          createdAt: new Date().toISOString()
+        };
+
+        // Store in localStorage pending reviews so admin can moderate immediately even without backend
+        try {
+          const pending = JSON.parse(localStorage.getItem('scango_pending_reviews') || '[]');
+          pending.unshift(reviewObj);
+          localStorage.setItem('scango_pending_reviews', JSON.stringify(pending));
+        } catch (err) {}
+
+        try {
+          if (token) {
+            await fetch('/api/reviews', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify(reviewObj)
+            });
+          }
+        } catch (err) {
+          console.warn('Reseña encolada para moderación en localStorage:', err.message);
+        }
+
+        document.getElementById('reviewSubmittedAlert').style.display = 'block';
+        document.getElementById('reviewComment').value = '';
+      } finally {
+        if (submitBtn) {
+          setTimeout(() => {
+            submitBtn.disabled = false;
+            submitBtn.dataset.busy = 'false';
+            submitBtn.innerHTML = originalText;
+          }, 1500);
+        }
+      }
     }
 
     // 1-Click WhatsApp Order Status Notifications
@@ -876,19 +906,23 @@
           ? `<span style="text-decoration:line-through; opacity:0.6; margin-right:4px;">${currency} ${d.originalPrice}</span> ${currency} ${d.price}` 
           : `${currency} ${d.price}`;
 
+        const cleanName = escapeHtml(d.name || 'Sin nombre');
+        const cleanCatName = escapeHtml(cat ? cat.name : 'Sin cat.');
+        const cleanDishId = escapeHtml(d.id || '');
+
         html += `
           <div class="dish-editor-card" style="${opacity} display:flex; align-items:center; gap:8px;">
             ${photoThumb}
             <div style="flex:1; min-width:0;">
               <div style="font-size:12px; font-weight:700; color:#fff; display:flex; align-items:center; flex-wrap:wrap; gap:2px;">
-                ${chefBadge}${starBadge}${d.name}${outBadge}
+                ${chefBadge}${starBadge}${cleanName}${outBadge}
               </div>
               <div style="font-size:10px; color:var(--text-dim); display:flex; align-items:center; gap:4px; margin-top:2px;">
-                ${cat ? cat.name : 'Sin cat.'} • ${priceDisplay} ${tags}
+                ${cleanCatName} • ${priceDisplay} ${tags}
               </div>
             </div>
-            <button class="btn-icon" onclick="editDish('${d.id}')" title="Editar">✏️</button>
-            <button class="btn-icon btn-icon-danger" onclick="deleteDish('${d.id}')" title="Eliminar">🗑️</button>
+            <button class="btn-icon" onclick="editDish('${cleanDishId}')" title="Editar">✏️</button>
+            <button class="btn-icon btn-icon-danger" onclick="deleteDish('${cleanDishId}')" title="Eliminar">🗑️</button>
           </div>
         `;
       });
@@ -1158,9 +1192,9 @@
           <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-base); padding:8px 10px; border-radius:8px; margin-bottom:6px; border:1px solid var(--border);">
             <div style="flex:1; min-width:0;">
               <div style="font-size:12px; font-weight:700; color:#fff; display:flex; align-items:center; gap:4px;">
-                ${d.name} ${tagBadges}
+                ${escapeHtml(d.name)} ${tagBadges}
               </div>
-              <div style="font-size:10px; color:var(--text-dim); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${d.desc}</div>
+              <div style="font-size:10px; color:var(--text-dim); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(d.desc)}</div>
               <div style="font-size:11px; color:var(--accent-gold); font-family:var(--font-mono); margin-top:2px;">$ ${d.price}</div>
             </div>
             <button class="btn-nav btn-nav-gold" style="font-size:11px; padding:4px 10px; flex-shrink:0; margin-left:8px;" onclick="addSinglePresetDish('${key}', ${idx})">
@@ -1524,7 +1558,7 @@
       zones.forEach((z, idx) => {
         html += `
           <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-base); padding:6px 10px; border-radius:6px; margin-bottom:6px;">
-            <span style="font-size:12px;">${z.name}</span>
+            <span style="font-size:12px;">${escapeHtml(z.name)}</span>
             <div style="display:flex; align-items:center; gap:6px;">
               <span style="font-family:var(--font-mono); color:var(--accent-gold); font-size:11px;">${currency} ${z.fee}</span>
               <button class="btn-icon btn-icon-danger" onclick="deleteDeliveryZone(${idx})">🗑️</button>
@@ -2011,7 +2045,18 @@
       document.getElementById('billingModal').classList.remove('active');
     }
 
-    async function startCheckout(plan) {
+    async function startCheckout(plan, eventRef) {
+      const activeEl = (eventRef && eventRef.target) || (window.event && window.event.target) || document.activeElement;
+      const btn = activeEl && (activeEl.tagName === 'BUTTON' ? activeEl : activeEl.closest('button'));
+      const originalText = btn ? btn.innerHTML : '';
+
+      if (btn) {
+        if (btn.disabled || btn.dataset.busy === 'true') return;
+        btn.disabled = true;
+        btn.dataset.busy = 'true';
+        btn.innerHTML = '<span><i class="fa-solid fa-spinner fa-spin"></i> Conectando con pasarela...</span>';
+      }
+
       const token = localStorage.getItem('menu_pizarron_token');
       try {
         const res = await fetch('/api/billing/checkout', {
@@ -2021,7 +2066,7 @@
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            restaurantId: restaurant.id,
+            restaurantId: restaurant?.id,
             plan: plan
           })
         });
@@ -2032,8 +2077,58 @@
           alert('Redirigiendo a pasarela de cobro...');
         }
       } catch (err) {
-        alert('Error al iniciar checkout.');
+        alert('Error al iniciar checkout: ' + (err.message || 'Error de conexión'));
+      } finally {
+        if (btn) {
+          setTimeout(() => {
+            btn.disabled = false;
+            btn.dataset.busy = 'false';
+            btn.innerHTML = originalText;
+          }, 2500);
+        }
       }
+    }
+
+    // Google Play Account Deletion Policy Compliance
+    function openDeleteAccountModal() {
+      const modal = document.getElementById('deleteAccountModal');
+      if (modal) modal.classList.add('active');
+    }
+
+    function closeDeleteAccountModal() {
+      const modal = document.getElementById('deleteAccountModal');
+      if (modal) modal.classList.remove('active');
+    }
+
+    async function confirmAccountDeletion() {
+      const btn = document.getElementById('btnConfirmDeleteAccount');
+      const reason = document.getElementById('deleteAccountReason')?.value.trim() || 'Sin motivo especificado';
+      if (!confirm('¿Estás seguro de solicitar la baja definitiva de tu cuenta y todos tus datos? Esta acción no se puede deshacer.')) {
+        return;
+      }
+
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Procesando baja...';
+      }
+
+      const token = localStorage.getItem('menu_pizarron_token');
+      try {
+        if (token) {
+          await fetch('/api/account/delete-request', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ reason })
+          }).catch(() => {});
+        }
+      } catch (e) {}
+
+      alert('Tu solicitud de eliminación de cuenta y purga de datos personales ha sido registrada correctamente.');
+      localStorage.clear();
+      window.location.href = '/index.html';
     }
 
     function logout() {

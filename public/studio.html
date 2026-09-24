@@ -651,13 +651,12 @@
           </div>
         </div>
 
-        <!-- Legal & Compliance Footer in Studio -->
+        <!-- Legal & Compliance Footer in Studio (Google Play & Privacy Policies) -->
         <div style="padding: 14px 16px; border-top: 1px solid var(--border); font-size: 10px; color: var(--text-dim); display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; background: rgba(0,0,0,0.15);">
-          <a href="/privacidad" target="_blank" style="color: var(--text-dim); text-decoration: none;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-dim)'">Privacidad</a> •
-          <a href="/terminos" target="_blank" style="color: var(--text-dim); text-decoration: none;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-dim)'">Términos</a> •
-          <a href="/cookies" target="_blank" style="color: var(--text-dim); text-decoration: none;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-dim)'">Cookies</a> •
-          <a href="/reembolsos" target="_blank" style="color: var(--text-dim); text-decoration: none;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-dim)'">Reembolsos</a> •
-          <a href="/aviso-legal" target="_blank" style="color: var(--text-dim); text-decoration: none;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-dim)'">Aviso Legal</a>
+          <a href="/privacidad.html" target="_blank" style="color: var(--text-dim); text-decoration: none;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-dim)'">Privacidad</a> •
+          <a href="/terminos.html" target="_blank" style="color: var(--text-dim); text-decoration: none;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-dim)'">Términos</a> •
+          <a href="/legal/cookies.html" target="_blank" style="color: var(--text-dim); text-decoration: none;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-dim)'">Cookies</a> •
+          <a href="javascript:void(0)" onclick="openDeleteAccountModal()" style="color: #F87171; text-decoration: none; font-weight: 600;" onmouseover="this.style.color='#EF4444'" onmouseout="this.style.color='#F87171'">Baja de Cuenta</a>
         </div>
       </div>
     </aside>
@@ -911,13 +910,13 @@
         <div style="background:var(--surface-3); padding:12px; border-radius:8px; border:1px solid var(--border);">
           <div style="font-size:12px; font-weight:700;">Mensual</div>
           <div style="font-size:18px; font-weight:700; color:#fff;">$9 <span style="font-size:10px;">USD/mes</span></div>
-          <button class="btn-nav btn-nav-gold" style="width:100%; margin-top:8px;" onclick="startCheckout('monthly')">Suscribirme</button>
+          <button class="btn-nav btn-nav-gold" style="width:100%; margin-top:8px;" onclick="startCheckout('monthly', event)">Suscribirme</button>
         </div>
         <div style="background:var(--surface-3); padding:12px; border-radius:8px; border:1px solid var(--accent-gold);">
           <div style="font-size:10px; color:var(--accent-gold); font-weight:800;">RECOMENDADO (AHORRA 27%)</div>
           <div style="font-size:12px; font-weight:700;">Anual Pro</div>
           <div style="font-size:18px; font-weight:700; color:#fff;">$79 <span style="font-size:10px;">USD/año</span></div>
-          <button class="btn-nav btn-nav-gold" style="width:100%; margin-top:8px;" onclick="startCheckout('annual')">Activar Anual</button>
+          <button class="btn-nav btn-nav-gold" style="width:100%; margin-top:8px;" onclick="startCheckout('annual', event)">Activar Anual</button>
         </div>
       </div>
 
@@ -971,6 +970,28 @@
         </button>
         <button type="button" id="confirmDialogAcceptBtn" class="btn-nav" style="flex: 1; justify-content: center; font-weight: 700; font-size: 12px; background: #E53E3E; border-color: #E53E3E; color: #fff;" onclick="closeConfirmDialog(true)">
           Sí, Confirmar
+        </button>
+      </div>
+  <!-- Modal Eliminación de Cuenta (Google Play Account Deletion Policy Compliance) -->
+  <div id="deleteAccountModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 480px; text-align: left;">
+      <button class="modal-close" onclick="closeDeleteAccountModal()">✕</button>
+      <div style="font-size: 2.2rem; margin-bottom: 8px;">🗑️</div>
+      <h3 class="modal-title" style="margin-bottom: 8px; color: #EF4444;">Eliminar Cuenta y Datos Personales</h3>
+      <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 14px; line-height: 1.6;">
+        En cumplimiento con las directivas de Google Play Store y leyes de privacidad (GDPR/LGPD), tenés el derecho de solicitar la baja definitiva de tu cuenta de usuario, establecimiento registrado, comensales y datos asociados.
+      </p>
+      <div style="background: rgba(239,68,68,0.08); border: 1px dashed rgba(239,68,68,0.4); border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 11px; color: #FCA5A5;">
+        ⚠️ Esta acción eliminará permanentemente tu menú digital, catálogo de platos, códigos QR generados y accesos a suscripciones.
+      </div>
+      <div class="form-group" style="margin-bottom: 14px;">
+        <label class="form-label">Motivo (Opcional):</label>
+        <input type="text" id="deleteAccountReason" class="form-input" placeholder="Ej: Cierre de local, cambio de plataforma...">
+      </div>
+      <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <button type="button" class="btn-nav" onclick="closeDeleteAccountModal()">Cancelar</button>
+        <button type="button" id="btnConfirmDeleteAccount" class="btn-nav btn-danger" style="background: #EF4444; color: #fff; border-color: #EF4444;" onclick="confirmAccountDeletion()">
+          Confirmar Eliminación Definitiva
         </button>
       </div>
     </div>

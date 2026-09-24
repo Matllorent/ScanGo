@@ -9,6 +9,16 @@
  * - Canjear recompensas directamente vía WhatsApp al restaurante
  */
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 export class LoyaltyRewardsModal {
   constructor(options = {}) {
     this.restaurantName = options.restaurantName || 'ScanGo';
@@ -53,10 +63,10 @@ export class LoyaltyRewardsModal {
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px;">
             <div>
               <div style="font-size: 0.72rem; text-transform: uppercase; color: var(--chalk-dim); letter-spacing: 0.05em;">Tarjeta de Cliente Frecuente</div>
-              <div style="font-family: var(--font-heading); font-size: 1.15rem; color: #fff; font-weight: 700;">${this.restaurantName}</div>
+              <div style="font-family: var(--font-heading); font-size: 1.15rem; color: #fff; font-weight: 700;">${escapeHtml(this.restaurantName)}</div>
             </div>
             <div style="background: var(--chalk-gold); color: #0E1412; font-size: 0.72rem; font-weight: 800; padding: 3px 10px; border-radius: 20px; text-transform: uppercase;">
-              ${this.memberLevel}
+              ${escapeHtml(this.memberLevel)}
             </div>
           </div>
 
@@ -108,7 +118,7 @@ export class LoyaltyRewardsModal {
               return `
                 <div style="background: var(--surface-card); border: 1px solid ${canRedeem ? 'var(--border-gold)' : 'var(--border-chalk)'}; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
                   <div>
-                    <div style="font-size: 0.88rem; font-weight: 700; color: #fff;">${r.title}</div>
+                    <div style="font-size: 0.88rem; font-weight: 700; color: #fff;">${escapeHtml(r.title)}</div>
                     <div style="font-size: 0.75rem; color: var(--chalk-gold); font-family: var(--font-mono);">
                       Costo: ${r.pointsCost} pts
                     </div>
@@ -118,7 +128,8 @@ export class LoyaltyRewardsModal {
                       <button type="button" 
                               class="btn-nav btn-nav-gold" 
                               style="font-size: 11px; padding: 4px 10px;"
-                              onclick="window.activeLoyaltyModal.redeemReward('${r.id}')">
+                              data-reward-id="${escapeHtml(r.id)}"
+                              onclick="window.activeLoyaltyModal.redeemReward(this.dataset.rewardId)">
                         Canjear 🎁
                       </button>
                     ` : `

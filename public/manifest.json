@@ -1,8 +1,10 @@
 {
+  "id": "/?source=pwa",
   "name": "ScanGo — Menú Digital Interactivo",
   "short_name": "ScanGo",
   "description": "Menú digital estilo pizarrón con código QR y pedidos directos por WhatsApp sin comisiones.",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#151D1A",
   "theme_color": "#ECC94B",
@@ -22,13 +24,25 @@
       "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
