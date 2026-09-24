@@ -18,6 +18,8 @@ const authRouter = require('./routes/auth');
 const reviewsRouter = require('./routes/reviews');
 const storageRouter = require('./routes/storage');
 const webhooksRouter = require('./routes/webhooks');
+const notificationsRouter = require('./routes/notifications');
+const emailRouter = require('./routes/email');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -302,6 +304,45 @@ app.get('/api/menu/:slug', async (req, res) => {
         };
       }
 
+      // Smart Menu Sorting & Filtering
+      const reqHour = req.query.hour || req.query.mealTime || '';
+      const reqDay = typeof req.query.day !== 'undefined' ? parseInt(req.query.day) : new Date().getDay();
+      const reqLang = (req.query.lang || 'es').toLowerCase();
+
+      let dishes = (restaurant.dishes || []).map(d => {
+        const trans = d.translations?.[reqLang];
+        return {
+          ...d,
+          name: trans?.name || d.name,
+          description: trans?.description || d.description,
+          previous_price: d.previous_price || d.previousPrice || null,
+          is_chef_recommended: Boolean(d.is_chef_recommended || d.isChefRecommended)
+        };
+      });
+
+      // Priority sorting: Chef recommended on top, followed by matching hour & day slots
+      dishes.sort((a, b) => {
+        const aChef = a.is_chef_recommended ? 1 : 0;
+        const bChef = b.is_chef_recommended ? 1 : 0;
+        if (aChef !== bChef) return bChef - aChef;
+
+        if (reqHour) {
+          const aHours = Array.isArray(a.available_hours || a.availableHours) ? (a.available_hours || a.availableHours) : [];
+          const bHours = Array.isArray(b.available_hours || b.availableHours) ? (b.available_hours || b.availableHours) : [];
+          const aMatch = aHours.includes(reqHour) ? 1 : 0;
+          const bMatch = bHours.includes(reqHour) ? 1 : 0;
+          if (aMatch !== bMatch) return bMatch - aMatch;
+        }
+
+        const aDays = Array.isArray(a.available_days || a.availableDays) ? (a.available_days || a.availableDays) : [0, 1, 2, 3, 4, 5, 6];
+        const bDays = Array.isArray(b.available_days || b.availableDays) ? (b.available_days || b.availableDays) : [0, 1, 2, 3, 4, 5, 6];
+        const aDayMatch = aDays.includes(reqDay) ? 1 : 0;
+        const bDayMatch = bDays.includes(reqDay) ? 1 : 0;
+        if (aDayMatch !== bDayMatch) return bDayMatch - aDayMatch;
+
+        return 0;
+      });
+
       // Sanitize public payload: exclude internal userId, billing identifiers, etc.
       const publicData = {
         id: restaurant.id,
@@ -327,7 +368,7 @@ app.get('/api/menu/:slug', async (req, res) => {
         logoUrl: restaurant.logoUrl || null,
         wifi: restaurant.wifi || { ssid: '', password: '' },
         categories: restaurant.categories || [],
-        dishes: restaurant.dishes || [],
+        dishes: dishes,
         deliveryZones: restaurant.deliveryZones || [],
         updatedAt: restaurant.updatedAt
       };
@@ -581,6 +622,8 @@ app.use('/api/auth', authLimiter, authRouter);
 app.use('/api/reviews', reviewsLimiter, reviewsRouter);
 app.use('/api/storage', storageRouter);
 app.use('/api/webhooks', webhooksRouter);
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/email', emailRouter);
 
 // 404 Not Found Handler for unmatched API routes
 app.use('/api', (req, res) => {
