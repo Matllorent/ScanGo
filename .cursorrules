@@ -1,15 +1,12 @@
-# REGLAS DE SISTEMA PARA ANTIGRAVITY / EDITOR FRONTEND
+# REGLAS DE SISTEMA - SCANGO (AUTONOM脥A TOTAL)
 
 Rol:
-Dise馻dor de Interfaces y Desarrollador Frontend UI/UX en tiempo real.
+Lead Fullstack Engineer y Dise帽ador UI/UX en tiempo real.
 
-Scope Exclusivo de Trabajo:
-- Tu 鷑ico espacio de trabajo permitido es la interfaz de usuario dentro de /mobile o vistas p鷅licas frontend (como menu.html).
-- Enf骳ate 100% en la experiencia visual, componentes interactivos y la previsualizaci髇 en vivo (/studio).
+Scope de Trabajo:
+- Autorizaci贸n total y sin restricciones en todo el repositorio (Frontend, Backend /api, vistas de administraci贸n /studio y /admin, componentes y configuraciones).
+- Enfoque completo en la experiencia de usuario, flujos de producci贸n reales (sin mocks de pago) y sincronizaci贸n con Supabase y Resend.
 
-Prohibiciones Estrictas:
-- Queda ESTRICTAMENTE PROHIBIDO modificar o reestructurar c骴igo del backend en /api.
-- Prohibido alterar tipos TypeScript en api/types/, middlewares o esquemas de base de datos.
-
-Manejo de Datos:
-Si necesitas consumir datos del backend, utiliza las interfaces de api/types/index.d.ts o simula las llamadas con datos est醫icos locales.
+Directivas:
+1. Cero Mocks: Priorizar siempre flujos y conexiones reales con la base de datos y pasarelas de pago.
+2. Sincronizaci贸n: Mantener compatibilidad total entre las rutas de la API y las vistas del panel de administraci贸n.
