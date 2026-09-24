@@ -323,12 +323,37 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
         };
       }
 
+      // Multi-Branch Hierarchy Support (?branch= or ?sucursal=)
+      const reqBranch = (req.query.branch || req.query.sucursal || '').toLowerCase().trim();
+      let activeBranch = null;
+
+      if (reqBranch && Array.isArray(restaurant.branches)) {
+        activeBranch = restaurant.branches.find(b =>
+          (b.id || '').toLowerCase() === reqBranch || (b.slug || '').toLowerCase() === reqBranch
+        );
+      }
+
+      // Base dishes inheritance & price overrides for branch
+      let inheritedDishes = [...(restaurant.dishes || [])];
+      if (activeBranch) {
+        if (activeBranch.overridePrices && typeof activeBranch.overridePrices === 'object') {
+          inheritedDishes = inheritedDishes.map(d => ({
+            ...d,
+            price: typeof activeBranch.overridePrices[d.id] !== 'undefined' ? activeBranch.overridePrices[d.id] : d.price,
+            previous_price: d.price
+          }));
+        }
+        if (Array.isArray(activeBranch.customDishes) && activeBranch.customDishes.length > 0) {
+          inheritedDishes = [...inheritedDishes, ...activeBranch.customDishes];
+        }
+      }
+
       // Smart Menu Sorting & Filtering
       const reqHour = req.query.hour || req.query.mealTime || '';
       const reqDay = typeof req.query.day !== 'undefined' ? parseInt(req.query.day) : new Date().getDay();
       const reqLang = (req.query.lang || 'es').toLowerCase();
 
-      let dishes = (restaurant.dishes || []).map(d => {
+      let dishes = inheritedDishes.map(d => {
         const trans = d.translations?.[reqLang];
         return {
           ...d,
@@ -365,9 +390,25 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
       // Sanitize public payload: exclude internal userId, billing identifiers, etc.
       const publicData = {
         id: restaurant.id,
+        organizationId: restaurant.organizationId || null,
         slug: restaurant.slug,
-        name: restaurant.name || restaurant.bizName,
+        name: activeBranch ? `${restaurant.name || restaurant.bizName} — ${activeBranch.name}` : (restaurant.name || restaurant.bizName),
         bizName: restaurant.bizName || restaurant.name,
+        phone: activeBranch?.phone || restaurant.phone || '',
+        scheduleActiveHours: activeBranch?.scheduleActiveHours || restaurant.scheduleActiveHours || '',
+        tableCount: activeBranch?.tableCount || restaurant.tableCount || 10,
+        activeBranch: activeBranch ? {
+          id: activeBranch.id,
+          name: activeBranch.name,
+          slug: activeBranch.slug,
+          address: activeBranch.address || ''
+        } : null,
+        branches: (restaurant.branches || []).map(b => ({
+          id: b.id,
+          name: b.name,
+          slug: b.slug,
+          address: b.address || ''
+        })),
         slogan: restaurant.slogan || '',
         currency: restaurant.currency || '$',
         phone: restaurant.phone || '',
@@ -691,15 +732,109 @@ app.post('/api/admin/reviews/:id/moderate', adminMiddleware, (req, res) => {
 // Specific HTML routing (allowing dotfiles for paths containing .gemini)
 const SEND_FILE_OPTIONS = { dotfiles: 'allow' };
 
-app.get('/m/:slug', (req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, 'menu.html'), SEND_FILE_OPTIONS);
+// SEO: Dynamic Robots.txt Route
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain');
+  res.send(`User-agent: *
+Disallow: /admin
+Disallow: /studio
+Disallow: /api/
+Allow: /m/
+Allow: /
+Sitemap: ${process.env.APP_URL || 'https://menupizarron.com'}/sitemap.xml
+`);
 });
 
-app.get('/studio', (req, res) => {
+// SEO: Dynamic XML Sitemap Route for Active Restaurant Menus
+app.get('/sitemap.xml', (req, res) => {
+  res.type('application/xml');
+  const appUrl = process.env.APP_URL || 'https://menupizarron.com';
+  const restaurants = db.getAllRestaurants().filter(r => r.subscription && r.subscription.status !== 'canceled');
+
+  const urlsXml = restaurants.map(r => `
+  <url>
+    <loc>${appUrl}/m/${r.slug}</loc>
+    <lastmod>${r.updatedAt || r.createdAt || new Date().toISOString()}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>`).join('');
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${appUrl}/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>${urlsXml}
+</urlset>`;
+
+  res.send(xml);
+});
+
+// SEO & OpenGraph Dynamic Public Menu Route
+app.get('/m/:slug', (req, res) => {
+  const slug = (req.params.slug || '').toLowerCase();
+  const restaurant = db.findRestaurantBySlug(slug);
+  const menuHtmlPath = path.join(PUBLIC_DIR, 'menu.html');
+
+  if (fs.existsSync(menuHtmlPath) && restaurant) {
+    let html = fs.readFileSync(menuHtmlPath, 'utf8');
+    const appUrl = process.env.APP_URL || 'https://menupizarron.com';
+    const title = `${restaurant.name || restaurant.bizName || 'Menú Digital'} — Menú Pizarrón`;
+    const slogan = restaurant.slogan || 'Especialidad, masas artesanales y cocina de autor';
+    const logoUrl = restaurant.logoUrl || `${appUrl}/og-cover.png`;
+    const menuUrl = `${appUrl}/m/${restaurant.slug}`;
+
+    const ogTags = `
+      <title>${title}</title>
+      <meta property="og:title" content="${title}" />
+      <meta property="og:description" content="${slogan}" />
+      <meta property="og:image" content="${logoUrl}" />
+      <meta property="og:url" content="${menuUrl}" />
+      <meta property="og:type" content="restaurant.menu" />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content="${title}" />
+      <meta name="twitter:description" content="${slogan}" />
+      <meta name="twitter:image" content="${logoUrl}" />
+    `;
+
+    // Inject OpenGraph meta tags before </head>
+    html = html.replace('</head>', `${ogTags}\n</head>`);
+    return res.send(html);
+  }
+
+  res.sendFile(menuHtmlPath, SEND_FILE_OPTIONS);
+});
+
+// Server-side Auth Guard for Studio HTML View
+function studioHtmlAuthMiddleware(req, res, next) {
+  const token = req.cookies.auth_token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
+  if (!token) {
+    return res.redirect('/?auth=required');
+  }
+  try {
+    jwt.verify(token, JWT_SECRET);
+    next();
+  } catch (e) {
+    res.clearCookie('auth_token');
+    return res.redirect('/?auth=expired');
+  }
+}
+
+// Server-side Auth Guard for Admin HTML View
+function adminHtmlAuthMiddleware(req, res, next) {
+  const key = req.cookies.admin_key || req.headers['x-admin-key'] || req.query.adminKey;
+  if (!key || key !== ADMIN_KEY) {
+    return res.status(403).send('<!DOCTYPE html><html><head><title>403 Acceso Denegado</title></head><body style="font-family:sans-serif;text-align:center;padding:50px;"><h1>403 Acceso Denegado</h1><p>Se requiere clave de administración para acceder a este panel.</p></body></html>');
+  }
+  next();
+}
+
+app.get('/studio', studioHtmlAuthMiddleware, (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'studio.html'), SEND_FILE_OPTIONS);
 });
 
-app.get('/admin', (req, res) => {
+app.get('/admin', adminHtmlAuthMiddleware, (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'admin.html'), SEND_FILE_OPTIONS);
 });
 

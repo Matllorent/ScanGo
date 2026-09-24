@@ -3,7 +3,7 @@ const { retryQueue } = require('../utils/retryQueue');
 
 /**
  * Email Service for Transactional & Marketing Emails
- * Integrates Resend API client via native fetch with environment variable credentials
+ * Integrates Resend API client via native fetch with process.env credentials
  */
 const emailService = {
   /**

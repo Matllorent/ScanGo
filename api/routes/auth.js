@@ -1,7 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const db = require('../../src/db/db');
-const emailService = require('../../src/email/emailService');
+const emailService = require('../services/email');
 const { hashPassword, comparePassword } = require('../utils/hash');
 const { registerSchema, loginSchema, validateBody } = require('../middleware/validation');
 const { getSupabaseClient } = require('../utils/supabase');
@@ -116,7 +116,7 @@ router.post('/register', normalizeEmailInput, validateBody(registerSchema), asyn
     res.cookie('auth_token', token, COOKIE_OPTIONS);
 
     // Send welcome email
-    emailService.sendWelcome({
+    emailService.sendWelcomeEmail({
       to: user.email,
       restaurantName: restaurant.name || restaurant.bizName,
       menuUrl: `${appUrl}/m/${restaurant.slug}`,

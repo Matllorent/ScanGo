@@ -10,6 +10,7 @@ export interface User {
   email: string;
   password?: string;
   name?: string;
+  organizationId?: string;
   email_confirmed_at?: string | null;
   emailConfirmedAt?: string | null;
   created_at?: string;
@@ -88,8 +89,31 @@ export interface WifiConfig {
   password: string;
 }
 
+export interface Branch {
+  id: string;
+  restaurantId?: string;
+  name: string;
+  slug: string;
+  address?: string;
+  phone?: string;
+  scheduleActiveHours?: string;
+  tableCount?: number;
+  overridePrices?: Record<string, number>;
+  customDishes?: Dish[];
+  createdAt?: string;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  ownerUserId: string;
+  restaurantIds: string[];
+  createdAt: string;
+}
+
 export interface Restaurant {
   id: string;
+  organizationId?: string;
   user_id?: string;
   userId: string;
   name: string;
@@ -116,6 +140,7 @@ export interface Restaurant {
   logoUrl?: string | null;
   categories: Category[];
   dishes: Dish[];
+  branches?: Branch[];
   delivery_zones?: DeliveryZone[];
   deliveryZones?: DeliveryZone[];
   customCoupons?: CustomCoupon[];
@@ -159,6 +184,7 @@ export interface Order {
   id: string;
   restaurant_id?: string;
   restaurantId: string;
+  branchId?: string;
   table_number?: string;
   tableNumber?: number | string;
   items_snapshot?: OrderItemSnapshot[];
