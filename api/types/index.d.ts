@@ -11,7 +11,10 @@ export interface User {
   password?: string;
   name?: string;
   email_confirmed_at?: string | null;
+  emailConfirmedAt?: string | null;
+  created_at?: string;
   createdAt?: string;
+  updated_at?: string;
   updatedAt?: string;
 }
 
@@ -24,6 +27,7 @@ export interface Dish {
   previousPrice?: number | null;
   description?: string;
   photoUrl?: string | null;
+  photo_url?: string | null;
   outOfStock?: boolean;
   tags?: string[];
   is_chef_recommended?: boolean;
@@ -61,11 +65,13 @@ export interface TeamMember {
 
 export interface Subscription {
   status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'paused';
+  plan?: string;
   planId?: string;
   validUntil?: string;
   provider?: string;
   customerId?: string;
   subscriptionId?: string;
+  created_at?: string;
   createdAt?: string;
 }
 
@@ -74,6 +80,7 @@ export interface Analytics {
   orders: number;
   reservations: number;
   waiterCalls: number;
+  lastUpdated?: string;
 }
 
 export interface WifiConfig {
@@ -83,8 +90,10 @@ export interface WifiConfig {
 
 export interface Restaurant {
   id: string;
+  user_id?: string;
   userId: string;
   name: string;
+  biz_name?: string;
   bizName?: string;
   slug: string;
   slogan?: string;
@@ -103,15 +112,19 @@ export interface Restaurant {
   scheduleEnabled?: boolean;
   scheduleActiveHours?: string;
   tableCount?: number;
+  logo_url?: string | null;
   logoUrl?: string | null;
   categories: Category[];
   dishes: Dish[];
+  delivery_zones?: DeliveryZone[];
   deliveryZones?: DeliveryZone[];
   customCoupons?: CustomCoupon[];
   teamMembers?: TeamMember[];
   subscription?: Subscription;
   analytics?: Analytics;
+  created_at?: string;
   createdAt?: string;
+  updated_at?: string;
   updatedAt?: string;
 }
 
@@ -129,37 +142,53 @@ export interface PushSubscription {
   created_at: string;
 }
 
-export interface OrderItem {
+export interface OrderItemSnapshot {
   dishId: string;
   name: string;
-  price: number;
+  unitPrice: number;
+  unitPriceInCents: number;
   quantity: number;
-  options?: Record<string, any>;
+  totalItemAmount: number;
+  totalItemAmountInCents: number;
+  categoryName?: string;
+  optionsSnapshot?: Record<string, any>;
+  snapshotTimestamp: string;
 }
 
 export interface Order {
   id: string;
+  restaurant_id?: string;
   restaurantId: string;
+  table_number?: string;
   tableNumber?: number | string;
-  items: OrderItem[];
+  items_snapshot?: OrderItemSnapshot[];
+  itemsSnapshot?: OrderItemSnapshot[];
+  amount?: number;
+  amount_in_cents?: number;
   total: number;
+  currency: string;
   status: 'pending' | 'preparing' | 'delivered' | 'cancelled' | 'completed';
+  customer_name?: string;
   customerName?: string;
+  customer_phone?: string;
   customerPhone?: string;
+  delivery_address?: string;
   deliveryAddress?: string;
-  paymentMethod?: string;
   notes?: string;
-  createdAt: string | Date;
+  created_at: string;
+  createdAt?: string | Date;
   updatedAt?: string | Date;
 }
 
 export interface Webhook {
-  id: string;
+  id: string | number;
   provider: 'mercadopago' | 'stripe' | 'dlocal' | 'lemonsqueezy' | string;
-  event: string;
-  payload: Record<string, any>;
-  timestamp: string | Date;
-  status: 'received' | 'processed' | 'failed';
+  event_id?: string;
+  event?: string;
+  payload?: Record<string, any>;
+  data?: Record<string, any>;
+  timestamp?: string | Date;
+  status?: 'received' | 'processed' | 'failed';
   signature?: string;
   error?: string;
 }
@@ -167,15 +196,17 @@ export interface Webhook {
 export interface Review {
   id: string;
   restaurant_id: string;
+  restaurantId?: string;
   rating: number;
   comment: string;
   author_photo_url?: string | null;
+  authorPhotoUrl?: string | null;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
 }
 
 export interface ProcessedWebhook {
-  id?: string;
+  id?: string | number;
   provider: string;
   event_id: string;
   processed_at: string;
