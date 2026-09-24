@@ -23,6 +23,8 @@ const webhooksRouter = require('./routes/webhooks');
 const notificationsRouter = require('./routes/notifications');
 const emailRouter = require('./routes/email');
 const healthRouter = require('./routes/health');
+const ordersRouter = require('./routes/orders');
+const analyticsRouter = require('./routes/analytics');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -300,11 +302,15 @@ app.post('/api/studio/save', authMiddleware, requireVerifiedEmail, async (req, r
   }
 });
 
-// ==================== PUBLIC MENU VIEWER (WITH CACHE STAMPEDE PROTECTION & LRU CACHING) ====================
+// ==================== PUBLIC MENU VIEWER (WITH 800MS TIMEOUT RACE & STALE CACHE FALLBACK) ====================
 app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
   const slug = (req.params.slug || '').toLowerCase();
   try {
-    const data = await getCachedMenu(slug, async () => {
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('DB_TIMEOUT_800MS')), 800)
+    );
+
+    const fetchPromise = getCachedMenu(slug, async () => {
       const restaurant = db.findRestaurantBySlug(slug);
       if (!restaurant) return null;
 
@@ -394,6 +400,22 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
         }
       };
     });
+
+    let data;
+    try {
+      data = await Promise.race([fetchPromise, timeoutPromise]);
+    } catch (raceErr) {
+      if (raceErr.message === 'DB_TIMEOUT_800MS') {
+        const { memoryCache } = require('./middleware/cache');
+        const stale = memoryCache.get(slug);
+        if (stale) {
+          res.setHeader('Warning', '110 Response is Stale');
+          res.setHeader('X-Cache-Status', 'Stale-Fallback');
+          return res.status(200).json(stale);
+        }
+      }
+      data = await fetchPromise;
+    }
 
     if (!data) {
       return res.status(404).json({ error: 'Restaurante no encontrado' });
@@ -637,6 +659,8 @@ app.use('/api/storage', storageRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/email', emailRouter);
+app.use('/api/orders', ordersLimiter, ordersRouter);
+app.use('/api/analytics', analyticsRouter);
 app.use('/api', healthRouter);
 
 // 404 Not Found Handler for unmatched API routes
