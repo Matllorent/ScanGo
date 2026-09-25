@@ -1075,3 +1075,472 @@
       font-family: var(--font-chalk);
       font-size: 1.6rem;
     }
+
+    /* ============================================================
+       VISUAL REFINEMENTS (Inspired by Uruguayan Restaurant References)
+       ============================================================ */
+
+    /* 1. Top Loyalty Bar (Tarjeta de Puntos & Recompensas) */
+    .loyalty-top-bar {
+      background: linear-gradient(90deg, #D49B00, #F59E0B);
+      color: #0E1412;
+      padding: 9px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      user-select: none;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .loyalty-top-bar:hover {
+      opacity: 0.96;
+    }
+    .loyalty-top-content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 0.88rem;
+      letter-spacing: 0.2px;
+    }
+    .loyalty-star-icon {
+      font-size: 1.1rem;
+    }
+    .loyalty-user-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.15);
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      color: #0E1412;
+      transition: background-color 0.2s;
+    }
+    .loyalty-top-bar:hover .loyalty-user-btn {
+      background: rgba(0, 0, 0, 0.25);
+    }
+
+    /* 2. Restaurant Header Refinements */
+    .restaurant-cover-banner {
+      width: 100%;
+      height: 140px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.2), #101614), url('/logo-scango.png') center/cover no-repeat;
+      position: relative;
+    }
+    .header-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .header-social-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .social-btn-round {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--border-chalk);
+      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .social-btn-round:hover {
+      background: var(--chalk-gold);
+      color: #101614;
+      border-color: var(--chalk-gold);
+    }
+    .btn-info-modal {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 20px;
+      padding: 6px 14px;
+      color: #fff;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn-info-modal:hover {
+      background: rgba(255,255,255,0.18);
+      border-color: var(--chalk-gold);
+      color: var(--chalk-gold);
+    }
+    .status-pill-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .status-pill {
+      font-size: 0.76rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .status-pill.open { background: rgba(34, 197, 94, 0.18); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); }
+    .status-pill.closed { background: rgba(239, 68, 68, 0.18); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+    .status-pill.order-later { background: rgba(255, 255, 255, 0.08); color: var(--chalk-muted); border: 1px solid var(--border-chalk); }
+
+    /* 3. Category Navigation Bar (Pills + Quick Buttons) */
+    .category-nav-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+    .cat-nav-icon-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--surface-card);
+      border: 1px solid var(--border-chalk);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+    .cat-nav-icon-btn:hover {
+      border-color: var(--chalk-gold);
+      color: var(--chalk-gold);
+    }
+
+    /* 4. Visual Destacados Carousel / Grid */
+    .destacados-grid {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding: 4px 2px 14px 2px;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+    }
+    .destacados-grid::-webkit-scrollbar { display: none; }
+    .destacado-card {
+      min-width: 145px;
+      max-width: 155px;
+      flex-shrink: 0;
+      background: var(--surface-card);
+      border: 1px solid var(--border-chalk);
+      border-radius: 12px;
+      overflow: hidden;
+      scroll-snap-align: start;
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .destacado-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--chalk-gold);
+    }
+    .destacado-img-wrap {
+      width: 100%;
+      height: 125px;
+      position: relative;
+      background: #151E1A;
+    }
+    .destacado-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .destacado-logo-badge {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.4);
+      background: #101614;
+      object-fit: cover;
+    }
+    .destacado-btn-add {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #EF4444;
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+      transition: transform 0.15s, background-color 0.15s;
+    }
+    .destacado-btn-add:hover {
+      transform: scale(1.1);
+      background: #DC2626;
+    }
+    .destacado-info {
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .destacado-price {
+      font-size: 0.98rem;
+      font-weight: 800;
+      color: #fff;
+      font-family: var(--font-mono);
+    }
+    .destacado-name {
+      font-size: 0.82rem;
+      color: var(--chalk-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* 5. Horizontal Dish Card with Photo on Right & Overlay Add Button */
+    .dish-card-horizontal {
+      background: var(--surface-card);
+      border: 1px solid var(--border-chalk);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: stretch;
+      gap: 14px;
+      margin-bottom: 12px;
+      transition: background-color 0.2s, border-color 0.2s;
+    }
+    .dish-card-horizontal:hover {
+      background: var(--surface-card-hover);
+      border-color: rgba(255,255,255,0.2);
+    }
+    .dish-info-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-width: 0;
+    }
+    .dish-photo-col {
+      width: 92px;
+      height: 92px;
+      position: relative;
+      flex-shrink: 0;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #151E1A;
+      border: 1px solid var(--border-chalk);
+    }
+    .dish-photo-col img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .btn-add-float {
+      position: absolute;
+      bottom: 5px;
+      right: 5px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #EF4444;
+      color: #fff;
+      font-size: 1.15rem;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      transition: transform 0.15s, background-color 0.15s;
+    }
+    .btn-add-float:hover {
+      transform: scale(1.1);
+      background: #DC2626;
+    }
+
+    /* 6. General Info Modal Styles */
+    .info-modal-box {
+      max-width: 480px;
+      padding: 22px;
+      background: #16201C;
+      border: 1px solid var(--border-chalk);
+      border-radius: 16px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.7);
+    }
+    .info-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-chalk);
+    }
+    .info-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .info-modal-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      margin: 0;
+    }
+    .info-header-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .info-action-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--border-chalk);
+      color: #fff;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+    .info-action-btn:hover {
+      background: var(--chalk-gold);
+      color: #101614;
+    }
+    .info-section {
+      margin-bottom: 20px;
+    }
+    .info-section-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+    .info-address-box {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      background: rgba(255,255,255,0.04);
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border-chalk);
+      font-size: 0.88rem;
+      line-height: 1.4;
+      color: var(--chalk-muted);
+    }
+    .service-cards-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .service-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-chalk);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .service-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .service-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #fff;
+      font-size: 0.92rem;
+    }
+    .service-check {
+      color: #4ade80;
+      font-weight: 800;
+      font-size: 1rem;
+    }
+    .service-detail {
+      font-size: 0.8rem;
+      color: var(--chalk-dim);
+      margin-bottom: 2px;
+    }
+    .service-subnote {
+      font-size: 0.75rem;
+      color: #f59e0b;
+    }
+    .schedule-days-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .schedule-day-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 0.84rem;
+      color: var(--chalk-muted);
+    }
+    .schedule-day-row.today {
+      background: rgba(56, 178, 172, 0.18);
+      border: 1px solid rgba(56, 178, 172, 0.5);
+      color: #38bdf8;
+      font-weight: 700;
+    }
+    .schedule-day-name {
+      font-weight: 600;
+      min-width: 80px;
+    }
+    .schedule-day-hours {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+    }
+    .schedule-day-hours.closed {
+      color: #f87171;
+      font-weight: 600;
+    }
+    .schedule-time-val {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+    }
+    .schedule-closed {
+      color: #f87171;
+      font-weight: 600;
+    }
+    .info-modal-body {
+      max-height: 65vh;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.15) transparent;
+    }

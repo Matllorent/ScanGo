@@ -4,5 +4,13 @@
     "createdAt": "2026-09-24T21:23:12.771Z",
     "email": "test-restaurante@pizarron.com",
     "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1790310335886_h5eflb",
+    "createdAt": "2026-09-25T04:25:35.886Z",
+    "email": "aberrueta873@gmail.com",
+    "password": "$2b$12$lqJk2UQRHIlsqS0o.ikgtuB81v9UVD5AJhJuxU.lMCqN9xid/fTmW",
+    "name": "Alejandro",
+    "email_confirmed_at": "2026-09-25T04:25:35.884Z"
   }
 ]

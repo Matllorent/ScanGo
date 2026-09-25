@@ -561,7 +561,10 @@
 
         <div class="form-group">
           <label class="form-label">Contraseña</label>
-          <input type="password" id="regPassword" class="form-input" placeholder="Mínimo 6 caracteres" minlength="6" required>
+          <div class="password-input-wrapper">
+            <input type="password" id="regPassword" class="form-input" placeholder="Mínimo 6 caracteres" minlength="6" required>
+            <button type="button" class="toggle-pass-btn" onclick="togglePasswordVisibility('regPassword', this)" aria-label="Mostrar u ocultar contraseña" title="Mostrar/ocultar contraseña">👁️</button>
+          </div>
         </div>
 
         <button type="submit" id="btnSubmitRegister" class="btn btn-gold" style="width: 100%; margin-top: 8px;">
@@ -578,7 +581,10 @@
 
         <div class="form-group">
           <label class="form-label">Contraseña</label>
-          <input type="password" id="loginPassword" class="form-input" placeholder="Ingresa tu contraseña" required>
+          <div class="password-input-wrapper">
+            <input type="password" id="loginPassword" class="form-input" placeholder="Ingresa tu contraseña" required>
+            <button type="button" class="toggle-pass-btn" onclick="togglePasswordVisibility('loginPassword', this)" aria-label="Mostrar u ocultar contraseña" title="Mostrar/ocultar contraseña">👁️</button>
+          </div>
         </div>
 
         <button type="submit" id="btnSubmitLogin" class="btn btn-gold" style="width: 100%; margin-top: 8px;">

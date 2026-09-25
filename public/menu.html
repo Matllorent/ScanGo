@@ -23,6 +23,17 @@
 </head>
 <body>
 
+  <!-- Top Loyalty Bar (Tarjeta de Puntos & Recompensas) -->
+  <div id="loyaltyTopBanner" class="loyalty-top-bar" onclick="openLoyaltyModal()" role="button" aria-label="Club Puntos y Recompensas">
+    <div class="loyalty-top-content">
+      <span class="loyalty-star-icon">⭐</span>
+      <span class="loyalty-banner-title">¡Gana puntos y recompensas!</span>
+    </div>
+    <div class="loyalty-user-btn" title="Ver mi saldo y tarjeta de puntos">
+      <span>👤</span>
+    </div>
+  </div>
+
   <!-- Announcement Banner -->
   <div id="announcementBanner" class="announcement-banner">
     <span id="announcementBannerText">📢 Anuncio del día</span>
@@ -30,15 +41,44 @@
 
   <!-- Header -->
   <header class="menu-header">
+    <!-- Header Social & Info Top Bar -->
+    <div class="header-top-row">
+      <div id="headerSocialLinks" class="header-social-actions">
+        <a id="hdrSocialWa" href="javascript:void(0)" onclick="openWhatsAppChat()" class="social-btn-round" title="WhatsApp" aria-label="WhatsApp">💬</a>
+        <a id="hdrSocialIg" href="javascript:void(0)" target="_blank" class="social-btn-round" title="Instagram" aria-label="Instagram">📸</a>
+        <a id="hdrSocialFb" href="javascript:void(0)" target="_blank" class="social-btn-round" title="Facebook" aria-label="Facebook">👥</a>
+        <a id="hdrSocialTk" href="javascript:void(0)" target="_blank" class="social-btn-round" title="TikTok" aria-label="TikTok">🎵</a>
+      </div>
+      <button type="button" class="btn-info-modal" onclick="openRestaurantInfoModal()" aria-label="Información del restaurante">
+        <span>ℹ️</span> Información
+      </button>
+    </div>
+
     <div id="restaurantLogoContainer"></div>
     <h1 id="restaurantName" class="restaurant-title">Cargando Menú...</h1>
+    
+    <!-- Status & Schedule Tagline -->
+    <div class="status-pill-row">
+      <span id="statusOpenClosedBadge" class="status-pill open">
+        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#4ade80;"></span> Abierto
+      </span>
+      <span id="statusOrderLaterBadge" class="status-pill order-later" style="display:none;">
+        🕒 Pedir para luego
+      </span>
+    </div>
+
     <div id="restaurantSlogan" class="restaurant-slogan"></div>
 
+    <!-- Quick Meta Information (Uruguay Address, Delivery Time & Minimum Order) -->
     <div class="restaurant-meta-bar">
-      <!-- Indicador Abierto / Cerrado en tiempo real -->
-      <span id="statusOpenClosedBadge" class="meta-chip" style="display:none;"></span>
-      <span id="loyaltyChip" class="meta-chip" onclick="openLoyaltyModal()" style="background: rgba(236, 201, 75, 0.15); border-color: rgba(236, 201, 75, 0.5); color: var(--chalk-gold); font-weight: 700;">
-        ⭐ Club Puntos
+      <span id="addressChip" class="meta-chip" onclick="openRestaurantInfoModal()" style="cursor:pointer;">
+        📍 <span id="addressText">Uruguay</span>
+      </span>
+      <span id="deliveryTimeChip" class="meta-chip">
+        🕒 Entrega <strong id="deliveryTimeText">30 - 45min.</strong>
+      </span>
+      <span id="minOrderChip" class="meta-chip" style="display:none;">
+        🛒 Pedido mínimo <strong id="minOrderText">$U 300</strong>
       </span>
       <span id="reservationChip" class="meta-chip" onclick="openReservationModal()" style="display:none; background: rgba(56, 161, 105, 0.2); border-color: rgba(56, 161, 105, 0.5); color: #68D391; font-weight: 700;">
         📅 Reservar Mesa
@@ -46,17 +86,11 @@
       <span id="wifiChip" class="meta-chip" onclick="openWifiModal()" style="display:none;">
         📶 Conectar a Wi-Fi
       </span>
-      <a id="instagramChip" class="meta-chip" href="#" target="_blank" style="display:none;">
-        📸 <span id="instagramText">@instagram</span>
-      </a>
       <a id="googleReviewChip" class="meta-chip" href="#" target="_blank" style="display:none; color:var(--chalk-gold); border-color:rgba(236, 201, 75, 0.4);">
-        ⭐ Dejar Reseña en Google
+        ⭐ Dejar Reseña
       </a>
       <span id="phoneChip" class="meta-chip" style="display:none;">
         📞 <span id="phoneText"></span>
-      </span>
-      <span id="addressChip" class="meta-chip" style="display:none;">
-        📍 <span id="addressText"></span>
       </span>
     </div>
   </header>
@@ -96,9 +130,13 @@
         </div>
       </section>
 
-      <!-- Filtro de Categorías -->
-      <div id="categoryPills" class="category-pills">
-        <button class="cat-pill active" onclick="selectCategory('ALL')">Todos</button>
+      <!-- Filtro de Categorías con Acceso Rápido a Búsqueda y Lista -->
+      <div class="category-nav-wrapper">
+        <button type="button" class="cat-nav-icon-btn" onclick="focusSearchInput()" aria-label="Buscar en la carta" title="Buscar plato">🔍</button>
+        <button type="button" class="cat-nav-icon-btn" onclick="openCategoriesMenuModal()" aria-label="Ver todas las categorías" title="Categorías">☰</button>
+        <div id="categoryPills" class="category-pills">
+          <button class="cat-pill active" onclick="selectCategory('ALL')">Todos</button>
+        </div>
       </div>
 
       <!-- Filtros Dietéticos Rápidos -->
@@ -382,6 +420,103 @@
         <button class="meta-chip" onclick="copyWifiPassword()" style="margin:0 auto; padding:6px 14px; font-weight:bold;">
           📋 Copiar Contraseña
         </button>
+      </div>
+    </div>
+  </div>
+  <!-- Restaurant General Information Modal (Horarios, Servicios, Dirección) -->
+  <div id="restaurantInfoModal" class="modal-overlay">
+    <div class="modal-box info-modal-box">
+      <div class="info-modal-header">
+        <div class="info-header-left">
+          <h3 class="info-modal-title">Información</h3>
+          <div class="info-header-actions">
+            <button type="button" class="info-action-btn" onclick="openWhatsAppChat()" title="WhatsApp" aria-label="WhatsApp">💬</button>
+            <button type="button" class="info-action-btn" onclick="shareRestaurantUrl()" title="Compartir enlace" aria-label="Compartir">🔗</button>
+          </div>
+        </div>
+        <button type="button" class="modal-close" onclick="closeRestaurantInfoModal()" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="info-modal-body">
+        <!-- Dirección en formato Uruguay -->
+        <div class="info-section">
+          <h4 class="info-section-title">Dirección</h4>
+          <div class="info-address-box">
+            <span style="font-size:1.2rem; flex-shrink:0;">📍</span>
+            <div id="infoAddressFullText">
+              Cam. Tomkinson 3265, 12600 Montevideo, Departamento de Montevideo, Uruguay
+            </div>
+          </div>
+        </div>
+
+        <!-- Tipos de Servicio -->
+        <div class="info-section">
+          <h4 class="info-section-title">Tipos de servicio</h4>
+          <div class="service-cards-list">
+            <div class="service-card">
+              <div class="service-card-header">
+                <div class="service-title-group">
+                  <span>🛵</span>
+                  <strong>A domicilio</strong>
+                </div>
+                <span class="service-check">✓</span>
+              </div>
+              <div class="service-detail">
+                <span>🕒 Tiempo de entrega a domicilio <strong id="infoDeliveryTimeModal">30 - 45min.</strong></span>
+              </div>
+              <div class="service-subnote">
+                <span>ⓘ Sí recibimos pedidos fuera de rango.</span>
+              </div>
+            </div>
+
+            <div class="service-card">
+              <div class="service-card-header">
+                <div class="service-title-group">
+                  <span>🛍️</span>
+                  <strong>Para llevar</strong>
+                </div>
+                <span class="service-check">✓</span>
+              </div>
+              <div class="service-detail">
+                <span>Retiro en el local disponible.</span>
+              </div>
+            </div>
+
+            <div class="service-card">
+              <div class="service-card-header">
+                <div class="service-title-group">
+                  <span>🍽️</span>
+                  <strong>En el local</strong>
+                </div>
+                <span class="service-check">✓</span>
+              </div>
+              <div class="service-detail">
+                <span>Consumo en mesas y salón habilitado.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Horarios de Atención Semanales con Hoy Destacado -->
+        <div class="info-section" style="margin-bottom:0;">
+          <h4 class="info-section-title">Horarios de atención</h4>
+          <div id="weeklyScheduleList" class="schedule-days-list">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Categories List Modal (Acceso Rápido ☰) -->
+  <div id="categoriesListModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 420px; padding: 20px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 class="modal-title" style="margin:0;">Categorías de la Carta</h3>
+        <button type="button" class="modal-close" onclick="closeCategoriesMenuModal()">✕</button>
+      </div>
+      <div id="categoriesModalList" style="display:flex; flex-direction:column; gap:8px; max-height:60vh; overflow-y:auto;">
+        <!-- Populated dynamically -->
       </div>
     </div>
   </div>

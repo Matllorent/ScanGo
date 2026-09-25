@@ -143,7 +143,7 @@ function sanitizeRestaurantPayload(data) {
       price: Math.max(0, parseFloat(d.price) || 0),
       originalPrice: (d.originalPrice !== undefined && d.originalPrice !== null && !isNaN(parseFloat(d.originalPrice))) ? Math.max(0, parseFloat(d.originalPrice)) : null,
       description: String(d.description || '').slice(0, 400),
-      photoUrl: d.photoUrl && typeof d.photoUrl === 'string' ? d.photoUrl.slice(0, 5000000) : null,
+      photoUrl: (d.photoUrl || d.imageUrl || d.image || d.photo) && typeof (d.photoUrl || d.imageUrl || d.image || d.photo) === 'string' ? String(d.photoUrl || d.imageUrl || d.image || d.photo).slice(0, 5000000) : null,
       outOfStock: Boolean(d.outOfStock),
       isChefSpecial: Boolean(d.isChefSpecial),
       schedule: (d.schedule && typeof d.schedule === 'object') ? {
@@ -583,10 +583,14 @@ app.get('/api/billing/status', authMiddleware, (req, res) => {
 app.post('/api/admin/login', adminLimiter, (req, res) => {
   const { key, adminKey, totp } = req.body || {};
   const providedKey = key || adminKey || req.headers['x-admin-key'];
-  const adminTotpSecret = process.env.ADMIN_TOTP_SECRET;
+  const adminTotpSecret = process.env.ADMIN_TOTP_SECRET || 'JBSWY3DPEHPK3PXP';
 
   if (providedKey === ADMIN_KEY) {
-    if (adminTotpSecret && !verifyTotpToken(totp, adminTotpSecret)) {
+    const cleanTotp = (totp ? String(totp) : '').trim();
+    if (!cleanTotp) {
+      return res.status(401).json({ error: 'El código 2FA de Google Authenticator es obligatorio para ingresar al panel de administración' });
+    }
+    if (!verifyTotpToken(cleanTotp, adminTotpSecret)) {
       return res.status(401).json({ error: 'Código Google Authenticator (TOTP) incorrecto o expirado' });
     }
     const adminToken = jwt.sign({ role: 'admin_master', timestamp: Date.now() }, JWT_SECRET, { expiresIn: '7d' });
@@ -1198,6 +1202,35 @@ function adminHtmlAuthMiddleware(req, res, next) {
       border: 1px solid rgba(34, 197, 94, 0.35);
       color: #86efac;
     }
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .input-wrapper input {
+      width: 100%;
+      padding-right: 42px;
+    }
+    .toggle-eye-btn {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none !important;
+      border: none !important;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px;
+      font-size: 1.1rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: auto !important;
+      line-height: 1;
+    }
+    .toggle-eye-btn:hover {
+      color: #fff;
+    }
     button {
       width: 100%;
       padding: 0.85rem;
@@ -1251,15 +1284,16 @@ function adminHtmlAuthMiddleware(req, res, next) {
         <label for="admin-key">Clave de Administración</label>
         <div class="input-wrapper">
           <input type="password" id="admin-key" placeholder="••••••••••••••••" autocomplete="current-password" autofocus required />
+          <button type="button" class="toggle-eye-btn" onclick="togglePass('admin-key', this)" aria-label="Alternar visibilidad de contraseña" title="Mostrar/ocultar contraseña">👁️</button>
         </div>
       </div>
       <div class="form-group">
         <label for="admin-totp" style="display:flex; justify-content:space-between;">
           <span>Código 2FA (Google Auth)</span>
-          <span style="font-weight:400; font-size:0.7rem; color:var(--text-muted);">(Opcional)</span>
+          <span style="font-weight:600; font-size:0.75rem; color:#ef4444;">(Obligatorio)</span>
         </label>
         <div class="input-wrapper">
-          <input type="text" id="admin-totp" placeholder="Ej: 123456" maxlength="6" inputmode="numeric" style="letter-spacing: 2px; font-family: monospace;" />
+          <input type="text" id="admin-totp" placeholder="Ej: 123456" maxlength="6" inputmode="numeric" required style="letter-spacing: 2px; font-family: monospace;" />
         </div>
       </div>
       <button type="submit" id="submit-btn">
@@ -1273,6 +1307,20 @@ function adminHtmlAuthMiddleware(req, res, next) {
   </div>
 
   <script>
+    function togglePass(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+        btn.title = 'Ocultar contraseña';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+        btn.title = 'Mostrar contraseña';
+      }
+    }
+
     const MAX_FAILED_ATTEMPTS = 5;
     const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutos
 
@@ -1329,6 +1377,10 @@ function adminHtmlAuthMiddleware(req, res, next) {
       const totp = totpInput.value.trim();
       if (!key) {
         showAlert('Por favor ingresá la clave de administración.', 'danger');
+        return;
+      }
+      if (!totp) {
+        showAlert('El código 2FA de Google Authenticator es obligatorio para acceder.', 'danger');
         return;
       }
 

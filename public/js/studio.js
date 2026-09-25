@@ -977,7 +977,8 @@
       document.getElementById('modalDishPrice').value = dish.price || 0;
       document.getElementById('modalDishOriginalPrice').value = (dish.originalPrice !== null && dish.originalPrice !== undefined) ? dish.originalPrice : '';
       document.getElementById('modalDishDesc').value = dish.description || '';
-      document.getElementById('modalDishPhoto').value = dish.photoUrl || '';
+      const existingPhoto = dish.photoUrl || dish.imageUrl || dish.image || dish.photo || '';
+      document.getElementById('modalDishPhoto').value = existingPhoto;
       document.getElementById('modalDishOutOfStock').checked = !!dish.outOfStock;
       document.getElementById('modalDishStar').checked = (dish.tags || []).includes('star');
       document.getElementById('modalDishChefSpecial').checked = !!dish.isChefSpecial || (dish.tags || []).includes('chef_special');
@@ -1006,9 +1007,9 @@
       const clearBtn = document.getElementById('btnClearDishPhoto');
       const fileNameSpan = document.getElementById('dishPhotoFileName');
       if (fileNameSpan) fileNameSpan.textContent = '';
-      if (dish.photoUrl) {
+      if (existingPhoto) {
         if (previewContainer && previewImg) {
-          previewImg.src = dish.photoUrl;
+          previewImg.src = existingPhoto;
           previewContainer.style.display = 'block';
         }
         if (clearBtn) clearBtn.style.display = 'inline';
@@ -1020,13 +1021,30 @@
       // Populate category select
       const catSelect = document.getElementById('modalDishCategory');
       catSelect.innerHTML = '';
+      let matchedCategory = false;
       (restaurant.categories || []).forEach(c => {
         const opt = document.createElement('option');
         opt.value = c.id;
         opt.textContent = c.name;
-        if (c.id === dish.categoryId) opt.selected = true;
+        if (c.id === dish.categoryId) {
+          opt.selected = true;
+          matchedCategory = true;
+        }
         catSelect.appendChild(opt);
       });
+      if (!matchedCategory && dish.categoryId) {
+        const opt = document.createElement('option');
+        opt.value = dish.categoryId;
+        opt.textContent = dish.categoryId;
+        opt.selected = true;
+        catSelect.appendChild(opt);
+      } else if (!catSelect.options.length) {
+        const opt = document.createElement('option');
+        opt.value = 'cat_general';
+        opt.textContent = 'General';
+        opt.selected = true;
+        catSelect.appendChild(opt);
+      }
 
       document.getElementById('dishEditModal').classList.add('active');
     }
@@ -1130,6 +1148,17 @@
 
       if (!restaurant.dishes) restaurant.dishes = [];
 
+      let finalCategoryId = categoryId;
+      if (!finalCategoryId) {
+        if (restaurant.categories && restaurant.categories.length > 0) {
+          finalCategoryId = restaurant.categories[0].id;
+        } else {
+          finalCategoryId = 'cat_general';
+          if (!restaurant.categories) restaurant.categories = [];
+          restaurant.categories.push({ id: 'cat_general', name: 'General' });
+        }
+      }
+
       if (id) {
         // Edit existing
         const dish = restaurant.dishes.find(d => d.id === id);
@@ -1139,7 +1168,7 @@
           dish.originalPrice = originalPrice;
           dish.description = description;
           dish.photoUrl = photoUrl || null;
-          dish.categoryId = categoryId;
+          dish.categoryId = finalCategoryId;
           dish.outOfStock = outOfStock;
           dish.isChefSpecial = isChefSpecial;
           dish.schedule = schedule;
@@ -1154,7 +1183,7 @@
           originalPrice: originalPrice,
           description: description || 'Plato casero elaborado en el día',
           photoUrl: photoUrl || null,
-          categoryId,
+          categoryId: finalCategoryId,
           outOfStock,
           isChefSpecial,
           schedule,

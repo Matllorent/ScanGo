@@ -42,6 +42,22 @@ function openAuthModal(mode = 'register') {
       err.textContent = '';
     }
 
+    function togglePasswordVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+        btn.setAttribute('aria-label', 'Ocultar contraseña');
+        btn.title = 'Ocultar contraseña';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+        btn.setAttribute('aria-label', 'Mostrar contraseña');
+        btn.title = 'Mostrar contraseña';
+      }
+    }
+
     async function handleRegister(e) {
       e.preventDefault();
       hideError();

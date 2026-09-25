@@ -132,6 +132,33 @@
       transition: border-color 0.2s;
     }
     .form-control:focus { border-color: var(--gold); }
+    .password-input-group {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .password-input-group .form-control {
+      padding-right: 44px;
+    }
+    .toggle-password-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 6px 8px;
+      font-size: 1rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s;
+    }
+    .toggle-password-btn:hover {
+      color: var(--gold);
+    }
 
     /* Dashboard view */
     #dashboard-view { display: none; }
@@ -225,18 +252,23 @@
     <div id="auth-view">
       <img src="/logo-scango.png" alt="ScanGo Logo" style="height: 60px; width: auto; margin-bottom: 1rem; border-radius: 8px;">
       <h2>Acceso Maestro ScanGo</h2>
-      <p>Ingresá la clave maestra del dueño del emprendimiento y tu código 2FA opcional para administrar clientes e ingresos.</p>
+      <p>Ingresá la clave maestra del dueño del emprendimiento y tu código 2FA obligatorio para administrar clientes e ingresos.</p>
       <form id="admin-form" onsubmit="handleLogin(event)">
         <div class="form-group">
           <label>Clave Maestra (ADMIN_KEY)</label>
-          <input type="password" id="admin-key" class="form-control" placeholder="••••••••••••••••" required autofocus>
+          <div class="password-input-group">
+            <input type="password" id="admin-key" class="form-control" placeholder="••••••••••••••••" required autofocus>
+            <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('admin-key', this)" aria-label="Mostrar u ocultar contraseña" title="Mostrar/ocultar contraseña">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
         </div>
         <div class="form-group">
           <label style="display:flex; justify-content:space-between;">
             <span>Código 2FA (Google Authenticator)</span>
-            <span style="font-size:0.7rem; color:var(--text-muted);">(Opcional)</span>
+            <span style="font-size:0.75rem; color:#f87171; font-weight:600;">(Obligatorio)</span>
           </label>
-          <input type="text" id="admin-totp" class="form-control" placeholder="Ej: 123456" maxlength="6" style="font-family: monospace; letter-spacing: 2px;">
+          <input type="text" id="admin-totp" class="form-control" placeholder="Ej: 123456" maxlength="6" inputmode="numeric" required style="font-family: monospace; letter-spacing: 2px;">
         </div>
         <button type="submit" class="btn btn-gold" style="width: 100%; padding: 0.85rem; justify-content: center;">
           <i class="fa-solid fa-lock-open"></i> Entrar al Panel ScanGo
@@ -574,6 +606,25 @@
       }
     }
 
+    function togglePasswordVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      const icon = btn.querySelector('i');
+      if (input.type === 'password') {
+        input.type = 'text';
+        if (icon) {
+          icon.className = 'fa-solid fa-eye-slash';
+        }
+        btn.setAttribute('aria-label', 'Ocultar contraseña');
+      } else {
+        input.type = 'password';
+        if (icon) {
+          icon.className = 'fa-solid fa-eye';
+        }
+        btn.setAttribute('aria-label', 'Mostrar contraseña');
+      }
+    }
+
     async function handleLogin(e) {
       e.preventDefault();
       if (checkLockout()) return;
@@ -592,6 +643,18 @@
       if (errBox) errBox.style.display = 'none';
 
       if (!key) {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalText;
+        }
+        return;
+      }
+
+      if (!totp) {
+        if (errBox) {
+          errBox.textContent = 'El código 2FA de Google Authenticator de 6 dígitos es obligatorio.';
+          errBox.style.display = 'block';
+        }
         if (submitBtn) {
           submitBtn.disabled = false;
           submitBtn.innerHTML = originalText;

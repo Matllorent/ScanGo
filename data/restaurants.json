@@ -1,1 +1,129 @@
-[]
+[
+  {
+    "id": "rest_1790310335888_kky2qh",
+    "userId": "usr_1790310335886_h5eflb",
+    "slug": "mila",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-02T04:25:35.888Z",
+      "currentPeriodEnd": "2026-10-02T04:25:35.888Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-09-25T04:25:35.888Z",
+    "name": "Mila",
+    "bizName": "Mila",
+    "slogan": "Especialidad, masas artesanales y cocina de autor",
+    "currency": "$",
+    "phone": "59899123456",
+    "theme": "rustic",
+    "wifi": {
+      "ssid": "Restaurante_Clientes",
+      "password": "pizarronrico"
+    },
+    "categories": [
+      {
+        "id": "cat_hamburguesas",
+        "name": "Burgers Artesanales"
+      },
+      {
+        "id": "cat_milanesas",
+        "name": "Milanesas de la Casa"
+      },
+      {
+        "id": "cat_postres",
+        "name": "Postres Rioplatenses"
+      },
+      {
+        "id": "cat_bebidas",
+        "name": "Bebidas & Cafetería"
+      }
+    ],
+    "dishes": [
+      {
+        "id": "d_1",
+        "categoryId": "cat_hamburguesas",
+        "name": "Burger Criolla de Entraña",
+        "price": 490,
+        "originalPrice": 590,
+        "description": "Pan brioche, provoleta fundida y chimichurri",
+        "photoUrl": null,
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "schedule": {
+          "enabled": true,
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            0
+          ],
+          "timeStart": "11:30",
+          "timeEnd": "15:30",
+          "behavior": "hide"
+        },
+        "tags": [
+          "star",
+          "picante"
+        ]
+      },
+      {
+        "id": "d_3",
+        "categoryId": "cat_postres",
+        "name": "Flan Casero con Dulce de Leche",
+        "price": 260,
+        "originalPrice": null,
+        "description": "Receta tradicional con crema batida",
+        "photoUrl": null,
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "schedule": null,
+        "tags": [
+          "star"
+        ]
+      },
+      {
+        "id": "d_4",
+        "categoryId": "cat_bebidas",
+        "name": "Flat White Cremoso",
+        "price": 190,
+        "originalPrice": null,
+        "description": "Café de especialidad con leche texturizada",
+        "photoUrl": null,
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "schedule": null,
+        "tags": [
+          "veggie"
+        ]
+      }
+    ],
+    "analytics": {
+      "visits": 14,
+      "orders": 0,
+      "reservations": 0,
+      "waiterCalls": 0,
+      "lastUpdated": "2026-09-25T04:44:16.251Z"
+    },
+    "businessType": "restaurant",
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "allowLoyaltyPoints": false,
+    "updatedAt": "2026-09-25T04:44:16.018Z",
+    "instagram": "",
+    "googleReview": "",
+    "themeFont": "serif",
+    "allowReservations": true,
+    "allowCoupons": true,
+    "allowBillSplitter": true,
+    "announcement": "",
+    "paymentLink": "",
+    "scheduleEnabled": false,
+    "scheduleActiveHours": "",
+    "tableCount": 10
+  }
+]

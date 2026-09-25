@@ -927,3 +927,35 @@
       margin-bottom: 12px;
       line-height: 1.4;
     }
+
+    /* Password Eye Visibility Toggle */
+    .password-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+    .password-input-wrapper .form-input {
+      padding-right: 44px;
+      width: 100%;
+    }
+    .toggle-pass-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 6px 8px;
+      font-size: 1.05rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s;
+      line-height: 1;
+    }
+    .toggle-pass-btn:hover {
+      color: var(--accent-gold);
+    }

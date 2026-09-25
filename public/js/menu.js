@@ -346,6 +346,72 @@
         aChip.style.display = 'inline-flex';
         document.getElementById('addressText').textContent = restaurantData.address;
       }
+
+      // === NEW: Loyalty Top Banner Visibility ===
+      const loyaltyBanner = document.getElementById('loyaltyTopBanner');
+      if (loyaltyBanner) {
+        loyaltyBanner.style.display = (restaurantData.allowLoyaltyPoints === true) ? 'flex' : 'none';
+      }
+
+      // === NEW: Header Social Links ===
+      const hdrWa = document.getElementById('hdrSocialWa');
+      const hdrIg = document.getElementById('hdrSocialIg');
+      const hdrFb = document.getElementById('hdrSocialFb');
+      const hdrTk = document.getElementById('hdrSocialTk');
+
+      if (hdrWa) {
+        if (restaurantData.phone) {
+          hdrWa.style.display = 'inline-flex';
+        } else {
+          hdrWa.style.display = 'none';
+        }
+      }
+      if (hdrIg) {
+        if (restaurantData.instagram) {
+          hdrIg.href = `https://instagram.com/${restaurantData.instagram.replace('@', '')}`;
+          hdrIg.style.display = 'inline-flex';
+        } else {
+          hdrIg.style.display = 'none';
+        }
+      }
+      if (hdrFb) {
+        if (restaurantData.facebook) {
+          hdrFb.href = restaurantData.facebook;
+          hdrFb.style.display = 'inline-flex';
+        } else {
+          hdrFb.style.display = 'none';
+        }
+      }
+      if (hdrTk) {
+        if (restaurantData.tiktok) {
+          hdrTk.href = restaurantData.tiktok;
+          hdrTk.style.display = 'inline-flex';
+        } else {
+          hdrTk.style.display = 'none';
+        }
+      }
+
+      // === NEW: Delivery time chip ===
+      const dtText = document.getElementById('deliveryTimeText');
+      if (dtText) {
+        dtText.textContent = restaurantData.deliveryTime || '30 - 45min.';
+      }
+      const dtChip = document.getElementById('deliveryTimeChip');
+      if (dtChip) {
+        dtChip.style.display = restaurantData.deliveryTime ? 'inline-flex' : 'none';
+      }
+
+      // === NEW: Minimum Order Chip ===
+      const moChip = document.getElementById('minOrderChip');
+      const moText = document.getElementById('minOrderText');
+      if (moChip && moText) {
+        if (restaurantData.minOrder && restaurantData.minOrder > 0) {
+          moChip.style.display = 'inline-flex';
+          moText.textContent = `$U ${restaurantData.minOrder}`;
+        } else {
+          moChip.style.display = 'none';
+        }
+      }
     }
 
     function renderCategories() {
@@ -1202,6 +1268,158 @@
       setTimeout(() => {
         if (toast) toast.style.display = 'none';
       }, 3500);
+    }
+
+    // ========== NEW HEADER & MODAL FUNCTIONS ==========
+
+    // WhatsApp Chat: Opens WhatsApp with the restaurant phone
+    function openWhatsAppChat() {
+      if (!restaurantData || !restaurantData.phone) {
+        alert('Este restaurante no tiene WhatsApp configurado.');
+        return;
+      }
+      const phone = restaurantData.phone.replace(/[^\d+]/g, '');
+      window.open(`https://wa.me/${phone}`, '_blank');
+    }
+
+    // Restaurant Info Modal
+    function openRestaurantInfoModal() {
+      // Populate address
+      const addrEl = document.getElementById('infoAddressFullText');
+      if (addrEl && restaurantData) {
+        addrEl.textContent = restaurantData.address || 'Dirección no disponible';
+      }
+      // Populate delivery time in modal
+      const dtModal = document.getElementById('infoDeliveryTimeModal');
+      if (dtModal && restaurantData) {
+        dtModal.textContent = restaurantData.deliveryTime || '30 - 45min.';
+      }
+      // Render weekly schedule
+      renderWeeklySchedule();
+      document.getElementById('restaurantInfoModal').classList.add('active');
+    }
+    function closeRestaurantInfoModal() {
+      document.getElementById('restaurantInfoModal').classList.remove('active');
+    }
+
+    // Share Restaurant URL (Web Share API with clipboard fallback)
+    function shareRestaurantUrl() {
+      const url = window.location.href;
+      const title = restaurantData ? restaurantData.name : 'Menú Digital';
+      if (navigator.share) {
+        navigator.share({ title: title, url: url }).catch(() => {});
+      } else if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => {
+          alert('¡Enlace copiado al portapapeles!');
+        }).catch(() => {
+          prompt('Copiá el enlace:', url);
+        });
+      } else {
+        prompt('Copiá el enlace:', url);
+      }
+    }
+
+    // Focus Search Input (from category nav icon)
+    function focusSearchInput() {
+      const input = document.getElementById('searchFilter');
+      if (input) {
+        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => input.focus(), 300);
+      }
+    }
+
+    // Categories Menu Modal
+    function openCategoriesMenuModal() {
+      const listEl = document.getElementById('categoriesModalList');
+      if (!listEl || !restaurantData) return;
+      const cats = restaurantData.categories || [];
+      let html = `<button type="button" onclick="selectCategoryFromModal('ALL')" style="
+        display:flex; align-items:center; gap:10px; padding:12px 16px; border-radius:10px;
+        border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.04);
+        color:#fff; font-size:0.95rem; font-weight:600; cursor:pointer; text-align:left;
+        transition: background 0.2s;
+      ">📋 Todos los platos</button>`;
+      cats.forEach(c => {
+        const icon = c.icon || '🍽️';
+        const dishCount = (restaurantData.dishes || []).filter(d => d.categoryId === c.id).length;
+        html += `<button type="button" onclick="selectCategoryFromModal('${escapeHtml(c.id)}')" style="
+          display:flex; align-items:center; justify-content:space-between; gap:10px;
+          padding:12px 16px; border-radius:10px;
+          border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.04);
+          color:#fff; font-size:0.95rem; font-weight:500; cursor:pointer; text-align:left;
+          transition: background 0.2s;
+        ">
+          <span>${icon} ${escapeHtml(c.name)}</span>
+          <span style="color:var(--chalk-dim); font-size:0.8rem;">${dishCount} platos</span>
+        </button>`;
+      });
+      listEl.innerHTML = html;
+      document.getElementById('categoriesListModal').classList.add('active');
+    }
+    function closeCategoriesMenuModal() {
+      document.getElementById('categoriesListModal').classList.remove('active');
+    }
+    function selectCategoryFromModal(catId) {
+      closeCategoriesMenuModal();
+      selectCategory(catId);
+      // Scroll to dishes area
+      const dishesEl = document.getElementById('dishesContainer');
+      if (dishesEl) {
+        setTimeout(() => dishesEl.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
+      }
+    }
+
+    // Render Weekly Schedule inside Info Modal
+    function renderWeeklySchedule() {
+      const container = document.getElementById('weeklyScheduleList');
+      if (!container || !restaurantData) return;
+
+      const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+      const dayNamesShort = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+      const todayIndex = new Date().getDay();
+
+      // Check if restaurant has weekly schedule data
+      const weeklySchedule = restaurantData.weeklySchedule || restaurantData.schedule;
+      
+      if (weeklySchedule && Array.isArray(weeklySchedule)) {
+        // Use detailed weekly schedule array [{day, open, close, closed}]
+        let html = '';
+        weeklySchedule.forEach((entry, i) => {
+          const isToday = (i === todayIndex) || (entry.day && dayNames.indexOf(entry.day) === todayIndex);
+          const dayLabel = entry.day || dayNames[i] || dayNamesShort[i];
+          if (entry.closed) {
+            html += `<div class="schedule-day-row ${isToday ? 'today' : ''}">
+              <span class="schedule-day-name">${escapeHtml(dayLabel)}</span>
+              <span class="schedule-day-hours closed">Cerrado</span>
+            </div>`;
+          } else {
+            html += `<div class="schedule-day-row ${isToday ? 'today' : ''}">
+              <span class="schedule-day-name">${escapeHtml(dayLabel)}</span>
+              <span class="schedule-day-hours">${escapeHtml(entry.open || '00:00')} – ${escapeHtml(entry.close || '23:59')}</span>
+            </div>`;
+          }
+        });
+        container.innerHTML = html;
+      } else if (restaurantData.scheduleActiveHours) {
+        // Fallback: use single scheduleActiveHours string for all days
+        const hours = restaurantData.scheduleActiveHours;
+        let html = '';
+        dayNames.forEach((day, i) => {
+          const isToday = i === todayIndex;
+          html += `<div class="schedule-day-row ${isToday ? 'today' : ''}">
+            <span class="schedule-day-name">${day}</span>
+            <span class="schedule-day-hours">${escapeHtml(hours)}</span>
+          </div>`;
+        });
+        container.innerHTML = html;
+      } else {
+        container.innerHTML = '<p style="color:var(--chalk-dim); font-size:0.85rem; padding:8px 0;">Horarios no disponibles.</p>';
+      }
+    }
+
+    // Loyalty Modal placeholder (opens from loyalty banner)
+    function openLoyaltyModal() {
+      alert('🌟 Funcionalidad de Club de Puntos próximamente disponible.');
     }
 
     // Init
