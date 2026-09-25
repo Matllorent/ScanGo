@@ -287,6 +287,27 @@ const db = {
     rev.moderatedAt = new Date().toISOString();
     writeJson(path.join(DATA_DIR, 'reviews.json'), reviews);
     return rev;
+  },
+
+  // Global Settings (Pricing & Promotional Banner)
+  getSettings() {
+    const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+    const defaultSettings = {
+      monthlyPrice: 9,
+      annualPrice: 69,
+      annualDiscountPercent: 36,
+      promoBannerEnabled: true,
+      promoDiscountPercent: 50,
+      promoBannerText: '🔥 ¡50% OFF por tiempo limitado en todos los planes! Lanzá tu carta hoy.'
+    };
+    return { ...defaultSettings, ...readJson(SETTINGS_FILE, {}) };
+  },
+  updateSettings(newSettings) {
+    const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+    const current = this.getSettings();
+    const updated = { ...current, ...newSettings };
+    writeJson(SETTINGS_FILE, updated);
+    return updated;
   }
 };
 

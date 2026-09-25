@@ -497,7 +497,7 @@
                 : `<button class="btn-add" disabled style="width:34px; height:34px; font-size:0.9rem; background:#4A5568; cursor:not-allowed; opacity:0.6;" title="${sched.reason}">⏰</button>`
               }
             </div>
-            ${inCart > 0 ? `<div style="font-size:0.7rem; color:var(--chalk-gold); font-weight:700; margin-top:4px; text-align:right;">${inCart} en comanda</div>` : ''}
+            ${inCart > 0 ? `<div style="font-size:0.7rem; color:var(--chalk-gold); font-weight:700; margin-top:4px; text-align:right;">${inCart} en carrito</div>` : ''}
           </div>
         `;
       });
@@ -713,7 +713,7 @@
                   : `<button class="btn-add" data-dish-id="${escapeHtml(d.id)}" onclick="addToCart(this.dataset.dishId)" aria-label="Agregar ${escapeHtml(d.name)}">+</button>`
                 )
             }
-            ${inCart > 0 ? `<span class="qty-counter">${inCart} en comanda</span>` : ''}
+            ${inCart > 0 ? `<span class="qty-counter">${inCart} en carrito</span>` : ''}
           </div>
         </div>
       `;
@@ -1006,7 +1006,7 @@
         msg += `🏠 *Dirección:* ${address}\n\n`;
       }
 
-      msg += `*DETALLE DE LA COMANDA:*\n`;
+      msg += `*DETALLE DEL PEDIDO:*\n`;
       items.forEach(it => {
         msg += `▪ ${it.qty}x ${it.dish.name} - ${currency} ${it.dish.price * it.qty}\n`;
         if (it.dish.description && (it.dish.isCustomIceCream || (it.dish.id && it.dish.id.startsWith('perfume_')))) {

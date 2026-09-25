@@ -135,18 +135,159 @@ function openAuthModal(mode = 'register') {
       const totalSpan = document.getElementById('simCartTotal');
       const total = simCart.reduce((sum, it) => sum + it.price, 0);
 
-      countSpan.textContent = `🛒 ${simCart.length} ítems en comanda`;
-      totalSpan.textContent = `Pedir por WhatsApp ($${total.toLocaleString('es-UY')}) →`;
+      if (countSpan) countSpan.textContent = `🛒 ${simCart.length} ítems en el carrito`;
+      if (totalSpan) totalSpan.textContent = `Pedir por WhatsApp ($${total.toLocaleString('es-UY')}) →`;
     }
 
     function simOrderWhatsApp() {
       if (!simCart.length) {
-        alert('¡Hacé clic en el botón "+" de cualquiera de los platos para agregarlo a la comanda!');
+        alert('¡Hacé clic en el botón "+" de cualquiera de los platos para agregarlo al carrito!');
         return;
       }
       const total = simCart.reduce((sum, it) => sum + it.price, 0);
-      alert(`🎉 ¡Excelente! En tu restaurante real, esto abre WhatsApp con el mensaje ya escrito:\n\n"Hola ScanGo Bistro, quiero pedir:\n${simCart.map(i => '▪ ' + i.name + ' - $' + i.price).join('\n')}\nTotal: $${total}"\n\n¡Creá tu cuenta gratis por 7 días para configurar tu propio menú!`);
+      alert(`🎉 ¡Excelente! En tu restaurante real, esto abre WhatsApp con el pedido ya listo:\n\n"Hola ScanGo Bistro, quiero pedir:\n${simCart.map(i => '▪ ' + i.name + ' - $' + i.price).join('\n')}\nTotal: $${total}"\n\n¡Creá tu cuenta gratis por 7 días para configurar tu propio menú!`);
       openAuthModal('register');
+    }
+
+    // Forgot Password Modal Logic
+    function openForgotPasswordModal() {
+      closeAuthModal();
+      const modal = document.getElementById('forgotPasswordModal');
+      const alertBox = document.getElementById('forgotAlert');
+      if (alertBox) {
+        alertBox.style.display = 'none';
+        alertBox.textContent = '';
+      }
+      if (modal) modal.classList.add('active');
+    }
+
+    function closeForgotPasswordModal() {
+      const modal = document.getElementById('forgotPasswordModal');
+      if (modal) modal.classList.remove('active');
+    }
+
+    async function handleForgotPassword(e) {
+      e.preventDefault();
+      const emailInput = document.getElementById('forgotEmail');
+      const btn = document.getElementById('btnSubmitForgot');
+      const alertBox = document.getElementById('forgotAlert');
+      const email = emailInput?.value.trim();
+
+      if (!email) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Enviando...';
+
+      try {
+        const res = await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+
+        if (alertBox) {
+          alertBox.style.display = 'block';
+          alertBox.style.background = 'rgba(74, 222, 128, 0.15)';
+          alertBox.style.borderColor = '#22c55e';
+          alertBox.style.color = '#4ade80';
+          alertBox.textContent = data.message || 'Si tu correo está registrado, recibirás un enlace de recuperación en breve.';
+        }
+        if (emailInput) emailInput.value = '';
+      } catch (err) {
+        if (alertBox) {
+          alertBox.style.display = 'block';
+          alertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+          alertBox.style.borderColor = '#ef4444';
+          alertBox.style.color = '#f87171';
+          alertBox.textContent = 'Ocurrió un error al procesar tu solicitud. Por favor intenta de nuevo o comunícate vía WhatsApp.';
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Enviar Enlace de Recuperación';
+      }
+    }
+
+    // Dynamic Pricing & Promotional Banner Loader
+    async function loadPricingSettings() {
+      try {
+        const res = await fetch('/api/settings/pricing');
+        if (!res.ok) return;
+        const data = await res.json();
+        const s = data.settings;
+        if (!s) return;
+
+        // Promotional Banner
+        const banner = document.getElementById('promoBanner');
+        const badge = document.getElementById('promoBadge');
+        const text = document.getElementById('promoText');
+
+        if (banner) {
+          if (s.promoBannerEnabled) {
+            banner.style.display = 'flex';
+            if (badge) badge.textContent = `${s.promoDiscountPercent || 50}% OFF`;
+            if (text && s.promoBannerText) text.textContent = s.promoBannerText;
+          } else {
+            banner.style.display = 'none';
+          }
+        }
+
+        // Pricing Cards
+        const monthlyEl = document.getElementById('planMonthlyPrice');
+        if (monthlyEl && s.monthlyPrice !== undefined) {
+          monthlyEl.innerHTML = `$${s.monthlyPrice} <span>USD / mes</span>`;
+        }
+
+        const annualEl = document.getElementById('planAnnualPrice');
+        const ribbonEl = document.getElementById('planAnnualRibbon');
+        const noteEl = document.getElementById('planAnnualNote');
+
+        if (annualEl && s.annualPrice !== undefined) {
+          annualEl.innerHTML = `$${s.annualPrice} <span>USD / año</span>`;
+          const equivMonth = (s.annualPrice / 12).toFixed(2);
+          if (noteEl) noteEl.textContent = `Equivale a solo $${equivMonth} USD por mes`;
+        }
+
+        if (ribbonEl && s.annualDiscountPercent !== undefined) {
+          ribbonEl.textContent = `MÁS ELEGIDO • AHORRA ${s.annualDiscountPercent}%`;
+        }
+      } catch (err) {
+        console.warn('No se pudo cargar la configuración dinámica de precios:', err.message);
+      }
+    }
+
+    // Magnetic Proximity Attraction Effect for Floating WhatsApp Button
+    function initMagneticWhatsApp() {
+      const btn = document.getElementById('waFloatBtn');
+      if (!btn) return;
+
+      const magneticRadius = 120; // Proximity in px to activate attraction
+      let mouseX = 0, mouseY = 0;
+      let isNear = false;
+
+      window.addEventListener('mousemove', (e) => {
+        const rect = btn.getBoundingClientRect();
+        const btnCenterX = rect.left + rect.width / 2;
+        const btnCenterY = rect.top + rect.height / 2;
+
+        const dist = Math.hypot(e.clientX - btnCenterX, e.clientY - btnCenterY);
+
+        if (dist < magneticRadius) {
+          isNear = true;
+          const pullStrength = 0.28;
+          const dx = (e.clientX - btnCenterX) * pullStrength;
+          const dy = (e.clientY - btnCenterY) * pullStrength;
+          btn.style.transform = `translate(${dx}px, ${dy}px) scale(1.08)`;
+        } else if (isNear) {
+          isNear = false;
+          btn.style.transform = 'translate(0px, 0px) scale(1)';
+        }
+      });
+
+      btn.addEventListener('mouseleave', () => {
+        btn.style.transform = 'translate(0px, 0px) scale(1)';
+        isNear = false;
+      });
     }
 
     // FAQ Accordion Toggle
@@ -244,6 +385,8 @@ function openAuthModal(mode = 'register') {
 
     window.addEventListener('DOMContentLoaded', () => {
       loadPublicTestimonials();
+      loadPricingSettings();
+      initMagneticWhatsApp();
       const token = localStorage.getItem('menu_pizarron_token');
       if (token) {
         const navActions = document.querySelector('.nav-actions');

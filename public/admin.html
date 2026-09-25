@@ -368,6 +368,62 @@
           </table>
         </div>
       </div>
+
+      <!-- Control de Precios y Banner Promocional -->
+      <div class="table-container" style="margin-top: 2rem;">
+        <div class="table-header">
+          <div class="table-title">
+            <i class="fa-solid fa-tags" style="color:var(--gold);"></i> Control de Precios de Planes & Banner de Descuento
+          </div>
+          <span style="font-size:0.8rem; color:var(--text-muted);">Configuración Global en Vivo para Landing</span>
+        </div>
+        <div style="padding: 1.5rem;">
+          <form id="pricing-settings-form" onsubmit="savePricingSettingsAdmin(event)">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:6px;">Precio Plan Mensual (USD/mes)</label>
+                <input type="number" id="setting-monthly-price" class="form-control" min="1" step="1" required style="background:var(--bg-dark); border:1px solid var(--card-border); color:#fff; padding:0.6rem 0.8rem; border-radius:6px; width:100%;">
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:6px;">Precio Plan Anual (USD/año)</label>
+                <input type="number" id="setting-annual-price" class="form-control" min="1" step="1" required style="background:var(--bg-dark); border:1px solid var(--card-border); color:#fff; padding:0.6rem 0.8rem; border-radius:6px; width:100%;">
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:6px;">% Ahorro Mostrado en Anual (OFF)</label>
+                <input type="number" id="setting-annual-discount" class="form-control" min="0" max="100" style="background:var(--bg-dark); border:1px solid var(--card-border); color:#fff; padding:0.6rem 0.8rem; border-radius:6px; width:100%;">
+              </div>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.02); border: 1px dashed var(--card-border); border-radius: 10px; padding: 1.25rem; margin-bottom: 1.5rem;">
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom: 1rem;">
+                <input type="checkbox" id="setting-banner-enabled" style="width:18px; height:18px; accent-color:var(--gold); cursor:pointer;">
+                <label for="setting-banner-enabled" style="font-size:0.9rem; font-weight:700; color:#fff; cursor:pointer;">
+                  Activar Banner Promocional de Descuento en la Cabecera
+                </label>
+              </div>
+
+              <div style="display:grid; grid-template-columns: 140px 1fr; gap: 1rem; align-items:flex-end;">
+                <div>
+                  <label style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:6px;">% Descuento (Badge)</label>
+                  <input type="number" id="setting-banner-percent" class="form-control" min="1" max="100" placeholder="50" style="background:var(--bg-dark); border:1px solid var(--card-border); color:#fff; padding:0.6rem 0.8rem; border-radius:6px; width:100%;">
+                </div>
+                <div>
+                  <label style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:6px;">Texto Promocional del Banner</label>
+                  <input type="text" id="setting-banner-text" class="form-control" placeholder="🔥 ¡50% OFF por tiempo limitado en todos los planes!" style="background:var(--bg-dark); border:1px solid var(--card-border); color:#fff; padding:0.6rem 0.8rem; border-radius:6px; width:100%;">
+                </div>
+              </div>
+            </div>
+
+            <div id="pricing-settings-alert" style="display:none; padding:0.75rem 1rem; border-radius:8px; font-size:0.85rem; margin-bottom:1.25rem;"></div>
+
+            <div style="display:flex; justify-content:flex-end;">
+              <button type="submit" id="btn-save-pricing" class="btn btn-gold">
+                <i class="fa-solid fa-floppy-disk"></i> Guardar Precios & Banner Promocional
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
 
     <!-- Modal: Invitar Restaurante Real -->
@@ -504,6 +560,7 @@
           const data = await res.json();
           renderDashboard(data);
           loadReviews();
+          loadPricingSettingsAdmin();
         } else {
           currentKey = '';
           currentToken = '';
@@ -577,6 +634,7 @@
         const data = await res.json();
         renderDashboard(data);
         loadReviews();
+        loadPricingSettingsAdmin();
       } catch (err) {
         if (errBox) {
           errBox.textContent = err.message;
@@ -960,6 +1018,86 @@
       localStorage.setItem('scango_pending_reviews', JSON.stringify(pending));
       localStorage.setItem('scango_approved_reviews', JSON.stringify(approved));
       localStorage.setItem('scango_rejected_reviews', JSON.stringify(rejected));
+    }
+
+    // Pricing & Promotional Banner Admin Controllers
+    async function loadPricingSettingsAdmin() {
+      try {
+        const res = await fetch('/api/settings/pricing');
+        if (!res.ok) return;
+        const data = await res.json();
+        const s = data.settings;
+        if (!s) return;
+
+        const m = document.getElementById('setting-monthly-price');
+        const a = document.getElementById('setting-annual-price');
+        const d = document.getElementById('setting-annual-discount');
+        const ben = document.getElementById('setting-banner-enabled');
+        const bp = document.getElementById('setting-banner-percent');
+        const bt = document.getElementById('setting-banner-text');
+
+        if (m && s.monthlyPrice !== undefined) m.value = s.monthlyPrice;
+        if (a && s.annualPrice !== undefined) a.value = s.annualPrice;
+        if (d && s.annualDiscountPercent !== undefined) d.value = s.annualDiscountPercent;
+        if (ben) ben.checked = Boolean(s.promoBannerEnabled);
+        if (bp && s.promoDiscountPercent !== undefined) bp.value = s.promoDiscountPercent;
+        if (bt && s.promoBannerText) bt.value = s.promoBannerText;
+      } catch (err) {
+        console.warn('Error al cargar configuración de precios en admin:', err);
+      }
+    }
+
+    async function savePricingSettingsAdmin(e) {
+      e.preventDefault();
+      const alertBox = document.getElementById('pricing-settings-alert');
+      const btn = document.getElementById('btn-save-pricing');
+      if (alertBox) alertBox.style.display = 'none';
+
+      const monthlyPrice = Number(document.getElementById('setting-monthly-price')?.value);
+      const annualPrice = Number(document.getElementById('setting-annual-price')?.value);
+      const annualDiscountPercent = Number(document.getElementById('setting-annual-discount')?.value);
+      const promoBannerEnabled = document.getElementById('setting-banner-enabled')?.checked;
+      const promoDiscountPercent = Number(document.getElementById('setting-banner-percent')?.value);
+      const promoBannerText = document.getElementById('setting-banner-text')?.value;
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+
+      try {
+        const res = await fetch('/api/admin/settings/pricing', {
+          method: 'POST',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({
+            monthlyPrice,
+            annualPrice,
+            annualDiscountPercent,
+            promoBannerEnabled,
+            promoDiscountPercent,
+            promoBannerText
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al guardar configuración');
+
+        if (alertBox) {
+          alertBox.style.display = 'block';
+          alertBox.style.background = 'rgba(34, 197, 94, 0.15)';
+          alertBox.style.border = '1px solid #22c55e';
+          alertBox.style.color = '#4ade80';
+          alertBox.textContent = '✓ Configuración de precios y banner promocional guardada y activa en la landing.';
+        }
+      } catch (err) {
+        if (alertBox) {
+          alertBox.style.display = 'block';
+          alertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+          alertBox.style.border = '1px solid #ef4444';
+          alertBox.style.color = '#f87171';
+          alertBox.textContent = err.message || 'Error al guardar la configuración.';
+        }
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar Precios & Banner Promocional';
+      }
     }
 
     let subsChartInstance = null;

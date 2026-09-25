@@ -252,12 +252,14 @@
     .dot-green { background: #27C93F; }
     .mockup-badge {
       font-family: var(--font-mono);
-      font-size: 10px;
-      background: rgba(225, 169, 56, 0.15);
-      color: var(--accent-gold);
-      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #143826;
+      color: #4ade80;
+      padding: 4px 10px;
       border-radius: 20px;
-      border: 1px solid var(--border-gold);
+      border: 1px solid #22c55e;
+      letter-spacing: 0.03em;
     }
     .phone-simulator {
       background: #0E1412;
@@ -293,7 +295,12 @@
       align-items: center;
       border: 1px solid rgba(255,255,255,0.06);
     }
-    .sim-dish-info h4 { font-size: 13px; margin: 0; color: #fff; }
+    .sim-dish-info h4, .sim-dish-info .sim-dish-name {
+      font-size: 13px;
+      font-weight: 700;
+      margin: 0;
+      color: #fff;
+    }
     .sim-dish-info p { font-size: 10px; margin: 0; color: var(--text-dim); }
     .sim-dish-price { font-family: var(--font-mono); color: var(--accent-gold); font-size: 13px; font-weight: 700; }
     .sim-btn-add {
@@ -721,4 +728,202 @@
     }
     @media (max-width: 600px) {
       .steps-grid, .values-grid { grid-template-columns: 1fr; }
+    }
+
+    .footer-brand-title {
+      font-family: var(--font-heading);
+      color: #fff;
+    }
+
+    /* Floating WhatsApp Button with Continuous Pulse & Magnetic Attraction */
+    .whatsapp-float-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      pointer-events: none;
+    }
+    .whatsapp-float-btn {
+      pointer-events: auto;
+      width: 58px;
+      height: 58px;
+      background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      box-shadow: 0 8px 24px rgba(37, 211, 102, 0.45), 0 2px 8px rgba(0,0,0,0.5);
+      cursor: pointer;
+      text-decoration: none;
+      position: relative;
+      transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.2s ease;
+      animation: waWiggle 6s ease-in-out infinite;
+      outline: none;
+      border: 2px solid rgba(255,255,255,0.25);
+    }
+    .whatsapp-float-btn:hover {
+      box-shadow: 0 12px 32px rgba(37, 211, 102, 0.65), 0 4px 12px rgba(0,0,0,0.6);
+    }
+    .whatsapp-float-btn svg {
+      width: 32px;
+      height: 32px;
+      fill: #ffffff;
+    }
+    .wa-pulse-ring {
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 2px solid #25D366;
+      animation: waPulse 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+      pointer-events: none;
+    }
+    .wa-tooltip {
+      pointer-events: auto;
+      background: #1C2723;
+      color: #ffffff;
+      border: 1px solid var(--border-gold);
+      border-radius: 20px;
+      padding: 8px 14px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    .wa-tooltip:hover {
+      transform: translateY(-2px);
+      border-color: #25D366;
+    }
+    .wa-tooltip-dot {
+      width: 8px;
+      height: 8px;
+      background: #25D366;
+      border-radius: 50%;
+      display: inline-block;
+      box-shadow: 0 0 6px #25D366;
+    }
+
+    @keyframes waPulse {
+      0% { transform: scale(0.95); opacity: 0.85; }
+      50% { opacity: 0.4; }
+      100% { transform: scale(1.45); opacity: 0; }
+    }
+    @keyframes waWiggle {
+      0%, 82%, 100% { transform: rotate(0deg); }
+      84% { transform: rotate(-12deg) scale(1.06); }
+      87% { transform: rotate(12deg) scale(1.06); }
+      90% { transform: rotate(-8deg); }
+      93% { transform: rotate(8deg); }
+      96% { transform: rotate(0deg); }
+    }
+
+    @media (max-width: 600px) {
+      .wa-tooltip { display: none; }
+      .whatsapp-float-container { bottom: 18px; right: 18px; }
+      .whatsapp-float-btn { width: 52px; height: 52px; }
+      .whatsapp-float-btn svg { width: 28px; height: 28px; }
+    }
+
+    /* Dynamic Promotional Discount Banner */
+    .promo-discount-banner {
+      background: linear-gradient(90deg, #16241F 0%, #30210B 50%, #16241F 100%);
+      border-bottom: 1px solid var(--accent-gold);
+      padding: 10px 16px;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 1002;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .promo-discount-banner .promo-badge {
+      background: var(--accent-gold);
+      color: #121A18;
+      font-weight: 800;
+      font-size: 0.76rem;
+      padding: 3px 9px;
+      border-radius: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .promo-discount-banner .promo-text {
+      color: #ffffff;
+      font-size: 0.88rem;
+      font-weight: 500;
+    }
+    .promo-discount-banner .promo-cta {
+      background: transparent;
+      border: 1px solid var(--accent-gold);
+      color: var(--accent-gold);
+      font-weight: 700;
+      font-size: 0.8rem;
+      padding: 4px 14px;
+      border-radius: 20px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .promo-discount-banner .promo-cta:hover {
+      background: var(--accent-gold);
+      color: #121A18;
+    }
+
+    /* Forgot Password Link and Modal */
+    .forgot-pass-link {
+      display: inline-block;
+      margin-top: 8px;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 0.82rem;
+      cursor: pointer;
+      text-decoration: underline;
+      transition: color 0.2s;
+    }
+    .forgot-pass-link:hover {
+      color: var(--accent-gold);
+    }
+    .recovery-options-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-top: 14px;
+    }
+    .recovery-option-card {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 16px;
+      transition: border-color 0.2s;
+    }
+    .recovery-option-card:hover {
+      border-color: var(--border-gold);
+    }
+    .recovery-option-card h4 {
+      font-size: 0.95rem;
+      margin-bottom: 6px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .recovery-option-card p {
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+      line-height: 1.4;
     }

@@ -920,6 +920,42 @@ app.post('/api/admin/reviews/:id/moderate', adminMiddleware, (req, res) => {
   }
 });
 
+// Dynamic Pricing & Promotional Banner Configuration
+app.get('/api/settings/pricing', (req, res) => {
+  try {
+    const settings = db.getSettings();
+    res.json({ success: true, settings });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/admin/settings/pricing', adminMiddleware, (req, res) => {
+  try {
+    const {
+      monthlyPrice,
+      annualPrice,
+      annualDiscountPercent,
+      promoBannerEnabled,
+      promoDiscountPercent,
+      promoBannerText
+    } = req.body;
+
+    const payload = {};
+    if (monthlyPrice !== undefined) payload.monthlyPrice = Number(monthlyPrice);
+    if (annualPrice !== undefined) payload.annualPrice = Number(annualPrice);
+    if (annualDiscountPercent !== undefined) payload.annualDiscountPercent = Number(annualDiscountPercent);
+    if (promoBannerEnabled !== undefined) payload.promoBannerEnabled = Boolean(promoBannerEnabled);
+    if (promoDiscountPercent !== undefined) payload.promoDiscountPercent = Number(promoDiscountPercent);
+    if (promoBannerText !== undefined) payload.promoBannerText = String(promoBannerText).trim();
+
+    const updated = db.updateSettings(payload);
+    res.json({ success: true, settings: updated });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // Specific HTML routing (allowing dotfiles for paths containing .gemini)
 const SEND_FILE_OPTIONS = { dotfiles: 'allow' };
 

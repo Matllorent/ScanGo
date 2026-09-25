@@ -67,17 +67,23 @@
 </head>
 <body>
 
+  <!-- Promotional Discount Banner -->
+  <div id="promoBanner" class="promo-discount-banner" style="display:none;">
+    <span class="promo-badge" id="promoBadge">50% OFF</span>
+    <span class="promo-text" id="promoText">🔥 ¡50% OFF por tiempo limitado en todos los planes!</span>
+    <a href="#precios" class="promo-cta">Ver Oferta →</a>
+  </div>
+
   <!-- Header Navigation -->
   <header class="site-header">
     <div class="header-container">
       <a href="#" class="brand-link">
-        <img src="/logo-scango.png" alt="ScanGo Logo" style="height: 44px; width: auto; object-fit: contain;">
+        <img src="/logo-scango.png" alt="ScanGo Logo" width="45" height="44" style="height: 44px; width: auto; object-fit: contain;">
         <div class="brand-name">Scan<span>Go</span></div>
       </a>
 
       <nav class="main-nav">
         <a href="#inicio" class="nav-link">Inicio</a>
-        <a href="#demo-interactiva" class="nav-link">Demo Interactiva</a>
         <a href="#funcionalidades" class="nav-link">Funcionalidades</a>
         <a href="#testimonios" class="nav-link">Testimonios</a>
         <a href="#precios" class="nav-link">Precios</a>
@@ -91,6 +97,9 @@
     </div>
   </header>
 
+  <!-- Landmark Main for Accessibility & SEO (WCAG AA) -->
+  <main id="main-content">
+
   <!-- Hero Section -->
   <section id="inicio" class="hero-section">
     <div class="container">
@@ -100,12 +109,11 @@
           <h1>Creá el menú digital de tu restaurante y vendé directo</h1>
           <p class="hero-one-liner">Tus clientes escanean el QR en mesa o desde casa y te piden directo a tu WhatsApp. Sin comisiones.</p>
           <p class="lead">
-            <strong>ScanGo</strong> reemplaza la carta de papel por una experiencia interactiva en el smartphone. Tus clientes exploran platos con fotos, eligen ingredientes, reservan mesas y te envían la comanda ordenada por WhatsApp con costo de envío calculado al instante.
+            <strong>ScanGo</strong> reemplaza la carta de papel por una experiencia interactiva en el smartphone. Tus clientes exploran platos con fotos, eligen ingredientes, reservan mesas y te envían el pedido ordenado por WhatsApp con costo de envío calculado al instante.
           </p>
 
           <div class="hero-actions">
             <button class="btn btn-gold" onclick="openAuthModal('register')">Comenzar Prueba Gratis (7 Días) →</button>
-            <a href="#demo-interactiva" class="btn btn-outline">Probar Menú en Vivo 📱</a>
           </div>
 
           <div class="hero-guarantee">
@@ -123,7 +131,7 @@
               <span class="dot dot-yellow"></span>
               <span class="dot dot-green"></span>
             </div>
-            <span class="mockup-badge" style="color:var(--accent-green); background:rgba(56,161,105,0.15); border-color:rgba(56,161,105,0.3);">🟢 DEMO EN VIVO — ¡PROBALO AHORA!</span>
+            <span class="mockup-badge" style="color:#4ade80; background:#143826; border-color:#22c55e;">🟢 DEMO EN VIVO — ¡PROBALO AHORA!</span>
           </div>
 
           <div class="phone-simulator">
@@ -137,7 +145,7 @@
             <!-- Interactive items -->
             <div class="sim-dish-card" id="simDish1">
               <div class="sim-dish-info">
-                <h4>🍔 Burger Criolla de Entraña</h4>
+                <div class="sim-dish-name">🍔 Burger Criolla de Entraña</div>
                 <p>Pan brioche, provoleta fundida y chimichurri</p>
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
@@ -148,7 +156,7 @@
 
             <div class="sim-dish-card" id="simDish2">
               <div class="sim-dish-info">
-                <h4>🥩 Milanesa Napolitana Clásica</h4>
+                <div class="sim-dish-name">🥩 Milanesa Napolitana Clásica</div>
                 <p>Lomo empanado, salsa casera, jamón y muzzarella</p>
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
@@ -159,7 +167,7 @@
 
             <div class="sim-dish-card" id="simDish3">
               <div class="sim-dish-info">
-                <h4>🍮 Flan Casero con Dulce de Leche</h4>
+                <div class="sim-dish-name">🍮 Flan Casero con Dulce de Leche</div>
                 <p>Receta tradicional con crema batida</p>
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
@@ -170,7 +178,7 @@
 
             <div class="sim-dish-card" id="simDish4">
               <div class="sim-dish-info">
-                <h4>🥑 Arepa Reina Pepiada</h4>
+                <div class="sim-dish-name">🥑 Arepa Reina Pepiada</div>
                 <p>Pollo desmechado, palta cremosa y mayonesa</p>
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
@@ -181,13 +189,13 @@
 
             <!-- Simulator Cart Bar -->
             <div class="sim-cart-bar" id="simCartBar" style="cursor:pointer;" onclick="simOrderWhatsApp()">
-              <span id="simCartCount">🛒 0 ítems en comanda</span>
+              <span id="simCartCount">🛒 0 ítems en el carrito</span>
               <span id="simCartTotal">Pedir por WhatsApp ($0) →</span>
             </div>
 
             <div style="margin-top:10px; text-align:center;">
               <button onclick="simResetCart()" style="background:transparent; border:none; color:var(--text-dim); font-size:11px; cursor:pointer; text-decoration:underline;">
-                🔄 Vaciar comanda de prueba
+                🔄 Vaciar carrito de prueba
               </button>
             </div>
           </div>
@@ -226,7 +234,7 @@
 
         <div class="feature-card">
           <div class="feature-icon-num">04</div>
-          <h3 class="feature-title">Comandas Directas a tu WhatsApp</h3>
+          <h3 class="feature-title">Pedidos Directos a tu WhatsApp</h3>
           <p>Recibe los pedidos estructurados y limpios directamente en el WhatsApp de la barra o cocina: mesa, artículos, aclaraciones especiales, dirección de entrega y método de pago.</p>
         </div>
       </div>
@@ -276,7 +284,7 @@
       <div class="section-header">
         <span class="section-badge">Precios Claros y Transparentes</span>
         <h2>Planes diseñados para la rentabilidad de tu negocio</h2>
-        <p>Prueba 14 días gratis sin compromiso. Paga en USD o en tu moneda local vía Mercado Pago / Lemon Squeezy.</p>
+        <p>Prueba 7 días gratis sin compromiso. Paga en USD o en tu moneda local vía Mercado Pago / Lemon Squeezy.</p>
       </div>
 
       <div class="pricing-grid">
@@ -285,7 +293,7 @@
           <div>
             <h3 class="plan-name">Plan Mensual</h3>
             <p class="plan-desc">Flexibilidad mes a mes para restaurantes que están comenzando.</p>
-            <div class="plan-price">$9 <span>USD / mes</span></div>
+            <div class="plan-price" id="planMonthlyPrice">$9 <span>USD / mes</span></div>
             <div class="plan-billing-note">Cobro mensual recurrente</div>
 
             <ul class="plan-features">
@@ -303,12 +311,12 @@
 
         <!-- Annual Plan (Featured) -->
         <div class="pricing-card featured">
-          <div class="ribbon-featured">MÁS ELEGIDO • AHORRA 27%</div>
+          <div class="ribbon-featured" id="planAnnualRibbon">MÁS ELEGIDO • AHORRA 36%</div>
           <div>
             <h3 class="plan-name">Plan Anual Pro</h3>
             <p class="plan-desc">Tranquilidad para todo el año al costo más competitivo del mercado.</p>
-            <div class="plan-price">$79 <span>USD / año</span></div>
-            <div class="plan-billing-note">Equivale a solo $6.58 USD por mes</div>
+            <div class="plan-price" id="planAnnualPrice">$69 <span>USD / año</span></div>
+            <div class="plan-billing-note" id="planAnnualNote">Equivale a solo $5.75 USD por mes</div>
 
             <ul class="plan-features">
               <li><span class="check">✓</span> <strong>Todo lo del Plan Mensual</strong></li>
@@ -467,7 +475,7 @@
         </div>
       </div>
     </div>
-  </section>
+  </main>
 
   <!-- Footer -->
   <footer class="site-footer">
@@ -475,8 +483,8 @@
       <div class="footer-grid">
         <div>
           <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-            <img src="/logo-scango.png" alt="ScanGo" style="height:38px; width:auto; object-fit:contain;">
-            <h4 style="margin:0; font-size:1.25rem;">Scan<span style="color:var(--accent-gold);">Go</span></h4>
+            <img src="/logo-scango.png" alt="ScanGo" width="39" height="38" style="height:38px; width:auto; object-fit:contain;">
+            <div class="footer-brand-title" style="margin:0; font-size:1.25rem; font-weight:800;">Scan<span style="color:var(--accent-gold);">Go</span></div>
           </div>
           <p class="footer-desc">
             Plataforma para cartas gastronómicas interactivas, generación de cartelería QR y canalización directa de pedidos y reservas vía WhatsApp sin intermediarios ni comisiones.
@@ -487,7 +495,6 @@
           <div class="footer-heading">Navegación</div>
           <ul class="footer-links">
             <li><a href="#inicio">Inicio</a></li>
-            <li><a href="#demo-interactiva">Demo Interactiva</a></li>
             <li><a href="#funcionalidades">Funcionalidades</a></li>
             <li><a href="#testimonios">Testimonios</a></li>
             <li><a href="#precios">Planes y Precios</a></li>
@@ -577,8 +584,71 @@
         <button type="submit" id="btnSubmitLogin" class="btn btn-gold" style="width: 100%; margin-top: 8px;">
           Ingresar al Studio →
         </button>
+
+        <div style="text-align:center; margin-top:12px;">
+          <button type="button" class="forgot-pass-link" onclick="openForgotPasswordModal()">
+            ¿Olvidaste tu contraseña?
+          </button>
+        </div>
       </form>
     </div>
+  </div>
+
+  <!-- Password Recovery Modal (Dual Option: Automated Email & Direct WhatsApp) -->
+  <div id="forgotPasswordModal" class="modal-overlay">
+    <div class="modal-card">
+      <button class="modal-close" onclick="closeForgotPasswordModal()">✕</button>
+      <h3 style="font-size:1.3rem; margin-bottom:6px; color:#fff; display:flex; align-items:center; gap:8px;">
+        🔑 Recuperar Acceso a ScanGo
+      </h3>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:16px;">
+        Elegí la opción que te resulte más rápida para recuperar tu cuenta:
+      </p>
+
+      <div id="forgotAlert" class="form-error" style="display:none; margin-bottom:14px;"></div>
+
+      <div class="recovery-options-grid">
+        <!-- Option 1: Automated Email Link -->
+        <div class="recovery-option-card">
+          <div class="recovery-option-title" style="font-weight:700; font-size:0.95rem; margin-bottom:6px; color:#fff; display:flex; align-items:center; gap:8px;">📧 1. Enlace Automático por Correo</div>
+          <p>Te enviaremos un link seguro a tu casilla de correo para crear una nueva clave.</p>
+          <form id="forgotPassForm" onsubmit="handleForgotPassword(event)">
+            <div class="form-group" style="margin-bottom:10px;">
+              <input type="email" id="forgotEmail" class="form-input" placeholder="Ingresá tu correo registrado" required>
+            </div>
+            <button type="submit" id="btnSubmitForgot" class="btn btn-gold btn-sm" style="width:100%;">
+              Enviar Enlace de Recuperación
+            </button>
+          </form>
+        </div>
+
+        <!-- Option 2: Direct Official WhatsApp Assistance -->
+        <div class="recovery-option-card" style="border-color: rgba(37,211,102,0.35);">
+          <div class="recovery-option-title" style="font-weight:700; font-size:0.95rem; margin-bottom:6px; color:#25D366; display:flex; align-items:center; gap:8px;">
+            <svg style="width:18px; height:18px; fill:#25D366;" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/></svg>
+            2. Contacto Directo por WhatsApp Oficial
+          </div>
+          <p>Hablá de inmediato con el soporte para validar tu identidad y restablecer el ingreso a tu local gastronómico.</p>
+          <a href="https://wa.me/59897089957?text=Hola%20ScanGo,%20necesito%20ayuda%20para%20recuperar%20el%20acceso%20a%20mi%20cuenta" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm" style="width:100%; border-color:#25D366; color:#25D366; display:flex; align-items:center; justify-content:center; gap:8px;">
+            <span>Chatear al +598 97 089 957</span> →
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Magnetic WhatsApp Button (Uruguay: +598 97 089 957) -->
+  <div class="whatsapp-float-container" id="waFloatContainer">
+    <a href="https://wa.me/59897089957?text=Hola%20ScanGo,%20quiero%20hacer%20una%20consulta%20sobre%20el%20menú%20digital" target="_blank" rel="noopener noreferrer" class="wa-tooltip" id="waTooltip">
+      <span class="wa-tooltip-dot"></span>
+      <span>¿Dudas? ¡Chateá con nosotros!</span>
+    </a>
+    <a href="https://wa.me/59897089957?text=Hola%20ScanGo,%20quiero%20hacer%20una%20consulta%20sobre%20el%20menú%20digital" target="_blank" rel="noopener noreferrer" class="whatsapp-float-btn" id="waFloatBtn" aria-label="Contactar por WhatsApp a ScanGo">
+      <div class="wa-pulse-ring"></div>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
+      </svg>
+    </a>
   </div>
 
   <script src="/js/pwa.js"></script>

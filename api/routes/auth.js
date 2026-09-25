@@ -196,4 +196,43 @@ router.post('/logout', (req, res) => {
   return successResponse(res, null, 'Cierre de sesión exitoso');
 });
 
+/**
+ * POST /api/auth/forgot-password
+ * Handles automated password recovery email
+ */
+router.post('/forgot-password', normalizeEmailInput, async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      throw new AppError('El email es requerido', 400, 'EMAIL_REQUIRED');
+    }
+    const user = db.findUserByEmail(email);
+    if (user) {
+      const resetToken = jwt.sign({ userId: user.id, purpose: 'reset-password' }, JWT_SECRET, { expiresIn: '1h' });
+      const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+      const resetUrl = `${appUrl}/reset-password.html?token=${resetToken}`;
+      try {
+        await emailService.sendEmail({
+          to: user.email,
+          subject: 'Recuperación de contraseña - ScanGo',
+          html: `<div style="font-family:sans-serif; max-width:600px; margin:0 auto; padding:20px; background:#111; color:#eee; border-radius:8px;">
+            <h2 style="color:#d4af37;">Recuperación de Contraseña - ScanGo</h2>
+            <p>Hola <strong>${user.name || 'Usuario'}</strong>,</p>
+            <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta de restaurante.</p>
+            <p style="margin:24px 0;">
+              <a href="${resetUrl}" style="background:#d4af37; color:#111; padding:12px 24px; text-decoration:none; font-weight:bold; border-radius:6px; display:inline-block;">Restablecer mi Contraseña</a>
+            </p>
+            <p style="font-size:12px; color:#888;">Este enlace es válido durante 1 hora. Si no solicitaste este cambio, podés ignorar este mensaje o contactarnos directamente por WhatsApp.</p>
+          </div>`
+        });
+      } catch (mailErr) {
+        console.warn('Advertencia al enviar email de recuperación:', mailErr.message);
+      }
+    }
+    return successResponse(res, null, 'Si el correo está registrado en ScanGo, recibirás las instrucciones para restablecer tu contraseña en los próximos minutos.');
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
