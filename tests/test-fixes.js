@@ -1,7 +1,7 @@
 const assert = require('assert');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const { sanitizeModifierGroups, sanitizeDishOptionConfig } = require('../api/utils/menuOptions');
+const { sanitizeModifierGroups, sanitizeDishOptionConfig, validateAndPriceOrderLine, resolveLegacyUnitsPerPack } = require('../api/utils/menuOptions');
 
 console.log('🧪 Iniciando verificación de las 7 mejoras y correcciones críticas...');
 
@@ -41,6 +41,57 @@ function testMenuOptionSanitization() {
   assert.strictEqual(dishOptions.variantsPerItem, 12);
   assert.strictEqual(dishOptions.proteinOptions[0].name, 'Pollo');
   assert.strictEqual(dishOptions.proteinSelectionRequired, true);
+  assert.strictEqual(resolveLegacyUnitsPerPack({ name: 'Docena de Empanadas Surtidas', variantsPerItem: 1 }), 12);
+  assert.strictEqual(resolveLegacyUnitsPerPack({ name: 'Empanadas (media docena)', variantsPerItem: 1 }), 6);
+
+  const configuredGroups = sanitizeModifierGroups([
+    {
+      id: 'presentation',
+      name: 'Presentación',
+      kind: 'presentation',
+      selectionMode: 'single',
+      required: true,
+      minSelections: 1,
+      maxSelections: 1,
+      options: [{ id: 'dozen', name: 'Docena', priceCents: 108000, unitsIncluded: 12 }]
+    },
+    {
+      id: 'flavors',
+      name: 'Sabores',
+      kind: 'flavor',
+      selectionMode: 'quantity_split',
+      required: true,
+      minSelections: 1,
+      maxSelections: 100,
+      options: [
+        { id: 'meat', name: 'Carne' },
+        { id: 'ham', name: 'Jamón', priceDeltaCents: 10 }
+      ]
+    }
+  ]);
+  const scalableDish = { id: 'dish_test', price: 285, modifierGroupIds: ['presentation', 'flavors'] };
+  const validPack = validateAndPriceOrderLine(scalableDish, [
+    { groupId: 'presentation', selections: [{ optionId: 'dozen' }] },
+    { groupId: 'flavors', selections: [{ optionId: 'meat', quantity: 6 }, { optionId: 'ham', quantity: 6 }] }
+  ], configuredGroups);
+  assert.strictEqual(validPack.valid, true);
+  assert.strictEqual(validPack.unitPriceInCents, 108060);
+  assert.strictEqual(validPack.unitsInPackage, 12);
+
+  const invalidPack = validateAndPriceOrderLine(scalableDish, [
+    { groupId: 'presentation', selections: [{ optionId: 'dozen' }] },
+    { groupId: 'flavors', selections: [{ optionId: 'meat', quantity: 11 }] }
+  ], configuredGroups);
+  assert.strictEqual(invalidPack.valid, false);
+
+  const burgerPrice = validateAndPriceOrderLine(
+    { id: 'burger_test', price: 500, modifierGroupIds: ['burger_extras'] },
+    [{ groupId: 'burger_extras', selections: [{ optionId: 'cheese' }] }],
+    [{ id: 'burger_extras', name: 'Extras', kind: 'topping', selectionMode: 'multiple', minSelections: 0, maxSelections: 3, options: [{ id: 'cheese', name: 'Extra queso', priceDeltaCents: 75 }] }]
+  );
+  assert.strictEqual(burgerPrice.valid, true);
+  assert.strictEqual(burgerPrice.unitPriceInCents, 50075);
+  console.log('✓ Cotización server-side de presentaciones, sabores y recargos');
   console.log('✓ Saneamiento de grupos, sabores, proteínas y precios incrementales');
 }
 

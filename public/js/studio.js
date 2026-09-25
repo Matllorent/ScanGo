@@ -104,13 +104,10 @@
         catName: 'Empanadas',
         dishes: [
           {
-            name: 'Docena de Empanadas Surtidas',
-            price: 1080,
-            desc: 'Elegí cómo repartir los sabores entre las 12 unidades.',
+            name: 'Empanadas surtidas',
+            price: 285,
+            desc: 'Elegí 3 unidades, media docena o docena y repartí los sabores.',
             tags: ['star'],
-            variantSelectionMode: 'quantity_split',
-            variantsRequired: true,
-            variantsPerItem: 12,
             variants: [
               { id: 'carne_suave', name: 'Carne suave' },
               { id: 'carne_picante', name: 'Carne picante' },
@@ -1018,15 +1015,7 @@
       document.getElementById('tagCeliac').checked = (dish.tags || []).includes('celiac');
       document.getElementById('tagSinLactosa').checked = (dish.tags || []).includes('sinlactosa');
       document.getElementById('tagPicante').checked = (dish.tags || []).includes('picante');
-      renderDishOptionRows('protein', dish.proteinOptions || []);
-      renderDishOptionRows('variant', dish.variants || []);
-      document.getElementById('modalDishProteinRequired').checked = Boolean(dish.proteinSelectionRequired);
-      document.getElementById('modalDishVariantsRequired').checked = Boolean(dish.variantsRequired);
-      document.getElementById('modalDishVariantMode').value = dish.variantSelectionMode === 'quantity_split'
-        ? 'quantity_split'
-        : 'single';
-      document.getElementById('modalDishVariantsPerItem').value = dish.variantsPerItem || 1;
-      toggleVariantUnitsField();
+      renderDishModifierAssignments(ensureDishModifierGroups(dish));
 
       // Smart Scheduling
       const sched = dish.schedule;
@@ -1099,13 +1088,7 @@
       document.getElementById('modalDishOutOfStock').checked = false;
       document.getElementById('modalDishStar').checked = false;
       document.getElementById('modalDishChefSpecial').checked = false;
-      renderDishOptionRows('protein', []);
-      renderDishOptionRows('variant', []);
-      document.getElementById('modalDishProteinRequired').checked = false;
-      document.getElementById('modalDishVariantsRequired').checked = false;
-      document.getElementById('modalDishVariantMode').value = 'single';
-      document.getElementById('modalDishVariantsPerItem').value = '1';
-      toggleVariantUnitsField();
+      renderDishModifierAssignments([]);
       clearDishPhoto();
 
       // Reset smart scheduling
@@ -1145,69 +1128,349 @@
       document.getElementById('dishEditModal').classList.remove('active');
     }
 
-    function renderDishOptionRows(type, options) {
-      const container = document.getElementById(type === 'protein' ? 'proteinOptionsList' : 'variantOptionsList');
-      if (!container) return;
+    function getRestaurantModifierGroups() {
+      if (!Array.isArray(restaurant.modifierGroups)) restaurant.modifierGroups = [];
+      return restaurant.modifierGroups;
+    }
 
-      container.innerHTML = (options || []).map((option, index) => `
-        <div class="dish-option-row">
+    function inferLegacyPackUnits(dish) {
+      const name = String(dish.name || '').toLowerCase();
+      if (/media\s+docena|1\/2\s*docena|\b6\s*(?:unidades|un\.?|empanadas)\b/.test(name)) return 6;
+      if (/\bdocena\b|\b12\s*(?:unidades|un\.?|empanadas)\b/.test(name)) return 12;
+      if (/\b3\s*(?:unidades|un\.?|empanadas)\b|\btr[ií]o\b/.test(name)) return 3;
+      return 1;
+    }
+
+    function resolveLegacyPackUnits(dish) {
+      const inferred = inferLegacyPackUnits(dish);
+      const configured = parseInt(dish.variantsPerItem, 10) || 0;
+      return !configured || (configured === 1 && inferred > 1) ? inferred : configured;
+    }
+
+    function ensureDishModifierGroups(dish) {
+      const groups = getRestaurantModifierGroups();
+      const ids = Array.isArray(dish.modifierGroupIds) ? [...dish.modifierGroupIds] : [];
+      const addLegacyGroup = (type, legacyOptions, settings) => {
+        if (!Array.isArray(legacyOptions) || !legacyOptions.length) return;
+        const id = `legacy_${type}_${dish.id}`;
+        let group = groups.find(item => item.id === id);
+        if (!group) {
+          group = {
+            id,
+            name: settings.name,
+            kind: settings.kind,
+            selectionMode: settings.selectionMode,
+            required: Boolean(settings.required),
+            minSelections: settings.required ? 1 : 0,
+            maxSelections: settings.selectionMode === 'single' ? 1 : 100,
+            ...(settings.unitsPerSelection ? { unitsPerSelection: settings.unitsPerSelection } : {}),
+            options: legacyOptions.map(option => ({
+              id: String(option.id),
+              name: String(option.name),
+              priceDeltaCents: Math.max(0, Math.round(Number(option.priceDeltaCents) || 0)),
+              active: option.active !== false
+            }))
+          };
+          groups.push(group);
+        }
+        if (!ids.includes(id)) ids.push(id);
+      };
+
+      addLegacyGroup('protein', dish.proteinOptions, {
+        name: 'Proteína', kind: 'protein', selectionMode: 'single', required: dish.proteinSelectionRequired
+      });
+      const splitFlavors = dish.variantSelectionMode === 'quantity_split';
+      addLegacyGroup('flavors', dish.variants, {
+        name: splitFlavors ? 'Sabores' : 'Variante',
+        kind: splitFlavors ? 'flavor' : 'variant',
+        selectionMode: splitFlavors ? 'quantity_split' : 'single',
+        required: dish.variantsRequired,
+        unitsPerSelection: splitFlavors ? resolveLegacyPackUnits(dish) : null
+      });
+      return ids;
+    }
+
+    function renderDishModifierAssignments(assignedIds = []) {
+      const container = document.getElementById('dishModifierGroupsList');
+      if (!container) return;
+      const groups = getRestaurantModifierGroups().filter(group => group.active !== false);
+      if (!groups.length) {
+        container.innerHTML = '<p class="modifier-empty-state">Todavía no hay grupos. Creá uno para ofrecer proteínas, panes, extras o sabores.</p>';
+        return;
+      }
+
+      const assigned = new Set(assignedIds);
+      const presentationIds = groups.filter(group => group.kind === 'presentation' && assigned.has(group.id)).map(group => group.id);
+      const visibleAssigned = presentationIds.length > 1
+        ? new Set([...assigned].filter(id => !presentationIds.includes(id)).concat(presentationIds[0]))
+        : assigned;
+      container.innerHTML = groups.map(group => `
+        <label class="dish-assigned-group">
+          <input type="checkbox" data-modifier-group-id="${escapeHtml(group.id)}" data-group-kind="${escapeHtml(group.kind)}" onchange="toggleDishModifierGroup(this)" ${visibleAssigned.has(group.id) ? 'checked' : ''}>
+          <span><strong>${escapeHtml(group.name)}</strong><small>${escapeHtml(group.kind)} · ${(group.options || []).length} opciones${group.required ? ' · obligatorio' : ''}</small></span>
+        </label>
+      `).join('');
+    }
+
+    function toggleDishModifierGroup(input) {
+      if (!input.checked || input.dataset.groupKind !== 'presentation') return;
+      document.querySelectorAll('#dishModifierGroupsList [data-group-kind="presentation"]').forEach(other => {
+        if (other !== input) other.checked = false;
+      });
+    }
+
+    function readDishModifierGroupIds() {
+      return Array.from(document.querySelectorAll('#dishModifierGroupsList [data-modifier-group-id]:checked'))
+        .map(input => input.dataset.modifierGroupId);
+    }
+
+    function openModifierGroupManager() {
+      document.getElementById('modifierGroupManagerModal').classList.add('active');
+      renderModifierGroupList();
+    }
+
+    function closeModifierGroupManager() {
+      document.getElementById('modifierGroupManagerModal').classList.remove('active');
+      renderDishModifierAssignments(readDishModifierGroupIds());
+    }
+
+    function renderModifierGroupList() {
+      const container = document.getElementById('modifierGroupList');
+      const groups = getRestaurantModifierGroups();
+      container.innerHTML = groups.length ? groups.map(group => `
+        <div class="modifier-group-list-item">
+          <div><strong>${escapeHtml(group.name)}</strong><small>${escapeHtml(group.kind)} · ${(group.options || []).length} opciones</small></div>
+          <div class="modifier-group-list-actions">
+            <button type="button" class="btn-icon" onclick="editModifierGroup('${escapeHtml(group.id)}')" aria-label="Editar ${escapeHtml(group.name)}">✎</button>
+            <button type="button" class="btn-icon btn-icon-danger" onclick="deleteModifierGroup('${escapeHtml(group.id)}')" aria-label="Eliminar ${escapeHtml(group.name)}">×</button>
+          </div>
+        </div>
+      `).join('') : '<p class="modifier-empty-state">Creá grupos reutilizables para personalizar los platos.</p>';
+    }
+
+    function addBurgerModifierTemplate() {
+      const groups = getRestaurantModifierGroups();
+      if (groups.some(group => group.id.startsWith('template_burger_'))) {
+        alert('La plantilla de hamburguesa ya existe. Editá sus grupos o asignalos a otro plato.');
+        return;
+      }
+      const template = [
+        {
+          id: 'template_burger_bread',
+          name: 'Tipo de pan',
+          kind: 'bread',
+          selectionMode: 'single',
+          required: true,
+          minSelections: 1,
+          maxSelections: 1,
+          active: true,
+          options: [
+            { id: 'template_bread_brioche', name: 'Brioche', priceDeltaCents: 0, active: true },
+            { id: 'template_bread_potato', name: 'Pan de papa', priceDeltaCents: 0, active: true },
+            { id: 'template_bread_gluten_free', name: 'Sin gluten', priceDeltaCents: 0, active: true }
+          ]
+        },
+        {
+          id: 'template_burger_extras',
+          name: 'Extras',
+          kind: 'topping',
+          selectionMode: 'multiple',
+          required: false,
+          minSelections: 0,
+          maxSelections: 3,
+          active: true,
+          options: [
+            { id: 'template_extra_cheddar', name: 'Extra cheddar', priceDeltaCents: 0, active: true },
+            { id: 'template_extra_bacon', name: 'Bacon', priceDeltaCents: 0, active: true },
+            { id: 'template_extra_egg', name: 'Huevo', priceDeltaCents: 0, active: true }
+          ]
+        },
+        {
+          id: 'template_burger_patty',
+          name: 'Medallones extra',
+          kind: 'extra',
+          selectionMode: 'quantity',
+          required: false,
+          minSelections: 0,
+          maxSelections: 3,
+          active: true,
+          options: [{ id: 'template_extra_patty', name: 'Medallón extra', priceDeltaCents: 0, maxQuantity: 3, active: true }]
+        }
+      ];
+      groups.push(...template);
+      renderModifierGroupList();
+      const currentIds = readDishModifierGroupIds();
+      renderDishModifierAssignments(currentIds);
+      triggerAutoSave();
+    }
+
+    function startNewModifierGroup() {
+      document.getElementById('modifierGroupEditor').style.display = 'block';
+      document.getElementById('modifierGroupId').value = '';
+      document.getElementById('modifierGroupName').value = '';
+      document.getElementById('modifierGroupKind').value = 'protein';
+      document.getElementById('modifierGroupMode').value = 'single';
+      document.getElementById('modifierGroupRequired').checked = false;
+      document.getElementById('modifierGroupMin').value = '0';
+      document.getElementById('modifierGroupMax').value = '1';
+      document.getElementById('modifierSplitUnits').value = '12';
+      renderModifierGroupOptions([]);
+      updateModifierGroupEditor();
+      document.getElementById('modifierGroupName').focus();
+    }
+
+    function editModifierGroup(groupId) {
+      const group = getRestaurantModifierGroups().find(item => item.id === groupId);
+      if (!group) return;
+      document.getElementById('modifierGroupEditor').style.display = 'block';
+      document.getElementById('modifierGroupId').value = group.id;
+      document.getElementById('modifierGroupName').value = group.name;
+      document.getElementById('modifierGroupKind').value = group.kind;
+      document.getElementById('modifierGroupMode').value = group.selectionMode;
+      document.getElementById('modifierGroupRequired').checked = Boolean(group.required);
+      document.getElementById('modifierGroupMin').value = group.minSelections || 0;
+      document.getElementById('modifierGroupMax').value = group.maxSelections || 1;
+      document.getElementById('modifierSplitUnits').value = group.unitsPerSelection || 12;
+      renderModifierGroupOptions(group.options || []);
+      updateModifierGroupEditor();
+    }
+
+    function renderModifierGroupOptions(options) {
+      const kind = document.getElementById('modifierGroupKind').value;
+      const mode = document.getElementById('modifierGroupMode').value;
+      const isPresentation = kind === 'presentation';
+      const hasQuantities = mode === 'quantity';
+      document.getElementById('modifierPriceHeading').textContent = isPresentation ? 'Precio del paquete' : 'Adicional';
+      document.getElementById('modifierUnitsHeading').hidden = !isPresentation;
+      document.getElementById('modifierMaxHeading').hidden = !hasQuantities;
+      document.getElementById('modifierGroupOptionsList').innerHTML = (options || []).map((option, index) => `
+        <div class="modifier-option-row">
           <input type="hidden" data-option-id value="${escapeHtml(option.id || '')}">
-          <input type="text" class="form-input" data-option-name maxlength="80" value="${escapeHtml(option.name || '')}" placeholder="${type === 'protein' ? 'Ej: Pollo' : 'Ej: Carne suave'}" aria-label="Nombre de ${type === 'protein' ? 'proteína' : 'sabor'}">
-          <input type="number" class="form-input" data-option-price min="0" step="0.01" value="${(Number(option.priceDeltaCents) || 0) / 100}" aria-label="Adicional de precio">
-          <button type="button" class="dish-option-remove" onclick="removeDishOption('${type}', ${index})" aria-label="Quitar opción">×</button>
+          <input type="text" class="form-input" data-option-name maxlength="80" value="${escapeHtml(option.name || '')}" placeholder="Nombre de la opción" aria-label="Nombre de la opción">
+          <input type="number" class="form-input" data-option-price min="0" step="0.01" value="${option.priceValue !== undefined ? Number(option.priceValue) : (isPresentation ? (Number(option.priceCents) || 0) / 100 : (Number(option.priceDeltaCents) || 0) / 100)}" aria-label="${isPresentation ? 'Precio total' : 'Adicional de precio'}">
+          <input type="number" class="form-input modifier-option-units" data-option-units min="1" max="100" step="1" value="${option.unitsIncluded || 1}" style="${isPresentation ? '' : 'display:none;'}" aria-label="Unidades incluidas">
+          <input type="number" class="form-input modifier-option-max" data-option-max min="1" max="100" step="1" value="${option.maxQuantity || 3}" style="${hasQuantities && !isPresentation ? '' : 'display:none;'}" aria-label="Cantidad máxima">
+          <button type="button" class="dish-option-remove" onclick="removeModifierGroupOption(${index})" aria-label="Quitar opción">×</button>
         </div>
       `).join('');
     }
 
-    function readDishOptionRows(type) {
-      const container = document.getElementById(type === 'protein' ? 'proteinOptionsList' : 'variantOptionsList');
-      return Array.from(container.querySelectorAll('.dish-option-row')).map((row, index) => {
-        const name = row.querySelector('[data-option-name]').value.trim().slice(0, 80);
-        const price = Number.parseFloat(row.querySelector('[data-option-price]').value) || 0;
-        const idInput = row.querySelector('[data-option-id]');
-        return name ? {
-          id: idInput.value || `${type}_${Date.now()}_${index}`,
-          name,
-          priceDeltaCents: Math.max(0, Math.round(price * 100)),
-          active: true
-        } : null;
-      }).filter(Boolean);
+    function updateModifierGroupEditor() {
+      const kind = document.getElementById('modifierGroupKind').value;
+      if (kind === 'presentation') document.getElementById('modifierGroupMode').value = 'single';
+      const mode = document.getElementById('modifierGroupMode').value;
+      document.getElementById('modifierGroupMax').max = mode === 'single' || kind === 'presentation' ? '1' : '100';
+      document.getElementById('modifierSplitUnitsField').style.display = mode === 'quantity_split' ? 'block' : 'none';
+      renderModifierGroupOptions(readModifierGroupOptions());
     }
 
-    function addDishOption(type) {
-      const options = readDishOptionRows(type);
-      options.push({ id: `${type}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, name: '', priceDeltaCents: 0 });
-      renderDishOptionRows(type, options);
-      const container = document.getElementById(type === 'protein' ? 'proteinOptionsList' : 'variantOptionsList');
-      container.querySelector('.dish-option-row:last-child [data-option-name]')?.focus();
+    function handleModifierGroupModeChange() {
+      const mode = document.getElementById('modifierGroupMode').value;
+      const maximum = document.getElementById('modifierGroupMax');
+      if (mode === 'single') maximum.value = '1';
+      else if (maximum.value === '1') maximum.value = mode === 'quantity' ? '3' : '100';
+      updateModifierGroupEditor();
     }
 
-    function removeDishOption(type, index) {
-      const options = readDishOptionRows(type);
+    function readModifierGroupOptions() {
+      return Array.from(document.querySelectorAll('#modifierGroupOptionsList .modifier-option-row')).map(row => ({
+        id: row.querySelector('[data-option-id]').value,
+        name: row.querySelector('[data-option-name]').value,
+        priceValue: row.querySelector('[data-option-price]').value,
+        unitsIncluded: row.querySelector('[data-option-units]').value,
+        maxQuantity: row.querySelector('[data-option-max]').value
+      }));
+    }
+
+    function addModifierGroupOption() {
+      const options = readModifierGroupOptions();
+      options.push({ id: '', name: '', priceValue: '0', unitsIncluded: '1', maxQuantity: '3' });
+      renderModifierGroupOptions(options);
+      document.querySelector('#modifierGroupOptionsList .modifier-option-row:last-child [data-option-name]')?.focus();
+    }
+
+    function removeModifierGroupOption(index) {
+      const options = readModifierGroupOptions();
       options.splice(index, 1);
-      renderDishOptionRows(type, options);
+      renderModifierGroupOptions(options);
+    }
+
+    function saveModifierGroup(event) {
+      event.preventDefault();
+      const assignedIds = readDishModifierGroupIds();
+      const name = document.getElementById('modifierGroupName').value.trim().slice(0, 80);
+      const kind = document.getElementById('modifierGroupKind').value;
+      const selectionMode = kind === 'presentation' ? 'single' : document.getElementById('modifierGroupMode').value;
+      const rawOptions = readModifierGroupOptions();
+      const options = rawOptions.filter(option => option.name.trim()).map((option, index) => ({
+        id: option.id || `opt_${Date.now()}_${index}`,
+        name: option.name.trim().slice(0, 80),
+        priceDeltaCents: kind === 'presentation' ? 0 : Math.max(0, Math.round((Number(option.priceValue) || 0) * 100)),
+        ...(kind === 'presentation' ? {
+          priceCents: Math.max(0, Math.round((Number(option.priceValue) || 0) * 100)),
+          unitsIncluded: Math.max(1, Math.min(100, parseInt(option.unitsIncluded, 10) || 1))
+        } : {}),
+        ...(selectionMode === 'quantity' ? { maxQuantity: Math.max(1, Math.min(100, parseInt(option.maxQuantity, 10) || 1)) } : {}),
+        active: true
+      }));
+
+      if (!name || !options.length) {
+        alert('El grupo necesita un nombre y al menos una opción.');
+        return;
+      }
+      if (kind === 'presentation' && options.some(option => !option.priceCents)) {
+        alert('Cada presentación necesita un precio mayor a cero.');
+        return;
+      }
+
+      const id = document.getElementById('modifierGroupId').value || `group_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      const existingIndex = getRestaurantModifierGroups().findIndex(group => group.id === id);
+      const required = document.getElementById('modifierGroupRequired').checked;
+      const maximum = selectionMode === 'single' ? 1 : Math.max(1, Math.min(100, parseInt(document.getElementById('modifierGroupMax').value, 10) || 1));
+      const group = {
+        id,
+        name,
+        kind,
+        selectionMode,
+        required,
+        minSelections: Math.max(0, Math.min(maximum, parseInt(document.getElementById('modifierGroupMin').value, 10) || 0)),
+        maxSelections: maximum,
+        ...(selectionMode === 'quantity_split' ? { unitsPerSelection: Math.max(1, Math.min(100, parseInt(document.getElementById('modifierSplitUnits').value, 10) || 1)) } : {}),
+        active: true,
+        options
+      };
+      const groups = getRestaurantModifierGroups();
+      if (existingIndex >= 0) groups[existingIndex] = group;
+      else groups.push(group);
+
+      const editorDish = restaurant.dishes?.find(dish => dish.id === document.getElementById('modalDishId').value);
+      if (editorDish) editorDish.modifierGroupIds = assignedIds;
+      renderDishModifierAssignments(assignedIds);
+      renderModifierGroupList();
+      document.getElementById('modifierGroupEditor').style.display = 'none';
+      triggerAutoSave();
+    }
+
+    function cancelModifierGroupEdit() {
+      document.getElementById('modifierGroupEditor').style.display = 'none';
+    }
+
+    function deleteModifierGroup(groupId) {
+      const group = getRestaurantModifierGroups().find(item => item.id === groupId);
+      if (!group || !confirm(`¿Eliminar el grupo "${group.name}"? También se quitará de los platos que lo usan.`)) return;
+      const assignedIds = readDishModifierGroupIds().filter(id => id !== groupId);
+      restaurant.modifierGroups = getRestaurantModifierGroups().filter(item => item.id !== groupId);
+      (restaurant.dishes || []).forEach(dish => {
+        dish.modifierGroupIds = (dish.modifierGroupIds || []).filter(id => id !== groupId);
+      });
+      renderModifierGroupList();
+      renderDishModifierAssignments(assignedIds);
+      renderDishesList();
+      triggerAutoSave();
     }
 
     function getDishOptionConfig() {
-      const proteinOptions = readDishOptionRows('protein');
-      const variants = readDishOptionRows('variant');
-      const variantSelectionMode = document.getElementById('modalDishVariantMode').value;
-      return {
-        proteinOptions,
-        proteinSelectionRequired: proteinOptions.length > 0 && document.getElementById('modalDishProteinRequired').checked,
-        variants,
-        variantSelectionMode,
-        variantsRequired: variants.length > 0 && document.getElementById('modalDishVariantsRequired').checked,
-        ...(variantSelectionMode === 'quantity_split'
-          ? { variantsPerItem: Math.max(1, Math.min(100, parseInt(document.getElementById('modalDishVariantsPerItem').value, 10) || 1)) }
-          : {})
-      };
-    }
-
-    function toggleVariantUnitsField() {
-      const mode = document.getElementById('modalDishVariantMode');
-      const field = document.getElementById('variantUnitsPerItemField');
-      if (mode && field) field.style.display = mode.value === 'quantity_split' ? 'block' : 'none';
+      return { modifierGroupIds: readDishModifierGroupIds() };
     }
 
     function saveDishFromModal(event) {
@@ -1287,6 +1550,12 @@
           dish.schedule = schedule;
           dish.tags = tags;
           Object.assign(dish, optionConfig);
+          delete dish.proteinOptions;
+          delete dish.proteinSelectionRequired;
+          delete dish.variants;
+          delete dish.variantSelectionMode;
+          delete dish.variantsRequired;
+          delete dish.variantsPerItem;
         }
       } else {
         // Create new
@@ -1486,6 +1755,18 @@
     }
 
     function buildPresetDish(presetKey, dish, categoryId, index) {
+      if (presetKey === 'empanadas' && Array.isArray(dish.variants)) {
+        return {
+          id: `d_${presetKey}_${Date.now()}_${index}`,
+          categoryId,
+          name: dish.name,
+          price: dish.price,
+          description: dish.desc,
+          tags: dish.tags || [],
+          modifierGroupIds: ensureEmpanadaPresetGroups(dish)
+        };
+      }
+
       const optionConfig = Array.isArray(dish.variants) ? {
         variants: dish.variants,
         variantSelectionMode: dish.variantSelectionMode || 'single',
@@ -1501,6 +1782,49 @@
         tags: dish.tags || [],
         ...optionConfig
       };
+    }
+
+    function ensureEmpanadaPresetGroups(dish) {
+      const groups = getRestaurantModifierGroups();
+      const presentationId = 'preset_empanadas_presentation';
+      const flavorsId = 'preset_empanadas_flavors';
+
+      if (!groups.some(group => group.id === presentationId)) {
+        groups.push({
+          id: presentationId,
+          name: 'Presentación',
+          kind: 'presentation',
+          selectionMode: 'single',
+          required: true,
+          minSelections: 1,
+          maxSelections: 1,
+          active: true,
+          options: [
+            { id: 'empanadas_3', name: '3 unidades', unitsIncluded: 3, priceCents: 28500, priceDeltaCents: 0, active: true },
+            { id: 'empanadas_6', name: 'Media docena (6)', unitsIncluded: 6, priceCents: 55000, priceDeltaCents: 0, active: true },
+            { id: 'empanadas_12', name: 'Docena (12)', unitsIncluded: 12, priceCents: 108000, priceDeltaCents: 0, active: true }
+          ]
+        });
+      }
+      if (!groups.some(group => group.id === flavorsId)) {
+        groups.push({
+          id: flavorsId,
+          name: 'Sabores',
+          kind: 'flavor',
+          selectionMode: 'quantity_split',
+          required: true,
+          minSelections: 1,
+          maxSelections: 100,
+          unitsPerSelection: 12,
+          active: true,
+          options: (dish.variants || []).map(option => ({
+            ...option,
+            priceDeltaCents: Number(option.priceDeltaCents) || 0,
+            active: true
+          }))
+        });
+      }
+      return [presentationId, flavorsId];
     }
 
     function addSinglePresetDish(presetKey, dishIdx) {

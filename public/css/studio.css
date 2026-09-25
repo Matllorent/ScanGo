@@ -222,26 +222,51 @@
       border-radius: 8px;
       background: var(--bg-base);
     }
-    .dish-options-title { margin: 0 0 10px; color: var(--accent-gold); font-size: 13px; }
-    .dish-options-group + .dish-options-group { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .dish-options-title { margin: 0; color: var(--accent-gold); font-size: 13px; }
     .dish-options-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    .dish-options-header strong { color: #fff; font-size: 12px; }
     .dish-options-header p { margin: 3px 0 0; color: var(--text-dim); font-size: 10px; }
-    .dish-option-toggle { display: inline-flex; align-items: center; gap: 5px; color: var(--text-muted); font-size: 10px; white-space: nowrap; }
-    .dish-option-column-labels { display: grid; grid-template-columns: minmax(0, 1fr) 112px 30px; gap: 6px; margin-top: 9px; color: var(--text-dim); font-size: 9px; }
-    .dish-option-list { display: grid; gap: 6px; margin-top: 8px; }
-    .dish-option-row { display: grid; grid-template-columns: minmax(0, 1fr) 112px 30px; gap: 6px; align-items: center; }
-    .dish-option-row .form-input { min-width: 0; margin: 0; }
+    .dish-assigned-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 7px; margin-top: 10px; }
+    .dish-assigned-group { display: flex; align-items: flex-start; gap: 8px; min-width: 0; padding: 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); cursor: pointer; }
+    .dish-assigned-group input { margin-top: 2px; accent-color: var(--accent-gold); }
+    .dish-assigned-group span { display: grid; min-width: 0; gap: 3px; }
+    .dish-assigned-group strong { color: #fff; font-size: 11px; }
+    .dish-assigned-group small { color: var(--text-dim); font-size: 9px; overflow-wrap: anywhere; }
+    .modifier-empty-state { margin: 0; padding: 10px; color: var(--text-dim); font-size: 10px; }
     .dish-option-remove { width: 30px; height: 34px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); color: #fff; font-size: 18px; cursor: pointer; }
-    .dish-option-add { margin-top: 8px; font-size: 10px; padding: 5px 8px; }
-    .dish-variant-settings { margin-top: 8px; }
-    .dish-variant-settings .form-select { margin-bottom: 0; }
+    .dish-option-add { font-size: 10px; padding: 5px 8px; }
+
+    .modifier-group-modal { max-width: 680px; }
+    .modifier-group-intro { margin: -6px 0 12px; color: var(--text-dim); font-size: 11px; line-height: 1.5; }
+    .modifier-group-list { display: grid; gap: 6px; max-height: 220px; overflow-y: auto; margin-bottom: 10px; }
+    .modifier-group-list-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-base); }
+    .modifier-group-list-item > div:first-child { display: grid; gap: 3px; min-width: 0; }
+    .modifier-group-list-item strong { color: #fff; font-size: 11px; }
+    .modifier-group-list-item small { color: var(--text-dim); font-size: 9px; }
+    .modifier-group-list-actions { display: flex; gap: 5px; }
+    .modifier-group-create-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+    .modifier-group-editor { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-base); }
+    .modifier-group-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+    .modifier-group-settings .form-select { margin-bottom: 8px; }
+    .modifier-required-toggle { display: flex; align-items: center; gap: 7px; margin: 2px 0 10px; color: var(--text-muted); font-size: 10px; }
+    .modifier-required-toggle input { accent-color: var(--accent-gold); }
+    .modifier-group-limits { display: flex; gap: 10px; margin: 0 0 10px; }
+    .modifier-group-limits label { display: flex; align-items: center; gap: 6px; color: var(--text-dim); font-size: 10px; }
+    .modifier-group-limits .form-input { width: 68px; margin: 0; }
+    .modifier-option-heading, .modifier-option-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(90px, 120px) 82px 70px 30px; gap: 6px; align-items: center; }
+    .modifier-option-heading { margin: 10px 0 5px; color: var(--text-dim); font-size: 9px; }
+    .modifier-group-options { display: grid; gap: 6px; }
+    .modifier-option-row .form-input { min-width: 0; margin: 0; }
+    .modifier-option-row [data-option-units]:not([style*="display: none"]) { display: block; }
+    .modifier-option-row [data-option-max] { display: none; }
+    .modifier-group-editor-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 
     @media (max-width: 420px) {
       .dish-options-panel { padding: 9px; }
       .dish-options-header { align-items: flex-start; flex-direction: column; }
-      .dish-option-column-labels { grid-template-columns: minmax(0, 1fr) 82px 30px; }
-      .dish-option-row { grid-template-columns: minmax(0, 1fr) 82px 30px; }
+      .modifier-group-modal { padding: 16px; }
+      .modifier-option-heading, .modifier-option-row { grid-template-columns: minmax(70px, 1fr) 70px 54px 54px 28px; gap: 4px; }
+      .modifier-option-heading { font-size: 8px; }
+      .modifier-option-row .form-input { padding: 6px 4px; font-size: 10px; }
     }
 
     /* Dish Cards in Studio */

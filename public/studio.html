@@ -825,45 +825,14 @@
         </div>
 
         <section class="dish-options-panel" aria-labelledby="dishOptionsTitle">
-          <h4 id="dishOptionsTitle" class="dish-options-title">Opciones para personalizar</h4>
-
-          <div class="dish-options-group">
-            <div class="dish-options-header">
-              <div>
-                <strong>Proteínas</strong>
-                <p>Agregá carne, pollo u otras opciones para este plato.</p>
-              </div>
-              <label class="dish-option-toggle"><input type="checkbox" id="modalDishProteinRequired"> Obligatoria</label>
+          <div class="dish-options-header">
+            <div>
+              <h4 id="dishOptionsTitle" class="dish-options-title">Opciones para personalizar</h4>
+              <p>Activá solo los grupos que este plato ofrece.</p>
             </div>
-            <div class="dish-option-column-labels"><span>Proteína</span><span>Adicional</span><span></span></div>
-            <div id="proteinOptionsList" class="dish-option-list"></div>
-            <button type="button" class="btn-nav dish-option-add" onclick="addDishOption('protein')">+ Agregar proteína</button>
+            <button type="button" class="btn-nav dish-option-add" onclick="openModifierGroupManager()">⚙ Gestionar grupos</button>
           </div>
-
-          <div class="dish-options-group">
-            <div class="dish-options-header">
-              <div>
-                <strong>Sabores y variantes</strong>
-                <p>Ideal para empanadas surtidas y productos con opciones.</p>
-              </div>
-              <label class="dish-option-toggle"><input type="checkbox" id="modalDishVariantsRequired"> Obligatorias</label>
-            </div>
-            <div class="dish-variant-settings">
-              <label for="modalDishVariantMode" class="form-label">Selección de sabores</label>
-              <select id="modalDishVariantMode" class="form-select" onchange="toggleVariantUnitsField()">
-                <option value="single">Elegir una opción</option>
-                <option value="quantity_split">Repartir según la cantidad</option>
-              </select>
-            </div>
-            <div id="variantUnitsPerItemField" class="dish-variant-settings" style="display:none;">
-              <label for="modalDishVariantsPerItem" class="form-label">Unidades incluidas en este plato</label>
-              <input type="number" id="modalDishVariantsPerItem" class="form-input" min="1" max="100" step="1" value="1">
-              <div class="input-hint">Ejemplo: una docena de empanadas = 12.</div>
-            </div>
-            <div class="dish-option-column-labels"><span>Sabor o variante</span><span>Adicional</span><span></span></div>
-            <div id="variantOptionsList" class="dish-option-list"></div>
-            <button type="button" class="btn-nav dish-option-add" onclick="addDishOption('variant')">+ Agregar sabor o variante</button>
-          </div>
+          <div id="dishModifierGroupsList" class="dish-assigned-groups"></div>
         </section>
 
         <div class="form-group">
@@ -1057,6 +1026,8 @@
           Sí, Confirmar
         </button>
       </div>
+    </div>
+  </div>
   <!-- Modal Eliminación de Cuenta (Google Play Account Deletion Policy Compliance) -->
   <div id="deleteAccountModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 480px; text-align: left;">
@@ -1101,6 +1072,70 @@
       <div style="margin-top: 16px; text-align: right;">
         <button type="button" class="btn-nav" onclick="closeCategoryManagerModal()">Cerrar</button>
       </div>
+    </div>
+  </div>
+
+  <div id="modifierGroupManagerModal" class="modal-overlay">
+    <div class="modal-box modifier-group-modal">
+      <button type="button" class="modal-close" onclick="closeModifierGroupManager()" aria-label="Cerrar">✕</button>
+      <h3 class="modal-title">Grupos de opciones</h3>
+      <p class="modifier-group-intro">Creá grupos reutilizables. Un adicional en cero no cambia el precio; revisá los valores antes de asignarlos.</p>
+      <div id="modifierGroupList" class="modifier-group-list"></div>
+      <div class="modifier-group-create-actions">
+        <button type="button" class="btn-nav btn-nav-gold" onclick="startNewModifierGroup()">+ Crear grupo</button>
+        <button type="button" class="btn-nav" onclick="addBurgerModifierTemplate()">+ Plantilla hamburguesa</button>
+      </div>
+
+      <form id="modifierGroupEditor" class="modifier-group-editor" onsubmit="saveModifierGroup(event)" style="display:none;">
+        <input type="hidden" id="modifierGroupId">
+        <label class="form-label" for="modifierGroupName">Nombre del grupo</label>
+        <input type="text" id="modifierGroupName" class="form-input" maxlength="80" required placeholder="Ej: Tipo de pan">
+
+        <div class="modifier-group-settings">
+          <div>
+            <label class="form-label" for="modifierGroupKind">Uso</label>
+            <select id="modifierGroupKind" class="form-select" onchange="updateModifierGroupEditor()">
+              <option value="protein">Proteína</option>
+              <option value="bread">Tipo de pan</option>
+              <option value="flavor">Sabores</option>
+              <option value="topping">Extras</option>
+              <option value="side">Guarnición</option>
+              <option value="extra">Adicional</option>
+              <option value="presentation">Presentación / tamaño</option>
+              <option value="variant">Otra variante</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label" for="modifierGroupMode">Selección</label>
+            <select id="modifierGroupMode" class="form-select" onchange="handleModifierGroupModeChange()">
+              <option value="single">Una opción</option>
+              <option value="multiple">Varias opciones</option>
+              <option value="quantity">Cantidad por opción</option>
+              <option value="quantity_split">Repartir unidades</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="modifier-required-toggle"><input type="checkbox" id="modifierGroupRequired"> El cliente debe elegir en este grupo</label>
+        <div class="modifier-group-limits">
+          <label><span>Mínimo</span><input type="number" id="modifierGroupMin" class="form-input" min="0" max="100" value="0"></label>
+          <label><span>Máximo</span><input type="number" id="modifierGroupMax" class="form-input" min="1" max="100" value="1"></label>
+        </div>
+        <div id="modifierSplitUnitsField" class="form-group" style="display:none;">
+          <label class="form-label" for="modifierSplitUnits">Unidades que hay que repartir</label>
+          <input type="number" id="modifierSplitUnits" class="form-input" min="1" max="100" step="1" value="12">
+        </div>
+
+        <div class="modifier-option-heading">
+          <span>Opción</span><span id="modifierPriceHeading">Adicional</span><span id="modifierUnitsHeading" hidden>Unidades</span><span id="modifierMaxHeading" hidden>Máximo</span><span></span>
+        </div>
+        <div id="modifierGroupOptionsList" class="modifier-group-options"></div>
+        <button type="button" class="btn-nav dish-option-add" onclick="addModifierGroupOption()">+ Agregar opción</button>
+        <div class="modifier-group-editor-actions">
+          <button type="button" class="btn-nav" onclick="cancelModifierGroupEdit()">Cancelar</button>
+          <button type="submit" class="btn-nav btn-nav-gold">Guardar grupo</button>
+        </div>
+      </form>
     </div>
   </div>
 

@@ -751,14 +751,17 @@
       const formattedPrice = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
         ? window.i18nManager.formatPrice(d.price) 
         : `${currency} ${d.price}`;
+      const displayPrice = getDishModifierGroups(d).some(group => group.kind === 'presentation')
+        ? `Desde ${formattedPrice}`
+        : formattedPrice;
 
       const origPrice = (d.originalPrice !== undefined && d.originalPrice !== null) ? d.originalPrice : (d.previous_price || d.previousPrice);
-      let priceDisplay = isSold ? '<span style="color:#E53E3E; font-size:0.85rem;">Agotado</span>' : formattedPrice;
+      let priceDisplay = isSold ? '<span style="color:#E53E3E; font-size:0.85rem;">Agotado</span>' : displayPrice;
       if (!isSold && origPrice && Number(origPrice) > Number(d.price)) {
         const formattedOriginal = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
           ? window.i18nManager.formatPrice(origPrice) 
           : `${currency} ${origPrice}`;
-        priceDisplay = `<span style="text-decoration:line-through; opacity:0.6; font-size:0.85em; margin-right:6px; color:var(--chalk-dim); font-weight:normal;">${formattedOriginal}</span>${formattedPrice}`;
+        priceDisplay = `<span style="text-decoration:line-through; opacity:0.6; font-size:0.85em; margin-right:6px; color:var(--chalk-dim); font-weight:normal;">${formattedOriginal}</span>${displayPrice}`;
       }
 
       return `
@@ -852,11 +855,10 @@
         const item = cart[action.cartItemId];
         if (item) {
           item.note = note;
-          item.proteinSelection = choices.proteinSelection;
-          item.variantSelections = choices.variantSelections;
+          item.choices = choices.selections;
         }
       } else {
-        if (dish) addDishToCart(dish, note, choices.proteinSelection, choices.variantSelections);
+        if (dish) addDishToCart(dish, note, choices.selections);
       }
 
       closeDishNoteModal();
@@ -867,61 +869,126 @@
       }
     }
 
+    function getDishModifierGroups(dish) {
+      const definitions = restaurantData.modifierGroups || [];
+      const assigned = (dish.modifierGroupIds || [])
+        .map(id => definitions.find(group => group.id === id))
+        .filter(group => group && group.active !== false);
+      const embedded = (dish.modifierGroups || []).filter(group => group.active !== false);
+      if (assigned.length || embedded.length) return [...assigned, ...embedded];
+
+      const legacyGroups = [];
+      if ((dish.proteinOptions || []).length) {
+        legacyGroups.push({
+          id: `legacy_protein_${dish.id}`,
+          name: 'Proteína',
+          kind: 'protein',
+          selectionMode: 'single',
+          required: Boolean(dish.proteinSelectionRequired),
+          minSelections: dish.proteinSelectionRequired ? 1 : 0,
+          maxSelections: 1,
+          options: dish.proteinOptions
+        });
+      }
+      if ((dish.variants || []).length) {
+        const split = dish.variantSelectionMode === 'quantity_split';
+        const name = String(dish.name || '').toLowerCase();
+        const inferredUnits = /media\s+docena|1\/2\s*docena|\b6\s*(?:unidades|un\.?|empanadas)\b/.test(name)
+          ? 6
+          : (/\bdocena\b|\b12\s*(?:unidades|un\.?|empanadas)\b/.test(name) ? 12 : (/\b3\s*(?:unidades|un\.?|empanadas)\b|\btr[ií]o\b/.test(name) ? 3 : 1));
+        const configuredUnits = parseInt(dish.variantsPerItem, 10) || 0;
+        legacyGroups.push({
+          id: `legacy_variants_${dish.id}`,
+          name: split ? 'Sabores' : 'Variante',
+          kind: split ? 'flavor' : 'variant',
+          selectionMode: split ? 'quantity_split' : 'single',
+          required: Boolean(dish.variantsRequired),
+          minSelections: dish.variantsRequired ? 1 : 0,
+          maxSelections: split ? 100 : 1,
+          unitsPerSelection: !configuredUnits || (configuredUnits === 1 && inferredUnits > 1) ? inferredUnits : configuredUnits,
+          options: dish.variants
+        });
+      }
+      return legacyGroups;
+    }
+
+    function getSavedGroupSelections(cartItem, groupId) {
+      return cartItem?.choices?.find(choice => choice.groupId === groupId)?.selections || [];
+    }
+
+    function getSelectedPackageUnits(groups, cartItem) {
+      const packageGroup = groups.find(group => group.kind === 'presentation');
+      if (!packageGroup) return null;
+      const selected = getSavedGroupSelections(cartItem, packageGroup.id)[0];
+      return packageGroup.options.find(option => option.id === selected?.optionId)?.unitsIncluded || null;
+    }
+
     function renderDishChoiceFields(dish, cartItem) {
       const container = document.getElementById('dishChoiceContainer');
-      const proteinOptions = (dish.proteinOptions || []).filter(option => option.active !== false);
-      const variants = (dish.variants || []).filter(option => option.active !== false);
+      const groups = getDishModifierGroups(dish).sort((left, right) => Number(right.kind === 'presentation') - Number(left.kind === 'presentation'));
+      const packageUnits = getSelectedPackageUnits(groups, cartItem);
+      const savedSelections = new Map((cartItem?.choices || []).map(choice => [choice.groupId, choice.selections]));
       let html = '';
 
-      if (proteinOptions.length) {
-        html += `<fieldset class="dish-choice-group"><legend class="dish-choice-legend">Elegí la proteína${dish.proteinSelectionRequired ? ' *' : ' (opcional)'}</legend><div class="dish-choice-list">`;
-        if (!dish.proteinSelectionRequired) {
-          html += `<label class="dish-choice-option"><input type="radio" name="dishProteinOption" value="" ${!cartItem?.proteinSelection ? 'checked' : ''}> Sin preferencia</label>`;
-        }
-        html += proteinOptions.map(option => `
-          <label class="dish-choice-option">
-            <input type="radio" name="dishProteinOption" value="${escapeHtml(option.id)}" ${cartItem?.proteinSelection?.id === option.id ? 'checked' : ''}>
-            <span>${escapeHtml(option.name)}</span>
-            ${Number(option.priceDeltaCents) > 0 ? `<span class="dish-choice-price">+${escapeHtml(formatOptionPrice(option.priceDeltaCents))}</span>` : ''}
-          </label>
-        `).join('');
-        html += '</div></fieldset>';
-      }
+      groups.forEach(group => {
+        const choices = savedSelections.get(group.id) || [];
+        const choicesById = new Map(choices.map(choice => [choice.optionId, choice]));
+        const options = (group.options || []).filter(option => option.active !== false);
+        if (!options.length) return;
+        const requiredLabel = group.required ? ' *' : ' (opcional)';
+        const legend = group.kind === 'presentation' ? 'Elegí la presentación' : group.name;
+        html += `<fieldset class="dish-choice-group" data-choice-group="${escapeHtml(group.id)}"><legend class="dish-choice-legend">${escapeHtml(legend)}${requiredLabel}</legend><div class="dish-choice-list">`;
 
-      if (variants.length) {
-        if (dish.variantSelectionMode === 'quantity_split') {
-          const unitsPerItem = Math.max(1, parseInt(dish.variantsPerItem, 10) || 1);
-          const existingCounts = new Map((cartItem?.variantSelections || []).map(selection => [selection.id, selection.quantity]));
-          const unitName = unitsPerItem === 12 ? 'empanadas' : 'unidades';
-          html += `<fieldset class="dish-choice-group"><legend class="dish-choice-legend">Repartí las ${unitsPerItem} ${unitName} entre los sabores${dish.variantsRequired ? ' *' : ''}</legend><div class="dish-choice-list">`;
-          html += variants.map(option => `
-            <label class="dish-choice-option">
-              <span>${escapeHtml(option.name)}</span>
-              ${Number(option.priceDeltaCents) > 0 ? `<span class="dish-choice-price">+${escapeHtml(formatOptionPrice(option.priceDeltaCents))} c/u</span>` : ''}
-              <input class="form-input dish-variant-count" type="number" min="0" max="${unitsPerItem}" step="1" value="${existingCounts.get(option.id) || 0}" data-variant-id="${escapeHtml(option.id)}" oninput="updateVariantSplitTotal()" aria-label="Cantidad de ${escapeHtml(option.name)}">
-            </label>
-          `).join('');
-          html += `<output id="dishVariantSplitTotal" class="dish-variant-total" data-required="${unitsPerItem}"></output></div></fieldset>`;
-        } else {
-          const selectedId = cartItem?.variantSelections?.[0]?.id || '';
-          html += `<fieldset class="dish-choice-group"><legend class="dish-choice-legend">Elegí una variante${dish.variantsRequired ? ' *' : ' (opcional)'}</legend><div class="dish-choice-list">`;
-          if (!dish.variantsRequired) {
-            html += `<label class="dish-choice-option"><input type="radio" name="dishVariantOption" value="" ${!selectedId ? 'checked' : ''}> Sin preferencia</label>`;
+        if (group.selectionMode === 'single') {
+          if (!group.required) {
+            html += `<label class="dish-choice-option"><input type="radio" class="dish-choice-input" name="group_${escapeHtml(group.id)}" data-group-id="${escapeHtml(group.id)}" value=""> Sin preferencia</label>`;
           }
-          html += variants.map(option => `
-            <label class="dish-choice-option">
-              <input type="radio" name="dishVariantOption" value="${escapeHtml(option.id)}" ${selectedId === option.id ? 'checked' : ''}>
-              <span>${escapeHtml(option.name)}</span>
-              ${Number(option.priceDeltaCents) > 0 ? `<span class="dish-choice-price">+${escapeHtml(formatOptionPrice(option.priceDeltaCents))}</span>` : ''}
-            </label>
-          `).join('');
-          html += '</div></fieldset>';
+          html += options.map(option => {
+            const saved = choicesById.get(option.id);
+            const packageLabel = group.kind === 'presentation';
+            const price = packageLabel ? option.priceCents : option.priceDeltaCents;
+            const priceLabel = Number(price) > 0 ? (packageLabel ? formatOptionPrice(price) : `+${formatOptionPrice(price)}`) : '';
+            const detail = packageLabel && option.unitsIncluded ? `${option.unitsIncluded} unidades` : '';
+            return `<label class="dish-choice-option"><input type="radio" class="dish-choice-input" name="group_${escapeHtml(group.id)}" data-group-id="${escapeHtml(group.id)}" data-option-id="${escapeHtml(option.id)}" data-selection-mode="single" value="${escapeHtml(option.id)}" ${saved ? 'checked' : ''} onchange="updateModifierSplitTotals()"><span>${escapeHtml(option.name)}${detail ? ` · ${detail}` : ''}</span>${priceLabel ? `<span class="dish-choice-price">${priceLabel}</span>` : ''}</label>`;
+          }).join('');
+        } else if (group.selectionMode === 'multiple') {
+          html += options.map(option => {
+            const selected = choicesById.has(option.id);
+            const priceLabel = Number(option.priceDeltaCents) > 0 ? `+${formatOptionPrice(option.priceDeltaCents)}` : '';
+            return `<label class="dish-choice-option"><input type="checkbox" class="dish-choice-input" data-group-id="${escapeHtml(group.id)}" data-option-id="${escapeHtml(option.id)}" data-selection-mode="multiple" ${selected ? 'checked' : ''}><span>${escapeHtml(option.name)}</span>${priceLabel ? `<span class="dish-choice-price">${priceLabel}</span>` : ''}</label>`;
+          }).join('');
+        } else {
+          const isSplit = group.selectionMode === 'quantity_split';
+          const target = isSplit ? (packageUnits || group.unitsPerSelection || 1) : null;
+          const waitingForPresentation = isSplit && groups.some(item => item.kind === 'presentation') && !packageUnits;
+          if (isSplit) {
+            html += `<p class="dish-split-hint" data-group-id="${escapeHtml(group.id)}">${waitingForPresentation ? 'Primero elegí la presentación.' : `Repartí ${target} ${target === 1 ? 'unidad' : 'unidades'} en ${escapeHtml(group.name.toLowerCase())}.`}</p>`;
+          }
+          html += options.map(option => {
+            const saved = choicesById.get(option.id);
+            const maxQuantity = isSplit ? target : (option.maxQuantity || 10);
+            const priceLabel = Number(option.priceDeltaCents) > 0 ? `+${formatOptionPrice(option.priceDeltaCents)}${isSplit ? ' c/u' : ''}` : '';
+            const inputId = `qty_${group.id}_${option.id}`;
+            return `<div class="dish-choice-option dish-choice-quantity"><span>${escapeHtml(option.name)}${priceLabel ? `<small class="dish-choice-price">${priceLabel}</small>` : ''}</span><div class="dish-choice-stepper"><button type="button" class="dish-choice-step" onclick="adjustChoiceQuantity('${escapeHtml(group.id)}','${escapeHtml(option.id)}',-1)" aria-label="Quitar ${escapeHtml(option.name)}">−</button><input id="${escapeHtml(inputId)}" type="number" class="dish-choice-input dish-choice-quantity-input ${isSplit ? 'dish-variant-count' : ''}" min="0" max="${maxQuantity}" step="1" value="${saved?.quantity || 0}" data-group-id="${escapeHtml(group.id)}" data-option-id="${escapeHtml(option.id)}" data-selection-mode="${escapeHtml(group.selectionMode)}" ${waitingForPresentation ? 'disabled' : ''} oninput="updateModifierSplitTotals()" aria-label="Cantidad de ${escapeHtml(option.name)}"><button type="button" class="dish-choice-step" onclick="adjustChoiceQuantity('${escapeHtml(group.id)}','${escapeHtml(option.id)}',1)" aria-label="Agregar ${escapeHtml(option.name)}" ${waitingForPresentation ? 'disabled' : ''}>+</button></div></div>`;
+          }).join('');
+          if (isSplit) html += `<output class="dish-variant-total" data-split-group="${escapeHtml(group.id)}" data-required="${target}"></output>`;
         }
-      }
+        html += '</div></fieldset>';
+      });
 
       if (html) html += '<p id="dishChoiceError" class="dish-choice-error" role="alert"></p>';
       container.innerHTML = html;
-      updateVariantSplitTotal();
+      updateModifierSplitTotals();
+      updateDishChoiceSubmitState();
+    }
+
+    function adjustChoiceQuantity(groupId, optionId, delta) {
+      const input = Array.from(document.querySelectorAll('.dish-choice-quantity-input'))
+        .find(item => item.dataset.groupId === groupId && item.dataset.optionId === optionId);
+      if (!input) return;
+      const max = parseInt(input.max, 10) || 100;
+      input.value = Math.max(0, Math.min(max, (parseInt(input.value, 10) || 0) + delta));
+      updateModifierSplitTotals();
     }
 
     function formatOptionPrice(priceDeltaCents) {
@@ -940,78 +1007,143 @@
         : `${currency} ${price}`;
     }
 
-    function updateVariantSplitTotal() {
-      const total = document.getElementById('dishVariantSplitTotal');
-      if (!total) return;
-      const selected = Array.from(document.querySelectorAll('.dish-variant-count'))
-        .reduce((sum, input) => sum + (parseInt(input.value, 10) || 0), 0);
-      const required = parseInt(total.dataset.required, 10) || 1;
-      total.textContent = `${selected} de ${required} seleccionadas`;
-      total.classList.toggle('invalid', selected !== required);
+    function getSelectedPresentationUnits(groups, selections) {
+      const presentationGroup = groups.find(group => group.kind === 'presentation');
+      if (!presentationGroup) return null;
+      const selected = selections.find(choice => choice.groupId === presentationGroup.id)?.selections[0];
+      return presentationGroup.options.find(option => option.id === selected?.optionId)?.unitsIncluded || null;
+    }
+
+    function updateModifierSplitTotals() {
+      const groups = Array.from(document.querySelectorAll('[data-split-group]'));
+      groups.forEach(output => {
+        const groupId = output.dataset.splitGroup;
+        const target = getCurrentPresentationUnits() || parseInt(output.dataset.required, 10) || 1;
+        const hasPresentation = getDishModifierGroups(getCurrentDishForChoices() || {}).some(group => group.kind === 'presentation');
+        const waitingForPresentation = hasPresentation && !getCurrentPresentationUnits();
+        const inputs = Array.from(document.querySelectorAll('.dish-choice-quantity-input'))
+          .filter(input => input.dataset.groupId === groupId);
+        const selected = inputs.reduce((sum, input) => sum + (parseInt(input.value, 10) || 0), 0);
+        inputs.forEach(input => {
+          input.max = String(target);
+          input.disabled = waitingForPresentation;
+          const stepper = input.parentElement?.querySelectorAll('.dish-choice-step');
+          if (stepper) stepper.forEach(button => { button.disabled = waitingForPresentation; });
+        });
+        const hint = output.closest('.dish-choice-group')?.querySelector('.dish-split-hint');
+        if (hint) hint.textContent = waitingForPresentation
+          ? 'Primero elegí la presentación.'
+          : `Repartí ${target} ${target === 1 ? 'unidad' : 'unidades'} en ${(getDishModifierGroups(getCurrentDishForChoices() || {}).find(group => group.id === groupId)?.name || 'los sabores').toLowerCase()}.`;
+        output.dataset.required = target;
+        output.textContent = waitingForPresentation ? 'Elegí una presentación' : `${selected} de ${target} unidades asignadas`;
+        output.classList.toggle('invalid', waitingForPresentation || selected !== target);
+      });
+      const error = document.getElementById('dishChoiceError');
+      if (error) error.textContent = '';
+      updateDishChoiceSubmitState();
+    }
+
+    function updateDishChoiceSubmitState() {
+      const button = document.getElementById('dishNoteConfirm');
+      const dish = getCurrentDishForChoices();
+      if (!button || !dish) return;
+      button.disabled = !readDishChoiceSelections(dish).valid;
+    }
+
+    function getCurrentDishForChoices() {
+      if (!pendingDishNoteAction) return null;
+      if (pendingDishNoteAction.mode === 'edit') return cart[pendingDishNoteAction.cartItemId]?.dish || null;
+      return restaurantData.dishes.find(dish => dish.id === pendingDishNoteAction.dishId) || null;
+    }
+
+    function getCurrentPresentationUnits() {
+      const dish = getCurrentDishForChoices();
+      const groups = getDishModifierGroups(dish || {});
+      const selectedInput = Array.from(document.querySelectorAll('.dish-choice-input[data-selection-mode="single"]:checked'))
+        .find(input => groups.some(group => group.kind === 'presentation' && group.id === input.dataset.groupId));
+      if (!selectedInput) return null;
+      const group = groups.find(item => item.id === selectedInput.dataset.groupId);
+      return group?.options.find(option => option.id === selectedInput.dataset.optionId)?.unitsIncluded || null;
     }
 
     function readDishChoiceSelections(dish) {
       if (!dish) return { valid: false, error: 'No se encontró el plato seleccionado.' };
-      const proteinOptions = (dish.proteinOptions || []).filter(option => option.active !== false);
-      const proteinId = document.querySelector('input[name="dishProteinOption"]:checked')?.value || '';
-      const proteinSelection = proteinOptions.find(option => option.id === proteinId) || null;
-      if (dish.proteinSelectionRequired && proteinOptions.length && !proteinSelection) {
-        return { valid: false, error: 'Elegí una proteína para continuar.' };
+      const groups = getDishModifierGroups(dish);
+      const selections = groups.map(group => {
+        const selected = Array.from(document.querySelectorAll('.dish-choice-input'))
+          .filter(input => input.dataset.groupId === group.id && (input.type === 'radio' ? input.checked && input.dataset.optionId : input.type === 'checkbox' ? input.checked : Number(input.value) > 0))
+          .map(input => ({ optionId: input.dataset.optionId, quantity: input.type === 'number' ? parseInt(input.value, 10) || 0 : 1 }));
+        return { groupId: group.id, selections: selected };
+      });
+
+      for (const group of groups) {
+        const selected = selections.find(choice => choice.groupId === group.id)?.selections || [];
+        const count = selected.reduce((sum, option) => sum + (group.selectionMode === 'quantity' || group.selectionMode === 'quantity_split' ? option.quantity : 1), 0);
+        if (group.required && !count) return { valid: false, error: `Elegí una opción para "${group.name}".` };
+        if (count < (group.minSelections || 0) || count > (group.maxSelections || 100)) {
+          return { valid: false, error: `La selección de "${group.name}" no cumple sus límites.` };
+        }
       }
 
-      const variants = (dish.variants || []).filter(option => option.active !== false);
-      let variantSelections = [];
-      if (variants.length && dish.variantSelectionMode === 'quantity_split') {
-        const unitsPerItem = Math.max(1, parseInt(dish.variantsPerItem, 10) || 1);
-        variantSelections = Array.from(document.querySelectorAll('.dish-variant-count')).flatMap(input => {
-          const quantity = parseInt(input.value, 10) || 0;
-          const option = variants.find(item => item.id === input.dataset.variantId);
-          return quantity > 0 && option ? [{ ...option, quantity }] : [];
-        });
-        const total = variantSelections.reduce((sum, selection) => sum + selection.quantity, 0);
-        if ((dish.variantsRequired || total > 0) && total !== unitsPerItem) {
-          return { valid: false, error: `Las cantidades de sabores deben sumar ${unitsPerItem}.` };
+      const packageUnits = getSelectedPresentationUnits(groups, selections);
+      for (const group of groups.filter(item => item.selectionMode === 'quantity_split')) {
+        const selected = selections.find(choice => choice.groupId === group.id)?.selections || [];
+        const total = selected.reduce((sum, option) => sum + option.quantity, 0);
+        const target = packageUnits || group.unitsPerSelection || 1;
+        if ((group.required || total > 0) && total !== target) {
+          return { valid: false, error: `Las cantidades de "${group.name}" deben sumar ${target}.` };
         }
-      } else if (variants.length) {
-        const variantId = document.querySelector('input[name="dishVariantOption"]:checked')?.value || '';
-        const selection = variants.find(option => option.id === variantId);
-        if (dish.variantsRequired && !selection) {
-          return { valid: false, error: 'Elegí una variante para continuar.' };
-        }
-        if (selection) variantSelections = [{ ...selection, quantity: 1 }];
       }
-
-      return { valid: true, proteinSelection, variantSelections };
+      return { valid: true, selections: selections.filter(group => group.selections.length) };
     }
 
     function getCartUnitPrice(item) {
-      let priceInCents = Math.round((Number(item.dish.price) || 0) * 100);
-      if (item.proteinSelection) priceInCents += Number(item.proteinSelection.priceDeltaCents) || 0;
-      (item.variantSelections || []).forEach(selection => {
-        priceInCents += (Number(selection.priceDeltaCents) || 0) * (Number(selection.quantity) || 1);
-      });
+      const groups = getDishModifierGroups(item.dish);
+      const presentationGroup = groups.find(group => group.kind === 'presentation');
+      const presentationChoice = presentationGroup && item.choices?.find(choice => choice.groupId === presentationGroup.id)?.selections[0];
+      const presentation = presentationGroup?.options.find(option => option.id === presentationChoice?.optionId);
+      let priceInCents = presentation?.priceCents !== undefined
+        ? presentation.priceCents
+        : Math.round((Number(item.dish.price) || 0) * 100);
+      for (const choice of item.choices || []) {
+        const group = groups.find(itemGroup => itemGroup.id === choice.groupId);
+        if (!group || group.kind === 'presentation') continue;
+        for (const selection of choice.selections || []) {
+          const option = group.options.find(itemOption => itemOption.id === selection.optionId);
+          if (!option) continue;
+          const multiplier = group.selectionMode === 'quantity' || group.selectionMode === 'quantity_split' ? selection.quantity : 1;
+          priceInCents += (Number(option.priceDeltaCents) || 0) * multiplier;
+        }
+      }
       return priceInCents / 100;
     }
 
     function getCartOptionSummary(item) {
-      const parts = [];
-      if (item.proteinSelection) parts.push(item.proteinSelection.name);
-      (item.variantSelections || []).forEach(selection => {
-        parts.push(selection.quantity > 1 ? `${selection.quantity}x ${selection.name}` : selection.name);
+      const groups = getDishModifierGroups(item.dish);
+      const parts = (item.choices || []).flatMap(choice => {
+        const group = groups.find(candidate => candidate.id === choice.groupId);
+        return (choice.selections || []).map(selection => {
+          const option = group?.options.find(candidate => candidate.id === selection.optionId);
+          if (!option) return null;
+          const label = selection.quantity > 1 ? `${selection.quantity}x ${option.name}` : option.name;
+          return group?.kind === 'presentation' ? label : `${group?.name || 'Opción'}: ${label}`;
+        }).filter(Boolean);
       });
-      return parts.join(', ');
+      const summary = parts.join(', ');
+      const hasPackage = groups.some(group => group.kind === 'presentation');
+      return item.qty > 1 && hasPackage && summary ? `Por paquete (${item.qty}): ${summary}` : summary;
     }
 
-    function addDishToCart(dish, note, proteinSelection, variantSelections) {
-      const choicesKey = JSON.stringify({ proteinSelection, variantSelections });
-      const matchingItem = Object.values(cart).find(item => item.dish.id === dish.id && item.note === note && JSON.stringify({ proteinSelection: item.proteinSelection || null, variantSelections: item.variantSelections || [] }) === choicesKey);
+    function addDishToCart(dish, note, choices) {
+      const choicesKey = JSON.stringify(choices || []);
+      const matchingItem = Object.values(cart).find(item => item.dish.id === dish.id && item.note === note && JSON.stringify(item.choices || []) === choicesKey);
       if (matchingItem) {
         matchingItem.qty += 1;
         return;
       }
 
       const cartItemId = `cart_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      cart[cartItemId] = { dish, qty: 1, note, proteinSelection, variantSelections };
+      cart[cartItemId] = { dish, qty: 1, note, choices: choices || [] };
     }
 
     function getDishCartQuantity(dishId) {
@@ -1241,98 +1373,131 @@
       }
     }
 
-    function submitWhatsAppOrder() {
+    async function submitWhatsAppOrder() {
       const items = Object.values(cart);
       if (!items.length) {
         alert('Por favor agrega platos a tu pedido primero.');
         return;
       }
 
-      // UX Resilience: Prevent double-click
       const btn = document.getElementById('btnSubmitOrderWA');
+      if (btn?.dataset.submitting === 'true') return;
+      const originalHtml = btn?.innerHTML;
+      let popup = null;
       if (btn) {
-        if (btn.dataset.submitting === 'true') return;
         btn.dataset.submitting = 'true';
         btn.disabled = true;
-        const originalHtml = btn.innerHTML;
-        btn.innerHTML = '<span>⏳ Conectando con WhatsApp...</span>';
-        setTimeout(() => {
+        btn.innerHTML = '<span>⏳ Verificando precios...</span>';
+      }
+
+      try {
+        popup = window.open('about:blank', '_blank');
+        const mode = document.getElementById('orderMode').value;
+        const customerName = document.getElementById('orderCustomerName').value.trim() || 'Cliente';
+        const notes = document.getElementById('orderNotes').value.trim();
+        const payment = document.getElementById('orderPayment').value;
+        const currency = restaurantData.currency || '$';
+        const zoneSelect = document.getElementById('deliveryZoneSelect');
+        const tableNumber = document.getElementById('orderTable').value.trim() || '1';
+        const address = document.getElementById('orderAddress').value.trim();
+        const quoteResponse = await fetch('/api/orders/quote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            restaurantId: restaurantData.id,
+            tableNumber,
+            customerName,
+            customerPhone: '',
+            deliveryAddress: mode === 'DELIVERY' ? address : '',
+            currency,
+            notes,
+            items: items.map(item => ({
+              dishId: item.dish.id,
+              quantity: item.qty,
+              note: item.note || '',
+              choices: (item.choices || []).map(choice => ({
+                groupId: choice.groupId,
+                selections: choice.selections.map(selection => ({
+                  optionId: selection.optionId,
+                  quantity: selection.quantity
+                }))
+              }))
+            }))
+          })
+        });
+        const quotePayload = await quoteResponse.json();
+        if (!quoteResponse.ok || !quotePayload.success || !quotePayload.data) {
+          throw new Error(quotePayload.error || 'No se pudo validar el pedido. Revisá las opciones y volvé a intentar.');
+        }
+
+        const quote = quotePayload.data;
+        const subtotal = quote.amount;
+        const currentDelivery = mode === 'DELIVERY' ? deliveryFee : 0;
+        const currentDiscount = appliedCoupon?.type === 'percent'
+          ? Math.round(subtotal * (appliedCoupon.value / 100) * 100) / 100
+          : (appliedCoupon?.type === 'free_delivery' && mode === 'DELIVERY' ? currentDelivery : 0);
+        const total = Math.max(0, subtotal + currentDelivery - currentDiscount);
+
+        let msg = `📋 *NUEVO PEDIDO - ${restaurantData.name.toUpperCase()}*\n`;
+        msg += `👤 *Cliente:* ${customerName}\n`;
+        if (mode === 'LOCAL') {
+          msg += `🍽️ *Modalidad:* En el local - *${tableNumber || 'Mesa no especificada'}*\n\n`;
+        } else if (mode === 'TAKEAWAY') {
+          msg += `🛍️ *Modalidad:* Retiro en el local (Take Away)\n\n`;
+        } else {
+          const zoneName = zoneSelect.options[zoneSelect.selectedIndex]?.text || 'Zona no especificada';
+          msg += `🛵 *Modalidad:* Envío a Domicilio\n`;
+          msg += `📍 *Zona:* ${zoneName}\n`;
+          msg += `🏠 *Dirección:* ${address || 'Dirección no especificada'}\n\n`;
+        }
+
+        msg += `*DETALLE DEL PEDIDO:*\n`;
+        quote.itemsSnapshot.forEach((line, index) => {
+          msg += `▪ ${line.quantity}x ${line.name} - ${currency} ${line.totalItemAmount.toFixed(2)}\n`;
+          const optionSummary = (line.optionsSnapshot || []).flatMap(group => (group.selections || []).map(selection => {
+            const label = selection.quantity > 1 ? `${selection.quantity}x ${selection.name}` : selection.name;
+            return group.kind === 'presentation' ? label : `${group.groupName}: ${label}`;
+          })).join(', ');
+          if (optionSummary) {
+            const perPackage = line.quantity > 1 && (line.optionsSnapshot || []).some(group => group.kind === 'presentation');
+            msg += `   ↳ ${perPackage ? 'Opciones por paquete' : 'Opciones'}: ${optionSummary}\n`;
+          }
+          if (line.note) msg += `   📝 Nota: ${line.note}\n`;
+          const dish = items[index]?.dish;
+          if (dish?.description && (dish.isCustomIceCream || (dish.id && dish.id.startsWith('perfume_')))) {
+            msg += `   ↳ _${dish.description}_\n`;
+          }
+        });
+
+        if (notes) msg += `\n📝 *Aclaraciones:* ${notes}\n`;
+        msg += `\n💵 *Subtotal:* ${currency} ${subtotal.toFixed(2)}\n`;
+        if (appliedCoupon && currentDiscount > 0) msg += `🎟️ *Descuento Cupón (${appliedCoupon.code}):* -${currency} ${currentDiscount.toFixed(2)}\n`;
+        if (mode === 'DELIVERY' && deliveryFee > 0) msg += `🛵 *Envío:* ${currency} ${deliveryFee}\n`;
+        msg += `💰 *TOTAL A PAGAR:* ${currency} ${total.toFixed(2)}\n`;
+        msg += `💳 *Método de Pago Seleccionado:* [${payment.toUpperCase()}]\n`;
+        if (payment.includes('Transferencia')) msg += `ℹ️ _Se adjuntará el comprobante de transferencia por este chat._\n`;
+        if (restaurantData.paymentLink) msg += `🔗 _Link de Pago:_ ${restaurantData.paymentLink}\n`;
+        msg += `\n_Enviado desde ScanGo (Menú Digital)_`;
+
+        const rawPhone = (restaurantData.phone || '').replace(/[^0-9]/g, '');
+        const waUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`;
+        if (popup) popup.location = waUrl;
+        else window.location.assign(waUrl);
+        fetch('/api/analytics/event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: getSlug(), event: 'order' })
+        }).catch(() => {});
+      } catch (error) {
+        if (popup) popup.close();
+        alert(error.message || 'No se pudo preparar el pedido. Intentá nuevamente.');
+      } finally {
+        if (btn) {
           btn.disabled = false;
           btn.dataset.submitting = 'false';
           btn.innerHTML = originalHtml;
-        }, 3500);
-      }
-
-      const mode = document.getElementById('orderMode').value;
-      const customerName = document.getElementById('orderCustomerName').value.trim() || 'Cliente';
-      const notes = document.getElementById('orderNotes').value.trim();
-      const payment = document.getElementById('orderPayment').value;
-      const currency = restaurantData.currency || '$';
-      const subtotal = items.reduce((sum, item) => sum + (item.qty * getCartUnitPrice(item)), 0);
-      const currentDelivery = (mode === 'DELIVERY' ? deliveryFee : 0);
-      const total = Math.max(0, subtotal + currentDelivery - discountAmount);
-
-      let msg = `📋 *NUEVO PEDIDO - ${restaurantData.name.toUpperCase()}*\n`;
-      msg += `👤 *Cliente:* ${customerName}\n`;
-
-      if (mode === 'LOCAL') {
-        const table = document.getElementById('orderTable').value.trim() || 'Mesa no especificada';
-        msg += `🍽️ *Modalidad:* En el local - *${table}*\n\n`;
-      } else if (mode === 'TAKEAWAY') {
-        msg += `🛍️ *Modalidad:* Retiro en el local (Take Away)\n\n`;
-      } else {
-        const zoneSelect = document.getElementById('deliveryZoneSelect');
-        const zoneName = zoneSelect.options[zoneSelect.selectedIndex].text;
-        const address = document.getElementById('orderAddress').value.trim() || 'Dirección no especificada';
-        msg += `🛵 *Modalidad:* Envío a Domicilio\n`;
-        msg += `📍 *Zona:* ${zoneName}\n`;
-        msg += `🏠 *Dirección:* ${address}\n\n`;
-      }
-
-      msg += `*DETALLE DEL PEDIDO:*\n`;
-      items.forEach(it => {
-        const unitPrice = getCartUnitPrice(it);
-        msg += `▪ ${it.qty}x ${it.dish.name} - ${currency} ${unitPrice * it.qty}\n`;
-        const optionSummary = getCartOptionSummary(it);
-        if (optionSummary) msg += `   ↳ Opciones: ${optionSummary}\n`;
-        if (it.note) {
-          msg += `   📝 Nota: ${it.note}\n`;
         }
-        if (it.dish.description && (it.dish.isCustomIceCream || (it.dish.id && it.dish.id.startsWith('perfume_')))) {
-          msg += `   ↳ _${it.dish.description}_\n`;
-        }
-      });
-
-      if (notes) {
-        msg += `\n📝 *Aclaraciones:* ${notes}\n`;
       }
-
-      msg += `\n💵 *Subtotal:* ${currency} ${subtotal}\n`;
-      if (appliedCoupon && discountAmount > 0) {
-        msg += `🎟️ *Descuento Cupón (${appliedCoupon.code}):* -${currency} ${discountAmount}\n`;
-      }
-      if (mode === 'DELIVERY' && deliveryFee > 0) {
-        msg += `🛵 *Envío:* ${currency} ${deliveryFee}\n`;
-      }
-      msg += `💰 *TOTAL A PAGAR:* ${currency} ${total}\n`;
-      msg += `💳 *Método de Pago Seleccionado:* [${payment.toUpperCase()}]\n`;
-      if (payment.includes('Transferencia')) {
-        msg += `ℹ️ _Se adjuntará el comprobante de transferencia por este chat._\n`;
-      }
-      if (restaurantData.paymentLink) {
-        msg += `🔗 _Link de Pago:_ ${restaurantData.paymentLink}\n`;
-      }
-      msg += `\n_Enviado desde ScanGo (Menú Digital)_`;
-
-      const rawPhone = (restaurantData.phone || '').replace(/[^0-9]/g, '');
-      const waUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`;
-      // Track order analytics
-      fetch('/api/analytics/event', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: getSlug(), event: 'order' })
-      }).catch(() => {});
-      window.open(waUrl, '_blank');
     }
 
     // Reservation Modal Logic
