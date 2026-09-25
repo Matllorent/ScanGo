@@ -230,7 +230,10 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">Filtrar por Categoría</label>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <label class="form-label" style="margin-bottom:0;">Filtrar por Categoría</label>
+              <button type="button" class="btn-nav" style="font-size:10px; padding:2px 8px;" onclick="openCategoryManagerModal()">📁 Gestionar Categorías</button>
+            </div>
             <select id="selectCatFilter" class="form-select" onchange="renderDishesList()">
               <option value="ALL">Todas las Categorías</option>
             </select>
@@ -796,7 +799,10 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Categoría *</label>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <label class="form-label" style="margin-bottom:0;">Categoría *</label>
+            <button type="button" class="btn-nav" style="font-size:10px; padding:2px 8px;" onclick="promptNewCategoryInModal()">+ Nueva Categoría</button>
+          </div>
           <select id="modalDishCategory" class="form-select" required>
             <!-- Populated dynamically -->
           </select>
@@ -883,6 +889,43 @@
             <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
               <input type="checkbox" id="tagPicante"> 🌶️ Picante
             </label>
+          </div>
+        </div>
+
+        <!-- Smart Dish Scheduling / Horarios Inteligentes -->
+        <div class="form-group" style="background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid rgba(236,201,75,0.25); margin-bottom:14px;">
+          <label class="form-label" style="color:var(--accent-gold); display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span>⏰ Horario Inteligente (Disponibilidad Automática)</span>
+            <input type="checkbox" id="modalDishScheduleEnabled" style="width:16px; height:16px; cursor:pointer;" onchange="toggleDishScheduleControls()">
+          </label>
+          <div id="dishScheduleControls" style="display:none; flex-direction:column; gap:8px;">
+            <div style="font-size:10px; color:var(--text-dim);">Días en los que se sirve:</div>
+            <div style="display:flex; gap:4px; flex-wrap:wrap;">
+              <label style="font-size:10px; display:inline-flex; align-items:center; gap:2px; background:var(--surface-2); padding:3px 6px; border-radius:4px; border:1px solid var(--border); cursor:pointer;"><input type="checkbox" class="dish-sched-day" value="1" checked> Lun</label>
+              <label style="font-size:10px; display:inline-flex; align-items:center; gap:2px; background:var(--surface-2); padding:3px 6px; border-radius:4px; border:1px solid var(--border); cursor:pointer;"><input type="checkbox" class="dish-sched-day" value="2" checked> Mar</label>
+              <label style="font-size:10px; display:inline-flex; align-items:center; gap:2px; background:var(--surface-2); padding:3px 6px; border-radius:4px; border:1px solid var(--border); cursor:pointer;"><input type="checkbox" class="dish-sched-day" value="3" checked> Mié</label>
+              <label style="font-size:10px; display:inline-flex; align-items:center; gap:2px; background:var(--surface-2); padding:3px 6px; border-radius:4px; border:1px solid var(--border); cursor:pointer;"><input type="checkbox" class="dish-sched-day" value="4" checked> Jue</label>
+              <label style="font-size:10px; display:inline-flex; align-items:center; gap:2px; background:var(--surface-2); padding:3px 6px; border-radius:4px; border:1px solid var(--border); cursor:pointer;"><input type="checkbox" class="dish-sched-day" value="5" checked> Vie</label>
+              <label style="font-size:10px; display:inline-flex; align-items:center; gap:2px; background:var(--surface-2); padding:3px 6px; border-radius:4px; border:1px solid var(--border); cursor:pointer;"><input type="checkbox" class="dish-sched-day" value="6" checked> Sáb</label>
+              <label style="font-size:10px; display:inline-flex; align-items:center; gap:2px; background:var(--surface-2); padding:3px 6px; border-radius:4px; border:1px solid var(--border); cursor:pointer;"><input type="checkbox" class="dish-sched-day" value="0" checked> Dom</label>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px;">
+              <div>
+                <label class="form-label" style="font-size:10px; margin-bottom:2px;">Hora Inicio</label>
+                <input type="time" id="modalDishTimeStart" class="form-input" value="11:30" style="font-size:11px;">
+              </div>
+              <div>
+                <label class="form-label" style="font-size:10px; margin-bottom:2px;">Hora Fin</label>
+                <input type="time" id="modalDishTimeEnd" class="form-input" value="15:30" style="font-size:11px;">
+              </div>
+            </div>
+            <div>
+              <label class="form-label" style="font-size:10px; margin-bottom:2px;">Fuera de Horario:</label>
+              <select id="modalDishScheduleBehavior" class="form-select" style="font-size:11px;">
+                <option value="hide">Ocultar completamente del menú</option>
+                <option value="badge">Mostrar como 'No disponible en este horario'</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -993,6 +1036,28 @@
         <button type="button" id="btnConfirmDeleteAccount" class="btn-nav btn-danger" style="background: #EF4444; color: #fff; border-color: #EF4444;" onclick="confirmAccountDeletion()">
           Confirmar Eliminación Definitiva
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category Manager Modal -->
+  <div id="categoryManagerModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 440px; text-align: left;">
+      <button class="modal-close" onclick="closeCategoryManagerModal()">✕</button>
+      <h3 class="modal-title">📁 Gestión de Categorías</h3>
+      <p style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;">Crea, renombra o elimina las secciones de tu carta.</p>
+      
+      <div style="display: flex; gap: 6px; margin-bottom: 14px;">
+        <input type="text" id="newCategoryInput" class="form-input" placeholder="Nombre de categoría (ej: Postres)">
+        <button type="button" class="btn-nav btn-nav-gold" style="white-space: nowrap; padding: 0 12px;" onclick="addCategoryFromManager()">+ Crear</button>
+      </div>
+
+      <div id="categoryManagerList" style="display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto;">
+        <!-- Populated dynamically -->
+      </div>
+
+      <div style="margin-top: 16px; text-align: right;">
+        <button type="button" class="btn-nav" onclick="closeCategoryManagerModal()">Cerrar</button>
       </div>
     </div>
   </div>

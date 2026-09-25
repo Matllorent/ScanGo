@@ -1,8 +1,19 @@
+const path = require('path');
+const fs = require('fs');
 const { getSupabaseClient } = require('../utils/supabase');
 const AppError = require('../utils/AppError');
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+// Resolve public uploads directory
+let PUBLIC_DIR = path.resolve(__dirname, '..', '..', 'public');
+if (!fs.existsSync(PUBLIC_DIR)) {
+  PUBLIC_DIR = path.resolve(process.cwd(), 'public');
+}
+if (!fs.existsSync(PUBLIC_DIR)) {
+  PUBLIC_DIR = path.resolve(__dirname, '..', 'public');
+}
 
 /**
  * Storage Service for managing uploads to Supabase Storage Bucket
@@ -71,31 +82,45 @@ const storageService = {
 
         if (uploadError) {
           console.warn('[Supabase Storage Upload Error]', uploadError.message);
+        } else {
+          const { data: publicUrlData } = supabase.storage
+            .from(bucket)
+            .getPublicUrl(storagePath);
+
+          const publicUrl = publicUrlData?.publicUrl || `${process.env.SUPABASE_URL}/storage/v1/object/public/${bucket}/${storagePath}`;
+
+          return {
+            url: publicUrl,
+            path: storagePath,
+            bucket
+          };
         }
-
-        const { data: publicUrlData } = supabase.storage
-          .from(bucket)
-          .getPublicUrl(storagePath);
-
-        const publicUrl = publicUrlData?.publicUrl || `${process.env.SUPABASE_URL}/storage/v1/object/public/${bucket}/${storagePath}`;
-
-        return {
-          url: publicUrl,
-          path: storagePath,
-          bucket
-        };
       } catch (err) {
         console.warn('[Supabase Storage Service Exception]', err.message);
       }
     }
 
-    // Fallback URL for local dev environment
-    const fallbackUrl = `/public/uploads/${bucket}/${storagePath}`;
-    return {
-      url: fallbackUrl,
-      path: storagePath,
-      bucket
-    };
+    // Fallback: Save to local public uploads directory and return public URL path
+    try {
+      const targetDir = path.join(PUBLIC_DIR, 'uploads', bucket, cleanFolder);
+      fs.mkdirSync(targetDir, { recursive: true });
+      fs.writeFileSync(path.join(targetDir, cleanFileName), buffer);
+      const localUrl = `/uploads/${bucket}/${storagePath}`;
+      return {
+        url: localUrl,
+        path: storagePath,
+        bucket
+      };
+    } catch (fsErr) {
+      console.error('[Storage Local Fallback Error]', fsErr);
+      // Fallback data-url if disk write fails
+      const fallbackDataUrl = `data:${detectedMimeType};base64,${buffer.toString('base64')}`;
+      return {
+        url: fallbackDataUrl,
+        path: storagePath,
+        bucket
+      };
+    }
   }
 };
 

@@ -399,13 +399,58 @@
       renderDishes();
     }
 
+    // Smart Dish Scheduling Helper
+    function getDishScheduleStatus(d) {
+      if (!d.schedule || !d.schedule.enabled) {
+        return { isAvailable: true, shouldDisplay: true };
+      }
+      const now = new Date();
+      const currentDay = now.getDay(); // 0 is Sunday, 1 is Monday ...
+      const curHour = String(now.getHours()).padStart(2, '0');
+      const curMin = String(now.getMinutes()).padStart(2, '0');
+      const curTime = `${curHour}:${curMin}`;
+
+      const days = Array.isArray(d.schedule.days) ? d.schedule.days : [0, 1, 2, 3, 4, 5, 6];
+      const dayMatches = days.includes(currentDay);
+
+      const start = d.schedule.timeStart || '00:00';
+      const end = d.schedule.timeEnd || '23:59';
+      let timeMatches = true;
+      if (start <= end) {
+        timeMatches = (curTime >= start && curTime <= end);
+      } else {
+        timeMatches = (curTime >= start || curTime <= end);
+      }
+
+      const isAvailable = dayMatches && timeMatches;
+      if (isAvailable) {
+        return { isAvailable: true, shouldDisplay: true };
+      }
+
+      const behavior = d.schedule.behavior || 'hide';
+      if (behavior === 'hide') {
+        return { isAvailable: false, shouldDisplay: false };
+      }
+
+      return {
+        isAvailable: false,
+        shouldDisplay: true,
+        reason: `Disponible ${start} a ${end}`
+      };
+    }
+
     function renderChefSpecials() {
       const section = document.getElementById('chefSpecialsSection');
       const carousel = document.getElementById('chefSpecialsCarousel');
       if (!section || !carousel) return;
 
       const dishes = restaurantData.dishes || [];
-      const chefDishes = dishes.filter(d => !d.outOfStock && (d.isChefSpecial || (d.tags && d.tags.includes('chef_special'))));
+      const chefDishes = dishes.filter(d => {
+        if (d.outOfStock) return false;
+        if (!d.isChefSpecial && (!d.tags || !d.tags.includes('chef_special'))) return false;
+        const sched = getDishScheduleStatus(d);
+        return sched.shouldDisplay;
+      });
 
       if (!chefDishes.length) {
         section.style.display = 'none';
@@ -417,15 +462,17 @@
       let html = '';
       chefDishes.forEach(d => {
         const inCart = cart[d.id] ? cart[d.id].qty : 0;
+        const sched = getDishScheduleStatus(d);
         const formattedPrice = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
           ? window.i18nManager.formatPrice(d.price) 
           : `${currency} ${d.price}`;
         
+        const origPrice = (d.originalPrice !== undefined && d.originalPrice !== null) ? d.originalPrice : (d.previous_price || d.previousPrice);
         let originalPriceHtml = '';
-        if (d.originalPrice && Number(d.originalPrice) > Number(d.price)) {
+        if (origPrice && Number(origPrice) > Number(d.price)) {
           const formattedOrig = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
-            ? window.i18nManager.formatPrice(d.originalPrice) 
-            : `${currency} ${d.originalPrice}`;
+            ? window.i18nManager.formatPrice(origPrice) 
+            : `${currency} ${origPrice}`;
           originalPriceHtml = `<span style="text-decoration:line-through; opacity:0.6; font-size:0.8em; margin-right:4px; color:var(--chalk-dim); font-weight:normal;">${formattedOrig}</span>`;
         }
 
@@ -434,8 +481,8 @@
           : `<div style="height:90px; display:flex; align-items:center; justify-content:center; font-size:2.4rem; background:rgba(236,201,75,0.06); border-radius:8px; margin-bottom:8px;">👨‍🍳</div>`;
 
         html += `
-          <div class="chef-special-card">
-            <span class="chef-special-tag-ribbon">👨‍🍳 Recomendación</span>
+          <div class="chef-special-card" style="${!sched.isAvailable ? 'opacity:0.6;' : ''}">
+            <span class="chef-special-tag-ribbon">👨‍🍳 ${sched.isAvailable ? 'Recomendación' : sched.reason}</span>
             ${photoHtml}
             <div>
               <div class="chef-special-name">${escapeHtml(d.name)}</div>
@@ -445,9 +492,10 @@
               <div class="chef-special-price">
                 ${originalPriceHtml}${formattedPrice}
               </div>
-              <button class="btn-add" data-dish-id="${escapeHtml(d.id)}" onclick="addToCart(this.dataset.dishId)" aria-label="Agregar ${escapeHtml(d.name)}" style="width:34px; height:34px; font-size:1.1rem;">
-                +
-              </button>
+              ${sched.isAvailable 
+                ? `<button class="btn-add" data-dish-id="${escapeHtml(d.id)}" onclick="addToCart(this.dataset.dishId)" aria-label="Agregar ${escapeHtml(d.name)}" style="width:34px; height:34px; font-size:1.1rem;">+</button>`
+                : `<button class="btn-add" disabled style="width:34px; height:34px; font-size:0.9rem; background:#4A5568; cursor:not-allowed; opacity:0.6;" title="${sched.reason}">⏰</button>`
+              }
             </div>
             ${inCart > 0 ? `<div style="font-size:0.7rem; color:var(--chalk-gold); font-weight:700; margin-top:4px; text-align:right;">${inCart} en comanda</div>` : ''}
           </div>
@@ -523,7 +571,8 @@
         const popularDishes = dishes.filter(d => {
           const isStar = d.tags && d.tags.includes('star');
           const matchesSearch = !searchTerm || d.name.toLowerCase().includes(searchTerm) || (d.description && d.description.toLowerCase().includes(searchTerm));
-          return isStar && matchesSearch && matchesDiet(d);
+          const sched = getDishScheduleStatus(d);
+          return isStar && matchesSearch && matchesDiet(d) && sched.shouldDisplay;
         });
 
         if (!popularDishes.length) {
@@ -552,7 +601,8 @@
         const catDishes = dishes.filter(d => {
           const matchesCat = d.categoryId === cat.id;
           const matchesSearch = !searchTerm || d.name.toLowerCase().includes(searchTerm) || (d.description && d.description.toLowerCase().includes(searchTerm));
-          return matchesCat && matchesSearch && matchesDiet(d);
+          const sched = getDishScheduleStatus(d);
+          return matchesCat && matchesSearch && matchesDiet(d) && sched.shouldDisplay;
         });
 
         if (!catDishes.length) return;
@@ -613,8 +663,12 @@
     function renderSingleDishCard(d, currency) {
       const inCart = cart[d.id] ? cart[d.id].qty : 0;
       const isSold = Boolean(d.outOfStock);
+      const sched = getDishScheduleStatus(d);
+      const isUnavailable = isSold || !sched.isAvailable;
+
       let badgeHtml = '';
       if (isSold) badgeHtml += '<span class="dish-badge" style="background:#E53E3E; color:#fff;">✕ AGOTADO HOY</span> ';
+      if (!isSold && !sched.isAvailable) badgeHtml += `<span class="dish-badge" style="background:rgba(237,137,54,0.25); color:#F6AD55; border:1px solid rgba(237,137,54,0.5);">⏰ ${sched.reason}</span> `;
       if (d.isChefSpecial || (d.tags && d.tags.includes('chef_special'))) badgeHtml += '<span class="dish-badge" style="background:rgba(236,201,75,0.25); color:var(--chalk-gold); border:1px solid rgba(236,201,75,0.6); font-weight:700;">👨‍🍳 Sugerencia del Chef</span> ';
       if (d.tags && (d.tags.includes('veggie') || d.tags.includes('vegetariano'))) badgeHtml += '<span class="dish-badge badge-veggie">🥬 Vegetariano</span> ';
       if (d.tags && (d.tags.includes('vegano') || d.tags.includes('vegan'))) badgeHtml += '<span class="dish-badge badge-veggie">🌱 Vegano</span> ';
@@ -631,16 +685,17 @@
         ? window.i18nManager.formatPrice(d.price) 
         : `${currency} ${d.price}`;
 
+      const origPrice = (d.originalPrice !== undefined && d.originalPrice !== null) ? d.originalPrice : (d.previous_price || d.previousPrice);
       let priceDisplay = isSold ? '<span style="color:#E53E3E; font-size:0.85rem;">Agotado</span>' : formattedPrice;
-      if (!isSold && d.originalPrice && Number(d.originalPrice) > Number(d.price)) {
+      if (!isSold && origPrice && Number(origPrice) > Number(d.price)) {
         const formattedOriginal = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
-          ? window.i18nManager.formatPrice(d.originalPrice) 
-          : `${currency} ${d.originalPrice}`;
+          ? window.i18nManager.formatPrice(origPrice) 
+          : `${currency} ${origPrice}`;
         priceDisplay = `<span style="text-decoration:line-through; opacity:0.6; font-size:0.85em; margin-right:6px; color:var(--chalk-dim); font-weight:normal;">${formattedOriginal}</span>${formattedPrice}`;
       }
 
       return `
-        <div class="dish-card ${isSold ? 'dish-sold' : ''}" id="dish_card_${d.id}" style="${isSold ? 'opacity:0.5; filter:grayscale(0.6);' : ''}">
+        <div class="dish-card ${isUnavailable ? 'dish-sold' : ''}" id="dish_card_${d.id}" style="${isUnavailable ? 'opacity:0.6; filter:grayscale(0.5);' : ''}">
           ${photoHtml}
           <div class="dish-body">
             <div class="dish-title-line">
@@ -653,7 +708,11 @@
           <div class="dish-action">
             ${isSold 
               ? '<button class="btn-add" disabled style="background:#4A5568; cursor:not-allowed; opacity:0.6;">✕</button>' 
-              : `<button class="btn-add" data-dish-id="${escapeHtml(d.id)}" onclick="addToCart(this.dataset.dishId)" aria-label="Agregar ${escapeHtml(d.name)}">+</button>`}
+              : (!sched.isAvailable 
+                  ? `<button class="btn-add" disabled style="background:#4A5568; cursor:not-allowed; opacity:0.6;" title="${sched.reason}">⏰</button>`
+                  : `<button class="btn-add" data-dish-id="${escapeHtml(d.id)}" onclick="addToCart(this.dataset.dishId)" aria-label="Agregar ${escapeHtml(d.name)}">+</button>`
+                )
+            }
             ${inCart > 0 ? `<span class="qty-counter">${inCart} en comanda</span>` : ''}
           </div>
         </div>
@@ -667,7 +726,12 @@
     // Cart Handlers
     function addToCart(dishId) {
       const dish = restaurantData.dishes.find(d => d.id === dishId);
-      if (!dish) return;
+      if (!dish || dish.outOfStock) return;
+      const sched = getDishScheduleStatus(dish);
+      if (!sched.isAvailable) {
+        alert(`Este plato no se encuentra disponible en este horario (${sched.reason || 'Fuera de horario'}).`);
+        return;
+      }
 
       if (!cart[dishId]) {
         cart[dishId] = { dish, qty: 1 };

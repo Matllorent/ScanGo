@@ -898,7 +898,7 @@
       });
     }
 
-    function handleDishPhotoUpload(input) {
+    async function handleDishPhotoUpload(input) {
       if (!input.files || !input.files[0]) return;
       const file = input.files[0];
       const fileNameSpan = document.getElementById('dishPhotoFileName');
@@ -911,11 +911,37 @@
       if (clearBtn) clearBtn.style.display = 'inline';
 
       const reader = new FileReader();
-      reader.onload = function(e) {
+      reader.onload = async function(e) {
         const dataUrl = e.target.result;
         if (urlInput) urlInput.value = dataUrl;
         if (previewImg) previewImg.src = dataUrl;
         if (previewContainer) previewContainer.style.display = 'block';
+
+        // Upload to server storage endpoint for permanent image hosting
+        try {
+          if (fileNameSpan) fileNameSpan.textContent = `Subiendo ${file.name}...`;
+          const res = await fetch('/api/storage/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fileData: dataUrl,
+              fileName: file.name,
+              folder: 'dishes',
+              bucket: 'photos'
+            })
+          });
+          const result = await res.json().catch(() => ({}));
+          if (res.ok && result.data?.url) {
+            if (urlInput) urlInput.value = result.data.url;
+            if (previewImg) previewImg.src = result.data.url;
+            if (fileNameSpan) fileNameSpan.textContent = `✓ ${file.name}`;
+          } else {
+            if (fileNameSpan) fileNameSpan.textContent = `${file.name} (local)`;
+          }
+        } catch (err) {
+          console.warn('[Dish photo upload warning]', err);
+          if (fileNameSpan) fileNameSpan.textContent = `${file.name} (local)`;
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -934,6 +960,14 @@
       if (previewContainer) previewContainer.style.display = 'none';
     }
 
+    function toggleDishScheduleControls() {
+      const enabled = document.getElementById('modalDishScheduleEnabled')?.checked;
+      const controls = document.getElementById('dishScheduleControls');
+      if (controls) {
+        controls.style.display = enabled ? 'flex' : 'none';
+      }
+    }
+
     function editDish(dishId) {
       const dish = (restaurant.dishes || []).find(d => d.id === dishId);
       if (!dish) return;
@@ -941,7 +975,7 @@
       document.getElementById('modalDishId').value = dish.id;
       document.getElementById('modalDishName').value = dish.name || '';
       document.getElementById('modalDishPrice').value = dish.price || 0;
-      document.getElementById('modalDishOriginalPrice').value = dish.originalPrice || '';
+      document.getElementById('modalDishOriginalPrice').value = (dish.originalPrice !== null && dish.originalPrice !== undefined) ? dish.originalPrice : '';
       document.getElementById('modalDishDesc').value = dish.description || '';
       document.getElementById('modalDishPhoto').value = dish.photoUrl || '';
       document.getElementById('modalDishOutOfStock').checked = !!dish.outOfStock;
@@ -952,6 +986,19 @@
       document.getElementById('tagCeliac').checked = (dish.tags || []).includes('celiac');
       document.getElementById('tagSinLactosa').checked = (dish.tags || []).includes('sinlactosa');
       document.getElementById('tagPicante').checked = (dish.tags || []).includes('picante');
+
+      // Smart Scheduling
+      const sched = dish.schedule;
+      const schedEnabled = !!(sched && sched.enabled);
+      document.getElementById('modalDishScheduleEnabled').checked = schedEnabled;
+      toggleDishScheduleControls();
+      const schedDays = (sched && Array.isArray(sched.days)) ? sched.days : [0, 1, 2, 3, 4, 5, 6];
+      document.querySelectorAll('.dish-sched-day').forEach(cb => {
+        cb.checked = schedDays.includes(parseInt(cb.value, 10));
+      });
+      document.getElementById('modalDishTimeStart').value = (sched && sched.timeStart) || '11:30';
+      document.getElementById('modalDishTimeEnd').value = (sched && sched.timeEnd) || '15:30';
+      document.getElementById('modalDishScheduleBehavior').value = (sched && sched.behavior) || 'hide';
 
       // Photo preview
       const previewContainer = document.getElementById('dishPhotoPreviewContainer');
@@ -995,6 +1042,14 @@
       document.getElementById('modalDishStar').checked = false;
       document.getElementById('modalDishChefSpecial').checked = false;
       clearDishPhoto();
+
+      // Reset smart scheduling
+      document.getElementById('modalDishScheduleEnabled').checked = false;
+      toggleDishScheduleControls();
+      document.querySelectorAll('.dish-sched-day').forEach(cb => { cb.checked = true; });
+      document.getElementById('modalDishTimeStart').value = '11:30';
+      document.getElementById('modalDishTimeEnd').value = '15:30';
+      document.getElementById('modalDishScheduleBehavior').value = 'hide';
 
       // Populate category select
       const catSelect = document.getElementById('modalDishCategory');
@@ -1047,6 +1102,23 @@
       const outOfStock = document.getElementById('modalDishOutOfStock').checked;
       const isChefSpecial = document.getElementById('modalDishChefSpecial').checked;
 
+      // Smart Scheduling
+      const scheduleEnabled = document.getElementById('modalDishScheduleEnabled').checked;
+      let schedule = null;
+      if (scheduleEnabled) {
+        const selectedDays = Array.from(document.querySelectorAll('.dish-sched-day:checked')).map(cb => parseInt(cb.value, 10));
+        const timeStart = document.getElementById('modalDishTimeStart').value || '00:00';
+        const timeEnd = document.getElementById('modalDishTimeEnd').value || '23:59';
+        const behavior = document.getElementById('modalDishScheduleBehavior').value || 'hide';
+        schedule = {
+          enabled: true,
+          days: selectedDays.length ? selectedDays : [0, 1, 2, 3, 4, 5, 6],
+          timeStart,
+          timeEnd,
+          behavior
+        };
+      }
+
       const tags = [];
       if (document.getElementById('modalDishStar').checked) tags.push('star');
       if (isChefSpecial) tags.push('chef_special');
@@ -1070,6 +1142,7 @@
           dish.categoryId = categoryId;
           dish.outOfStock = outOfStock;
           dish.isChefSpecial = isChefSpecial;
+          dish.schedule = schedule;
           dish.tags = tags;
         }
       } else {
@@ -1084,11 +1157,106 @@
           categoryId,
           outOfStock,
           isChefSpecial,
+          schedule,
           tags
         });
       }
 
       closeDishEditModal();
+      renderDishesList();
+      triggerAutoSave();
+    }
+
+    // Category Management
+    function promptNewCategoryInModal() {
+      const name = prompt('Ingresa el nombre de la nueva categoría (ej: Postres, Cafetería):');
+      if (!name || !name.trim()) return;
+      const cleanName = name.trim();
+      if (!restaurant.categories) restaurant.categories = [];
+      let cat = restaurant.categories.find(c => c.name.toLowerCase() === cleanName.toLowerCase());
+      if (!cat) {
+        cat = { id: 'cat_' + Date.now(), name: cleanName };
+        restaurant.categories.push(cat);
+        populateCatFilter();
+        triggerAutoSave();
+      }
+      const catSelect = document.getElementById('modalDishCategory');
+      catSelect.innerHTML = '';
+      restaurant.categories.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        if (c.id === cat.id) opt.selected = true;
+        catSelect.appendChild(opt);
+      });
+    }
+
+    function openCategoryManagerModal() {
+      renderCategoryManagerList();
+      document.getElementById('categoryManagerModal').classList.add('active');
+    }
+
+    function closeCategoryManagerModal() {
+      document.getElementById('categoryManagerModal').classList.remove('active');
+      populateCatFilter();
+    }
+
+    function renderCategoryManagerList() {
+      const list = document.getElementById('categoryManagerList');
+      if (!list) return;
+      const cats = restaurant.categories || [];
+      if (!cats.length) {
+        list.innerHTML = '<div style="font-size:11px; color:var(--text-dim); text-align:center; padding:12px;">No hay categorías creadas aún.</div>';
+        return;
+      }
+      list.innerHTML = cats.map(c => `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--surface-2); padding:8px 12px; border-radius:6px; border:1px solid var(--border);">
+          <span style="font-size:12px; font-weight:600; color:#fff;">${escapeHtml(c.name)}</span>
+          <div style="display:flex; gap:6px;">
+            <button class="btn-icon" onclick="renameCategory('${escapeHtml(c.id)}')" title="Renombrar">✏️</button>
+            <button class="btn-icon btn-icon-danger" onclick="deleteCategory('${escapeHtml(c.id)}')" title="Eliminar">🗑️</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function addCategoryFromManager() {
+      const input = document.getElementById('newCategoryInput');
+      const name = (input.value || '').trim();
+      if (!name) return;
+      if (!restaurant.categories) restaurant.categories = [];
+      const exists = restaurant.categories.some(c => c.name.toLowerCase() === name.toLowerCase());
+      if (exists) return alert('Esa categoría ya existe.');
+      restaurant.categories.push({ id: 'cat_' + Date.now(), name });
+      input.value = '';
+      renderCategoryManagerList();
+      populateCatFilter();
+      triggerAutoSave();
+    }
+
+    function renameCategory(catId) {
+      const cat = (restaurant.categories || []).find(c => c.id === catId);
+      if (!cat) return;
+      const newName = prompt('Nuevo nombre para la categoría:', cat.name);
+      if (!newName || !newName.trim()) return;
+      cat.name = newName.trim();
+      renderCategoryManagerList();
+      populateCatFilter();
+      renderDishesList();
+      triggerAutoSave();
+    }
+
+    function deleteCategory(catId) {
+      const cat = (restaurant.categories || []).find(c => c.id === catId);
+      if (!cat) return;
+      const dishCount = (restaurant.dishes || []).filter(d => d.categoryId === catId).length;
+      const msg = dishCount > 0 
+        ? `Esta categoría contiene ${dishCount} plato(s). ¿Estás seguro de que deseas eliminarla? Los platos quedarán sin categoría asignada.`
+        : `¿Confirmas eliminar la categoría "${cat.name}"?`;
+      if (!confirm(msg)) return;
+      restaurant.categories = (restaurant.categories || []).filter(c => c.id !== catId);
+      renderCategoryManagerList();
+      populateCatFilter();
       renderDishesList();
       triggerAutoSave();
     }

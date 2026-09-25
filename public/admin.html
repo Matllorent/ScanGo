@@ -274,6 +274,11 @@
           <div class="metric-value" id="m-mrr" style="color: var(--gold);">$0</div>
           <div class="metric-badge" style="background: rgba(229,169,59,0.15); color: var(--gold);">USD / Mes recurrente</div>
         </div>
+        <div class="metric-card">
+          <div class="metric-title"><i class="fa-solid fa-user-xmark"></i> Membresías Vencidas</div>
+          <div class="metric-value" id="m-expired" style="color: var(--danger);">0</div>
+          <div class="metric-badge" style="background: rgba(239,68,68,0.15); color: #f87171;">Sin acceso / Expiradas</div>
+        </div>
       </div>
 
       <!-- Analytics Charts Section -->
@@ -406,7 +411,20 @@
 
   <script>
     let currentKey = localStorage.getItem('pizarron_admin_key') || '';
+    let currentToken = localStorage.getItem('pizarron_admin_token') || '';
     let currentRestaurants = [];
+
+    function getAdminHeaders() {
+      const h = { 'Content-Type': 'application/json' };
+      if (currentToken) {
+        h['Authorization'] = `Bearer ${currentToken}`;
+        h['x-admin-token'] = currentToken;
+      }
+      if (currentKey) {
+        h['x-admin-key'] = currentKey;
+      }
+      return h;
+    }
 
     function escapeHtml(str) {
       if (str === null || str === undefined) return '';
@@ -469,10 +487,35 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       checkLockout();
-      if (currentKey) {
-        verifyAndLoad(currentKey);
+      if (currentToken || currentKey) {
+        checkSessionAndLoad();
       }
     });
+
+    async function checkSessionAndLoad() {
+      try {
+        const res = await fetch('/api/admin/overview', {
+          headers: getAdminHeaders()
+        });
+        if (res.ok) {
+          document.getElementById('auth-view').style.display = 'none';
+          document.getElementById('dashboard-view').style.display = 'block';
+          document.getElementById('btn-logout').style.display = 'inline-flex';
+          const data = await res.json();
+          renderDashboard(data);
+          loadReviews();
+        } else {
+          currentKey = '';
+          currentToken = '';
+          localStorage.removeItem('pizarron_admin_key');
+          localStorage.removeItem('pizarron_admin_token');
+          document.getElementById('auth-view').style.display = 'block';
+          document.getElementById('dashboard-view').style.display = 'none';
+        }
+      } catch (err) {
+        console.warn('Error checking existing admin session:', err);
+      }
+    }
 
     async function handleLogin(e) {
       e.preventDefault();
@@ -488,6 +531,9 @@
 
       const key = document.getElementById('admin-key').value.trim();
       const totp = (document.getElementById('admin-totp')?.value || '').trim();
+      const errBox = document.getElementById('login-error');
+      if (errBox) errBox.style.display = 'none';
+
       if (!key) {
         if (submitBtn) {
           submitBtn.disabled = false;
@@ -495,45 +541,30 @@
         }
         return;
       }
-      try {
-        await verifyAndLoad(key, totp);
-      } finally {
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = originalText;
-        }
-      }
-    }
-
-    async function verifyAndLoad(key, totp = '') {
-      const errBox = document.getElementById('login-error');
-      errBox.style.display = 'none';
-      if (checkLockout()) return;
 
       try {
-        // Step 1: Explicit login to set cookie and validate master key + TOTP
         const loginRes = await fetch('/api/admin/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ key, totp })
         });
         const loginData = await loginRes.json().catch(() => ({}));
+
         if (!loginRes.ok) {
           recordFailedAttempt();
           throw new Error(loginData.error || 'Clave o código 2FA incorrecto');
         }
 
-        // Step 2: Clear failure lockout and persist session
         clearLockout();
         currentKey = key;
+        currentToken = loginData.token || '';
         localStorage.setItem('pizarron_admin_key', key);
+        if (currentToken) localStorage.setItem('pizarron_admin_token', currentToken);
         document.cookie = 'admin_key=' + encodeURIComponent(key) + '; path=/; max-age=604800; SameSite=Lax';
 
-        // Step 3: Fetch overview
-        const headers = { 'x-admin-key': key };
-        if (totp) headers['x-admin-totp'] = totp;
-
-        const res = await fetch('/api/admin/overview', { headers });
+        const res = await fetch('/api/admin/overview', {
+          headers: getAdminHeaders()
+        });
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
           throw new Error(errData.error || 'Error al recuperar datos de administración');
@@ -547,26 +578,35 @@
         renderDashboard(data);
         loadReviews();
       } catch (err) {
-        errBox.textContent = err.message;
-        errBox.style.display = 'block';
-        localStorage.removeItem('pizarron_admin_key');
+        if (errBox) {
+          errBox.textContent = err.message;
+          errBox.style.display = 'block';
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalText;
+        }
       }
     }
 
     function logout() {
       localStorage.removeItem('pizarron_admin_key');
+      localStorage.removeItem('pizarron_admin_token');
       document.cookie = 'admin_key=; path=/; max-age=0';
+      document.cookie = 'admin_token=; path=/; max-age=0';
       currentKey = '';
+      currentToken = '';
       document.getElementById('auth-view').style.display = 'block';
       document.getElementById('dashboard-view').style.display = 'none';
       document.getElementById('btn-logout').style.display = 'none';
     }
 
     async function loadOverview() {
-      if (!currentKey) return;
+      if (!currentKey && !currentToken) return;
       try {
         const res = await fetch('/api/admin/overview', {
-          headers: { 'x-admin-key': currentKey }
+          headers: getAdminHeaders()
         });
         if (res.ok) {
           const data = await res.json();
@@ -656,6 +696,8 @@
       document.getElementById('m-trialing').textContent = metrics.trialingSubs;
       document.getElementById('m-grace').textContent = metrics.pastDueSubs;
       document.getElementById('m-mrr').textContent = `$${metrics.mrrEst}`;
+      const mExpired = document.getElementById('m-expired');
+      if (mExpired) mExpired.textContent = metrics.expiredSubs || 0;
 
       renderCharts(metrics, restaurants);
 
@@ -707,7 +749,11 @@
               <div class="actions-cell">
                 ${status === 'active' 
                   ? `<button class="btn btn-danger btn-xs" onclick="updateStatus('${cleanId}', 'paused')"><i class="fa-solid fa-pause"></i> Pausar</button>`
-                  : `<button class="btn btn-success btn-xs" onclick="updateStatus('${cleanId}', 'active')"><i class="fa-solid fa-check"></i> Activar PRO</button>`
+                  : (status === 'trialing'
+                      ? `<button class="btn btn-success btn-xs" onclick="updateStatus('${cleanId}', 'active')"><i class="fa-solid fa-check"></i> Activar PRO</button>
+                         <button class="btn btn-danger btn-xs" onclick="removeTrial('${cleanId}')"><i class="fa-solid fa-ban"></i> Quitar Trial</button>`
+                      : `<button class="btn btn-success btn-xs" onclick="updateStatus('${cleanId}', 'active')"><i class="fa-solid fa-check"></i> Activar PRO</button>`
+                    )
                 }
                 <a href="/m/${cleanSlug}" target="_blank" class="btn btn-outline btn-xs"><i class="fa-solid fa-eye"></i> Ver</a>
               </div>
@@ -722,16 +768,32 @@
       try {
         const res = await fetch(`/api/admin/restaurant/${restaurantId}/status`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-key': currentKey
-          },
+          headers: getAdminHeaders(),
           body: JSON.stringify({ status: newStatus })
         });
         if (res.ok) {
           loadOverview();
         } else {
           alert('Error al actualizar el estado');
+        }
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    async function removeTrial(restaurantId) {
+      if (!confirm('¿Confirmás revocar la prueba gratuita para este restaurante? Pasará de inmediato a estado expirado.')) return;
+      try {
+        const res = await fetch(`/api/admin/restaurant/${restaurantId}/remove-trial`, {
+          method: 'POST',
+          headers: getAdminHeaders()
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          alert('Prueba gratuita revocada.');
+          loadOverview();
+        } else {
+          alert(data.error || 'Error al revocar la prueba');
         }
       } catch (e) {
         alert('Error: ' + e.message);
@@ -913,10 +975,10 @@
         subsChartInstance = new Chart(ctxSubs, {
           type: 'doughnut',
           data: {
-            labels: ['Activas (Facturando)', 'Prueba Gratuita', 'Período de Gracia'],
+            labels: ['Activas (Facturando)', 'Prueba Gratuita', 'Período de Gracia', 'Membresías Vencidas'],
             datasets: [{
-              data: [metrics.activeSubs || 0, metrics.trialingSubs || 0, metrics.pastDueSubs || 0],
-              backgroundColor: ['#22c55e', '#3b82f6', '#f59e0b'],
+              data: [metrics.activeSubs || 0, metrics.trialingSubs || 0, metrics.pastDueSubs || 0, metrics.expiredSubs || 0],
+              backgroundColor: ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444'],
               borderColor: '#151f1c',
               borderWidth: 2
             }]

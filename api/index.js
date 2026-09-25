@@ -141,9 +141,18 @@ function sanitizeRestaurantPayload(data) {
       categoryId: String(d.categoryId || ''),
       name: String(d.name || 'Sin nombre').slice(0, 100),
       price: Math.max(0, parseFloat(d.price) || 0),
+      originalPrice: (d.originalPrice !== undefined && d.originalPrice !== null && !isNaN(parseFloat(d.originalPrice))) ? Math.max(0, parseFloat(d.originalPrice)) : null,
       description: String(d.description || '').slice(0, 400),
-      photoUrl: d.photoUrl && typeof d.photoUrl === 'string' ? d.photoUrl.slice(0, 1500) : null,
+      photoUrl: d.photoUrl && typeof d.photoUrl === 'string' ? d.photoUrl.slice(0, 5000000) : null,
       outOfStock: Boolean(d.outOfStock),
+      isChefSpecial: Boolean(d.isChefSpecial),
+      schedule: (d.schedule && typeof d.schedule === 'object') ? {
+        enabled: Boolean(d.schedule.enabled),
+        days: Array.isArray(d.schedule.days) ? d.schedule.days.map(Number).filter(n => n >= 0 && n <= 6) : [0, 1, 2, 3, 4, 5, 6],
+        timeStart: String(d.schedule.timeStart || '00:00').slice(0, 5),
+        timeEnd: String(d.schedule.timeEnd || '23:59').slice(0, 5),
+        behavior: d.schedule.behavior === 'badge' ? 'badge' : 'hide'
+      } : null,
       tags: Array.isArray(d.tags) ? d.tags.slice(0, 8).map(t => String(t).slice(0, 25)) : []
     }));
   }
@@ -239,11 +248,24 @@ const crypto = require('crypto');
 function verifyTotpToken(token, secret) {
   if (!secret) return true;
   if (!token) return false;
+
+  // Sanitize secret: handle otpauth:// URLs or spaces/hyphens/padding
+  let cleanSecret = String(secret).trim();
+  const uriMatch = cleanSecret.match(/secret=([A-Za-z2-7=]+)/i);
+  if (uriMatch) {
+    cleanSecret = uriMatch[1];
+  }
+  cleanSecret = cleanSecret.replace(/[\s\-_=]/g, '').toUpperCase();
+  if (!cleanSecret) return false;
+
+  const cleanToken = String(token).replace(/\D/g, '').trim();
+  if (cleanToken.length !== 6) return false;
+
   function base32Decode(base32) {
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
     let bits = '';
     for (let i = 0; i < base32.length; i++) {
-      const val = alphabet.indexOf(base32.charAt(i).toUpperCase());
+      const val = alphabet.indexOf(base32.charAt(i));
       if (val !== -1) bits += val.toString(2).padStart(5, '0');
     }
     const bytes = [];
@@ -252,11 +274,13 @@ function verifyTotpToken(token, secret) {
     }
     return Buffer.from(bytes);
   }
+
   try {
-    const keyBuffer = base32Decode(secret.replace(/\s+/g, ''));
+    const keyBuffer = base32Decode(cleanSecret);
     const epoch = Math.floor(Date.now() / 1000);
     const currentStep = Math.floor(epoch / 30);
-    for (let offset = -1; offset <= 1; offset++) {
+    // Tolerance window of +/- 2 steps (60s clock skew)
+    for (let offset = -2; offset <= 2; offset++) {
       const step = currentStep + offset;
       const timeBuffer = Buffer.alloc(8);
       timeBuffer.writeUInt32BE(0, 0);
@@ -269,23 +293,55 @@ function verifyTotpToken(token, secret) {
         (digest[hmacOffset + 1] & 0xff) << 16 |
         (digest[hmacOffset + 2] & 0xff) << 8 |
         (digest[hmacOffset + 3] & 0xff)) % 1000000;
-      if (code.toString().padStart(6, '0') === String(token).trim()) {
+      if (code.toString().padStart(6, '0') === cleanToken) {
         return true;
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn('[TOTP verification error]', e.message);
+  }
   return false;
 }
 
 function adminMiddleware(req, res, next) {
+  // Check for admin session JWT token
+  const authHeader = req.headers['authorization'] || '';
+  const token = (authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null) ||
+    req.headers['x-admin-token'] ||
+    req.cookies?.admin_token;
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      if (decoded && decoded.role === 'admin_master') {
+        req.isAdmin = true;
+        return next();
+      }
+    } catch (e) {}
+  }
+
   const key = req.headers['x-admin-key'] || req.query.adminKey || req.query.key || req.cookies?.admin_key;
   const totp = req.headers['x-admin-totp'] || req.query.adminTotp || req.body?.totp;
   const adminTotpSecret = process.env.ADMIN_TOTP_SECRET;
 
   if (key && key === ADMIN_KEY) {
-    if (adminTotpSecret && !verifyTotpToken(totp, adminTotpSecret)) {
-      return res.status(403).json({ error: 'Código Google Authenticator (TOTP) inválido o expirado' });
+    if (adminTotpSecret) {
+      if (totp && verifyTotpToken(totp, adminTotpSecret)) {
+        req.isAdmin = true;
+        return next();
+      }
+      if (req.cookies?.admin_token) {
+        try {
+          const decoded = jwt.verify(req.cookies.admin_token, JWT_SECRET);
+          if (decoded && decoded.role === 'admin_master') {
+            req.isAdmin = true;
+            return next();
+          }
+        } catch (e) {}
+      }
+      return res.status(403).json({ error: 'Acceso denegado: se requiere sesión autenticada con 2FA o código TOTP válido' });
     }
+    req.isAdmin = true;
     return next();
   }
   return res.status(403).json({ error: 'Acceso denegado: Clave maestra de administración no válida o faltante' });
@@ -533,8 +589,14 @@ app.post('/api/admin/login', adminLimiter, (req, res) => {
     if (adminTotpSecret && !verifyTotpToken(totp, adminTotpSecret)) {
       return res.status(401).json({ error: 'Código Google Authenticator (TOTP) incorrecto o expirado' });
     }
+    const adminToken = jwt.sign({ role: 'admin_master', timestamp: Date.now() }, JWT_SECRET, { expiresIn: '7d' });
     res.cookie('admin_key', providedKey, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 3600 * 1000 });
-    return res.json({ success: true, message: 'Acceso autorizado como administrador maestro' });
+    res.cookie('admin_token', adminToken, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 3600 * 1000 });
+    return res.json({
+      success: true,
+      token: adminToken,
+      message: 'Acceso autorizado como administrador maestro'
+    });
   }
   return res.status(401).json({ error: 'Clave de administración incorrecta' });
 });
@@ -604,10 +666,23 @@ app.get('/api/admin/overview', adminMiddleware, async (req, res) => {
       }
     }
 
+    const now = new Date();
+    // Audit trial and subscription expiration
+    restaurants.forEach(r => {
+      const sub = r.subscription || {};
+      if (sub.status === 'trialing' && sub.trialEndsAt && new Date(sub.trialEndsAt) < now) {
+        sub.isTrialExpired = true;
+      }
+    });
+
     const totalRestaurants = restaurants.length;
     const activeSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'active').length;
-    const trialingSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'trialing').length;
+    const trialingSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'trialing' && !r.subscription.isTrialExpired).length;
     const pastDueSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'past_due').length;
+    const expiredSubs = restaurants.filter(r => {
+      const s = r.subscription || {};
+      return s.status === 'expired' || s.status === 'canceled' || (s.status === 'trialing' && s.trialEndsAt && new Date(s.trialEndsAt) < now);
+    }).length;
     const mrrEst = activeSubs * 9; // Estimado base USD
 
     res.json({
@@ -617,6 +692,7 @@ app.get('/api/admin/overview', adminMiddleware, async (req, res) => {
         activeSubs,
         trialingSubs,
         pastDueSubs,
+        expiredSubs,
         mrrEst
       },
       restaurants,
@@ -627,14 +703,60 @@ app.get('/api/admin/overview', adminMiddleware, async (req, res) => {
   }
 });
 
-app.post('/api/admin/restaurant/:id/status', adminMiddleware, (req, res) => {
+app.post('/api/admin/restaurant/:id/status', adminMiddleware, async (req, res) => {
   const { status } = req.body;
-  const valid = ['active', 'trialing', 'past_due', 'canceled', 'paused'];
+  const valid = ['active', 'trialing', 'past_due', 'canceled', 'paused', 'expired'];
   if (!valid.includes(status)) return res.status(400).json({ error: 'Estado de suscripción inválido' });
+
+  const { getSupabaseClient } = require('./utils/supabase');
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      await supabase.from('restaurants').update({
+        subscription: { status, updatedAt: new Date().toISOString() },
+        updated_at: new Date().toISOString()
+      }).eq('id', req.params.id);
+    } catch (e) {
+      console.warn('[Supabase status update error]', e.message);
+    }
+  }
 
   const updated = db.setRestaurantStatus(req.params.id, status);
   if (!updated) return res.status(404).json({ error: 'Restaurante no encontrado' });
   res.json({ success: true, restaurant: updated });
+});
+
+// Revoke Free Trial Endpoint (Admin Action)
+app.post('/api/admin/restaurant/:id/remove-trial', adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { getSupabaseClient } = require('./utils/supabase');
+    const supabase = getSupabaseClient();
+
+    const updatedSub = {
+      status: 'expired',
+      provider: 'admin_revoked',
+      trialEndsAt: new Date(Date.now() - 1000).toISOString(),
+      canceledAt: new Date().toISOString(),
+      revokedByAdmin: true
+    };
+
+    if (supabase) {
+      try {
+        await supabase.from('restaurants').update({
+          subscription: updatedSub,
+          updated_at: new Date().toISOString()
+        }).eq('id', id);
+      } catch (e) {
+        console.warn('[Supabase remove-trial error]', e.message);
+      }
+    }
+
+    db.updateSubscription(id, updatedSub);
+    res.json({ success: true, message: 'Prueba gratuita revocada exitosamente', subscription: updatedSub });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Admin Manual Restaurant Invitation

@@ -110,14 +110,38 @@ const billingOrchestrator = {
     const now = new Date();
     const periodEnd = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : now;
 
-    // Active or Trialing: Full access
-    if (sub.status === 'active' || sub.status === 'trialing') {
+    // Active: Full access
+    if (sub.status === 'active') {
       return {
         allowed: true,
-        status: sub.status,
+        status: 'active',
         plan: sub.plan || 'pro_monthly',
         features: (PLANS[sub.plan] || PLANS.pro_monthly).features,
         inGracePeriod: false
+      };
+    }
+
+    // Trialing: Full access if within 7-day trial window
+    if (sub.status === 'trialing') {
+      const trialEnds = sub.trialEndsAt ? new Date(sub.trialEndsAt) : new Date(periodEnd.getTime() + 7 * 24 * 3600 * 1000);
+      const isTrialValid = now <= trialEnds;
+      if (isTrialValid) {
+        const daysLeft = Math.max(0, Math.ceil((trialEnds.getTime() - now.getTime()) / (24 * 3600 * 1000)));
+        return {
+          allowed: true,
+          status: 'trialing',
+          daysLeft,
+          plan: sub.plan || 'pro_monthly',
+          features: (PLANS[sub.plan] || PLANS.pro_monthly).features,
+          inGracePeriod: false
+        };
+      }
+      return {
+        allowed: false,
+        status: 'expired',
+        isTrialExpired: true,
+        reason: 'trial_expirado',
+        warning: 'Tu período de prueba gratuita ha finalizado. Actualizá tu suscripción para reactivar tu menú.'
       };
     }
 
