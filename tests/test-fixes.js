@@ -1,8 +1,50 @@
 const assert = require('assert');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const { sanitizeModifierGroups, sanitizeDishOptionConfig } = require('../api/utils/menuOptions');
 
 console.log('🧪 Iniciando verificación de las 7 mejoras y correcciones críticas...');
+
+function testMenuOptionSanitization() {
+  const groups = sanitizeModifierGroups([{
+    id: 'sabores',
+    name: 'Sabores',
+    kind: 'flavor',
+    selectionMode: 'quantity_split',
+    required: true,
+    minSelections: 1,
+    maxSelections: 3,
+    options: [
+      { id: 'tucumana', name: 'Tucumana', priceDeltaCents: 0 },
+      { id: 'saltena', name: 'Salteña', priceDeltaCents: 125 }
+    ],
+    unexpectedField: 'discarded'
+  }, null]);
+  const dishOptions = sanitizeDishOptionConfig({
+    modifierGroupIds: ['sabores', 'sabores'],
+    variants: [{ id: 'comun', name: 'Común', priceDeltaCents: 0 }],
+    variantSelectionMode: 'quantity_split',
+    variantsRequired: true,
+    variantsPerItem: 12,
+    proteinOptions: [{ id: 'pollo', name: 'Pollo', priceDeltaCents: 50 }],
+    proteinSelectionRequired: true
+  });
+
+  assert.strictEqual(groups.length, 1);
+  assert.strictEqual(groups[0].selectionMode, 'quantity_split');
+  assert.strictEqual(groups[0].options[1].priceDeltaCents, 125);
+  assert.strictEqual(Object.hasOwn(groups[0], 'unexpectedField'), false);
+  assert.deepStrictEqual(dishOptions.modifierGroupIds, ['sabores']);
+  assert.strictEqual(dishOptions.variants[0].name, 'Común');
+  assert.strictEqual(dishOptions.variantSelectionMode, 'quantity_split');
+  assert.strictEqual(dishOptions.variantsRequired, true);
+  assert.strictEqual(dishOptions.variantsPerItem, 12);
+  assert.strictEqual(dishOptions.proteinOptions[0].name, 'Pollo');
+  assert.strictEqual(dishOptions.proteinSelectionRequired, true);
+  console.log('✓ Saneamiento de grupos, sabores, proteínas y precios incrementales');
+}
+
+testMenuOptionSanitization();
 
 // Test 1 & 2 & 4: sanitizeRestaurantPayload in api/index.js
 // We require the functions by loading or mocking

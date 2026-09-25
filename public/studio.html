@@ -824,6 +824,48 @@
           <textarea id="modalDishDesc" class="form-textarea" rows="3" placeholder="Ej: Lomo tierno empanado, salsa pomodoro casera, jamón y queso muzzarella fundido con papas fritas."></textarea>
         </div>
 
+        <section class="dish-options-panel" aria-labelledby="dishOptionsTitle">
+          <h4 id="dishOptionsTitle" class="dish-options-title">Opciones para personalizar</h4>
+
+          <div class="dish-options-group">
+            <div class="dish-options-header">
+              <div>
+                <strong>Proteínas</strong>
+                <p>Agregá carne, pollo u otras opciones para este plato.</p>
+              </div>
+              <label class="dish-option-toggle"><input type="checkbox" id="modalDishProteinRequired"> Obligatoria</label>
+            </div>
+            <div class="dish-option-column-labels"><span>Proteína</span><span>Adicional</span><span></span></div>
+            <div id="proteinOptionsList" class="dish-option-list"></div>
+            <button type="button" class="btn-nav dish-option-add" onclick="addDishOption('protein')">+ Agregar proteína</button>
+          </div>
+
+          <div class="dish-options-group">
+            <div class="dish-options-header">
+              <div>
+                <strong>Sabores y variantes</strong>
+                <p>Ideal para empanadas surtidas y productos con opciones.</p>
+              </div>
+              <label class="dish-option-toggle"><input type="checkbox" id="modalDishVariantsRequired"> Obligatorias</label>
+            </div>
+            <div class="dish-variant-settings">
+              <label for="modalDishVariantMode" class="form-label">Selección de sabores</label>
+              <select id="modalDishVariantMode" class="form-select" onchange="toggleVariantUnitsField()">
+                <option value="single">Elegir una opción</option>
+                <option value="quantity_split">Repartir según la cantidad</option>
+              </select>
+            </div>
+            <div id="variantUnitsPerItemField" class="dish-variant-settings" style="display:none;">
+              <label for="modalDishVariantsPerItem" class="form-label">Unidades incluidas en este plato</label>
+              <input type="number" id="modalDishVariantsPerItem" class="form-input" min="1" max="100" step="1" value="1">
+              <div class="input-hint">Ejemplo: una docena de empanadas = 12.</div>
+            </div>
+            <div class="dish-option-column-labels"><span>Sabor o variante</span><span>Adicional</span><span></span></div>
+            <div id="variantOptionsList" class="dish-option-list"></div>
+            <button type="button" class="btn-nav dish-option-add" onclick="addDishOption('variant')">+ Agregar sabor o variante</button>
+          </div>
+        </section>
+
         <div class="form-group">
           <label class="form-label">📷 Foto del Plato</label>
           <div style="display:flex; flex-direction:column; gap:6px;">

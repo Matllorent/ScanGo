@@ -13,6 +13,7 @@ const router = express.Router();
 const orderItemSchema = z.object({
   dishId: z.string().min(1, { message: 'ID de platillo requerido' }),
   quantity: z.number().int().positive({ message: 'La cantidad debe ser mayor a 0' }),
+  note: z.string().trim().max(250).optional().default(''),
   options: z.record(z.any()).optional().default({})
 });
 
@@ -61,6 +62,7 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
         unitPrice: unitPrice,
         unitPriceInCents: Math.round(unitPrice * 100),
         quantity: item.quantity,
+        note: item.note || '',
         totalItemAmount: itemTotal,
         totalItemAmountInCents: Math.round(itemTotal * 100),
         categoryName: category ? category.name : 'General',

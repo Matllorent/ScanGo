@@ -38,6 +38,10 @@
       {
         "id": "cat_bebidas",
         "name": "Bebidas & Cafetería"
+      },
+      {
+        "id": "cat_empanadas_1790367213760",
+        "name": "Empanadas Argentinas"
       }
     ],
     "dishes": [
@@ -48,7 +52,7 @@
         "price": 490,
         "originalPrice": 590,
         "description": "Pan brioche, provoleta fundida y chimichurri",
-        "photoUrl": null,
+        "photoUrl": "/uploads/photos/dishes/OIP__5_.webp",
         "outOfStock": false,
         "isChefSpecial": false,
         "schedule": {
@@ -64,8 +68,13 @@
           ],
           "timeStart": "11:30",
           "timeEnd": "15:30",
-          "behavior": "hide"
+          "behavior": "badge"
         },
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
         "tags": [
           "star",
           "picante"
@@ -82,6 +91,11 @@
         "outOfStock": false,
         "isChefSpecial": false,
         "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
         "tags": [
           "star"
         ]
@@ -97,23 +111,151 @@
         "outOfStock": false,
         "isChefSpecial": false,
         "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
         "tags": [
           "veggie"
+        ]
+      },
+      {
+        "id": "d_milanesas_1790360667176_4",
+        "categoryId": "cat_milanesas",
+        "name": "Milanesa Cuatro Quesos",
+        "price": 520,
+        "originalPrice": null,
+        "description": "Muzzarella, provolone, parmesano y queso azul gratinado",
+        "photoUrl": null,
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
+        "tags": []
+      },
+      {
+        "id": "d_milanesas_1790365308341_3",
+        "categoryId": "cat_milanesas",
+        "name": "Milanesa a Caballo",
+        "price": 470,
+        "originalPrice": null,
+        "description": "Con dos huevos fritos de campo y papas bastón crocantes",
+        "photoUrl": null,
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
+        "tags": []
+      },
+      {
+        "id": "d_milanesas_1790366202485_7",
+        "categoryId": "cat_milanesas",
+        "name": "Milanesa Tex-Mex",
+        "price": 510,
+        "originalPrice": null,
+        "description": "Cheddar fundido, panceta crocante, jalapeños y guacamole",
+        "photoUrl": null,
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
+        "tags": []
+      },
+      {
+        "id": "d_empanadas_1790367213760_0",
+        "categoryId": "cat_empanadas_1790367213760",
+        "name": "Docena de Empanadas Surtidas",
+        "price": 1080,
+        "originalPrice": null,
+        "description": "Elegí cómo repartir los sabores entre las 12 unidades.",
+        "photoUrl": null,
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [
+          {
+            "id": "carne_suave",
+            "name": "Carne suave",
+            "priceDeltaCents": 0,
+            "active": true
+          },
+          {
+            "id": "carne_picante",
+            "name": "Carne picante",
+            "priceDeltaCents": 0,
+            "active": true
+          },
+          {
+            "id": "carne_cuchillo",
+            "name": "Carne cortada a cuchillo",
+            "priceDeltaCents": 0,
+            "active": true
+          },
+          {
+            "id": "pollo",
+            "name": "Pollo",
+            "priceDeltaCents": 0,
+            "active": true
+          },
+          {
+            "id": "jamon_queso",
+            "name": "Jamón y queso",
+            "priceDeltaCents": 0,
+            "active": true
+          },
+          {
+            "id": "humita",
+            "name": "Humita",
+            "priceDeltaCents": 0,
+            "active": true
+          },
+          {
+            "id": "verdura",
+            "name": "Verdura",
+            "priceDeltaCents": 0,
+            "active": true
+          },
+          {
+            "id": "caprese",
+            "name": "Caprese",
+            "priceDeltaCents": 0,
+            "active": true
+          }
+        ],
+        "proteinOptions": [],
+        "variantSelectionMode": "quantity_split",
+        "variantsRequired": true,
+        "tags": [
+          "star"
         ]
       }
     ],
     "analytics": {
-      "visits": 14,
+      "visits": 23,
       "orders": 0,
       "reservations": 0,
       "waiterCalls": 0,
-      "lastUpdated": "2026-09-25T04:44:16.251Z"
+      "lastUpdated": "2026-09-25T20:16:41.178Z"
     },
     "businessType": "restaurant",
     "allowIceCreamWizard": false,
     "allowPerfumery": false,
     "allowLoyaltyPoints": false,
-    "updatedAt": "2026-09-25T04:44:16.018Z",
+    "updatedAt": "2026-09-25T20:13:34.990Z",
     "instagram": "",
     "googleReview": "",
     "themeFont": "serif",
@@ -124,6 +266,7 @@
     "paymentLink": "",
     "scheduleEnabled": false,
     "scheduleActiveHours": "",
-    "tableCount": 10
+    "tableCount": 10,
+    "modifierGroups": []
   }
 ]

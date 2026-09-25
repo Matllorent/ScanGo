@@ -11,6 +11,7 @@ const billingOrchestrator = require('../src/billing/orchestrator');
 const emailService = require('./services/email');
 const { hashPassword, comparePassword } = require('./utils/hash');
 const { registerSchema, loginSchema, validateBody } = require('./middleware/validation');
+const { sanitizeModifierGroups, sanitizeDishOptionConfig } = require('./utils/menuOptions');
 const errorHandler = require('./middleware/errorHandler');
 const { successResponse, errorResponse } = require('./utils/response');
 const requireVerifiedEmail = require('./middleware/requireVerifiedEmail');
@@ -153,9 +154,11 @@ function sanitizeRestaurantPayload(data) {
         timeEnd: String(d.schedule.timeEnd || '23:59').slice(0, 5),
         behavior: d.schedule.behavior === 'badge' ? 'badge' : 'hide'
       } : null,
+      ...sanitizeDishOptionConfig(d),
       tags: Array.isArray(d.tags) ? d.tags.slice(0, 8).map(t => String(t).slice(0, 25)) : []
     }));
   }
+  clean.modifierGroups = sanitizeModifierGroups(clean.modifierGroups);
   if (Array.isArray(clean.categories)) {
     clean.categories = clean.categories.slice(0, 60).map(c => ({
       id: String(c.id || ('cat_' + Date.now())),
@@ -488,6 +491,7 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
         logoUrl: restaurant.logoUrl || null,
         wifi: restaurant.wifi || { ssid: '', password: '' },
         categories: restaurant.categories || [],
+        modifierGroups: restaurant.modifierGroups || [],
         dishes: dishes,
         deliveryZones: restaurant.deliveryZones || [],
         updatedAt: restaurant.updatedAt
@@ -630,6 +634,7 @@ app.get('/api/admin/overview', adminMiddleware, async (req, res) => {
             wifi: r.wifi,
             categories: r.categories || [],
             dishes: r.dishes || [],
+            modifierGroups: r.modifier_groups || [],
             deliveryZones: r.delivery_zones || [],
             subscription: r.subscription || {},
             analytics: r.analytics || { visits: 0, orders: 0, reservations: 0, waiterCalls: 0 },

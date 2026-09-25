@@ -29,11 +29,15 @@ CREATE TABLE IF NOT EXISTS public.restaurants (
   wifi JSONB DEFAULT '{"ssid": "", "password": ""}'::jsonb,
   categories JSONB DEFAULT '[]'::jsonb,
   dishes JSONB DEFAULT '[]'::jsonb,
+  modifier_groups JSONB DEFAULT '[]'::jsonb,
   delivery_zones JSONB DEFAULT '[]'::jsonb,
   subscription JSONB DEFAULT '{"status": "trialing", "plan": "pro_monthly"}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
+
+ALTER TABLE public.restaurants
+  ADD COLUMN IF NOT EXISTS modifier_groups JSONB DEFAULT '[]'::jsonb;
 
 CREATE INDEX IF NOT EXISTS idx_restaurants_slug ON public.restaurants(slug);
 CREATE INDEX IF NOT EXISTS idx_restaurants_user_id ON public.restaurants(user_id);

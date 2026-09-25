@@ -63,6 +63,7 @@ if (process.env.SUPABASE_URL && supabaseKey) {
             wifi: r.wifi,
             categories: r.categories,
             dishes: r.dishes,
+            modifierGroups: r.modifier_groups || [],
             deliveryZones: r.delivery_zones,
             subscription: r.subscription,
             createdAt: r.created_at,
@@ -168,6 +169,7 @@ const db = {
         wifi: rest.wifi,
         categories: rest.categories,
         dishes: rest.dishes,
+        modifier_groups: rest.modifierGroups || [],
         delivery_zones: rest.deliveryZones,
         subscription: rest.subscription,
         updated_at: new Date().toISOString()

@@ -196,6 +196,21 @@
     <span>Ver Pedido (<span id="cartTotalBadge">$0</span>) →</span>
   </div>
 
+  <div id="dishNoteModal" class="modal-overlay" aria-hidden="true" onclick="if(event.target===this)closeDishNoteModal()">
+    <section class="modal-box dish-note-modal" role="dialog" aria-modal="true" aria-labelledby="dishNoteTitle">
+      <button type="button" class="modal-close" onclick="closeDishNoteModal()" aria-label="Cerrar">✕</button>
+      <h3 id="dishNoteTitle" class="modal-title">Personalizar el plato</h3>
+      <p id="dishNoteDishName" class="dish-note-dish-name"></p>
+      <div id="dishChoiceContainer"></div>
+      <label for="dishNoteInput" class="form-label">Nota para cocina (opcional)</label>
+      <textarea id="dishNoteInput" class="form-textarea" maxlength="250" rows="3" placeholder="Ej: sin cebolla, aderezo aparte..."></textarea>
+      <div class="dish-note-actions">
+        <button type="button" class="dish-note-cancel" onclick="closeDishNoteModal()">Cancelar</button>
+        <button type="button" id="dishNoteConfirm" class="dish-note-confirm" onclick="confirmDishNote()">Agregar al carrito</button>
+      </div>
+    </section>
+  </div>
+
   <!-- Cart & Order Modal -->
   <div id="cartModal" class="modal-overlay">
     <div class="modal-box">

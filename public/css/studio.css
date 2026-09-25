@@ -215,6 +215,35 @@
     }
     .input-hint { font-size: 10px; color: var(--text-dim); margin-top: 3px; }
 
+    .dish-options-panel {
+      margin: 14px 0;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg-base);
+    }
+    .dish-options-title { margin: 0 0 10px; color: var(--accent-gold); font-size: 13px; }
+    .dish-options-group + .dish-options-group { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .dish-options-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .dish-options-header strong { color: #fff; font-size: 12px; }
+    .dish-options-header p { margin: 3px 0 0; color: var(--text-dim); font-size: 10px; }
+    .dish-option-toggle { display: inline-flex; align-items: center; gap: 5px; color: var(--text-muted); font-size: 10px; white-space: nowrap; }
+    .dish-option-column-labels { display: grid; grid-template-columns: minmax(0, 1fr) 112px 30px; gap: 6px; margin-top: 9px; color: var(--text-dim); font-size: 9px; }
+    .dish-option-list { display: grid; gap: 6px; margin-top: 8px; }
+    .dish-option-row { display: grid; grid-template-columns: minmax(0, 1fr) 112px 30px; gap: 6px; align-items: center; }
+    .dish-option-row .form-input { min-width: 0; margin: 0; }
+    .dish-option-remove { width: 30px; height: 34px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); color: #fff; font-size: 18px; cursor: pointer; }
+    .dish-option-add { margin-top: 8px; font-size: 10px; padding: 5px 8px; }
+    .dish-variant-settings { margin-top: 8px; }
+    .dish-variant-settings .form-select { margin-bottom: 0; }
+
+    @media (max-width: 420px) {
+      .dish-options-panel { padding: 9px; }
+      .dish-options-header { align-items: flex-start; flex-direction: column; }
+      .dish-option-column-labels { grid-template-columns: minmax(0, 1fr) 82px 30px; }
+      .dish-option-row { grid-template-columns: minmax(0, 1fr) 82px 30px; }
+    }
+
     /* Dish Cards in Studio */
     .dish-editor-card {
       background: var(--bg-base);
@@ -238,6 +267,7 @@
       font-size: 12px;
     }
     .btn-icon:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
+    .btn-icon:disabled { opacity: 0.35; cursor: not-allowed; }
     .btn-icon-danger:hover { color: var(--accent-red); border-color: var(--accent-red); }
 
     /* Preset Dishes Picker Modal */

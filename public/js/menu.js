@@ -2,6 +2,7 @@
     let restaurantData = null;
     let selectedCategory = 'ALL';
     let cart = {}; // { dishId: { dish, qty } }
+    let pendingDishNoteAction = null;
     let deliveryFee = 0;
     let appliedCoupon = null; // { code: 'PROMO10', type: 'percent', value: 10 }
     let discountAmount = 0;
@@ -527,7 +528,7 @@
       const currency = restaurantData.currency || '$';
       let html = '';
       chefDishes.forEach(d => {
-        const inCart = cart[d.id] ? cart[d.id].qty : 0;
+        const inCart = getDishCartQuantity(d.id);
         const sched = getDishScheduleStatus(d);
         const formattedPrice = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
           ? window.i18nManager.formatPrice(d.price) 
@@ -727,7 +728,7 @@
     }
 
     function renderSingleDishCard(d, currency) {
-      const inCart = cart[d.id] ? cart[d.id].qty : 0;
+      const inCart = getDishCartQuantity(d.id);
       const isSold = Boolean(d.outOfStock);
       const sched = getDishScheduleStatus(d);
       const isUnavailable = isSold || !sched.isAvailable;
@@ -799,20 +800,237 @@
         return;
       }
 
-      if (!cart[dishId]) {
-        cart[dishId] = { dish, qty: 1 };
-      } else {
-        cart[dishId].qty += 1;
-      }
-      updateCartUI();
-      renderDishes();
+      openDishNoteModal({ mode: 'add', dishId });
     }
 
-    function changeCartQty(dishId, delta) {
-      if (!cart[dishId]) return;
-      cart[dishId].qty += delta;
-      if (cart[dishId].qty <= 0) {
-        delete cart[dishId];
+    function openDishNoteModal(action) {
+      pendingDishNoteAction = action;
+      const dish = action.mode === 'edit'
+        ? cart[action.cartItemId]?.dish
+        : restaurantData.dishes.find(item => item.id === action.dishId);
+      if (!dish) return;
+
+      document.getElementById('dishNoteTitle').textContent = action.mode === 'edit'
+        ? 'Editar nota del plato'
+        : 'Personalizar el plato';
+      document.getElementById('dishNoteDishName').textContent = dish.name;
+      document.getElementById('dishNoteInput').value = action.mode === 'edit'
+        ? (cart[action.cartItemId].note || '')
+        : '';
+      renderDishChoiceFields(dish, action.mode === 'edit' ? cart[action.cartItemId] : null);
+      document.getElementById('dishNoteConfirm').textContent = action.mode === 'edit'
+        ? 'Guardar nota'
+        : 'Agregar al carrito';
+
+      const modal = document.getElementById('dishNoteModal');
+      modal.classList.add('active');
+      modal.setAttribute('aria-hidden', 'false');
+      document.getElementById('dishNoteInput').focus();
+    }
+
+    function closeDishNoteModal() {
+      const modal = document.getElementById('dishNoteModal');
+      modal.classList.remove('active');
+      modal.setAttribute('aria-hidden', 'true');
+      pendingDishNoteAction = null;
+    }
+
+    function confirmDishNote() {
+      if (!pendingDishNoteAction) return;
+
+      const note = document.getElementById('dishNoteInput').value.trim().slice(0, 250);
+      const action = pendingDishNoteAction;
+      const dish = action.mode === 'edit' ? cart[action.cartItemId]?.dish : restaurantData.dishes.find(item => item.id === action.dishId);
+      const choices = readDishChoiceSelections(dish);
+      if (!choices.valid) {
+        const error = document.getElementById('dishChoiceError');
+        if (error) error.textContent = choices.error;
+        return;
+      }
+
+      if (action.mode === 'edit') {
+        const item = cart[action.cartItemId];
+        if (item) {
+          item.note = note;
+          item.proteinSelection = choices.proteinSelection;
+          item.variantSelections = choices.variantSelections;
+        }
+      } else {
+        if (dish) addDishToCart(dish, note, choices.proteinSelection, choices.variantSelections);
+      }
+
+      closeDishNoteModal();
+      updateCartUI();
+      renderDishes();
+      if (document.getElementById('cartModal').classList.contains('active')) {
+        renderCartModalList();
+      }
+    }
+
+    function renderDishChoiceFields(dish, cartItem) {
+      const container = document.getElementById('dishChoiceContainer');
+      const proteinOptions = (dish.proteinOptions || []).filter(option => option.active !== false);
+      const variants = (dish.variants || []).filter(option => option.active !== false);
+      let html = '';
+
+      if (proteinOptions.length) {
+        html += `<fieldset class="dish-choice-group"><legend class="dish-choice-legend">Elegí la proteína${dish.proteinSelectionRequired ? ' *' : ' (opcional)'}</legend><div class="dish-choice-list">`;
+        if (!dish.proteinSelectionRequired) {
+          html += `<label class="dish-choice-option"><input type="radio" name="dishProteinOption" value="" ${!cartItem?.proteinSelection ? 'checked' : ''}> Sin preferencia</label>`;
+        }
+        html += proteinOptions.map(option => `
+          <label class="dish-choice-option">
+            <input type="radio" name="dishProteinOption" value="${escapeHtml(option.id)}" ${cartItem?.proteinSelection?.id === option.id ? 'checked' : ''}>
+            <span>${escapeHtml(option.name)}</span>
+            ${Number(option.priceDeltaCents) > 0 ? `<span class="dish-choice-price">+${escapeHtml(formatOptionPrice(option.priceDeltaCents))}</span>` : ''}
+          </label>
+        `).join('');
+        html += '</div></fieldset>';
+      }
+
+      if (variants.length) {
+        if (dish.variantSelectionMode === 'quantity_split') {
+          const unitsPerItem = Math.max(1, parseInt(dish.variantsPerItem, 10) || 1);
+          const existingCounts = new Map((cartItem?.variantSelections || []).map(selection => [selection.id, selection.quantity]));
+          const unitName = unitsPerItem === 12 ? 'empanadas' : 'unidades';
+          html += `<fieldset class="dish-choice-group"><legend class="dish-choice-legend">Repartí las ${unitsPerItem} ${unitName} entre los sabores${dish.variantsRequired ? ' *' : ''}</legend><div class="dish-choice-list">`;
+          html += variants.map(option => `
+            <label class="dish-choice-option">
+              <span>${escapeHtml(option.name)}</span>
+              ${Number(option.priceDeltaCents) > 0 ? `<span class="dish-choice-price">+${escapeHtml(formatOptionPrice(option.priceDeltaCents))} c/u</span>` : ''}
+              <input class="form-input dish-variant-count" type="number" min="0" max="${unitsPerItem}" step="1" value="${existingCounts.get(option.id) || 0}" data-variant-id="${escapeHtml(option.id)}" oninput="updateVariantSplitTotal()" aria-label="Cantidad de ${escapeHtml(option.name)}">
+            </label>
+          `).join('');
+          html += `<output id="dishVariantSplitTotal" class="dish-variant-total" data-required="${unitsPerItem}"></output></div></fieldset>`;
+        } else {
+          const selectedId = cartItem?.variantSelections?.[0]?.id || '';
+          html += `<fieldset class="dish-choice-group"><legend class="dish-choice-legend">Elegí una variante${dish.variantsRequired ? ' *' : ' (opcional)'}</legend><div class="dish-choice-list">`;
+          if (!dish.variantsRequired) {
+            html += `<label class="dish-choice-option"><input type="radio" name="dishVariantOption" value="" ${!selectedId ? 'checked' : ''}> Sin preferencia</label>`;
+          }
+          html += variants.map(option => `
+            <label class="dish-choice-option">
+              <input type="radio" name="dishVariantOption" value="${escapeHtml(option.id)}" ${selectedId === option.id ? 'checked' : ''}>
+              <span>${escapeHtml(option.name)}</span>
+              ${Number(option.priceDeltaCents) > 0 ? `<span class="dish-choice-price">+${escapeHtml(formatOptionPrice(option.priceDeltaCents))}</span>` : ''}
+            </label>
+          `).join('');
+          html += '</div></fieldset>';
+        }
+      }
+
+      if (html) html += '<p id="dishChoiceError" class="dish-choice-error" role="alert"></p>';
+      container.innerHTML = html;
+      updateVariantSplitTotal();
+    }
+
+    function formatOptionPrice(priceDeltaCents) {
+      const price = Number(priceDeltaCents) / 100;
+      return formatMenuPrice(price);
+    }
+
+    function formatMenuPrice(amount) {
+      const price = Number(amount) || 0;
+      const currency = restaurantData.currency || '$';
+      if (Math.abs(price - Math.round(price)) > 0.000001) {
+        return `${currency} ${price.toFixed(2)}`;
+      }
+      return (window.i18nManager && typeof window.i18nManager.formatPrice === 'function')
+        ? window.i18nManager.formatPrice(price)
+        : `${currency} ${price}`;
+    }
+
+    function updateVariantSplitTotal() {
+      const total = document.getElementById('dishVariantSplitTotal');
+      if (!total) return;
+      const selected = Array.from(document.querySelectorAll('.dish-variant-count'))
+        .reduce((sum, input) => sum + (parseInt(input.value, 10) || 0), 0);
+      const required = parseInt(total.dataset.required, 10) || 1;
+      total.textContent = `${selected} de ${required} seleccionadas`;
+      total.classList.toggle('invalid', selected !== required);
+    }
+
+    function readDishChoiceSelections(dish) {
+      if (!dish) return { valid: false, error: 'No se encontró el plato seleccionado.' };
+      const proteinOptions = (dish.proteinOptions || []).filter(option => option.active !== false);
+      const proteinId = document.querySelector('input[name="dishProteinOption"]:checked')?.value || '';
+      const proteinSelection = proteinOptions.find(option => option.id === proteinId) || null;
+      if (dish.proteinSelectionRequired && proteinOptions.length && !proteinSelection) {
+        return { valid: false, error: 'Elegí una proteína para continuar.' };
+      }
+
+      const variants = (dish.variants || []).filter(option => option.active !== false);
+      let variantSelections = [];
+      if (variants.length && dish.variantSelectionMode === 'quantity_split') {
+        const unitsPerItem = Math.max(1, parseInt(dish.variantsPerItem, 10) || 1);
+        variantSelections = Array.from(document.querySelectorAll('.dish-variant-count')).flatMap(input => {
+          const quantity = parseInt(input.value, 10) || 0;
+          const option = variants.find(item => item.id === input.dataset.variantId);
+          return quantity > 0 && option ? [{ ...option, quantity }] : [];
+        });
+        const total = variantSelections.reduce((sum, selection) => sum + selection.quantity, 0);
+        if ((dish.variantsRequired || total > 0) && total !== unitsPerItem) {
+          return { valid: false, error: `Las cantidades de sabores deben sumar ${unitsPerItem}.` };
+        }
+      } else if (variants.length) {
+        const variantId = document.querySelector('input[name="dishVariantOption"]:checked')?.value || '';
+        const selection = variants.find(option => option.id === variantId);
+        if (dish.variantsRequired && !selection) {
+          return { valid: false, error: 'Elegí una variante para continuar.' };
+        }
+        if (selection) variantSelections = [{ ...selection, quantity: 1 }];
+      }
+
+      return { valid: true, proteinSelection, variantSelections };
+    }
+
+    function getCartUnitPrice(item) {
+      let priceInCents = Math.round((Number(item.dish.price) || 0) * 100);
+      if (item.proteinSelection) priceInCents += Number(item.proteinSelection.priceDeltaCents) || 0;
+      (item.variantSelections || []).forEach(selection => {
+        priceInCents += (Number(selection.priceDeltaCents) || 0) * (Number(selection.quantity) || 1);
+      });
+      return priceInCents / 100;
+    }
+
+    function getCartOptionSummary(item) {
+      const parts = [];
+      if (item.proteinSelection) parts.push(item.proteinSelection.name);
+      (item.variantSelections || []).forEach(selection => {
+        parts.push(selection.quantity > 1 ? `${selection.quantity}x ${selection.name}` : selection.name);
+      });
+      return parts.join(', ');
+    }
+
+    function addDishToCart(dish, note, proteinSelection, variantSelections) {
+      const choicesKey = JSON.stringify({ proteinSelection, variantSelections });
+      const matchingItem = Object.values(cart).find(item => item.dish.id === dish.id && item.note === note && JSON.stringify({ proteinSelection: item.proteinSelection || null, variantSelections: item.variantSelections || [] }) === choicesKey);
+      if (matchingItem) {
+        matchingItem.qty += 1;
+        return;
+      }
+
+      const cartItemId = `cart_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      cart[cartItemId] = { dish, qty: 1, note, proteinSelection, variantSelections };
+    }
+
+    function getDishCartQuantity(dishId) {
+      return Object.values(cart)
+        .filter(item => item.dish.id === dishId)
+        .reduce((quantity, item) => quantity + item.qty, 0);
+    }
+
+    function editCartItemNote(cartItemId) {
+      if (cart[cartItemId]) {
+        openDishNoteModal({ mode: 'edit', cartItemId });
+      }
+    }
+
+    function changeCartQty(cartItemId, delta) {
+      if (!cart[cartItemId]) return;
+      cart[cartItemId].qty += delta;
+      if (cart[cartItemId].qty <= 0) {
+        delete cart[cartItemId];
       }
       updateCartUI();
       renderDishes();
@@ -821,11 +1039,9 @@
 
     function updateCartUI() {
       const totalCount = Object.values(cart).reduce((sum, item) => sum + item.qty, 0);
-      const subtotal = Object.values(cart).reduce((sum, item) => sum + (item.qty * item.dish.price), 0);
+      const subtotal = Object.values(cart).reduce((sum, item) => sum + (item.qty * getCartUnitPrice(item)), 0);
       const currency = restaurantData.currency || '$';
-      const formattedSubtotal = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
-        ? window.i18nManager.formatPrice(subtotal) 
-        : `${currency} ${subtotal}`;
+      const formattedSubtotal = formatMenuPrice(subtotal);
 
       const bar = document.getElementById('floatingCart');
       if (totalCount > 0) {
@@ -859,26 +1075,29 @@
       }
 
       let html = '';
-      items.forEach(item => {
+      Object.entries(cart).forEach(([cartItemId, item]) => {
         const itemDesc = item.dish.description ? `<div style="font-size:0.75rem; color:var(--chalk-dim); margin-top:2px;">${escapeHtml(item.dish.description)}</div>` : '';
-        const formattedPrice = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
-          ? window.i18nManager.formatPrice(item.dish.price) 
-          : `${currency} ${item.dish.price}`;
-        const formattedLineTotal = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
-          ? window.i18nManager.formatPrice(item.dish.price * item.qty) 
-          : `${currency} ${item.dish.price * item.qty}`;
+        const itemNote = item.note ? `<div class="cart-item-note">Nota: ${escapeHtml(item.note)}</div>` : '';
+        const optionSummary = getCartOptionSummary(item);
+        const itemOptions = optionSummary ? `<div class="cart-item-options">${escapeHtml(optionSummary)}</div>` : '';
+        const unitPrice = getCartUnitPrice(item);
+        const formattedPrice = formatMenuPrice(unitPrice);
+        const formattedLineTotal = formatMenuPrice(unitPrice * item.qty);
 
         html += `
           <div class="cart-item">
             <div style="flex:1; min-width:0;">
               <div class="cart-item-title">${escapeHtml(item.dish.name)}</div>
               ${itemDesc}
+              ${itemOptions}
+              ${itemNote}
               <div class="cart-item-price">${formattedPrice} x ${item.qty} = ${formattedLineTotal}</div>
+              <button type="button" class="cart-note-edit" data-cart-id="${escapeHtml(cartItemId)}" onclick="editCartItemNote(this.dataset.cartId)">${item.note ? 'Editar nota' : 'Agregar nota'}</button>
             </div>
             <div class="cart-qty-ctrl">
-              <button class="btn-qty" data-dish-id="${escapeHtml(item.dish.id)}" onclick="changeCartQty(this.dataset.dishId, -1)">-</button>
+              <button class="btn-qty" data-cart-id="${escapeHtml(cartItemId)}" onclick="changeCartQty(this.dataset.cartId, -1)" aria-label="Quitar una unidad">-</button>
               <span style="font-family:var(--font-mono);">${item.qty}</span>
-              <button class="btn-qty" data-dish-id="${escapeHtml(item.dish.id)}" onclick="changeCartQty(this.dataset.dishId, 1)">+</button>
+              <button class="btn-qty" data-cart-id="${escapeHtml(cartItemId)}" onclick="changeCartQty(this.dataset.cartId, 1)" aria-label="Agregar una unidad">+</button>
             </div>
           </div>
         `;
@@ -964,12 +1183,10 @@
 
     function updateTotals() {
       const currency = restaurantData.currency || '$';
-      const subtotal = Object.values(cart).reduce((sum, item) => sum + (item.qty * item.dish.price), 0);
+      const subtotal = Object.values(cart).reduce((sum, item) => sum + (item.qty * getCartUnitPrice(item)), 0);
       const mode = document.getElementById('orderMode').value;
 
-      const formatP = (amt) => (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
-        ? window.i18nManager.formatPrice(amt) 
-        : `${currency} ${amt}`;
+      const formatP = formatMenuPrice;
 
       document.getElementById('summarySubtotal').textContent = formatP(subtotal);
       const deliveryRow = document.getElementById('summaryDeliveryRow');
@@ -1012,7 +1229,7 @@
       const currency = restaurantData.currency || '$';
       const countInput = document.getElementById('splitCountInput');
       const count = parseInt(countInput ? countInput.value : 2) || 1;
-      const subtotal = Object.values(cart).reduce((sum, item) => sum + (item.qty * item.dish.price), 0);
+      const subtotal = Object.values(cart).reduce((sum, item) => sum + (item.qty * getCartUnitPrice(item)), 0);
       const mode = document.getElementById('orderMode').value;
       const currentDelivery = (mode === 'DELIVERY' ? deliveryFee : 0);
       const total = Math.max(0, subtotal + currentDelivery - discountAmount);
@@ -1051,7 +1268,7 @@
       const notes = document.getElementById('orderNotes').value.trim();
       const payment = document.getElementById('orderPayment').value;
       const currency = restaurantData.currency || '$';
-      const subtotal = items.reduce((sum, item) => sum + (item.qty * item.dish.price), 0);
+      const subtotal = items.reduce((sum, item) => sum + (item.qty * getCartUnitPrice(item)), 0);
       const currentDelivery = (mode === 'DELIVERY' ? deliveryFee : 0);
       const total = Math.max(0, subtotal + currentDelivery - discountAmount);
 
@@ -1074,7 +1291,13 @@
 
       msg += `*DETALLE DEL PEDIDO:*\n`;
       items.forEach(it => {
-        msg += `▪ ${it.qty}x ${it.dish.name} - ${currency} ${it.dish.price * it.qty}\n`;
+        const unitPrice = getCartUnitPrice(it);
+        msg += `▪ ${it.qty}x ${it.dish.name} - ${currency} ${unitPrice * it.qty}\n`;
+        const optionSummary = getCartOptionSummary(it);
+        if (optionSummary) msg += `   ↳ Opciones: ${optionSummary}\n`;
+        if (it.note) {
+          msg += `   📝 Nota: ${it.note}\n`;
+        }
         if (it.dish.description && (it.dish.isCustomIceCream || (it.dish.id && it.dish.id.startsWith('perfume_')))) {
           msg += `   ↳ _${it.dish.description}_\n`;
         }

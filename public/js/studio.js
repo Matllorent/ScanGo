@@ -100,6 +100,37 @@
           { name: 'Picada de Mini Milanesas', price: 680, desc: 'Bocados de lomo y pollo con salsas tártara, alioli y barbacoa para compartir', tags: [] }
         ]
       },
+      empanadas: {
+        catName: 'Empanadas',
+        dishes: [
+          {
+            name: 'Docena de Empanadas Surtidas',
+            price: 1080,
+            desc: 'Elegí cómo repartir los sabores entre las 12 unidades.',
+            tags: ['star'],
+            variantSelectionMode: 'quantity_split',
+            variantsRequired: true,
+            variantsPerItem: 12,
+            variants: [
+              { id: 'carne_suave', name: 'Carne suave' },
+              { id: 'carne_picante', name: 'Carne picante' },
+              { id: 'carne_cuchillo', name: 'Carne cortada a cuchillo' },
+              { id: 'pollo', name: 'Pollo' },
+              { id: 'jamon_queso', name: 'Jamón y queso' },
+              { id: 'humita', name: 'Humita' },
+              { id: 'verdura', name: 'Verdura' },
+              { id: 'caprese', name: 'Caprese' }
+            ]
+          },
+          { name: 'Empanada de Carne Suave', price: 95, desc: 'Carne vacuna, cebolla, huevo y aceituna.', tags: [] },
+          { name: 'Empanada de Carne Picante', price: 100, desc: 'Carne vacuna condimentada con ají molido.', tags: ['picante'] },
+          { name: 'Empanada de Carne a Cuchillo', price: 110, desc: 'Carne cortada a cuchillo, cebolla y huevo.', tags: [] },
+          { name: 'Empanada de Pollo', price: 95, desc: 'Pollo desmenuzado con cebolla y morrón.', tags: [] },
+          { name: 'Empanada de Jamón y Queso', price: 95, desc: 'Jamón cocido y queso mozzarella.', tags: [] },
+          { name: 'Empanada de Humita', price: 90, desc: 'Choclo cremoso, cebolla y queso.', tags: ['veggie'] },
+          { name: 'Empanada Caprese', price: 95, desc: 'Tomate, mozzarella y albahaca.', tags: ['veggie'] }
+        ]
+      },
       pescados: {
         catName: 'Pescados y Mariscos',
         dishes: [
@@ -987,6 +1018,15 @@
       document.getElementById('tagCeliac').checked = (dish.tags || []).includes('celiac');
       document.getElementById('tagSinLactosa').checked = (dish.tags || []).includes('sinlactosa');
       document.getElementById('tagPicante').checked = (dish.tags || []).includes('picante');
+      renderDishOptionRows('protein', dish.proteinOptions || []);
+      renderDishOptionRows('variant', dish.variants || []);
+      document.getElementById('modalDishProteinRequired').checked = Boolean(dish.proteinSelectionRequired);
+      document.getElementById('modalDishVariantsRequired').checked = Boolean(dish.variantsRequired);
+      document.getElementById('modalDishVariantMode').value = dish.variantSelectionMode === 'quantity_split'
+        ? 'quantity_split'
+        : 'single';
+      document.getElementById('modalDishVariantsPerItem').value = dish.variantsPerItem || 1;
+      toggleVariantUnitsField();
 
       // Smart Scheduling
       const sched = dish.schedule;
@@ -1059,6 +1099,13 @@
       document.getElementById('modalDishOutOfStock').checked = false;
       document.getElementById('modalDishStar').checked = false;
       document.getElementById('modalDishChefSpecial').checked = false;
+      renderDishOptionRows('protein', []);
+      renderDishOptionRows('variant', []);
+      document.getElementById('modalDishProteinRequired').checked = false;
+      document.getElementById('modalDishVariantsRequired').checked = false;
+      document.getElementById('modalDishVariantMode').value = 'single';
+      document.getElementById('modalDishVariantsPerItem').value = '1';
+      toggleVariantUnitsField();
       clearDishPhoto();
 
       // Reset smart scheduling
@@ -1098,6 +1145,71 @@
       document.getElementById('dishEditModal').classList.remove('active');
     }
 
+    function renderDishOptionRows(type, options) {
+      const container = document.getElementById(type === 'protein' ? 'proteinOptionsList' : 'variantOptionsList');
+      if (!container) return;
+
+      container.innerHTML = (options || []).map((option, index) => `
+        <div class="dish-option-row">
+          <input type="hidden" data-option-id value="${escapeHtml(option.id || '')}">
+          <input type="text" class="form-input" data-option-name maxlength="80" value="${escapeHtml(option.name || '')}" placeholder="${type === 'protein' ? 'Ej: Pollo' : 'Ej: Carne suave'}" aria-label="Nombre de ${type === 'protein' ? 'proteína' : 'sabor'}">
+          <input type="number" class="form-input" data-option-price min="0" step="0.01" value="${(Number(option.priceDeltaCents) || 0) / 100}" aria-label="Adicional de precio">
+          <button type="button" class="dish-option-remove" onclick="removeDishOption('${type}', ${index})" aria-label="Quitar opción">×</button>
+        </div>
+      `).join('');
+    }
+
+    function readDishOptionRows(type) {
+      const container = document.getElementById(type === 'protein' ? 'proteinOptionsList' : 'variantOptionsList');
+      return Array.from(container.querySelectorAll('.dish-option-row')).map((row, index) => {
+        const name = row.querySelector('[data-option-name]').value.trim().slice(0, 80);
+        const price = Number.parseFloat(row.querySelector('[data-option-price]').value) || 0;
+        const idInput = row.querySelector('[data-option-id]');
+        return name ? {
+          id: idInput.value || `${type}_${Date.now()}_${index}`,
+          name,
+          priceDeltaCents: Math.max(0, Math.round(price * 100)),
+          active: true
+        } : null;
+      }).filter(Boolean);
+    }
+
+    function addDishOption(type) {
+      const options = readDishOptionRows(type);
+      options.push({ id: `${type}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, name: '', priceDeltaCents: 0 });
+      renderDishOptionRows(type, options);
+      const container = document.getElementById(type === 'protein' ? 'proteinOptionsList' : 'variantOptionsList');
+      container.querySelector('.dish-option-row:last-child [data-option-name]')?.focus();
+    }
+
+    function removeDishOption(type, index) {
+      const options = readDishOptionRows(type);
+      options.splice(index, 1);
+      renderDishOptionRows(type, options);
+    }
+
+    function getDishOptionConfig() {
+      const proteinOptions = readDishOptionRows('protein');
+      const variants = readDishOptionRows('variant');
+      const variantSelectionMode = document.getElementById('modalDishVariantMode').value;
+      return {
+        proteinOptions,
+        proteinSelectionRequired: proteinOptions.length > 0 && document.getElementById('modalDishProteinRequired').checked,
+        variants,
+        variantSelectionMode,
+        variantsRequired: variants.length > 0 && document.getElementById('modalDishVariantsRequired').checked,
+        ...(variantSelectionMode === 'quantity_split'
+          ? { variantsPerItem: Math.max(1, Math.min(100, parseInt(document.getElementById('modalDishVariantsPerItem').value, 10) || 1)) }
+          : {})
+      };
+    }
+
+    function toggleVariantUnitsField() {
+      const mode = document.getElementById('modalDishVariantMode');
+      const field = document.getElementById('variantUnitsPerItemField');
+      if (mode && field) field.style.display = mode.value === 'quantity_split' ? 'block' : 'none';
+    }
+
     function saveDishFromModal(event) {
       event.preventDefault();
 
@@ -1119,6 +1231,7 @@
       const categoryId = document.getElementById('modalDishCategory').value;
       const outOfStock = document.getElementById('modalDishOutOfStock').checked;
       const isChefSpecial = document.getElementById('modalDishChefSpecial').checked;
+      const optionConfig = getDishOptionConfig();
 
       // Smart Scheduling
       const scheduleEnabled = document.getElementById('modalDishScheduleEnabled').checked;
@@ -1173,6 +1286,7 @@
           dish.isChefSpecial = isChefSpecial;
           dish.schedule = schedule;
           dish.tags = tags;
+          Object.assign(dish, optionConfig);
         }
       } else {
         // Create new
@@ -1187,7 +1301,8 @@
           outOfStock,
           isChefSpecial,
           schedule,
-          tags
+          tags,
+          ...optionConfig
         });
       }
 
@@ -1238,15 +1353,30 @@
         list.innerHTML = '<div style="font-size:11px; color:var(--text-dim); text-align:center; padding:12px;">No hay categorías creadas aún.</div>';
         return;
       }
-      list.innerHTML = cats.map(c => `
+      list.innerHTML = cats.map((c, index) => `
         <div style="display:flex; justify-content:space-between; align-items:center; background:var(--surface-2); padding:8px 12px; border-radius:6px; border:1px solid var(--border);">
           <span style="font-size:12px; font-weight:600; color:#fff;">${escapeHtml(c.name)}</span>
           <div style="display:flex; gap:6px;">
+            <button class="btn-icon" onclick="moveCategory('${escapeHtml(c.id)}', -1)" title="Mover arriba" aria-label="Mover ${escapeHtml(c.name)} arriba" ${index === 0 ? 'disabled' : ''}>↑</button>
+            <button class="btn-icon" onclick="moveCategory('${escapeHtml(c.id)}', 1)" title="Mover abajo" aria-label="Mover ${escapeHtml(c.name)} abajo" ${index === cats.length - 1 ? 'disabled' : ''}>↓</button>
             <button class="btn-icon" onclick="renameCategory('${escapeHtml(c.id)}')" title="Renombrar">✏️</button>
             <button class="btn-icon btn-icon-danger" onclick="deleteCategory('${escapeHtml(c.id)}')" title="Eliminar">🗑️</button>
           </div>
         </div>
       `).join('');
+    }
+
+    function moveCategory(catId, direction) {
+      const categories = restaurant.categories || [];
+      const currentIndex = categories.findIndex(category => category.id === catId);
+      const targetIndex = currentIndex + direction;
+      if (currentIndex < 0 || targetIndex < 0 || targetIndex >= categories.length) return;
+
+      [categories[currentIndex], categories[targetIndex]] = [categories[targetIndex], categories[currentIndex]];
+      renderCategoryManagerList();
+      populateCatFilter();
+      renderDishesList();
+      triggerAutoSave();
     }
 
     function addCategoryFromManager() {
@@ -1291,12 +1421,12 @@
     }
 
     // Presets Management
-    let currentPresetCategory = 'milanesas';
+    let currentPresetCategory = 'empanadas';
 
     function openPresetsModal() {
       document.getElementById('presetsModal').classList.add('active');
       renderPresetChips();
-      browsePresetCategory('milanesas');
+      browsePresetCategory('empanadas');
     }
     function closePresetsModal() {
       document.getElementById('presetsModal').classList.remove('active');
@@ -1355,6 +1485,24 @@
       list.innerHTML = html;
     }
 
+    function buildPresetDish(presetKey, dish, categoryId, index) {
+      const optionConfig = Array.isArray(dish.variants) ? {
+        variants: dish.variants,
+        variantSelectionMode: dish.variantSelectionMode || 'single',
+        variantsRequired: Boolean(dish.variantsRequired),
+        ...(dish.variantSelectionMode === 'quantity_split' ? { variantsPerItem: dish.variantsPerItem || 1 } : {})
+      } : {};
+      return {
+        id: `d_${presetKey}_${Date.now()}_${index}`,
+        categoryId,
+        name: dish.name,
+        price: dish.price,
+        description: dish.desc,
+        tags: dish.tags || [],
+        ...optionConfig
+      };
+    }
+
     function addSinglePresetDish(presetKey, dishIdx) {
       const preset = PRESETS[presetKey];
       if (!preset || !preset.dishes[dishIdx]) return;
@@ -1369,14 +1517,7 @@
         restaurant.categories.push(cat);
       }
 
-      restaurant.dishes.push({
-        id: `d_${presetKey}_${Date.now()}_${dishIdx}`,
-        categoryId: cat.id,
-        name: d.name,
-        price: d.price,
-        description: d.desc,
-        tags: d.tags || []
-      });
+      restaurant.dishes.push(buildPresetDish(presetKey, d, cat.id, dishIdx));
 
       populateCatFilter();
       renderDishesList();
@@ -1408,15 +1549,8 @@
         restaurant.categories.push(cat);
       }
 
-      preset.dishes.forEach((d, i) => {
-        restaurant.dishes.push({
-          id: `d_${presetKey}_${Date.now()}_${i}`,
-          categoryId: cat.id,
-          name: d.name,
-          price: d.price,
-          description: d.desc,
-          tags: d.tags || []
-        });
+      preset.dishes.forEach((dish, index) => {
+        restaurant.dishes.push(buildPresetDish(presetKey, dish, cat.id, index));
       });
 
       populateCatFilter();
@@ -1435,15 +1569,8 @@
           if (!restaurant.categories) restaurant.categories = [];
           restaurant.categories.push(cat);
         }
-        p.dishes.forEach((d, i) => {
-          restaurant.dishes.push({
-            id: `d_${k}_${Date.now()}_${i}`,
-            categoryId: cat.id,
-            name: d.name,
-            price: d.price,
-            description: d.desc,
-            tags: d.tags || []
-          });
+        p.dishes.forEach((dish, index) => {
+          restaurant.dishes.push(buildPresetDish(k, dish, cat.id, index));
         });
       });
 
