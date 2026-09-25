@@ -12,7 +12,7 @@
       "gracePeriodDaysRemaining": 7
     },
     "createdAt": "2026-09-25T04:25:35.888Z",
-    "name": "Mila",
+    "name": "Milanesas Sin Limites",
     "bizName": "Mila",
     "slogan": "Especialidad, masas artesanales y cocina de autor",
     "currency": "$",
@@ -245,17 +245,17 @@
       }
     ],
     "analytics": {
-      "visits": 24,
+      "visits": 20,
       "orders": 0,
       "reservations": 0,
       "waiterCalls": 0,
-      "lastUpdated": "2026-09-25T20:34:32.761Z"
+      "lastUpdated": "2026-09-25T21:27:06.753Z"
     },
     "businessType": "restaurant",
     "allowIceCreamWizard": false,
     "allowPerfumery": false,
     "allowLoyaltyPoints": false,
-    "updatedAt": "2026-09-25T20:13:34.990Z",
+    "updatedAt": "2026-09-25T21:27:06.192Z",
     "instagram": "",
     "googleReview": "",
     "themeFont": "serif",
