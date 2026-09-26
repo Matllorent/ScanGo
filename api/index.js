@@ -107,9 +107,10 @@ const adminLimiter = rateLimit({
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax',
-  maxAge: 30 * 24 * 3600 * 1000
+  sameSite: 'lax'
 };
+
+const ADMIN_SESSION_IDLE_TIMEOUT_SECONDS = 15 * 60;
 
 // Input Sanitizer to prevent malicious or malformed restaurant data
 function sanitizeRestaurantPayload(data) {
@@ -318,47 +319,31 @@ function verifyTotpToken(token, secret) {
 }
 
 function adminMiddleware(req, res, next) {
-  // Check for admin session JWT token
   const authHeader = req.headers['authorization'] || '';
   const token = (authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null) ||
     req.headers['x-admin-token'] ||
     req.cookies?.admin_token;
 
-  if (token) {
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      if (decoded && decoded.role === 'admin_master') {
-        req.isAdmin = true;
-        return next();
-      }
-    } catch (e) {}
+  if (!token) {
+    return res.status(403).json({ error: 'Acceso denegado: se requiere una sesión administrativa autenticada con 2FA' });
   }
 
-  const key = req.headers['x-admin-key'] || req.query.adminKey || req.query.key || req.cookies?.admin_key;
-  const totp = req.headers['x-admin-totp'] || req.query.adminTotp || req.body?.totp;
-  const adminTotpSecret = process.env.ADMIN_TOTP_SECRET;
-
-  if (key && key === ADMIN_KEY) {
-    if (adminTotpSecret) {
-      if (totp && verifyTotpToken(totp, adminTotpSecret)) {
-        req.isAdmin = true;
-        return next();
-      }
-      if (req.cookies?.admin_token) {
-        try {
-          const decoded = jwt.verify(req.cookies.admin_token, JWT_SECRET);
-          if (decoded && decoded.role === 'admin_master') {
-            req.isAdmin = true;
-            return next();
-          }
-        } catch (e) {}
-      }
-      return res.status(403).json({ error: 'Acceso denegado: se requiere sesión autenticada con 2FA o código TOTP válido' });
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (!decoded || decoded.role !== 'admin_master') {
+      return res.status(403).json({ error: 'Acceso denegado: sesión administrativa no válida' });
     }
+    const renewedToken = jwt.sign(
+      { role: 'admin_master', timestamp: decoded.timestamp || Date.now() },
+      JWT_SECRET,
+      { expiresIn: ADMIN_SESSION_IDLE_TIMEOUT_SECONDS }
+    );
+    res.cookie('admin_token', renewedToken, COOKIE_OPTIONS);
     req.isAdmin = true;
     return next();
+  } catch (e) {
+    return res.status(403).json({ error: 'Sesión administrativa expirada. Ingresá nuevamente con contraseña y código 2FA.' });
   }
-  return res.status(403).json({ error: 'Acceso denegado: Clave maestra de administración no válida o faltante' });
 }
 
 // ==================== STUDIO & RESTAURANT ROUTES ====================
@@ -612,9 +597,13 @@ app.post('/api/admin/login', adminLimiter, (req, res) => {
     if (!verifyTotpToken(cleanTotp, adminTotpSecret)) {
       return res.status(401).json({ error: 'Código Google Authenticator (TOTP) incorrecto o expirado' });
     }
-    const adminToken = jwt.sign({ role: 'admin_master', timestamp: Date.now() }, JWT_SECRET, { expiresIn: '7d' });
-    res.cookie('admin_key', providedKey, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 3600 * 1000 });
-    res.cookie('admin_token', adminToken, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 3600 * 1000 });
+    const adminToken = jwt.sign(
+      { role: 'admin_master', timestamp: Date.now() },
+      JWT_SECRET,
+      { expiresIn: ADMIN_SESSION_IDLE_TIMEOUT_SECONDS }
+    );
+    res.cookie('admin_key', providedKey, COOKIE_OPTIONS);
+    res.cookie('admin_token', adminToken, COOKIE_OPTIONS);
     return res.json({
       success: true,
       token: adminToken,
@@ -622,6 +611,12 @@ app.post('/api/admin/login', adminLimiter, (req, res) => {
     });
   }
   return res.status(401).json({ error: 'Clave de administración incorrecta' });
+});
+
+app.post('/api/admin/logout', (req, res) => {
+  res.clearCookie('admin_key', COOKIE_OPTIONS);
+  res.clearCookie('admin_token', COOKIE_OPTIONS);
+  return res.json({ success: true });
 });
 
 app.get('/api/admin/overview', adminMiddleware, async (req, res) => {
@@ -1093,11 +1088,20 @@ function studioHtmlAuthMiddleware(req, res, next) {
 
 // Server-side Auth Guard for Admin HTML View
 function adminHtmlAuthMiddleware(req, res, next) {
-  const key = req.cookies?.admin_key || req.headers['x-admin-key'] || req.query.adminKey || req.query.key;
+  const token = req.cookies?.admin_token;
 
-  if (key && key === ADMIN_KEY) {
-    res.cookie('admin_key', key, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 3600 * 1000 });
-    return next();
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      if (decoded?.role !== 'admin_master') throw new Error('Invalid admin session');
+      const renewedToken = jwt.sign(
+        { role: 'admin_master', timestamp: decoded.timestamp || Date.now() },
+        JWT_SECRET,
+        { expiresIn: ADMIN_SESSION_IDLE_TIMEOUT_SECONDS }
+      );
+      res.cookie('admin_token', renewedToken, COOKIE_OPTIONS);
+      return next();
+    } catch (e) {}
   }
 
   return res.status(403).send(`<!DOCTYPE html>
@@ -1442,8 +1446,6 @@ function adminHtmlAuthMiddleware(req, res, next) {
 
         // Success
         clearLockout();
-        document.cookie = 'admin_key=' + encodeURIComponent(key) + '; path=/; max-age=604800; SameSite=Lax';
-        localStorage.setItem('pizarron_admin_key', key);
         showAlert('✓ Acceso autorizado exitosamente. Redirigiendo...', 'success');
         submitBtn.innerHTML = '<span>Ingresando...</span>';
 
