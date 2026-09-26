@@ -185,4 +185,71 @@ router.get('/restaurant/:id', async (req, res, next) => {
   }
 });
 
+/**
+ * POST /api/orders/mercadopago/preference
+ * Genera una preferencia de pago directa de Mercado Pago Checkout Pro
+ */
+const mpService = require('../../src/services/mercadopago');
+
+router.post('/mercadopago/preference', validateBody(createOrderSchema), async (req, res, next) => {
+  try {
+    const { restaurantId, items, customerName, currency } = req.body;
+    const restaurant = db.findRestaurantById(restaurantId) || db.findRestaurantBySlug(restaurantId);
+    if (!restaurant) {
+      throw new AppError('Restaurante no encontrado para el pago', 404, 'RESTAURANT_NOT_FOUND');
+    }
+
+    if (!mpService.isConfigured()) {
+      throw new AppError('Mercado Pago no está configurado en el servidor', 500, 'MP_NOT_CONFIGURED');
+    }
+
+    const { itemsSnapshot, amountInCents } = quoteOrderItems(restaurant, items);
+    const orderCurrency = currency || restaurant.currency || 'UYU';
+    const currencyId = ['UYU', '$U', '$'].includes(orderCurrency) ? 'UYU' : (orderCurrency === 'ARS' ? 'ARS' : 'USD');
+
+    const mpItems = itemsSnapshot.map(item => {
+      let desc = item.name;
+      if (item.optionsSnapshot && item.optionsSnapshot.length) {
+        const opts = item.optionsSnapshot.flatMap(g => (g.selections || []).map(s => s.name)).join(', ');
+        if (opts) desc += ` (${opts})`;
+      }
+      return {
+        id: item.dishId,
+        title: `${item.quantity}x ${desc}`.slice(0, 255),
+        quantity: 1,
+        unit_price: item.totalItemAmount,
+        currency_id: currencyId
+      };
+    });
+
+    const externalRef = `ord_${Date.now()}_${restaurant.id.slice(0, 8)}`;
+    const returnBase = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+
+    const preference = await mpService.createPreference({
+      items: mpItems,
+      payer: {
+        name: customerName || 'Cliente ScanGo',
+        email: 'pedido@menupizarron.com'
+      },
+      externalReference: externalRef,
+      backUrls: {
+        success: `${returnBase}/m/${restaurant.slug}?payment=success&ref=${externalRef}`,
+        failure: `${returnBase}/m/${restaurant.slug}?payment=failure&ref=${externalRef}`,
+        pending: `${returnBase}/m/${restaurant.slug}?payment=pending&ref=${externalRef}`
+      },
+      autoReturn: 'approved'
+    });
+
+    return successResponse(res, {
+      preferenceId: preference.id,
+      initPoint: preference.init_point,
+      sandboxInitPoint: preference.sandbox_init_point,
+      externalReference: externalRef,
+      total: amountInCents / 100
+    }, 'Preferencia de Checkout Pro generada exitosamente');
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

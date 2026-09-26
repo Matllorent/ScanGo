@@ -229,15 +229,10 @@
         }
       }
 
-      // Google Reviews Link Chip
+      // Google Reviews / Smart Feedback Chip (shows if googleReview URL is configured)
       const gReviewChip = document.getElementById('googleReviewChip');
       if (gReviewChip) {
-        if (restaurantData.googleReview) {
-          gReviewChip.style.display = 'inline-flex';
-          gReviewChip.href = restaurantData.googleReview;
-        } else {
-          gReviewChip.style.display = 'none';
-        }
+        gReviewChip.style.display = restaurantData.googleReview ? 'inline-flex' : 'none';
       }
 
       // Coupon Box Visibility Control
@@ -1255,6 +1250,7 @@
       });
       list.innerHTML = html;
       updateTotals();
+      renderUpsellSuggestions();
     }
 
     function populateDeliveryZones() {
@@ -1518,6 +1514,290 @@
         }
       }
     }
+
+    // =========================================================================
+    // EL MOZO VIRTUAL: UPSELLING INTELIGENTE DE COMPLEMENTOS
+    // =========================================================================
+
+    /**
+     * Default upsell pairing rules (category-based heuristics).
+     * The restaurant can override these with `restaurantData.upsellRules`.
+     * Each rule: { triggerCategories: [...], suggestCategories: [...], message: '...' }
+     */
+    const DEFAULT_UPSELL_KEYWORDS = {
+      triggers: ['hamburguesa', 'burger', 'milanesa', 'plato', 'principal', 'carne', 'pollo', 'pizza', 'sandwich', 'wrap', 'taco', 'burrito', 'empanada', 'combo'],
+      complements: ['papas', 'bebida', 'gaseosa', 'jugo', 'agua', 'postre', 'helado', 'ensalada', 'guarnición', 'acompañamiento', 'salsa', 'extra', 'cerveza', 'vino', 'aros', 'nugget']
+    };
+
+    function getUpsellCandidates() {
+      const cartItems = Object.values(cart);
+      if (!cartItems.length || !restaurantData || !restaurantData.dishes) return [];
+
+      // Check if any cart item is a "trigger" dish (main course / burger / etc.)
+      const cartDishIds = new Set(cartItems.map(ci => ci.dish.id));
+      const cartDishNames = cartItems.map(ci => (ci.dish.name || '').toLowerCase());
+      const cartCategoryIds = new Set(cartItems.map(ci => ci.dish.categoryId).filter(Boolean));
+
+      // Check custom rules from restaurantData first
+      const customRules = restaurantData.upsellRules || [];
+
+      const hasTrigger = cartDishNames.some(name =>
+        DEFAULT_UPSELL_KEYWORDS.triggers.some(kw => name.includes(kw))
+      ) || customRules.some(rule =>
+        (rule.triggerCategoryIds || []).some(catId => cartCategoryIds.has(catId))
+      );
+
+      if (!hasTrigger && !customRules.length) return [];
+
+      // Find complement dishes not already in cart
+      const allDishes = restaurantData.dishes || [];
+      let candidates = allDishes.filter(dish => {
+        if (cartDishIds.has(dish.id)) return false;
+        if (dish.outOfStock) return false;
+        const nameLower = (dish.name || '').toLowerCase();
+        const descLower = (dish.description || '').toLowerCase();
+        const combined = nameLower + ' ' + descLower;
+
+        // Check custom rules
+        for (const rule of customRules) {
+          if ((rule.suggestCategoryIds || []).includes(dish.categoryId)) return true;
+          if ((rule.suggestDishIds || []).includes(dish.id)) return true;
+        }
+
+        // Default heuristic: complement keywords in name/description
+        return DEFAULT_UPSELL_KEYWORDS.complements.some(kw => combined.includes(kw));
+      });
+
+      // Prioritize cheaper items (side dishes / drinks), limit to 4
+      candidates.sort((a, b) => (a.price || 0) - (b.price || 0));
+      return candidates.slice(0, 4);
+    }
+
+    function renderUpsellSuggestions() {
+      const box = document.getElementById('virtualWaiterUpsellBox');
+      if (!box) return;
+
+      const candidates = getUpsellCandidates();
+      if (!candidates.length) {
+        box.style.display = 'none';
+        return;
+      }
+
+      const currency = restaurantData.currency || '$';
+      let cardsHtml = '';
+      candidates.forEach(dish => {
+        const thumbHtml = dish.photoUrl
+          ? `<img class="mozo-item-thumb" src="${escapeHtml(dish.photoUrl)}" alt="${escapeHtml(dish.name)}" loading="lazy" onerror="this.style.display='none'">`
+          : `<div class="mozo-item-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🍽️</div>`;
+        cardsHtml += `
+          <div class="mozo-item-card">
+            ${thumbHtml}
+            <div class="mozo-item-info">
+              <div class="mozo-item-title">${escapeHtml(dish.name)}</div>
+              <div class="mozo-item-price">${currency} ${(dish.price || 0).toFixed(0)}</div>
+            </div>
+            <button type="button" class="btn-mozo-quick-add" data-dish-id="${escapeHtml(dish.id)}" onclick="quickAddUpsellItem('${escapeHtml(dish.id)}', this)">
+              + Agregar
+            </button>
+          </div>`;
+      });
+
+      box.innerHTML = `
+        <div class="mozo-header">
+          <div class="mozo-avatar">🤵</div>
+          <div class="mozo-header-text">
+            <h4>El Mozo Virtual sugiere</h4>
+            <p>Acompañá tu pedido con algo especial</p>
+          </div>
+        </div>
+        <div class="mozo-cards-carousel">${cardsHtml}</div>
+      `;
+      box.style.display = 'block';
+    }
+
+    function quickAddUpsellItem(dishId, btnEl) {
+      const dish = (restaurantData.dishes || []).find(d => d.id === dishId);
+      if (!dish) return;
+
+      addDishToCart(dish, '', []);
+      updateCartUI();
+      renderCartModalList();
+
+      // Visual feedback
+      if (btnEl) {
+        btnEl.classList.add('added');
+        btnEl.innerHTML = '✓ Listo';
+        btnEl.disabled = true;
+        setTimeout(() => {
+          btnEl.classList.remove('added');
+          btnEl.innerHTML = '+ Agregar';
+          btnEl.disabled = false;
+        }, 2000);
+      }
+    }
+
+    // =========================================================================
+    // MERCADO PAGO CHECKOUT PRO: PAYMENT METHOD HANDLER
+    // =========================================================================
+
+    function handleOrderPaymentChange() {
+      const payment = document.getElementById('orderPayment').value;
+      const externalBox = document.getElementById('externalPaymentBox');
+      const btnExternal = document.getElementById('btnExternalPay');
+
+      if (payment.includes('Mercado Pago') && restaurantData.paymentLink) {
+        if (externalBox) {
+          externalBox.style.display = 'block';
+          if (btnExternal) btnExternal.href = restaurantData.paymentLink;
+        }
+      } else {
+        if (externalBox) externalBox.style.display = 'none';
+      }
+    }
+
+    // =========================================================================
+    // SMART GOOGLE REVIEWS & FEEDBACK FILTER
+    // =========================================================================
+
+    let selectedStarRating = 0;
+
+    function openSmartReviewModal() {
+      selectedStarRating = 0;
+
+      // Reset UI state
+      const modal = document.getElementById('smartReviewModal');
+      document.getElementById('review5StarsBox').style.display = 'none';
+      document.getElementById('reviewPrivateFeedbackBox').style.display = 'none';
+      document.getElementById('feedbackSuccessMessage').style.display = 'none';
+      document.getElementById('starHintText').textContent = 'Tocá las estrellas para calificar';
+
+      // Reset stars
+      document.querySelectorAll('.star-btn').forEach(btn => btn.classList.remove('active', 'hover-active'));
+
+      // Set restaurant name
+      const nameEl = document.getElementById('smartReviewRestName');
+      if (nameEl) nameEl.textContent = restaurantData.name || 'nuestro local';
+
+      // Set Google Maps URL for 5-star redirect
+      const googleBtn = document.getElementById('btnGoogleReviewRedirect');
+      if (googleBtn) googleBtn.href = restaurantData.googleReview || '#';
+
+      // Show form
+      const form = document.getElementById('privateFeedbackForm');
+      if (form) { form.reset(); form.style.display = 'block'; }
+      const submitBtn = document.getElementById('btnSubmitFeedback');
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.querySelector('span').textContent = '📩 Enviar Comentario Privado a la Gerencia'; }
+
+      modal.classList.add('active');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeSmartReviewModal() {
+      const modal = document.getElementById('smartReviewModal');
+      modal.classList.remove('active');
+      modal.setAttribute('aria-hidden', 'true');
+      selectedStarRating = 0;
+    }
+
+    function handleStarSelect(rating) {
+      selectedStarRating = rating;
+
+      // Highlight stars up to selected
+      document.querySelectorAll('.star-btn').forEach(btn => {
+        const star = parseInt(btn.dataset.star);
+        btn.classList.toggle('active', star <= rating);
+      });
+
+      const hintTexts = ['', '😞 Muy mala', '😕 Regular', '🙂 Buena', '😊 Muy buena', '🤩 ¡Excelente!'];
+      document.getElementById('starHintText').textContent = hintTexts[rating] || '';
+
+      // Branch logic: 5 stars → Google Maps, 1-4 → private feedback
+      if (rating === 5) {
+        document.getElementById('review5StarsBox').style.display = 'block';
+        document.getElementById('reviewPrivateFeedbackBox').style.display = 'none';
+      } else {
+        document.getElementById('review5StarsBox').style.display = 'none';
+        document.getElementById('reviewPrivateFeedbackBox').style.display = 'block';
+      }
+    }
+
+    function handleGoogleReviewClick() {
+      // Track the click
+      fetch('/api/analytics/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: getSlug(), event: 'google_review_click' })
+      }).catch(() => {});
+    }
+
+    async function submitPrivateFeedback(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnSubmitFeedback');
+      if (btn) { btn.disabled = true; btn.querySelector('span').textContent = '⏳ Enviando...'; }
+
+      const comment = document.getElementById('feedbackCommentInput').value.trim();
+      const customerName = document.getElementById('feedbackNameInput').value.trim();
+      const customerContact = document.getElementById('feedbackContactInput').value.trim();
+
+      if (!comment) {
+        if (btn) { btn.disabled = false; btn.querySelector('span').textContent = '📩 Enviar Comentario Privado a la Gerencia'; }
+        alert('Por favor escribí un comentario antes de enviar.');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/reviews/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            restaurantId: restaurantData.id,
+            rating: selectedStarRating,
+            comment,
+            customerName: customerName || 'Anónimo',
+            customerContact: customerContact || ''
+          })
+        });
+
+        if (response.ok) {
+          // Show success, hide form
+          document.getElementById('privateFeedbackForm').style.display = 'none';
+          document.getElementById('feedbackSuccessMessage').style.display = 'block';
+
+          // Track event
+          fetch('/api/analytics/event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slug: getSlug(), event: 'private_feedback' })
+          }).catch(() => {});
+        } else {
+          const data = await response.json().catch(() => ({}));
+          alert(data.error || 'No se pudo enviar el comentario. Intentá nuevamente.');
+          if (btn) { btn.disabled = false; btn.querySelector('span').textContent = '📩 Enviar Comentario Privado a la Gerencia'; }
+        }
+      } catch (err) {
+        alert('Error de conexión. Por favor, intentá nuevamente.');
+        if (btn) { btn.disabled = false; btn.querySelector('span').textContent = '📩 Enviar Comentario Privado a la Gerencia'; }
+      }
+    }
+
+    // Hover effect for stars
+    (function initStarHover() {
+      const wrap = document.getElementById('starsSelectorWrap');
+      if (!wrap) return;
+      wrap.addEventListener('mouseover', e => {
+        const btn = e.target.closest('.star-btn');
+        if (!btn) return;
+        const hoverStar = parseInt(btn.dataset.star);
+        document.querySelectorAll('.star-btn').forEach(b => {
+          b.classList.toggle('hover-active', parseInt(b.dataset.star) <= hoverStar);
+        });
+      });
+      wrap.addEventListener('mouseout', () => {
+        document.querySelectorAll('.star-btn').forEach(b => {
+          b.classList.remove('hover-active');
+        });
+      });
+    })();
 
     // Reservation Modal Logic
     function openReservationModal() {

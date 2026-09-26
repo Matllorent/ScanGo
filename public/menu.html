@@ -91,9 +91,9 @@
       <span id="wifiChip" class="meta-chip" onclick="openWifiModal()" style="display:none;">
         📶 Conectar a Wi-Fi
       </span>
-      <a id="googleReviewChip" class="meta-chip" href="#" target="_blank" style="display:none; color:var(--chalk-gold); border-color:rgba(236, 201, 75, 0.4);">
-        ⭐ Dejar Reseña
-      </a>
+      <button type="button" id="googleReviewChip" class="meta-chip meta-chip-btn" onclick="openSmartReviewModal()" style="display:none; color:var(--chalk-gold); border-color:rgba(236, 201, 75, 0.4); background:rgba(236,201,75,0.08); cursor:pointer;">
+        ⭐ Calificar Experiencia
+      </button>
       <span id="phoneChip" class="meta-chip" style="display:none;">
         📞 <span id="phoneText"></span>
       </span>
@@ -207,6 +207,8 @@
       <h3 id="dishNoteTitle" class="modal-title">Personalizar el plato</h3>
       <p id="dishNoteDishName" class="dish-note-dish-name"></p>
       <div id="dishChoiceContainer"></div>
+      <!-- Mozo Virtual: Sugerencia rápida de complementos en personalización -->
+      <div id="dishModalUpsellBox" class="dish-modal-upsell-box" style="display:none;"></div>
       <label for="dishNoteInput" class="form-label">Nota para cocina (opcional)</label>
       <textarea id="dishNoteInput" class="form-textarea" maxlength="250" rows="3" placeholder="Ej: sin cebolla, aderezo aparte..."></textarea>
       <div class="dish-note-actions">
@@ -223,6 +225,9 @@
       <h3 class="modal-title">Tu Carrito WhatsApp</h3>
 
       <div id="cartItemsList"></div>
+
+      <!-- Upselling Inteligente: El Mozo Virtual -->
+      <div id="virtualWaiterUpsellBox" class="mozo-virtual-upsell-box" style="display:none;" aria-live="polite"></div>
 
       <!-- Mode Selector -->
       <div class="form-section">
@@ -263,7 +268,7 @@
 
       <div class="form-group">
         <label class="form-label">Forma de Pago</label>
-        <select id="orderPayment" class="form-select">
+        <select id="orderPayment" class="form-select" onchange="handleOrderPaymentChange()">
           <option value="Efectivo">💵 Efectivo al recibir</option>
           <option value="Transferencia Bancaria">🏦 Transferencia Bancaria</option>
           <option value="Mercado Pago / Tarjeta">💳 Mercado Pago / Tarjeta</option>
@@ -406,6 +411,74 @@
         <button class="btn-wa-submit" style="background:#B794F4; color:#0E1412;" onclick="sendWaiterCall('cuenta_tarjeta')">
           <span>💳 Pedir la Cuenta (Tarjeta)</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Smart Google Reviews & Feedback Filter Modal -->
+  <div id="smartReviewModal" class="modal-overlay" aria-hidden="true" onclick="if(event.target===this)closeSmartReviewModal()">
+    <div class="modal-box smart-review-modal-box" role="dialog" aria-modal="true" aria-labelledby="smartReviewTitle">
+      <button type="button" class="modal-close" onclick="closeSmartReviewModal()" aria-label="Cerrar">✕</button>
+      
+      <div class="smart-review-header">
+        <span class="smart-review-icon">⭐</span>
+        <h3 id="smartReviewTitle" class="modal-title">¿Cómo estuvo tu experiencia?</h3>
+        <p id="smartReviewSubtitle" class="smart-review-sub">Tu opinión en <strong id="smartReviewRestName">nuestro local</strong> nos ayuda a crecer.</p>
+      </div>
+
+      <!-- Star Rating Interactive Selector -->
+      <div class="stars-selector-wrap" id="starsSelectorWrap" role="radiogroup" aria-label="Calificación en estrellas">
+        <button type="button" class="star-btn" data-star="1" onclick="handleStarSelect(1)" title="1 estrella">★</button>
+        <button type="button" class="star-btn" data-star="2" onclick="handleStarSelect(2)" title="2 estrellas">★</button>
+        <button type="button" class="star-btn" data-star="3" onclick="handleStarSelect(3)" title="3 estrellas">★</button>
+        <button type="button" class="star-btn" data-star="4" onclick="handleStarSelect(4)" title="4 estrellas">★</button>
+        <button type="button" class="star-btn" data-star="5" onclick="handleStarSelect(5)" title="5 estrellas">★</button>
+      </div>
+      <div id="starHintText" class="star-hint-text">Tocá las estrellas para calificar</div>
+
+      <!-- Branch A: 5 Stars -> Google Maps Review -->
+      <div id="review5StarsBox" class="review-branch-box" style="display:none;">
+        <div class="review-success-banner">
+          <span style="font-size:2.2rem; display:block; margin-bottom:6px;">🎉</span>
+          <h4 style="font-size:1.15rem; color:var(--chalk-gold); margin:0 0 6px 0;">¡Nos alegra un montón que te haya encantado!</h4>
+          <p style="font-size:0.88rem; color:var(--chalk-muted); margin:0 0 16px 0; line-height:1.4;">¿Nos regalarías 10 segundos de tu tiempo para dejar tu reseña en Google Maps? Tu calificación de 5 estrellas nos impulsa enormemente.</p>
+        </div>
+        <a id="btnGoogleReviewRedirect" href="#" target="_blank" rel="noopener noreferrer" class="btn-google-review-cta" onclick="handleGoogleReviewClick()">
+          <span>⭐ Publicar Reseña en Google Maps (5★) ➔</span>
+        </a>
+        <button type="button" class="btn-feedback-dismiss" onclick="closeSmartReviewModal()">Listo, ¡muchas gracias!</button>
+      </div>
+
+      <!-- Branch B: 1-4 Stars -> Private Constructive Feedback Form for Owner -->
+      <div id="reviewPrivateFeedbackBox" class="review-branch-box" style="display:none;">
+        <div class="review-constructive-banner">
+          <span style="font-size:1.8rem; display:block; margin-bottom:6px;">💬</span>
+          <h4 style="font-size:1.05rem; color:#F6AD55; margin:0 0 6px 0;">Queremos escucharte y mejorar</h4>
+          <p style="font-size:0.86rem; color:var(--chalk-muted); margin:0 0 14px 0; line-height:1.4;">Lamentamos no haber alcanzado la perfección. Tu mensaje llegará de forma directa y privada a la administración:</p>
+        </div>
+        <form id="privateFeedbackForm" onsubmit="submitPrivateFeedback(event)">
+          <div class="form-group" style="margin-bottom:10px;">
+            <label for="feedbackCommentInput" class="form-label">¿En qué podemos mejorar o qué sucedió?</label>
+            <textarea id="feedbackCommentInput" class="form-textarea" rows="3" placeholder="Contanos tu experiencia (atención, tiempos, sabor, presentación...)" required style="font-size:0.9rem;"></textarea>
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:12px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="feedbackNameInput" class="form-label">Tu Nombre (opcional)</label>
+              <input type="text" id="feedbackNameInput" class="form-input" placeholder="Ej: Juan">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="feedbackContactInput" class="form-label">WhatsApp o E-mail (opcional)</label>
+              <input type="text" id="feedbackContactInput" class="form-input" placeholder="Para contactarte...">
+            </div>
+          </div>
+          <button type="submit" id="btnSubmitFeedback" class="btn-wa-submit" style="background:#F6AD55; color:#0E1412; font-weight:700;">
+            <span>📩 Enviar Comentario Privado a la Gerencia</span>
+          </button>
+        </form>
+        <div id="feedbackSuccessMessage" class="feedback-success-box" style="display:none; text-align:center; padding:16px 12px; background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.3); border-radius:10px; margin-top:10px;">
+          <p style="color:#68D391; font-weight:700; margin:0 0 6px 0;">✓ ¡Mensaje recibido!</p>
+          <p style="color:var(--chalk-muted); font-size:0.85rem; margin:0;">Tu comentario fue enviado directamente a la gerencia. Gracias por ayudarnos a perfeccionar nuestro servicio.</p>
+        </div>
       </div>
     </div>
   </div>

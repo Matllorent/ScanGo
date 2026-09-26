@@ -221,4 +221,57 @@ router.patch('/admin/:id/approve', async (req, res, next) => {
   }
 });
 
+/**
+ * POST /api/reviews/feedback
+ * Filtro de Reseñas Inteligentes ("Smart Google Reviews"):
+ * Si la calificación es 1-4 estrellas, se guarda como feedback interno constructivo para el dueño
+ */
+const feedbackSchema = z.object({
+  restaurantId: z.string().min(1, { message: 'ID de restaurante requerido' }),
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().min(1, { message: 'El comentario no puede estar vacío' }).max(1000),
+  customerName: z.string().max(100).optional().default('Anónimo'),
+  customerContact: z.string().max(100).optional().default('')
+});
+
+router.post('/feedback', validateBody(feedbackSchema), async (req, res, next) => {
+  try {
+    const { restaurantId, rating, comment, customerName, customerContact } = req.body;
+    const restaurant = db.findRestaurantById(restaurantId) || db.findRestaurantBySlug(restaurantId);
+    if (!restaurant) {
+      throw new AppError('Restaurante no encontrado', 404, 'RESTAURANT_NOT_FOUND');
+    }
+
+    const feedbackRecord = {
+      restaurantId: restaurant.id,
+      restaurantName: restaurant.name || restaurant.bizName,
+      rating: parseInt(rating),
+      comment: String(comment).trim().slice(0, 1000),
+      customerName: customerName ? String(customerName).slice(0, 100) : 'Anónimo',
+      customerContact: customerContact ? String(customerContact).slice(0, 100) : ''
+    };
+
+    const saved = db.addFeedback(feedbackRecord);
+
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.from('customer_feedback').insert([{
+          id: saved.id,
+          restaurant_id: saved.restaurantId,
+          rating: saved.rating,
+          comment: saved.comment,
+          customer_name: saved.customerName,
+          customer_contact: saved.customerContact,
+          created_at: saved.createdAt
+        }]);
+      } catch (e) {}
+    }
+
+    return successResponse(res, saved, 'Comentario privado recibido exitosamente por la administración', 201);
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

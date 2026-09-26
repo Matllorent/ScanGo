@@ -17,7 +17,7 @@
     "slogan": "Especialidad, masas artesanales y cocina de autor",
     "currency": "$",
     "phone": "59899123456",
-    "theme": "rustic",
+    "theme": "explosivo",
     "wifi": {
       "ssid": "Restaurante_Clientes",
       "password": "pizarronrico"
@@ -245,20 +245,20 @@
       }
     ],
     "analytics": {
-      "visits": 20,
+      "visits": 24,
       "orders": 0,
       "reservations": 0,
       "waiterCalls": 0,
-      "lastUpdated": "2026-09-25T21:27:06.753Z"
+      "lastUpdated": "2026-09-26T01:10:45.389Z"
     },
     "businessType": "restaurant",
     "allowIceCreamWizard": false,
     "allowPerfumery": false,
     "allowLoyaltyPoints": false,
-    "updatedAt": "2026-09-25T21:27:06.192Z",
+    "updatedAt": "2026-09-26T01:10:35.845Z",
     "instagram": "",
     "googleReview": "",
-    "themeFont": "serif",
+    "themeFont": "urban",
     "allowReservations": true,
     "allowCoupons": true,
     "allowBillSplitter": true,
@@ -267,7 +267,8 @@
     "scheduleEnabled": false,
     "scheduleActiveHours": "",
     "tableCount": 10,
-    "modifierGroups": []
+    "modifierGroups": [],
+    "layout": "bento"
   },
   {
     "id": "rest_1790380577282_9bhprj",
@@ -474,6 +475,102 @@
       "gracePeriodDaysRemaining": 7
     },
     "createdAt": "2026-09-26T01:03:04.236Z",
+    "bizName": "Restaurante Vanguardia Test",
+    "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+    "layout": "bento",
+    "theme": "emerald",
+    "font": "sans",
+    "categories": []
+  },
+  {
+    "id": "rest_1790387444433_x7j45z",
+    "userId": "usr_1790387444424_4n2ti0",
+    "slug": "esquina-gourmet",
+    "subscription": {
+      "status": "past_due",
+      "plan": "pro_monthly",
+      "provider": "lemonsqueezy",
+      "trialEndsAt": "2026-10-03T01:50:44.433Z",
+      "currentPeriodEnd": "2026-09-26T01:50:44.452Z",
+      "gracePeriodDaysRemaining": 7,
+      "lastPaymentError": "Falló el cobro automático de la tarjeta",
+      "updatedAt": "2026-09-26T01:50:44.456Z"
+    },
+    "createdAt": "2026-09-26T01:50:44.433Z",
+    "bizName": "La Esquina Gourmet"
+  },
+  {
+    "id": "rest_1790387445077_ebgutd",
+    "userId": "user_exp_test_1790387445073",
+    "slug": "mi-local",
+    "subscription": {
+      "status": "trialing",
+      "trialEndsAt": "2026-09-26T00:50:45.073Z"
+    },
+    "createdAt": "2026-09-26T01:50:45.077Z",
+    "name": "Restaurante Expirado Test"
+  },
+  {
+    "id": "rest_1790387446177_g8klu5",
+    "userId": "usr_1790387446173_uis3i5",
+    "slug": "vanguardia-test-1790387446174",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-03T01:50:46.177Z",
+      "currentPeriodEnd": "2026-10-03T01:50:46.177Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-09-26T01:50:46.177Z",
+    "bizName": "Restaurante Vanguardia Test",
+    "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+    "layout": "bento",
+    "theme": "emerald",
+    "font": "sans",
+    "categories": []
+  },
+  {
+    "id": "rest_1790388296566_03idnz",
+    "userId": "usr_1790388296560_1md781",
+    "slug": "esquina-gourmet",
+    "subscription": {
+      "status": "past_due",
+      "plan": "pro_monthly",
+      "provider": "lemonsqueezy",
+      "trialEndsAt": "2026-10-03T02:04:56.566Z",
+      "currentPeriodEnd": "2026-09-26T02:04:56.586Z",
+      "gracePeriodDaysRemaining": 7,
+      "lastPaymentError": "Falló el cobro automático de la tarjeta",
+      "updatedAt": "2026-09-26T02:04:56.591Z"
+    },
+    "createdAt": "2026-09-26T02:04:56.566Z",
+    "bizName": "La Esquina Gourmet"
+  },
+  {
+    "id": "rest_1790388297255_uqsgt3",
+    "userId": "user_exp_test_1790388297241",
+    "slug": "mi-local",
+    "subscription": {
+      "status": "trialing",
+      "trialEndsAt": "2026-09-26T01:04:57.241Z"
+    },
+    "createdAt": "2026-09-26T02:04:57.255Z",
+    "name": "Restaurante Expirado Test"
+  },
+  {
+    "id": "rest_1790388298227_ceg0ir",
+    "userId": "usr_1790388298175_7csfex",
+    "slug": "vanguardia-test-1790388298185",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-03T02:04:58.227Z",
+      "currentPeriodEnd": "2026-10-03T02:04:58.227Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-09-26T02:04:58.227Z",
     "bizName": "Restaurante Vanguardia Test",
     "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
     "layout": "bento",

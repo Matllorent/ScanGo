@@ -1,5 +1,19 @@
+const mpService = require('../../services/mercadopago');
+
 const mpProvider = {
   name: 'mercadopago',
+
+  getAccessToken() {
+    return mpService.getAccessToken();
+  },
+
+  isConfigured() {
+    return mpService.isConfigured();
+  },
+
+  createPreference(options) {
+    return mpService.createPreference(options);
+  },
 
   verifyWebhookSignature(headers, secret) {
     // In production: verify x-signature header HMAC if configured in MP dashboard
@@ -7,8 +21,7 @@ const mpProvider = {
   },
 
   createCheckoutUrl({ planId, customerEmail, restaurantId, returnUrl }) {
-    // In production with MP SDK: mercadopago.preapproval.create(...)
-    // Returns init_point for recurring subscription in local currency (, ARS, etc.)
+    // Returns checkout url for subscription or Checkout Pro preference
     return 'https://www.mercadopago.com.uy/subscriptions/checkout?preapproval_plan_id=' + (planId || 'plan_default') +
       '&external_reference=' + encodeURIComponent(restaurantId || '');
   },

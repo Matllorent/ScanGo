@@ -373,6 +373,24 @@ const db = {
     const updated = { ...current, ...newSettings };
     writeJson(SETTINGS_FILE, updated);
     return updated;
+  },
+  // Customer Private Feedback (Smart Google Reviews filter)
+  addFeedback(feedbackData) {
+    const FEEDBACK_FILE = path.join(DATA_DIR, 'feedback.json');
+    const all = readJson(FEEDBACK_FILE, []);
+    const newFb = {
+      id: 'fb_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+      createdAt: new Date().toISOString(),
+      ...feedbackData
+    };
+    all.push(newFb);
+    writeJson(FEEDBACK_FILE, all);
+    return newFb;
+  },
+  getFeedbackByRestaurantId(restaurantId) {
+    const FEEDBACK_FILE = path.join(DATA_DIR, 'feedback.json');
+    const all = readJson(FEEDBACK_FILE, []);
+    return all.filter(f => f.restaurantId === restaurantId);
   }
 };
 

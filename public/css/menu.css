@@ -1990,3 +1990,275 @@
         height: 135px !important;
       }
     }
+
+    /* ==========================================================================
+       EL MOZO VIRTUAL: UPSELLING INTELIGENTE Y COMPLEMENTOS SUGERIDOS
+       ========================================================================== */
+    .mozo-virtual-upsell-box {
+      margin: 14px 0 16px 0;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, rgba(236, 201, 75, 0.08) 0%, rgba(20, 28, 25, 0.95) 100%);
+      border: 1px dashed rgba(236, 201, 75, 0.35);
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+    .mozo-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .mozo-avatar {
+      font-size: 1.6rem;
+      background: rgba(236, 201, 75, 0.15);
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(236, 201, 75, 0.3);
+      flex-shrink: 0;
+    }
+    .mozo-header-text h4 {
+      margin: 0;
+      font-size: 0.92rem;
+      color: var(--chalk-gold);
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .mozo-header-text p {
+      margin: 2px 0 0 0;
+      font-size: 0.78rem;
+      color: var(--chalk-muted);
+    }
+    .mozo-cards-carousel {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 8px;
+    }
+    @media (max-width: 480px) {
+      .mozo-cards-carousel {
+        grid-template-columns: 1fr;
+      }
+    }
+    .mozo-item-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(14, 20, 18, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 8px 10px;
+      transition: border-color 0.2s, transform 0.2s, background 0.2s;
+    }
+    .mozo-item-card:hover {
+      border-color: rgba(236, 201, 75, 0.4);
+      background: rgba(20, 28, 25, 0.95);
+      transform: translateY(-2px);
+    }
+    .mozo-item-thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      object-fit: cover;
+      aspect-ratio: 1 / 1;
+      background: #1C2723;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      flex-shrink: 0;
+    }
+    .mozo-item-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .mozo-item-title {
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+    .mozo-item-price {
+      font-size: 0.82rem;
+      color: var(--chalk-gold);
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+    .btn-mozo-quick-add {
+      background: #38A169;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.15s, transform 0.15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .btn-mozo-quick-add:hover {
+      background: #2F855A;
+      transform: scale(1.05);
+    }
+    .btn-mozo-quick-add:active {
+      transform: scale(0.95);
+    }
+    .btn-mozo-quick-add.added {
+      background: #3182CE;
+    }
+
+    /* Mini upsell inside Dish Personalization Modal */
+    .dish-modal-upsell-box {
+      margin: 12px 0;
+      padding: 10px 12px;
+      background: rgba(236, 201, 75, 0.05);
+      border: 1px dashed rgba(236, 201, 75, 0.25);
+      border-radius: 8px;
+    }
+    .dish-modal-upsell-title {
+      font-size: 0.8rem;
+      color: var(--chalk-gold);
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    /* ==========================================================================
+       SMART GOOGLE REVIEWS & FEEDBACK FILTER MODAL
+       ========================================================================== */
+    .smart-review-modal-box {
+      max-width: 460px;
+      text-align: center;
+      padding: 24px 20px;
+      background: #141C19;
+      border: 1px solid rgba(236, 201, 75, 0.3);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    }
+    .smart-review-header {
+      margin-bottom: 16px;
+    }
+    .smart-review-icon {
+      font-size: 2.2rem;
+      display: inline-block;
+      margin-bottom: 6px;
+      filter: drop-shadow(0 2px 8px rgba(236, 201, 75, 0.4));
+    }
+    .smart-review-sub {
+      font-size: 0.88rem;
+      color: var(--chalk-muted);
+      margin: 4px 0 0 0;
+    }
+    .stars-selector-wrap {
+      display: inline-flex;
+      justify-content: center;
+      gap: 8px;
+      margin: 12px 0 6px 0;
+    }
+    .star-btn {
+      background: transparent;
+      border: none;
+      font-size: 2.6rem;
+      line-height: 1;
+      color: #4A5568;
+      cursor: pointer;
+      transition: color 0.15s, transform 0.15s;
+      padding: 0 4px;
+    }
+    .star-btn:hover,
+    .star-btn.hover-active,
+    .star-btn.active {
+      color: #ECC94B;
+      transform: scale(1.15);
+      text-shadow: 0 0 12px rgba(236, 201, 75, 0.6);
+    }
+    .star-hint-text {
+      font-size: 0.82rem;
+      color: var(--chalk-dim);
+      margin-bottom: 18px;
+      min-height: 18px;
+    }
+    .review-branch-box {
+      text-align: left;
+      animation: fadeInScale 0.25s ease-out;
+    }
+    @keyframes fadeInScale {
+      from { opacity: 0; transform: scale(0.97); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .review-success-banner {
+      text-align: center;
+      background: rgba(236, 201, 75, 0.08);
+      border: 1px solid rgba(236, 201, 75, 0.25);
+      border-radius: 12px;
+      padding: 16px 14px;
+      margin-bottom: 14px;
+    }
+    .btn-google-review-cta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      background: linear-gradient(135deg, #4285F4 0%, #1A73E8 100%);
+      color: #fff !important;
+      padding: 14px 16px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 0.96rem;
+      text-decoration: none;
+      box-shadow: 0 4px 14px rgba(66, 133, 244, 0.4);
+      transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+      margin-bottom: 10px;
+    }
+    .btn-google-review-cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(66, 133, 244, 0.5);
+      filter: brightness(1.08);
+    }
+    .btn-feedback-dismiss {
+      display: block;
+      width: 100%;
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--chalk-dim);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.15s, color 0.15s;
+    }
+    .btn-feedback-dismiss:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+    }
+    .review-constructive-banner {
+      text-align: center;
+      background: rgba(246, 173, 85, 0.08);
+      border: 1px solid rgba(246, 173, 85, 0.25);
+      border-radius: 12px;
+      padding: 14px 12px;
+      margin-bottom: 14px;
+    }
+    .btn-feedback-submit {
+      width: 100%;
+      background: #F6AD55;
+      color: #0E1412;
+      border: none;
+      border-radius: 8px;
+      padding: 12px;
+      font-weight: 700;
+      font-size: 0.92rem;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.15s;
+    }
+    .btn-feedback-submit:hover {
+      background: #ED8936;
+      transform: translateY(-1px);
+    }
