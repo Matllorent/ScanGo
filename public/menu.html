@@ -225,6 +225,12 @@
 
       <div id="cartItemsList"></div>
 
+      <!-- Pedido Grupal: Botón y contenedor para Ver Consolidado por Comensal y Cocina -->
+      <button type="button" id="btnToggleGroupConsolidated" class="btn-group-consolidate" style="display:none;" onclick="toggleGroupConsolidatedView()">
+        <span>👥 Ver Consolidado por Comensal y Cocina</span>
+      </button>
+      <div id="groupConsolidatedContainer" style="display:none; margin-bottom: 12px; background: rgba(43, 108, 176, 0.1); border: 1px solid rgba(66, 153, 225, 0.3); border-radius: 8px; padding: 12px;"></div>
+
       <!-- Interruptor Visual del Mozo Virtual (100% Opcional) -->
       <div id="mozoToggleBar" class="mozo-toggle-container">
         <label class="mozo-toggle-label" for="toggleMozoVirtual">
@@ -628,6 +634,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/js/pwa.js"></script>
   <script src="/js/menu.js"></script>
 

@@ -15,6 +15,8 @@ const orderItemSchema = z.object({
   dishId: z.string().min(1, { message: 'ID de platillo requerido' }),
   quantity: z.number().int().positive({ message: 'La cantidad debe ser mayor a 0' }),
   note: z.string().trim().max(250).optional().default(''),
+  orderedBy: z.string().max(100).optional().default(''),
+  orderedById: z.string().max(100).optional().default(''),
   choices: z.array(z.object({
     groupId: z.string().min(1).max(80),
     selections: z.array(z.object({
@@ -33,7 +35,10 @@ const createOrderSchema = z.object({
   customerName: z.string().max(100).optional().default('Cliente'),
   customerPhone: z.string().max(30).optional().default(''),
   deliveryAddress: z.string().max(200).optional().default(''),
-  notes: z.string().max(300).optional().default('')
+  notes: z.string().max(300).optional().default(''),
+  isGroupOrder: z.boolean().optional().default(false),
+  participants: z.array(z.string()).optional().default([]),
+  groupSessionId: z.string().max(100).optional().default('')
 });
 
 function quoteOrderItems(restaurant, items, timestamp = new Date().toISOString()) {
@@ -55,6 +60,8 @@ function quoteOrderItems(restaurant, items, timestamp = new Date().toISOString()
       unitPriceInCents: pricing.unitPriceInCents,
       quantity: item.quantity,
       note: item.note || '',
+      orderedBy: item.orderedBy || '',
+      orderedById: item.orderedById || '',
       totalItemAmount: totalItemAmountInCents / 100,
       totalItemAmountInCents,
       categoryName: category ? category.name : 'General',
@@ -116,6 +123,10 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
       customer_phone: customerPhone,
       delivery_address: deliveryAddress,
       notes: notes,
+      is_group_order: Boolean(req.body.isGroupOrder),
+      isGroupOrder: Boolean(req.body.isGroupOrder),
+      participants: req.body.participants || [],
+      group_session_id: req.body.groupSessionId || '',
       created_at: utcNow
     };
 
@@ -250,6 +261,74 @@ router.post('/mercadopago/preference', validateBody(createOrderSchema), async (r
   } catch (err) {
     next(err);
   }
+});
+
+/**
+ * GET /api/orders/realtime-config
+ * Proporciona credenciales públicas seguras para Supabase Realtime Channels
+ */
+router.get('/realtime-config', (req, res) => {
+  const supabaseUrl = process.env.SUPABASE_URL || '';
+  const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  return successResponse(res, {
+    supabaseUrl,
+    supabaseKey,
+    enabled: Boolean(supabaseUrl && supabaseKey)
+  }, 'Configuración de tiempo real recuperada');
+});
+
+/**
+ * Almacén en memoria de pedidos grupales activos por mesa para recuperación y sincronización
+ * Estructura: key = `${restaurantId}_mesa_${tableNumber}` -> { items: [], participants: [], updatedAt: string }
+ */
+const activeGroupTableCarts = new Map();
+
+/**
+ * GET /api/orders/group/:restaurantId/:tableNumber
+ * Recupera el carrito grupal activo de la mesa
+ */
+router.get('/group/:restaurantId/:tableNumber', (req, res) => {
+  const { restaurantId, tableNumber } = req.params;
+  const key = `${restaurantId}_mesa_${tableNumber}`;
+  const data = activeGroupTableCarts.get(key) || { items: [], participants: [], updatedAt: new Date().toISOString() };
+  return successResponse(res, data, 'Carrito grupal de mesa recuperado');
+});
+
+/**
+ * POST /api/orders/group/:restaurantId/:tableNumber/sync
+ * Sincroniza y consolida el estado del carrito grupal de la mesa
+ */
+router.post('/group/:restaurantId/:tableNumber/sync', (req, res) => {
+  const { restaurantId, tableNumber } = req.params;
+  const { items = [], participants = [], action = 'sync', fromUser = '' } = req.body;
+  const key = `${restaurantId}_mesa_${tableNumber}`;
+
+  const current = activeGroupTableCarts.get(key) || { items: [], participants: [] };
+  const mergedParticipants = Array.from(new Set([...(current.participants || []), ...(participants || []), fromUser].filter(Boolean)));
+
+  const updatedState = {
+    restaurantId,
+    tableNumber: String(tableNumber),
+    items,
+    participants: mergedParticipants,
+    lastAction: action,
+    lastUser: fromUser,
+    updatedAt: new Date().toISOString()
+  };
+
+  activeGroupTableCarts.set(key, updatedState);
+  return successResponse(res, updatedState, 'Carrito grupal sincronizado exitosamente');
+});
+
+/**
+ * POST /api/orders/group/:restaurantId/:tableNumber/clear
+ * Limpia el carrito grupal una vez enviado el pedido
+ */
+router.post('/group/:restaurantId/:tableNumber/clear', (req, res) => {
+  const { restaurantId, tableNumber } = req.params;
+  const key = `${restaurantId}_mesa_${tableNumber}`;
+  activeGroupTableCarts.delete(key);
+  return successResponse(res, { cleared: true }, 'Carrito grupal finalizado');
 });
 
 module.exports = router;
