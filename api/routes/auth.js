@@ -8,6 +8,7 @@ const { registerSchema, loginSchema, validateBody } = require('../middleware/val
 const { getSupabaseClient } = require('../utils/supabase');
 const { successResponse, errorResponse } = require('../utils/response');
 const AppError = require('../utils/AppError');
+const { checkSubscriptionKillSwitch } = require('../middleware/killSwitch');
 
 const router = express.Router();
 
@@ -38,7 +39,7 @@ function normalizeEmailInput(req, res, next) {
  * POST /api/auth/register
  * Handles user registration with email normalization and Supabase Auth email confirmation
  */
-router.post('/register', normalizeEmailInput, validateBody(registerSchema), async (req, res, next) => {
+router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, validateBody(registerSchema), async (req, res, next) => {
   try {
     const { email, password, name, restaurantName, bizName } = req.body;
 

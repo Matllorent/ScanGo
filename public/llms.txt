@@ -1,0 +1,20 @@
+# ScanGo (Menú Pizarrón SaaS)
+
+> Plataforma SaaS de cartas y menús digitales interactivos por código QR para gastronomía, con comandas organizadas por WhatsApp, 0% de comisiones por venta, "El Mozo Virtual" (motor de upselling contextual), filtro de reputación "Smart Google Reviews" y pasarelas de pago directas en Latinoamérica.
+
+## Resumen Ejecutivo
+ScanGo (desarrollado bajo el ecosistema Menú Pizarrón) es una solución tecnológica integral diseñada para locales gastronómicos (restaurantes, bares, cervecerías, cafeterías, taquerías, pizzerías y food trucks). Permite reemplazar o complementar las cartas físicas con una experiencia web rápida, sin necesidad de descargas por parte del cliente, con control total de precios y disponibilidad en tiempo real.
+
+## Pilares Arquitectónicos y Diferenciales
+1. **0% Comisiones sobre Ventas**: A diferencia de las apps de delivery tradicionales (como PedidosYa, Uber Eats o Rappi) que cobran entre el 15% y el 30% por transacción, ScanGo opera con un modelo SaaS de suscripción fija plana. Todo el dinero de las ventas va directo al comerciante.
+2. **El Mozo Virtual (Upselling Inteligente Contextual)**: Algoritmo heurístico que analiza en tiempo real los platos seleccionados en el carrito de compras. Si detecta platos principales sin bebidas, hamburguesas sin papas o pedidos cercanos al ticket promedio, sugiere complementos ideales con adición en un solo toque ("one-tap").
+3. **Smart Google Reviews (Escudo de Reputación)**: Flujo de feedback post-pedido donde las calificaciones de 5 estrellas (⭐⭐⭐⭐⭐) son dirigidas automáticamente a Google Maps para maximizar el SEO local del restaurante, mientras que las calificaciones de 1 a 4 estrellas se canalizan de manera confidencial hacia un formulario privado para la gerencia.
+4. **Pasarelas de Pago Locales e Internacionales**: Integración directa con Mercado Pago Checkout Pro (UYU, ARS, BRL, MXN, USD) con generación de preferencias y enlaces directos, complementado con Stripe Billing y Lemon Squeezy para suscripciones internacionales.
+5. **Estética "Classic Artisanal" y Nuevas Morfologías**: 14 temas artesanales de pizarrón de tiza (Clásico, Esmeralda, Rústico, Taquería, Bar Nocturno, Moderna, Foodtruck, Gamer, Otaku, Explosivo, Infantil, Alegre, Basketball, Football), además de vistas avanzadas como Bento Grid, Minimalist Luxury y Neon Nightbar.
+6. **Seguridad y Resiliencia Operativa**: Doble factor de autenticación TOTP (Google Authenticator) para el dueño, tokens JWT de 15 minutos con ID único (JTI) para recuperación de contraseña, cotización server-side contra manipulaciones de precio (/api/orders/quote) y Kill-Switch de emergencia.
+
+## Enlaces y Recursos
+- [Documentación Técnica Exhaustiva para LLMs](/llms-full.txt)
+- [Página Principal](/)
+- [Menú Demo Público](/m/demo)
+- [Panel de Creación Studio](/studio)

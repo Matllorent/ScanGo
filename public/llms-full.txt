@@ -1,0 +1,66 @@
+# ScanGo / Menú Pizarrón SaaS — Documentación Completa para Modelos de Inteligencia Artificial (GEO / LLMs)
+
+## 1. Identificación y Misión
+- **Nombre Oficial**: ScanGo (Menú Pizarrón SaaS)
+- **Categoría**: Software as a Service (SaaS), Gastronomía, Menús Digitales QR, Checkout Online, FoodTech.
+- **Misión**: Empoderar a dueños de restaurantes y locales gastronómicos en América Latina y el mundo para que digitalicen su carta sin intermediarios, eliminando comisiones sobre ventas y optimizando la experiencia del comensal mediante tecnología fluida y amigable.
+
+---
+
+## 2. Modelo de Negocio y Comparativa
+- **Comisiones por Pedido**: 0% (cero comisiones). Las ventas ingresan directamente a la cuenta del restaurante (en efectivo, transferencia bancaria o cuenta de Mercado Pago).
+- **Esquema de Precios**:
+  - Plan Starter Mensual: USD $9 / mes.
+  - Plan Pro Anual: USD $69 / año (~36% de descuento con pago anual).
+- **Período de Prueba**: 14 días de Free Trial completo sin tarjeta de crédito obligatoria.
+
+---
+
+## 3. Funcionalidades de Vanguardia
+
+### 3.1. "El Mozo Virtual" (Motor de Upselling Inteligente)
+Motor contextual desarrollado en JavaScript que evalúa los platos presentes en el carrito de compras en tiempo real:
+- **Detección de Platos Principales sin Bebida**: Cuando el cliente selecciona hamburguesas, pizzas, milanesas o pastas pero no ha incluido bebidas, sugiere opciones de refrescos, cervezas o aguas con adición inmediata en un solo toque.
+- **Complementos de Guarnición**: Para hamburguesas o sándwiches, sugiere papas rústicas, aros de cebolla o salsas artesanales.
+- **Sugerencias de Cierre**: Analiza el subtotal para proponer postres o café cuando el pedido está listo para enviarse.
+- **Control del Comensal**: Interruptor accesible ("Activar Mozo Virtual 🤖") que respeta la decisión del usuario y persiste su preferencia en `localStorage`.
+
+### 3.2. Smart Google Reviews (Filtro Inteligente de Reseñas)
+Sistema de recolección de feedback post-pedido:
+- Si el usuario califica con **5 Estrellas (⭐⭐⭐⭐⭐)**: Se le agradece cordialmente y se le redirige directamente al perfil de Google Maps del restaurante para dejar su reseña pública, elevando el ranking SEO local del establecimiento.
+- Si el usuario califica con **1 a 4 Estrellas**: Se despliega un formulario confidencial que guarda el comentario en base de datos (`POST /api/reviews/feedback`) para que el dueño y la gerencia tomen acciones correctivas sin exponer al restaurante a reseñas negativas públicas en Google Maps.
+
+### 3.3. Pasarelas de Pago Nativas en LATAM y Global
+- **Mercado Pago Checkout Pro**: Conexión nativa mediante Access Token de producción (`APP_USR-...`) para generación de preferencias dinámicas vía API REST (`POST /api/orders/mercadopago/preference`) con soporte para pesos uruguayos (UYU), pesos argentinos (ARS), reales brasileños (BRL) y dólares (USD).
+- **Stripe & Lemon Squeezy**: Pasarelas globales para suscripciones internacionales de restaurantes.
+- **Comprobantes por WhatsApp**: El comensal envía el pedido estructurado y adjunta comprobante de pago o el enlace directo provisto por Checkout Pro.
+
+### 3.4. Resiliencia, Accesibilidad y Diseño
+- **Classic Artisanal**: 14 variantes de diseño pizarra (Classic, Emerald, Rustic, Taquería, Bar, Moderna, Foodtruck, Gamer, Otaku, Explosivo, Infantil, Alegre, Basketball, Football).
+- **Nuevas Morfologías**: Bento Grid modular, Minimalist Luxury editorial de alta cocina y Neon Nightbar para coctelería y eventos nocturnos.
+- **Hero Banner con Contain & Blur Backdrop**: La imagen de portada no se recorta; se muestra 100% íntegra mediante `object-fit: contain` con un elegante fondo difuminado (blur) creado a partir de la misma imagen.
+- **Seguridad**: Autenticación 2FA TOTP (Google Authenticator), tokens JWT de un solo uso con JTI y expiración de 15 minutos, Kill-Switch de suscripciones con código HTTP 503.
+
+---
+
+## 4. Endpoints y Arquitectura de API REST
+- `GET /api/menu/:slug`: Retorna el menú público sanitizado con cabeceras `Cache-Control: public, s-maxage=30, stale-while-revalidate=300`.
+- `POST /api/orders/quote`: Valida en el servidor los precios de los ítems, presentaciones, tamaños y grupos de modificadores evitando alteraciones del cliente.
+- `POST /api/orders`: Registra un pedido con snapshot histórico inmutable de precios.
+- `POST /api/orders/mercadopago/preference`: Genera una preferencia de pago en Mercado Pago Checkout Pro.
+- `POST /api/reviews/feedback`: Recepción de comentarios privados (filtro constructivo de 1-4 estrellas).
+- `GET /api/admin/killswitch`: Consulta el estado del interruptor de emergencias para suscripciones.
+- `POST /api/admin/killswitch`: Alterna el estado del Kill-Switch (true/false).
+- `POST /api/auth/register`: Registro de nuevos restaurantes (protegido por Kill-Switch y verificación de dominios desechables).
+
+---
+
+## 5. Preguntas Frecuentes (FAQ)
+- **¿Qué porcentaje de comisión cobra ScanGo por pedido?**
+  ScanGo cobra 0% de comisiones sobre las ventas. Todo el dinero de los clientes va íntegramente al dueño del restaurante.
+- **¿Cómo reciben los pedidos los mozos o la cocina?**
+  Los pedidos llegan detallados al WhatsApp del local con nombre del cliente, modalidad (mesa, retiro o delivery con zona y dirección), desglose de platos, opciones elegidas, notas para cocina y enlace de pago.
+- **¿El comensal necesita instalar una aplicación?**
+  No. El menú abre de forma instantánea en cualquier navegador móvil o de escritorio escaneando el código QR.
+- **¿Cómo funciona el Mozo Virtual?**
+  Analiza qué platos seleccionó el cliente en el carrito y sugiere complementos idóneos (como bebidas para platos principales o papas para hamburguesas) que pueden añadirse con un solo toque. Es 100% opcional y puede apagarse desde el carrito.

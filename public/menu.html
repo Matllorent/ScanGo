@@ -226,6 +226,21 @@
 
       <div id="cartItemsList"></div>
 
+      <!-- Interruptor Visual del Mozo Virtual (100% Opcional) -->
+      <div id="mozoToggleBar" class="mozo-toggle-container">
+        <label class="mozo-toggle-label" for="toggleMozoVirtual">
+          <span style="font-size:1.15rem;">🤖</span>
+          <div>
+            <div style="font-weight:700; font-size:0.86rem; color:var(--chalk-gold);">Activar Mozo Virtual 🤖</div>
+            <div style="font-size:0.74rem; color:var(--chalk-dim);">Sugerencias inteligentes personalizadas</div>
+          </div>
+        </label>
+        <label class="switch-ui" title="Activar o desactivar sugerencias del Mozo Virtual">
+          <input type="checkbox" id="toggleMozoVirtual" onchange="handleMozoVirtualToggle(this.checked)" checked>
+          <span class="slider-round"></span>
+        </label>
+      </div>
+
       <!-- Upselling Inteligente: El Mozo Virtual -->
       <div id="virtualWaiterUpsellBox" class="mozo-virtual-upsell-box" style="display:none;" aria-live="polite"></div>
 

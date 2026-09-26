@@ -12,6 +12,7 @@ const emailService = require('./services/email');
 const { hashPassword, comparePassword } = require('./utils/hash');
 const { registerSchema, loginSchema, validateBody } = require('./middleware/validation');
 const { sanitizeModifierGroups, sanitizeDishOptionConfig } = require('./utils/menuOptions');
+const { checkSubscriptionKillSwitch, getSubscriptionKillSwitch, setSubscriptionKillSwitch } = require('./middleware/killSwitch');
 const errorHandler = require('./middleware/errorHandler');
 const { successResponse, errorResponse } = require('./utils/response');
 const requireVerifiedEmail = require('./middleware/requireVerifiedEmail');
@@ -554,7 +555,7 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
 });
 
 // ==================== BILLING ROUTES ====================
-app.post('/api/billing/checkout', authMiddleware, (req, res) => {
+app.post('/api/billing/checkout', authMiddleware, checkSubscriptionKillSwitch, (req, res) => {
   try {
     const restaurant = db.findRestaurantByUserId(req.user.userId);
     if (!restaurant) return res.status(404).json({ error: 'Restaurante no encontrado' });
@@ -974,6 +975,24 @@ app.post('/api/admin/settings/pricing', adminMiddleware, (req, res) => {
 
     const updated = db.updateSettings(payload);
     res.json({ success: true, settings: updated });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Admin Kill-Switch Control para Suscripciones y Registro
+app.get('/api/admin/killswitch', adminMiddleware, (req, res) => {
+  res.json({ success: true, allowNewSubscriptions: getSubscriptionKillSwitch() });
+});
+
+app.post('/api/admin/killswitch', adminMiddleware, (req, res) => {
+  try {
+    const { allowNewSubscriptions } = req.body;
+    if (typeof allowNewSubscriptions !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'Se requiere allowNewSubscriptions como booleano' });
+    }
+    const updated = setSubscriptionKillSwitch(allowNewSubscriptions);
+    res.json({ success: true, allowNewSubscriptions: updated });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }

@@ -1644,30 +1644,52 @@
     .menu-banner-hero {
       position: relative;
       width: 100%;
-      height: 190px;
-      max-height: 220px;
+      height: 220px;
+      min-height: 180px;
+      max-height: 300px;
       overflow: hidden;
       background: #0E1412;
       border-bottom: 1px solid var(--border-chalk);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .menu-banner-backdrop {
+      position: absolute;
+      inset: -20px;
+      background-position: center;
+      background-size: cover;
+      background-repeat: no-repeat;
+      filter: blur(24px) brightness(0.6);
+      transform: scale(1.15);
+      opacity: 0.85;
+      pointer-events: none;
+      z-index: 0;
     }
     .menu-banner-img {
+      position: relative;
+      z-index: 1;
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
       object-position: center;
       display: block;
-      transition: transform 0.4s ease;
+      filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.5));
+      transition: transform 0.3s ease;
     }
     .menu-banner-overlay {
       position: absolute;
       inset: 0;
       background: linear-gradient(
         to bottom,
-        rgba(14, 20, 18, 0.1) 0%,
-        rgba(14, 20, 18, 0.45) 50%,
-        rgba(14, 20, 18, 0.95) 100%
+        rgba(14, 20, 18, 0.05) 0%,
+        rgba(14, 20, 18, 0.25) 55%,
+        rgba(14, 20, 18, 0.92) 100%
       );
       pointer-events: none;
+      z-index: 2;
     }
     body.has-hero-banner .menu-header {
       margin-top: -36px;
@@ -1938,7 +1960,11 @@
 
     @media (max-width: 480px) {
       .menu-banner-hero {
-        height: 160px;
+        height: 180px;
+        min-height: 150px;
+      }
+      .menu-banner-img {
+        object-fit: contain !important;
       }
     }
 
@@ -1987,15 +2013,96 @@
         font-size: 1rem !important;
       }
       .menu-banner-hero {
-        height: 135px !important;
+        height: 150px !important;
+        min-height: 120px !important;
+      }
+      .menu-banner-img {
+        object-fit: contain !important;
       }
     }
 
     /* ==========================================================================
-       EL MOZO VIRTUAL: UPSELLING INTELIGENTE Y COMPLEMENTOS SUGERIDOS
-       ========================================================================== */
+    /* Mozo Virtual: Interruptor Opcional (Toggle Switch) */
+    .mozo-toggle-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: rgba(236, 201, 75, 0.04);
+      border: 1px solid rgba(236, 201, 75, 0.18);
+      border-radius: 10px;
+      margin: 14px 0 10px 0;
+    }
+    .mozo-toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .switch-ui {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    .switch-ui input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider-round {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: #2D3748;
+      transition: 0.25s;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .slider-round:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 2px;
+      bottom: 2px;
+      background-color: #CBD5E0;
+      transition: 0.25s;
+      border-radius: 50%;
+    }
+    .switch-ui input:checked + .slider-round {
+      background-color: #ECC94B;
+    }
+    .switch-ui input:checked + .slider-round:before {
+      transform: translateX(20px);
+      background-color: #0E1412;
+    }
+    .mozo-reason-banner {
+      font-size: 0.8rem;
+      color: #ECC94B;
+      background: rgba(236, 201, 75, 0.1);
+      border-left: 3px solid #ECC94B;
+      padding: 6px 10px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      line-height: 1.35;
+    }
+    .mozo-badge-tag {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: #68D391;
+      background: rgba(104, 211, 145, 0.15);
+      border: 1px solid rgba(104, 211, 145, 0.3);
+      padding: 1px 6px;
+      border-radius: 4px;
+      margin-bottom: 4px;
+    }
+
     .mozo-virtual-upsell-box {
-      margin: 14px 0 16px 0;
+      margin: 10px 0 16px 0;
       padding: 12px 14px;
       background: linear-gradient(135deg, rgba(236, 201, 75, 0.08) 0%, rgba(20, 28, 25, 0.95) 100%);
       border: 1px dashed rgba(236, 201, 75, 0.35);

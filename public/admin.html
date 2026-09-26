@@ -456,6 +456,34 @@
           </form>
         </div>
       </div>
+
+      <!-- Kill-Switch de Emergencia para Suscripciones y Registro -->
+      <div class="table-container" style="margin-top: 2rem;">
+        <div class="table-header">
+          <div class="table-title">
+            <i class="fa-solid fa-power-off" style="color:#F56565;"></i> Kill-Switch de Emergencia: Suscripciones y Registro
+          </div>
+          <span style="font-size:0.8rem; color:var(--text-muted);">Pausar temporalmente altas de cuentas y checkouts</span>
+        </div>
+        <div style="padding: 1.5rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+          <div>
+            <div style="font-weight:700; font-size:1rem; margin-bottom:4px; display:flex; align-items:center; gap:8px;">
+              <span>Estado del sistema:</span>
+              <span id="killswitch-badge" style="background:#22c55e; color:#052e16; font-size:0.85rem; padding:4px 10px; border-radius:6px; font-weight:700;">
+                🟢 Activo (Permitir Altas)
+              </span>
+            </div>
+            <p style="font-size:0.82rem; color:var(--text-muted); margin:0;">
+              Al pausar, los registros y checkouts devuelven 503 (SuscripcionesPausadas). Los menús públicos continúan 100% operativos.
+            </p>
+          </div>
+          <div>
+            <button type="button" id="btn-toggle-killswitch" onclick="toggleKillSwitchAdmin()" class="btn" style="background:#ef4444; color:#fff; font-weight:700; padding:0.6rem 1.2rem; border-radius:8px; border:none; cursor:pointer;">
+              <i class="fa-solid fa-pause"></i> Pausar Nuevas Suscripciones
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Modal: Invitar Restaurante Real -->
@@ -593,6 +621,7 @@
           renderDashboard(data);
           loadReviews();
           loadPricingSettingsAdmin();
+          loadKillSwitchAdmin();
         } else {
           currentKey = '';
           currentToken = '';
@@ -698,6 +727,7 @@
         renderDashboard(data);
         loadReviews();
         loadPricingSettingsAdmin();
+        loadKillSwitchAdmin();
       } catch (err) {
         if (errBox) {
           errBox.textContent = err.message;
@@ -1160,6 +1190,73 @@
       } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar Precios & Banner Promocional';
+      }
+    }
+
+    // =========================================================================
+    // KILL-SWITCH DE EMERGENCIA PARA SUSCRIPCIONES Y REGISTROS
+    // =========================================================================
+    let currentKillSwitchStatus = true;
+
+    async function loadKillSwitchAdmin() {
+      try {
+        const res = await fetch('/api/admin/killswitch', { headers: getAdminHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+        currentKillSwitchStatus = Boolean(data.allowNewSubscriptions);
+        updateKillSwitchUI(currentKillSwitchStatus);
+      } catch (err) {
+        console.warn('Error al cargar killswitch en admin:', err);
+      }
+    }
+
+    function updateKillSwitchUI(allowed) {
+      const badge = document.getElementById('killswitch-badge');
+      const btn = document.getElementById('btn-toggle-killswitch');
+      if (!badge || !btn) return;
+
+      if (allowed) {
+        badge.style.background = '#22c55e';
+        badge.style.color = '#052e16';
+        badge.innerHTML = '🟢 Activo (Permitir Altas)';
+        btn.style.background = '#ef4444';
+        btn.innerHTML = '<i class="fa-solid fa-pause"></i> Pausar Nuevas Suscripciones';
+      } else {
+        badge.style.background = '#ef4444';
+        badge.style.color = '#fff';
+        badge.innerHTML = '🔴 Pausado (Altas Bloqueadas - 503)';
+        btn.style.background = '#22c55e';
+        btn.innerHTML = '<i class="fa-solid fa-play"></i> Reanudar Nuevas Suscripciones';
+      }
+    }
+
+    async function toggleKillSwitchAdmin() {
+      const btn = document.getElementById('btn-toggle-killswitch');
+      const targetState = !currentKillSwitchStatus;
+      const confirmMsg = targetState
+        ? '¿Deseas reanudar las nuevas suscripciones y registros en la plataforma?'
+        : '¿ATENCIÓN: Deseas pausar temporalmente las nuevas altas y checkouts? Los registros y pagos devolverán código 503 (SuscripcionesPausadas).';
+
+      if (!confirm(confirmMsg)) return;
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
+
+      try {
+        const res = await fetch('/api/admin/killswitch', {
+          method: 'POST',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({ allowNewSubscriptions: targetState })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al actualizar Kill-Switch');
+
+        currentKillSwitchStatus = Boolean(data.allowNewSubscriptions);
+        updateKillSwitchUI(currentKillSwitchStatus);
+      } catch (err) {
+        alert(err.message || 'Error al alternar estado del Kill-Switch');
+      } finally {
+        btn.disabled = false;
       }
     }
 
