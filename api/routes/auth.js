@@ -1,7 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const { OAuth2Client } = require('google-auth-library');
 const db = require('../../src/db/db');
 const emailService = require('../services/email');
 const { hashPassword, comparePassword } = require('../utils/hash');
@@ -18,7 +17,6 @@ if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_menu_pizarron_2026';
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -37,38 +35,47 @@ function normalizeEmailInput(req, res, next) {
   next();
 }
 
-router.get('/google/config', (req, res) => {
+/**
+ * GET /api/auth/supabase-config
+ * Exposes Supabase URL and anon key to the browser client for OAuth flows.
+ * The anon key is intentionally public — it is protected by Row Level Security (RLS).
+ */
+router.get('/supabase-config', (req, res) => {
   res.setHeader('Cache-Control', 'public, max-age=300');
-  res.json({ clientId: GOOGLE_CLIENT_ID });
+  res.json({
+    supabaseUrl: process.env.SUPABASE_URL || '',
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || ''
+  });
 });
 
-router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
+router.post('/supabase-callback', checkSubscriptionKillSwitch, async (req, res, next) => {
   try {
-    if (!GOOGLE_CLIENT_ID) {
-      throw new AppError('El acceso con Google no está configurado todavía.', 503, 'GOOGLE_AUTH_NOT_CONFIGURED');
+    const accessToken = String(req.body?.accessToken || '');
+    if (!accessToken || accessToken.length > 10000) {
+      throw new AppError('No se recibió una sesión válida de Supabase.', 400, 'SUPABASE_ACCESS_TOKEN_REQUIRED');
     }
 
-    const credential = String(req.body?.credential || '');
-    if (!credential || credential.length > 10000) {
-      throw new AppError('No se recibió una credencial válida de Google.', 400, 'GOOGLE_CREDENTIAL_REQUIRED');
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      throw new AppError('La autenticación de Supabase no está disponible.', 503, 'SUPABASE_AUTH_UNAVAILABLE');
     }
 
-    let googleProfile;
-    try {
-      const ticket = await new OAuth2Client(GOOGLE_CLIENT_ID).verifyIdToken({
-        idToken: credential,
-        audience: GOOGLE_CLIENT_ID
-      });
-      googleProfile = ticket.getPayload();
-    } catch (error) {
-      throw new AppError('No se pudo verificar la cuenta de Google.', 401, 'INVALID_GOOGLE_CREDENTIAL');
+    const { data: authData, error: authError } = await supabase.auth.getUser(accessToken);
+    const supabaseUser = authData?.user;
+    if (authError || !supabaseUser?.id || !supabaseUser.email) {
+      throw new AppError('La sesión de Supabase no es válida o expiró.', 401, 'INVALID_SUPABASE_SESSION');
     }
 
-    if (!googleProfile?.sub || !googleProfile.email || googleProfile.email_verified !== true) {
+    const providers = supabaseUser.app_metadata?.providers || [];
+    if (supabaseUser.app_metadata?.provider !== 'google' && !providers.includes('google')) {
+      throw new AppError('La sesión recibida no corresponde a una cuenta Google.', 401, 'GOOGLE_PROVIDER_REQUIRED');
+    }
+
+    if (!supabaseUser.email_confirmed_at) {
       throw new AppError('La cuenta de Google debe tener un correo verificado.', 401, 'GOOGLE_EMAIL_NOT_VERIFIED');
     }
 
-    const email = googleProfile.email.trim().toLowerCase();
+    const email = supabaseUser.email.trim().toLowerCase();
     const requestedType = ['restaurant', 'perfumery', 'events'].includes(req.body?.businessType)
       ? req.body.businessType
       : 'restaurant';
@@ -79,15 +86,17 @@ router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
     if (!user) {
       const randomPassword = crypto.randomBytes(48).toString('hex');
       user = db.createUser({
+        id: supabaseUser.id,
         email,
         password: await hashPassword(randomPassword),
-        name: String(googleProfile.name || googleProfile.given_name || 'Responsable').slice(0, 80),
+        name: String(supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || 'Responsable').slice(0, 80),
         email_confirmed_at: new Date().toISOString()
       });
     }
 
     if (!restaurant) {
-      const restaurantName = requestedRestaurantName || String(googleProfile.name ? `Mi local (${googleProfile.name})` : 'Mi Restaurante').slice(0, 80);
+      const displayName = supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name;
+      const restaurantName = requestedRestaurantName || String(displayName ? `Mi local (${displayName})` : 'Mi Restaurante').slice(0, 80);
       restaurant = db.saveRestaurant(user.id, {
         name: restaurantName,
         bizName: restaurantName,

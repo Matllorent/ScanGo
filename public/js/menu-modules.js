@@ -1,13 +1,17 @@
 import { IceCreamWizard } from '/js/components/IceCreamWizard.js';
-    import { PerfumeryView } from '/js/components/PerfumeryView.js';
-    import { LoyaltyRewardsModal } from '/js/components/LoyaltyRewardsModal.js';
-    import { I18nCurrencyManager } from '/js/components/I18nCurrencyManager.js';
+import { PerfumeryView } from '/js/components/PerfumeryView.js';
+import { LoyaltyRewardsModal } from '/js/components/LoyaltyRewardsModal.js';
+import { I18nCurrencyManager } from '/js/components/I18nCurrencyManager.js';
+import { VirtualWaiter } from '/js/components/VirtualWaiter.js';
+import { GroupCartManager } from '/js/components/GroupCartManager.js';
 
-    // Expose classes on window
-    window.IceCreamWizard = IceCreamWizard;
-    window.PerfumeryView = PerfumeryView;
-    window.LoyaltyRewardsModal = LoyaltyRewardsModal;
-    window.I18nCurrencyManager = I18nCurrencyManager;
+// Expose classes on window
+window.IceCreamWizard = IceCreamWizard;
+window.PerfumeryView = PerfumeryView;
+window.LoyaltyRewardsModal = LoyaltyRewardsModal;
+window.I18nCurrencyManager = I18nCurrencyManager;
+window.VirtualWaiter = VirtualWaiter;
+window.GroupCartManager = GroupCartManager;
 
     // Initialize i18n & Currency Manager
     window.i18nManager = new I18nCurrencyManager({
@@ -125,3 +129,90 @@ import { IceCreamWizard } from '/js/components/IceCreamWizard.js';
         btnToggle.textContent = '✨ Colección Perfumería';
       }
     };
+
+    // Pedido Grupal en Tiempo Real: Inicializador global y gestor de eventos
+    window.initGroupCartManager = async function() {
+      if (!window.GroupCartManager) return null;
+      const urlParams = new URLSearchParams(window.location.search);
+      const mesa = urlParams.get('mesa') || urlParams.get('table');
+      if (!mesa) return null;
+
+      if (window.groupCartManagerInstance) {
+        return window.groupCartManagerInstance;
+      }
+
+      const restData = window.restaurantData || {};
+      window.groupCartManagerInstance = new window.GroupCartManager({
+        restaurantData: restData,
+        restaurantSlug: restData.slug,
+        tableNumber: mesa,
+        onCartUpdate: (updatedCart, meta) => {
+          if (typeof window.syncCartFromGroupManager === 'function') {
+            window.syncCartFromGroupManager(updatedCart, meta);
+          }
+        }
+      });
+
+      await window.groupCartManagerInstance.init();
+
+      if (typeof window.syncCartFromGroupManager === 'function') {
+        window.syncCartFromGroupManager(window.groupCartManagerInstance.cart, { trigger: 'init' });
+      }
+
+      return window.groupCartManagerInstance;
+    };
+
+    // Alternar vista consolidada de la mesa
+    window.toggleGroupConsolidatedView = function() {
+      const container = document.getElementById('groupConsolidatedContainer');
+      const btn = document.getElementById('btnToggleGroupConsolidated');
+      if (!container || !window.groupCartManagerInstance) return;
+
+      if (container.style.display === 'block') {
+        container.style.display = 'none';
+        if (btn) btn.innerHTML = '<span>👥 Ver Consolidado por Comensal y Cocina</span>';
+        return;
+      }
+
+      const consolidated = window.groupCartManagerInstance.consolidateOrder();
+      const curr = window.restaurantData?.currency || '$';
+
+      let html = `<div style="font-weight:700; color:var(--chalk-gold); margin-bottom:8px; font-size:0.95rem;">👥 Resumen Mesa ${window.groupCartManagerInstance.tableNumber} (${consolidated.participantCount} comensales)</div>`;
+
+      html += `<div style="margin-bottom:10px;"><strong style="font-size:0.8rem; color:#90CDF4; text-transform:uppercase;">Por Comensal:</strong>`;
+      Object.entries(consolidated.byParticipant).forEach(([person, data]) => {
+        html += `
+          <div style="background:rgba(0,0,0,0.3); border-radius:6px; padding:6px 10px; margin-top:4px;">
+            <div style="display:flex; justify-content:space-between; font-weight:700; font-size:0.84rem; color:#fff;">
+              <span>👤 ${person}</span>
+              <span style="color:var(--chalk-gold); font-family:var(--font-mono);">${curr} ${data.subtotal.toFixed(2)}</span>
+            </div>
+            <div style="font-size:0.75rem; color:var(--chalk-muted); margin-top:2px;">
+              ${data.items.map(it => `${it.qty}x ${it.dish?.name}${it.note ? ` (${it.note})` : ''}`).join(' • ')}
+            </div>
+          </div>
+        `;
+      });
+      html += `</div>`;
+
+      html += `<div><strong style="font-size:0.8rem; color:#68D391; text-transform:uppercase;">🍳 Total para Cocina:</strong>`;
+      html += `<div style="background:rgba(0,0,0,0.3); border-radius:6px; padding:6px 10px; margin-top:4px; font-size:0.8rem;">`;
+      consolidated.kitchenConsolidated.forEach(k => {
+        html += `<div>▪ <strong>${k.quantity}x</strong> ${k.name}${k.notes.length ? ` <em style="color:#ECC94B;">[${k.notes.join(' | ')}]</em>` : ''}</div>`;
+      });
+      html += `</div></div>`;
+
+      container.innerHTML = html;
+      container.style.display = 'block';
+      if (btn) btn.innerHTML = '<span>🔼 Ocultar Consolidado de la Mesa</span>';
+    };
+
+    // Auto-inicializar si hay mesa en la URL al cargar el DOM
+    window.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('mesa') || urlParams.get('table')) {
+        setTimeout(() => {
+          if (window.initGroupCartManager) window.initGroupCartManager();
+        }, 150);
+      }
+    });

@@ -349,6 +349,11 @@
         const waiterTableNum = document.getElementById('waiterTableNum');
         if (orderTable && !orderTable.value) orderTable.value = `Mesa ${mesaParam}`;
         if (waiterTableNum && !waiterTableNum.value) waiterTableNum.value = `Mesa ${mesaParam}`;
+
+        // Auto-conectar dispositivos de la mesa al Pedido Grupal en Tiempo Real
+        if (typeof window.initGroupCartManager === 'function') {
+          window.initGroupCartManager();
+        }
       }
 
       // Loyalty Points Chip Visibility Control
@@ -1206,6 +1211,14 @@
     }
 
     function addDishToCart(dish, note, choices) {
+      if (window.groupCartManagerInstance && window.groupCartManagerInstance.isGroupActive()) {
+        const added = window.groupCartManagerInstance.addItem(dish, choices, note);
+        if (added) {
+          cart = window.groupCartManagerInstance.cart;
+          return;
+        }
+      }
+
       const choicesKey = JSON.stringify(choices || []);
       const matchingItem = Object.values(cart).find(item => item.dish.id === dish.id && item.note === note && JSON.stringify(item.choices || []) === choicesKey);
       if (matchingItem) {
@@ -1225,12 +1238,30 @@
 
     function editCartItemNote(cartItemId) {
       if (cart[cartItemId]) {
+        if (window.groupCartManagerInstance && window.groupCartManagerInstance.isGroupActive()) {
+          if (!window.groupCartManagerInstance.canEditItem(cart[cartItemId])) {
+            alert(`Solo ${cart[cartItemId].orderedBy || 'quien lo pidió'} puede modificar notas de este plato.`);
+            return;
+          }
+        }
         openDishNoteModal({ mode: 'edit', cartItemId });
       }
     }
 
     function changeCartQty(cartItemId, delta) {
       if (!cart[cartItemId]) return;
+
+      // Restricción: Cada comensal solo puede editar o eliminar los platos creados bajo su propio nombre
+      if (window.groupCartManagerInstance && window.groupCartManagerInstance.isGroupActive()) {
+        const success = window.groupCartManagerInstance.changeQty(cartItemId, delta);
+        if (!success) return;
+        cart = window.groupCartManagerInstance.cart;
+        updateCartUI();
+        renderDishes();
+        renderCartModalList();
+        return;
+      }
+
       cart[cartItemId].qty += delta;
       if (cart[cartItemId].qty <= 0) {
         delete cart[cartItemId];
@@ -1239,6 +1270,16 @@
       renderDishes();
       renderCartModalList();
     }
+
+    // Sincronización en tiempo real desde GroupCartManager
+    window.syncCartFromGroupManager = function(updatedCart, meta) {
+      cart = updatedCart || {};
+      updateCartUI();
+      renderDishes();
+      if (document.getElementById('cartModal')?.classList.contains('active')) {
+        renderCartModalList();
+      }
+    };
 
     function updateCartUI() {
       const totalCount = Object.values(cart).reduce((sum, item) => sum + item.qty, 0);
@@ -1270,6 +1311,12 @@
       const list = document.getElementById('cartItemsList');
       const currency = restaurantData.currency || '$';
       const items = Object.values(cart);
+      const isGroup = Boolean(window.groupCartManagerInstance && window.groupCartManagerInstance.isGroupActive());
+
+      const btnConsolidate = document.getElementById('btnToggleGroupConsolidated');
+      if (btnConsolidate) {
+        btnConsolidate.style.display = (isGroup && items.length > 0) ? 'flex' : 'none';
+      }
 
       if (!items.length) {
         list.innerHTML = '<p style="color:var(--chalk-dim); text-align:center; padding:16px;">El pedido está vacío.</p>';
@@ -1279,6 +1326,23 @@
 
       let html = '';
       Object.entries(cart).forEach(([cartItemId, item]) => {
+        const canEdit = !isGroup || window.groupCartManagerInstance.canEditItem(item);
+        const orderedBy = item.orderedBy;
+        const currentUserName = window.groupCartManagerInstance?.userName;
+        const isOwn = isGroup && orderedBy && currentUserName &&
+                      orderedBy.toLowerCase() === currentUserName.toLowerCase();
+
+        const orderedByBadge = orderedBy ? `
+          <div style="margin-bottom:3px;">
+            <span class="cart-item-ordered-by ${isOwn ? 'is-own' : ''}">
+              👤 ${escapeHtml(orderedBy)} ${isOwn ? '(Tú)' : ''}
+            </span>
+          </div>
+        ` : '';
+
+        // Atribución de nombre solicitada: "Juan: Hamburguesa Criolla"
+        const displayTitle = orderedBy ? `${escapeHtml(orderedBy)}: ${escapeHtml(item.dish.name)}` : escapeHtml(item.dish.name);
+
         const itemDesc = item.dish.description ? `<div style="font-size:0.75rem; color:var(--chalk-dim); margin-top:2px;">${escapeHtml(item.dish.description)}</div>` : '';
         const itemNote = item.note ? `<div class="cart-item-note">Nota: ${escapeHtml(item.note)}</div>` : '';
         const optionSummary = getCartOptionSummary(item);
@@ -1287,20 +1351,27 @@
         const formattedPrice = formatMenuPrice(unitPrice);
         const formattedLineTotal = formatMenuPrice(unitPrice * item.qty);
 
+        const editNoteBtn = canEdit ? `
+          <button type="button" class="cart-note-edit" data-cart-id="${escapeHtml(cartItemId)}" onclick="editCartItemNote(this.dataset.cartId)">${item.note ? 'Editar nota' : 'Agregar nota'}</button>
+        ` : `<span style="font-size:0.72rem; color:var(--chalk-dim); font-style:italic;">🔒 Pedido por ${escapeHtml(orderedBy || 'otro comensal')}</span>`;
+
+        const disabledAttr = canEdit ? '' : `disabled title="Solo ${escapeHtml(orderedBy || 'quien lo pidió')} puede modificar este plato"`;
+
         html += `
           <div class="cart-item">
             <div style="flex:1; min-width:0;">
-              <div class="cart-item-title">${escapeHtml(item.dish.name)}</div>
+              ${orderedByBadge}
+              <div class="cart-item-title">${displayTitle}</div>
               ${itemDesc}
               ${itemOptions}
               ${itemNote}
               <div class="cart-item-price">${formattedPrice} x ${item.qty} = ${formattedLineTotal}</div>
-              <button type="button" class="cart-note-edit" data-cart-id="${escapeHtml(cartItemId)}" onclick="editCartItemNote(this.dataset.cartId)">${item.note ? 'Editar nota' : 'Agregar nota'}</button>
+              ${editNoteBtn}
             </div>
             <div class="cart-qty-ctrl">
-              <button class="btn-qty" data-cart-id="${escapeHtml(cartItemId)}" onclick="changeCartQty(this.dataset.cartId, -1)" aria-label="Quitar una unidad">-</button>
+              <button class="btn-qty" ${disabledAttr} data-cart-id="${escapeHtml(cartItemId)}" onclick="changeCartQty(this.dataset.cartId, -1)" aria-label="Quitar una unidad">-</button>
               <span style="font-family:var(--font-mono);">${item.qty}</span>
-              <button class="btn-qty" data-cart-id="${escapeHtml(cartItemId)}" onclick="changeCartQty(this.dataset.cartId, 1)" aria-label="Agregar una unidad">+</button>
+              <button class="btn-qty" ${disabledAttr} data-cart-id="${escapeHtml(cartItemId)}" onclick="changeCartQty(this.dataset.cartId, 1)" aria-label="Agregar una unidad">+</button>
             </div>
           </div>
         `;
@@ -1472,6 +1543,7 @@
         const zoneSelect = document.getElementById('deliveryZoneSelect');
         const tableNumber = document.getElementById('orderTable').value.trim() || '1';
         const address = document.getElementById('orderAddress').value.trim();
+        const isGroupOrder = Boolean(window.groupCartManagerInstance && window.groupCartManagerInstance.isGroupActive());
         const quoteResponse = await fetch('/api/orders/quote', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1483,10 +1555,14 @@
             deliveryAddress: mode === 'DELIVERY' ? address : '',
             currency,
             notes,
+            isGroupOrder,
+            participants: window.groupCartManagerInstance ? Array.from(window.groupCartManagerInstance.participants) : [],
             items: items.map(item => ({
               dishId: item.dish.id,
               quantity: item.qty,
               note: item.note || '',
+              orderedBy: item.orderedBy || '',
+              orderedById: item.orderedById || '',
               choices: (item.choices || []).map(choice => ({
                 groupId: choice.groupId,
                 selections: choice.selections.map(selection => ({
@@ -1510,10 +1586,17 @@
           : (appliedCoupon?.type === 'free_delivery' && mode === 'DELIVERY' ? currentDelivery : 0);
         const total = Math.max(0, subtotal + currentDelivery - currentDiscount);
 
-        let msg = `📋 *NUEVO PEDIDO - ${restaurantData.name.toUpperCase()}*\n`;
+        let msg = isGroupOrder
+          ? `👥 *PEDIDO GRUPAL COLABORATIVO - ${restaurantData.name.toUpperCase()}*\n`
+          : `📋 *NUEVO PEDIDO - ${restaurantData.name.toUpperCase()}*\n`;
         msg += `👤 *Cliente:* ${customerName}\n`;
         if (mode === 'LOCAL') {
-          msg += `🍽️ *Modalidad:* En el local - *${tableNumber || 'Mesa no especificada'}*\n\n`;
+          msg += `🍽️ *Modalidad:* En el local - *${tableNumber || 'Mesa no especificada'}*\n`;
+          if (isGroupOrder && window.groupCartManagerInstance?.participants?.size > 0) {
+            msg += `👥 *Comensales en la mesa:* ${Array.from(window.groupCartManagerInstance.participants).join(', ')}\n\n`;
+          } else {
+            msg += `\n`;
+          }
         } else if (mode === 'TAKEAWAY') {
           msg += `🛍️ *Modalidad:* Retiro en el local (Take Away)\n\n`;
         } else {
@@ -1525,7 +1608,8 @@
 
         msg += `*DETALLE DEL PEDIDO:*\n`;
         quote.itemsSnapshot.forEach((line, index) => {
-          msg += `▪ ${line.quantity}x ${line.name} - ${currency} ${line.totalItemAmount.toFixed(2)}\n`;
+          const authorTag = line.orderedBy ? ` (👤 ${line.orderedBy})` : '';
+          msg += `▪ ${line.quantity}x ${line.name}${authorTag} - ${currency} ${line.totalItemAmount.toFixed(2)}\n`;
           const optionSummary = (line.optionsSnapshot || []).flatMap(group => (group.selections || []).map(selection => {
             const label = selection.quantity > 1 ? `${selection.quantity}x ${selection.name}` : selection.name;
             return group.kind === 'presentation' ? label : `${group.groupName}: ${label}`;
@@ -1541,6 +1625,18 @@
           }
         });
 
+        // Consolidación de pedidos para Cocina en pedidos grupales
+        if (isGroupOrder && window.groupCartManagerInstance) {
+          const consolidated = window.groupCartManagerInstance.consolidateOrder();
+          if (consolidated.kitchenConsolidated.length > 0) {
+            msg += `\n🍳 *CONSOLIDADO PARA COCINA:*\n`;
+            consolidated.kitchenConsolidated.forEach(k => {
+              msg += `▪ ${k.quantity}x ${k.name}\n`;
+              if (k.notes.length) msg += `   ↳ ${k.notes.join(' | ')}\n`;
+            });
+          }
+        }
+
         if (notes) msg += `\n📝 *Aclaraciones:* ${notes}\n`;
         msg += `\n💵 *Subtotal:* ${currency} ${subtotal.toFixed(2)}\n`;
         if (appliedCoupon && currentDiscount > 0) msg += `🎟️ *Descuento Cupón (${appliedCoupon.code}):* -${currency} ${currentDiscount.toFixed(2)}\n`;
@@ -1550,6 +1646,35 @@
         if (payment.includes('Transferencia')) msg += `ℹ️ _Se adjuntará el comprobante de transferencia por este chat._\n`;
         if (restaurantData.paymentLink) msg += `🔗 _Link de Pago:_ ${restaurantData.paymentLink}\n`;
         msg += `\n_Enviado desde ScanGo (Menú Digital)_`;
+
+        // Registrar pedido en backend
+        fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            restaurantId: restaurantData.id,
+            tableNumber,
+            customerName,
+            customerPhone: '',
+            deliveryAddress: mode === 'DELIVERY' ? address : '',
+            currency,
+            notes,
+            isGroupOrder,
+            participants: window.groupCartManagerInstance ? Array.from(window.groupCartManagerInstance.participants) : [],
+            items: items.map(item => ({
+              dishId: item.dish.id,
+              quantity: item.qty,
+              note: item.note || '',
+              orderedBy: item.orderedBy || '',
+              orderedById: item.orderedById || '',
+              choices: item.choices || []
+            }))
+          })
+        }).catch(() => {});
+
+        if (isGroupOrder && window.groupCartManagerInstance) {
+          window.groupCartManagerInstance.clearTableCart();
+        }
 
         const rawPhone = (restaurantData.phone || '').replace(/[^0-9]/g, '');
         const waUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`;
@@ -1681,8 +1806,8 @@
             : weatherMatches;
           const candidates = relevantMatches.length ? relevantMatches : weatherMatches;
           let reason = '🌤️ Te recomendamos una opción ideal para el clima de hoy.';
-          if (weatherContext === 'muy_caluroso') {
-            reason = `🔥 ¡Hace más de 30°C hoy${Number.isFinite(temperature) ? ` (${Math.round(temperature)}°C)` : ''}! Te sugerimos acompañar tu plato con ${candidates[0].name}.`;
+          if (hotDay) {
+            reason = `🔥 ¡Hace calor! ¿Querés agregar una ${candidates[0].name} helada con 15% OFF?`;
           } else if (weatherContext === 'muy_frio') {
             reason = `🥣 ¡Hoy está muy frío${Number.isFinite(temperature) ? ` (${Math.round(temperature)}°C)` : ''}! ${candidates[0].name} es ideal para entrar en calor.`;
           }
