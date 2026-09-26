@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS public.restaurants (
   phone TEXT,
   theme TEXT DEFAULT 'emerald',
   logo_url TEXT,
+  business_type TEXT NOT NULL DEFAULT 'restaurant',
   wifi JSONB DEFAULT '{"ssid": "", "password": ""}'::jsonb,
   categories JSONB DEFAULT '[]'::jsonb,
   dishes JSONB DEFAULT '[]'::jsonb,
@@ -38,6 +39,9 @@ CREATE TABLE IF NOT EXISTS public.restaurants (
 
 ALTER TABLE public.restaurants
   ADD COLUMN IF NOT EXISTS modifier_groups JSONB DEFAULT '[]'::jsonb;
+
+ALTER TABLE public.restaurants
+  ADD COLUMN IF NOT EXISTS business_type TEXT NOT NULL DEFAULT 'restaurant';
 
 CREATE INDEX IF NOT EXISTS idx_restaurants_slug ON public.restaurants(slug);
 CREATE INDEX IF NOT EXISTS idx_restaurants_user_id ON public.restaurants(user_id);

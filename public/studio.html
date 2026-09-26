@@ -124,9 +124,8 @@
               <label class="form-label">Rubro / Tipo de Comercio</label>
               <select id="inputBusinessType" class="form-select" onchange="updateLiveState()">
                 <option value="restaurant">🍽️ Restaurante, Bar & Gastronomía General</option>
-                <option value="heladeria">🍦 Heladería & Postres</option>
-                <option value="perfumeria">🌸 Perfumería, Fragancias & Cosmética</option>
-                <option value="cafeteria">☕ Cafetería & Pastelería</option>
+                <option value="perfumery">🌸 Perfumería, Fragancias & Cosmética</option>
+                <option value="events">🎉 Eventos & Catering</option>
               </select>
               <div class="input-hint">Personaliza automáticamente las herramientas activas según el rubro de tu negocio.</div>
             </div>
@@ -362,7 +361,7 @@
             <p style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">
               Permite a tus clientes reservar mesa directamente desde el menú con fecha, hora y comensales.
             </p>
-            <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+            <div id="perfumeryCatalogControls" data-business-type="perfumery" style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
               <div>
                 <strong style="font-size:12px; color:#fff;">Activar Botón "Reservar Mesa"</strong>
                 <div style="font-size:10px; color:var(--text-dim);">Si se desactiva, el botón se oculta de forma estricta en el menú público.</div>
@@ -806,7 +805,7 @@
   </div>
 
   <!-- Modal Catálogo de Perfumería & Cosmética -->
-  <div id="perfumeryPresetsModal" class="modal-overlay">
+  <div id="perfumeryPresetsModal" class="modal-overlay" data-business-type="perfumery">
     <div class="modal-box" style="max-width: 650px;">
       <button class="modal-close" onclick="closePerfumeryPresetsModal()">✕</button>
       <h3 class="modal-title" style="display:flex; align-items:center; gap:8px;">

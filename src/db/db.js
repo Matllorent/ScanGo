@@ -24,6 +24,29 @@ function writeJson(file, data) {
   }
 }
 
+function normalizeBusinessType(value) {
+  const aliases = {
+    restaurante: 'restaurant',
+    perfumeria: 'perfumery',
+    heladeria: 'restaurant',
+    cafeteria: 'restaurant'
+  };
+  const normalized = aliases[value] || value;
+  return ['restaurant', 'perfumery', 'events'].includes(normalized) ? normalized : 'restaurant';
+}
+
+function normalizeRestaurantBusinessType(restaurant) {
+  if (!restaurant) return restaurant;
+  if (restaurant.businessType === 'heladeria' && restaurant.allowIceCreamWizard === undefined) {
+    restaurant.allowIceCreamWizard = true;
+  }
+  if (['perfumeria', 'perfumery'].includes(restaurant.businessType) && restaurant.allowPerfumery === undefined) {
+    restaurant.allowPerfumery = true;
+  }
+  restaurant.businessType = normalizeBusinessType(restaurant.businessType);
+  return restaurant;
+}
+
 // Supabase Cloud PostgreSQL Dual-Mode Adapter
 let supabase = null;
 const supabaseKey =
@@ -62,6 +85,7 @@ if (process.env.SUPABASE_URL && supabaseKey) {
             theme: r.theme,
             logoUrl: r.logo_url,
             bannerUrl: r.banner_url || r.bannerUrl || null,
+            businessType: normalizeBusinessType(r.business_type),
             layout: r.layout || 'classic',
             wifi: r.wifi,
             categories: r.categories,
@@ -71,7 +95,7 @@ if (process.env.SUPABASE_URL && supabaseKey) {
             subscription: r.subscription,
             createdAt: r.created_at,
             updatedAt: r.updated_at
-          }));
+          })).map(normalizeRestaurantBusinessType);
           writeJson(RESTAURANTS_FILE, mapped);
         }
       } catch (err) {
@@ -176,15 +200,15 @@ const db = {
   // Restaurants & Menus
   findRestaurantBySlug(slug) {
     const rests = readJson(RESTAURANTS_FILE, []);
-    return rests.find(r => (r.slug || '').toLowerCase() === (slug || '').toLowerCase()) || null;
+    return normalizeRestaurantBusinessType(rests.find(r => (r.slug || '').toLowerCase() === (slug || '').toLowerCase()) || null);
   },
   findRestaurantByUserId(userId) {
     const rests = readJson(RESTAURANTS_FILE, []);
-    return rests.find(r => r.userId === userId) || null;
+    return normalizeRestaurantBusinessType(rests.find(r => r.userId === userId) || null);
   },
   findRestaurantById(id) {
     const rests = readJson(RESTAURANTS_FILE, []);
-    return rests.find(r => r.id === id) || null;
+    return normalizeRestaurantBusinessType(rests.find(r => r.id === id) || null);
   },
   saveRestaurant(userId, data) {
     const rests = readJson(RESTAURANTS_FILE, []);
@@ -207,9 +231,11 @@ const db = {
         createdAt: new Date().toISOString(),
         ...data
       };
+      normalizeRestaurantBusinessType(rest);
       rests.push(rest);
     } else {
       Object.assign(rest, data);
+      normalizeRestaurantBusinessType(rest);
       rest.updatedAt = new Date().toISOString();
     }
     writeJson(RESTAURANTS_FILE, rests);
@@ -228,6 +254,7 @@ const db = {
         theme: rest.theme,
         logo_url: rest.logoUrl,
         banner_url: rest.bannerUrl || null,
+        business_type: rest.businessType,
         layout: rest.layout || 'classic',
         wifi: rest.wifi,
         categories: rest.categories,

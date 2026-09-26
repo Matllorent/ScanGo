@@ -7,7 +7,8 @@ const registerSchema = z.object({
   password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres' }).max(100),
   name: z.string().max(80).optional(),
   restaurantName: z.string().max(80).optional(),
-  bizName: z.string().max(80).optional()
+  bizName: z.string().max(80).optional(),
+  businessType: z.enum(['restaurant', 'perfumery', 'events']).optional().default('restaurant')
 });
 
 // Schema for login payload

@@ -349,6 +349,38 @@
       }
     };
 
+    function normalizeBusinessType(value) {
+      if (value === 'perfumeria') return 'perfumery';
+      if (value === 'events' || value === 'perfumery') return value;
+      return 'restaurant';
+    }
+
+    function normalizeRestaurantBusinessType(profile) {
+      if (profile.businessType === 'heladeria' && profile.allowIceCreamWizard === undefined) {
+        profile.allowIceCreamWizard = true;
+      }
+      if (profile.businessType === 'perfumeria' && profile.allowPerfumery === undefined) {
+        profile.allowPerfumery = true;
+      }
+      profile.businessType = normalizeBusinessType(profile.businessType);
+      return profile;
+    }
+
+    function updateBusinessTypeControls() {
+      const businessType = document.getElementById('inputBusinessType')?.value || 'restaurant';
+      const isPerfumery = businessType === 'perfumery';
+      const controls = document.getElementById('perfumeryCatalogControls');
+      const modal = document.getElementById('perfumeryPresetsModal');
+      const toggle = document.getElementById('inputAllowPerfumery');
+      if (controls) controls.style.display = isPerfumery ? 'flex' : 'none';
+      if (modal) modal.style.display = isPerfumery ? '' : 'none';
+      if (!isPerfumery) {
+        if (modal) modal.classList.remove('active');
+        if (toggle) toggle.checked = false;
+        restaurant.allowPerfumery = false;
+      }
+    }
+
     // Initialize & Load User/Restaurant from Real Database
     async function initStudio() {
       const token = localStorage.getItem('menu_pizarron_token');
@@ -385,7 +417,7 @@
             themeFont: 'sans',
             layout: 'classic',
             bannerUrl: null,
-            businessType: 'restaurante',
+            businessType: 'restaurant',
             allowLoyaltyPoints: false,
             allowIceCreamWizard: false,
             allowPerfumery: false,
@@ -407,12 +439,16 @@
           };
         }
 
+        normalizeRestaurantBusinessType(restaurant);
+
         // Merge locally configured preferences if present
         const savedRest = localStorage.getItem('menu_pizarron_restaurant');
         if (savedRest) {
           try {
             const parsed = JSON.parse(savedRest);
-            if (parsed.businessType && !restaurant.businessType) restaurant.businessType = parsed.businessType;
+            if (parsed.businessType && !restaurant.updatedAt) {
+              restaurant.businessType = normalizeBusinessType(parsed.businessType);
+            }
             if (parsed.allowIceCreamWizard !== undefined && restaurant.allowIceCreamWizard === undefined) restaurant.allowIceCreamWizard = parsed.allowIceCreamWizard;
             if (parsed.allowPerfumery !== undefined && restaurant.allowPerfumery === undefined) restaurant.allowPerfumery = parsed.allowPerfumery;
             if (parsed.allowLoyaltyPoints !== undefined && restaurant.allowLoyaltyPoints === undefined) restaurant.allowLoyaltyPoints = parsed.allowLoyaltyPoints;
@@ -525,7 +561,7 @@
 
       // Business Type selector
       const bizSelect = document.getElementById('inputBusinessType');
-      if (bizSelect) bizSelect.value = restaurant.businessType || 'restaurante';
+      if (bizSelect) bizSelect.value = normalizeBusinessType(restaurant.businessType);
 
       // Loyalty points toggle
       const loyaltyCheckbox = document.getElementById('inputAllowLoyaltyPoints');
@@ -546,10 +582,11 @@
       // Perfumery toggle
       const perfumeryCheckbox = document.getElementById('inputAllowPerfumery');
       if (perfumeryCheckbox) {
-        perfumeryCheckbox.checked = restaurant.allowPerfumery === true || (restaurant.businessType === 'perfumeria' && restaurant.allowPerfumery !== false);
+        perfumeryCheckbox.checked = restaurant.allowPerfumery === true || (restaurant.businessType === 'perfumery' && restaurant.allowPerfumery !== false);
         const sliderP = document.getElementById('sliderPerfumery');
         if (sliderP) sliderP.style.backgroundColor = perfumeryCheckbox.checked ? '#38A169' : '#2a3a33';
       }
+      updateBusinessTypeControls();
 
       // Review photo selector default
       setReviewPhotoOption('logo');
@@ -2656,7 +2693,7 @@
       // Business Type selector
       const bizSelect = document.getElementById('inputBusinessType');
       if (bizSelect) {
-        restaurant.businessType = bizSelect.value;
+        restaurant.businessType = normalizeBusinessType(bizSelect.value);
       }
 
       // Loyalty points toggle
@@ -2682,6 +2719,7 @@
         const sliderP = document.getElementById('sliderPerfumery');
         if (sliderP) sliderP.style.backgroundColor = perfumeryCheckbox.checked ? '#38A169' : '#2a3a33';
       }
+      updateBusinessTypeControls();
 
       // Social links
       restaurant.instagram = document.getElementById('inputInstagram').value.trim();

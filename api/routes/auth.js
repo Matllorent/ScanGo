@@ -41,7 +41,7 @@ function normalizeEmailInput(req, res, next) {
  */
 router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, validateBody(registerSchema), async (req, res, next) => {
   try {
-    const { email, password, name, restaurantName, bizName } = req.body;
+    const { email, password, name, restaurantName, bizName, businessType } = req.body;
 
     // Disposable domains check
     const disposableDomains = ['yopmail.com','tempmail.com','guerrillamail.com','10minutemail.com','throwaway.email','mailinator.com','trashmail.com','fakeinbox.com','sharklasers.com','guerrillamailblock.com','grr.la','dispostable.com','temp-mail.org','mohmal.com','maildrop.cc'];
@@ -68,7 +68,7 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
           password,
           options: {
             emailRedirectTo: redirectUrl,
-            data: { name, restaurantName: restaurantName || bizName }
+            data: { name, restaurantName: restaurantName || bizName, businessType }
           }
         });
         if (!authError && authData) {
@@ -99,6 +99,8 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
       currency: '$',
       phone: '59899123456',
       theme: 'emerald',
+      businessType,
+      allowPerfumery: businessType === 'perfumery',
       wifi: { ssid: 'Restaurante_Clientes', password: 'pizarronrico' },
       categories: [
         { id: 'cat_hamburguesas', name: 'Burgers Artesanales' },

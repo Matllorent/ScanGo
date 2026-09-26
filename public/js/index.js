@@ -75,7 +75,7 @@ function openAuthModal(mode = 'register') {
         const res = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, restaurantName, email, password })
+          body: JSON.stringify({ name, restaurantName, businessType, email, password })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error al crear la cuenta');
@@ -83,8 +83,8 @@ function openAuthModal(mode = 'register') {
         // Apply chosen business type and intelligent feature defaults
         if (data.restaurant) {
           data.restaurant.businessType = businessType;
-          data.restaurant.allowIceCreamWizard = (businessType === 'heladeria');
-          data.restaurant.allowPerfumery = (businessType === 'perfumeria');
+          data.restaurant.allowIceCreamWizard = false;
+          data.restaurant.allowPerfumery = (businessType === 'perfumery');
           data.restaurant.allowLoyaltyPoints = false;
         }
 

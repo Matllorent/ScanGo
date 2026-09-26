@@ -180,29 +180,50 @@
       const themeClass = validThemes.includes(restaurantData.theme) ? `theme-${restaurantData.theme}` : 'theme-emerald';
       document.body.className = `${themeClass} font-${restaurantData.themeFont || 'serif'} ${layoutClass}`;
 
-      // Responsive Hero Banner Rendering (Contain con fondo difuminado elegante para visualización 100% completa)
+      // Render the hero image and temporarily move the existing brand/status nodes into it.
       const bannerEl = document.getElementById('menuBannerHero');
+      const logoContainer = document.getElementById('restaurantLogoContainer');
+      const heroStatusBadge = document.getElementById('statusOpenClosedBadge');
+      const statusRow = document.querySelector('.status-pill-row');
+      const restaurantTitle = document.getElementById('restaurantName');
+      const restoreHeaderBranding = () => {
+        if (logoContainer && restaurantTitle) restaurantTitle.parentNode.insertBefore(logoContainer, restaurantTitle);
+        if (heroStatusBadge && statusRow) statusRow.insertBefore(heroStatusBadge, statusRow.firstChild);
+      };
       if (bannerEl) {
         if (restaurantData.bannerUrl) {
           const bannerSrc = escapeHtml(restaurantData.bannerUrl);
-          bannerEl.style.display = 'flex';
+          bannerEl.style.display = 'block';
           bannerEl.innerHTML = `
-            <div class="menu-banner-backdrop" style="background-image: url('${bannerSrc}');" aria-hidden="true"></div>
-            <img src="${bannerSrc}" alt="Portada de ${escapeHtml(restaurantData.name)}" class="menu-banner-img" loading="eager" onerror="this.parentElement.style.display='none'; document.body.classList.remove('has-hero-banner');">
-            <div class="menu-banner-overlay" aria-hidden="true"></div>
+            <div class="menu-banner-media">
+              <img src="${bannerSrc}" alt="Portada de ${escapeHtml(restaurantData.name)}" class="menu-banner-img" loading="eager">
+              <div class="menu-banner-overlay" aria-hidden="true"></div>
+            </div>
+            <div class="menu-banner-status-slot"></div>
+            <div class="menu-banner-logo-slot"></div>
           `;
+          bannerEl.querySelector('.menu-banner-logo-slot').append(logoContainer);
+          bannerEl.querySelector('.menu-banner-status-slot').append(heroStatusBadge);
           document.body.classList.add('has-hero-banner');
+          bannerEl.querySelector('.menu-banner-img').addEventListener('error', () => {
+            bannerEl.style.display = 'none';
+            document.body.classList.remove('has-hero-banner');
+            restoreHeaderBranding();
+          }, { once: true });
         } else {
           bannerEl.style.display = 'none';
           bannerEl.innerHTML = '';
           document.body.classList.remove('has-hero-banner');
+          restoreHeaderBranding();
         }
       }
 
       if (restaurantData.logoUrl) {
-        document.getElementById('restaurantLogoContainer').innerHTML = `
+        logoContainer.innerHTML = `
           <img src="${restaurantData.logoUrl}" alt="Logo" class="restaurant-logo">
         `;
+      } else {
+        logoContainer.innerHTML = '';
       }
 
       // Show or Hide Reservation Chip strictly
@@ -341,7 +362,7 @@
       const isHeladeria = restaurantData.allowIceCreamWizard === true || 
         (restaurantData.businessType === 'heladeria' && restaurantData.allowIceCreamWizard !== false);
       const isPerfumeria = restaurantData.allowPerfumery === true || 
-        (restaurantData.businessType === 'perfumeria' && restaurantData.allowPerfumery !== false);
+        (['perfumery', 'perfumeria'].includes(restaurantData.businessType) && restaurantData.allowPerfumery !== false);
 
       const btnIceCream = document.getElementById('btnOpenIceCreamWizard');
       if (btnIceCream) {

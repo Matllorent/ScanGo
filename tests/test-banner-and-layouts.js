@@ -23,6 +23,7 @@ async function runTests() {
     bizName: 'Restaurante Vanguardia Test',
     slug: `vanguardia-test-${Date.now()}`,
     bannerUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4',
+    businessType: 'events',
     layout: 'bento',
     theme: 'emerald',
     font: 'sans',
@@ -31,9 +32,13 @@ async function runTests() {
 
   const saved = db.saveRestaurant(user.id, testData);
   const fetched = db.findRestaurantById(saved.id);
+  const defaultUser = db.createUser({ email: `test-default-type-${Date.now()}@example.com`, password: 'test_password' });
+  const defaultProfile = db.saveRestaurant(defaultUser.id, { bizName: 'Perfil Predeterminado' });
 
   assert.strictEqual(fetched.bannerUrl, testData.bannerUrl, 'bannerUrl debe persistir en db');
+  assert.strictEqual(fetched.businessType, 'events', 'businessType debe persistir en db');
   assert.strictEqual(fetched.layout, 'bento', 'layout debe persistir como bento en db');
+  assert.strictEqual(defaultProfile.businessType, 'restaurant', 'businessType debe usar restaurant por defecto');
   console.log('✓ Persistencia en DB de bannerUrl y layout validada exitosamente');
 
   // 2. Verificación de layouts permitidos e integridad en api/index.js
@@ -49,6 +54,9 @@ async function runTests() {
   assert.ok(menuCss.includes('.menu-banner-hero'), 'menu.css debe tener estilos para .menu-banner-hero');
   assert.ok(menuCss.includes('.menu-banner-img'), 'menu.css debe tener estilos para .menu-banner-img');
   assert.ok(menuCss.includes('body.has-hero-banner'), 'menu.css debe soportar el estado body.has-hero-banner');
+  assert.ok(menuCss.includes('object-fit: cover;'), 'La foto del hero debe llenar el ancho del banner');
+  assert.ok(menuCss.includes('linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, #0E1412 100%)'), 'El hero debe aplicar el degradado inferior solicitado');
+  assert.ok(menuCss.includes('height: 220px !important;'), 'El hero debe conservar altura mínima en móviles estrechos');
   console.log('✓ Estilos de Banner Hero (portada superior) verificados en menu.css');
 
   // 3b. 3 Nuevos Layouts
@@ -87,6 +95,7 @@ async function runTests() {
 
   // 4. Verificación de Studio UI (studio.html y studio.js)
   const studioHtml = fs.readFileSync(path.join(__dirname, '../public/studio.html'), 'utf8');
+  const schemaSql = fs.readFileSync(path.join(__dirname, '../src/db/schema.sql'), 'utf8');
   assert.ok(studioHtml.includes('inputBannerFile'), 'studio.html debe tener inputBannerFile');
   assert.ok(studioHtml.includes('inputBannerUrl'), 'studio.html debe tener inputBannerUrl');
   assert.ok(studioHtml.includes('inputMenuLayout'), 'studio.html debe tener selector inputMenuLayout');
@@ -95,6 +104,10 @@ async function runTests() {
   assert.ok(studioJs.includes('handleBannerUpload'), 'studio.js debe implementar handleBannerUpload');
   assert.ok(studioJs.includes('removeBanner'), 'studio.js debe implementar removeBanner');
   assert.ok(studioJs.includes('renderBannerPreviewUI'), 'studio.js debe implementar renderBannerPreviewUI');
+  assert.ok(studioJs.includes("if (value === 'perfumeria') return 'perfumery';") && studioJs.includes("return 'restaurant';"), 'Studio debe normalizar businessType con restaurant por defecto');
+  assert.ok(studioJs.includes('updateBusinessTypeControls'), 'Studio debe filtrar controles exclusivos según el rubro');
+  assert.ok(studioHtml.includes('data-business-type="perfumery"'), 'Los controles exclusivos deben identificarse como perfumería');
+  assert.ok(schemaSql.includes("business_type TEXT NOT NULL DEFAULT 'restaurant'"), 'Supabase debe tener business_type con restaurant por defecto');
   console.log('✓ Controles de portada superior y switcher de layout validados en Studio');
 
   // 5. Verificación de menu.html y menu.js
@@ -102,6 +115,8 @@ async function runTests() {
   assert.ok(menuHtml.includes('menuBannerHero'), 'menu.html debe tener el contenedor #menuBannerHero');
 
   const menuJs = fs.readFileSync(path.join(__dirname, '../public/js/menu.js'), 'utf8');
+  assert.ok(menuJs.includes("bannerEl.querySelector('.menu-banner-logo-slot').append(logoContainer)"), 'El logo debe superponerse al hero');
+  assert.ok(menuJs.includes("bannerEl.querySelector('.menu-banner-status-slot').append(heroStatusBadge)"), 'La insignia de estado debe superponerse al hero');
   assert.ok(menuJs.includes('layoutClass'), 'menu.js debe computar layoutClass');
   assert.ok(menuJs.includes("'bento'"), 'menu.js debe contemplar bento en validLayouts');
   assert.ok(menuJs.includes("'minimalist'"), 'menu.js debe contemplar minimalist en validLayouts');

@@ -1644,61 +1644,72 @@
     .menu-banner-hero {
       position: relative;
       width: 100%;
-      height: 220px;
-      min-height: 180px;
-      max-height: 300px;
+      height: 250px;
+      min-height: 220px;
+      max-height: 280px;
+      margin-bottom: 34px;
+      overflow: visible;
+    }
+    .menu-banner-media {
+      position: absolute;
+      inset: 0;
       overflow: hidden;
       background: #0E1412;
       border-bottom: 1px solid var(--border-chalk);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .menu-banner-backdrop {
-      position: absolute;
-      inset: -20px;
-      background-position: center;
-      background-size: cover;
-      background-repeat: no-repeat;
-      filter: blur(24px) brightness(0.6);
-      transform: scale(1.15);
-      opacity: 0.85;
-      pointer-events: none;
-      z-index: 0;
     }
     .menu-banner-img {
-      position: relative;
-      z-index: 1;
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
+      object-fit: cover;
       object-position: center;
       display: block;
-      filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.5));
-      transition: transform 0.3s ease;
     }
     .menu-banner-overlay {
       position: absolute;
       inset: 0;
-      background: linear-gradient(
-        to bottom,
-        rgba(14, 20, 18, 0.05) 0%,
-        rgba(14, 20, 18, 0.25) 55%,
-        rgba(14, 20, 18, 0.92) 100%
-      );
+      background: linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, #0E1412 100%);
       pointer-events: none;
-      z-index: 2;
+      z-index: 1;
     }
     body.has-hero-banner .menu-header {
-      margin-top: -36px;
+      padding-top: 44px;
       position: relative;
       z-index: 2;
     }
-    body.has-hero-banner .restaurant-logo {
+    .menu-banner-logo-slot {
+      position: absolute;
+      z-index: 3;
+      left: 50%;
+      bottom: -34px;
+      width: 76px;
+      height: 76px;
+      transform: translateX(-50%);
+    }
+    .menu-banner-logo-slot #restaurantLogoContainer,
+    .menu-banner-logo-slot .restaurant-logo {
+      width: 76px;
+      height: 76px;
+      margin: 0;
+    }
+    .menu-banner-logo-slot .restaurant-logo {
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
       border-color: var(--chalk-gold);
+    }
+    .menu-banner-status-slot {
+      position: absolute;
+      z-index: 3;
+      top: 12px;
+      right: 12px;
+      max-width: calc(100% - 24px);
+    }
+    .menu-banner-status-slot .status-pill {
+      max-width: 100%;
+      white-space: normal;
+      text-align: center;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
     }
 
     /* ==========================================================================
@@ -1960,11 +1971,7 @@
 
     @media (max-width: 480px) {
       .menu-banner-hero {
-        height: 180px;
-        min-height: 150px;
-      }
-      .menu-banner-img {
-        object-fit: contain !important;
+        height: 230px;
       }
     }
 
@@ -2013,12 +2020,13 @@
         font-size: 1rem !important;
       }
       .menu-banner-hero {
-        height: 150px !important;
-        min-height: 120px !important;
+        height: 220px !important;
+        min-height: 220px !important;
       }
-      .menu-banner-img {
-        object-fit: contain !important;
-      }
+      .menu-banner-status-slot { top: 8px; right: 8px; max-width: calc(100% - 16px); }
+      .menu-banner-logo-slot { width: 68px; height: 68px; bottom: -30px; }
+      .menu-banner-logo-slot #restaurantLogoContainer,
+      .menu-banner-logo-slot .restaurant-logo { width: 68px; height: 68px; }
     }
 
     /* ==========================================================================
