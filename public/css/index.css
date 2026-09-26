@@ -186,6 +186,29 @@
       background: rgba(225, 169, 56, 0.06);
     }
     .btn-sm { padding: 8px 16px; font-size: 0.84rem; }
+    .btn-google {
+      background: #fff;
+      color: #202124;
+      border: 1px solid #dadce0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 44px;
+      font-weight: 700;
+    }
+    .btn-google:hover { background: #f8f9fa; box-shadow: 0 4px 14px rgba(0,0,0,0.22); }
+    .google-mark { color: #4285f4; font-size: 1.15rem; font-weight: 800; line-height: 1; }
+    .google-modal-button { width: 100%; margin-bottom: 14px; }
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 0 0 16px;
+      color: var(--text-dim);
+      font-size: 0.76rem;
+    }
+    .auth-divider::before, .auth-divider::after { content: ''; height: 1px; flex: 1; background: var(--border-subtle); }
 
     .hero-section {
       position: relative;
@@ -228,6 +251,32 @@
     }
     .guarantee-item { display: flex; align-items: center; gap: 6px; }
     .guarantee-item span { color: var(--accent-green); font-weight: bold; }
+
+    .savings-section {
+      padding: 64px 0;
+      background: linear-gradient(110deg, rgba(225,169,56,0.07), rgba(56,161,105,0.07)), var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .savings-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(300px, 0.8fr);
+      align-items: center;
+      gap: 56px;
+    }
+    .savings-copy h2 { max-width: 620px; margin: 14px 0 12px; font-size: clamp(1.8rem, 3vw, 2.55rem); line-height: 1.12; }
+    .savings-copy > p { max-width: 580px; color: var(--text-muted); line-height: 1.65; }
+    .sales-slider-label { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 30px; font-weight: 700; }
+    .sales-slider-label output { color: var(--accent-gold); font-family: var(--font-heading); font-size: 1.45rem; white-space: nowrap; }
+    .sales-slider { display: block; width: 100%; height: 28px; margin-top: 12px; accent-color: var(--accent-gold); cursor: pointer; }
+    .slider-range-labels { display: flex; justify-content: space-between; color: var(--text-dim); font-family: var(--font-mono); font-size: 0.72rem; }
+    .savings-results { padding: 24px; border: 1px solid var(--border-gold); border-radius: 12px; background: rgba(10,15,13,0.55); }
+    .savings-result-row, .savings-total { display: flex; justify-content: space-between; align-items: baseline; gap: 18px; padding: 14px 0; border-bottom: 1px solid var(--border-subtle); }
+    .savings-result-row span, .savings-total span { color: var(--text-muted); font-size: 0.88rem; line-height: 1.45; }
+    .savings-result-row strong { flex-shrink: 0; color: #fff; text-align: right; }
+    .savings-total { border: 0; padding: 18px 0 20px; }
+    .savings-total span { color: #fff; font-weight: 700; }
+    .savings-total strong { flex-shrink: 0; color: var(--accent-green); font-family: var(--font-heading); font-size: 1.55rem; text-align: right; }
+    .savings-results > .btn { width: 100%; }
 
     .hero-mockup-wrapper {
       position: relative;
@@ -338,10 +387,11 @@
     }
     .features-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 30px;
     }
     .feature-card {
+      min-width: 0;
       background-color: var(--bg-dark);
       border: 1px solid var(--border-subtle);
       border-radius: 12px;
@@ -722,12 +772,21 @@
 
     @media (max-width: 992px) {
       .hero-grid, .pricing-grid, .footer-grid, .testimonials-grid { grid-template-columns: 1fr; }
+      .savings-layout { grid-template-columns: 1fr; gap: 28px; }
       .steps-grid { grid-template-columns: repeat(2, 1fr); }
       .values-grid { grid-template-columns: repeat(2, 1fr); }
       .main-nav { display: none; }
     }
     @media (max-width: 600px) {
       .steps-grid, .values-grid { grid-template-columns: 1fr; }
+      .features-grid { grid-template-columns: 1fr; }
+      .savings-section { padding: 44px 0; }
+      .savings-results { padding: 18px; }
+      .savings-result-row, .savings-total { gap: 10px; }
+      .savings-result-row span, .savings-total span { font-size: 0.8rem; }
+      .savings-result-row strong { font-size: 0.84rem; }
+      .savings-total strong { font-size: 1.3rem; }
+      .hero-actions > .btn { width: 100%; }
     }
 
     .footer-brand-title {

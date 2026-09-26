@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node api/index.js",
     "dev": "nodemon api/index.js",
-    "test": "node tests/test-billing.js && node tests/test-fixes.js && node tests/test-new-features.js && node tests/test-resilience-security.js && node tests/test-banner-and-layouts.js && node tests/test-mp-upsell-reviews.js && node tests/test-geo-killswitch-upsell.js && node tests/test-weather.js",
+    "test": "node tests/test-billing.js && node tests/test-fixes.js && node tests/test-new-features.js && node tests/test-resilience-security.js && node tests/test-banner-and-layouts.js && node tests/test-mp-upsell-reviews.js && node tests/test-geo-killswitch-upsell.js && node tests/test-weather.js && node tests/test-landing-conversion.js",
     "test:billing": "node tests/test-billing.js",
     "test:fixes": "node tests/test-fixes.js",
     "test:features": "node tests/test-new-features.js",
@@ -38,6 +38,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
+    "google-auth-library": "^11.1.0",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "zod": "^4.6.5"

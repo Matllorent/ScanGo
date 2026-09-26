@@ -1,3 +1,6 @@
+let googleIdentityPromise = null;
+let googleIdentityClientId = '';
+
 function openAuthModal(mode = 'register') {
       const modal = document.getElementById('authModal');
       modal.classList.add('active');
@@ -40,6 +43,105 @@ function openAuthModal(mode = 'register') {
       const err = document.getElementById('authError');
       err.style.display = 'none';
       err.textContent = '';
+    }
+
+    async function ensureGoogleIdentityReady() {
+      if (googleIdentityPromise) return googleIdentityPromise;
+      googleIdentityPromise = (async () => {
+        const configResponse = await fetch('/api/auth/google/config');
+        const config = await configResponse.json();
+        if (!configResponse.ok || !config.clientId) {
+          throw new Error('El acceso con Google todavía no está configurado. Podés registrarte con tu correo.');
+        }
+        googleIdentityClientId = config.clientId;
+        await window.loadGoogleIdentityServices();
+        google.accounts.id.initialize({
+          client_id: googleIdentityClientId,
+          callback: handleGoogleCredential,
+          auto_select: false,
+          cancel_on_tap_outside: true
+        });
+      })().catch(error => {
+        googleIdentityPromise = null;
+        throw error;
+      });
+      return googleIdentityPromise;
+    }
+
+    function setGoogleButtonsDisabled(disabled) {
+      document.querySelectorAll('.btn-google').forEach(button => {
+        button.disabled = disabled;
+        button.setAttribute('aria-busy', disabled ? 'true' : 'false');
+      });
+    }
+
+    async function startGoogleSignup() {
+      openAuthModal('register');
+      hideError();
+      setGoogleButtonsDisabled(true);
+      try {
+        await ensureGoogleIdentityReady();
+        google.accounts.id.prompt(notification => {
+          if (notification.isNotDisplayed()) {
+            showError('Google no pudo abrir el selector de cuenta. Revisá la configuración del dominio o registrate con tu correo.');
+          }
+        });
+      } catch (error) {
+        showError(error.message || 'No se pudo iniciar el acceso con Google.');
+      } finally {
+        setGoogleButtonsDisabled(false);
+      }
+    }
+
+    async function handleGoogleCredential(response) {
+      if (!response?.credential) {
+        showError('Google no devolvió una credencial válida. Intentá de nuevo.');
+        return;
+      }
+
+      setGoogleButtonsDisabled(true);
+      try {
+        const res = await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            credential: response.credential,
+            restaurantName: document.getElementById('regRestaurant')?.value.trim() || '',
+            businessType: document.getElementById('regBusinessType')?.value || 'restaurant'
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo validar tu cuenta de Google.');
+
+        localStorage.setItem('menu_pizarron_token', data.token);
+        localStorage.setItem('menu_pizarron_user', JSON.stringify(data.user));
+        localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(data.restaurant));
+        localStorage.setItem('scango_demo_restaurant', JSON.stringify(data.restaurant));
+        window.location.href = '/studio.html';
+      } catch (error) {
+        showError(error.message || 'No se pudo iniciar sesión con Google.');
+      } finally {
+        setGoogleButtonsDisabled(false);
+      }
+    }
+
+    function initSavingsCalculator() {
+      const slider = document.getElementById('monthlySalesSlider');
+      const salesValue = document.getElementById('monthlySalesValue');
+      const commissionValue = document.getElementById('deliveryCommissionValue');
+      const savingsValue = document.getElementById('monthlySavingsValue');
+      if (!slider || !salesValue || !commissionValue || !savingsValue) return;
+
+      const money = value => `$${Math.round(value).toLocaleString('es-UY')}`;
+      const update = () => {
+        const sales = Number(slider.value) || 0;
+        const deliveryCommission = sales * 0.2;
+        salesValue.textContent = money(sales);
+        commissionValue.textContent = `${money(deliveryCommission)}/mes`;
+        savingsValue.textContent = `${money(Math.max(0, deliveryCommission - 9))}/mes`;
+      };
+      slider.addEventListener('input', update);
+      update();
     }
 
     function togglePasswordVisibility(inputId, btn) {
@@ -403,6 +505,7 @@ function openAuthModal(mode = 'register') {
       loadPublicTestimonials();
       loadPricingSettings();
       initMagneticWhatsApp();
+      initSavingsCalculator();
       const token = localStorage.getItem('menu_pizarron_token');
       if (token) {
         const navActions = document.querySelector('.nav-actions');

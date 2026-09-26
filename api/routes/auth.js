@@ -1,6 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
 const db = require('../../src/db/db');
 const emailService = require('../services/email');
 const { hashPassword, comparePassword } = require('../utils/hash');
@@ -17,6 +18,7 @@ if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_menu_pizarron_2026';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -34,6 +36,79 @@ function normalizeEmailInput(req, res, next) {
   }
   next();
 }
+
+router.get('/google/config', (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.json({ clientId: GOOGLE_CLIENT_ID });
+});
+
+router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
+  try {
+    if (!GOOGLE_CLIENT_ID) {
+      throw new AppError('El acceso con Google no está configurado todavía.', 503, 'GOOGLE_AUTH_NOT_CONFIGURED');
+    }
+
+    const credential = String(req.body?.credential || '');
+    if (!credential || credential.length > 10000) {
+      throw new AppError('No se recibió una credencial válida de Google.', 400, 'GOOGLE_CREDENTIAL_REQUIRED');
+    }
+
+    let googleProfile;
+    try {
+      const ticket = await new OAuth2Client(GOOGLE_CLIENT_ID).verifyIdToken({
+        idToken: credential,
+        audience: GOOGLE_CLIENT_ID
+      });
+      googleProfile = ticket.getPayload();
+    } catch (error) {
+      throw new AppError('No se pudo verificar la cuenta de Google.', 401, 'INVALID_GOOGLE_CREDENTIAL');
+    }
+
+    if (!googleProfile?.sub || !googleProfile.email || googleProfile.email_verified !== true) {
+      throw new AppError('La cuenta de Google debe tener un correo verificado.', 401, 'GOOGLE_EMAIL_NOT_VERIFIED');
+    }
+
+    const email = googleProfile.email.trim().toLowerCase();
+    const requestedType = ['restaurant', 'perfumery', 'events'].includes(req.body?.businessType)
+      ? req.body.businessType
+      : 'restaurant';
+    const requestedRestaurantName = String(req.body?.restaurantName || '').trim().slice(0, 80);
+    let user = db.findUserByEmail(email);
+    let restaurant = user ? db.findRestaurantByUserId(user.id) : null;
+
+    if (!user) {
+      const randomPassword = crypto.randomBytes(48).toString('hex');
+      user = db.createUser({
+        email,
+        password: await hashPassword(randomPassword),
+        name: String(googleProfile.name || googleProfile.given_name || 'Responsable').slice(0, 80),
+        email_confirmed_at: new Date().toISOString()
+      });
+    }
+
+    if (!restaurant) {
+      const restaurantName = requestedRestaurantName || String(googleProfile.name ? `Mi local (${googleProfile.name})` : 'Mi Restaurante').slice(0, 80);
+      restaurant = db.saveRestaurant(user.id, {
+        name: restaurantName,
+        bizName: restaurantName,
+        businessType: requestedType,
+        currency: '$',
+        theme: 'emerald',
+        city: '',
+        smartWeatherEnabled: false,
+        categories: [],
+        dishes: []
+      });
+    }
+
+    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+    res.cookie('auth_token', token, COOKIE_OPTIONS);
+    const { password: _, ...safeUser } = user;
+    return successResponse(res, { user: safeUser, restaurant, token }, 'Acceso con Google exitoso', 200, { flatData: true });
+  } catch (err) {
+    next(err);
+  }
+});
 
 /**
  * POST /api/auth/register
