@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS public.restaurants (
   slogan TEXT,
   currency TEXT DEFAULT '$',
   phone TEXT,
+  city TEXT DEFAULT '',
+  smart_weather_enabled BOOLEAN NOT NULL DEFAULT false,
   theme TEXT DEFAULT 'emerald',
   logo_url TEXT,
   business_type TEXT NOT NULL DEFAULT 'restaurant',
@@ -42,6 +44,10 @@ ALTER TABLE public.restaurants
 
 ALTER TABLE public.restaurants
   ADD COLUMN IF NOT EXISTS business_type TEXT NOT NULL DEFAULT 'restaurant';
+
+ALTER TABLE public.restaurants
+  ADD COLUMN IF NOT EXISTS city TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS smart_weather_enabled BOOLEAN NOT NULL DEFAULT false;
 
 CREATE INDEX IF NOT EXISTS idx_restaurants_slug ON public.restaurants(slug);
 CREATE INDEX IF NOT EXISTS idx_restaurants_user_id ON public.restaurants(user_id);

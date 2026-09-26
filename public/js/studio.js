@@ -18,6 +18,37 @@
         .replace(/'/g, '&#039;');
     }
 
+    async function compressImageFile(file) {
+      const bitmap = await createImageBitmap(file);
+      const maxDimension = 1080;
+      let scale = Math.min(1, maxDimension / bitmap.width, maxDimension / bitmap.height);
+      let blob;
+
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('No se pudo procesar la imagen en este navegador.');
+        context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        blob = await new Promise((resolve, reject) => {
+          canvas.toBlob(result => result ? resolve(result) : reject(new Error('No se pudo comprimir la imagen.')), 'image/webp', 0.8);
+        });
+        if (blob.type === 'image/webp' && blob.size <= 150 * 1024) break;
+        if (blob.type !== 'image/webp') throw new Error('Este navegador no permite exportar imágenes WebP.');
+        scale *= 0.85;
+      }
+      bitmap.close();
+
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('No se pudo leer la imagen comprimida.'));
+        reader.readAsDataURL(blob);
+      });
+      return { blob, dataUrl };
+    }
+
     // Custom Confirmation Dialog (Replaces native confirm)
     function showConfirmDialog({ icon = '⚠️', title = '¿Estás seguro?', message = '', confirmText = 'Sí, Continuar', confirmClass = 'btn-danger', onConfirm }) {
       document.getElementById('confirmDialogIcon').textContent = icon;
@@ -381,6 +412,14 @@
       }
     }
 
+    function updateWeatherToggleStyle() {
+      const enabled = document.getElementById('inputSmartWeatherEnabled')?.checked === true;
+      const slider = document.getElementById('sliderSmartWeather');
+      const thumb = document.getElementById('thumbSmartWeather');
+      if (slider) slider.style.backgroundColor = enabled ? '#38A169' : '#2a3a33';
+      if (thumb) thumb.style.transform = enabled ? 'translateX(18px)' : 'translateX(0)';
+    }
+
     // Initialize & Load User/Restaurant from Real Database
     async function initStudio() {
       const token = localStorage.getItem('menu_pizarron_token');
@@ -417,6 +456,8 @@
             themeFont: 'sans',
             layout: 'classic',
             bannerUrl: null,
+            city: '',
+            smartWeatherEnabled: false,
             businessType: 'restaurant',
             allowLoyaltyPoints: false,
             allowIceCreamWizard: false,
@@ -563,6 +604,12 @@
       const bizSelect = document.getElementById('inputBusinessType');
       if (bizSelect) bizSelect.value = normalizeBusinessType(restaurant.businessType);
 
+      const cityInput = document.getElementById('inputRestaurantCity');
+      if (cityInput) cityInput.value = restaurant.city || '';
+      const weatherToggle = document.getElementById('inputSmartWeatherEnabled');
+      if (weatherToggle) weatherToggle.checked = restaurant.smartWeatherEnabled === true;
+      updateWeatherToggleStyle();
+
       // Loyalty points toggle
       const loyaltyCheckbox = document.getElementById('inputAllowLoyaltyPoints');
       if (loyaltyCheckbox) {
@@ -610,22 +657,23 @@
       }, 500);
     }
 
-    function handleLogoUpload(e) {
+    async function handleLogoUpload(e) {
       const file = e.target.files[0];
       if (!file) return;
-      if (file.size > 2 * 1024 * 1024) {
-        alert('La imagen no debe superar los 2MB.');
+      if (file.size > 12 * 1024 * 1024) {
+        alert('La imagen original no debe superar los 12MB.');
         return;
       }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        restaurant.logoUrl = event.target.result;
+      try {
+        const compressed = await compressImageFile(file);
+        restaurant.logoUrl = compressed.dataUrl;
         document.getElementById('logoPreviewBox').innerHTML = `<img src="${restaurant.logoUrl}" style="width:100%; height:100%; object-fit:cover;">`;
         document.getElementById('btnRemoveLogo').style.display = 'inline';
         generateQrCode();
         triggerAutoSave();
-      };
-      reader.readAsDataURL(file);
+      } catch (error) {
+        alert(error.message || 'No se pudo procesar el logo.');
+      }
     }
 
     function removeLogo() {
@@ -654,23 +702,24 @@
       }
     }
 
-    function handleBannerUpload(e) {
+    async function handleBannerUpload(e) {
       const file = e.target.files[0];
       if (!file) return;
-      if (file.size > 3 * 1024 * 1024) {
-        alert('La imagen de portada no debe superar los 3MB.');
+      if (file.size > 12 * 1024 * 1024) {
+        alert('La imagen original no debe superar los 12MB.');
         return;
       }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        restaurant.bannerUrl = event.target.result;
+      try {
+        const compressed = await compressImageFile(file);
+        restaurant.bannerUrl = compressed.dataUrl;
         const urlInput = document.getElementById('inputBannerUrl');
         if (urlInput) urlInput.value = '';
         renderBannerPreviewUI();
         syncLivePreviewIframe();
         triggerAutoSave();
-      };
-      reader.readAsDataURL(file);
+      } catch (error) {
+        alert(error.message || 'No se pudo procesar la portada.');
+      }
     }
 
     function handleBannerUrlInput(e) {
@@ -1046,40 +1095,37 @@
       if (fileNameSpan) fileNameSpan.textContent = file.name;
       if (clearBtn) clearBtn.style.display = 'inline';
 
-      const reader = new FileReader();
-      reader.onload = async function(e) {
-        const dataUrl = e.target.result;
+      try {
+        const compressed = await compressImageFile(file);
+        const dataUrl = compressed.dataUrl;
         if (urlInput) urlInput.value = dataUrl;
         if (previewImg) previewImg.src = dataUrl;
         if (previewContainer) previewContainer.style.display = 'block';
 
         // Upload to server storage endpoint for permanent image hosting
-        try {
-          if (fileNameSpan) fileNameSpan.textContent = `Subiendo ${file.name}...`;
-          const res = await fetch('/api/storage/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              fileData: dataUrl,
-              fileName: file.name,
-              folder: 'dishes',
-              bucket: 'photos'
-            })
-          });
-          const result = await res.json().catch(() => ({}));
-          if (res.ok && result.data?.url) {
-            if (urlInput) urlInput.value = result.data.url;
-            if (previewImg) previewImg.src = result.data.url;
-            if (fileNameSpan) fileNameSpan.textContent = `✓ ${file.name}`;
-          } else {
-            if (fileNameSpan) fileNameSpan.textContent = `${file.name} (local)`;
-          }
-        } catch (err) {
-          console.warn('[Dish photo upload warning]', err);
-          if (fileNameSpan) fileNameSpan.textContent = `${file.name} (local)`;
+        if (fileNameSpan) fileNameSpan.textContent = `Subiendo ${file.name}...`;
+        const res = await fetch('/api/storage/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileData: dataUrl,
+            fileName: `${file.name.replace(/\.[^.]+$/, '')}.webp`,
+            folder: 'dishes',
+            bucket: 'photos'
+          })
+        });
+        const result = await res.json().catch(() => ({}));
+        if (res.ok && result.data?.url) {
+          if (urlInput) urlInput.value = result.data.url;
+          if (previewImg) previewImg.src = result.data.url;
+          if (fileNameSpan) fileNameSpan.textContent = `✓ ${file.name} · ${Math.ceil(compressed.blob.size / 1024)} KB`;
+        } else if (fileNameSpan) {
+          fileNameSpan.textContent = `${file.name} · ${Math.ceil(compressed.blob.size / 1024)} KB (local)`;
         }
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.warn('[Dish photo upload warning]', err);
+        if (fileNameSpan) fileNameSpan.textContent = `${file.name} (no se pudo comprimir/subir)`;
+      }
     }
 
     function clearDishPhoto() {
@@ -1123,6 +1169,9 @@
       document.getElementById('tagCeliac').checked = (dish.tags || []).includes('celiac');
       document.getElementById('tagSinLactosa').checked = (dish.tags || []).includes('sinlactosa');
       document.getElementById('tagPicante').checked = (dish.tags || []).includes('picante');
+      document.querySelectorAll('.dish-weather-tag').forEach(input => {
+        input.checked = (dish.weatherTags || []).includes(input.value);
+      });
       renderDishModifierAssignments(ensureDishModifierGroups(dish));
 
       // Smart Scheduling
@@ -1196,6 +1245,7 @@
       document.getElementById('modalDishOutOfStock').checked = false;
       document.getElementById('modalDishStar').checked = false;
       document.getElementById('modalDishChefSpecial').checked = false;
+      document.querySelectorAll('.dish-weather-tag').forEach(input => { input.checked = false; });
       renderDishModifierAssignments([]);
       clearDishPhoto();
 
@@ -1629,6 +1679,7 @@
       if (document.getElementById('tagCeliac').checked) tags.push('celiac');
       if (document.getElementById('tagSinLactosa').checked) tags.push('sinlactosa');
       if (document.getElementById('tagPicante').checked) tags.push('picante');
+      const weatherTags = Array.from(document.querySelectorAll('.dish-weather-tag:checked')).map(input => input.value);
 
       if (!restaurant.dishes) restaurant.dishes = [];
 
@@ -1657,6 +1708,7 @@
           dish.isChefSpecial = isChefSpecial;
           dish.schedule = schedule;
           dish.tags = tags;
+          dish.weatherTags = weatherTags;
           Object.assign(dish, optionConfig);
           delete dish.proteinOptions;
           delete dish.proteinSelectionRequired;
@@ -1679,6 +1731,7 @@
           isChefSpecial,
           schedule,
           tags,
+          weatherTags,
           ...optionConfig
         });
       }
@@ -2689,6 +2742,9 @@
       restaurant.slug = document.getElementById('inputLocalSlug').value.toLowerCase().replace(/[^a-z0-9-]/g, '-');
       restaurant.currency = document.getElementById('inputLocalCurrency').value;
       restaurant.phone = document.getElementById('inputPhone').value;
+      restaurant.city = document.getElementById('inputRestaurantCity')?.value.trim().slice(0, 100) || '';
+      restaurant.smartWeatherEnabled = document.getElementById('inputSmartWeatherEnabled')?.checked === true;
+      updateWeatherToggleStyle();
 
       // Business Type selector
       const bizSelect = document.getElementById('inputBusinessType');

@@ -9,6 +9,7 @@ const rateLimit = require('express-rate-limit');
 const db = require('../src/db/db');
 const billingOrchestrator = require('../src/billing/orchestrator');
 const emailService = require('./services/email');
+const { getWeatherContext } = require('./services/weather');
 const { hashPassword, comparePassword } = require('./utils/hash');
 const { registerSchema, loginSchema, validateBody } = require('./middleware/validation');
 const { sanitizeModifierGroups, sanitizeDishOptionConfig } = require('./utils/menuOptions');
@@ -120,6 +121,8 @@ function sanitizeRestaurantPayload(data) {
   if (clean.bizName) clean.bizName = String(clean.bizName).slice(0, 80);
   if (clean.slogan) clean.slogan = String(clean.slogan).slice(0, 150);
   if (clean.phone) clean.phone = String(clean.phone).replace(/[^0-9+]/g, '').slice(0, 20);
+  if (typeof clean.city !== 'undefined') clean.city = String(clean.city).trim().slice(0, 100);
+  if (typeof clean.smartWeatherEnabled !== 'undefined') clean.smartWeatherEnabled = Boolean(clean.smartWeatherEnabled);
   if (clean.currency) clean.currency = String(clean.currency).slice(0, 5);
   if (clean.theme) clean.theme = String(clean.theme).slice(0, 30);
   if (clean.themeFont) clean.themeFont = String(clean.themeFont).slice(0, 30);
@@ -159,6 +162,7 @@ function sanitizeRestaurantPayload(data) {
       photoUrl: (d.photoUrl || d.imageUrl || d.image || d.photo) && typeof (d.photoUrl || d.imageUrl || d.image || d.photo) === 'string' ? String(d.photoUrl || d.imageUrl || d.image || d.photo).slice(0, 5000000) : null,
       outOfStock: Boolean(d.outOfStock),
       isChefSpecial: Boolean(d.isChefSpecial),
+      weatherTags: Array.isArray(d.weatherTags) ? [...new Set(d.weatherTags.map(tag => String(tag)))].filter(tag => ['muy_frio', 'frio', 'templado', 'caluroso', 'muy_caluroso'].includes(tag)) : [],
       schedule: (d.schedule && typeof d.schedule === 'object') ? {
         enabled: Boolean(d.schedule.enabled),
         days: Array.isArray(d.schedule.days) ? d.schedule.days.map(Number).filter(n => n >= 0 && n <= 6) : [0, 1, 2, 3, 4, 5, 6],
@@ -353,6 +357,7 @@ app.post('/api/studio/save', authMiddleware, requireVerifiedEmail, async (req, r
     const cleanPayload = sanitizeRestaurantPayload(payload);
     const restaurant = db.saveRestaurant(req.user.userId, cleanPayload);
     if (restaurant && restaurant.slug) {
+      menuCache.delete(restaurant.slug);
       await invalidateMenuCache(restaurant.slug);
     }
     res.json({ success: true, restaurant });
@@ -380,6 +385,11 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
           inactive: true,
           warning: access.warning
         };
+      }
+
+      let weather = null;
+      if (restaurant.smartWeatherEnabled && restaurant.city) {
+        weather = await getWeatherContext(restaurant.city);
       }
 
       // Multi-Branch Hierarchy Support (?branch= or ?sucursal=)
@@ -471,6 +481,10 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
         slogan: restaurant.slogan || '',
         currency: restaurant.currency || '$',
         phone: restaurant.phone || '',
+        city: restaurant.city || '',
+        smartWeatherEnabled: Boolean(restaurant.smartWeatherEnabled),
+        weatherContext: weather?.weatherContext || null,
+        weatherTemperatureC: weather?.temperatureC ?? null,
         theme: restaurant.theme || 'emerald',
         themeFont: restaurant.themeFont || 'serif',
         instagram: restaurant.instagram || '',
@@ -497,6 +511,8 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
 
       return {
         restaurant: publicData,
+        weatherContext: publicData.weatherContext,
+        weatherTemperatureC: publicData.weatherTemperatureC,
         access: {
           inGracePeriod: access.inGracePeriod,
           daysRemaining: access.gracePeriodDaysRemaining

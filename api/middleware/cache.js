@@ -59,6 +59,9 @@ async function invalidateMenuCache(slug) {
   const cleanSlug = String(slug).toLowerCase().trim();
 
   memoryCache.delete(cleanSlug);
+  for (const key of memoryCache.cache.keys()) {
+    if (key.startsWith(`${cleanSlug}:`)) memoryCache.delete(key);
+  }
 
   // Upstash Redis invalidation support if credentials configured
   const redisUrl = process.env.UPSTASH_REDIS_REST_URL;

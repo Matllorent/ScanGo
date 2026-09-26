@@ -37,6 +37,8 @@ function normalizeBusinessType(value) {
 
 function normalizeRestaurantBusinessType(restaurant) {
   if (!restaurant) return restaurant;
+  if (restaurant.city === undefined) restaurant.city = '';
+  if (restaurant.smartWeatherEnabled === undefined) restaurant.smartWeatherEnabled = false;
   if (restaurant.businessType === 'heladeria' && restaurant.allowIceCreamWizard === undefined) {
     restaurant.allowIceCreamWizard = true;
   }
@@ -82,6 +84,8 @@ if (process.env.SUPABASE_URL && supabaseKey) {
             slogan: r.slogan,
             currency: r.currency,
             phone: r.phone,
+            city: r.city || '',
+            smartWeatherEnabled: Boolean(r.smart_weather_enabled),
             theme: r.theme,
             logoUrl: r.logo_url,
             bannerUrl: r.banner_url || r.bannerUrl || null,
@@ -251,6 +255,8 @@ const db = {
         slogan: rest.slogan,
         currency: rest.currency,
         phone: rest.phone,
+        city: rest.city || '',
+        smart_weather_enabled: Boolean(rest.smartWeatherEnabled),
         theme: rest.theme,
         logo_url: rest.logoUrl,
         banner_url: rest.bannerUrl || null,

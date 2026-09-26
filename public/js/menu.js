@@ -452,9 +452,43 @@
       }
     }
 
+    function getActiveWeatherContext() {
+      const context = restaurantData?.weatherContext;
+      return restaurantData?.smartWeatherEnabled === true &&
+        ['muy_frio', 'frio', 'templado', 'caluroso', 'muy_caluroso'].includes(context)
+        ? context
+        : null;
+    }
+
+    function sortWeatherDishes(dishes) {
+      const context = getActiveWeatherContext();
+      if (!context) return dishes;
+      return dishes.map((dish, index) => ({ dish, index }))
+        .sort((left, right) => {
+          const leftMatch = (left.dish.weatherTags || []).includes(context) ? 1 : 0;
+          const rightMatch = (right.dish.weatherTags || []).includes(context) ? 1 : 0;
+          return rightMatch - leftMatch || left.index - right.index;
+        })
+        .map(entry => entry.dish);
+    }
+
+    function sortWeatherCategories(categories, dishes) {
+      const context = getActiveWeatherContext();
+      if (context !== 'muy_caluroso' && context !== 'muy_frio') return categories;
+      const pattern = context === 'muy_caluroso'
+        ? /bebid|drink|helad|refresc|limonad|cervez|fr[ií]a|fr[ií]os/i
+        : /sopa|caldo|guis|estofad|infusi|caliente|caf[eé]/i;
+      return categories.map((category, index) => {
+        const categoryDishes = dishes.filter(dish => dish.categoryId === category.id);
+        const tagged = categoryDishes.some(dish => (dish.weatherTags || []).includes(context));
+        return { category, index, priority: tagged || pattern.test(category.name || '') ? 1 : 0 };
+      }).sort((left, right) => right.priority - left.priority || left.index - right.index)
+        .map(entry => entry.category);
+    }
+
     function renderCategories() {
       const pillsContainer = document.getElementById('categoryPills');
-      const cats = restaurantData.categories || [];
+      const cats = sortWeatherCategories(restaurantData.categories || [], restaurantData.dishes || []);
       const hasFeatured = (restaurantData.dishes || []).some(d => d.tags && d.tags.includes('star'));
 
       let html = `<button class="cat-pill ${selectedCategory === 'ALL' ? 'active' : ''}" onclick="selectCategory('ALL')">Todos</button>`;
@@ -623,7 +657,7 @@
       }
 
       const currency = restaurantData.currency || '$';
-      const categories = restaurantData.categories || [];
+      const categories = sortWeatherCategories(restaurantData.categories || [], restaurantData.dishes || []);
       const dishes = restaurantData.dishes || [];
 
       if (!dishes.length) {
@@ -672,12 +706,12 @@
 
       // Special Mode: Popular / Featured Dishes
       if (selectedCategory === 'POPULAR') {
-        const popularDishes = dishes.filter(d => {
+        const popularDishes = sortWeatherDishes(dishes.filter(d => {
           const isStar = d.tags && d.tags.includes('star');
           const matchesSearch = !searchTerm || d.name.toLowerCase().includes(searchTerm) || (d.description && d.description.toLowerCase().includes(searchTerm));
           const sched = getDishScheduleStatus(d);
           return isStar && matchesSearch && matchesDiet(d) && sched.shouldDisplay;
-        });
+        }));
 
         if (!popularDishes.length) {
           container.innerHTML = '<div class="loading-spinner">No se encontraron platos destacados.</div>';
@@ -702,12 +736,12 @@
       categories.forEach(cat => {
         if (selectedCategory !== 'ALL' && selectedCategory !== cat.id) return;
 
-        const catDishes = dishes.filter(d => {
+        const catDishes = sortWeatherDishes(dishes.filter(d => {
           const matchesCat = d.categoryId === cat.id;
           const matchesSearch = !searchTerm || d.name.toLowerCase().includes(searchTerm) || (d.description && d.description.toLowerCase().includes(searchTerm));
           const sched = getDishScheduleStatus(d);
           return matchesCat && matchesSearch && matchesDiet(d) && sched.shouldDisplay;
-        });
+        }));
 
         if (!catDishes.length) return;
 
@@ -1632,6 +1666,27 @@
               };
             }
           }
+        }
+      }
+
+      const weatherContext = getActiveWeatherContext();
+      if (weatherContext) {
+        const weatherMatches = availableDishes.filter(dish => (dish.weatherTags || []).includes(weatherContext));
+        if (weatherMatches.length) {
+          const temperature = Number(restaurantData.weatherTemperatureC);
+          const hotDay = weatherContext === 'muy_caluroso' || weatherContext === 'caluroso';
+          const drinkPattern = /bebida|limonada|jugo|refresco|cerveza|helad|agua|fr[ií]a/i;
+          const relevantMatches = hotDay
+            ? weatherMatches.filter(dish => drinkPattern.test(`${dish.name} ${dish.description || ''}`))
+            : weatherMatches;
+          const candidates = relevantMatches.length ? relevantMatches : weatherMatches;
+          let reason = '🌤️ Te recomendamos una opción ideal para el clima de hoy.';
+          if (weatherContext === 'muy_caluroso') {
+            reason = `🔥 ¡Hace más de 30°C hoy${Number.isFinite(temperature) ? ` (${Math.round(temperature)}°C)` : ''}! Te sugerimos acompañar tu plato con ${candidates[0].name}.`;
+          } else if (weatherContext === 'muy_frio') {
+            reason = `🥣 ¡Hoy está muy frío${Number.isFinite(temperature) ? ` (${Math.round(temperature)}°C)` : ''}! ${candidates[0].name} es ideal para entrar en calor.`;
+          }
+          return { candidates: candidates.slice(0, 3), reason, badge: 'Ideal para el clima' };
         }
       }
 
