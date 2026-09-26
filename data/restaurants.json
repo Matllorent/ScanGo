@@ -324,5 +324,161 @@
     },
     "createdAt": "2026-09-26T00:04:11.888Z",
     "name": "Restaurante Expirado Test"
+  },
+  {
+    "id": "rest_1790384422272_dw3myv",
+    "userId": "usr_1790384422267_t1iy9v",
+    "slug": "esquina-gourmet",
+    "subscription": {
+      "status": "past_due",
+      "plan": "pro_monthly",
+      "provider": "lemonsqueezy",
+      "trialEndsAt": "2026-10-03T01:00:22.273Z",
+      "currentPeriodEnd": "2026-09-26T01:00:22.289Z",
+      "gracePeriodDaysRemaining": 7,
+      "lastPaymentError": "Falló el cobro automático de la tarjeta",
+      "updatedAt": "2026-09-26T01:00:22.293Z"
+    },
+    "createdAt": "2026-09-26T01:00:22.273Z",
+    "bizName": "La Esquina Gourmet"
+  },
+  {
+    "id": "rest_1790384422928_z21enu",
+    "userId": "user_exp_test_1790384422925",
+    "slug": "mi-local",
+    "subscription": {
+      "status": "trialing",
+      "trialEndsAt": "2026-09-26T00:00:22.925Z"
+    },
+    "createdAt": "2026-09-26T01:00:22.928Z",
+    "name": "Restaurante Expirado Test"
+  },
+  {
+    "id": "rest_1790384516382_xvkkqg",
+    "userId": "usr_1790384516378_as949y",
+    "slug": "vanguardia-test-1790384516379",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-03T01:01:56.382Z",
+      "currentPeriodEnd": "2026-10-03T01:01:56.382Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-09-26T01:01:56.382Z",
+    "bizName": "Restaurante Vanguardia Test",
+    "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+    "layout": "bento",
+    "theme": "emerald",
+    "font": "sans",
+    "categories": []
+  },
+  {
+    "id": "rest_1790384532440_esqe2p",
+    "userId": "usr_1790384532436_wlj64d",
+    "slug": "vanguardia-test-1790384532438",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-03T01:02:12.440Z",
+      "currentPeriodEnd": "2026-10-03T01:02:12.440Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-09-26T01:02:12.440Z",
+    "bizName": "Restaurante Vanguardia Test",
+    "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+    "layout": "bento",
+    "theme": "emerald",
+    "font": "sans",
+    "categories": []
+  },
+  {
+    "id": "rest_1790384550206_6o1hev",
+    "userId": "usr_1790384550203_g05rhm",
+    "slug": "vanguardia-test-1790384550204",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-03T01:02:30.207Z",
+      "currentPeriodEnd": "2026-10-03T01:02:30.207Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-09-26T01:02:30.207Z",
+    "bizName": "Restaurante Vanguardia Test",
+    "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+    "layout": "bento",
+    "theme": "emerald",
+    "font": "sans",
+    "categories": []
+  },
+  {
+    "id": "rest_1790384570244_vlgeop",
+    "userId": "usr_1790384570241_q06t5n",
+    "slug": "vanguardia-test-1790384570243",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-03T01:02:50.245Z",
+      "currentPeriodEnd": "2026-10-03T01:02:50.245Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-09-26T01:02:50.245Z",
+    "bizName": "Restaurante Vanguardia Test",
+    "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+    "layout": "bento",
+    "theme": "emerald",
+    "font": "sans",
+    "categories": []
+  },
+  {
+    "id": "rest_1790384583397_oldgv0",
+    "userId": "usr_1790384583393_07d3n8",
+    "slug": "esquina-gourmet",
+    "subscription": {
+      "status": "past_due",
+      "plan": "pro_monthly",
+      "provider": "lemonsqueezy",
+      "trialEndsAt": "2026-10-03T01:03:03.398Z",
+      "currentPeriodEnd": "2026-09-26T01:03:03.416Z",
+      "gracePeriodDaysRemaining": 7,
+      "lastPaymentError": "Falló el cobro automático de la tarjeta",
+      "updatedAt": "2026-09-26T01:03:03.419Z"
+    },
+    "createdAt": "2026-09-26T01:03:03.399Z",
+    "bizName": "La Esquina Gourmet"
+  },
+  {
+    "id": "rest_1790384583689_0p7ccr",
+    "userId": "user_exp_test_1790384583685",
+    "slug": "mi-local",
+    "subscription": {
+      "status": "trialing",
+      "trialEndsAt": "2026-09-26T00:03:03.685Z"
+    },
+    "createdAt": "2026-09-26T01:03:03.689Z",
+    "name": "Restaurante Expirado Test"
+  },
+  {
+    "id": "rest_1790384584236_1axvx9",
+    "userId": "usr_1790384584233_mukku4",
+    "slug": "vanguardia-test-1790384584234",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-03T01:03:04.236Z",
+      "currentPeriodEnd": "2026-10-03T01:03:04.236Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-09-26T01:03:04.236Z",
+    "bizName": "Restaurante Vanguardia Test",
+    "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+    "layout": "bento",
+    "theme": "emerald",
+    "font": "sans",
+    "categories": []
   }
 ]

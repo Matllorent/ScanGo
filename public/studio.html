@@ -172,6 +172,31 @@
               </div>
             </div>
 
+            <!-- Imagen de Banner / Portada Superior -->
+            <div class="form-group" style="margin-top: 14px;">
+              <label class="form-label">🖼️ Portada / Banner Superior del Menú</label>
+              <div style="background: var(--bg-base); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+                <div id="bannerPreviewBox" style="width: 100%; height: 96px; border-radius: 8px; border: 1px dashed var(--border); background: #16201c; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 10px; position: relative;">
+                  <span id="bannerPreviewPlaceholder" style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 10px;">
+                    🌄 Sin imagen de portada cargada.<br><span style="font-size: 10px; opacity: 0.8;">Se mostrará el encabezado estándar elegante.</span>
+                  </span>
+                </div>
+                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                  <input type="file" id="inputBannerFile" accept="image/*" style="display: none;" onchange="handleBannerUpload(event)">
+                  <button type="button" class="btn-nav" style="flex: 1; justify-content: center; font-size: 11px;" onclick="document.getElementById('inputBannerFile').click()">
+                    📁 Subir Imagen de Portada
+                  </button>
+                  <button type="button" id="btnRemoveBanner" class="btn-nav btn-icon-danger" style="display: none; padding: 0 10px; font-size: 11px;" onclick="removeBanner()">
+                    Quitar
+                  </button>
+                </div>
+                <div>
+                  <input type="text" id="inputBannerUrl" class="form-input" placeholder="O pega aquí la URL de la imagen (https://...)" style="font-size: 11px;" oninput="handleBannerUrlInput(event)">
+                  <span class="input-hint">Formato panorámico recomendado (1200x400 o 16:9). Se adaptará fluidamente en móviles.</span>
+                </div>
+              </div>
+            </div>
+
             <!-- Announcement Banner of the Day -->
             <div class="form-group" style="margin-top: 14px;">
               <label class="form-label">📢 Cartel de Anuncio del Día (Banner Superior en el Menú)</label>
@@ -268,8 +293,25 @@
           <div class="form-section">
             <div class="section-title">🎨 Estética del Pizarrón y Rubro Gastronómico</div>
             <p style="font-size:11px; color:var(--text-dim); margin-bottom:12px;">
-              Elige entre los 7 fondos auténticos y estilos tipográficos adaptados a cada tipo de local.
+              Elige la morfología de disposición de tu carta y la paleta temática adaptada a tu local.
             </p>
+
+            <!-- Layout Switcher (Nuevas Morfologías) -->
+            <div class="form-group" style="margin-bottom: 16px; background: var(--bg-base); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+              <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>📐 Morfología y Estructura del Menú (Layout)</span>
+                <span style="font-size:10px; color:var(--accent-gold); font-weight:700;">LAYOUT SWITCHER</span>
+              </label>
+              <select id="inputMenuLayout" class="form-select" onchange="updateLiveState()" style="font-weight:600;">
+                <option value="classic" selected>📜 Classic Artisanal (Por Defecto — Pizarrón tradicional con sus 14 paletas)</option>
+                <option value="bento">🍱 Bento Grid (Moderna cuadrícula modular — Cafeterías de especialidad & Fast-Good)</option>
+                <option value="minimalist">🍷 Minimalist Luxury (Alta cocina & Fine-dining — Tipografía serif y fondos marfil/carbón)</option>
+                <option value="neon">🍸 Neon Nightbar (Modo ultra-oscuro #090D0E — Acentos de neón sutiles para tragos y 2x1)</option>
+              </select>
+              <div class="input-hint" style="margin-top:6px;">
+                "Classic Artisanal" conserva al 100% las 14 paletas auténticas. Las nuevas morfologías aplican un diseño estructural exclusivo de vanguardia.
+              </div>
+            </div>
 
             <div class="form-group">
               <label class="form-label">Fondo y Paleta del Pizarrón (14 Opciones Temáticas)</label>

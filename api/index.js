@@ -135,6 +135,16 @@ function sanitizeRestaurantPayload(data) {
   if (clean.logoUrl && typeof clean.logoUrl === 'string' && clean.logoUrl.length > 5000000) {
     clean.logoUrl = clean.logoUrl.slice(0, 5000000);
   }
+  if (clean.bannerUrl && typeof clean.bannerUrl === 'string' && clean.bannerUrl.length > 5000000) {
+    clean.bannerUrl = clean.bannerUrl.slice(0, 5000000);
+  }
+  const allowedLayouts = ['classic', 'bento', 'minimalist', 'neon'];
+  if (clean.layout) {
+    const normLayout = String(clean.layout).toLowerCase().trim();
+    clean.layout = allowedLayouts.includes(normLayout) ? normLayout : 'classic';
+  } else {
+    clean.layout = 'classic';
+  }
 
   if (Array.isArray(clean.dishes)) {
     clean.dishes = clean.dishes.slice(0, 400).map(d => ({
@@ -489,6 +499,8 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
         tableCount: restaurant.tableCount || 10,
         customCoupons: restaurant.customCoupons || [],
         logoUrl: restaurant.logoUrl || null,
+        bannerUrl: restaurant.bannerUrl || null,
+        layout: restaurant.layout || 'classic',
         wifi: restaurant.wifi || { ssid: '', password: '' },
         categories: restaurant.categories || [],
         modifierGroups: restaurant.modifierGroups || [],
@@ -1020,20 +1032,20 @@ app.get('/m/:slug', (req, res) => {
     const appUrl = process.env.APP_URL || 'https://menupizarron.com';
     const title = `${restaurant.name || restaurant.bizName || 'Menú Digital'} — Menú Pizarrón`;
     const slogan = restaurant.slogan || 'Especialidad, masas artesanales y cocina de autor';
-    const logoUrl = restaurant.logoUrl || `${appUrl}/og-cover.png`;
+    const ogImage = restaurant.bannerUrl || restaurant.logoUrl || `${appUrl}/og-cover.png`;
     const menuUrl = `${appUrl}/m/${restaurant.slug}`;
 
     const ogTags = `
       <title>${title}</title>
       <meta property="og:title" content="${title}" />
       <meta property="og:description" content="${slogan}" />
-      <meta property="og:image" content="${logoUrl}" />
+      <meta property="og:image" content="${ogImage}" />
       <meta property="og:url" content="${menuUrl}" />
       <meta property="og:type" content="restaurant.menu" />
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content="${title}" />
       <meta name="twitter:description" content="${slogan}" />
-      <meta name="twitter:image" content="${logoUrl}" />
+      <meta name="twitter:image" content="${ogImage}" />
     `;
 
     // Inject OpenGraph meta tags before </head>

@@ -173,10 +173,29 @@
       document.getElementById('restaurantName').textContent = restaurantData.name;
       document.getElementById('restaurantSlogan').textContent = restaurantData.slogan || 'Carta Gastronómica';
 
-      // Apply 14 Authentic & Special Themes & Fonts to body
+      // Apply Layout Morphology & 14 Authentic Classic Themes & Fonts to body
+      const validLayouts = ['bento', 'minimalist', 'neon'];
+      const layoutClass = validLayouts.includes(restaurantData.layout) ? `layout-${restaurantData.layout}` : 'layout-classic';
       const validThemes = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football'];
       const themeClass = validThemes.includes(restaurantData.theme) ? `theme-${restaurantData.theme}` : 'theme-emerald';
-      document.body.className = `${themeClass} font-${restaurantData.themeFont || 'serif'}`;
+      document.body.className = `${themeClass} font-${restaurantData.themeFont || 'serif'} ${layoutClass}`;
+
+      // Responsive Hero Banner Rendering (with graceful fallback)
+      const bannerEl = document.getElementById('menuBannerHero');
+      if (bannerEl) {
+        if (restaurantData.bannerUrl) {
+          bannerEl.style.display = 'block';
+          bannerEl.innerHTML = `
+            <img src="${escapeHtml(restaurantData.bannerUrl)}" alt="Portada de ${escapeHtml(restaurantData.name)}" class="menu-banner-img" loading="eager" onerror="this.parentElement.style.display='none'; document.body.classList.remove('has-hero-banner');">
+            <div class="menu-banner-overlay"></div>
+          `;
+          document.body.classList.add('has-hero-banner');
+        } else {
+          bannerEl.style.display = 'none';
+          bannerEl.innerHTML = '';
+          document.body.classList.remove('has-hero-banner');
+        }
+      }
 
       if (restaurantData.logoUrl) {
         document.getElementById('restaurantLogoContainer').innerHTML = `

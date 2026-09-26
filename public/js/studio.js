@@ -383,6 +383,8 @@
             phone: '',
             theme: 'emerald',
             themeFont: 'sans',
+            layout: 'classic',
+            bannerUrl: null,
             businessType: 'restaurante',
             allowLoyaltyPoints: false,
             allowIceCreamWizard: false,
@@ -461,7 +463,9 @@
       document.getElementById('inputInstagram').value = restaurant.instagram || '';
       document.getElementById('inputGoogleReview').value = restaurant.googleReview || '';
 
-      // Theme selects
+      // Layout & Theme selects
+      const layoutSelect = document.getElementById('inputMenuLayout');
+      if (layoutSelect) layoutSelect.value = restaurant.layout || 'classic';
       const themeBg = document.getElementById('inputThemeBg');
       if (themeBg) themeBg.value = restaurant.theme || 'emerald';
       const themeFont = document.getElementById('inputThemeFont');
@@ -513,6 +517,11 @@
         document.getElementById('logoPreviewBox').innerHTML = `<span id="logoPreviewIcon" style="font-size:22px;">🍽️</span>`;
         document.getElementById('btnRemoveLogo').style.display = 'none';
       }
+
+      // Render Banner preview
+      const bannerInput = document.getElementById('inputBannerUrl');
+      if (bannerInput) bannerInput.value = restaurant.bannerUrl || '';
+      renderBannerPreviewUI();
 
       // Business Type selector
       const bizSelect = document.getElementById('inputBusinessType');
@@ -589,6 +598,68 @@
       document.getElementById('btnRemoveLogo').style.display = 'none';
       generateQrCode();
       triggerAutoSave();
+    }
+
+    function renderBannerPreviewUI() {
+      const box = document.getElementById('bannerPreviewBox');
+      const btnRemove = document.getElementById('btnRemoveBanner');
+      if (!box) return;
+      if (restaurant.bannerUrl) {
+        box.innerHTML = `<img src="${restaurant.bannerUrl}" style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.parentElement.innerHTML='<span style=\\'font-size:11px; color:#f87171;\\'>⚠️ Error cargando imagen</span>'">`;
+        if (btnRemove) btnRemove.style.display = 'inline-block';
+      } else {
+        box.innerHTML = `
+          <span id="bannerPreviewPlaceholder" style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 10px;">
+            🌄 Sin imagen de portada cargada.<br><span style="font-size: 10px; opacity: 0.8;">Se mostrará el encabezado estándar elegante.</span>
+          </span>
+        `;
+        if (btnRemove) btnRemove.style.display = 'none';
+      }
+    }
+
+    function handleBannerUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 3 * 1024 * 1024) {
+        alert('La imagen de portada no debe superar los 3MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        restaurant.bannerUrl = event.target.result;
+        const urlInput = document.getElementById('inputBannerUrl');
+        if (urlInput) urlInput.value = '';
+        renderBannerPreviewUI();
+        syncLivePreviewIframe();
+        triggerAutoSave();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function handleBannerUrlInput(e) {
+      const val = e.target.value.trim();
+      restaurant.bannerUrl = val || null;
+      renderBannerPreviewUI();
+      syncLivePreviewIframe();
+      triggerAutoSave();
+    }
+
+    function removeBanner() {
+      restaurant.bannerUrl = null;
+      const fileInput = document.getElementById('inputBannerFile');
+      if (fileInput) fileInput.value = '';
+      const urlInput = document.getElementById('inputBannerUrl');
+      if (urlInput) urlInput.value = '';
+      renderBannerPreviewUI();
+      syncLivePreviewIframe();
+      triggerAutoSave();
+    }
+
+    function syncLivePreviewIframe() {
+      const iframe = document.getElementById('previewIframe');
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage({ type: 'UPDATE_LIVE_PREVIEW', data: restaurant }, '*');
+      }
     }
 
     function renderSubscriptionBadge(sub) {
@@ -2616,9 +2687,19 @@
       restaurant.instagram = document.getElementById('inputInstagram').value.trim();
       restaurant.googleReview = document.getElementById('inputGoogleReview').value.trim();
 
-      // Theme
+      // Layout & Theme
+      const layoutSelect = document.getElementById('inputMenuLayout');
+      if (layoutSelect) {
+        restaurant.layout = layoutSelect.value || 'classic';
+      }
       restaurant.theme = document.getElementById('inputThemeBg').value;
       restaurant.themeFont = document.getElementById('inputThemeFont').value;
+
+      // Banner / Portada
+      const bannerInput = document.getElementById('inputBannerUrl');
+      if (bannerInput && bannerInput.value.trim() && !restaurant.bannerUrl?.startsWith('data:')) {
+        restaurant.bannerUrl = bannerInput.value.trim();
+      }
 
       if (!restaurant.wifi) restaurant.wifi = {};
       restaurant.wifi.ssid = document.getElementById('inputWifiSsid').value;

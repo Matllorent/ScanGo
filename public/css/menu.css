@@ -1637,3 +1637,356 @@
       scrollbar-width: thin;
       scrollbar-color: rgba(255,255,255,0.15) transparent;
     }
+
+    /* ==========================================================================
+       HERO BANNER (PORTADA SUPERIOR RESPONSIVA)
+       ========================================================================== */
+    .menu-banner-hero {
+      position: relative;
+      width: 100%;
+      height: 190px;
+      max-height: 220px;
+      overflow: hidden;
+      background: #0E1412;
+      border-bottom: 1px solid var(--border-chalk);
+    }
+    .menu-banner-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      display: block;
+      transition: transform 0.4s ease;
+    }
+    .menu-banner-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(14, 20, 18, 0.1) 0%,
+        rgba(14, 20, 18, 0.45) 50%,
+        rgba(14, 20, 18, 0.95) 100%
+      );
+      pointer-events: none;
+    }
+    body.has-hero-banner .menu-header {
+      margin-top: -36px;
+      position: relative;
+      z-index: 2;
+    }
+    body.has-hero-banner .restaurant-logo {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+      border-color: var(--chalk-gold);
+    }
+
+    /* ==========================================================================
+       MORFOLOGÍA 1: BENTO GRID (MODERNA & MODULAR)
+       Ideal para Cafeterías de especialidad, Brunch & Fast-Good
+       ========================================================================== */
+    body.layout-bento .dishes-list {
+      display: grid !important;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 16px;
+    }
+    body.layout-bento .dish-card {
+      flex-direction: column !important;
+      align-items: stretch !important;
+      padding: 0 !important;
+      overflow: hidden;
+      border-radius: 14px !important;
+      background: rgba(22, 33, 28, 0.75) !important;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1) !important;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    body.layout-bento .dish-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(236, 201, 75, 0.4) !important;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+    }
+    body.layout-bento .dish-thumb {
+      width: 100% !important;
+      height: 140px !important;
+      aspect-ratio: 16 / 9;
+      border-radius: 0 !important;
+      border: none !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      object-fit: cover !important;
+      display: block;
+    }
+    body.layout-bento .dish-body {
+      padding: 14px 14px 8px 14px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    body.layout-bento .dish-title-line {
+      margin-bottom: 6px;
+    }
+    body.layout-bento .dish-name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    body.layout-bento .dish-desc {
+      font-size: 0.82rem;
+      line-height: 1.4;
+      color: var(--chalk-dim);
+      margin-bottom: 10px;
+      flex: 1;
+    }
+    body.layout-bento .dish-action {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 14px 14px 14px;
+      width: 100%;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    body.layout-bento .dish-price {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--chalk-gold);
+    }
+    body.layout-bento .btn-add {
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 0.95rem;
+      height: 34px;
+    }
+
+    /* ==========================================================================
+       MORFOLOGÍA 2: MINIMALIST LUXURY (EDITORIAL & ALTA COCINA)
+       Ideal para Fine-Dining, Bistró de Autor y Restaurantes Premium
+       ========================================================================== */
+    body.layout-minimalist {
+      --bg-chalkboard: #0E1211;
+      --surface-card: transparent;
+      --chalk-gold: #D4AF37;
+      --chalk-white: #F8F9FA;
+      background-color: #0E1211;
+    }
+    body.layout-minimalist .menu-header {
+      padding: 32px 18px 24px;
+      border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+      margin-bottom: 24px;
+    }
+    body.layout-minimalist .restaurant-title {
+      font-family: 'Playfair Display', serif !important;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      color: #F8F9FA;
+    }
+    body.layout-minimalist .restaurant-slogan {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      letter-spacing: 0.4px;
+      color: #CBD5E0;
+    }
+    body.layout-minimalist .category-block {
+      margin-bottom: 34px;
+    }
+    body.layout-minimalist .category-header-row {
+      border-bottom: 1px solid rgba(212, 175, 55, 0.25);
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+    }
+    body.layout-minimalist .category-title {
+      font-family: 'Playfair Display', serif !important;
+      font-size: 1.3rem;
+      letter-spacing: 1px;
+      color: #D4AF37 !important;
+      text-transform: uppercase;
+    }
+    body.layout-minimalist .dish-card {
+      background: transparent !important;
+      border: none !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+      border-radius: 0 !important;
+      padding: 16px 0 !important;
+      box-shadow: none !important;
+      align-items: flex-start !important;
+      transition: background-color 0.2s ease;
+    }
+    body.layout-minimalist .dish-card:hover {
+      background: rgba(255, 255, 255, 0.02) !important;
+      border-bottom-color: rgba(212, 175, 55, 0.4) !important;
+    }
+    body.layout-minimalist .dish-thumb {
+      width: 58px !important;
+      height: 58px !important;
+      border-radius: 50% !important;
+      border: 1px solid rgba(212, 175, 55, 0.35) !important;
+      object-fit: cover !important;
+      margin-right: 4px;
+    }
+    body.layout-minimalist .dish-name {
+      font-family: 'Playfair Display', serif !important;
+      font-size: 1.05rem;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      color: #F8F9FA;
+    }
+    body.layout-minimalist .dish-desc {
+      font-size: 0.82rem;
+      line-height: 1.5;
+      color: #A0AEC0;
+      margin-top: 3px;
+    }
+    body.layout-minimalist .dish-price {
+      font-family: 'Playfair Display', serif !important;
+      font-size: 1.15rem;
+      color: #D4AF37;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    body.layout-minimalist .btn-add {
+      background: transparent !important;
+      border: 1px solid rgba(212, 175, 55, 0.6) !important;
+      color: #D4AF37 !important;
+      border-radius: 50% !important;
+      width: 32px !important;
+      height: 32px !important;
+      font-size: 1rem;
+      transition: all 0.2s ease;
+    }
+    body.layout-minimalist .btn-add:hover {
+      background: #D4AF37 !important;
+      color: #0E1211 !important;
+    }
+
+    /* ==========================================================================
+       MORFOLOGÍA 3: NEON NIGHTBAR (ULTRA-DARK CON GLOW LUMINOSO)
+       Ideal para Coctelería, Bares, Cervecerías & Happy Hour
+       ========================================================================== */
+    body.layout-neon {
+      --bg-chalkboard: #070B0A;
+      --surface-card: #0F1614;
+      --surface-card-hover: #15201D;
+      --chalk-gold: #00F5D4;
+      --border-chalk: rgba(0, 245, 212, 0.25);
+      background-color: #070B0A;
+    }
+    body.layout-neon .menu-header {
+      background: #0B110F;
+      border-bottom: 1px solid rgba(0, 245, 212, 0.35);
+      box-shadow: 0 4px 20px rgba(0, 245, 212, 0.08);
+    }
+    body.layout-neon .restaurant-title {
+      color: #F8FAFC;
+      text-shadow: 0 0 12px rgba(0, 245, 212, 0.4);
+    }
+    body.layout-neon .category-title {
+      color: #00F5D4 !important;
+      text-shadow: 0 0 10px rgba(0, 245, 212, 0.45);
+      letter-spacing: 0.5px;
+    }
+    body.layout-neon .dish-card {
+      background: #0F1614 !important;
+      border: 1px solid rgba(0, 245, 212, 0.22) !important;
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+      transition: all 0.2s ease;
+    }
+    body.layout-neon .dish-card:hover {
+      border-color: #00F5D4 !important;
+      box-shadow: 0 0 20px rgba(0, 245, 212, 0.3), inset 0 0 8px rgba(0, 245, 212, 0.06);
+      transform: translateY(-2px);
+    }
+    body.layout-neon .dish-thumb {
+      border-color: rgba(0, 245, 212, 0.4) !important;
+      box-shadow: 0 0 10px rgba(0, 245, 212, 0.15);
+    }
+    body.layout-neon .dish-name {
+      color: #F1F5F9;
+    }
+    body.layout-neon .dish-price {
+      color: #00F5D4;
+      font-weight: 800;
+      text-shadow: 0 0 8px rgba(0, 245, 212, 0.4);
+    }
+    body.layout-neon .btn-add {
+      background: #00F5D4 !important;
+      color: #070B0A !important;
+      border: none !important;
+      font-weight: 800;
+      box-shadow: 0 0 12px rgba(0, 245, 212, 0.5);
+      transition: all 0.2s ease;
+    }
+    body.layout-neon .btn-add:hover {
+      background: #38BDF8 !important;
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.7);
+    }
+    body.layout-neon .badge-star {
+      background: rgba(244, 63, 94, 0.18) !important;
+      color: #FB7185 !important;
+      border: 1px solid #F43F5E !important;
+      box-shadow: 0 0 10px rgba(244, 63, 94, 0.35);
+    }
+
+    /* ==========================================================================
+       RATIOS CONSISTENTES & EXCELENCIA RESPONSIVA (<360px & MÓVILES ESTRECHOS)
+       ========================================================================== */
+    .dish-thumb,
+    .dish-photo-col img,
+    .chef-special-card img {
+      object-fit: cover !important;
+      aspect-ratio: 1 / 1;
+    }
+
+    @media (max-width: 480px) {
+      .menu-banner-hero {
+        height: 160px;
+      }
+    }
+
+    @media (max-width: 360px) {
+      .menu-container {
+        padding: 0 8px !important;
+      }
+      .menu-header {
+        padding: 14px 10px !important;
+      }
+      .restaurant-title {
+        font-size: 1.35rem !important;
+      }
+      .restaurant-slogan {
+        font-size: 0.8rem !important;
+      }
+      .restaurant-meta-bar {
+        gap: 4px !important;
+      }
+      .meta-chip {
+        font-size: 9.5px !important;
+        padding: 3px 6px !important;
+      }
+      .dish-card {
+        padding: 10px !important;
+        gap: 8px !important;
+      }
+      .dish-thumb {
+        width: 62px !important;
+        height: 62px !important;
+        border-radius: 8px !important;
+      }
+      .dish-name {
+        font-size: 0.92rem !important;
+      }
+      .dish-desc {
+        font-size: 0.78rem !important;
+        line-height: 1.3 !important;
+      }
+      .dish-price {
+        font-size: 0.95rem !important;
+      }
+      .btn-add {
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 1rem !important;
+      }
+      .menu-banner-hero {
+        height: 135px !important;
+      }
+    }
