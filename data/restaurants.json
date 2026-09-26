@@ -268,5 +268,61 @@
     "scheduleActiveHours": "",
     "tableCount": 10,
     "modifierGroups": []
+  },
+  {
+    "id": "rest_1790380577282_9bhprj",
+    "userId": "usr_1790380577273_evaxir",
+    "slug": "esquina-gourmet",
+    "subscription": {
+      "status": "past_due",
+      "plan": "pro_monthly",
+      "provider": "lemonsqueezy",
+      "trialEndsAt": "2026-10-02T23:56:17.282Z",
+      "currentPeriodEnd": "2026-09-25T23:56:17.316Z",
+      "gracePeriodDaysRemaining": 7,
+      "lastPaymentError": "Falló el cobro automático de la tarjeta",
+      "updatedAt": "2026-09-25T23:56:17.329Z"
+    },
+    "createdAt": "2026-09-25T23:56:17.282Z",
+    "bizName": "La Esquina Gourmet"
+  },
+  {
+    "id": "rest_1790380577860_tcdj2l",
+    "userId": "user_exp_test_1790380577855",
+    "slug": "mi-local",
+    "subscription": {
+      "status": "trialing",
+      "trialEndsAt": "2026-09-25T22:56:17.855Z"
+    },
+    "createdAt": "2026-09-25T23:56:17.860Z",
+    "name": "Restaurante Expirado Test"
+  },
+  {
+    "id": "rest_1790381051586_bdiza1",
+    "userId": "usr_1790381051583_vld4ro",
+    "slug": "esquina-gourmet",
+    "subscription": {
+      "status": "past_due",
+      "plan": "pro_monthly",
+      "provider": "lemonsqueezy",
+      "trialEndsAt": "2026-10-03T00:04:11.586Z",
+      "currentPeriodEnd": "2026-09-26T00:04:11.604Z",
+      "gracePeriodDaysRemaining": 7,
+      "lastPaymentError": "Falló el cobro automático de la tarjeta",
+      "updatedAt": "2026-09-26T00:04:11.607Z"
+    },
+    "createdAt": "2026-09-26T00:04:11.586Z",
+    "bizName": "La Esquina Gourmet"
+  },
+  {
+    "id": "rest_1790381051888_7vqr59",
+    "userId": "user_exp_test_1790381051885",
+    "slug": "mi-local",
+    "subscription": {
+      "status": "trialing",
+      "trialEndsAt": "2026-09-25T23:04:11.885Z"
+    },
+    "createdAt": "2026-09-26T00:04:11.888Z",
+    "name": "Restaurante Expirado Test"
   }
 ]

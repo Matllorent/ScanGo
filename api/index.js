@@ -514,6 +514,7 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
         const { memoryCache } = require('./middleware/cache');
         const stale = memoryCache.get(slug);
         if (stale) {
+          res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300');
           res.setHeader('Warning', '110 Response is Stale');
           res.setHeader('X-Cache-Status', 'Stale-Fallback');
           return res.status(200).json(stale);
@@ -533,6 +534,7 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
       });
     }
 
+    res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300');
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: e.message });

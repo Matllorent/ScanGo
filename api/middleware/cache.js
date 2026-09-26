@@ -89,6 +89,7 @@ function menuCacheMiddleware(req, res, next) {
 
   const cachedData = memoryCache.get(cacheKey);
   if (cachedData) {
+    res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300');
     res.setHeader('X-Cache', 'HIT');
     res.setHeader('X-Response-Time-Target', '<30ms');
     return res.status(200).json(cachedData);
@@ -99,6 +100,7 @@ function menuCacheMiddleware(req, res, next) {
   res.json = function (body) {
     if (res.statusCode === 200 && body && !body.error && !body.inactive) {
       memoryCache.set(cacheKey, body, 60000); // 60s TTL
+      res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300');
     }
     res.setHeader('X-Cache', 'MISS');
     return originalJson(body);

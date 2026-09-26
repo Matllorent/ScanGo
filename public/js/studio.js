@@ -2185,9 +2185,10 @@
       triggerAutoSave();
     }
 
-    // QR Code Generator with Centered Logo / Emblem Badge
+    // QR Code Generator with Centered Logo / Emblem Badge (Event-driven & CORS defensive)
     function generateQrCode() {
       const container = document.getElementById('qrcodeCanvasContainer');
+      if (!container) return;
       container.innerHTML = '';
       const fullUrl = window.location.origin + `/m/${restaurant.slug}`;
 
@@ -2202,17 +2203,108 @@
         correctLevel: QRCode.CorrectLevel.H
       });
 
-      // Allow QRCode library to render canvas/img
-      setTimeout(() => {
-        const qrCanvas = tempHolder.querySelector('canvas');
-        const qrImg = tempHolder.querySelector('img');
+      // Event-driven QR source extraction (eliminates arbitrary setTimeout)
+      function waitForQrSource(holder) {
+        return new Promise((resolve) => {
+          // Check immediate synchronous canvas (supported by standard qrcode.js)
+          const qrCanvas = holder.querySelector('canvas');
+          if (qrCanvas && qrCanvas.width > 0) {
+            return resolve(qrCanvas);
+          }
+          const qrImg = holder.querySelector('img');
+          if (qrImg && qrImg.complete && qrImg.naturalWidth > 0) {
+            return resolve(qrImg);
+          }
+          if (qrImg) {
+            qrImg.addEventListener('load', () => resolve(qrImg), { once: true });
+            qrImg.addEventListener('error', () => resolve(null), { once: true });
+            return;
+          }
 
-        const canvas = document.createElement('canvas');
-        canvas.width = 240;
-        canvas.height = 240;
-        const ctx = canvas.getContext('2d');
+          // Use MutationObserver for DOM insertion events
+          let resolved = false;
+          const observer = new MutationObserver(() => {
+            const canvasEl = holder.querySelector('canvas');
+            if (canvasEl && canvasEl.width > 0) {
+              resolved = true;
+              observer.disconnect();
+              return resolve(canvasEl);
+            }
+            const imgEl = holder.querySelector('img');
+            if (imgEl) {
+              if (imgEl.complete && imgEl.naturalWidth > 0) {
+                resolved = true;
+                observer.disconnect();
+                return resolve(imgEl);
+              }
+              imgEl.addEventListener('load', () => {
+                if (!resolved) {
+                  resolved = true;
+                  observer.disconnect();
+                  resolve(imgEl);
+                }
+              }, { once: true });
+              imgEl.addEventListener('error', () => {
+                if (!resolved) {
+                  resolved = true;
+                  observer.disconnect();
+                  resolve(null);
+                }
+              }, { once: true });
+            }
+          });
 
-        const drawOverlayAndMount = () => {
+          observer.observe(holder, { childList: true, subtree: true });
+
+          // Fallback guard: guarantee Promise resolves even under high device load
+          setTimeout(() => {
+            if (!resolved) {
+              resolved = true;
+              observer.disconnect();
+              const fallbackCanvas = holder.querySelector('canvas');
+              const fallbackImg = holder.querySelector('img');
+              resolve(fallbackCanvas || fallbackImg || null);
+            }
+          }, 1200);
+        });
+      }
+
+      // Defensive logo loader with CORS headers management
+      function loadSafeLogo(url) {
+        return new Promise((resolve) => {
+          if (!url) return resolve(null);
+          const logo = new Image();
+          // Defensive CORS: Only apply anonymous crossOrigin on external URLs to avoid issues with data:/blob:
+          if (!url.startsWith('data:') && !url.startsWith('blob:')) {
+            logo.crossOrigin = 'anonymous';
+          }
+          logo.addEventListener('load', () => resolve(logo), { once: true });
+          logo.addEventListener('error', (err) => {
+            // Defensive handling: If external image lacks CORS headers or fails,
+            // log warning and resolve null so default icon is rendered without tainting canvas
+            console.warn('[QR] No se pudo cargar el logo con CORS o falló la imagen externa. Fallback seguro sin tainting.', err);
+            resolve(null);
+          }, { once: true });
+          logo.src = url;
+        });
+      }
+
+      // Coordinate both events before mounting to canvas
+      Promise.all([waitForQrSource(tempHolder), loadSafeLogo(restaurant.logoUrl)])
+        .then(([qrSource, safeLogo]) => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 240;
+          canvas.height = 240;
+          const ctx = canvas.getContext('2d');
+
+          if (qrSource) {
+            ctx.drawImage(qrSource, 0, 0, 240, 240);
+          } else {
+            container.innerHTML = '';
+            container.appendChild(tempHolder);
+            return;
+          }
+
           const center = 120;
           const badgeRadius = 32;
 
@@ -2226,28 +2318,7 @@
           ctx.strokeStyle = '#ECC94B';
           ctx.stroke();
 
-          if (restaurant.logoUrl) {
-            const logo = new Image();
-            logo.crossOrigin = 'anonymous';
-            logo.onload = () => {
-              ctx.beginPath();
-              ctx.arc(center, center, badgeRadius, 0, 2 * Math.PI);
-              ctx.closePath();
-              ctx.clip();
-              ctx.drawImage(logo, center - badgeRadius, center - badgeRadius, badgeRadius * 2, badgeRadius * 2);
-              ctx.restore();
-              container.innerHTML = '';
-              container.appendChild(canvas);
-            };
-            logo.onerror = () => {
-              drawDefaultIcon();
-            };
-            logo.src = restaurant.logoUrl;
-          } else {
-            drawDefaultIcon();
-          }
-
-          function drawDefaultIcon() {
+          const drawDefaultIcon = () => {
             ctx.beginPath();
             ctx.arc(center, center, badgeRadius, 0, 2 * Math.PI);
             ctx.fillStyle = '#151E1A';
@@ -2256,41 +2327,57 @@
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText('🍽️', center, center + 2);
-            ctx.restore();
-            container.innerHTML = '';
-            container.appendChild(canvas);
-          }
-        };
-
-        if (qrCanvas) {
-          ctx.drawImage(qrCanvas, 0, 0);
-          drawOverlayAndMount();
-        } else if (qrImg) {
-          const baseImg = new Image();
-          baseImg.onload = () => {
-            ctx.drawImage(baseImg, 0, 0);
-            drawOverlayAndMount();
           };
-          baseImg.src = qrImg.src;
-        } else {
+
+          if (safeLogo) {
+            try {
+              ctx.beginPath();
+              ctx.arc(center, center, badgeRadius, 0, 2 * Math.PI);
+              ctx.closePath();
+              ctx.clip();
+              ctx.drawImage(safeLogo, center - badgeRadius, center - badgeRadius, badgeRadius * 2, badgeRadius * 2);
+            } catch (e) {
+              console.warn('[QR] Error dibujando logo en canvas, aplicando ícono seguro:', e);
+              drawDefaultIcon();
+            }
+          } else {
+            drawDefaultIcon();
+          }
+          ctx.restore();
+
+          container.innerHTML = '';
+          container.appendChild(canvas);
+        })
+        .catch((err) => {
+          console.error('[QR] Error renderizando QR:', err);
+          container.innerHTML = '';
           container.appendChild(tempHolder);
-        }
-      }, 50);
+        });
     }
 
     function downloadQrPng() {
       const canvas = document.querySelector('#qrcodeCanvasContainer canvas');
       if (!canvas) return;
-      const a = document.createElement('a');
-      a.href = canvas.toDataURL('image/png');
-      a.download = `QR-${restaurant.slug}-menu-pizarron.png`;
-      a.click();
+      try {
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = `QR-${restaurant.slug}-menu-pizarron.png`;
+        a.click();
+      } catch (err) {
+        console.error('[QR] Error al descargar imagen del QR (canvas tainted o bloqueado por CORS):', err);
+        alert('No se pudo generar la descarga del QR debido a restricciones de seguridad (CORS) de la imagen del logo.');
+      }
     }
 
     function printTableStand() {
       const win = window.open('', '_blank');
       const canvas = document.querySelector('#qrcodeCanvasContainer canvas');
-      const src = canvas ? canvas.toDataURL('image/png') : '';
+      let src = '';
+      try {
+        src = canvas ? canvas.toDataURL('image/png') : '';
+      } catch (err) {
+        console.warn('[QR] Canvas tainted en printTableStand:', err);
+      }
       const wifiText = restaurant.wifi && restaurant.wifi.ssid ? `Wi-Fi: ${restaurant.wifi.ssid} | Clave: ${restaurant.wifi.password}` : '';
 
       win.document.write(`
@@ -2347,7 +2434,7 @@
       const textDimColor = [120, 130, 125];
       const wifiText = restaurant.wifi && restaurant.wifi.ssid ? `Wi-Fi: ${restaurant.wifi.ssid}  |  Clave: ${restaurant.wifi.password}` : '';
 
-      // Helper to generate QR data URL
+      // Helper to generate QR data URL (Event-driven without arbitrary timeouts)
       function makeQrDataUrl(url) {
         return new Promise((resolve) => {
           const temp = document.createElement('div');
@@ -2361,18 +2448,59 @@
             colorLight: "#FFFFFF",
             correctLevel: QRCode.CorrectLevel.H
           });
-          setTimeout(() => {
+
+          const cleanupAndResolve = () => {
             const canvas = temp.querySelector('canvas');
             const img = temp.querySelector('img');
             let dataUrl = '';
-            if (canvas) {
-              dataUrl = canvas.toDataURL('image/png');
-            } else if (img) {
-              dataUrl = img.src;
+            try {
+              if (canvas) {
+                dataUrl = canvas.toDataURL('image/png');
+              } else if (img) {
+                dataUrl = img.src;
+              }
+            } catch (e) {
+              console.warn('[PDF] Error generando dataUrl del QR:', e);
             }
-            document.body.removeChild(temp);
+            if (temp.parentNode) document.body.removeChild(temp);
             resolve(dataUrl);
-          }, 60);
+          };
+
+          const canvas = temp.querySelector('canvas');
+          if (canvas && canvas.width > 0) {
+            return cleanupAndResolve();
+          }
+
+          const img = temp.querySelector('img');
+          if (img) {
+            if (img.complete && img.naturalWidth > 0) {
+              return cleanupAndResolve();
+            }
+            img.addEventListener('load', cleanupAndResolve, { once: true });
+            img.addEventListener('error', cleanupAndResolve, { once: true });
+            return;
+          }
+
+          let done = false;
+          const obs = new MutationObserver(() => {
+            const c = temp.querySelector('canvas');
+            const i = temp.querySelector('img');
+            if (c || (i && i.complete)) {
+              if (!done) {
+                done = true;
+                obs.disconnect();
+                cleanupAndResolve();
+              }
+            }
+          });
+          obs.observe(temp, { childList: true, subtree: true });
+          setTimeout(() => {
+            if (!done) {
+              done = true;
+              obs.disconnect();
+              cleanupAndResolve();
+            }
+          }, 800);
         });
       }
 

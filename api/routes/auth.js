@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const db = require('../../src/db/db');
 const emailService = require('../services/email');
@@ -198,7 +199,7 @@ router.post('/logout', (req, res) => {
 
 /**
  * POST /api/auth/forgot-password
- * Handles automated password recovery email
+ * Handles automated password recovery email with single-use JTI and strict 15m expiration
  */
 router.post('/forgot-password', normalizeEmailInput, async (req, res, next) => {
   try {
@@ -208,7 +209,17 @@ router.post('/forgot-password', normalizeEmailInput, async (req, res, next) => {
     }
     const user = db.findUserByEmail(email);
     if (user) {
-      const resetToken = jwt.sign({ userId: user.id, purpose: 'reset-password' }, JWT_SECRET, { expiresIn: '1h' });
+      const jti = crypto.randomUUID();
+      const expiresInSeconds = 15 * 60; // 15 minutos estrictos (entre 15 y 30 minutos)
+      const resetToken = jwt.sign(
+        { userId: user.id, email: user.email, purpose: 'reset-password' },
+        JWT_SECRET,
+        { expiresIn: expiresInSeconds, jwtid: jti }
+      );
+
+      // Persist active token and jti in DB to guarantee single-use and prevent reuse
+      db.savePasswordResetToken(user.id, jti, Date.now() + expiresInSeconds * 1000);
+
       const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
       const resetUrl = `${appUrl}/reset-password.html?token=${resetToken}`;
       try {
@@ -222,7 +233,7 @@ router.post('/forgot-password', normalizeEmailInput, async (req, res, next) => {
             <p style="margin:24px 0;">
               <a href="${resetUrl}" style="background:#d4af37; color:#111; padding:12px 24px; text-decoration:none; font-weight:bold; border-radius:6px; display:inline-block;">Restablecer mi Contraseña</a>
             </p>
-            <p style="font-size:12px; color:#888;">Este enlace es válido durante 1 hora. Si no solicitaste este cambio, podés ignorar este mensaje o contactarnos directamente por WhatsApp.</p>
+            <p style="font-size:12px; color:#888;">Este enlace es de un solo uso y es válido durante 15 minutos. Si no solicitaste este cambio, podés ignorar este mensaje o contactarnos directamente por WhatsApp.</p>
           </div>`
         });
       } catch (mailErr) {
@@ -230,6 +241,96 @@ router.post('/forgot-password', normalizeEmailInput, async (req, res, next) => {
       }
     }
     return successResponse(res, null, 'Si el correo está registrado en ScanGo, recibirás las instrucciones para restablecer tu contraseña en los próximos minutos.');
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/auth/verify-reset-token
+ * Validates reset token and JTI single-use status before rendering UI
+ */
+router.get('/verify-reset-token', (req, res, next) => {
+  try {
+    const token = req.query.token;
+    if (!token) {
+      throw new AppError('Token de recuperación requerido', 400, 'TOKEN_REQUIRED');
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (jwtErr) {
+      if (jwtErr.name === 'TokenExpiredError') {
+        throw new AppError('El enlace de recuperación ha expirado (límite de 15 minutos). Por favor solicita uno nuevo.', 401, 'TOKEN_EXPIRED');
+      }
+      throw new AppError('Token de recuperación inválido o alterado', 401, 'INVALID_TOKEN');
+    }
+
+    if (decoded.purpose !== 'reset-password' || !decoded.jti) {
+      throw new AppError('Token no válido para recuperación de contraseña', 400, 'INVALID_TOKEN_PURPOSE');
+    }
+
+    const isValid = db.isResetTokenValid(decoded.userId, decoded.jti);
+    if (!isValid) {
+      throw new AppError('Este enlace de recuperación ya ha sido utilizado o ha sido invalidado.', 400, 'TOKEN_ALREADY_USED');
+    }
+
+    return successResponse(res, { valid: true, email: decoded.email }, 'Token válido para restablecimiento');
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/auth/reset-password
+ * Executes password update, verifying single-use JTI and revoking token immediately
+ */
+router.post('/reset-password', async (req, res, next) => {
+  try {
+    const { token, password, newPassword } = req.body;
+    const finalPassword = password || newPassword;
+
+    if (!token) {
+      throw new AppError('Token de recuperación requerido', 400, 'TOKEN_REQUIRED');
+    }
+    if (!finalPassword || String(finalPassword).length < 6) {
+      throw new AppError('La nueva contraseña debe tener al menos 6 caracteres', 400, 'PASSWORD_TOO_SHORT');
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (jwtErr) {
+      if (jwtErr.name === 'TokenExpiredError') {
+        throw new AppError('El enlace de recuperación ha expirado (límite de 15 minutos). Por favor solicita uno nuevo.', 401, 'TOKEN_EXPIRED');
+      }
+      throw new AppError('Token de recuperación inválido o alterado', 401, 'INVALID_TOKEN');
+    }
+
+    if (decoded.purpose !== 'reset-password' || !decoded.jti) {
+      throw new AppError('Token no válido para restablecimiento de contraseña', 400, 'INVALID_TOKEN_PURPOSE');
+    }
+
+    // Verify JTI has not been consumed yet
+    const isValid = db.isResetTokenValid(decoded.userId, decoded.jti);
+    if (!isValid) {
+      throw new AppError('Este enlace de recuperación ya fue utilizado previamente o ha expirado.', 400, 'TOKEN_ALREADY_USED');
+    }
+
+    const user = db.findUserById(decoded.userId);
+    if (!user) {
+      throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
+    }
+
+    // Immediately revoke/invalidate the JTI to prevent reuse
+    db.invalidateResetToken(decoded.jti);
+
+    // Hash new password and update in database
+    const hashedPassword = await hashPassword(finalPassword);
+    db.updateUserPassword(user.id, hashedPassword);
+
+    return successResponse(res, null, 'Contraseña restablecida exitosamente. Ya podés iniciar sesión.');
   } catch (err) {
     next(err);
   }

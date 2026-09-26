@@ -12,5 +12,40 @@
     "password": "$2b$12$lqJk2UQRHIlsqS0o.ikgtuB81v9UVD5AJhJuxU.lMCqN9xid/fTmW",
     "name": "Alejandro",
     "email_confirmed_at": "2026-09-25T04:25:35.884Z"
+  },
+  {
+    "id": "usr_1790380577273_evaxir",
+    "createdAt": "2026-09-25T23:56:17.273Z",
+    "email": "test-restaurante@pizarron.com",
+    "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1790381005044_2ut8s1",
+    "createdAt": "2026-09-26T00:03:25.044Z",
+    "email": "test_security_1790381005041@example.com",
+    "password": "original_hashed_password",
+    "name": "Test Security User"
+  },
+  {
+    "id": "usr_1790381027000_d7t2xd",
+    "createdAt": "2026-09-26T00:03:47.000Z",
+    "email": "test_security_1790381026998@example.com",
+    "password": "new_secure_hashed_password",
+    "name": "Test Security User",
+    "updatedAt": "2026-09-26T00:03:47.030Z"
+  },
+  {
+    "id": "usr_1790381051583_vld4ro",
+    "createdAt": "2026-09-26T00:04:11.583Z",
+    "email": "test-restaurante@pizarron.com",
+    "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1790381052217_8sb612",
+    "createdAt": "2026-09-26T00:04:12.217Z",
+    "email": "test_security_1790381052215@example.com",
+    "password": "new_secure_hashed_password",
+    "name": "Test Security User",
+    "updatedAt": "2026-09-26T00:04:12.247Z"
   }
 ]

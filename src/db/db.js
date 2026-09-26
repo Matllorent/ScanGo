@@ -9,6 +9,7 @@ if (!fs.existsSync(DATA_DIR)) {
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const RESTAURANTS_FILE = path.join(DATA_DIR, 'restaurants.json');
 const WEBHOOKS_FILE = path.join(DATA_DIR, 'webhooks.json');
+const RESET_TOKENS_FILE = path.join(DATA_DIR, 'reset_tokens.json');
 
 function readJson(file, def = []) {
   if (!fs.existsSync(file)) return def;
@@ -110,6 +111,64 @@ const db = {
       }]).then().catch(e => console.warn('[Supabase Insert User]', e.message));
     }
     return newUser;
+  },
+  updateUserPassword(userId, newHashedPassword) {
+    const users = readJson(USERS_FILE, []);
+    const user = users.find(u => u.id === userId);
+    if (!user) return null;
+    user.password = newHashedPassword;
+    user.updatedAt = new Date().toISOString();
+    writeJson(USERS_FILE, users);
+
+    if (supabase) {
+      supabase.from('users').update({
+        password: newHashedPassword,
+        updated_at: user.updatedAt
+      }).eq('id', userId).then().catch(e => console.warn('[Supabase Update Password]', e.message));
+    }
+    return user;
+  },
+
+  // Password Recovery Tokens (Single-use with JTI & Expiry)
+  savePasswordResetToken(userId, jti, expiresAt) {
+    const tokens = readJson(RESET_TOKENS_FILE, []);
+    // Invalidate any previously pending unused tokens for this user
+    tokens.forEach(t => {
+      if (t.userId === userId && !t.used) {
+        t.used = true;
+        t.revokedAt = new Date().toISOString();
+      }
+    });
+    tokens.push({
+      userId,
+      jti,
+      expiresAt,
+      used: false,
+      createdAt: new Date().toISOString()
+    });
+    // Keep max 500 recent token records
+    if (tokens.length > 500) tokens.splice(0, tokens.length - 500);
+    writeJson(RESET_TOKENS_FILE, tokens);
+  },
+  isResetTokenValid(userId, jti) {
+    const tokens = readJson(RESET_TOKENS_FILE, []);
+    const record = tokens.find(t => t.jti === jti);
+    if (!record) return false;
+    if (record.userId !== userId) return false;
+    if (record.used) return false;
+    if (Date.now() > record.expiresAt) return false;
+    return true;
+  },
+  invalidateResetToken(jti) {
+    const tokens = readJson(RESET_TOKENS_FILE, []);
+    const record = tokens.find(t => t.jti === jti);
+    if (record) {
+      record.used = true;
+      record.usedAt = new Date().toISOString();
+      writeJson(RESET_TOKENS_FILE, tokens);
+      return true;
+    }
+    return false;
   },
 
   // Restaurants & Menus

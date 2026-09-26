@@ -6,10 +6,11 @@
   "scripts": {
     "start": "node api/index.js",
     "dev": "nodemon api/index.js",
-    "test": "node tests/test-billing.js && node tests/test-fixes.js && node tests/test-new-features.js",
+    "test": "node tests/test-billing.js && node tests/test-fixes.js && node tests/test-new-features.js && node tests/test-resilience-security.js",
     "test:billing": "node tests/test-billing.js",
     "test:fixes": "node tests/test-fixes.js",
     "test:features": "node tests/test-new-features.js",
+    "test:security": "node tests/test-resilience-security.js",
     "mobile:sync": "npx cap sync",
     "mobile:build": "npx cap copy android"
   },
