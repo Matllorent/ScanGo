@@ -526,20 +526,10 @@
   </main>
 
   <script>
-    let currentKey = localStorage.getItem('pizarron_admin_key') || '';
-    let currentToken = localStorage.getItem('pizarron_admin_token') || '';
     let currentRestaurants = [];
 
     function getAdminHeaders() {
-      const h = { 'Content-Type': 'application/json' };
-      if (currentToken) {
-        h['Authorization'] = `Bearer ${currentToken}`;
-        h['x-admin-token'] = currentToken;
-      }
-      if (currentKey) {
-        h['x-admin-key'] = currentKey;
-      }
-      return h;
+      return { 'Content-Type': 'application/json' };
     }
 
     function escapeHtml(str) {
@@ -603,9 +593,7 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       checkLockout();
-      if (currentToken || currentKey) {
-        checkSessionAndLoad();
-      }
+      checkSessionAndLoad();
     });
 
     async function checkSessionAndLoad() {
@@ -623,10 +611,6 @@
           loadPricingSettingsAdmin();
           loadKillSwitchAdmin();
         } else {
-          currentKey = '';
-          currentToken = '';
-          localStorage.removeItem('pizarron_admin_key');
-          localStorage.removeItem('pizarron_admin_token');
           document.getElementById('auth-view').style.display = 'block';
           document.getElementById('dashboard-view').style.display = 'none';
         }
@@ -705,11 +689,6 @@
         }
 
         clearLockout();
-        currentKey = key;
-        currentToken = loginData.token || '';
-        localStorage.setItem('pizarron_admin_key', key);
-        if (currentToken) localStorage.setItem('pizarron_admin_token', currentToken);
-        document.cookie = 'admin_key=' + encodeURIComponent(key) + '; path=/; max-age=604800; SameSite=Lax';
 
         const res = await fetch('/api/admin/overview', {
           headers: getAdminHeaders()
@@ -741,20 +720,20 @@
       }
     }
 
-    function logout() {
-      localStorage.removeItem('pizarron_admin_key');
-      localStorage.removeItem('pizarron_admin_token');
-      document.cookie = 'admin_key=; path=/; max-age=0';
-      document.cookie = 'admin_token=; path=/; max-age=0';
-      currentKey = '';
-      currentToken = '';
+    async function logout() {
+      await fetch('/api/admin/logout', { method: 'POST' }).catch(() => {});
       document.getElementById('auth-view').style.display = 'block';
       document.getElementById('dashboard-view').style.display = 'none';
       document.getElementById('btn-logout').style.display = 'none';
     }
 
+    window.addEventListener('pagehide', (event) => {
+      if (!event.persisted) {
+        fetch('/api/admin/logout', { method: 'POST', keepalive: true });
+      }
+    });
+
     async function loadOverview() {
-      if (!currentKey && !currentToken) return;
       try {
         const res = await fetch('/api/admin/overview', {
           headers: getAdminHeaders()
@@ -799,10 +778,7 @@
       try {
         const res = await fetch('/api/admin/invite-restaurant', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-key': currentKey
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, name, slug })
         });
         const data = await res.json().catch(() => ({}));
@@ -977,12 +953,11 @@
     }
 
     async function loadReviews() {
-      if (!currentKey) return;
       try {
         let reviews = [];
         try {
           const res = await fetch('/api/admin/reviews', {
-            headers: { 'x-admin-key': currentKey }
+            headers: getAdminHeaders()
           });
           if (res.ok) {
             const data = await res.json();
@@ -1061,7 +1036,7 @@
     async function moderateReview(id, status) {
       if (!confirm(`¿Deseas marcar esta reseña como ${status === 'approved' ? 'APROBADA' : 'RECHAZADA'}?`)) return;
 
-      // 1. Sync localStorage: move review between pending/approved/rejected lists
+      // Sync the review between local pending/approved/rejected lists.
       syncLocalReviewStatus(id, status);
 
       // 2. Try API call (may fail in demo mode — that's OK)
@@ -1070,7 +1045,6 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-admin-key': currentKey
           },
           body: JSON.stringify({ status })
         });

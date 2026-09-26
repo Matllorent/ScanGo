@@ -60,6 +60,20 @@ console.log('✓ Manejo defensivo ante imágenes externas y prevención de canva
 // ==========================================
 const apiIndexJs = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
 const cacheJs = fs.readFileSync(path.join(__dirname, '..', 'api', 'middleware', 'cache.js'), 'utf8');
+const adminHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin.html'), 'utf8');
+const homeHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+
+// Admin sessions must remain volatile and expire after 15 minutes without activity.
+const cookieOptions = apiIndexJs.match(/const COOKIE_OPTIONS = \{([\s\S]*?)\};/);
+assert.ok(cookieOptions, 'Las opciones de cookies deben estar definidas');
+assert.strictEqual(cookieOptions[1].includes('maxAge'), false, 'Las cookies de sesión admin no deben tener maxAge');
+assert.ok(apiIndexJs.includes('const ADMIN_SESSION_IDLE_TIMEOUT_SECONDS = 15 * 60;'));
+assert.ok(apiIndexJs.includes("{ expiresIn: ADMIN_SESSION_IDLE_TIMEOUT_SECONDS }"));
+assert.ok(apiIndexJs.includes("res.cookie('admin_token', renewedToken, COOKIE_OPTIONS)"));
+assert.strictEqual(adminHtml.includes('pizarron_admin_key'), false, 'El panel no debe persistir la clave admin');
+assert.strictEqual(adminHtml.includes('pizarron_admin_token'), false, 'El panel no debe persistir el token admin');
+assert.strictEqual(homeHtml.includes('href="/admin"'), false, 'El pie del inicio no debe enlazar al panel admin');
+console.log('✓ Sesión admin volátil, renovada por actividad y sin credenciales persistidas');
 
 const expectedHeader = 'Cache-Control: public, s-maxage=30, stale-while-revalidate=300';
 assert.ok(
