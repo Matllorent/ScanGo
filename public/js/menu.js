@@ -520,15 +520,66 @@
 
     let selectedDietFilter = 'ALL';
 
+    const DIET_FILTER_MAP = {
+      veggie: ['veggie', 'vegetariano'],
+      vegan: ['vegan', 'vegano'],
+      celiac: ['celiac', 'singluten'],
+      sinlactosa: ['sinlactosa'],
+      picante: ['picante']
+    };
+
+    function getAvailableDietFilters() {
+      const dishes = restaurantData.dishes || [];
+      const available = new Set(['ALL']);
+      Object.entries(DIET_FILTER_MAP).forEach(([key, tags]) => {
+        const hasMatch = dishes.some(d => !d.outOfStock && d.tags && d.tags.some(t => tags.includes(t)));
+        if (hasMatch) available.add(key);
+      });
+      return available;
+    }
+
+    function renderDietaryFilters() {
+      const container = document.getElementById('dietaryFilterPills');
+      if (!container) return;
+      const available = getAvailableDietFilters();
+      container.querySelectorAll('.cat-pill').forEach(btn => {
+        const isAll = btn.textContent.includes('Todos');
+        const isVeggie = btn.textContent.includes('Vegetariano');
+        const isVegan = btn.textContent.includes('Vegano');
+        const isCeliac = btn.textContent.includes('Sin TACC');
+        const isSinLactosa = btn.textContent.includes('Sin Lactosa');
+        const isPicante = btn.textContent.includes('Picante');
+
+        let key = null;
+        if (isAll) key = 'ALL';
+        else if (isVeggie) key = 'veggie';
+        else if (isVegan) key = 'vegan';
+        else if (isCeliac) key = 'celiac';
+        else if (isSinLactosa) key = 'sinlactosa';
+        else if (isPicante) key = 'picante';
+
+        if (key && !available.has(key)) {
+          btn.style.display = 'none';
+        } else {
+          btn.style.display = '';
+        }
+      });
+    }
+
     function selectDietFilter(diet) {
-      selectedDietFilter = diet;
+      const available = getAvailableDietFilters();
+      if (!available.has(diet)) {
+        selectedDietFilter = 'ALL';
+      } else {
+        selectedDietFilter = diet;
+      }
       document.querySelectorAll('#dietaryFilterPills .cat-pill').forEach(btn => {
-        const isSel = (diet === 'ALL' && btn.textContent.includes('Todos')) ||
-                      (diet === 'veggie' && btn.textContent.includes('Vegetariano')) ||
-                      (diet === 'vegan' && btn.textContent.includes('Vegano')) ||
-                      (diet === 'celiac' && btn.textContent.includes('Sin TACC')) ||
-                      (diet === 'sinlactosa' && btn.textContent.includes('Sin Lactosa')) ||
-                      (diet === 'picante' && btn.textContent.includes('Picante'));
+        const isSel = (selectedDietFilter === 'ALL' && btn.textContent.includes('Todos')) ||
+                      (selectedDietFilter === 'veggie' && btn.textContent.includes('Vegetariano')) ||
+                      (selectedDietFilter === 'vegan' && btn.textContent.includes('Vegano')) ||
+                      (selectedDietFilter === 'celiac' && btn.textContent.includes('Sin TACC')) ||
+                      (selectedDietFilter === 'sinlactosa' && btn.textContent.includes('Sin Lactosa')) ||
+                      (selectedDietFilter === 'picante' && btn.textContent.includes('Picante'));
         btn.classList.toggle('active', isSel);
       });
       renderDishes();
@@ -652,6 +703,9 @@
     function renderDishes() {
       // Render top carousel for Chef's Specials & Menú del Día
       renderChefSpecials();
+
+      // Hide dietary filters that have no matching dishes
+      renderDietaryFilters();
 
       const container = document.getElementById('dishesContainer');
       const searchInput = document.getElementById('searchFilter');

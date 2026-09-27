@@ -252,11 +252,11 @@
       }
     ],
     "analytics": {
-      "visits": 32,
+      "visits": 39,
       "orders": 0,
       "reservations": 0,
       "waiterCalls": 0,
-      "lastUpdated": "2026-09-26T22:05:14.004Z"
+      "lastUpdated": "2026-09-27T17:31:34.780Z"
     },
     "businessType": "restaurant",
     "allowIceCreamWizard": false,
@@ -1607,6 +1607,81 @@
       "gracePeriodDaysRemaining": 7
     },
     "createdAt": "2026-09-27T17:10:35.832Z",
+    "bizName": "Perfil Predeterminado",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790530228957_fwvzvx",
+    "userId": "usr_1790530228951_67rfqt",
+    "slug": "esquina-gourmet",
+    "subscription": {
+      "status": "past_due",
+      "plan": "pro_monthly",
+      "provider": "lemonsqueezy",
+      "trialEndsAt": "2026-10-04T17:30:28.957Z",
+      "currentPeriodEnd": "2026-09-27T17:30:28.990Z",
+      "gracePeriodDaysRemaining": 7,
+      "lastPaymentError": "Falló el cobro automático de la tarjeta",
+      "updatedAt": "2026-09-27T17:30:28.999Z"
+    },
+    "createdAt": "2026-09-27T17:30:28.957Z",
+    "bizName": "La Esquina Gourmet",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790530229560_sj78a9",
+    "userId": "user_exp_test_1790530229555",
+    "slug": "mi-local",
+    "subscription": {
+      "status": "trialing",
+      "trialEndsAt": "2026-09-27T16:30:29.555Z"
+    },
+    "createdAt": "2026-09-27T17:30:29.560Z",
+    "name": "Restaurante Expirado Test",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790530230463_jsz8ev",
+    "userId": "usr_1790530230448_2dfaen",
+    "slug": "vanguardia-test-1790530230455",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-04T17:30:30.464Z",
+      "currentPeriodEnd": "2026-10-04T17:30:30.464Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-09-27T17:30:30.464Z",
+    "bizName": "Restaurante Vanguardia Test",
+    "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+    "businessType": "events",
+    "layout": "bento",
+    "theme": "emerald",
+    "font": "sans",
+    "categories": [],
+    "city": "",
+    "smartWeatherEnabled": false
+  },
+  {
+    "id": "rest_1790530230500_50ny7e",
+    "userId": "usr_1790530230487_78ieqf",
+    "slug": "perfil-predeterminado",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-04T17:30:30.500Z",
+      "currentPeriodEnd": "2026-10-04T17:30:30.500Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-09-27T17:30:30.500Z",
     "bizName": "Perfil Predeterminado",
     "city": "",
     "smartWeatherEnabled": false,
