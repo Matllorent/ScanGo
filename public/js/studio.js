@@ -516,6 +516,10 @@
       // Subscription badge
       renderSubscriptionBadge(currentUser.subscription);
 
+      // Proactive subscription alerts and menu status indicator
+      checkSubscriptionAlerts();
+      renderMenuStatusIndicator();
+
       // Form inputs
       document.getElementById('inputLocalName').value = restaurant.name || '';
       document.getElementById('inputLocalSlogan').value = restaurant.slogan || '';
@@ -766,6 +770,119 @@
         badge.className = 'sub-badge badge-grace';
         badge.textContent = `✕ VENCIDO`;
       }
+    }
+
+    /**
+     * Evaluates subscription state and shows a persistent alert banner
+     * when the trial is expiring soon or the subscription is past_due.
+     */
+    function checkSubscriptionAlerts() {
+      const sub = currentUser ? currentUser.subscription : null;
+      if (!sub) return;
+
+      const banner = document.getElementById('subscriptionAlertBanner');
+      const text = document.getElementById('subscriptionAlertText');
+      const btn = document.getElementById('subscriptionAlertBtn');
+      if (!banner || !text || !btn) return;
+
+      let alertLevel = null;
+      let alertMsg = '';
+      let btnText = '';
+      let btnBg = '';
+      let btnColor = '';
+
+      if (sub.status === 'trial') {
+        const trialEnd = sub.trialEndsAt ? new Date(sub.trialEndsAt) : null;
+        const daysLeft = trialEnd ? Math.ceil((trialEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+        if (daysLeft <= 2 && daysLeft > 0) {
+          alertLevel = 'warning';
+          alertMsg = `⚠️ Tu prueba gratuita expira en ${daysLeft} día${daysLeft === 1 ? '' : 's'}. Actualizá tu plan para mantener tu menú activo.`;
+          btnText = 'Activar Plan Pro';
+          btnBg = '#f59e0b';
+          btnColor = '#0d1312';
+        }
+      } else if (sub.status === 'past_due') {
+        const graceEnd = sub.currentPeriodEnd
+          ? new Date(new Date(sub.currentPeriodEnd).getTime() + 7 * 24 * 3600 * 1000)
+          : null;
+        const daysLeft = graceEnd ? Math.max(0, Math.ceil((graceEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 0;
+        if (daysLeft <= 3) {
+          alertLevel = 'danger';
+          alertMsg = `🚨 Tu suscripción está vencida. Tu menú se pausará en ${daysLeft} día${daysLeft === 1 ? '' : 's'} si no regularizás el pago.`;
+          btnText = 'Regularizar Pago';
+          btnBg = '#ef4444';
+          btnColor = '#fff';
+        }
+      }
+
+      if (!alertLevel) {
+        banner.style.display = 'none';
+        return;
+      }
+
+      text.textContent = alertMsg;
+      btn.textContent = btnText;
+      btn.style.background = btnBg;
+      btn.style.color = btnColor;
+
+      if (alertLevel === 'danger') {
+        banner.style.background = 'rgba(239, 68, 68, 0.12)';
+        banner.style.borderBottom = '1px solid rgba(239, 68, 68, 0.4)';
+        banner.style.color = '#fca5a5';
+      } else {
+        banner.style.background = 'rgba(245, 158, 11, 0.1)';
+        banner.style.borderBottom = '1px solid rgba(245, 158, 11, 0.35)';
+        banner.style.color = '#fbbf24';
+      }
+
+      banner.style.display = 'flex';
+    }
+
+    /**
+     * Determines if the public menu is currently visible to customers.
+     */
+    function getMenuVisibilityStatus() {
+      const sub = currentUser ? currentUser.subscription : null;
+      if (!sub) return { visible: false, label: 'Desconocido', color: '#94a3b8' };
+
+      if (sub.status === 'active') {
+        return { visible: true, label: 'ONLINE', color: '#4ade80' };
+      }
+      if (sub.status === 'trial') {
+        const trialEnd = sub.trialEndsAt ? new Date(sub.trialEndsAt) : null;
+        if (trialEnd && trialEnd.getTime() > Date.now()) {
+          return { visible: true, label: 'ONLINE (Trial)', color: '#60a5fa' };
+        }
+        return { visible: false, label: 'PAUSADO', color: '#f87171' };
+      }
+      if (sub.status === 'past_due') {
+        const graceEnd = sub.currentPeriodEnd
+          ? new Date(new Date(sub.currentPeriodEnd).getTime() + 7 * 24 * 3600 * 1000)
+          : null;
+        if (graceEnd && graceEnd.getTime() > Date.now()) {
+          return { visible: true, label: 'ONLINE (Gracia)', color: '#fbbf24' };
+        }
+        return { visible: false, label: 'PAUSADO', color: '#f87171' };
+      }
+      return { visible: false, label: 'PAUSADO', color: '#f87171' };
+    }
+
+    function renderMenuStatusIndicator() {
+      const status = getMenuVisibilityStatus();
+      let indicator = document.getElementById('menuStatusIndicator');
+      if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'menuStatusIndicator';
+        indicator.style.cssText = 'display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:12px; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;';
+        const header = document.querySelector('.top-navbar .brand-area');
+        if (header) header.appendChild(indicator);
+      }
+      indicator.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${status.color}; box-shadow:0 0 6px ${status.color};"></span> <span style="color:${status.color};">${status.label}</span>`;
+      indicator.title = status.visible
+        ? 'Tu menú está visible para los clientes'
+        : 'Tu menú está oculto para los clientes';
+      indicator.style.background = status.visible ? 'rgba(74, 222, 128, 0.08)' : 'rgba(239, 68, 68, 0.08)';
+      indicator.style.border = `1px solid ${status.color}33`;
     }
 
     // Tabs
