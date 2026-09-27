@@ -869,6 +869,21 @@
       renderDishes();
     }
 
+    // Toast notification helper
+    function showToast(message, type = 'success') {
+      let toast = document.getElementById('scangoToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'scangoToast';
+        toast.style.cssText = 'position:fixed; bottom:100px; left:50%; transform:translateX(-50%); background:#1a2e25; color:#ECC94B; padding:10px 20px; border-radius:20px; font-size:0.85rem; font-weight:700; z-index:99999; box-shadow:0 8px 24px rgba(0,0,0,0.4); border:1px solid rgba(236,201,75,0.3); opacity:0; transition:opacity 0.3s ease; pointer-events:none;';
+        document.body.appendChild(toast);
+      }
+      toast.textContent = message;
+      toast.style.opacity = '1';
+      clearTimeout(toast._timeout);
+      toast._timeout = setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+    }
+
     // Cart Handlers
     function addToCart(dishId) {
       const dish = restaurantData.dishes.find(d => d.id === dishId);
