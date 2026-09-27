@@ -520,6 +520,9 @@
       checkSubscriptionAlerts();
       renderMenuStatusIndicator();
 
+      // Quick metrics dashboard on main tab
+      renderQuickMetrics();
+
       // Form inputs
       document.getElementById('inputLocalName').value = restaurant.name || '';
       document.getElementById('inputLocalSlogan').value = restaurant.slogan || '';
@@ -898,6 +901,14 @@
       if (tabId === 'stats') {
         renderStatsTab();
       }
+
+      if (tabId === 'reviews') {
+        renderReviewsTab();
+      }
+
+      if (tabId === 'local') {
+        renderQuickMetrics();
+      }
     }
 
     function renderStatsTab() {
@@ -906,6 +917,140 @@
       document.getElementById('statOrders').textContent = stats.orders || 0;
       document.getElementById('statReservations').textContent = stats.reservations || 0;
       document.getElementById('statWaiterCalls').textContent = stats.waiterCalls || 0;
+    }
+
+    /**
+     * Renders the quick metrics dashboard on the main tab.
+     */
+    function renderQuickMetrics() {
+      const analytics = restaurant.analytics || {};
+      const currency = restaurant.currency || '$';
+
+      // Orders today (approximate: total orders / days since creation)
+      const createdAt = restaurant.createdAt ? new Date(restaurant.createdAt) : new Date();
+      const daysSinceCreation = Math.max(1, Math.ceil((Date.now() - createdAt.getTime()) / 86400000));
+      const ordersToday = Math.round((analytics.orders || 0) / daysSinceCreation);
+
+      // Top dish (most ordered - approximate from dishes with star tag or first dish)
+      const dishes = restaurant.dishes || [];
+      const topDish = dishes.find(d => d.tags && d.tags.includes('star')) || dishes[0] || null;
+
+      // Estimated revenue
+      const avgOrderValue = dishes.length > 0
+        ? dishes.reduce((sum, d) => sum + (d.price || 0), 0) / dishes.length
+        : 0;
+      const estimatedRevenue = Math.round(ordersToday * avgOrderValue);
+
+      // Visits today (approximate)
+      const visitsToday = Math.round((analytics.visits || 0) / daysSinceCreation);
+
+      const ordersEl = document.getElementById('metric-orders-today');
+      const topDishEl = document.getElementById('metric-top-dish');
+      const revenueEl = document.getElementById('metric-revenue');
+      const visitsEl = document.getElementById('metric-visits-today');
+
+      if (ordersEl) ordersEl.textContent = ordersToday;
+      if (topDishEl) topDishEl.textContent = topDish ? topDish.name : '—';
+      if (revenueEl) revenueEl.textContent = `${currency} ${estimatedRevenue.toLocaleString('es-UY')}`;
+      if (visitsEl) visitsEl.textContent = visitsToday;
+    }
+
+    /**
+     * Fetches and renders the restaurant's reviews with management options.
+     */
+    async function renderReviewsTab() {
+      const container = document.getElementById('reviewsManagementList');
+      const avgEl = document.getElementById('reviewsAverageStars');
+      const countEl = document.getElementById('reviewsTotalCount');
+      if (!container) return;
+
+      container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-dim);">Cargando reseñas...</div>';
+
+      try {
+        const token = localStorage.getItem('menu_pizarron_token');
+        const res = await fetch('/api/admin/reviews', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          container.innerHTML = `<div style="color:#f87171; padding:12px;">Error: ${data.error || 'No se pudieron cargar las reseñas'}</div>`;
+          return;
+        }
+
+        const reviews = data.data || data.reviews || [];
+
+        if (!reviews.length) {
+          container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-dim);">Aún no hay reseñas de clientes.</div>';
+          if (avgEl) avgEl.textContent = '—';
+          if (countEl) countEl.textContent = '0';
+          return;
+        }
+
+        // Calculate average
+        const avgRating = reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / reviews.length;
+        if (avgEl) avgEl.textContent = `${avgRating.toFixed(1)} ⭐`;
+        if (countEl) countEl.textContent = String(reviews.length);
+
+        // Render review cards
+        let html = '';
+        reviews.forEach(review => {
+          const stars = '⭐'.repeat(Math.max(1, Math.min(5, review.rating || 5)));
+          const date = review.created_at ? new Date(review.created_at).toLocaleDateString('es-UY') : '';
+          const isAddressed = review.status === 'addressed';
+
+          html += `
+            <div class="review-card" data-review-id="${escapeHtml(review.id)}" style="background:var(--bg-base); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+                <div>
+                  <span style="font-size:1.1rem;">${stars}</span>
+                  <span style="font-size:0.75rem; color:var(--text-dim); margin-left:8px;">${date}</span>
+                </div>
+                <span style="font-size:0.65rem; padding:2px 8px; border-radius:10px; font-weight:700; text-transform:uppercase; ${isAddressed ? 'background:rgba(74,222,128,0.15); color:#4ade80;' : 'background:rgba(251,191,36,0.15); color:#fbbf24;'}">
+                  ${isAddressed ? '✓ Atendida' : 'Pendiente'}
+                </span>
+              </div>
+              <p style="font-size:0.85rem; color:#fff; margin-bottom:12px; line-height:1.5;">${escapeHtml(review.comment || '')}</p>
+              ${!isAddressed ? `
+                <button onclick('markReviewAddressed("${escapeHtml(review.id)}")') style="padding:4px 12px; border-radius:6px; font-size:0.72rem; font-weight:600; cursor:pointer; border:1px solid var(--accent-gold); background:transparent; color:var(--accent-gold);">
+                  ✓ Marcar como atendida
+                </button>
+              ` : ''}
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+      } catch (err) {
+        container.innerHTML = `<div style="color:#f87171; padding:12px;">Error de conexión: ${err.message}</div>`;
+      }
+    }
+
+    /**
+     * Marks a review as addressed via the API.
+     */
+    async function markReviewAddressed(reviewId) {
+      try {
+        const token = localStorage.getItem('menu_pizarron_token');
+        const res = await fetch(`/api/admin/reviews/${reviewId}/address`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status: 'addressed' })
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'No se pudo actualizar la reseña');
+        }
+
+        // Re-render the reviews tab
+        renderReviewsTab();
+      } catch (err) {
+        alert(err.message || 'Error al marcar la reseña');
+      }
     }
 
     // Review Photo Option Selector (Logo, Local/Plato, Personal)

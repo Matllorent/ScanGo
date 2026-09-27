@@ -107,6 +107,27 @@
 
         <!-- TAB 1: MI LOCAL -->
         <div id="tab-local" class="tab-pane active">
+
+          <!-- Quick Metrics Dashboard -->
+          <div id="quickMetricsGrid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:20px;">
+            <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center;">
+              <div style="font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:6px;">Pedidos Hoy</div>
+              <div id="metric-orders-today" style="font-size:1.8rem; font-weight:800; color:#fff;">0</div>
+            </div>
+            <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center;">
+              <div style="font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:6px;">Plato Top</div>
+              <div id="metric-top-dish" style="font-size:0.9rem; font-weight:700; color:var(--accent-gold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">—</div>
+            </div>
+            <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center;">
+              <div style="font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:6px;">Ingresos Est.</div>
+              <div id="metric-revenue" style="font-size:1.4rem; font-weight:800; color:#4ade80;">$0</div>
+            </div>
+            <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center;">
+              <div style="font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:6px;">Visitas Hoy</div>
+              <div id="metric-visits-today" style="font-size:1.8rem; font-weight:800; color:#60a5fa;">0</div>
+            </div>
+          </div>
+
           <div class="form-section">
             <div class="section-title">📍 Datos Principales del Local</div>
 
@@ -564,6 +585,25 @@
 
         <!-- TAB 7: RESEÑA & OPINIÓN DEL GASTRONÓMICO -->
         <div id="tab-reviews" class="tab-pane">
+
+          <!-- Reviews Management Section -->
+          <div class="form-section">
+            <div class="section-title">⭐ Reseñas de Clientes</div>
+            <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px; padding:12px; background:var(--bg-base); border-radius:10px; border:1px solid var(--border);">
+              <div style="text-align:center;">
+                <div id="reviewsAverageStars" style="font-size:1.6rem; font-weight:800; color:var(--accent-gold);">—</div>
+                <div style="font-size:0.7rem; color:var(--text-dim);">Promedio</div>
+              </div>
+              <div style="flex:1;">
+                <div id="reviewsTotalCount" style="font-size:1.2rem; font-weight:700; color:#fff;">0</div>
+                <div style="font-size:0.75rem; color:var(--text-dim);">Reseñas totales</div>
+              </div>
+            </div>
+            <div id="reviewsManagementList">
+              <div style="text-align:center; padding:20px; color:var(--text-dim);">Cargando reseñas...</div>
+            </div>
+          </div>
+
           <div class="form-section">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
               <div class="section-title" style="margin-bottom:0;">⭐ Tu Opinión sobre ScanGo</div>
