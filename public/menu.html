@@ -200,12 +200,13 @@
     <span>Ver Pedido (<span id="cartTotalBadge">$0</span>) →</span>
   </div>
 
-  <div id="dishNoteModal" class="modal-overlay" aria-hidden="true" onclick="if(event.target===this)closeDishNoteModal()">
-    <section class="modal-box dish-note-modal" role="dialog" aria-modal="true" aria-labelledby="dishNoteTitle">
+  <div id="dishNoteModal" class="modal-overlay" aria-hidden="true" onclick="if(event.target===this)closeDishNoteModal()" role="dialog" aria-modal="true" aria-labelledby="dishNoteTitle">
+    <section class="modal-box dish-note-modal">
       <button type="button" class="modal-close" onclick="closeDishNoteModal()" aria-label="Cerrar">✕</button>
       <h3 id="dishNoteTitle" class="modal-title">Personalizar el plato</h3>
       <p id="dishNoteDishName" class="dish-note-dish-name"></p>
-      <div id="dishChoiceContainer"></div>
+      <div id="dishChoiceContainer" aria-live="polite" aria-atomic="true"></div>
+      <div id="dishChoicePriceSummary" aria-live="polite" aria-atomic="true" style="margin-top:8px; font-weight:700; color:var(--chalk-gold); font-size:0.95rem; min-height:1.2em;"></div>
       <!-- Mozo Virtual: Sugerencia rápida de complementos en personalización -->
       <div id="dishModalUpsellBox" class="dish-modal-upsell-box" style="display:none;"></div>
       <label for="dishNoteInput" class="form-label">Nota para cocina (opcional)</label>
@@ -248,6 +249,9 @@
 
       <!-- Upselling Inteligente: El Mozo Virtual -->
       <div id="virtualWaiterUpsellBox" class="mozo-virtual-upsell-box" style="display:none;" aria-live="polite"></div>
+
+      <!-- Cross-Selling: Recomendación cruzada antes de enviar pedido -->
+      <div id="crossSellSection" class="cross-sell-section" style="display:none;" aria-live="polite"></div>
 
       <!-- Mode Selector -->
       <div class="form-section">

@@ -904,7 +904,15 @@
       const modal = document.getElementById('dishNoteModal');
       modal.classList.add('active');
       modal.setAttribute('aria-hidden', 'false');
-      document.getElementById('dishNoteInput').focus();
+
+      // Focus management for accessibility: move focus to the first interactive element
+      const firstFocusable = modal.querySelector('.dish-choice-input, .dish-note-cancel, #dishNoteInput');
+      if (firstFocusable) {
+        firstFocusable.focus();
+      }
+
+      // Store the previously focused element to restore on close
+      document.getElementById('dishNoteModal').dataset.previousFocus = document.activeElement?.id || '';
     }
 
     function closeDishNoteModal() {
@@ -912,6 +920,13 @@
       modal.classList.remove('active');
       modal.setAttribute('aria-hidden', 'true');
       pendingDishNoteAction = null;
+
+      // Restore focus to the element that opened the modal
+      const previousFocusId = modal.dataset.previousFocus;
+      if (previousFocusId) {
+        const prevEl = document.getElementById(previousFocusId);
+        if (prevEl) prevEl.focus();
+      }
     }
 
     function confirmDishNote() {
@@ -1379,6 +1394,7 @@
       list.innerHTML = html;
       updateTotals();
       renderUpsellSuggestions();
+      renderCrossSellSection();
     }
 
     function populateDeliveryZones() {
@@ -1963,6 +1979,107 @@
           btnEl.disabled = false;
         }, 2000);
       }
+    }
+
+    // =========================================================================
+    // CROSS-SELLING: Recomendación cruzada liviana antes de enviar pedido
+    // =========================================================================
+
+    const CROSS_SELL_PATTERNS = {
+      postre: /postre|helado|flan|brownie|torta|dulce|tiramisu|chocotorta|cheesecake|mousse|panna|cotta/i,
+      bebida: /bebida|refresco|gaseosa|coca|cerveza|agua|jugo|limonada|vino|cerveza|energizante|agua mineral/i,
+      entrada: /entrada|aperitivo|pat[eé]s|empanada|picada|wrap|nugget|aros/i,
+      acompaniamiento: /papas|fritas|aros|guarnic|acompa[ñn]|ensalada|salad/i
+    };
+
+    function detectCrossSellOpportunity(cartItems) {
+      const cartText = cartItems.map(ci => {
+        const cat = (restaurantData.categories || []).find(c => c.id === ci.dish.categoryId);
+        return `${ci.dish.name} ${ci.dish.description || ''} ${cat ? cat.name : ''}`.toLowerCase();
+      }).join(' ');
+
+      const hasDessert = CROSS_SELL_PATTERNS.postre.test(cartText);
+      const hasDrink = CROSS_SELL_PATTERNS.bebida.test(cartText);
+      const hasMain = /plato|principal|milanesa|pasta|carne|pollo|pescado|asado|bife|pizza|hamburguesa|burger|sandwich|chivito|lomo|wrap|taco|burrito|empanada/i.test(cartText);
+
+      const opportunities = [];
+      if (hasMain && !hasDrink) opportunities.push({ type: 'bebida', priority: 1, message: '¿Algo para beber? Las bebidas van perfecto con tu pedido.' });
+      if (hasMain && !hasDessert) opportunities.push({ type: 'postre', priority: 2, message: '¿Dulce final? Un postre eleva toda la experiencia.' });
+      if (!hasDrink) opportunities.push({ type: 'bebida', priority: 3, message: 'Agregá una bebida para completar tu pedido.' });
+
+      return opportunities;
+    }
+
+    function renderCrossSellSection() {
+      const section = document.getElementById('crossSellSection');
+      if (!section) return;
+
+      const items = Object.values(cart);
+      if (!items.length) {
+        section.style.display = 'none';
+        section.innerHTML = '';
+        return;
+      }
+
+      const opportunities = detectCrossSellOpportunity(items);
+      if (!opportunities.length) {
+        section.style.display = 'none';
+        section.innerHTML = '';
+        return;
+      }
+
+      const cartDishIds = new Set(items.map(ci => ci.dish.id));
+      const availableDishes = (restaurantData.dishes || []).filter(d =>
+        !cartDishIds.has(d.id) && !d.outOfStock && (d.price || 0) > 0
+      );
+
+      if (!availableDishes.length) {
+        section.style.display = 'none';
+        section.innerHTML = '';
+        return;
+      }
+
+      const currency = restaurantData.currency || '$';
+      let html = '';
+
+      opportunities.slice(0, 2).forEach(opp => {
+        const matches = availableDishes.filter(d => {
+          const cat = (restaurantData.categories || []).find(c => c.id === d.categoryId);
+          const text = `${d.name} ${d.description || ''} ${cat ? cat.name : ''}`.toLowerCase();
+          return CROSS_SELL_PATTERNS[opp.type] && CROSS_SELL_PATTERNS[opp.type].test(text);
+        }).sort((a, b) => (a.price || 0) - (b.price || 0));
+
+        if (!matches.length) return;
+
+        const topPick = matches[0];
+        const thumbHtml = topPick.photoUrl
+          ? `<img src="${escapeHtml(topPick.photoUrl)}" alt="${escapeHtml(topPick.name)}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;" loading="lazy">`
+          : `<div style="width:48px;height:48px;border-radius:8px;background:rgba(236,201,75,0.1);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">${opp.type === 'postre' ? '🍰' : '🥤'}</div>`;
+
+        html += `
+          <div class="cross-sell-card" style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:rgba(236,201,75,0.06); border:1px solid rgba(236,201,75,0.25); border-radius:10px; margin-bottom:8px;">
+            ${thumbHtml}
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:0.72rem; color:var(--chalk-gold); font-weight:700; text-transform:uppercase; margin-bottom:2px;">${opp.type === 'postre' ? '🍰 Sugerencia Dulce' : '🥤 Sugerencia para Acompañar'}</div>
+              <div style="font-weight:600; font-size:0.88rem; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(topPick.name)}</div>
+              <div style="font-size:0.78rem; color:var(--chalk-dim);">${currency} ${formatMenuPrice(topPick.price)}</div>
+            </div>
+            <button type="button" class="btn-mozo-quick-add" data-dish-id="${escapeHtml(topPick.id)}" onclick="quickAddUpsellItem('${escapeHtml(topPick.id)}', this)" aria-label="Agregar ${escapeHtml(topPick.name)} al carrito">+ Agregar</button>
+          </div>
+        `;
+      });
+
+      if (!html) {
+        section.style.display = 'none';
+        section.innerHTML = '';
+        return;
+      }
+
+      section.innerHTML = `
+        <div style="font-size:0.72rem; color:var(--chalk-gold); font-weight:700; text-transform:uppercase; margin-bottom:6px;">💡 ¿Algo más para completar tu pedido?</div>
+        ${html}
+      `;
+      section.style.display = 'block';
     }
 
     // =========================================================================
