@@ -269,5 +269,135 @@
     "createdAt": "2026-09-26T19:37:43.470Z",
     "email": "test-default-type-1790451463468@example.com",
     "password": "test_password"
+  },
+  {
+    "id": "usr_1790523978213_h8m305",
+    "createdAt": "2026-09-27T15:46:18.213Z",
+    "email": "test-restaurante@pizarron.com",
+    "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1790523981936_c4nskh",
+    "createdAt": "2026-09-27T15:46:21.936Z",
+    "email": "test_security_1790523981934@example.com",
+    "password": "new_secure_hashed_password",
+    "name": "Test Security User",
+    "updatedAt": "2026-09-27T15:46:21.965Z"
+  },
+  {
+    "id": "usr_1790523982067_o94lbd",
+    "createdAt": "2026-09-27T15:46:22.067Z",
+    "email": "test-layout-1790523982065@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790523982079_nwgg1u",
+    "createdAt": "2026-09-27T15:46:22.079Z",
+    "email": "test-default-type-1790523982078@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790524005158_0rnacw",
+    "createdAt": "2026-09-27T15:46:45.158Z",
+    "email": "test-restaurante@pizarron.com",
+    "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1790524005780_elp87n",
+    "createdAt": "2026-09-27T15:46:45.780Z",
+    "email": "test_security_1790524005777@example.com",
+    "password": "new_secure_hashed_password",
+    "name": "Test Security User",
+    "updatedAt": "2026-09-27T15:46:45.805Z"
+  },
+  {
+    "id": "usr_1790524005896_1jhnys",
+    "createdAt": "2026-09-27T15:46:45.896Z",
+    "email": "test-layout-1790524005894@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790524005909_xhcp4c",
+    "createdAt": "2026-09-27T15:46:45.909Z",
+    "email": "test-default-type-1790524005908@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790524189782_eqhuco",
+    "createdAt": "2026-09-27T15:49:49.782Z",
+    "email": "test-restaurante@pizarron.com",
+    "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1790524190396_ua5xh9",
+    "createdAt": "2026-09-27T15:49:50.396Z",
+    "email": "test_security_1790524190395@example.com",
+    "password": "new_secure_hashed_password",
+    "name": "Test Security User",
+    "updatedAt": "2026-09-27T15:49:50.421Z"
+  },
+  {
+    "id": "usr_1790524190513_c0e115",
+    "createdAt": "2026-09-27T15:49:50.513Z",
+    "email": "test-layout-1790524190512@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790524190528_56qtde",
+    "createdAt": "2026-09-27T15:49:50.528Z",
+    "email": "test-default-type-1790524190526@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790524210430_ti239h",
+    "createdAt": "2026-09-27T15:50:10.430Z",
+    "email": "test-restaurante@pizarron.com",
+    "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1790524211067_tm6jex",
+    "createdAt": "2026-09-27T15:50:11.067Z",
+    "email": "test_security_1790524211065@example.com",
+    "password": "new_secure_hashed_password",
+    "name": "Test Security User",
+    "updatedAt": "2026-09-27T15:50:11.091Z"
+  },
+  {
+    "id": "usr_1790524211182_remx7r",
+    "createdAt": "2026-09-27T15:50:11.182Z",
+    "email": "test-layout-1790524211181@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790524211195_kbh51s",
+    "createdAt": "2026-09-27T15:50:11.195Z",
+    "email": "test-default-type-1790524211194@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790524601453_r2lxxu",
+    "createdAt": "2026-09-27T15:56:41.453Z",
+    "email": "test-restaurante@pizarron.com",
+    "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1790524602048_v7suba",
+    "createdAt": "2026-09-27T15:56:42.048Z",
+    "email": "test_security_1790524602047@example.com",
+    "password": "new_secure_hashed_password",
+    "name": "Test Security User",
+    "updatedAt": "2026-09-27T15:56:42.073Z"
+  },
+  {
+    "id": "usr_1790524602165_rkl62s",
+    "createdAt": "2026-09-27T15:56:42.165Z",
+    "email": "test-layout-1790524602163@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790524602177_5zawa1",
+    "createdAt": "2026-09-27T15:56:42.177Z",
+    "email": "test-default-type-1790524602176@example.com",
+    "password": "test_password"
   }
 ]

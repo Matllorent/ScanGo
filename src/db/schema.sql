@@ -65,14 +65,34 @@ CREATE TABLE IF NOT EXISTS public.webhooks (
 
 CREATE INDEX IF NOT EXISTS idx_webhooks_lookup ON public.webhooks(provider, event_id);
 
--- 4. Habilitar Row Level Security (RLS) para proteger los datos
+-- 4. Tabla de Carritos Grupales (Realtime)
+CREATE TABLE IF NOT EXISTS public.group_carts (
+  id TEXT PRIMARY KEY,
+  restaurant_id TEXT NOT NULL,
+  table_number TEXT NOT NULL,
+  items JSONB DEFAULT '[]'::jsonb,
+  participants JSONB DEFAULT '[]'::jsonb,
+  last_action TEXT DEFAULT 'sync',
+  last_user TEXT DEFAULT '',
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_group_carts_restaurant ON public.group_carts(restaurant_id);
+
+-- 5. Habilitar Row Level Security (RLS) para proteger los datos
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.restaurants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.webhooks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.group_carts ENABLE ROW LEVEL SECURITY;
 
 -- Políticas de lectura pública para el menú (solo lectura por slug)
 CREATE POLICY "Menús públicos legibles por comensales" ON public.restaurants
   FOR SELECT USING (true);
 
+-- Políticas para carritos grupales (acceso público para comensales de la mesa)
+CREATE POLICY "Carritos grupales accesibles por mesa" ON public.group_carts
+  FOR ALL USING (true) WITH CHECK (true);
+
 -- Notificar éxito en Supabase
 COMMENT ON TABLE public.restaurants IS 'Tabla maestra de restaurantes, platos y suscripciones para Menú Pizarrón SaaS';
+COMMENT ON TABLE public.group_carts IS 'Carritos grupales en tiempo real para pedidos por mesa';

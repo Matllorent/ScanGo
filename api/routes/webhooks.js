@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const db = require('../../src/db/db');
 const billingOrchestrator = require('../../src/billing/orchestrator');
 const { getSupabaseClient } = require('../utils/supabase');
@@ -9,11 +10,92 @@ const logger = require('../utils/logger');
 const router = express.Router();
 
 /**
+ * Verifica la firma HMAC del webhook usando timing-safe comparison.
+ * Soporta múltiples formatos de header y algoritmos.
+ */
+function verifyWebhookSignature(rawBody, headers, secret) {
+  if (!secret || !rawBody) return false;
+
+  const signature =
+    headers['x-signature'] ||
+    headers['x-webhook-signature'] ||
+    headers['stripe-signature'] ||
+    headers['x-mercadopago-signature'] ||
+    headers['x-hub-signature-256'] ||
+    '';
+
+  if (!signature) return false;
+
+  try {
+    // Lemon Squeezy / genérico: HMAC-SHA256 directo
+    const hmac = crypto.createHmac('sha256', secret);
+    const digest = Buffer.from(hmac.update(rawBody).digest('hex'), 'utf8');
+    const sig = Buffer.from(signature, 'utf8');
+
+    if (digest.length === sig.length && crypto.timingSafeEqual(digest, sig)) {
+      return true;
+    }
+
+    // Stripe: formato "t=timestamp,v1=signature"
+    if (signature.includes(',')) {
+      const parts = signature.split(',');
+      const timestampPart = parts.find(p => p.startsWith('t='));
+      const sigPart = parts.find(p => p.startsWith('v1='));
+      if (timestampPart && sigPart) {
+        const timestamp = timestampPart.split('=')[1];
+        const sig = sigPart.split('=')[1];
+        const payload = timestamp + '.' + rawBody;
+        const expectedSig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+        return crypto.timingSafeEqual(Buffer.from(sig, 'utf8'), Buffer.from(expectedSig, 'utf8'));
+      }
+    }
+
+    // GitHub-style: sha256=prefix
+    if (signature.startsWith('sha256=')) {
+      const sig = signature.slice(7);
+      const hmac = crypto.createHmac('sha256', secret);
+      const digest = hmac.update(rawBody).digest('hex');
+      return crypto.timingSafeEqual(Buffer.from(sig, 'utf8'), Buffer.from(digest, 'utf8'));
+    }
+
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
  * POST /api/webhooks/payments
  * Automatic payment webhook handler for payment gateways (Stripe, MercadoPago, LemonSqueezy, dLocal)
+ * REQUIERE validación estricta de firma HMAC antes de procesar cualquier cambio de estado.
  */
-router.post('/payments', idempotencyMiddleware, async (req, res, next) => {
+router.post('/payments', async (req, res, next) => {
   try {
+    const rawBody = JSON.stringify(req.body);
+    const webhookSecret = process.env.WEBHOOK_SECRET || process.env.PAYMENT_WEBHOOK_SECRET || '';
+
+    // Validación estricta de firma HMAC — rechaza con 401 si no es válida
+    if (!webhookSecret) {
+      logger.error('[Webhook Security] WEBHOOK_SECRET no configurado — rechazando webhook');
+      return res.status(401).json({
+        success: false,
+        error: 'Webhook secret no configurado en el servidor',
+        code: 'WEBHOOK_SECRET_MISSING'
+      });
+    }
+
+    if (!verifyWebhookSignature(rawBody, req.headers, webhookSecret)) {
+      logger.warn('[Webhook Security] Firma HMAC inválida — rechazando webhook', {
+        ip: req.ip,
+        headers: req.headers
+      });
+      return res.status(401).json({
+        success: false,
+        error: 'Firma de webhook inválida',
+        code: 'INVALID_WEBHOOK_SIGNATURE'
+      });
+    }
+
     const payload = req.body || {};
     const eventType = payload.event || payload.type || payload.event_type || 'payment.created';
     const eventId = req.headers['x-event-id'] || req.headers['x-request-id'] || payload.id || payload.event_id || payload.data?.id;
@@ -116,12 +198,38 @@ router.post('/payments', idempotencyMiddleware, async (req, res, next) => {
 
 /**
  * POST /api/webhooks/:provider
- * Generic provider webhook router
+ * Generic provider webhook router con validación estricta de firma HMAC.
  */
-router.post('/:provider', idempotencyMiddleware, async (req, res, next) => {
+router.post('/:provider', async (req, res, next) => {
   try {
     const provider = req.params.provider;
     const rawBody = JSON.stringify(req.body);
+
+    // Validación estricta de firma HMAC específica del proveedor
+    const providerSecret = process.env[provider.toUpperCase() + '_WEBHOOK_SECRET'] || '';
+    const genericSecret = process.env.WEBHOOK_SECRET || process.env.PAYMENT_WEBHOOK_SECRET || '';
+    const secret = providerSecret || genericSecret;
+
+    if (!secret) {
+      logger.error(`[Webhook Security] Secret no configurado para ${provider} — rechazando webhook`);
+      return res.status(401).json({
+        success: false,
+        error: 'Webhook secret no configurado en el servidor',
+        code: 'WEBHOOK_SECRET_MISSING'
+      });
+    }
+
+    if (!verifyWebhookSignature(rawBody, req.headers, secret)) {
+      logger.warn(`[Webhook Security] Firma HMAC inválida para ${provider} — rechazando webhook`, {
+        ip: req.ip,
+        provider
+      });
+      return res.status(401).json({
+        success: false,
+        error: 'Firma de webhook inválida',
+        code: 'INVALID_WEBHOOK_SIGNATURE'
+      });
+    }
 
     const result = await billingOrchestrator.processWebhook(
       provider,

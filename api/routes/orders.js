@@ -1,5 +1,6 @@
 const express = require('express');
 const { z } = require('zod');
+const jwt = require('jsonwebtoken');
 const db = require('../../src/db/db');
 const { getSupabaseClient } = require('../utils/supabase');
 const { successResponse, errorResponse } = require('../utils/response');
@@ -10,6 +11,26 @@ const { validateAndPriceOrderLine } = require('../utils/menuOptions');
 const AppError = require('../utils/AppError');
 
 const router = express.Router();
+
+const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_menu_pizarron_2026';
+
+/**
+ * Auth middleware inline (mirrors api/index.js) to protect order routes.
+ * Verifies JWT from cookie or Authorization header and attaches req.user.
+ */
+function requireAuth(req, res, next) {
+  const token = req.cookies?.auth_token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'No autorizado', code: 'UNAUTHORIZED' });
+  }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (e) {
+    return res.status(401).json({ success: false, error: 'Token inválido o expirado', code: 'INVALID_TOKEN' });
+  }
+}
 
 const orderItemSchema = z.object({
   dishId: z.string().min(1, { message: 'ID de platillo requerido' }),
@@ -169,9 +190,9 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
 
 /**
  * GET /api/orders/restaurant/:id
- * Retrieve orders for a restaurant
+ * Retrieve orders for a restaurant (tenant-isolated, IDOR-protected)
  */
-router.get('/restaurant/:id', async (req, res, next) => {
+router.get('/restaurant/:id', requireAuth, tenantGuard, async (req, res, next) => {
   try {
     const restaurantId = req.params.id;
     const supabase = getSupabaseClient();
@@ -265,11 +286,12 @@ router.post('/mercadopago/preference', validateBody(createOrderSchema), async (r
 
 /**
  * GET /api/orders/realtime-config
- * Proporciona credenciales públicas seguras para Supabase Realtime Channels
+ * Proporciona credenciales públicas seguras para Supabase Realtime Channels.
+ * NUNCA expone SUPABASE_SERVICE_ROLE_KEY — solo la anon key pública.
  */
 router.get('/realtime-config', (req, res) => {
   const supabaseUrl = process.env.SUPABASE_URL || '';
-  const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  const supabaseKey = process.env.SUPABASE_ANON_KEY || '';
   return successResponse(res, {
     supabaseUrl,
     supabaseKey,
@@ -278,33 +300,95 @@ router.get('/realtime-config', (req, res) => {
 });
 
 /**
- * Almacén en memoria de pedidos grupales activos por mesa para recuperación y sincronización
+ * Almacén en memoria de pedidos grupales activos por mesa (fallback local)
  * Estructura: key = `${restaurantId}_mesa_${tableNumber}` -> { items: [], participants: [], updatedAt: string }
  */
 const activeGroupTableCarts = new Map();
 
 /**
- * GET /api/orders/group/:restaurantId/:tableNumber
- * Recupera el carrito grupal activo de la mesa
+ * Canal de Supabase Realtime para un mesa específica
  */
-router.get('/group/:restaurantId/:tableNumber', (req, res) => {
+function getGroupCartChannel(restaurantId, tableNumber) {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+  const channelName = `group_cart:${restaurantId}:mesa:${tableNumber}`;
+  return supabase.channel(channelName);
+}
+
+/**
+ * Genera el ID único del carrito grupal
+ */
+function getGroupCartId(restaurantId, tableNumber) {
+  return `${restaurantId}_mesa_${tableNumber}`;
+}
+
+/**
+ * GET /api/orders/group/:restaurantId/:tableNumber
+ * Recupera el carrito grupal activo de la mesa.
+ * Usa Supabase si está disponible, si no fallback a memoria local.
+ */
+router.get('/group/:restaurantId/:tableNumber', async (req, res) => {
   const { restaurantId, tableNumber } = req.params;
-  const key = `${restaurantId}_mesa_${tableNumber}`;
-  const data = activeGroupTableCarts.get(key) || { items: [], participants: [], updatedAt: new Date().toISOString() };
-  return successResponse(res, data, 'Carrito grupal de mesa recuperado');
+  const key = getGroupCartId(restaurantId, tableNumber);
+  const supabase = getSupabaseClient();
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('group_carts')
+        .select('*')
+        .eq('id', key)
+        .single();
+
+      if (!error && data) {
+        return successResponse(res, {
+          restaurantId: data.restaurant_id,
+          tableNumber: data.table_number,
+          items: data.items || [],
+          participants: data.participants || [],
+          lastAction: data.last_action,
+          lastUser: data.last_user,
+          updatedAt: data.updated_at
+        }, 'Carrito grupal de mesa recuperado');
+      }
+    } catch (e) {
+      console.warn('[Supabase Get Group Cart Warning]', e.message);
+    }
+  }
+
+  // Fallback a memoria local
+  const localData = activeGroupTableCarts.get(key) || { items: [], participants: [], updatedAt: new Date().toISOString() };
+  return successResponse(res, localData, 'Carrito grupal de mesa recuperado');
 });
 
 /**
  * POST /api/orders/group/:restaurantId/:tableNumber/sync
- * Sincroniza y consolida el estado del carrito grupal de la mesa
+ * Sincroniza y consolida el estado del carrito grupal de la mesa.
+ * Persiste en Supabase + emite broadcast Realtime si está disponible.
  */
-router.post('/group/:restaurantId/:tableNumber/sync', (req, res) => {
+router.post('/group/:restaurantId/:tableNumber/sync', async (req, res) => {
   const { restaurantId, tableNumber } = req.params;
   const { items = [], participants = [], action = 'sync', fromUser = '' } = req.body;
-  const key = `${restaurantId}_mesa_${tableNumber}`;
+  const key = getGroupCartId(restaurantId, tableNumber);
+  const supabase = getSupabaseClient();
 
-  const current = activeGroupTableCarts.get(key) || { items: [], participants: [] };
-  const mergedParticipants = Array.from(new Set([...(current.participants || []), ...(participants || []), fromUser].filter(Boolean)));
+  // Obtener participantes actuales para merge
+  let currentParticipants = [];
+  if (supabase) {
+    try {
+      const { data } = await supabase
+        .from('group_carts')
+        .select('participants')
+        .eq('id', key)
+        .single();
+      if (data && data.participants) currentParticipants = data.participants;
+    } catch (e) { /* ignore */ }
+  } else {
+    const current = activeGroupTableCarts.get(key);
+    if (current && current.participants) currentParticipants = current.participants;
+  }
+
+  const mergedParticipants = Array.from(new Set([...currentParticipants, ...participants, fromUser].filter(Boolean)));
 
   const updatedState = {
     restaurantId,
@@ -316,17 +400,68 @@ router.post('/group/:restaurantId/:tableNumber/sync', (req, res) => {
     updatedAt: new Date().toISOString()
   };
 
+  if (supabase) {
+    try {
+      // Upsert en Supabase
+      await supabase.from('group_carts').upsert([{
+        id: key,
+        restaurant_id: restaurantId,
+        table_number: String(tableNumber),
+        items: items,
+        participants: mergedParticipants,
+        last_action: action,
+        last_user: fromUser,
+        updated_at: updatedState.updatedAt
+      }]);
+
+      // Emitir broadcast Realtime para sincronización en tiempo real
+      const channel = getGroupCartChannel(restaurantId, tableNumber);
+      if (channel) {
+        await channel.send({
+          type: 'broadcast',
+          event: 'cart_updated',
+          payload: updatedState
+        });
+      }
+    } catch (e) {
+      console.warn('[Supabase Sync Group Cart Warning]', e.message);
+    }
+  }
+
+  // Siempre actualizar memoria local como fallback/cache
   activeGroupTableCarts.set(key, updatedState);
   return successResponse(res, updatedState, 'Carrito grupal sincronizado exitosamente');
 });
 
 /**
  * POST /api/orders/group/:restaurantId/:tableNumber/clear
- * Limpia el carrito grupal una vez enviado el pedido
+ * Limpia el carrito grupal una vez enviado el pedido.
+ * Elimina de Supabase + emite broadcast si está disponible.
  */
-router.post('/group/:restaurantId/:tableNumber/clear', (req, res) => {
+router.post('/group/:restaurantId/:tableNumber/clear', async (req, res) => {
   const { restaurantId, tableNumber } = req.params;
-  const key = `${restaurantId}_mesa_${tableNumber}`;
+  const key = getGroupCartId(restaurantId, tableNumber);
+  const supabase = getSupabaseClient();
+
+  if (supabase) {
+    try {
+      await supabase.from('group_carts').delete().eq('id', key);
+
+      // Emitir broadcast de limpieza
+      const channel = getGroupCartChannel(restaurantId, tableNumber);
+      if (channel) {
+        await channel.send({
+          type: 'broadcast',
+          event: 'cart_cleared',
+          payload: { restaurantId, tableNumber: String(tableNumber), cleared: true }
+        });
+      }
+    } catch (e) {
+      console.warn('[Supabase Clear Group Cart Warning]', e.message);
+    }
+  }
+
+  // Siempre limpiar memoria local
   activeGroupTableCarts.delete(key);
   return successResponse(res, { cleared: true }, 'Carrito grupal finalizado');
 });

@@ -28,6 +28,7 @@ const emailRouter = require('./routes/email');
 const healthRouter = require('./routes/health');
 const ordersRouter = require('./routes/orders');
 const analyticsRouter = require('./routes/analytics');
+const billingDunningRouter = require('./cron/billing-dunning');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1523,6 +1524,7 @@ app.use('/api/storage', storageRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/email', emailRouter);
+app.use('/api/cron', billingDunningRouter);
 
 // Test Email Endpoint
 app.get('/api/test-email', async (req, res, next) => {
