@@ -496,12 +496,102 @@
           } catch(e) {}
         }
 
+        // Check subscription access before rendering
+        const access = checkStudioAccess();
+        if (!access.allowed) {
+          showSubscriptionRequiredScreen(access);
+          return;
+        }
+
         renderStudioUI();
       } catch (err) {
         console.warn('Error al verificar sesión en Studio:', err.message);
         localStorage.removeItem('menu_pizarron_token');
         window.location.href = '/?auth=expired';
       }
+    }
+
+    /**
+     * Checks if the restaurant has an active subscription.
+     */
+    function checkStudioAccess() {
+      const sub = currentUser ? currentUser.subscription : null;
+      if (!sub) return { allowed: false, warning: 'Sin datos de suscripción.' };
+
+      const now = new Date();
+      const status = sub.status;
+
+      // Active: full access
+      if (status === 'active') {
+        return { allowed: true, status };
+      }
+
+      // Trialing: access if within trial window
+      if (status === 'trial' || status === 'trialing') {
+        const trialEnd = sub.trialEndsAt ? new Date(sub.trialEndsAt) : null;
+        if (trialEnd && trialEnd.getTime() > now.getTime()) {
+          return { allowed: true, status: 'trialing' };
+        }
+        return {
+          allowed: false,
+          status: 'expired',
+          warning: 'Tu período de prueba ha finalizado. Actualizá tu suscripción para reactivar tu menú.'
+        };
+      }
+
+      // Past due: grace period (7 days from period end)
+      if (status === 'past_due') {
+        const periodEnd = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
+        const graceEnd = periodEnd ? new Date(periodEnd.getTime() + 7 * 24 * 3600 * 1000) : null;
+        if (graceEnd && graceEnd.getTime() > now.getTime()) {
+          const daysLeft = Math.max(0, Math.ceil((graceEnd.getTime() - now.getTime()) / 86400000));
+          return {
+            allowed: true,
+            status: 'past_due',
+            warning: `Tu suscripción está en gracia. Quedan ${daysLeft} días.`
+          };
+        }
+        return {
+          allowed: false,
+          status: 'past_due',
+          warning: 'Tu suscripción ha expirado. Actualizá tu plan para reactivar tu menú.'
+        };
+      }
+
+      // Canceled / expired / unknown
+      return {
+        allowed: false,
+        status: status || 'unknown',
+        warning: 'Tu suscripción está inactiva. Ingresá a tu cuenta para renovar tu menú.'
+      };
+    }
+
+    /**
+     * Blocks the Studio UI and shows a subscription required screen.
+     */
+    function showSubscriptionRequiredScreen(access) {
+      // Hide main workspace
+      const workspace = document.querySelector('.workspace-layout');
+      if (workspace) {
+        workspace.innerHTML = `
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:70vh; padding:40px 20px; text-align:center;">
+            <div style="font-size:3.5rem; margin-bottom:16px;">⚠️</div>
+            <h2 style="color:var(--accent-gold); margin-bottom:12px; font-size:1.5rem;">Menú Pausado</h2>
+            <p style="color:var(--text-muted); margin-bottom:8px; font-size:0.95rem; max-width:420px;">
+              ${access.warning || 'Tu suscripción está inactiva.'}
+            </p>
+            <p style="color:var(--text-muted); margin-bottom:24px; font-size:0.8rem;">
+              Estado: <strong style="color:#f87171;">${(access.status || 'unknown').toUpperCase()}</strong>
+            </p>
+            <button onclick="openBillingModal()" style="padding:12px 28px; background:var(--accent-gold); color:#101614; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.9rem;">
+              💎 Reactivar mi menú
+            </button>
+          </div>
+        `;
+      }
+
+      // Update header
+      document.getElementById('studioNavRestaurantName').textContent = 'Suscripción Requerida';
     }
 
     function renderStudioUI() {

@@ -14,6 +14,7 @@ const { hashPassword, comparePassword } = require('./utils/hash');
 const { registerSchema, loginSchema, validateBody } = require('./middleware/validation');
 const { sanitizeModifierGroups, sanitizeDishOptionConfig } = require('./utils/menuOptions');
 const { checkSubscriptionKillSwitch, getSubscriptionKillSwitch, setSubscriptionKillSwitch } = require('./middleware/killSwitch');
+const { requireActiveSubscription } = require('./middleware/subscriptionGuard');
 const errorHandler = require('./middleware/errorHandler');
 const { successResponse, errorResponse } = require('./utils/response');
 const requireVerifiedEmail = require('./middleware/requireVerifiedEmail');
@@ -1538,6 +1539,10 @@ app.use('/api/webhooks', webhooksRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/email', emailRouter);
 app.use('/api/cron', billingDunningRouter);
+
+// Protected routes: require active subscription (Studio operations)
+app.use('/api/studio', requireActiveSubscription);
+app.use('/api/billing', requireActiveSubscription);
 
 // Test Email Endpoint
 app.get('/api/test-email', async (req, res, next) => {
