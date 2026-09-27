@@ -2,6 +2,7 @@ const db = require('../db/db');
 const lemonProvider = require('./providers/lemonsqueezy');
 const stripeProvider = require('./providers/stripe');
 const mpProvider = require('./providers/mercadopago');
+const sentry = require('../../api/utils/sentry');
 
 const PROVIDERS = {
   lemonsqueezy: lemonProvider,
@@ -93,7 +94,10 @@ const billingOrchestrator = {
         lastPaymentError: parsed.status === 'past_due' ? 'Falló el cobro automático de la tarjeta' : null
       });
 
-      console.log('[Billing] Suscripción actualizada: Rest=' + parsed.restaurantId + ' Status=' + parsed.status + ' Provider=' + providerName);
+      sentry.captureMessage('[Billing] Suscripción actualizada: Rest=' + parsed.restaurantId + ' Status=' + parsed.status + ' Provider=' + providerName, {
+        level: 'info',
+        tags: { restaurantId: parsed.restaurantId, status: parsed.status, provider: providerName }
+      });
     }
 
     // 5. Mark webhook as processed

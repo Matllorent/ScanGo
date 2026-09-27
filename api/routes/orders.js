@@ -9,6 +9,7 @@ const idempotencyMiddleware = require('../middleware/idempotency');
 const { tenantGuard } = require('../middleware/tenantGuard');
 const { validateAndPriceOrderLine } = require('../utils/menuOptions');
 const AppError = require('../utils/AppError');
+const sentry = require('../utils/sentry');
 
 const router = express.Router();
 
@@ -173,7 +174,12 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
           created_at: orderRecord.created_at
         }]);
       } catch (e) {
-        console.warn('[Supabase Insert Order Warning]', e.message);
+        sentry.captureException(e, {
+          source: 'orders.insert',
+          level: 'warn',
+          tags: { restaurantId: restaurant.id },
+          extra: { orderId: orderRecord.id }
+        });
       }
     }
 
@@ -352,7 +358,11 @@ router.get('/group/:restaurantId/:tableNumber', async (req, res) => {
         }, 'Carrito grupal de mesa recuperado');
       }
     } catch (e) {
-      console.warn('[Supabase Get Group Cart Warning]', e.message);
+      sentry.captureException(e, {
+        source: 'orders.groupCart.get',
+        level: 'warn',
+        tags: { restaurantId, tableNumber }
+      });
     }
   }
 
@@ -424,7 +434,11 @@ router.post('/group/:restaurantId/:tableNumber/sync', async (req, res) => {
         });
       }
     } catch (e) {
-      console.warn('[Supabase Sync Group Cart Warning]', e.message);
+      sentry.captureException(e, {
+        source: 'orders.groupCart.sync',
+        level: 'warn',
+        tags: { restaurantId, tableNumber }
+      });
     }
   }
 
@@ -457,7 +471,11 @@ router.post('/group/:restaurantId/:tableNumber/clear', async (req, res) => {
         });
       }
     } catch (e) {
-      console.warn('[Supabase Clear Group Cart Warning]', e.message);
+      sentry.captureException(e, {
+        source: 'orders.groupCart.clear',
+        level: 'warn',
+        tags: { restaurantId, tableNumber }
+      });
     }
   }
 

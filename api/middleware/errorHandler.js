@@ -1,5 +1,6 @@
 const { ZodError } = require('zod');
 const AppError = require('../utils/AppError');
+const sentry = require('../utils/sentry');
 
 /**
  * Global Express Error Handler Middleware
@@ -58,7 +59,22 @@ function errorHandler(err, req, res, next) {
   const details = process.env.NODE_ENV !== 'production' && err.stack ? { stack: err.stack } : null;
 
   if (statusCode >= 500) {
-    console.error(`[API Error 500] [${utcTimestamp}] ${req.method} ${req.originalUrl}:`, err);
+    sentry.captureException(err, {
+      source: 'errorHandler',
+      level: 'error',
+      tags: {
+        method: req.method,
+        path: req.originalUrl,
+        statusCode: String(statusCode),
+        errorCode
+      },
+      extra: {
+        requestId: req.requestId || null,
+        userId: req.user?.userId || null,
+        tenantId: req.tenantId || null,
+        body: req.body ? Object.keys(req.body) : null
+      }
+    });
   }
 
   return res.status(statusCode).json({

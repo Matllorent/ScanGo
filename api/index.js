@@ -19,6 +19,7 @@ const { successResponse, errorResponse } = require('./utils/response');
 const requireVerifiedEmail = require('./middleware/requireVerifiedEmail');
 const requestIdMiddleware = require('./middleware/requestId');
 const { menuCacheMiddleware, invalidateMenuCache } = require('./middleware/cache');
+const sentry = require('./utils/sentry');
 const authRouter = require('./routes/auth');
 const reviewsRouter = require('./routes/reviews');
 const storageRouter = require('./routes/storage');
@@ -34,6 +35,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_menu_pizarron_2026';
 const ADMIN_KEY = process.env.ADMIN_KEY || 'pizarron_admin_master_key_2026';
+
+// Initialize Sentry for centralized error tracking (no-op if SENTRY_DSN not set)
+sentry.initSentry();
 
 // Resolve public directory reliably across environments
 const fs = require('fs');
@@ -318,7 +322,11 @@ function verifyTotpToken(token, secret) {
       }
     }
   } catch (e) {
-    console.warn('[TOTP verification error]', e.message);
+    sentry.captureException(e, {
+      source: 'auth.totp',
+      level: 'warn',
+      tags: { action: 'totp_verification' }
+    });
   }
   return false;
 }
@@ -584,7 +592,12 @@ app.post('/api/billing/webhook/:provider', async (req, res) => {
     const result = await billingOrchestrator.processWebhook(provider, req.headers, rawBody, req.body);
     res.json(result);
   } catch (e) {
-    console.error(`[Webhook Error ${req.params.provider}]`, e.message);
+    sentry.captureException(e, {
+      source: 'webhooks.provider',
+      level: 'error',
+      tags: { provider: req.params.provider },
+      extra: { path: req.originalUrl }
+    });
     res.status(400).json({ error: e.message });
   }
 });

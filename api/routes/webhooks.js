@@ -6,6 +6,7 @@ const { getSupabaseClient } = require('../utils/supabase');
 const idempotencyMiddleware = require('../middleware/idempotency');
 const { successResponse, errorResponse } = require('../utils/response');
 const logger = require('../utils/logger');
+const sentry = require('../utils/sentry');
 
 const router = express.Router();
 
@@ -167,7 +168,12 @@ router.post('/payments', async (req, res, next) => {
               }]);
             }
           } catch (e) {
-            logger.warn('[Supabase Webhook Sub Update Warning]', { error: e.message });
+            sentry.captureException(e, {
+              source: 'webhooks.supabaseUpdate',
+              level: 'warn',
+              tags: { restaurantId: restaurant.id, eventId },
+              extra: { provider: payload.provider }
+            });
           }
         }
 
