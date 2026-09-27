@@ -52,6 +52,20 @@ ALTER TABLE public.restaurants
 CREATE INDEX IF NOT EXISTS idx_restaurants_slug ON public.restaurants(slug);
 CREATE INDEX IF NOT EXISTS idx_restaurants_user_id ON public.restaurants(user_id);
 
+-- 2b. Multi-Branch Support: branches JSONB array
+ALTER TABLE public.restaurants
+  ADD COLUMN IF NOT EXISTS branches JSONB DEFAULT '[]'::jsonb;
+
+-- branches structure:
+-- [{
+--   "id": "branch_1",
+--   "name": "Sucursal Centro",
+--   "address": "Av. 18 de Julio 1234",
+--   "phone": "59899123456",
+--   "is_active": true,
+--   "custom_pricing": { "dish_id": 100 }
+-- }]
+
 -- 3. Tabla de Idempotencia de Webhooks de Pago
 CREATE TABLE IF NOT EXISTS public.webhooks (
   id BIGSERIAL PRIMARY KEY,

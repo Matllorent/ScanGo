@@ -104,6 +104,7 @@ router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
     let user = db.findUserByEmail(email);
     let restaurant = user ? db.findRestaurantByUserId(user.id) : null;
 
+    const isNewUser = !user;
     if (!user) {
       const randomPassword = crypto.randomBytes(48).toString('hex');
       user = db.createUser({
@@ -133,6 +134,23 @@ router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
 
     const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
     res.cookie('auth_token', token, COOKIE_OPTIONS);
+
+    // Send welcome email for new Google Auth users
+    if (isNewUser && restaurant) {
+      const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+      emailService.sendEmailAsync({
+        to: user.email,
+        subject: `¡Bienvenido a Menú Pizarrón, ${restaurant.name}!`,
+        html: `
+          <div style="font-family:sans-serif; padding:20px; color:#1e293b;">
+            <h2 style="color:#10b981;">¡Tu menú digital de ${restaurant.name} ya está activo!</h2>
+            <p>Gracias por unirte a Menú Pizarrón SaaS. Ya podés cargar tus platos, ajustar precios y personalizar la estética de tu menú.</p>
+            <p><a href="${appUrl}/studio" style="background:#10b981; color:white; padding:12px 20px; text-decoration:none; border-radius:6px; display:inline-block;">Acceder al Panel Studio</a></p>
+            <p>Tu menú público: <a href="${appUrl}/m/${restaurant.slug}">${appUrl}/m/${restaurant.slug}</a></p>
+          </div>
+        `
+      });
+    }
 
     const { password: _, ...safeUser } = user;
     return successResponse(res, { user: safeUser, restaurant, token }, 'Acceso con Google exitoso', 200, { flatData: true });

@@ -49,6 +49,24 @@ function normalizeRestaurantBusinessType(restaurant) {
   return restaurant;
 }
 
+/**
+ * Returns the branches array for a restaurant.
+ * Ensures the field always returns a valid array.
+ */
+function getRestaurantBranches(restaurant) {
+  if (!restaurant) return [];
+  if (!Array.isArray(restaurant.branches)) return [];
+  return restaurant.branches.filter(b => b && b.id);
+}
+
+/**
+ * Finds a specific branch by ID within a restaurant.
+ */
+function findRestaurantBranch(restaurant, branchId) {
+  const branches = getRestaurantBranches(restaurant);
+  return branches.find(b => b.id === branchId) || null;
+}
+
 // Supabase Cloud PostgreSQL Dual-Mode Adapter
 let supabase = null;
 const supabaseKey =
@@ -424,6 +442,15 @@ const db = {
     const FEEDBACK_FILE = path.join(DATA_DIR, 'feedback.json');
     const all = readJson(FEEDBACK_FILE, []);
     return all.filter(f => f.restaurantId === restaurantId);
+  },
+  getRestaurantBranches(restaurant) {
+    if (!restaurant) return [];
+    if (!Array.isArray(restaurant.branches)) return [];
+    return restaurant.branches.filter(b => b && b.id);
+  },
+  findRestaurantBranch(restaurant, branchId) {
+    const branches = this.getRestaurantBranches(restaurant);
+    return branches.find(b => b.id === branchId) || null;
   }
 };
 

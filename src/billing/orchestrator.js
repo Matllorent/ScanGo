@@ -3,6 +3,7 @@ const lemonProvider = require('./providers/lemonsqueezy');
 const stripeProvider = require('./providers/stripe');
 const mpProvider = require('./providers/mercadopago');
 const sentry = require('../../api/utils/sentry');
+const emailService = require('../../api/services/email');
 
 const PROVIDERS = {
   lemonsqueezy: lemonProvider,
@@ -98,6 +99,33 @@ const billingOrchestrator = {
         level: 'info',
         tags: { restaurantId: parsed.restaurantId, status: parsed.status, provider: providerName }
       });
+
+      // Send payment receipt email on successful payment
+      if (parsed.status === 'active') {
+        try {
+          const restaurant = db.findRestaurantById(parsed.restaurantId);
+          const user = restaurant ? db.findUserById(restaurant.userId) : null;
+          if (user) {
+            const planName = (PLANS[parsed.plan] || PLANS.pro_monthly).name;
+            emailService.sendEmailAsync({
+              to: user.email,
+              subject: `✓ Confirmación de pago - Plan ${planName}`,
+              html: `
+                <div style="font-family:sans-serif; max-width:600px; margin:0 auto; padding:20px;">
+                  <h2 style="color:#10b981;">¡Pago confirmado!</h2>
+                  <p>Hola <strong>${user.name || 'Responsable'}</strong>,</p>
+                  <p>Tu suscripción al plan <strong>${planName}</strong> está activa.</p>
+                  <p>Restaurante: <strong>${restaurant.name}</strong></p>
+                  <p>Próximo cobro: ${parsed.renewsAt ? new Date(parsed.renewsAt).toLocaleDateString() : 'N/A'}</p>
+                  <p style="font-size:12px; color:#888;">Gracias por confiar en Menú Pizarrón SaaS.</p>
+                </div>
+              `
+            });
+          }
+        } catch (e) {
+          console.warn('[Billing] Failed to send receipt email:', e.message);
+        }
+      }
     }
 
     // 5. Mark webhook as processed

@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const db = require('../../src/db/db');
 const { getSupabaseClient } = require('../utils/supabase');
 const logger = require('../utils/logger');
+const emailService = require('../services/email');
 
 const router = express.Router();
 
@@ -99,6 +100,72 @@ router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
         candidateIds.add(r.id);
       }
     });
+
+    // Also scan for trial expiration warnings (3 days and 1 day)
+    const trialWarnings = { day3: [], day1: [] };
+    const allRestaurantsForTrial = db.getAllRestaurants ? db.getAllRestaurants() : [];
+    allRestaurantsForTrial.forEach(r => {
+      if (r.subscription && r.subscription.status === 'trialing' && r.subscription.trialEndsAt) {
+        const trialEnd = new Date(r.subscription.trialEndsAt);
+        const daysLeft = Math.ceil((trialEnd.getTime() - now.getTime()) / (24 * 3600 * 1000));
+        if (daysLeft === 3) trialWarnings.day3.push(r);
+        if (daysLeft === 1) trialWarnings.day1.push(r);
+      }
+    });
+
+    // Send trial expiration warning emails
+    for (const restaurant of trialWarnings.day3) {
+      try {
+        const user = db.findUserById(restaurant.userId);
+        if (user) {
+          emailService.sendEmailAsync({
+            to: user.email,
+            subject: `⚠️ Tu prueba gratuita de ScanGo expira en 3 días`,
+            html: `
+              <div style="font-family:sans-serif; max-width:600px; margin:0 auto; padding:20px;">
+                <h2 style="color:#f59e0b;">Tu prueba gratuita está por terminar</h2>
+                <p>Hola <strong>${user.name || 'Responsable'}</strong>,</p>
+                <p>Tu restaurante <strong>${restaurant.name}</strong> tiene <strong>3 días</strong> restantes de prueba gratuita.</p>
+                <p>Para mantener tu menú digital activo, actualizá tu plan:</p>
+                <p style="margin:24px 0;">
+                  <a href="${process.env.APP_URL || ''}/studio" style="background:#f59e0b; color:#111; padding:12px 24px; text-decoration:none; font-weight:bold; border-radius:6px;">Activar Plan Pro</a>
+                </p>
+                <p style="font-size:12px; color:#888;">Si no actualizás, tu menú se pausará automáticamente.</p>
+              </div>
+            `
+          });
+          logger.info(`[Dunning Cron] Trial warning (3 days) sent to ${user.email} for restaurant ${restaurant.id}`);
+        }
+      } catch (e) {
+        logger.warn(`[Dunning Cron] Failed to send trial warning: ${e.message}`);
+      }
+    }
+
+    for (const restaurant of trialWarnings.day1) {
+      try {
+        const user = db.findUserById(restaurant.userId);
+        if (user) {
+          emailService.sendEmailAsync({
+            to: user.email,
+            subject: `🚨 Último día de tu prueba gratuita de ScanGo`,
+            html: `
+              <div style="font-family:sans-serif; max-width:600px; margin:0 auto; padding:20px;">
+                <h2 style="color:#ef4444;">¡Último día de prueba gratuita!</h2>
+                <p>Hola <strong>${user.name || 'Responsable'}</strong>,</p>
+                <p>Tu restaurante <strong>${restaurant.name}</strong> tiene <strong>1 día</strong> restante de prueba gratuita.</p>
+                <p>Actualizá tu plan ahora para evitar que tu menú se pause:</p>
+                <p style="margin:24px 0;">
+                  <a href="${process.env.APP_URL || ''}/studio" style="background:#ef4444; color:#fff; padding:12px 24px; text-decoration:none; font-weight:bold; border-radius:6px;">Activar Plan Pro</a>
+                </p>
+              </div>
+            `
+          });
+          logger.info(`[Dunning Cron] Trial warning (1 day) sent to ${user.email} for restaurant ${restaurant.id}`);
+        }
+      } catch (e) {
+        logger.warn(`[Dunning Cron] Failed to send trial warning: ${e.message}`);
+      }
+    }
 
     results.scanned = candidateIds.size;
 
