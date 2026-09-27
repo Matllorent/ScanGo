@@ -574,5 +574,37 @@
       "renewsAt": "2026-09-27T16:10:53.072Z",
       "provider": "lemonsqueezy"
     }
+  },
+  {
+    "provider": "lemonsqueezy",
+    "eventId": "evt_test_1790526110570",
+    "eventType": "subscription_payment_success",
+    "receivedAt": "2026-09-27T16:21:50.579Z",
+    "data": {
+      "eventId": "evt_test_1790526110570",
+      "eventName": "subscription_payment_success",
+      "restaurantId": "rest_1790526110563_uzrwku",
+      "status": "active",
+      "rawStatus": "active",
+      "customerEmail": "test-restaurante@pizarron.com",
+      "renewsAt": "2026-10-27T16:21:50.570Z",
+      "provider": "lemonsqueezy"
+    }
+  },
+  {
+    "provider": "lemonsqueezy",
+    "eventId": "evt_fail_1790526110584",
+    "eventType": "subscription_payment_failed",
+    "receivedAt": "2026-09-27T16:21:50.592Z",
+    "data": {
+      "eventId": "evt_fail_1790526110584",
+      "eventName": "subscription_payment_failed",
+      "restaurantId": "rest_1790526110563_uzrwku",
+      "status": "past_due",
+      "rawStatus": "past_due",
+      "customerEmail": "test-restaurante@pizarron.com",
+      "renewsAt": "2026-09-27T16:21:50.584Z",
+      "provider": "lemonsqueezy"
+    }
   }
 ]

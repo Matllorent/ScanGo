@@ -1461,5 +1461,80 @@
     "city": "",
     "smartWeatherEnabled": false,
     "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790526110563_uzrwku",
+    "userId": "usr_1790526110556_cnjyv7",
+    "slug": "esquina-gourmet",
+    "subscription": {
+      "status": "past_due",
+      "plan": "pro_monthly",
+      "provider": "lemonsqueezy",
+      "trialEndsAt": "2026-10-04T16:21:50.563Z",
+      "currentPeriodEnd": "2026-09-27T16:21:50.584Z",
+      "gracePeriodDaysRemaining": 7,
+      "lastPaymentError": "Falló el cobro automático de la tarjeta",
+      "updatedAt": "2026-09-27T16:21:50.587Z"
+    },
+    "createdAt": "2026-09-27T16:21:50.563Z",
+    "bizName": "La Esquina Gourmet",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790526110963_omvfte",
+    "userId": "user_exp_test_1790526110959",
+    "slug": "mi-local",
+    "subscription": {
+      "status": "trialing",
+      "trialEndsAt": "2026-09-27T15:21:50.960Z"
+    },
+    "createdAt": "2026-09-27T16:21:50.963Z",
+    "name": "Restaurante Expirado Test",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790526111415_72g6m8",
+    "userId": "usr_1790526111411_bl9t77",
+    "slug": "vanguardia-test-1790526111412",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-04T16:21:51.415Z",
+      "currentPeriodEnd": "2026-10-04T16:21:51.415Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-09-27T16:21:51.415Z",
+    "bizName": "Restaurante Vanguardia Test",
+    "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+    "businessType": "events",
+    "layout": "bento",
+    "theme": "emerald",
+    "font": "sans",
+    "categories": [],
+    "city": "",
+    "smartWeatherEnabled": false
+  },
+  {
+    "id": "rest_1790526111428_tcmai0",
+    "userId": "usr_1790526111423_xicggm",
+    "slug": "perfil-predeterminado",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-04T16:21:51.428Z",
+      "currentPeriodEnd": "2026-10-04T16:21:51.428Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-09-27T16:21:51.428Z",
+    "bizName": "Perfil Predeterminado",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "businessType": "restaurant"
   }
 ]

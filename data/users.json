@@ -451,5 +451,31 @@
     "createdAt": "2026-09-27T16:10:53.813Z",
     "email": "test-default-type-1790525453811@example.com",
     "password": "test_password"
+  },
+  {
+    "id": "usr_1790526110556_cnjyv7",
+    "createdAt": "2026-09-27T16:21:50.556Z",
+    "email": "test-restaurante@pizarron.com",
+    "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1790526111278_upus94",
+    "createdAt": "2026-09-27T16:21:51.278Z",
+    "email": "test_security_1790526111277@example.com",
+    "password": "new_secure_hashed_password",
+    "name": "Test Security User",
+    "updatedAt": "2026-09-27T16:21:51.304Z"
+  },
+  {
+    "id": "usr_1790526111411_bl9t77",
+    "createdAt": "2026-09-27T16:21:51.411Z",
+    "email": "test-layout-1790526111409@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790526111423_xicggm",
+    "createdAt": "2026-09-27T16:21:51.423Z",
+    "email": "test-default-type-1790526111422@example.com",
+    "password": "test_password"
   }
 ]

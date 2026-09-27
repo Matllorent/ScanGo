@@ -18,7 +18,7 @@ function tenantGuard(req, res, next) {
   }
 
   // IDOR check for target restaurant or tenant ID parameters
-  const targetTenantId = req.params.tenantId || req.params.restaurantId || req.body?.restaurantId || req.body?.tenant_id || req.headers['x-tenant-id'];
+  const targetTenantId = req.params.tenantId || req.params.restaurantId || req.params.id || req.body?.restaurantId || req.body?.tenant_id || req.headers['x-tenant-id'];
 
   if (targetTenantId && userRestaurant && targetTenantId !== userRestaurant.id && targetTenantId !== userRestaurant.slug) {
     logger.warn('[IDOR Attempt Blocked]', {

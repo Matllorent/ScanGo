@@ -2324,12 +2324,45 @@
       }
     }
 
-    // TTS Accessibility
+    // TTS Accessibility — with loop control and clean pause/stop
+    let _ttsAbortController = null;
+    let _ttsIsReading = false;
+
+    function stopCategoryTTS() {
+      if (_ttsAbortController) {
+        _ttsAbortController.abort();
+        _ttsAbortController = null;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      _ttsIsReading = false;
+    }
+
+    function pauseCategoryTTS() {
+      if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+        window.speechSynthesis.pause();
+      }
+    }
+
+    function resumeCategoryTTS() {
+      if ('speechSynthesis' in window && window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+    }
+
     function readSelectedCategoryTTS() {
       if (!('speechSynthesis' in window)) {
         alert('La síntesis de voz no está soportada en este navegador.');
         return;
       }
+
+      // Prevent infinite loop: if already reading, stop first
+      if (_ttsIsReading) {
+        stopCategoryTTS();
+        return;
+      }
+
       const category = selectedCategory === 'ALL' 
         ? 'Todos los platos disponibles' 
         : (restaurantData.categories.find(c => c.id === selectedCategory) || {}).name;
@@ -2340,8 +2373,26 @@
         text += `${d.name}, precio ${d.price} pesos. ${d.description || ''}. `;
       });
 
+      // Use AbortController for clean cancellation
+      _ttsAbortController = new AbortController();
+      const signal = _ttsAbortController.signal;
+
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = 'es-ES';
+      utter.rate = 1;
+      utter.pitch = 1;
+      utter.volume = 1;
+
+      utter.onstart = () => { _ttsIsReading = true; };
+      utter.onend = () => { _ttsIsReading = false; _ttsAbortController = null; };
+      utter.onerror = () => { _ttsIsReading = false; _ttsAbortController = null; };
+
+      // If abort is triggered, cancel synthesis
+      signal.addEventListener('abort', () => {
+        window.speechSynthesis.cancel();
+        _ttsIsReading = false;
+      }, { once: true });
+
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utter);
     }
