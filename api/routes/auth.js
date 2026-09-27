@@ -1,6 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
 const db = require('../../src/db/db');
 const emailService = require('../services/email');
 const { hashPassword, comparePassword } = require('../utils/hash');
@@ -46,6 +47,98 @@ router.get('/supabase-config', (req, res) => {
     supabaseUrl: process.env.SUPABASE_URL || '',
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || ''
   });
+});
+
+/**
+ * GET /api/auth/google/config
+ * Exposes Google OAuth Client ID for GIS initialization.
+ */
+router.get('/google/config', (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.json({
+    clientId: process.env.GOOGLE_CLIENT_ID || ''
+  });
+});
+
+/**
+ * POST /api/auth/google
+ * Validates Google ID token via verifyIdToken, checks email_verified,
+ * creates or logs in the user, and returns a JWT session.
+ */
+router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
+  try {
+    const { credential, restaurantName, businessType } = req.body;
+
+    if (!credential) {
+      throw new AppError('No Google credential received.', 400, 'GOOGLE_CREDENTIAL_REQUIRED');
+    }
+
+    const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+    if (!GOOGLE_CLIENT_ID) {
+      throw new AppError('Google sign-in is not configured on the server.', 503, 'GOOGLE_AUTH_NOT_CONFIGURED');
+    }
+
+    const client = new OAuth2Client(GOOGLE_CLIENT_ID);
+
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: GOOGLE_CLIENT_ID
+    });
+
+    const googleProfile = ticket.getPayload();
+
+    if (!googleProfile?.email) {
+      throw new AppError('Could not retrieve email from Google profile.', 401, 'GOOGLE_EMAIL_MISSING');
+    }
+
+    if (googleProfile.email_verified !== true) {
+      throw new AppError('Google account must have a verified email.', 401, 'GOOGLE_EMAIL_NOT_VERIFIED');
+    }
+
+    const email = googleProfile.email.trim().toLowerCase();
+    const requestedType = ['restaurant', 'perfumery', 'events'].includes(businessType)
+      ? businessType
+      : 'restaurant';
+    const requestedRestaurantName = String(restaurantName || '').trim().slice(0, 80);
+
+    let user = db.findUserByEmail(email);
+    let restaurant = user ? db.findRestaurantByUserId(user.id) : null;
+
+    if (!user) {
+      const randomPassword = crypto.randomBytes(48).toString('hex');
+      user = db.createUser({
+        id: 'usr_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex'),
+        email,
+        password: await hashPassword(randomPassword),
+        name: String(googleProfile.name || 'Responsable').slice(0, 80),
+        email_confirmed_at: new Date().toISOString()
+      });
+    }
+
+    if (!restaurant) {
+      const displayName = googleProfile.name || 'Responsable';
+      const restaurantNameFinal = requestedRestaurantName || String(`Mi local (${displayName})`).slice(0, 80);
+      restaurant = db.saveRestaurant(user.id, {
+        name: restaurantNameFinal,
+        bizName: restaurantNameFinal,
+        businessType: requestedType,
+        currency: '$',
+        theme: 'emerald',
+        city: '',
+        smartWeatherEnabled: false,
+        categories: [],
+        dishes: []
+      });
+    }
+
+    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+    res.cookie('auth_token', token, COOKIE_OPTIONS);
+
+    const { password: _, ...safeUser } = user;
+    return successResponse(res, { user: safeUser, restaurant, token }, 'Acceso con Google exitoso', 200, { flatData: true });
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.post('/supabase-callback', checkSubscriptionKillSwitch, async (req, res, next) => {
@@ -113,7 +206,7 @@ router.post('/supabase-callback', checkSubscriptionKillSwitch, async (req, res, 
     const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
     res.cookie('auth_token', token, COOKIE_OPTIONS);
     const { password: _, ...safeUser } = user;
-    return successResponse(res, { user: safeUser, restaurant, token }, 'Acceso con Google exitoso', 200, { flatData: true });
+    return successResponse(res, { user: safeUser, restaurant, token }, 'Google sign-in successful', 200, { flatData: true });
   } catch (err) {
     next(err);
   }
