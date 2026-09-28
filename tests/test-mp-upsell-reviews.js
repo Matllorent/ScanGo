@@ -3,6 +3,9 @@
  */
 
 require('dotenv').config();
+if (!process.env.MERCADOPAGO_ACCESS_TOKEN) {
+  process.env.MERCADOPAGO_ACCESS_TOKEN = 'APP_USR-test-token-1234567890';
+}
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');

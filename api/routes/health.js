@@ -7,9 +7,10 @@ const router = express.Router();
  * GET /api/healthz
  * Diagnostic health check endpoint reporting server status, Supabase DB latency, memory, and uptime.
  */
-router.get('/healthz', async (req, res) => {
-  const startTime = Date.now();
-  let dbConnected = true;
+router.get('/healthz', async (req, res, next) => {
+  try {
+    const startTime = Date.now();
+    let dbConnected = true;
   let dbLatencyMs = 0;
   let dbProvider = 'local_json';
 
@@ -48,8 +49,11 @@ router.get('/healthz', async (req, res) => {
     }
   };
 
-  const httpStatus = dbConnected ? 200 : 503;
-  return res.status(httpStatus).json(healthData);
+    const httpStatus = dbConnected ? 200 : 503;
+    return res.status(httpStatus).json(healthData);
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;

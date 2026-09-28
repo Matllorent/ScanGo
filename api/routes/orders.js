@@ -333,42 +333,46 @@ function getGroupCartId(restaurantId, tableNumber) {
  * Recupera el carrito grupal activo de la mesa.
  * Usa Supabase si está disponible, si no fallback a memoria local.
  */
-router.get('/group/:restaurantId/:tableNumber', async (req, res) => {
-  const { restaurantId, tableNumber } = req.params;
-  const key = getGroupCartId(restaurantId, tableNumber);
-  const supabase = getSupabaseClient();
+router.get('/group/:restaurantId/:tableNumber', async (req, res, next) => {
+  try {
+    const { restaurantId, tableNumber } = req.params;
+    const key = getGroupCartId(restaurantId, tableNumber);
+    const supabase = getSupabaseClient();
 
-  if (supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('group_carts')
-        .select('*')
-        .eq('id', key)
-        .single();
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('group_carts')
+          .select('*')
+          .eq('id', key)
+          .single();
 
-      if (!error && data) {
-        return successResponse(res, {
-          restaurantId: data.restaurant_id,
-          tableNumber: data.table_number,
-          items: data.items || [],
-          participants: data.participants || [],
-          lastAction: data.last_action,
-          lastUser: data.last_user,
-          updatedAt: data.updated_at
-        }, 'Carrito grupal de mesa recuperado');
+        if (!error && data) {
+          return successResponse(res, {
+            restaurantId: data.restaurant_id,
+            tableNumber: data.table_number,
+            items: data.items || [],
+            participants: data.participants || [],
+            lastAction: data.last_action,
+            lastUser: data.last_user,
+            updatedAt: data.updated_at
+          }, 'Carrito grupal de mesa recuperado');
+        }
+      } catch (e) {
+        sentry.captureException(e, {
+          source: 'orders.groupCart.get',
+          level: 'warn',
+          tags: { restaurantId, tableNumber }
+        });
       }
-    } catch (e) {
-      sentry.captureException(e, {
-        source: 'orders.groupCart.get',
-        level: 'warn',
-        tags: { restaurantId, tableNumber }
-      });
     }
-  }
 
-  // Fallback a memoria local
-  const localData = activeGroupTableCarts.get(key) || { items: [], participants: [], updatedAt: new Date().toISOString() };
-  return successResponse(res, localData, 'Carrito grupal de mesa recuperado');
+    // Fallback a memoria local
+    const localData = activeGroupTableCarts.get(key) || { items: [], participants: [], updatedAt: new Date().toISOString() };
+    return successResponse(res, localData, 'Carrito grupal de mesa recuperado');
+  } catch (err) {
+    next(err);
+  }
 });
 
 /**
@@ -376,75 +380,79 @@ router.get('/group/:restaurantId/:tableNumber', async (req, res) => {
  * Sincroniza y consolida el estado del carrito grupal de la mesa.
  * Persiste en Supabase + emite broadcast Realtime si está disponible.
  */
-router.post('/group/:restaurantId/:tableNumber/sync', async (req, res) => {
-  const { restaurantId, tableNumber } = req.params;
-  const { items = [], participants = [], action = 'sync', fromUser = '' } = req.body;
-  const key = getGroupCartId(restaurantId, tableNumber);
-  const supabase = getSupabaseClient();
+router.post('/group/:restaurantId/:tableNumber/sync', async (req, res, next) => {
+  try {
+    const { restaurantId, tableNumber } = req.params;
+    const { items = [], participants = [], action = 'sync', fromUser = '' } = req.body;
+    const key = getGroupCartId(restaurantId, tableNumber);
+    const supabase = getSupabaseClient();
 
-  // Obtener participantes actuales para merge
-  let currentParticipants = [];
-  if (supabase) {
-    try {
-      const { data } = await supabase
-        .from('group_carts')
-        .select('participants')
-        .eq('id', key)
-        .single();
-      if (data && data.participants) currentParticipants = data.participants;
-    } catch (e) { /* ignore */ }
-  } else {
-    const current = activeGroupTableCarts.get(key);
-    if (current && current.participants) currentParticipants = current.participants;
-  }
+    // Obtener participantes actuales para merge
+    let currentParticipants = [];
+    if (supabase) {
+      try {
+        const { data } = await supabase
+          .from('group_carts')
+          .select('participants')
+          .eq('id', key)
+          .single();
+        if (data && data.participants) currentParticipants = data.participants;
+      } catch (e) { /* ignore */ }
+    } else {
+      const current = activeGroupTableCarts.get(key);
+      if (current && current.participants) currentParticipants = current.participants;
+    }
 
-  const mergedParticipants = Array.from(new Set([...currentParticipants, ...participants, fromUser].filter(Boolean)));
+    const mergedParticipants = Array.from(new Set([...currentParticipants, ...participants, fromUser].filter(Boolean)));
 
-  const updatedState = {
-    restaurantId,
-    tableNumber: String(tableNumber),
-    items,
-    participants: mergedParticipants,
-    lastAction: action,
-    lastUser: fromUser,
-    updatedAt: new Date().toISOString()
-  };
+    const updatedState = {
+      restaurantId,
+      tableNumber: String(tableNumber),
+      items,
+      participants: mergedParticipants,
+      lastAction: action,
+      lastUser: fromUser,
+      updatedAt: new Date().toISOString()
+    };
 
-  if (supabase) {
-    try {
-      // Upsert en Supabase
-      await supabase.from('group_carts').upsert([{
-        id: key,
-        restaurant_id: restaurantId,
-        table_number: String(tableNumber),
-        items: items,
-        participants: mergedParticipants,
-        last_action: action,
-        last_user: fromUser,
-        updated_at: updatedState.updatedAt
-      }]);
+    if (supabase) {
+      try {
+        // Upsert en Supabase
+        await supabase.from('group_carts').upsert([{
+          id: key,
+          restaurant_id: restaurantId,
+          table_number: String(tableNumber),
+          items: items,
+          participants: mergedParticipants,
+          last_action: action,
+          last_user: fromUser,
+          updated_at: updatedState.updatedAt
+        }]);
 
-      // Emitir broadcast Realtime para sincronización en tiempo real
-      const channel = getGroupCartChannel(restaurantId, tableNumber);
-      if (channel) {
-        await channel.send({
-          type: 'broadcast',
-          event: 'cart_updated',
-          payload: updatedState
+        // Emitir broadcast Realtime para sincronización en tiempo real
+        const channel = getGroupCartChannel(restaurantId, tableNumber);
+        if (channel) {
+          await channel.send({
+            type: 'broadcast',
+            event: 'cart_updated',
+            payload: updatedState
+          });
+        }
+      } catch (e) {
+        sentry.captureException(e, {
+          source: 'orders.groupCart.sync',
+          level: 'warn',
+          tags: { restaurantId, tableNumber }
         });
       }
-    } catch (e) {
-      sentry.captureException(e, {
-        source: 'orders.groupCart.sync',
-        level: 'warn',
-        tags: { restaurantId, tableNumber }
-      });
     }
-  }
 
-  // Siempre actualizar memoria local como fallback/cache
-  activeGroupTableCarts.set(key, updatedState);
-  return successResponse(res, updatedState, 'Carrito grupal sincronizado exitosamente');
+    // Siempre actualizar memoria local como fallback/cache
+    activeGroupTableCarts.set(key, updatedState);
+    return successResponse(res, updatedState, 'Carrito grupal sincronizado exitosamente');
+  } catch (err) {
+    next(err);
+  }
 });
 
 /**
@@ -452,36 +460,40 @@ router.post('/group/:restaurantId/:tableNumber/sync', async (req, res) => {
  * Limpia el carrito grupal una vez enviado el pedido.
  * Elimina de Supabase + emite broadcast si está disponible.
  */
-router.post('/group/:restaurantId/:tableNumber/clear', async (req, res) => {
-  const { restaurantId, tableNumber } = req.params;
-  const key = getGroupCartId(restaurantId, tableNumber);
-  const supabase = getSupabaseClient();
+router.post('/group/:restaurantId/:tableNumber/clear', async (req, res, next) => {
+  try {
+    const { restaurantId, tableNumber } = req.params;
+    const key = getGroupCartId(restaurantId, tableNumber);
+    const supabase = getSupabaseClient();
 
-  if (supabase) {
-    try {
-      await supabase.from('group_carts').delete().eq('id', key);
+    if (supabase) {
+      try {
+        await supabase.from('group_carts').delete().eq('id', key);
 
-      // Emitir broadcast de limpieza
-      const channel = getGroupCartChannel(restaurantId, tableNumber);
-      if (channel) {
-        await channel.send({
-          type: 'broadcast',
-          event: 'cart_cleared',
-          payload: { restaurantId, tableNumber: String(tableNumber), cleared: true }
+        // Emitir broadcast de limpieza
+        const channel = getGroupCartChannel(restaurantId, tableNumber);
+        if (channel) {
+          await channel.send({
+            type: 'broadcast',
+            event: 'cart_cleared',
+            payload: { restaurantId, tableNumber: String(tableNumber), cleared: true }
+          });
+        }
+      } catch (e) {
+        sentry.captureException(e, {
+          source: 'orders.groupCart.clear',
+          level: 'warn',
+          tags: { restaurantId, tableNumber }
         });
       }
-    } catch (e) {
-      sentry.captureException(e, {
-        source: 'orders.groupCart.clear',
-        level: 'warn',
-        tags: { restaurantId, tableNumber }
-      });
     }
-  }
 
-  // Siempre limpiar memoria local
-  activeGroupTableCarts.delete(key);
-  return successResponse(res, { cleared: true }, 'Carrito grupal finalizado');
+    // Siempre limpiar memoria local
+    activeGroupTableCarts.delete(key);
+    return successResponse(res, { cleared: true }, 'Carrito grupal finalizado');
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;
