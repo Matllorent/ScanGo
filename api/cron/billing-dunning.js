@@ -118,22 +118,13 @@ router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
       try {
         const user = db.findUserById(restaurant.userId);
         if (user) {
-          emailService.sendEmailAsync({
+          emailService.sendTrialWarningEmail({
             to: user.email,
-            subject: `⚠️ Tu prueba gratuita de ScanGo expira en 3 días`,
-            html: `
-              <div style="font-family:sans-serif; max-width:600px; margin:0 auto; padding:20px;">
-                <h2 style="color:#f59e0b;">Tu prueba gratuita está por terminar</h2>
-                <p>Hola <strong>${user.name || 'Responsable'}</strong>,</p>
-                <p>Tu restaurante <strong>${restaurant.name}</strong> tiene <strong>3 días</strong> restantes de prueba gratuita.</p>
-                <p>Para mantener tu menú digital activo, actualizá tu plan:</p>
-                <p style="margin:24px 0;">
-                  <a href="${process.env.APP_URL || ''}/studio" style="background:#f59e0b; color:#111; padding:12px 24px; text-decoration:none; font-weight:bold; border-radius:6px;">Activar Plan Pro</a>
-                </p>
-                <p style="font-size:12px; color:#888;">Si no actualizás, tu menú se pausará automáticamente.</p>
-              </div>
-            `
-          });
+            userName: user.name,
+            restaurantName: restaurant.name || restaurant.bizName,
+            daysLeft: 3,
+            studioUrl: `${process.env.APP_URL || ''}/studio`
+          }).catch(e => logger.warn(`[Dunning Cron] Failed to send trial warning: ${e.message}`));
           logger.info(`[Dunning Cron] Trial warning (3 days) sent to ${user.email} for restaurant ${restaurant.id}`);
         }
       } catch (e) {
@@ -145,21 +136,13 @@ router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
       try {
         const user = db.findUserById(restaurant.userId);
         if (user) {
-          emailService.sendEmailAsync({
+          emailService.sendTrialWarningEmail({
             to: user.email,
-            subject: `🚨 Último día de tu prueba gratuita de ScanGo`,
-            html: `
-              <div style="font-family:sans-serif; max-width:600px; margin:0 auto; padding:20px;">
-                <h2 style="color:#ef4444;">¡Último día de prueba gratuita!</h2>
-                <p>Hola <strong>${user.name || 'Responsable'}</strong>,</p>
-                <p>Tu restaurante <strong>${restaurant.name}</strong> tiene <strong>1 día</strong> restante de prueba gratuita.</p>
-                <p>Actualizá tu plan ahora para evitar que tu menú se pause:</p>
-                <p style="margin:24px 0;">
-                  <a href="${process.env.APP_URL || ''}/studio" style="background:#ef4444; color:#fff; padding:12px 24px; text-decoration:none; font-weight:bold; border-radius:6px;">Activar Plan Pro</a>
-                </p>
-              </div>
-            `
-          });
+            userName: user.name,
+            restaurantName: restaurant.name || restaurant.bizName,
+            daysLeft: 1,
+            studioUrl: `${process.env.APP_URL || ''}/studio`
+          }).catch(e => logger.warn(`[Dunning Cron] Failed to send trial warning: ${e.message}`));
           logger.info(`[Dunning Cron] Trial warning (1 day) sent to ${user.email} for restaurant ${restaurant.id}`);
         }
       } catch (e) {
@@ -183,9 +166,32 @@ router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
           : (sub.updatedAt ? new Date(sub.updatedAt) : new Date());
         const graceEnd = new Date(periodEnd.getTime() + GRACE_PERIOD_DAYS * 24 * 3600 * 1000);
 
-        // Si la gracia no ha expirado, saltar
+        // Si la gracia no ha expirado, enviar recordatorios y saltar
         if (now <= graceEnd) {
           const daysLeft = Math.max(0, Math.ceil((graceEnd.getTime() - now.getTime()) / (24 * 3600 * 1000)));
+
+          // Enviar email de recordatorio de dunning en día 3 y día 1 de gracia
+          if (daysLeft === 3 || daysLeft === 1) {
+            try {
+              const user = db.findUserById(restaurant.userId);
+              if (user) {
+                const planName = (restaurant.subscription && restaurant.subscription.plan) || 'pro_monthly';
+                emailService.sendDunningReminderEmail({
+                  to: user.email,
+                  userName: user.name,
+                  restaurantName: restaurant.name || restaurant.bizName,
+                  planName,
+                  daysLeft,
+                  gracePeriodDays: GRACE_PERIOD_DAYS,
+                  updatePaymentUrl: `${process.env.APP_URL || ''}/studio?tab=billing`
+                }).catch(e => logger.warn(`[Dunning Cron] Failed to send dunning reminder: ${e.message}`));
+                logger.info(`[Dunning Cron] Dunning reminder (${daysLeft} days) sent to ${user.email} for restaurant ${restaurantId}`);
+              }
+            } catch (e) {
+              logger.warn(`[Dunning Cron] Failed to send dunning reminder: ${e.message}`);
+            }
+          }
+
           results.details.push({
             restaurantId,
             action: 'skipped',

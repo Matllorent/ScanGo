@@ -42,6 +42,13 @@ const billingOrchestrator = {
     return process.env.DEFAULT_BILLING_PROVIDER || 'lemonsqueezy';
   },
 
+  /**
+   * Devuelve el nombre legible de un plan (ej: 'pro_monthly' -> 'Pro Mensual')
+   */
+  getPlanName(planId) {
+    return (PLANS[planId] || PLANS.pro_monthly).name;
+  },
+
   createCheckout({ restaurantId, planId, customerEmail, countryCode, currency, returnUrl }) {
     const providerName = this.resolveProvider(countryCode, currency);
     const provider = PROVIDERS[providerName];
@@ -107,23 +114,37 @@ const billingOrchestrator = {
           const user = restaurant ? db.findUserById(restaurant.userId) : null;
           if (user) {
             const planName = (PLANS[parsed.plan] || PLANS.pro_monthly).name;
-            emailService.sendEmailAsync({
+            emailService.sendPaymentReceiptEmail({
               to: user.email,
-              subject: `✓ Confirmación de pago - Plan ${planName}`,
-              html: `
-                <div style="font-family:sans-serif; max-width:600px; margin:0 auto; padding:20px;">
-                  <h2 style="color:#10b981;">¡Pago confirmado!</h2>
-                  <p>Hola <strong>${user.name || 'Responsable'}</strong>,</p>
-                  <p>Tu suscripción al plan <strong>${planName}</strong> está activa.</p>
-                  <p>Restaurante: <strong>${restaurant.name}</strong></p>
-                  <p>Próximo cobro: ${parsed.renewsAt ? new Date(parsed.renewsAt).toLocaleDateString() : 'N/A'}</p>
-                  <p style="font-size:12px; color:#888;">Gracias por confiar en Menú Pizarrón SaaS.</p>
-                </div>
-              `
-            });
+              userName: user.name,
+              restaurantName: restaurant.name || restaurant.bizName,
+              planName,
+              renewsAt: parsed.renewsAt
+            }).catch(e => console.warn('[Billing] Failed to send receipt email:', e.message));
           }
         } catch (e) {
           console.warn('[Billing] Failed to send receipt email:', e.message);
+        }
+      }
+
+      // Send payment failed email on past_due (single consolidated block)
+      if (parsed.status === 'past_due') {
+        try {
+          const restaurant = db.findRestaurantById(parsed.restaurantId);
+          const user = restaurant ? db.findUserById(restaurant.userId) : null;
+          if (user) {
+            const planName = (PLANS[parsed.plan] || PLANS.pro_monthly).name;
+            emailService.sendPaymentFailedEmail({
+              to: user.email,
+              userName: user.name,
+              restaurantName: restaurant.name || restaurant.bizName,
+              planName,
+              gracePeriodDays: 7,
+              updatePaymentUrl: `${process.env.APP_URL || ''}/studio?tab=billing`
+            }).catch(e => console.warn('[Billing] Failed to send payment failed email:', e.message));
+          }
+        } catch (e) {
+          console.warn('[Billing] Failed to send payment failed email:', e.message);
         }
       }
     }

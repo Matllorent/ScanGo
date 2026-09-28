@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const db = require('../../src/db/db');
 const billingOrchestrator = require('../../src/billing/orchestrator');
+const emailService = require('../services/email');
 const { getSupabaseClient } = require('../utils/supabase');
 const idempotencyMiddleware = require('../middleware/idempotency');
 const { successResponse, errorResponse } = require('../utils/response');
@@ -181,6 +182,21 @@ router.post('/payments', async (req, res, next) => {
           restaurantId: restaurant.id,
           eventId
         });
+
+        // Comprobante de pago por email (no bloqueante, con reintentos vía retryQueue)
+        try {
+          const owner = db.findUserById(restaurant.userId);
+          if (owner) {
+            emailService.sendPaymentReceiptEmail({
+              to: owner.email,
+              userName: owner.name,
+              restaurantName: restaurant.name || restaurant.bizName,
+              planName: billingOrchestrator.getPlanName(updatedSubscription.plan)
+            }).catch(e => logger.warn('[Payment Webhook] Failed to send receipt email:', e.message));
+          }
+        } catch (e) {
+          logger.warn('[Payment Webhook] Failed to send receipt email:', e.message);
+        }
 
         return res.status(200).json({
           success: true,

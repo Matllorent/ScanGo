@@ -129,6 +129,161 @@ const emailService = {
       </div>
     `;
     return this.sendEmail({ to, subject, html });
+  },
+
+  /**
+   * Send Trial Expiration Warning Email (3 days / last day)
+   * @param {object} options
+   * @param {string} options.to - Recipient email
+   * @param {string} [options.userName] - Recipient display name
+   * @param {string} [options.restaurantName] - Restaurant display name (name || bizName)
+   * @param {number} options.daysLeft - Days remaining in the trial
+   * @param {string} [options.studioUrl] - Studio upgrade URL
+   * @returns {Promise<object>} sendEmail result
+   */
+  async sendTrialWarningEmail({ to, userName, restaurantName, daysLeft, studioUrl }) {
+    const isLastDay = Number(daysLeft) <= 1;
+    const restaurant = restaurantName || 'Tu restaurante';
+    const name = userName || 'Responsable';
+    const link = studioUrl || `${process.env.APP_URL || ''}/studio`;
+
+    const subject = isLastDay
+      ? '🚨 Último día de tu prueba gratuita'
+      : `⚠️ Tu prueba gratuita expira en ${daysLeft} días`;
+
+    const html = isLastDay
+      ? `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #ef4444;">¡Último día de prueba gratuita!</h2>
+        <p>Hola <strong>${name}</strong>,</p>
+        <p>Tu restaurante <strong>${restaurant}</strong> tiene <strong>1 día</strong> restante de prueba gratuita.</p>
+        <p>Actualizá tu plan ahora para evitar que tu menú se pause:</p>
+        <p style="margin: 24px 0;">
+          <a href="${link}" style="background: #ef4444; color: #fff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">Activar Plan Pro</a>
+        </p>
+        <p style="font-size: 12px; color: #888;">Si no actualizás, tu menú se pausará automáticamente.</p>
+      </div>
+    `
+      : `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #f59e0b;">Tu prueba gratuita está por terminar</h2>
+        <p>Hola <strong>${name}</strong>,</p>
+        <p>Tu restaurante <strong>${restaurant}</strong> tiene <strong>${daysLeft} días</strong> restantes de prueba gratuita.</p>
+        <p>Para mantener tu menú digital activo, actualizá tu plan:</p>
+        <p style="margin: 24px 0;">
+          <a href="${link}" style="background: #f59e0b; color: #111; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">Activar Plan Pro</a>
+        </p>
+        <p style="font-size: 12px; color: #888;">Si no actualizás, tu menú se pausará automáticamente.</p>
+      </div>
+    `;
+
+    return this.sendEmail({ to, subject, html });
+  },
+
+  /**
+   * Send Payment Receipt / Subscription Activated Email
+   * @param {object} options
+   * @param {string} options.to - Recipient email
+   * @param {string} [options.userName] - Recipient display name
+   * @param {string} [options.restaurantName] - Restaurant display name (name || bizName)
+   * @param {string} [options.planName] - Human readable plan name
+   * @param {string|Date} [options.renewsAt] - Next renewal date
+   * @returns {Promise<object>} sendEmail result
+   */
+  async sendPaymentReceiptEmail({ to, userName, restaurantName, planName, renewsAt }) {
+    const restaurant = restaurantName || 'Tu restaurante';
+    const name = userName || 'Responsable';
+    const plan = planName || 'Pro Mensual';
+    const renewDate = renewsAt ? new Date(renewsAt) : null;
+    const renewLabel = renewDate && !isNaN(renewDate.getTime()) ? renewDate.toLocaleDateString() : 'N/A';
+
+    const subject = `✓ Confirmación de pago - Plan ${plan}`;
+    const html = `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #10b981;">¡Pago confirmado!</h2>
+        <p>Hola <strong>${name}</strong>,</p>
+        <p>Tu suscripción al plan <strong>${plan}</strong> está activa.</p>
+        <p>Restaurante: <strong>${restaurant}</strong></p>
+        <p>Próximo cobro: ${renewLabel}</p>
+        <p style="font-size: 12px; color: #888;">Gracias por confiar en Menú Pizarrón SaaS.</p>
+      </div>
+    `;
+
+    return this.sendEmail({ to, subject, html });
+  },
+
+  /**
+   * Send Payment Failed Email (enters grace period)
+   * @param {object} options
+   * @param {string} options.to - Recipient email
+   * @param {string} [options.userName] - Recipient display name
+   * @param {string} [options.restaurantName] - Restaurant display name (name || bizName)
+   * @param {string} [options.planName] - Human readable plan name
+   * @param {number} [options.gracePeriodDays] - Grace period in days
+   * @param {string} [options.updatePaymentUrl] - Billing page URL
+   * @returns {Promise<object>} sendEmail result
+   */
+  async sendPaymentFailedEmail({ to, userName, restaurantName, planName, gracePeriodDays, updatePaymentUrl }) {
+    const restaurant = restaurantName || 'Tu restaurante';
+    const name = userName || 'Responsable';
+    const plan = planName || 'Pro Mensual';
+    const grace = Number(gracePeriodDays) || 7;
+    const link = updatePaymentUrl || `${process.env.APP_URL || ''}/studio?tab=billing`;
+
+    const subject = `⚠️ No pudimos procesar tu pago - ${restaurant}`;
+    const html = `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #f59e0b;">No pudimos procesar tu pago</h2>
+        <p>Hola <strong>${name}</strong>,</p>
+        <p>El cargo de tu suscripción al plan <strong>${plan}</strong> del restaurante <strong>${restaurant}</strong> no pudo ser procesado.</p>
+        <p>Tenés <strong>${grace} días</strong> para actualizar tu método de pago antes de que tu menú sea pausado.</p>
+        <p style="margin: 24px 0;">
+          <a href="${link}" style="background: #f59e0b; color: #111; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">Actualizar Método de Pago</a>
+        </p>
+        <p style="font-size: 12px; color: #888;">Si ya actualizaste tu tarjeta, ignorá este correo.</p>
+      </div>
+    `;
+
+    return this.sendEmail({ to, subject, html });
+  },
+
+  /**
+   * Send Dunning Reminder Email (grace period countdown: day 3 / day 1)
+   * @param {object} options
+   * @param {string} options.to - Recipient email
+   * @param {string} [options.userName] - Recipient display name
+   * @param {string} [options.restaurantName] - Restaurant display name (name || bizName)
+   * @param {string} [options.planName] - Human readable plan name
+   * @param {number} options.daysLeft - Days left before pausing
+   * @param {number} [options.gracePeriodDays] - Total grace period in days
+   * @param {string} [options.updatePaymentUrl] - Billing page URL
+   * @returns {Promise<object>} sendEmail result
+   */
+  async sendDunningReminderEmail({ to, userName, restaurantName, planName, daysLeft, gracePeriodDays, updatePaymentUrl }) {
+    const restaurant = restaurantName || 'Tu restaurante';
+    const name = userName || 'Responsable';
+    const plan = planName || 'Pro Mensual';
+    const days = Number(daysLeft) || 0;
+    const grace = Number(gracePeriodDays) || 7;
+    const link = updatePaymentUrl || `${process.env.APP_URL || ''}/studio?tab=billing`;
+    const accent = days <= 2 ? '#ef4444' : '#f59e0b';
+    const plural = days === 1 ? '' : 's';
+
+    const subject = `Recordatorio: Tu suscripción de ${restaurant} será pausada en ${days} día${plural}`;
+    const html = `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: ${accent};">Tu suscripción será pausada en ${days} día${plural}</h2>
+        <p>Hola <strong>${name}</strong>,</p>
+        <p>El restaurante <strong>${restaurant}</strong> tiene un pago pendiente del plan <strong>${plan}</strong>.</p>
+        <p>Quedan <strong>${days} día${plural}</strong> de gracia (de ${grace} en total) antes de que tu menú sea pausado.</p>
+        <p style="margin: 24px 0;">
+          <a href="${link}" style="background: ${accent}; color: #fff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">Regularizar Ahora</a>
+        </p>
+        <p style="font-size: 12px; color: #888;">Si ya regularizaste el pago, ignorá este correo.</p>
+      </div>
+    `;
+
+    return this.sendEmail({ to, subject, html });
   }
 };
 
