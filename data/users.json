@@ -743,5 +743,83 @@
     "createdAt": "2026-09-28T04:33:17.583Z",
     "email": "test-default-type-1790569997582@example.com",
     "password": "test_password"
+  },
+  {
+    "id": "usr_1790570438411_f1rd6x",
+    "createdAt": "2026-09-28T04:40:38.411Z",
+    "email": "test-restaurante@pizarron.com",
+    "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1790570439087_sxijlu",
+    "createdAt": "2026-09-28T04:40:39.087Z",
+    "email": "test_security_1790570439085@example.com",
+    "password": "new_secure_hashed_password",
+    "name": "Test Security User",
+    "updatedAt": "2026-09-28T04:40:39.112Z"
+  },
+  {
+    "id": "usr_1790570439219_3irxo4",
+    "createdAt": "2026-09-28T04:40:39.219Z",
+    "email": "test-layout-1790570439216@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790570439233_mxb2hg",
+    "createdAt": "2026-09-28T04:40:39.233Z",
+    "email": "test-default-type-1790570439232@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790570760084_t1l940",
+    "createdAt": "2026-09-28T04:46:00.084Z",
+    "email": "test-restaurante@pizarron.com",
+    "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1790570760796_9dho93",
+    "createdAt": "2026-09-28T04:46:00.796Z",
+    "email": "test_security_1790570760794@example.com",
+    "password": "new_secure_hashed_password",
+    "name": "Test Security User",
+    "updatedAt": "2026-09-28T04:46:00.821Z"
+  },
+  {
+    "id": "usr_1790570760932_9mkvt3",
+    "createdAt": "2026-09-28T04:46:00.932Z",
+    "email": "test-layout-1790570760931@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790570760946_l9dbam",
+    "createdAt": "2026-09-28T04:46:00.946Z",
+    "email": "test-default-type-1790570760945@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790570912936_tucct4",
+    "createdAt": "2026-09-28T04:48:32.936Z",
+    "email": "test-restaurante@pizarron.com",
+    "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1790570913600_sxszte",
+    "createdAt": "2026-09-28T04:48:33.600Z",
+    "email": "test_security_1790570913599@example.com",
+    "password": "new_secure_hashed_password",
+    "name": "Test Security User",
+    "updatedAt": "2026-09-28T04:48:33.628Z"
+  },
+  {
+    "id": "usr_1790570913716_0dxlw0",
+    "createdAt": "2026-09-28T04:48:33.716Z",
+    "email": "test-layout-1790570913714@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790570913734_6kjd9k",
+    "createdAt": "2026-09-28T04:48:33.734Z",
+    "email": "test-default-type-1790570913733@example.com",
+    "password": "test_password"
   }
 ]
