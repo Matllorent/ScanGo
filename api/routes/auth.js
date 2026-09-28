@@ -443,11 +443,33 @@ router.post('/login', normalizeEmailInput, validateBody(loginSchema), async (req
       throw new AppError('Credenciales incorrectas', 401, 'INVALID_CREDENTIALS');
     }
 
-    const restaurant = db.findRestaurantByUserId(user.id);
+    let restaurant = db.findRestaurantByUserId(user.id);
+    if (!restaurant) {
+      const defaultName = String(`Mi local (${user.name || 'Responsable'})`).slice(0, 80);
+      restaurant = db.saveRestaurant(user.id, {
+        name: defaultName,
+        bizName: defaultName,
+        slogan: 'Especialidad, masas artesanales y cocina de autor',
+        currency: '$',
+        phone: '59899123456',
+        theme: 'emerald',
+        businessType: 'restaurant'
+      });
+    }
+
     const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
     res.cookie('auth_token', token, COOKIE_OPTIONS);
 
     const { password: _, ...safeUser } = user;
+    safeUser.subscription = (restaurant && restaurant.subscription) || {
+      status: 'trialing',
+      plan: 'pro_monthly',
+      provider: 'trial',
+      trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      currentPeriodEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      gracePeriodDaysRemaining: 7
+    };
+
     return successResponse(res, { user: safeUser, restaurant, token }, 'Inicio de sesión exitoso', 200, { flatData: true });
   } catch (err) {
     next(err);
@@ -465,13 +487,35 @@ router.get('/me', (req, res, next) => {
     }
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = db.findUserById(decoded.userId);
-    const restaurant = db.findRestaurantByUserId(decoded.userId);
 
     if (!user) {
       throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
     }
 
+    let restaurant = db.findRestaurantByUserId(decoded.userId);
+    if (!restaurant) {
+      const defaultName = String(`Mi local (${user.name || 'Responsable'})`).slice(0, 80);
+      restaurant = db.saveRestaurant(user.id, {
+        name: defaultName,
+        bizName: defaultName,
+        slogan: 'Especialidad, masas artesanales y cocina de autor',
+        currency: '$',
+        phone: '59899123456',
+        theme: 'emerald',
+        businessType: 'restaurant'
+      });
+    }
+
     const { password: _, ...safeUser } = user;
+    safeUser.subscription = (restaurant && restaurant.subscription) || {
+      status: 'trialing',
+      plan: 'pro_monthly',
+      provider: 'trial',
+      trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      currentPeriodEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      gracePeriodDaysRemaining: 7
+    };
+
     return successResponse(res, { user: safeUser, restaurant }, 'Operación exitosa', 200, { flatData: true });
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {

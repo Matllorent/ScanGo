@@ -523,7 +523,12 @@
      * Checks if the restaurant has an active subscription.
      */
     function checkStudioAccess() {
-      const sub = (currentUser && currentUser.subscription) || (restaurant && restaurant.subscription) || null;
+      const sub = (currentUser && currentUser.subscription) || (restaurant && restaurant.subscription) || {
+        status: 'trialing',
+        plan: 'pro_monthly',
+        provider: 'trial',
+        trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      };
       if (!sub) return { allowed: false, warning: 'Sin datos de suscripción.' };
 
       const now = new Date();
