@@ -1475,7 +1475,7 @@
     }
 
     /**
-     * Add new branch
+     * Add new branch via PATCH /api/studio/branches
      */
     async function addBranch(e) {
       e.preventDefault();
@@ -1489,6 +1489,13 @@
         return;
       }
 
+      const token = localStorage.getItem('menu_pizarron_token');
+      if (!token) {
+        alert('Sesión expirada. Por favor recargá la página.');
+        return;
+      }
+
+      // Optimistic UI: add locally first, then sync
       if (!restaurant.branches) restaurant.branches = [];
       const branches = getValidBranches();
 
@@ -1498,43 +1505,59 @@
         return;
       }
 
-      // Generate slug if empty
+      // Generate slug if empty (backend will also ensure uniqueness)
       if (!slug) {
         slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30);
-        // Ensure unique
-        let counter = 1;
-        let uniqueSlug = slug;
-        while (branches.some(b => b.slug === uniqueSlug)) {
-          uniqueSlug = `${slug}-${counter}`;
-          counter++;
-        }
-        slug = uniqueSlug;
-      } else if (branches.some(b => b.slug === slug)) {
-        alert('Ese slug ya está en uso por otra sucursal.');
-        return;
       }
 
-      const newBranch = {
-        id: 'br_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
-        name,
-        slug,
-        phone,
-        address,
-        createdAt: new Date().toISOString()
-      };
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const originalText = submitBtn ? submitBtn.innerHTML : '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span>⏳ Agregando...</span>';
+      }
 
-      restaurant.branches.push(newBranch);
+      try {
+        const res = await fetch('/api/studio/branches', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            operation: 'add',
+            branch: {
+              name,
+              slug,
+              phone,
+              address
+            }
+          })
+        });
 
-      // Save to backend
-      await saveBranchesToBackend();
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al agregar sucursal');
 
-      resetBranchForm();
-      renderBranchesList();
-      triggerAutoSave();
+        // Update local state with server response (includes generated id, unique slug, etc.)
+        const newBranch = data.branch;
+        restaurant.branches.push(newBranch);
+
+        resetBranchForm();
+        renderBranchesList();
+        triggerAutoSave();
+
+      } catch (err) {
+        alert(err.message || 'Error al agregar sucursal');
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalText || '➕ Agregar Sucursal';
+        }
+      }
     }
 
     /**
-     * Delete branch (cannot delete principal/main branch)
+     * Delete branch via PATCH /api/studio/branches
      */
     async function deleteBranch(branchId) {
       const branches = getValidBranches();
@@ -1553,36 +1576,38 @@
         confirmText: 'Sí, Eliminar',
         confirmClass: 'btn-danger',
         onConfirm: async () => {
-          restaurant.branches = restaurant.branches.filter(b => b.id !== branchId);
-          await saveBranchesToBackend();
-          renderBranchesList();
-          triggerAutoSave();
+          const token = localStorage.getItem('menu_pizarron_token');
+          if (!token) {
+            alert('Sesión expirada. Por favor recargá la página.');
+            return;
+          }
+
+          try {
+            const res = await fetch('/api/studio/branches', {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                operation: 'delete',
+                branchId
+              })
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Error al eliminar sucursal');
+
+            // Update local state
+            restaurant.branches = restaurant.branches.filter(b => b.id !== branchId);
+            renderBranchesList();
+            triggerAutoSave();
+
+          } catch (err) {
+            alert(err.message || 'Error al eliminar sucursal');
+          }
         }
       });
-    }
-
-    /**
-     * Persist branches to backend via studio save endpoint
-     */
-    async function saveBranchesToBackend() {
-      const token = localStorage.getItem('menu_pizarron_token');
-      if (!token) return;
-
-      try {
-        await fetch('/api/studio/save', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            restaurantId: restaurant.id,
-            data: restaurant
-          })
-        });
-      } catch (err) {
-        console.warn('[Branches] Error guardando en backend:', err.message);
-      }
     }
 
     /**
