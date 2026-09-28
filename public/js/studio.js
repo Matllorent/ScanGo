@@ -1517,12 +1517,14 @@
         submitBtn.innerHTML = '<span>⏳ Agregando...</span>';
       }
 
+      const idempotencyKey = `branch_add_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       try {
         const res = await fetch('/api/studio/branches', {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token}`,
+            'X-Idempotency-Key': idempotencyKey
           },
           body: JSON.stringify({
             operation: 'add',
@@ -1582,12 +1584,14 @@
             return;
           }
 
+          const idempotencyKey = `branch_del_${branchId}_${Date.now()}`;
           try {
             const res = await fetch('/api/studio/branches', {
               method: 'PATCH',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${token}`,
+                'X-Idempotency-Key': idempotencyKey
               },
               body: JSON.stringify({
                 operation: 'delete',
@@ -3730,6 +3734,12 @@
       localStorage.removeItem('menu_pizarron_restaurant');
       window.location.href = '/index.html';
     }
+
+    // Auto-Sync Queue: When owner recovers internet connection, sync local state to backend automatically
+    window.addEventListener('online', () => {
+      showSaveFeedback('saving');
+      saveStudioChanges();
+    });
 
     // Run
     window.addEventListener('DOMContentLoaded', initStudio);
