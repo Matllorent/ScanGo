@@ -409,6 +409,86 @@ app.post('/api/studio/save', authMiddleware, requireVerifiedEmail, async (req, r
   }
 });
 
+// ==================== GRANULAR BRANCHES OPERATIONS ====================
+// PATCH /api/studio/branches
+// Body: { operation: 'add' | 'update' | 'delete', branch: {...}, branchId?: string, branchSlug?: string }
+app.patch('/api/studio/branches', authMiddleware, requireVerifiedEmail, async (req, res) => {
+  try {
+    const { operation, branch, branchId, branchSlug } = req.body || {};
+    if (!operation || !['add', 'update', 'delete'].includes(operation)) {
+      return res.status(400).json({ error: 'Operación requerida: add, update o delete' });
+    }
+
+    // Find restaurant by user
+    const restaurant = db.findRestaurantByUserId(req.user.userId);
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Restaurante no encontrado' });
+    }
+
+    // For add/update, sanitize branch data using same logic as sanitizeRestaurantPayload
+    let cleanBranch = null;
+    if (operation !== 'delete' && branch) {
+      // Reuse slug uniqueness logic inline (mirrors sanitizeRestaurantPayload branches sanitization)
+      const existingBranches = Array.isArray(restaurant.branches) ? restaurant.branches : [];
+      const seenSlugs = new Set(existingBranches.map(b => b.slug).filter(Boolean));
+
+      let slug = (branch.slug || branch.name || 'sucursal')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .slice(0, 30);
+      let uniqueSlug = slug;
+      let counter = 1;
+      while (seenSlugs.has(uniqueSlug)) {
+        uniqueSlug = `${slug}-${counter}`;
+        counter++;
+      }
+
+      cleanBranch = {
+        id: branch.id || '',
+        name: String(branch.name || '').slice(0, 80),
+        slug: uniqueSlug,
+        phone: branch.phone ? String(branch.phone).replace(/[^0-9+]/g, '').slice(0, 20) : '',
+        address: branch.address ? String(branch.address).slice(0, 200) : '',
+        overridePrices: branch.overridePrices && typeof branch.overridePrices === 'object' ? branch.overridePrices : {},
+        customDishes: Array.isArray(branch.customDishes) ? branch.customDishes.slice(0, 50) : [],
+        createdAt: branch.createdAt || new Date().toISOString()
+      };
+
+      if (!cleanBranch.name) {
+        return res.status(400).json({ error: 'Nombre de sucursal requerido' });
+      }
+    }
+
+    // Delegate to DB method
+    const result = db.updateBranches(restaurant.id, {
+      operation,
+      branch: cleanBranch,
+      branchId,
+      branchSlug
+    });
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    // Invalidate menu cache
+    if (result.restaurant && result.restaurant.slug) {
+      menuCache.delete(result.restaurant.slug);
+      await invalidateMenuCache(result.restaurant.slug);
+    }
+
+    res.json({
+      success: true,
+      action: result.action,
+      branch: result.branch,
+      restaurant: result.restaurant
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ==================== PUBLIC MENU VIEWER (WITH 800MS TIMEOUT RACE & STALE CACHE FALLBACK) ====================
 app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
   const slug = (req.params.slug || '').toLowerCase();

@@ -293,6 +293,126 @@ const db = {
     return rest;
   },
 
+  /**
+   * Granular branch operations: add, update, delete single branch by id or slug
+   * @param {string} restaurantId
+   * @param {object} opts
+   * @param {string} opts.operation - 'add' | 'update' | 'delete'
+   * @param {object} opts.branch - branch data (required for add/update)
+   * @param {string} opts.branchId - branch id (required for update/delete)
+   * @param {string} opts.branchSlug - branch slug (alternative to branchId for update/delete)
+   * @returns {object} { success: true, restaurant, branch, action }
+   */
+  updateBranches(restaurantId, { operation, branch, branchId, branchSlug }) {
+    const rests = readJson(RESTAURANTS_FILE, []);
+    const rest = rests.find(r => r.id === restaurantId);
+    if (!rest) return { success: false, error: 'Restaurante no encontrado' };
+
+    // Initialize branches array if not present
+    if (!Array.isArray(rest.branches)) rest.branches = [];
+
+    // Helper to find branch index by id or slug
+    const findBranchIndex = (id, slug) => {
+      return rest.branches.findIndex(b =>
+        (id && b.id === id) || (slug && b.slug === slug)
+      );
+    };
+
+    // Helper to generate unique slug within this restaurant's branches
+    const generateUniqueSlug = (baseSlug, excludeIndex = -1) => {
+      let slug = (baseSlug || 'sucursal')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .slice(0, 30);
+      let uniqueSlug = slug;
+      let counter = 1;
+      while (rest.branches.some((b, i) => i !== excludeIndex && b.slug === uniqueSlug)) {
+        uniqueSlug = `${slug}-${counter}`;
+        counter++;
+      }
+      return uniqueSlug;
+    };
+
+    let resultBranch = null;
+    let action = '';
+
+    switch (operation) {
+      case 'add': {
+        if (!branch || !branch.name) {
+          return { success: false, error: 'Nombre de sucursal requerido' };
+        }
+        const newBranch = {
+          id: 'br_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+          name: String(branch.name).slice(0, 80),
+          slug: generateUniqueSlug(branch.slug || branch.name),
+          phone: branch.phone ? String(branch.phone).replace(/[^0-9+]/g, '').slice(0, 20) : '',
+          address: branch.address ? String(branch.address).slice(0, 200) : '',
+          overridePrices: branch.overridePrices && typeof branch.overridePrices === 'object' ? branch.overridePrices : {},
+          customDishes: Array.isArray(branch.customDishes) ? branch.customDishes.slice(0, 50) : [],
+          createdAt: new Date().toISOString()
+        };
+        rest.branches.push(newBranch);
+        resultBranch = newBranch;
+        action = 'added';
+        break;
+      }
+
+      case 'update': {
+        const idx = findBranchIndex(branchId, branchSlug);
+        if (idx === -1) {
+          return { success: false, error: 'Sucursal no encontrada' };
+        }
+        // Protect principal branch (index 0) from name/slug changes that would break hierarchy
+        const existing = rest.branches[idx];
+        const updated = { ...existing };
+        if (branch.name) updated.name = String(branch.name).slice(0, 80);
+        if (branch.slug) updated.slug = generateUniqueSlug(branch.slug, idx);
+        if (branch.phone !== undefined) updated.phone = branch.phone ? String(branch.phone).replace(/[^0-9+]/g, '').slice(0, 20) : '';
+        if (branch.address !== undefined) updated.address = branch.address ? String(branch.address).slice(0, 200) : '';
+        if (branch.overridePrices && typeof branch.overridePrices === 'object') updated.overridePrices = branch.overridePrices;
+        if (Array.isArray(branch.customDishes)) updated.customDishes = branch.customDishes.slice(0, 50);
+        updated.updatedAt = new Date().toISOString();
+        rest.branches[idx] = updated;
+        resultBranch = updated;
+        action = 'updated';
+        break;
+      }
+
+      case 'delete': {
+        const idx = findBranchIndex(branchId, branchSlug);
+        if (idx === -1) {
+          return { success: false, error: 'Sucursal no encontrada' };
+        }
+        // Prevent deletion of principal branch (index 0)
+        if (idx === 0) {
+          return { success: false, error: 'No se puede eliminar la sucursal principal' };
+        }
+        const deleted = rest.branches.splice(idx, 1)[0];
+        resultBranch = deleted;
+        action = 'deleted';
+        break;
+      }
+
+      default:
+        return { success: false, error: 'Operación inválida: use add, update o delete' };
+    }
+
+    // Persist to local JSON
+    rest.updatedAt = new Date().toISOString();
+    writeJson(RESTAURANTS_FILE, rests);
+
+    // Sync to Supabase
+    if (supabase) {
+      supabase.from('restaurants').update({
+        branches: rest.branches,
+        updated_at: new Date().toISOString()
+      }).eq('id', restaurantId).then().catch(e => console.warn('[Supabase Update Branches]', e.message));
+    }
+
+    return { success: true, restaurant: rest, branch: resultBranch, action };
+  },
+
   // Subscriptions
   updateSubscription(restaurantId, subData) {
     const rests = readJson(RESTAURANTS_FILE, []);
