@@ -479,6 +479,25 @@ const db = {
     rest.subscription.status = newStatus;
     rest.subscription.updatedAt = new Date().toISOString();
     writeJson(RESTAURANTS_FILE, rests);
+
+    if (rest.userId) {
+      const users = readJson(USERS_FILE, []);
+      const user = users.find(u => u.id === rest.userId);
+      if (user) {
+        if (!user.subscription) user.subscription = {};
+        user.subscription.status = newStatus;
+        user.subscription.updatedAt = new Date().toISOString();
+        writeJson(USERS_FILE, users);
+      }
+    }
+
+    if (supabase) {
+      supabase.from('restaurants').update({
+        subscription: rest.subscription,
+        updated_at: new Date().toISOString()
+      }).eq('id', restaurantId).then().catch(e => console.warn('[Supabase setRestaurantStatus]', e.message));
+    }
+
     return rest;
   },
 

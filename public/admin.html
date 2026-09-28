@@ -896,12 +896,14 @@
         const res = await fetch(`/api/admin/restaurant/${restaurantId}/status`, {
           method: 'POST',
           headers: getAdminHeaders(),
+          credentials: 'same-origin',
           body: JSON.stringify({ status: newStatus })
         });
         if (res.ok) {
           loadOverview();
         } else {
-          alert('Error al actualizar el estado');
+          const errData = await res.json().catch(() => ({}));
+          alert('Error al actualizar el estado: ' + (errData.error || res.statusText));
         }
       } catch (e) {
         alert('Error: ' + e.message);
