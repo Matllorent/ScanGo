@@ -412,8 +412,14 @@ app.post('/api/studio/save', authMiddleware, requireVerifiedEmail, async (req, r
 // ==================== GRANULAR BRANCHES OPERATIONS ====================
 // PATCH /api/studio/branches
 // Body: { operation: 'add' | 'update' | 'delete', branch: {...}, branchId?: string, branchSlug?: string }
+const processedBranchOperations = new Map(); // idempotencyKey -> response
 app.patch('/api/studio/branches', authMiddleware, requireVerifiedEmail, async (req, res) => {
   try {
+    const idempotencyKey = req.headers['x-idempotency-key'] || req.headers['idempotency-key'];
+    if (idempotencyKey && processedBranchOperations.has(idempotencyKey)) {
+      return res.json(processedBranchOperations.get(idempotencyKey));
+    }
+
     const { operation, branch, branchId, branchSlug } = req.body || {};
     if (!operation || !['add', 'update', 'delete'].includes(operation)) {
       return res.status(400).json({ error: 'Operación requerida: add, update o delete' });
@@ -478,12 +484,22 @@ app.patch('/api/studio/branches', authMiddleware, requireVerifiedEmail, async (r
       await invalidateMenuCache(result.restaurant.slug);
     }
 
-    res.json({
+    const responsePayload = {
       success: true,
       action: result.action,
       branch: result.branch,
       restaurant: result.restaurant
-    });
+    };
+
+    if (idempotencyKey) {
+      processedBranchOperations.set(idempotencyKey, responsePayload);
+      if (processedBranchOperations.size > 500) {
+        const oldestKey = processedBranchOperations.keys().next().value;
+        processedBranchOperations.delete(oldestKey);
+      }
+    }
+
+    res.json(responsePayload);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

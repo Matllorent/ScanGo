@@ -86,9 +86,13 @@
     window.addEventListener('offline', () => showOfflineBanner(true));
     window.addEventListener('online', () => showOfflineBanner(false));
 
-    // Fetch Restaurant Menu
+    // Fetch Restaurant Menu with Client-Side Timeout & Branch-Aware Caching
     async function loadMenu() {
       const slug = getSlug();
+      const urlParams = new URLSearchParams(window.location.search);
+      const branch = urlParams.get('branch') || urlParams.get('sucursal') || '';
+      const cacheKey = 'scango_cached_menu_' + slug + (branch ? '_' + branch : '');
+
       // Check local storage for interactive demo mode
       if (slug === 'demo') {
         try {
@@ -102,8 +106,15 @@
         } catch (e) {}
       }
 
+      // Timeout AbortController to prevent freezing on extreme server latency during peak service (3.5s limit)
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timeoutId = controller ? setTimeout(() => controller.abort(), 3500) : null;
+
       try {
-        const res = await fetch(`/api/menu/${slug}`);
+        const fetchUrl = `/api/menu/${slug}${window.location.search}`;
+        const res = await fetch(fetchUrl, { signal: controller ? controller.signal : undefined });
+        if (timeoutId) clearTimeout(timeoutId);
+
         if (!res.ok) {
           if (restaurantData) return;
           if (res.status === 402) {
@@ -116,6 +127,7 @@
         const data = await res.json();
         restaurantData = data.restaurant;
         try {
+          localStorage.setItem(cacheKey, JSON.stringify(data.restaurant));
           localStorage.setItem('scango_cached_menu_' + slug, JSON.stringify(data.restaurant));
         } catch (e) {}
         renderHeader();
@@ -128,9 +140,10 @@
           body: JSON.stringify({ slug, event: 'visit' })
         }).catch(() => {});
       } catch (err) {
+        if (timeoutId) clearTimeout(timeoutId);
         if (!restaurantData) {
           try {
-            const cached = localStorage.getItem('scango_cached_menu_' + slug) || (slug === 'demo' ? localStorage.getItem('scango_demo_restaurant') : null);
+            const cached = localStorage.getItem(cacheKey) || localStorage.getItem('scango_cached_menu_' + slug) || (slug === 'demo' ? localStorage.getItem('scango_demo_restaurant') : null);
             if (cached) {
               restaurantData = JSON.parse(cached);
               renderHeader();
