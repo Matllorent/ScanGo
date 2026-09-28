@@ -34,6 +34,13 @@ const PLANS = {
   }
 };
 
+/**
+ * Redondea a 2 decimales para montos monetarios (evita errores de coma flotante)
+ */
+function round2(value) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
 const billingOrchestrator = {
   resolveProvider(countryCode, currency) {
     if (['UY', 'AR'].includes((countryCode || '').toUpperCase()) && ['UYU', 'ARS', '$U'].includes(currency)) {
@@ -49,6 +56,82 @@ const billingOrchestrator = {
     return (PLANS[planId] || PLANS.pro_monthly).name;
   },
 
+  /**
+   * Descuento progresivo por posición de sucursal en el volumen.
+   * @param {number} branchNumber - Posición de la sucursal (1 = principal)
+   * @returns {number} Descuento entre 0 y 0.5
+   */
+  getBranchDiscount(branchNumber) {
+    const position = Math.floor(Number(branchNumber) || 1);
+    if (position <= 1) return 0;      // Sucursal 1 (Principal): sin descuento
+    if (position === 2) return 0.20;  // Sucursal 2: 20% de descuento (paga 80%)
+    if (position === 3) return 0.35;  // Sucursal 3: 35% de descuento (paga 65%)
+    return 0.50;                      // Sucursales 4 en adelante: 50% (piso mínimo)
+  },
+
+  /**
+   * Precio total escalonado por volumen de sucursales.
+   * Suma el precio base de cada sucursal con su descuento progresivo:
+   *   1ª = 100%, 2ª = 80%, 3ª = 65%, 4ª en adelante = 50%.
+   *
+   * @param {number} basePrice - Precio base del plan por sucursal
+   * @param {number} branchCount - Cantidad de sucursales (mínimo 1: la principal)
+   * @returns {number} Precio total redondeado a 2 decimales
+   */
+  calculateMultiBranchPrice(basePrice, branchCount) {
+    const base = Number(basePrice);
+    if (!Number.isFinite(base) || base <= 0) return 0;
+
+    // Mínimo 1 sucursal (la principal); entradas inválidas o fracciones se truncan
+    const count = Math.max(1, Math.floor(Number(branchCount) || 1));
+
+    let total = 0;
+    for (let i = 1; i <= count; i++) {
+      total += round2(base * (1 - this.getBranchDiscount(i)));
+    }
+    return round2(total);
+  },
+
+  /**
+   * Cantidad de sucursales de un restaurante (mínimo 1: la principal).
+   * Usa el array `branches` validado por el helper de DB.
+   * @param {object} restaurant
+   * @returns {number}
+   */
+  getBranchCount(restaurant) {
+    if (!restaurant) return 1;
+    const branches = typeof db.getRestaurantBranches === 'function'
+      ? db.getRestaurantBranches(restaurant)
+      : (Array.isArray(restaurant.branches) ? restaurant.branches : []);
+    return Math.max(1, branches.length);
+  },
+
+  /**
+   * Evaluación de precio efectivo del plan para un restaurante,
+   * aplicando el descuento escalonado por volumen de sucursales.
+   *
+   * @param {object} restaurant
+   * @param {string} planId - Clave del plan (ej: 'pro_monthly')
+   * @returns {object} pricing { planId, planName, currency, basePrice, branchCount, totalPrice, totalDiscount, hasMultiBranchDiscount }
+   */
+  getPlanPricing(restaurant, planId) {
+    const planKey = PLANS[planId] ? planId : 'pro_monthly';
+    const plan = PLANS[planKey];
+    const branchCount = this.getBranchCount(restaurant);
+    const totalPrice = this.calculateMultiBranchPrice(plan.priceUsd, branchCount);
+
+    return {
+      planId: planKey,
+      planName: plan.name,
+      currency: 'USD',
+      basePrice: plan.priceUsd,
+      branchCount,
+      totalPrice,
+      totalDiscount: round2(plan.priceUsd * branchCount - totalPrice),
+      hasMultiBranchDiscount: branchCount > 1
+    };
+  },
+
   createCheckout({ restaurantId, planId, customerEmail, countryCode, currency, returnUrl }) {
     const providerName = this.resolveProvider(countryCode, currency);
     const provider = PROVIDERS[providerName];
@@ -56,7 +139,7 @@ const billingOrchestrator = {
 
     const redirectUrl = returnUrl || (process.env.APP_URL || 'http://localhost:3000') + '/studio?billing=success';
 
-    return {
+    const checkout = {
       provider: providerName,
       checkoutUrl: provider.createCheckoutUrl({
         variantId: planId,
@@ -69,6 +152,14 @@ const billingOrchestrator = {
         cancelUrl: (process.env.APP_URL || 'http://localhost:3000') + '/studio?billing=canceled'
       })
     };
+
+    // Precio efectivo por volumen de sucursales (los proveedores cobran vía variant/price ID)
+    const restaurant = db.findRestaurantById(restaurantId);
+    if (restaurant) {
+      checkout.pricing = this.getPlanPricing(restaurant, planId);
+    }
+
+    return checkout;
   },
 
   async processWebhook(providerName, headers, rawBody, payload) {
@@ -170,6 +261,7 @@ const billingOrchestrator = {
         status: 'active',
         plan: sub.plan || 'pro_monthly',
         features: (PLANS[sub.plan] || PLANS.pro_monthly).features,
+        pricing: this.getPlanPricing(rest, sub.plan || 'pro_monthly'),
         inGracePeriod: false
       };
     }
@@ -186,6 +278,7 @@ const billingOrchestrator = {
           daysLeft,
           plan: sub.plan || 'pro_monthly',
           features: (PLANS[sub.plan] || PLANS.pro_monthly).features,
+          pricing: this.getPlanPricing(rest, sub.plan || 'pro_monthly'),
           inGracePeriod: false
         };
       }
@@ -211,6 +304,7 @@ const billingOrchestrator = {
         gracePeriodDaysRemaining: daysLeft,
         plan: sub.plan || 'pro_monthly',
         features: (PLANS[sub.plan] || PLANS.pro_monthly).features,
+        pricing: this.getPlanPricing(rest, sub.plan || 'pro_monthly'),
         warning: 'Cobro pendiente. Su menú se pausará en ' + daysLeft + ' días si no regulariza el pago.'
       };
     }
