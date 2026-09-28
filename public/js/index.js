@@ -89,66 +89,13 @@ function openAuthModal(mode = 'register') {
         `&redirect_uri=${redirectUri}` +
         `&response_type=token id_token` +
         `&scope=${scope}` +
-        `&nonce=${Math.random().toString(36).slice(2)}`;
+        `&nonce=${Math.random().toString(36).slice(2)}` +
+        `&prompt=consent`;
 
       window.open(oauthUrl, 'google_oauth', 'width=500,height=600,left=' + (window.screen.width - 500) / 2 + ',top=' + (window.screen.height - 600) / 2);
     }
 
     async function startGoogleSignup() {
-      openAuthModal('register');
-      hideError();
-      setGoogleButtonsDisabled(true);
-      try {
-        await ensureGoogleIdentityReady();
-
-        // Try One Tap prompt first
-        let oneTapShown = false;
-        google.accounts.id.prompt(notification => {
-          if (notification.isNotDisplayed()) {
-            // One Tap not available — fall back to redirect flow
-            if (!oneTapShown) {
-              redirectToGoogleOAuth();
-            }
-          } else if (notification.isDisplayed()) {
-            oneTapShown = true;
-          }
-        });
-
-        // If One Tap doesn't show within 2s, trigger redirect fallback
-        setTimeout(() => {
-          if (!oneTapShown) {
-            redirectToGoogleOAuth();
-          }
-        }, 2000);
-
-      } catch (error) {
-        // If GIS fails entirely, fall back to redirect
-        redirectToGoogleOAuth();
-      } finally {
-        setGoogleButtonsDisabled(false);
-      }
-    }
-
-    /**
-     * Fallback: redirect-based Google OAuth flow.
-     * Opens Google's OAuth consent screen in a popup.
-     */
-    function redirectToGoogleOAuth() {
-      if (!googleIdentityClientId) return;
-
-      const redirectUri = encodeURIComponent(window.location.origin + '/api/auth/google/callback');
-      const scope = encodeURIComponent('openid email profile');
-      const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-        `client_id=${googleIdentityClientId}` +
-        `&redirect_uri=${redirectUri}` +
-        `&response_type=token id_token` +
-        `&scope=${scope}` +
-        `&nonce=${Math.random().toString(36).slice(2)}`;
-
-      window.open(oauthUrl, 'google_oauth', 'width=500,height=600,left=' + (window.screen.width - 500) / 2 + ',top=' + (window.screen.height - 600) / 2);
-    }
-
-    async function handleGoogleCredential(response) {
       if (!response?.credential) {
         showError('Google no devolvió una credencial válida. Intentá de nuevo.');
         return;

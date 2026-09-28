@@ -159,6 +159,100 @@ router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
   }
 });
 
+/**
+ * GET /api/auth/google/callback
+ * Handles the redirect-based Google OAuth flow (popup fallback).
+ * Expects ID token in URL fragment or query params from Google's OAuth endpoint.
+ * This is the fallback when One Tap is not available.
+ */
+router.get('/google/callback', async (req, res, next) => {
+  try {
+    // Google OAuth redirect returns the token in the URL fragment (#id_token=...)
+    // Since fragments are not sent to the server, this endpoint serves an HTML page
+    // that extracts the token from the fragment and posts it to /api/auth/google via fetch.
+    
+    const clientId = process.env.GOOGLE_CLIENT_ID || '';
+    const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+    
+    // HTML page that extracts ID token from fragment and completes auth
+    const html = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Completando acceso con Google...</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #0E1412; color: #F7FAFC; }
+    .container { text-align: center; padding: 2rem; }
+    .spinner { width: 40px; height: 40px; border: 3px solid rgba(236,201,75,0.3); border-top: 3px solid #ECC94B; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1.5rem; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .msg { font-size: 1rem; color: #A0AEC0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="spinner"></div>
+    <div class="msg">Completando acceso con Google...</div>
+  </div>
+  <script>
+    (function() {
+      // Extract ID token from URL fragment (Google returns it in #id_token=...)
+      const fragment = window.location.hash.substring(1);
+      const params = new URLSearchParams(fragment);
+      const idToken = params.get('id_token');
+      
+      if (!idToken) {
+        // Fallback: check query params (some configurations)
+        const searchParams = new URLSearchParams(window.location.search);
+        const queryToken = searchParams.get('id_token') || searchParams.get('credential');
+        if (queryToken) {
+          return completeAuth(queryToken);
+        }
+        document.body.innerHTML = '<div class="container"><div style="color:#FC8181;">Error: No se recibió token de Google.</div></div>';
+        return;
+      }
+      
+      completeAuth(idToken);
+      
+      async function completeAuth(token) {
+        try {
+          const res = await fetch('/api/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              credential: token,
+              restaurantName: '',
+              businessType: 'restaurant'
+            })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Error en autenticación');
+          
+          // Store session and redirect to Studio
+          localStorage.setItem('menu_pizarron_token', data.token);
+          localStorage.setItem('menu_pizarron_user', JSON.stringify(data.user));
+          localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(data.restaurant));
+          window.opener?.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', data }, '*');
+          window.close();
+          window.location.href = '/studio.html';
+        } catch (e) {
+          document.body.innerHTML = '<div class="container"><div style="color:#FC8181;">Error: ' + e.message + '</div></div>';
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
+    `;
+    
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/supabase-callback', checkSubscriptionKillSwitch, async (req, res, next) => {
   try {
     const accessToken = String(req.body?.accessToken || '');
