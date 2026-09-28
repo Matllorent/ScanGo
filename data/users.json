@@ -943,5 +943,13 @@
     "createdAt": "2026-09-28T16:24:42.265Z",
     "email": "test-restaurante@pizarron.com",
     "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1790614529495_13p2kx",
+    "createdAt": "2026-09-28T16:55:29.495Z",
+    "email": "matllorent30@gmail.com",
+    "password": "$2b$12$RKIkAYy6U1T.XVaRnvnst.hEp.EUr75qrypTXQu2ZljaT4AAnAcpG",
+    "name": "Berrueta",
+    "email_confirmed_at": "2026-09-28T16:55:29.493Z"
   }
 ]

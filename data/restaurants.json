@@ -286,14 +286,14 @@
     "userId": "usr_1790380577273_evaxir",
     "slug": "esquina-gourmet",
     "subscription": {
-      "status": "past_due",
+      "status": "active",
       "plan": "pro_monthly",
       "provider": "lemonsqueezy",
       "trialEndsAt": "2026-10-02T23:56:17.282Z",
       "currentPeriodEnd": "2026-09-25T23:56:17.316Z",
       "gracePeriodDaysRemaining": 7,
       "lastPaymentError": "Falló el cobro automático de la tarjeta",
-      "updatedAt": "2026-09-25T23:56:17.329Z"
+      "updatedAt": "2026-09-28T16:49:47.135Z"
     },
     "createdAt": "2026-09-25T23:56:17.282Z",
     "bizName": "La Esquina Gourmet"
@@ -2277,12 +2277,15 @@
     "userId": "usr_1790569997570_e583ob",
     "slug": "vanguardia-test-1790569997571",
     "subscription": {
-      "status": "trialing",
+      "status": "expired",
       "plan": "pro_monthly",
-      "provider": "trial",
-      "trialEndsAt": "2026-10-05T04:33:17.575Z",
+      "provider": "admin_revoked",
+      "trialEndsAt": "2026-09-28T16:56:46.538Z",
       "currentPeriodEnd": "2026-10-05T04:33:17.575Z",
-      "gracePeriodDaysRemaining": 7
+      "gracePeriodDaysRemaining": 7,
+      "canceledAt": "2026-09-28T16:56:47.538Z",
+      "revokedByAdmin": true,
+      "updatedAt": "2026-09-28T16:56:47.617Z"
     },
     "createdAt": "2026-09-28T04:33:17.575Z",
     "bizName": "Restaurante Vanguardia Test",
@@ -2931,5 +2934,91 @@
     "businessType": "restaurant",
     "branches": [],
     "updatedAt": "2026-09-28T16:24:42.378Z"
+  },
+  {
+    "id": "rest_1790614529505_jssa3p",
+    "userId": "usr_1790614529495_13p2kx",
+    "slug": "elobjetivo",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-05T16:55:29.506Z",
+      "currentPeriodEnd": "2026-10-05T16:55:29.506Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-09-28T16:55:29.506Z",
+    "name": "Elobjetivo",
+    "bizName": "Elobjetivo",
+    "slogan": "Especialidad, masas artesanales y cocina de autor",
+    "currency": "$",
+    "phone": "59899123456",
+    "theme": "emerald",
+    "businessType": "events",
+    "allowPerfumery": false,
+    "wifi": {
+      "ssid": "Restaurante_Clientes",
+      "password": "pizarronrico"
+    },
+    "categories": [
+      {
+        "id": "cat_hamburguesas",
+        "name": "Burgers Artesanales"
+      },
+      {
+        "id": "cat_milanesas",
+        "name": "Milanesas de la Casa"
+      },
+      {
+        "id": "cat_postres",
+        "name": "Postres Rioplatenses"
+      },
+      {
+        "id": "cat_bebidas",
+        "name": "Bebidas & Cafetería"
+      }
+    ],
+    "dishes": [
+      {
+        "id": "d_1",
+        "categoryId": "cat_hamburguesas",
+        "name": "Burger Criolla de Entraña",
+        "price": 490,
+        "description": "Pan brioche, provoleta fundida y chimichurri",
+        "tags": [
+          "star"
+        ]
+      },
+      {
+        "id": "d_2",
+        "categoryId": "cat_milanesas",
+        "name": "Milanesa Napolitana Clásica",
+        "price": 540,
+        "description": "Lomo empanado, salsa casera, jamón y muzzarella",
+        "tags": []
+      },
+      {
+        "id": "d_3",
+        "categoryId": "cat_postres",
+        "name": "Flan Casero con Dulce de Leche",
+        "price": 260,
+        "description": "Receta tradicional con crema batida",
+        "tags": [
+          "star"
+        ]
+      },
+      {
+        "id": "d_4",
+        "categoryId": "cat_bebidas",
+        "name": "Flat White Cremoso",
+        "price": 190,
+        "description": "Café de especialidad con leche texturizada",
+        "tags": [
+          "veggie"
+        ]
+      }
+    ],
+    "city": "",
+    "smartWeatherEnabled": false
   }
 ]

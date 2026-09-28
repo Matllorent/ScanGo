@@ -67,6 +67,42 @@ function openAuthModal(mode = 'register') {
       });
       return googleIdentityPromise;
     }
+    // After line 69 (after '    }'), add:
+
+// Google credential callback handler
+// This function receives the Google credential from the One Tap flow
+async function handleGoogleCredential(credential) {
+  if (!credential) {
+    showError('Google no devolvió una credencial válida. Intentá de nuevo.');
+    return;
+  }
+  setGoogleButtonsDisabled(true);
+  try {
+    const res = await fetch('/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'No se pudo validar tu cuenta de Google.');
+    
+    localStorage.setItem('menu_pizarron_token', data.token);
+    localStorage.setItem('menu_pizarron_user', JSON.stringify(data.user));
+    localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(data.restaurant));
+    localStorage.setItem('scango_demo_restaurant', JSON.stringify(data.restaurant));
+    window.location.href = '/studio.html';
+  } catch (error) {
+    showError(error.message || 'No se pudo iniciar sesión con Google.');
+  } finally {
+    setGoogleButtonsDisabled(false);
+  }
+}
+
+// For redirect-based Google OAuth flow (fallback when One Tap is not available)
+function redirectToGoogleOAuth() {
+  if (!googleIdentityClientId) return;
+  window.open('https://accounts.google.com/o/oauth2/v2/auth?client_id=' + googleIdentityClientId + '&redirect_uri=' + encodeURIComponent(window.location.origin + '/api/auth/google/callback') + '&response_type=token id_token&scope=openid email profile&prompt=consent', 'google_oauth', 'width=500,height=600,left=' + (window.screen.width - 500) / 2 + ',top=' + (window.screen.height - 600) / 2);
+}
 
     function setGoogleButtonsDisabled(disabled) {
       document.querySelectorAll('.btn-google').forEach(button => {
