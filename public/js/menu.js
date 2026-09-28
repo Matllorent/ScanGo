@@ -606,10 +606,10 @@
       renderDishes();
     }
 
-    // Smart Dish Scheduling Helper
+    // Smart Dish Scheduling Helper (with Happy Hours price overrides)
     function getDishScheduleStatus(d) {
       if (!d.schedule || !d.schedule.enabled) {
-        return { isAvailable: true, shouldDisplay: true };
+        return { isAvailable: true, shouldDisplay: true, effectivePrice: d.price, isHappyHour: false };
       }
       const now = new Date();
       const currentDay = now.getDay(); // 0 is Sunday, 1 is Monday ...
@@ -630,18 +630,33 @@
       }
 
       const isAvailable = dayMatches && timeMatches;
+      
+      // Happy Hours: if schedule is active and has overridePrice, use it
+      const overridePrice = d.schedule.overridePrice;
+      const originalPriceRef = d.schedule.originalPriceRef;
+      const isHappyHour = isAvailable && overridePrice !== null && overridePrice !== undefined;
+
       if (isAvailable) {
-        return { isAvailable: true, shouldDisplay: true };
+        return { 
+          isAvailable: true, 
+          shouldDisplay: true, 
+          effectivePrice: isHappyHour ? overridePrice : d.price,
+          isHappyHour,
+          originalPrice: isHappyHour ? (originalPriceRef || d.price) : null,
+          happyHourLabel: isHappyHour ? '🕐 Happy Hour' : null
+        };
       }
 
       const behavior = d.schedule.behavior || 'hide';
       if (behavior === 'hide') {
-        return { isAvailable: false, shouldDisplay: false };
+        return { isAvailable: false, shouldDisplay: false, effectivePrice: d.price, isHappyHour: false };
       }
 
       return {
         isAvailable: false,
         shouldDisplay: true,
+        effectivePrice: d.price,
+        isHappyHour: false,
         reason: `Disponible ${start} a ${end}`
       };
     }
@@ -670,17 +685,27 @@
       chefDishes.forEach(d => {
         const inCart = getDishCartQuantity(d.id);
         const sched = getDishScheduleStatus(d);
+        const effectivePrice = sched.effectivePrice !== undefined ? sched.effectivePrice : d.price;
         const formattedPrice = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
-          ? window.i18nManager.formatPrice(d.price) 
-          : `${currency} ${d.price}`;
+          ? window.i18nManager.formatPrice(effectivePrice) 
+          : `${currency} ${effectivePrice}`;
         
-        const origPrice = (d.originalPrice !== undefined && d.originalPrice !== null) ? d.originalPrice : (d.previous_price || d.previousPrice);
+        // For Happy Hours: show original price as strikethrough
         let originalPriceHtml = '';
-        if (origPrice && Number(origPrice) > Number(d.price)) {
+        if (sched.isHappyHour && sched.originalPrice !== null && sched.originalPrice !== undefined && Number(sched.originalPrice) > Number(effectivePrice)) {
           const formattedOrig = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
-            ? window.i18nManager.formatPrice(origPrice) 
-            : `${currency} ${origPrice}`;
+            ? window.i18nManager.formatPrice(sched.originalPrice) 
+            : `${currency} ${sched.originalPrice}`;
           originalPriceHtml = `<span style="text-decoration:line-through; opacity:0.6; font-size:0.8em; margin-right:4px; color:var(--chalk-dim); font-weight:normal;">${formattedOrig}</span>`;
+        } else {
+          // Fallback to dish-level originalPrice
+          const origPrice = (d.originalPrice !== undefined && d.originalPrice !== null) ? d.originalPrice : (d.previous_price || d.previousPrice);
+          if (origPrice && Number(origPrice) > Number(effectivePrice)) {
+            const formattedOrig = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
+              ? window.i18nManager.formatPrice(origPrice) 
+              : `${currency} ${origPrice}`;
+            originalPriceHtml = `<span style="text-decoration:line-through; opacity:0.6; font-size:0.8em; margin-right:4px; color:var(--chalk-dim); font-weight:normal;">${formattedOrig}</span>`;
+          }
         }
 
         const photoHtml = d.photoUrl 
@@ -875,6 +900,7 @@
       const isSold = Boolean(d.outOfStock);
       const sched = getDishScheduleStatus(d);
       const isUnavailable = isSold || !sched.isAvailable;
+      const effectivePrice = sched.effectivePrice !== undefined ? sched.effectivePrice : d.price;
 
       let badgeHtml = '';
       if (isSold) badgeHtml += '<span class="dish-badge" style="background:#E53E3E; color:#fff;">✕ AGOTADO HOY</span> ';
@@ -886,25 +912,36 @@
       if (d.tags && d.tags.includes('sinlactosa')) badgeHtml += '<span class="dish-badge" style="background:rgba(99,179,237,0.2); color:#63B3ED; border:1px solid rgba(99,179,237,0.4);">🥛 Sin Lactosa</span> ';
       if (d.tags && d.tags.includes('picante')) badgeHtml += '<span class="dish-badge" style="background:rgba(237,137,54,0.2); color:#ED8936; border:1px solid rgba(237,137,54,0.4);">🌶️ Picante</span> ';
       if (d.tags && d.tags.includes('star')) badgeHtml += '<span class="dish-badge badge-star">⭐ Destacado</span> ';
+      // Happy Hour badge
+      if (sched.isHappyHour) badgeHtml += '<span class="dish-badge" style="background:rgba(72,187,120,0.2); color:#48BB78; border:1px solid rgba(72,187,120,0.4);">🕐 Happy Hour</span> ';
 
       const photoHtml = d.photoUrl 
         ? `<img src="${d.photoUrl}" alt="${escapeHtml(d.name)}" class="dish-thumb" loading="lazy">` 
         : '';
 
       const formattedPrice = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
-        ? window.i18nManager.formatPrice(d.price) 
-        : `${currency} ${d.price}`;
+        ? window.i18nManager.formatPrice(effectivePrice) 
+        : `${currency} ${effectivePrice}`;
       const displayPrice = getDishModifierGroups(d).some(group => group.kind === 'presentation')
         ? `Desde ${formattedPrice}`
         : formattedPrice;
 
       const origPrice = (d.originalPrice !== undefined && d.originalPrice !== null) ? d.originalPrice : (d.previous_price || d.previousPrice);
       let priceDisplay = isSold ? '<span style="color:#E53E3E; font-size:0.85rem;">Agotado</span>' : displayPrice;
-      if (!isSold && origPrice && Number(origPrice) > Number(d.price)) {
-        const formattedOriginal = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
-          ? window.i18nManager.formatPrice(origPrice) 
-          : `${currency} ${origPrice}`;
-        priceDisplay = `<span style="text-decoration:line-through; opacity:0.6; font-size:0.85em; margin-right:6px; color:var(--chalk-dim); font-weight:normal;">${formattedOriginal}</span>${displayPrice}`;
+      if (!isSold) {
+        // Happy Hour: show schedule override price with original as strikethrough
+        if (sched.isHappyHour && sched.originalPrice !== null && sched.originalPrice !== undefined && Number(sched.originalPrice) > Number(effectivePrice)) {
+          const formattedOriginal = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
+            ? window.i18nManager.formatPrice(sched.originalPrice) 
+            : `${currency} ${sched.originalPrice}`;
+          priceDisplay = `<span style="text-decoration:line-through; opacity:0.6; font-size:0.85em; margin-right:6px; color:var(--chalk-dim); font-weight:normal;">${formattedOriginal}</span>${displayPrice}`;
+        } else if (origPrice && Number(origPrice) > Number(effectivePrice)) {
+          // Fallback to dish-level originalPrice
+          const formattedOriginal = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
+            ? window.i18nManager.formatPrice(origPrice) 
+            : `${currency} ${origPrice}`;
+          priceDisplay = `<span style="text-decoration:line-through; opacity:0.6; font-size:0.85em; margin-right:6px; color:var(--chalk-dim); font-weight:normal;">${formattedOriginal}</span>${displayPrice}`;
+        }
       }
 
       return `

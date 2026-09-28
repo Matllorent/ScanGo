@@ -20,6 +20,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Montserrat:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/css/studio.css">
 </head>
 <body>
@@ -104,6 +105,10 @@
         <button class="tab-btn" onclick="switchTab('notifications')" title="Notificaciones WhatsApp — Estado de pedidos a 1 clic">
           <span class="tab-icon">📲</span>
           <span>Avisos WA</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('analytics')" title="Analíticas — Métricas por sucursal, eventos y horas pico">
+          <span class="tab-icon">📈</span>
+          <span>Analíticas</span>
         </button>
       </nav>
 
@@ -819,6 +824,107 @@
                   <div style="font-size:10px; color:var(--text-dim);">"La cocina tiene alta demanda hoy, te pedimos disculpas y tu pedido saldrá en breve."</div>
                 </div>
               </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 9: ANALÍTICAS AVANZADAS -->
+        <div id="tab-analytics" class="tab-pane">
+          <div class="form-section">
+            <div class="section-title">📈 Analíticas Avanzadas</div>
+            <p style="font-size:11px; color:var(--text-dim); margin-bottom:16px;">
+              Métricas en tiempo real por sucursal, eventos y horas pico. Los datos se actualizan automáticamente cada 5 minutos.
+            </p>
+
+            <!-- Time Range Selector -->
+            <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+              <select id="analyticsTimeRange" class="form-select" onchange="loadAnalytics()" style="width:auto; min-width:160px;">
+                <option value="7">Últimos 7 días</option>
+                <option value="30" selected>Últimos 30 días</option>
+                <option value="90">Últimos 90 días</option>
+              </select>
+              <select id="analyticsBranchFilter" class="form-select" onchange="loadAnalytics()" style="width:auto; min-width:180px;">
+                <option value="">Todas las sucursales</option>
+              </select>
+              <select id="analyticsEventFilter" class="form-select" onchange="loadAnalytics()" style="width:auto; min-width:180px;">
+                <option value="">Todos los eventos</option>
+              </select>
+              <button class="btn-nav" onclick="loadAnalytics()">🔄 Actualizar</button>
+            </div>
+
+            <!-- KPI Cards -->
+            <div id="analyticsKPIs" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-bottom:20px;">
+              <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
+                <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:4px;">Visitas (QR)</div>
+                <div id="kpiVisits" style="font-size:22px; font-weight:800; color:var(--accent-gold); font-family:var(--font-mono);">—</div>
+              </div>
+              <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
+                <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:4px;">Clics en Platos</div>
+                <div id="kpiDishClicks" style="font-size:22px; font-weight:800; color:#60a5fa; font-family:var(--font-mono);">—</div>
+              </div>
+              <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
+                <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:4px;">Pedidos</div>
+                <div id="kpiOrders" style="font-size:22px; font-weight:800; color:#4ade80; font-family:var(--font-mono);">—</div>
+              </div>
+              <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
+                <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:4px;">Conversión</div>
+                <div id="kpiConversion" style="font-size:22px; font-weight:800; color:#fbbf24; font-family:var(--font-mono);">—%</div>
+              </div>
+              <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
+                <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:4px;">Llamados Mozo</div>
+                <div id="kpiWaiter" style="font-size:22px; font-weight:800; color:#f87171; font-family:var(--font-mono);">—</div>
+              </div>
+            </div>
+
+            <!-- Daily Chart -->
+            <div class="form-section" style="margin-bottom:16px;">
+              <div class="section-title">📅 Evolución Diaria (Últimos 30 días)</div>
+              <canvas id="dailyChart" height="200" style="width:100%; max-height:250px; background:var(--bg-base); border-radius:8px;"></canvas>
+            </div>
+
+            <!-- Hourly Heatmap -->
+            <div class="form-section" style="margin-bottom:16px;">
+              <div class="section-title">🕐 Heatmap Horario (Horas Pico)</div>
+              <div id="hourlyHeatmap" style="overflow-x:auto;"></div>
+            </div>
+
+            <!-- Branch Comparison -->
+            <div class="form-section" style="margin-bottom:16px;">
+              <div class="section-title">🏢 Comparativa por Sucursal</div>
+              <div id="branchMetricsTable" style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                  <thead>
+                    <tr style="background:var(--bg-base); border-bottom:2px solid var(--border);">
+                      <th style="padding:8px; text-align:left; font-weight:700; color:var(--text-muted);">Sucursal</th>
+                      <th style="padding:8px; text-align:center; font-weight:700; color:var(--text-muted);">Visitas</th>
+                      <th style="padding:8px; text-align:center; font-weight:700; color:var(--text-muted);">Clics</th>
+                      <th style="padding:8px; text-align:center; font-weight:700; color:var(--text-muted);">Pedidos</th>
+                      <th style="padding:8px; text-align:center; font-weight:700; color:var(--text-muted);">Mozo</th>
+                      <th style="padding:8px; text-align:left; font-weight:700; color:var(--text-muted);">Top Platos</th>
+                    </tr>
+                  </thead>
+                  <tbody id="branchMetricsBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Events Metrics (if events mode) -->
+            <div id="eventsMetricsSection" class="form-section" style="display:none;">
+              <div class="section-title">🎉 Métricas de Eventos</div>
+              <div id="eventsMetricsTable" style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                  <thead>
+                    <tr style="background:var(--bg-base); border-bottom:2px solid var(--border);">
+                      <th style="padding:8px; text-align:left; font-weight:700; color:var(--text-muted);">Evento</th>
+                      <th style="padding:8px; text-align:center; font-weight:700; color:var(--text-muted);">QR Scans</th>
+                      <th style="padding:8px; text-align:center; font-weight:700; color:var(--text-muted);">Clics</th>
+                      <th style="padding:8px; text-align:center; font-weight:700; color:var(--text-muted);">Pedidos</th>
+                      <th style="padding:8px; text-align:center; font-weight:700; color:var(--text-muted);">Visitantes Únicos</th>
+                    </tr>
+                  </thead>
+                  <tbody id="eventsMetricsBody"></tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>

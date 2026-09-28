@@ -29,7 +29,10 @@ function normalizeBusinessType(value) {
     restaurante: 'restaurant',
     perfumeria: 'perfumery',
     heladeria: 'restaurant',
-    cafeteria: 'restaurant'
+    cafeteria: 'restaurant',
+    evento: 'events',
+    event: 'events',
+    catering: 'events'
   };
   const normalized = aliases[value] || value;
   return ['restaurant', 'perfumery', 'events'].includes(normalized) ? normalized : 'restaurant';

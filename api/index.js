@@ -141,6 +141,13 @@ function sanitizeRestaurantPayload(data) {
   if (clean.announcement) clean.announcement = String(clean.announcement).slice(0, 300);
   if (clean.paymentLink) clean.paymentLink = String(clean.paymentLink).slice(0, 500);
   if (typeof clean.scheduleEnabled !== 'undefined') clean.scheduleEnabled = Boolean(clean.scheduleEnabled);
+  // Events mode fields
+  if (clean.businessType) clean.businessType = String(clean.businessType).slice(0, 20);
+  if (clean.eventDate) clean.eventDate = String(clean.eventDate).slice(0, 30);
+  if (clean.eventType) clean.eventType = String(clean.eventType).slice(0, 50);
+  if (clean.expiresAt) clean.expiresAt = String(clean.expiresAt).slice(0, 30);
+  if (typeof clean.isEvent !== 'undefined') clean.isEvent = Boolean(clean.isEvent);
+  if (clean.eventCustomQR) clean.eventCustomQR = String(clean.eventCustomQR).slice(0, 500);
   if (clean.scheduleActiveHours) clean.scheduleActiveHours = String(clean.scheduleActiveHours).slice(0, 30);
   if (clean.tableCount) clean.tableCount = Math.max(1, Math.min(100, parseInt(clean.tableCount) || 1));
 
@@ -175,7 +182,11 @@ function sanitizeRestaurantPayload(data) {
         days: Array.isArray(d.schedule.days) ? d.schedule.days.map(Number).filter(n => n >= 0 && n <= 6) : [0, 1, 2, 3, 4, 5, 6],
         timeStart: String(d.schedule.timeStart || '00:00').slice(0, 5),
         timeEnd: String(d.schedule.timeEnd || '23:59').slice(0, 5),
-        behavior: d.schedule.behavior === 'badge' ? 'badge' : 'hide'
+        behavior: d.schedule.behavior === 'badge' ? 'badge' : 'hide',
+        // Happy Hours: price override during this schedule window
+        overridePrice: (d.schedule.overridePrice !== undefined && d.schedule.overridePrice !== null && !isNaN(parseFloat(d.schedule.overridePrice))) ? Math.max(0, parseFloat(d.schedule.overridePrice)) : null,
+        // Optional: original price reference for strikethrough display
+        originalPriceRef: (d.schedule.originalPriceRef !== undefined && d.schedule.originalPriceRef !== null && !isNaN(parseFloat(d.schedule.originalPriceRef))) ? Math.max(0, parseFloat(d.schedule.originalPriceRef)) : null
       } : null,
       ...sanitizeDishOptionConfig(d),
       tags: Array.isArray(d.tags) ? d.tags.slice(0, 8).map(t => String(t).slice(0, 25)) : []
@@ -505,6 +516,123 @@ app.patch('/api/studio/branches', authMiddleware, requireVerifiedEmail, async (r
   }
 });
 
+// ==================== EVENTS MODE ====================
+// POST /api/studio/events - Create a new event (temporary restaurant with expiration)
+app.post('/api/studio/events', authMiddleware, requireVerifiedEmail, async (req, res) => {
+  try {
+    const { name, slug, eventDate, eventType, expiresAt, description, phone, currency, theme, layout, dishes, categories } = req.body || {};
+    
+    if (!name || !eventDate) {
+      return res.status(400).json({ error: 'Nombre y fecha del evento son requeridos' });
+    }
+
+    const userId = req.user.userId;
+    const cleanSlug = (slug || name).toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30);
+    const eventSlug = `event-${cleanSlug}-${Date.now().toString(36)}`;
+    
+    const expiresAtDate = expiresAt ? new Date(expiresAt) : new Date(new Date(eventDate).getTime() + 24 * 3600 * 1000); // Default: 24h after event
+    
+    const eventData = {
+      bizName: name,
+      name: name,
+      slug: eventSlug,
+      slogan: description || '',
+      phone: phone || '',
+      currency: currency || '$',
+      theme: theme || 'neon', // Events default to Neon Nightbar
+      layout: layout || 'neon',
+      businessType: 'events',
+      isEvent: true,
+      eventDate: new Date(eventDate).toISOString(),
+      eventType: eventType || 'private',
+      expiresAt: expiresAtDate.toISOString(),
+      dishes: Array.isArray(dishes) ? dishes : [],
+      categories: Array.isArray(categories) ? categories : [],
+      // Events don't need subscription - they're temporary
+      subscription: {
+        status: 'active',
+        plan: 'event',
+        provider: 'event',
+        trialEndsAt: expiresAtDate.toISOString(),
+        currentPeriodEnd: expiresAtDate.toISOString(),
+        gracePeriodDaysRemaining: 0
+      }
+    };
+
+    const cleanPayload = sanitizeRestaurantPayload(eventData);
+    const event = db.saveRestaurant(userId, cleanPayload);
+    
+    if (event && event.slug) {
+      menuCache.delete(event.slug);
+      await invalidateMenuCache(event.slug);
+    }
+
+    // Generate custom QR for event
+    const eventQRUrl = `${process.env.APP_URL || 'https://scango.app'}/m/${event.slug}?event=true`;
+    
+    res.json({ 
+      success: true, 
+      event,
+      eventQRUrl,
+      message: 'Evento creado exitosamente. El menú expirará automáticamente.'
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/studio/events - List user's events
+app.get('/api/studio/events', authMiddleware, requireVerifiedEmail, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const rests = db.getAllRestaurants ? db.getAllRestaurants() : [];
+    const userEvents = rests.filter(r => r.userId === userId && r.businessType === 'events');
+    
+    // Separate active and expired
+    const now = new Date();
+    const active = userEvents.filter(e => new Date(e.expiresAt || e.eventDate) > now);
+    const expired = userEvents.filter(e => new Date(e.expiresAt || e.eventDate) <= now);
+
+    res.json({ success: true, active, expired, total: userEvents.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE /api/studio/events/:id - Delete/expire an event
+app.delete('/api/studio/events/:id', authMiddleware, requireVerifiedEmail, async (req, res) => {
+  try {
+    const eventId = req.params.id;
+    const userId = req.user.userId;
+    const restaurant = db.findRestaurantById(eventId);
+    
+    if (!restaurant || restaurant.userId !== userId || restaurant.businessType !== 'events') {
+      return res.status(404).json({ error: 'Evento no encontrado' });
+    }
+
+    // Mark as expired immediately
+    const expiredData = {
+      ...restaurant,
+      expiresAt: new Date().toISOString(),
+      subscription: {
+        ...restaurant.subscription,
+        status: 'expired'
+      }
+    };
+    
+    db.saveRestaurant(userId, expiredData);
+    
+    if (restaurant.slug) {
+      menuCache.delete(restaurant.slug);
+      await invalidateMenuCache(restaurant.slug);
+    }
+
+    res.json({ success: true, message: 'Evento finalizado' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ==================== PUBLIC MENU VIEWER (WITH 800MS TIMEOUT RACE & STALE CACHE FALLBACK) ====================
 app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
   const slug = (req.params.slug || '').toLowerCase();
@@ -517,13 +645,31 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
       const restaurant = db.findRestaurantBySlug(slug);
       if (!restaurant) return null;
 
-      // Verify Subscription & Grace Period
-      const access = billingOrchestrator.verifyAccess(restaurant.id);
-      if (!access.allowed) {
-        return {
-          inactive: true,
-          warning: access.warning
-        };
+      // Events mode: bypass subscription check, allow access if not expired
+      const isEvent = restaurant.businessType === 'events' || restaurant.isEvent === true;
+      if (isEvent) {
+        const expiresAt = restaurant.expiresAt ? new Date(restaurant.expiresAt) : null;
+        const eventDate = restaurant.eventDate ? new Date(restaurant.eventDate) : null;
+        const expiryCheck = expiresAt || eventDate;
+        
+        if (expiryCheck && expiryCheck < new Date()) {
+          return {
+            inactive: true,
+            warning: 'Este evento ha finalizado. El menú ya no está disponible.',
+            isEvent: true,
+            expired: true
+          };
+        }
+        // Event is active - allow access without subscription
+      } else {
+        // Regular restaurant - verify subscription
+        const access = billingOrchestrator.verifyAccess(restaurant.id);
+        if (!access.allowed) {
+          return {
+            inactive: true,
+            warning: access.warning
+          };
+        }
       }
 
       let weather = null;
@@ -645,18 +791,36 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
         modifierGroups: restaurant.modifierGroups || [],
         dishes: dishes,
         deliveryZones: restaurant.deliveryZones || [],
-        updatedAt: restaurant.updatedAt
+        updatedAt: restaurant.updatedAt,
+        // Events mode data
+        isEvent: isEvent,
+        eventDate: restaurant.eventDate,
+        eventType: restaurant.eventType,
+        expiresAt: restaurant.expiresAt,
+        eventCustomQR: restaurant.eventCustomQR
       };
 
-      return {
+      const response = {
         restaurant: publicData,
         weatherContext: publicData.weatherContext,
-        weatherTemperatureC: publicData.weatherTemperatureC,
-        access: {
+        weatherTemperatureC: publicData.weatherTemperatureC
+      };
+
+      // Add event-specific fields to response
+      if (isEvent) {
+        response.isEvent = true;
+        response.eventDate = restaurant.eventDate;
+        response.eventType = restaurant.eventType;
+        response.expiresAt = restaurant.expiresAt;
+        response.eventCustomQR = restaurant.eventCustomQR || `${process.env.APP_URL || 'https://scango.app'}/m/${slug}?event=true`;
+      } else {
+        response.access = {
           inGracePeriod: access.inGracePeriod,
           daysRemaining: access.gracePeriodDaysRemaining
-        }
-      };
+        };
+      }
+
+      return response;
     });
 
     let data;
