@@ -2810,5 +2810,126 @@
     "city": "",
     "smartWeatherEnabled": false,
     "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790612112882_p4m9l7",
+    "userId": "usr_1790612112877_6q5r32",
+    "slug": "esquina-gourmet",
+    "subscription": {
+      "status": "past_due",
+      "plan": "pro_monthly",
+      "provider": "lemonsqueezy",
+      "trialEndsAt": "2026-10-05T16:15:12.882Z",
+      "currentPeriodEnd": "2026-09-28T16:15:12.937Z",
+      "gracePeriodDaysRemaining": 7,
+      "lastPaymentError": "Falló el cobro automático de la tarjeta",
+      "updatedAt": "2026-09-28T16:15:12.942Z"
+    },
+    "createdAt": "2026-09-28T16:15:12.882Z",
+    "bizName": "La Esquina Gourmet",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "businessType": "restaurant",
+    "branches": [],
+    "updatedAt": "2026-09-28T16:15:12.968Z"
+  },
+  {
+    "id": "rest_1790612118149_6xdebo",
+    "userId": "user_exp_test_1790612118145",
+    "slug": "mi-local",
+    "subscription": {
+      "status": "trialing",
+      "trialEndsAt": "2026-09-28T15:15:18.145Z"
+    },
+    "createdAt": "2026-09-28T16:15:18.149Z",
+    "name": "Restaurante Expirado Test",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790612135027_ijm5jq",
+    "userId": "usr_1790612135020_fjv425",
+    "slug": "vanguardia-test-1790612135022",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-05T16:15:35.027Z",
+      "currentPeriodEnd": "2026-10-05T16:15:35.027Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-09-28T16:15:35.027Z",
+    "bizName": "Restaurante Vanguardia Test",
+    "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+    "businessType": "events",
+    "layout": "bento",
+    "theme": "emerald",
+    "font": "sans",
+    "categories": [],
+    "city": "",
+    "smartWeatherEnabled": false
+  },
+  {
+    "id": "rest_1790612135039_x8lxtu",
+    "userId": "usr_1790612135035_vnladr",
+    "slug": "perfil-predeterminado",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-05T16:15:35.039Z",
+      "currentPeriodEnd": "2026-10-05T16:15:35.039Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-09-28T16:15:35.039Z",
+    "bizName": "Perfil Predeterminado",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790612531552_6x5pe4",
+    "userId": "usr_1790612531545_sxemas",
+    "slug": "esquina-gourmet",
+    "subscription": {
+      "status": "past_due",
+      "plan": "pro_monthly",
+      "provider": "lemonsqueezy",
+      "trialEndsAt": "2026-10-05T16:22:11.552Z",
+      "currentPeriodEnd": "2026-09-28T16:22:11.609Z",
+      "gracePeriodDaysRemaining": 7,
+      "lastPaymentError": "Falló el cobro automático de la tarjeta",
+      "updatedAt": "2026-09-28T16:22:11.612Z"
+    },
+    "createdAt": "2026-09-28T16:22:11.552Z",
+    "bizName": "La Esquina Gourmet",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "businessType": "restaurant",
+    "branches": [],
+    "updatedAt": "2026-09-28T16:22:11.642Z"
+  },
+  {
+    "id": "rest_1790612682270_8kka1n",
+    "userId": "usr_1790612682265_e6ynpi",
+    "slug": "esquina-gourmet",
+    "subscription": {
+      "status": "past_due",
+      "plan": "pro_monthly",
+      "provider": "lemonsqueezy",
+      "trialEndsAt": "2026-10-05T16:24:42.270Z",
+      "currentPeriodEnd": "2026-09-28T16:24:42.328Z",
+      "gracePeriodDaysRemaining": 7,
+      "lastPaymentError": "Falló el cobro automático de la tarjeta",
+      "updatedAt": "2026-09-28T16:24:42.332Z"
+    },
+    "createdAt": "2026-09-28T16:24:42.270Z",
+    "bizName": "La Esquina Gourmet",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "businessType": "restaurant",
+    "branches": [],
+    "updatedAt": "2026-09-28T16:24:42.378Z"
   }
 ]

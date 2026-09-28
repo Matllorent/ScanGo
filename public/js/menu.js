@@ -194,7 +194,7 @@
       document.body.className = `${themeClass} font-${restaurantData.themeFont || 'serif'} ${layoutClass}`;
 
       // === EVENT VISUAL THEMES: Aplicar tema visual cuando businessType='events' o ?event= parâmetro
-      const urlParams = new URLSearchParams(window.location.search);
+      consturlParams = new URLSearchParams(window.location.search);
       const eventParam = urlParams.get('event'); // wedding | cumple_15 | birthday | catering
       const isEventMode = restaurantData.businessType === 'events' || eventParam === 'true' || eventParam === 'wedding' || eventParam === 'cumple_15' || eventParam === 'birthday' || eventParam === 'catering';
       let eventThemeClass = '';
