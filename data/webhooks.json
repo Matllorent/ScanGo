@@ -798,5 +798,69 @@
       "renewsAt": "2026-09-27T18:40:47.231Z",
       "provider": "lemonsqueezy"
     }
+  },
+  {
+    "provider": "lemonsqueezy",
+    "eventId": "evt_test_1790568224883",
+    "eventType": "subscription_payment_success",
+    "receivedAt": "2026-09-28T04:03:45.134Z",
+    "data": {
+      "eventId": "evt_test_1790568224883",
+      "eventName": "subscription_payment_success",
+      "restaurantId": "rest_1790568224876_g4zau8",
+      "status": "active",
+      "rawStatus": "active",
+      "customerEmail": "test-restaurante@pizarron.com",
+      "renewsAt": "2026-10-28T04:03:44.883Z",
+      "provider": "lemonsqueezy"
+    }
+  },
+  {
+    "provider": "lemonsqueezy",
+    "eventId": "evt_fail_1790568225150",
+    "eventType": "subscription_payment_failed",
+    "receivedAt": "2026-09-28T04:03:45.197Z",
+    "data": {
+      "eventId": "evt_fail_1790568225150",
+      "eventName": "subscription_payment_failed",
+      "restaurantId": "rest_1790568224876_g4zau8",
+      "status": "past_due",
+      "rawStatus": "past_due",
+      "customerEmail": "test-restaurante@pizarron.com",
+      "renewsAt": "2026-09-28T04:03:45.150Z",
+      "provider": "lemonsqueezy"
+    }
+  },
+  {
+    "provider": "lemonsqueezy",
+    "eventId": "evt_test_1790568956895",
+    "eventType": "subscription_payment_success",
+    "receivedAt": "2026-09-28T04:15:56.938Z",
+    "data": {
+      "eventId": "evt_test_1790568956895",
+      "eventName": "subscription_payment_success",
+      "restaurantId": "rest_1790568956889_98idb0",
+      "status": "active",
+      "rawStatus": "active",
+      "customerEmail": "test-restaurante@pizarron.com",
+      "renewsAt": "2026-10-28T04:15:56.895Z",
+      "provider": "lemonsqueezy"
+    }
+  },
+  {
+    "provider": "lemonsqueezy",
+    "eventId": "evt_fail_1790568956945",
+    "eventType": "subscription_payment_failed",
+    "receivedAt": "2026-09-28T04:15:56.957Z",
+    "data": {
+      "eventId": "evt_fail_1790568956945",
+      "eventName": "subscription_payment_failed",
+      "restaurantId": "rest_1790568956889_98idb0",
+      "status": "past_due",
+      "rawStatus": "past_due",
+      "customerEmail": "test-restaurante@pizarron.com",
+      "renewsAt": "2026-09-28T04:15:56.945Z",
+      "provider": "lemonsqueezy"
+    }
   }
 ]
