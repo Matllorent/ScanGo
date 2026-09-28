@@ -194,6 +194,38 @@ function sanitizeRestaurantPayload(data) {
       fee: Math.max(0, parseFloat(z.fee) || 0)
     }));
   }
+
+  // Sanitize branches array
+  if (Array.isArray(clean.branches)) {
+    const seenSlugs = new Set();
+    clean.branches = clean.branches.slice(0, 20).map((b, idx) => {
+      let slug = (b.slug || b.name || `sucursal-${idx + 1}`)
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .slice(0, 30);
+
+      // Ensure unique slug per restaurant
+      let uniqueSlug = slug;
+      let counter = 1;
+      while (seenSlugs.has(uniqueSlug)) {
+        uniqueSlug = `${slug}-${counter}`;
+        counter++;
+      }
+      seenSlugs.add(uniqueSlug);
+
+      return {
+        id: String(b.id || ('br_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6))),
+        name: String(b.name || `Sucursal ${idx + 1}`).slice(0, 80),
+        slug: uniqueSlug,
+        phone: b.phone ? String(b.phone).replace(/[^0-9+]/g, '').slice(0, 20) : '',
+        address: b.address ? String(b.address).slice(0, 200) : '',
+        overridePrices: b.overridePrices && typeof b.overridePrices === 'object' ? b.overridePrices : {},
+        customDishes: Array.isArray(b.customDishes) ? b.customDishes.slice(0, 50) : [],
+        createdAt: b.createdAt || new Date().toISOString()
+      };
+    });
+  }
   if (Array.isArray(clean.customCoupons)) {
     clean.customCoupons = clean.customCoupons.slice(0, 20).map(cp => ({
       code: String(cp.code || '').trim().toUpperCase().slice(0, 20),

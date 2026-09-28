@@ -285,6 +285,7 @@ const db = {
         dishes: rest.dishes,
         modifier_groups: rest.modifierGroups || [],
         delivery_zones: rest.deliveryZones,
+        branches: rest.branches || [],
         subscription: rest.subscription,
         updated_at: new Date().toISOString()
       }], { onConflict: 'id' }).then().catch(e => console.warn('[Supabase Save Rest]', e.message));
