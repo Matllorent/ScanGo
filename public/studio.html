@@ -93,6 +93,10 @@
           <span class="tab-icon">📊</span>
           <span>Métricas</span>
         </button>
+        <button class="tab-btn" onclick="switchTab('branches')" title="Sucursales — Gestión de locales y precios por volumen">
+          <span class="tab-icon">🏢</span>
+          <span>Sucursales</span>
+        </button>
         <button class="tab-btn" onclick="switchTab('reviews')" title="Opinión y Reseña — Calificar el servicio">
           <span class="tab-icon">⭐</span>
           <span>Mi Reseña</span>
@@ -583,7 +587,68 @@
           </div>
         </div>
 
-        <!-- TAB 7: RESEÑA & OPINIÓN DEL GASTRONÓMICO -->
+        <!-- TAB 7: SUCURSALES & PRECIOS ESCALONADOS -->
+        <div id="tab-branches" class="tab-pane">
+          <div class="form-section">
+            <div class="section-title">🏢 Gestión de Sucursales</div>
+            <p style="font-size:11px; color:var(--text-dim); margin-bottom:16px;">
+              Administrá las sedes de tu marca. Cada sucursal adicional tiene un descuento progresivo en el plan Pro:
+              <strong>1ª (Principal) 100%</strong> · <strong>2ª 80%</strong> · <strong>3ª 65%</strong> · <strong>4ª en adelante 50%</strong> del precio base.
+            </p>
+
+            <!-- Pricing Summary Banner -->
+            <div id="branchesPricingBanner" style="background:linear-gradient(135deg, rgba(236,201,75,0.12), rgba(56,161,105,0.12)); border:1px solid var(--accent-gold); border-radius:10px; padding:16px; margin-bottom:16px; display:none;">
+              <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;">
+                <div style="flex:1; min-width:200px;">
+                  <div style="font-size:11px; font-weight:700; color:var(--accent-gold); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Resumen de Precios del Plan Pro</div>
+                  <div id="branchesPricingSummary" style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; font-size:12px; color:#fff;"></div>
+                </div>
+                <div style="text-align:right; min-width:160px;">
+                  <div style="font-size:11px; color:var(--text-dim);">Total Mensual Estimado</div>
+                  <div id="branchesTotalPrice" style="font-size:24px; font-weight:800; color:var(--accent-gold); font-family:var(--font-mono);">$0 USD</div>
+                  <div id="branchesTotalSavings" style="font-size:10px; color:var(--accent-green); margin-top:2px;">Ahorro: $0 USD (0%)</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Branches List -->
+            <div id="branchesList" style="margin-bottom:16px;">
+              <div style="text-align:center; padding:20px; color:var(--text-dim);">Cargando sucursales...</div>
+            </div>
+
+            <!-- Add Branch Form -->
+            <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:16px;">
+              <div class="section-title" style="margin-bottom:12px;">➕ Añadir Nueva Sucursal</div>
+              <form id="addBranchForm" onsubmit="addBranch(event)">
+                <div class="field-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                  <div class="form-group">
+                    <label class="form-label">Nombre de la Sucursal *</label>
+                    <input type="text" id="branchName" class="form-input" placeholder="Ej: Sucursal Centro, Pocitos, etc." required maxlength="60">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Teléfono de Contacto</label>
+                    <input type="text" id="branchPhone" class="form-input" placeholder="Ej: 59899123456" maxlength="20">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Dirección Completa</label>
+                  <textarea id="branchAddress" class="form-textarea" rows="2" placeholder="Ej: Av. 18 de Julio 1234, Montevideo" maxlength="200"></textarea>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Slug Interno (para enlaces directos /m/:slug?sucursal=...)</label>
+                  <input type="text" id="branchSlug" class="form-input" placeholder="Ej: centro, pocitos, shopping" maxlength="30" style="font-family:var(--font-mono); font-size:11px;">
+                  <span class="input-hint">Solo minúsculas, números y guiones. Si lo dejás vacío, se genera automáticamente.</span>
+                </div>
+                <div style="display:flex; gap:8px; margin-top:12px;">
+                  <button type="submit" class="btn-nav btn-nav-gold" style="flex:1; justify-content:center;">➕ Agregar Sucursal</button>
+                  <button type="button" class="btn-nav" onclick="resetBranchForm()">Limpiar</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 8: RESEÑA & OPINIÓN DEL GASTRONÓMICO -->
         <div id="tab-reviews" class="tab-pane">
 
           <!-- Reviews Management Section -->
@@ -1074,6 +1139,9 @@
         <div id="modalSubState" style="font-size:14px; font-weight:700; color:var(--accent-gold); margin-bottom:6px;"></div>
         <div id="modalSubDetail" style="font-size:11px; color:var(--text-muted);"></div>
       </div>
+
+      <!-- Tiered Pricing Visualizer -->
+      <div id="billingTieredPricing"></div>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
         <div style="background:var(--surface-3); padding:12px; border-radius:8px; border:1px solid var(--border);">

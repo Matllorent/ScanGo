@@ -7,6 +7,14 @@
     let pendingConfirmAction = null;
     let saveFeedbackTimer = null;
 
+    // Plan pricing (matches backend src/billing/orchestrator.js)
+    const PLANS = {
+      starter_monthly: { name: 'Starter Mensual', priceUsd: 9 },
+      starter_annual: { name: 'Starter Anual', priceUsd: 79 },
+      pro_monthly: { name: 'Pro Mensual', priceUsd: 19 },
+      pro_annual: { name: 'Pro Anual', priceUsd: 159 }
+    };
+
     // Strict XSS Sanitizer Helper
     function escapeHtml(str) {
       if (str === null || str === undefined) return '';
@@ -739,6 +747,7 @@
       populateCatFilter();
       renderDishesList();
       renderDeliveryZones();
+      renderBranchesList();
       generateQrCode();
       reloadPreviewIframe();
 
@@ -998,6 +1007,10 @@
 
       if (tabId === 'local') {
         renderQuickMetrics();
+      }
+
+      if (tabId === 'branches') {
+        renderBranchesList();
       }
     }
 
@@ -1318,6 +1331,266 @@
 
       const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
       window.open(waUrl, '_blank');
+    }
+
+    // ===== BRANCHES MANAGEMENT & TIERED PRICING =====
+
+    /**
+     * Discount per branch position (matches backend getBranchDiscount)
+     * 1st (main): 0%  | 2nd: 20% | 3rd: 35% | 4th+: 50% (floor)
+     */
+    function getBranchDiscount(position) {
+      const pos = Math.floor(Number(position) || 1);
+      if (pos <= 1) return 0;
+      if (pos === 2) return 0.20;
+      if (pos === 3) return 0.35;
+      return 0.50;
+    }
+
+    /**
+     * Calculate total price for N branches (matches backend calculateMultiBranchPrice)
+     */
+    function calculateMultiBranchPrice(basePrice, branchCount) {
+      const base = Number(basePrice);
+      if (!Number.isFinite(base) || base <= 0) return 0;
+      const count = Math.max(1, Math.floor(Number(branchCount) || 1));
+      let total = 0;
+      for (let i = 1; i <= count; i++) {
+        total += Math.round((base * (1 - getBranchDiscount(i)) + Number.EPSILON) * 100) / 100;
+      }
+      return Math.round((total + Number.EPSILON) * 100) / 100;
+    }
+
+    /**
+     * Get valid branches array (filter out entries without id)
+     */
+    function getValidBranches() {
+      if (!restaurant || !Array.isArray(restaurant.branches)) return [];
+      return restaurant.branches.filter(b => b && b.id);
+    }
+
+    /**
+     * Render branches list with delete actions
+     */
+    function renderBranchesList() {
+      const container = document.getElementById('branchesList');
+      if (!container) return;
+
+      const branches = getValidBranches();
+      const sub = currentUser ? currentUser.subscription : {};
+      const planId = (sub.plan && PLANS[sub.plan]) ? sub.plan : 'pro_monthly';
+      const plan = PLANS[planId] || PLANS.pro_monthly;
+      const basePrice = plan.priceUsd;
+
+      if (branches.length === 0) {
+        container.innerHTML = `
+          <div style="text-align:center; padding:24px 16px; background:var(--bg-base); border:1px dashed var(--border); border-radius:10px;">
+            <div style="font-size:28px; margin-bottom:8px;">🏢</div>
+            <div style="font-size:13px; font-weight:700; color:#fff; margin-bottom:4px;">No hay sucursales registradas</div>
+            <div style="font-size:11px; color:var(--text-dim); max-width:320px; margin:0 auto 16px;">
+              Tu restaurante principal cuenta como la primera sucursal. Agregá sedes adicionales para expandir tu marca y obtener descuentos por volumen.
+            </div>
+          </div>
+        `;
+        updateBranchesPricingBanner(1, basePrice);
+        return;
+      }
+
+      let html = `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; padding:8px 10px; background:var(--bg-base); border-radius:8px; border:1px solid var(--border);">
+          <div style="font-size:11px; font-weight:700; color:var(--text-muted); display:flex; gap:24px;">
+            <span style="min-width:120px;">SUCURSAL</span>
+            <span style="min-width:100px;">TELÉFONO</span>
+            <span style="min-width:100px;">DIRECCIÓN</span>
+            <span style="min-width:80px;">PRECIO EFECTIVO</span>
+            <span>ACCIONES</span>
+          </div>
+        </div>
+      `;
+
+      branches.forEach((branch, idx) => {
+        const position = idx + 1;
+        const discount = getBranchDiscount(position);
+        const effectivePrice = Math.round((basePrice * (1 - discount) + Number.EPSILON) * 100) / 100;
+        const discountLabel = discount > 0 ? `<span style="color:var(--accent-green); font-size:10px; margin-left:4px;">(${Math.round(discount * 100)}% desc.)</span>` : '';
+
+        const name = escapeHtml(branch.name || `Sucursal ${position}`);
+        const phone = escapeHtml(branch.phone || '—');
+        const address = escapeHtml(branch.address || '—');
+        const slug = escapeHtml(branch.slug || `suc-${position}`);
+        const branchId = escapeHtml(branch.id);
+
+        html += `
+          <div class="branch-card" data-branch-id="${branchId}" style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; margin-bottom:8px; flex-wrap:wrap;">
+            <div style="min-width:120px; flex:1; font-size:12px; font-weight:700; color:#fff;">${name} <span style="font-size:10px; color:var(--text-dim); font-weight:500;">${position === 1 ? ' (Principal)' : ''}</span></div>
+            <div style="min-width:100px; flex:1; font-size:11px; color:var(--text-muted);">${phone}</div>
+            <div style="min-width:100px; flex:1; font-size:10px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${address}</div>
+            <div style="min-width:80px; font-size:11px; font-weight:700; font-family:var(--font-mono); color:var(--accent-gold);">$${effectivePrice.toFixed(2)} ${discountLabel}</div>
+            <div style="display:flex; gap:6px; flex-shrink:0;">
+              ${position > 1 ? `
+                <button class="btn-icon btn-icon-danger" onclick="deleteBranch('${branchId}')" title="Eliminar sucursal" style="padding:6px 8px;">🗑️</button>
+              ` : `
+                <span style="font-size:10px; color:var(--text-dim); padding:6px 8px;">🔒 Principal</span>
+              `}
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+
+      // Update pricing banner with total
+      updateBranchesPricingBanner(branches.length, basePrice);
+    }
+
+    /**
+     * Update the pricing summary banner with totals
+     */
+    function updateBranchesPricingBanner(branchCount, basePrice) {
+      const banner = document.getElementById('branchesPricingBanner');
+      const summary = document.getElementById('branchesPricingSummary');
+      const totalEl = document.getElementById('branchesTotalPrice');
+      const savingsEl = document.getElementById('branchesTotalSavings');
+      if (!banner || !summary || !totalEl || !savingsEl) return;
+
+      banner.style.display = 'flex';
+
+      const totalPrice = calculateMultiBranchPrice(basePrice, branchCount);
+      const fullPrice = basePrice * branchCount;
+      const totalSavings = Math.round((fullPrice - totalPrice + Number.EPSILON) * 100) / 100;
+      const savingsPct = fullPrice > 0 ? Math.round((totalSavings / fullPrice) * 100) : 0;
+
+      // Build breakdown
+      let breakdownHtml = '';
+      for (let i = 1; i <= branchCount; i++) {
+        const discount = getBranchDiscount(i);
+        const price = Math.round((basePrice * (1 - discount) + Number.EPSILON) * 100) / 100;
+        const label = i === 1 ? 'Principal' : `Suc. ${i}`;
+        breakdownHtml += `<span style="display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.06); padding:4px 10px; border-radius:6px; font-size:11px;">${label}: <strong>$${price.toFixed(2)}</strong>${discount > 0 ? ` <span style="color:var(--accent-green);">-${Math.round(discount * 100)}%</span>` : ''}</span>`;
+      }
+      summary.innerHTML = breakdownHtml;
+
+      totalEl.textContent = `$${totalPrice.toFixed(2)} USD`;
+      savingsEl.textContent = `Ahorro: $${totalSavings.toFixed(2)} USD (${savingsPct}%)`;
+    }
+
+    /**
+     * Add new branch
+     */
+    async function addBranch(e) {
+      e.preventDefault();
+      const name = document.getElementById('branchName').value.trim();
+      const phone = document.getElementById('branchPhone').value.trim();
+      const address = document.getElementById('branchAddress').value.trim();
+      let slug = document.getElementById('branchSlug').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30);
+
+      if (!name) {
+        alert('El nombre de la sucursal es obligatorio.');
+        return;
+      }
+
+      if (!restaurant.branches) restaurant.branches = [];
+      const branches = getValidBranches();
+
+      // Check for duplicate name
+      if (branches.some(b => b.name.toLowerCase() === name.toLowerCase())) {
+        alert('Ya existe una sucursal con ese nombre.');
+        return;
+      }
+
+      // Generate slug if empty
+      if (!slug) {
+        slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30);
+        // Ensure unique
+        let counter = 1;
+        let uniqueSlug = slug;
+        while (branches.some(b => b.slug === uniqueSlug)) {
+          uniqueSlug = `${slug}-${counter}`;
+          counter++;
+        }
+        slug = uniqueSlug;
+      } else if (branches.some(b => b.slug === slug)) {
+        alert('Ese slug ya está en uso por otra sucursal.');
+        return;
+      }
+
+      const newBranch = {
+        id: 'br_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        name,
+        slug,
+        phone,
+        address,
+        createdAt: new Date().toISOString()
+      };
+
+      restaurant.branches.push(newBranch);
+
+      // Save to backend
+      await saveBranchesToBackend();
+
+      resetBranchForm();
+      renderBranchesList();
+      triggerAutoSave();
+    }
+
+    /**
+     * Delete branch (cannot delete principal/main branch)
+     */
+    async function deleteBranch(branchId) {
+      const branches = getValidBranches();
+      const branch = branches.find(b => b.id === branchId);
+      if (!branch) return;
+
+      if (branches.indexOf(branch) === 0) {
+        alert('No se puede eliminar la sucursal principal.');
+        return;
+      }
+
+      showConfirmDialog({
+        icon: '🗑️',
+        title: '¿Eliminar Sucursal?',
+        message: `¿Estás seguro de eliminar "${branch.name}"? Esto actualizará el precio de tu plan.`,
+        confirmText: 'Sí, Eliminar',
+        confirmClass: 'btn-danger',
+        onConfirm: async () => {
+          restaurant.branches = restaurant.branches.filter(b => b.id !== branchId);
+          await saveBranchesToBackend();
+          renderBranchesList();
+          triggerAutoSave();
+        }
+      });
+    }
+
+    /**
+     * Persist branches to backend via studio save endpoint
+     */
+    async function saveBranchesToBackend() {
+      const token = localStorage.getItem('menu_pizarron_token');
+      if (!token) return;
+
+      try {
+        await fetch('/api/studio/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            restaurantId: restaurant.id,
+            data: restaurant
+          })
+        });
+      } catch (err) {
+        console.warn('[Branches] Error guardando en backend:', err.message);
+      }
+    }
+
+    /**
+     * Reset add branch form
+     */
+    function resetBranchForm() {
+      const form = document.getElementById('addBranchForm');
+      if (form) form.reset();
     }
 
     // Agotado Inteligente por Ingrediente en masa
@@ -3290,10 +3563,50 @@
     // Billing Modal
     function openBillingModal() {
       const sub = currentUser ? currentUser.subscription : {};
+      const planId = (sub.plan && PLANS[sub.plan]) ? sub.plan : 'pro_monthly';
+      const plan = PLANS[planId] || PLANS.pro_monthly;
+      const basePrice = plan.priceUsd;
+      const branches = getValidBranches();
+      const branchCount = Math.max(1, branches.length);
+
       document.getElementById('modalSubState').textContent = sub.status ? sub.status.toUpperCase() : 'TRIAL';
-      document.getElementById('modalSubDetail').textContent = sub.status === 'trial' 
-        ? `Prueba activa hasta el ${new Date(sub.trialEndsAt).toLocaleDateString()}` 
-        : `Plan ${sub.plan} activo.`;
+      document.getElementById('modalSubDetail').textContent = sub.status === 'trial'
+        ? `Prueba activa hasta el ${new Date(sub.trialEndsAt).toLocaleDateString()}`
+        : `Plan ${plan.name} activo.`;
+
+      // Inject tiered pricing visualizer into billing modal
+      const pricingContainer = document.getElementById('billingTieredPricing');
+      if (pricingContainer) {
+        const totalPrice = calculateMultiBranchPrice(basePrice, branchCount);
+        const fullPrice = basePrice * branchCount;
+        const totalSavings = Math.round((fullPrice - totalPrice + Number.EPSILON) * 100) / 100;
+        const savingsPct = fullPrice > 0 ? Math.round((totalSavings / fullPrice) * 100) : 0;
+
+        let breakdownHtml = '';
+        for (let i = 1; i <= branchCount; i++) {
+          const discount = getBranchDiscount(i);
+          const price = Math.round((basePrice * (1 - discount) + Number.EPSILON) * 100) / 100;
+          const label = i === 1 ? 'Principal' : `Sucursal ${i}`;
+          breakdownHtml += `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.08); font-size:12px;">
+            <span>${label}${discount > 0 ? ` <span style="color:var(--accent-green); font-size:10px;">-${Math.round(discount * 100)}%</span>` : ''}</span>
+            <span style="font-weight:700; color:var(--accent-gold);">$${price.toFixed(2)} USD</span>
+          </div>`;
+        }
+
+        pricingContainer.innerHTML = `
+          <div style="background:rgba(236,201,75,0.08); border:1px solid rgba(236,201,75,0.3); border-radius:8px; padding:12px; margin-bottom:16px;">
+            <div style="font-size:11px; font-weight:700; color:var(--accent-gold); text-transform:uppercase; margin-bottom:8px;">📊 Precio Efectivo por Sucursales (${branchCount} activa${branchCount > 1 ? 's' : ''})</div>
+            <div style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">Descuentos: 1ª 100% · 2ª 20% · 3ª 35% · 4ª+ 50%</div>
+            ${breakdownHtml}
+            <div style="display:flex; justify-content:space-between; margin-top:10px; padding-top:10px; border-top:1px solid rgba(236,201,75,0.3); font-size:13px; font-weight:700;">
+              <span>Total Mensual:</span>
+              <span style="color:var(--accent-gold);">$${totalPrice.toFixed(2)} USD</span>
+            </div>
+            ${branchCount > 1 ? `<div style="font-size:11px; color:var(--accent-green); margin-top:4px;">💰 Ahorro vs. precio sin descuento: $${totalSavings.toFixed(2)} USD (${savingsPct}%)</div>` : ''}
+          </div>
+        `;
+      }
+
       document.getElementById('billingModal').classList.add('active');
     }
     function closeBillingModal() {
