@@ -1,43 +1,158 @@
-# AGENCIAS.md
+# AGENTS.md — Menú Pizarrón SaaS
 
 ## Proyecto
+SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. **Express 5** + frontend estático (sin build step) + wrapper **Capacitor** para Android. Deploy en **Vercel**.
 
-SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. Express 5 + frontend estático (sin build step) + wrapper Capacitor para Android. Deploy en Vercel.
+---
 
-## Comandos
+## Comandos Principales
 
 ```bash
-npm run dev          # desarrollo con nodemon (puerto 3000)
-npm start            # producción
-npm test             # todos los tests (secuencial, ver abajo)
-npm run test:billing # test individual (también: :fixes, :features, :security, :layouts, :mp-upsell, :geo, :group-cart)
-npm run mobile:sync  # sincronizar Capacitor
-npm run mobile:build # copiar web a Android
+npm run dev          # Desarrollo con nodemon (puerto 3000)
+npm start            # Producción (node api/index.js)
+npm test             # Suite completa (secuencial, ~11 tests)
+npm run test:billing # Test individual (también: :fixes, :features, :security, :layouts, :mp-upsell, :geo, :group-cart, :email)
+npm run mobile:sync  # npx cap sync (sincroniza Capacitor)
+npm run mobile:build # npx cap copy android (copia web a Android)
 ```
+
+**Ejecución de test individual:** `node tests/test-billing.js` (más rápido que `npm run test:billing`)
+
+---
 
 ## Arquitectura
 
-- **Backend**: `api/index.js` (~1360 líneas) es el entrypoint principal con rutas inline. Routers modulares en `api/routes/`. Middleware en `api/middleware/`.
-- **Frontend**: `public/` — HTML/CSS/JS plano, sin bundler ni framework. `menu.html` es el visor de menú público, `studio.html` el panel de restaurante, `admin.html` el panel maestro.
-- **Base de datos**: dual-mode. Por defecto usa archivos JSON en `data/` (`restaurants.json`, `users.json`, etc.). Si hay `SUPABASE_URL` + key en env, sincroniza desde Supabase PostgreSQL al arrancar y escribe en ambos.
-- **Billing**: multi-proveedor vía `src/billing/orchestrator.js` — Lemon Squeezy (default), Stripe, Mercado Pago (auto-selecciona para UY/AR).
-- **Mobile**: Capacitor (`mobile/capacitor.config.json`), webDir apunta a `public/`.
-- **Deploy**: `vercel.json` rutea `/api/*` → `api/index.js`, `/m/*` → `public/menu.html`, `/studio` → `public/studio.html`, `/admin` → `public/admin.html`.
+### Backend
+- **Entrypoint**: `api/index.js` (~1360 líneas) — rutas inline + routers modulares en `api/routes/`
+- **Middleware**: `api/middleware/` (auth, validation, rate-limit, kill-switch, subscription-guard, cache, error-handler, request-id)
+- **Routers**: auth, reviews, storage, webhooks, notifications, email, health, orders, analytics, billing-dunning (cron)
+
+### Frontend (`public/`)
+- HTML/CSS/JS plano — **sin bundler, sin framework**
+- `menu.html` — visor de menú público (ruta `/m/*`)
+- `studio.html` — panel de restaurante (ruta `/studio`)
+- `admin.html` — panel maestro (ruta `/admin`)
+- Assets servidos estáticamente desde `public/`
+
+### Base de Datos — Dual Mode
+- **Default**: archivos JSON en `data/` (`users.json`, `restaurants.json`, `webhooks.json`, `reset_tokens.json`, `reviews.json`, `feedback.json`, `settings.json`)
+- **Supabase (PostgreSQL)**: si existen `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` en `.env`
+  - Al arrancar: sincroniza **cloud → local** (lee de Supabase, escribe en JSON)
+  - En runtime: **escritura dual** (JSON + Supabase en background, fire-and-forget)
+  - Esquema: `src/db/schema.sql` (ejecutar en SQL Editor de Supabase)
+- Helpers clave en `src/db/db.js`: `getRestaurantBranches()`, `findRestaurantBranch()`, `updateBranches()`, `normalizeRestaurantBusinessType()`
+
+### Billing — Multi-Provider (`src/billing/orchestrator.js`)
+- **Lemon Squeezy** (default, Merchant of Record global)
+- **Stripe** (global, requiere LLC)
+- **Mercado Pago** (auto-selecciona para `countryCode` UY/AR con moneda UYU/ARS/$U)
+- Planes: `starter_monthly|annual` (9/79 USD), `pro_monthly|annual` (19/159 USD)
+- **Descuento escalonado por sucursales**: 1ª=100%, 2ª=80%, 3ª=65%, 4ª+=50% (`calculateMultiBranchPrice()`)
+- **Webhooks idempotentes**: `db.hasProcessedWebhook()` / `markWebhookProcessed()` evitan duplicados
+- **Smart Dunning**: `past_due` → 7 días de gracia antes de bloquear menú (`verifyAccess()`)
+- **Trial**: 7 días (`trialing` status) con acceso completo
+
+### Mobile (Capacitor)
+- Config: `mobile/capacitor.config.json`
+- `webDir: "public"` — apunta directo al frontend estático
+- `appId: "com.menupizarron.studio"`
+- Build: AAB (`releaseType: "AAB"`)
+
+### Deploy (Vercel)
+- `vercel.json`:
+  - `/api/*` → `api/index.js` (@vercel/node)
+  - `/m/*` → `public/menu.html`
+  - `/studio` → `public/studio.html`
+  - `/admin` → `public/admin.html`
+  - `/terminos`, `/privacidad` → páginas legales
+  - `/(.*)` → `public/$1` (static)
+- Cron: `/api/cron/billing-dunning` cada día a las 02:00 UTC
+
+---
 
 ## Testing
 
-- Tests con `assert` de Node puro — sin framework (no Jest/Mocha).
-- **Los tests mutan `data/*.json`** — crean restaurantes y usuarios reales en el store local. No son aislados.
-- `tests/test-e2e.js` existe pero **no está incluido** en `npm test`.
-- Para correr un test individual: `node tests/test-billing.js` o `npm run test:billing`.
+- **Framework**: `assert` de Node puro — **sin Jest/Mocha**
+- **Tests mutan `data/*.json`** — crean restaurantes/usuarios reales en el store local. **No son aislados**.
+- `tests/test-e2e.js` existe pero **NO está incluido en `npm test`**
+- Suite completa (`npm test`) ejecuta 11 tests en secuencia (ver `package.json` scripts)
+- Para debug rápido: `node tests/test-billing.js` (o el test específico)
 
-## Configuración
+### Tests Disponibles
+| Archivo | Qué Prueba |
+|---------|------------|
+| `test-billing.js` | Webhooks, idempotencia, dunning, precios multi-sucursal |
+| `test-fixes.js` | Regresiones específicas |
+| `test-new-features.js` | Features nuevas |
+| `test-resilience-security.js` | Rate-limit, headers, validaciones |
+| `test-banner-and-layouts.js` | Banners promocionales, layouts de menú |
+| `test-mp-upsell-reviews.js` | Mercado Pago upsell, reseñas |
+| `test-geo-killswitch-upsell.js` | Geo kill-switch, upsells |
+| `test-weather.js` | Contexto de clima inteligente |
+| `test-landing-conversion.js` | Landing page, conversión |
+| `test-group-cart-mozo.js` | Carritos grupales, llamado a mozo |
+| `test-email-notifications.js` | Emails transaccionales (Resend/SMTP) |
 
-Copiar `.env.example` → `.env`. Variables críticas: `JWT_SECRET`, `ADMIN_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, y las keys de cada pasarela de pago.
+---
 
-## Convenciones
+## Configuración (`.env`)
 
-- Cero mocks: flujos reales con DB y pasarelas de pago (ver `.cursorrules`).
-- Mantener sincronizadas las rutas de API con las vistas del panel de administración.
-- Sin linter ni formatter configurado. Sin CI/CD (no hay `.workspace/ci`).
-- `tsconfig.json` existe pero el app corre JS puro — no hay paso de compilación.
+Copiar `.env.example` → `.env`. Variables **críticas**:
+
+| Variable | Descripción |
+|----------|-------------|
+| `JWT_SECRET` | Firma de tokens (cambiar en prod) |
+| `ADMIN_KEY` | Clave maestra panel `/admin` |
+| `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` | Habilita modo cloud PostgreSQL |
+| `LEMONSQUEEZY_*` | API key, store ID, webhook secret, variant IDs |
+| `STRIPE_*` | Secret key, webhook secret, price IDs |
+| `MERCADOPAGO_*` | Access token, webhook secret |
+| `RESEND_API_KEY` + `EMAIL_FROM` | Emails transaccionales |
+| `SENTRY_DSN` | Monitoreo errores (opcional) |
+| `GOOGLE_CLIENT_ID` | OAuth 2.0 para login social |
+| `ADMIN_TOTP_SECRET` | 2FA opcional panel admin |
+
+---
+
+## Convenciones y Gotchas
+
+### Cero Mocks (ver `.cursorrules`)
+- Flujos **reales** con DB y pasarelas de pago en tests y desarrollo
+- No hay mocks de Stripe/LemonSqueezy/MercadoPago ni de Supabase
+
+### Sincronización API ↔ Admin
+- Mantener rutas de `api/routes/` sincronizadas con vistas de `studio.html` y `admin.html`
+- Cambios en endpoints requieren actualizar ambas partes
+
+### Sin Linter / Formatter / CI/CD
+- No hay ESLint, Prettier, ni workflows de GitHub Actions
+- `tsconfig.json` existe pero **el app corre JS puro** — no hay paso de compilación
+
+### Estructura de Datos Clave
+- **Restaurant** incluye: `subscription` (status, plan, provider, trialEndsAt, currentPeriodEnd, gracePeriodDaysRemaining), `branches[]`, `categories[]`, `dishes[]`, `modifierGroups[]`, `deliveryZones[]`, `businessType` (`restaurant|perfumery|events`), `layout` (`classic|modern|minimal`), `theme`, `city`, `smartWeatherEnabled`
+- **Branch**: `id`, `name`, `slug`, `phone`, `address`, `overridePrices{}`, `customDishes[]`
+- **User**: `id`, `email`, `password` (bcrypt), `name`, `createdAt`
+
+### Rate Limiting
+- Por tenant/IP (`x-tenant-id` o `x-restaurant-id` header)
+- Límites: auth=30/15min, reviews=30/15min, orders=60/15min
+
+### Helpers Útiles
+- `src/utils/response.js`: `successResponse()`, `errorResponse()` — formato estándar API
+- `src/middleware/killSwitch.js`: `checkSubscriptionKillSwitch` — bloquea features por plan
+- `src/middleware/cache.js`: `menuCacheMiddleware`, `invalidateMenuCache()` — cache menú público
+- `src/utils/sentry.js`: `captureMessage()`, `captureException()` — no-op si no hay DSN
+
+---
+
+## Archivos de Referencia Rápida
+
+| Archivo | Propósito |
+|---------|-----------|
+| `api/index.js` | Entry point, middleware stack, router mounting |
+| `src/db/db.js` | Dual-mode DB adapter (JSON + Supabase) |
+| `src/billing/orchestrator.js` | Lógica de facturación multi-provider |
+| `vercel.json` | Routing + cron config para Vercel |
+| `mobile/capacitor.config.json` | Config Android/Capacitor |
+| `src/db/schema.sql` | Esquema PostgreSQL para Supabase |
+| `.cursorrules` | Reglas de desarrollo (cero mocks, sync API↔Admin) |

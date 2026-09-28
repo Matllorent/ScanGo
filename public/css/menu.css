@@ -198,6 +198,141 @@
     body.font-marker { --font-heading: 'Permanent Marker', cursive, sans-serif; }
     body.font-urban { --font-heading: 'Bungee', cursive, sans-serif; }
 
+    /* ============================================================
+       EVENT VISUAL THEMES — Aplicados cuando businessType='events' 
+       o ?event= parâmetro en la URL
+       ============================================================ */
+
+    /* BODAS / CASAMIOS: tonos blancos, marfil, marcos sutiles, serif elegante,
+       detalles florales/botánicos suaves */
+    body.theme-wedding {
+      --bg-chalkboard: #FAFAFA;
+      --surface-card: #FFFFFF;
+      --surface-card-hover: #F5F5F0;
+      --chalk-gold: #D4A853;
+      --chalk-gold-dim: rgba(212, 168, 83, 0.15);
+      --border-gold: rgba(212, 168, 83, 0.35);
+      --chalk-white: #101614;
+      --chalk-dim: #6B7A85;
+      --border-chalk: rgba(0,0,0,0.08);
+      --font-heading: 'Playfair Display', Georgia, serif;
+    }
+    body.theme-wedding .restaurant-title {
+      color: #101614;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    body.theme-wedding .dish-name { color: #101614; }
+    body.theme-wedding .dish-badge { --chalk-gold: #D4A853; }
+    body.theme-wedding .cat-pill { border-color: rgba(0,0,0,0.08); }
+    body.theme-wedding .category-title { color: #D4A853; }
+    body.theme-wedding .empty-state-card { border-color: rgba(0,0,0,0.1); }
+    body.theme-wedding .empty-state-icon { color: #D4A853; }
+    /* Sutilezas decorativas */
+    body.theme-wedding::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      background-image: 
+        radial-gradient(circle at 20% 30%, rgba(212,168,83,0.03) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(212,168,83,0.02) 0%, transparent 50%);
+    }
+
+    /* QUINCEAÑERA / CUMPLEAÑOS 15: colores pastel suaves, rosados sutiles,
+       dorado champagne, tipografías finas, atmósfera sofisticada y festiva */
+    body.theme-cumple15 {
+      --bg-chalkboard: #F9F0F5;
+      --surface-card: #FFFFFF;
+      --surface-card-hover: #F5E8F0;
+      --chalk-gold: #D4A853;
+      --chalk-gold-dim: rgba(212, 168, 83, 0.15);
+      --border-gold: rgba(212, 168, 83, 0.35);
+      --chalk-pink: #F4C2C2;
+      --chalk-pink-dim: rgba(244, 194, 194, 0.15);
+      --chalk-dim: #7D5A70;
+      --border-chalk: rgba(244, 194, 194, 0.12);
+      --font-heading: 'Playfair Display', Georgia, serif;
+    }
+    body.theme-cumple15 .restaurant-title { color: #7D5A70; }
+    body.theme-cumple15 .dish-name { color: #7D5A70; }
+    body.theme-cumple15 .dish-badge { --chalk-gold: #D4A853; --chalk-pink: #F4C2C2; }
+    body.theme-cumple15 .cat-pill { border-color: rgba(244, 194, 194, 0.12); }
+    body.theme-cumple15 .category-title { color: #D4A853; }
+    body.theme-cumple15 .empty-state-card { border-color: rgba(244, 194, 194, 0.1); }
+    body.theme-cumple15 .empty-state-icon { color: #D4A853; }
+    /* Motivitos decorativos sutiles */
+    body.theme-cumple15::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      background-image: 
+        radial-gradient(circle at 15% 25%, rgba(244,194,194,0.04) 0%, transparent 45%),
+        radial-gradient(circle at 85% 75%, rgba(212,168,83,0.03) 0%, transparent 45%);
+    }
+
+    /* CUMPLEARES GENERALES: paleta suave festiva, elegante pero celebratorio */
+    body.theme-birthday {
+      --bg-chalkboard: #FAF8F5;
+      --surface-card: #FFFFFF;
+      --surface-card-hover: #F5F0EB;
+      --chalk-gold: #C9A867;
+      --chalk-gold-dim: rgba(201, 168, 103, 0.15);
+      --border-gold: rgba(201, 168, 103, 0.35);
+      --chalk-mint: #A8D5C7;
+      --chalk-mint-dim: rgba(168, 213, 199, 0.15);
+      --chalk-dim: #6B7A85;
+      --border-chalk: rgba(168, 213, 199, 0.12);
+      --font-heading: 'Playfair Display', Georgia, serif;
+    }
+    body.theme-birthday .restaurant-title { color: #6B7A85; }
+    body.theme-birthday .dish-name { color: #6B7A85; }
+    body.theme-birthday .dish-badge { --chalk-gold: #C9A867; --chalk-mint: #A8D5C7; }
+    body.theme-birthday .cat-pill { border-color: rgba(168, 213, 199, 0.12); }
+    body.theme-birthday .category-title { color: #C9A867; }
+    body.theme-birthday .empty-state-card { border-color: rgba(168, 213, 199, 0.1); }
+    body.theme-birthday .empty-state-icon { color: #C9A867; }
+    body.theme-birthday::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      background-image: 
+        radial-gradient(circle at 20% 20%, rgba(168,213,199,0.03) 0%, transparent 40%),
+        radial-gradient(circle at 80% 80%, rgba(201,168,103,0.03) 0%, transparent 40%);
+    }
+
+    /* CATERING: limpio, profesional, enfoque en comida, paleta neutral con acentos cálidos */
+    body.theme-catering {
+      --bg-chalkboard: #F7F4F0;
+      --surface-card: #FFFFFF;
+      --surface-card-hover: #F2EEEA;
+      --chalk-gold: #C49A4A;
+      --chalk-gold-dim: rgba(196, 154, 74, 0.15);
+      --border-gold: rgba(196, 154, 74, 0.35);
+      --chalk-umber: #A4753C;
+      --chalk-umber-dim: rgba(164, 117, 60, 0.15);
+      --chalk-dim: #5A4F46;
+      --border-chalk: rgba(164, 117, 60, 0.10);
+      --font-heading: 'Playfair Display', Georgia, serif;
+    }
+    body.theme-catering .restaurant-title { color: #A4753C; }
+    body.theme-catering .dish-name { color: #A4753C; }
+    body.theme-catering .dish-badge { --chalk-gold: #C49A4A; --chalk-umber: #A4753C; }
+    body.theme-catering .cat-pill { border-color: rgba(164, 117, 60, 0.10); }
+    body.theme-catering .category-title { color: #C49A4A; }
+    body.theme-catering .empty-state-card { border-color: rgba(164, 117, 60, 0.08); }
+    body.theme-catering .empty-state-icon { color: #C49A4A; }
+    body.theme-catering::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      background-image: 
+        radial-gradient(circle at 25% 25%, rgba(164,117,60,0.03) 0%, transparent 45%),
+        radial-gradient(circle at 75% 75%, rgba(196,154,74,0.03) 0%, transparent 45%);
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {

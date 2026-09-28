@@ -821,5 +821,89 @@
     "createdAt": "2026-09-28T04:48:33.734Z",
     "email": "test-default-type-1790570913733@example.com",
     "password": "test_password"
+  },
+  {
+    "id": "usr_1790573633106_69zy6p",
+    "createdAt": "2026-09-28T05:33:53.106Z",
+    "email": "test-restaurante@pizarron.com",
+    "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1790573634867_x1tkbr",
+    "createdAt": "2026-09-28T05:33:54.867Z",
+    "email": "test_security_1790573634862@example.com",
+    "password": "new_secure_hashed_password",
+    "name": "Test Security User",
+    "updatedAt": "2026-09-28T05:33:54.992Z"
+  },
+  {
+    "id": "usr_1790573635659_hutts5",
+    "createdAt": "2026-09-28T05:33:55.660Z",
+    "email": "test-layout-1790573635654@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790573635729_qhpj9c",
+    "createdAt": "2026-09-28T05:33:55.729Z",
+    "email": "test-default-type-1790573635722@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790576296527_65n4bz",
+    "createdAt": "2026-09-28T06:18:16.527Z",
+    "email": "test-restaurante@pizarron.com",
+    "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1790576298147_ewnq4k",
+    "createdAt": "2026-09-28T06:18:18.147Z",
+    "email": "test_security_1790576298145@example.com",
+    "password": "new_secure_hashed_password",
+    "name": "Test Security User",
+    "updatedAt": "2026-09-28T06:18:18.190Z"
+  },
+  {
+    "id": "usr_1790576298530_c42l1h",
+    "createdAt": "2026-09-28T06:18:18.530Z",
+    "email": "test-layout-1790576298513@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790576298580_acux1b",
+    "createdAt": "2026-09-28T06:18:18.580Z",
+    "email": "test-default-type-1790576298578@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790611057862_rhits9",
+    "createdAt": "2026-09-28T15:57:37.862Z",
+    "email": "test-restaurante@pizarron.com",
+    "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1790611081611_nemxy6",
+    "createdAt": "2026-09-28T15:58:01.611Z",
+    "email": "test-restaurante@pizarron.com",
+    "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1790611082653_i745k7",
+    "createdAt": "2026-09-28T15:58:02.653Z",
+    "email": "test_security_1790611082651@example.com",
+    "password": "new_secure_hashed_password",
+    "name": "Test Security User",
+    "updatedAt": "2026-09-28T15:58:02.837Z"
+  },
+  {
+    "id": "usr_1790611083019_afoytk",
+    "createdAt": "2026-09-28T15:58:03.019Z",
+    "email": "test-layout-1790611083016@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1790611083033_y6jnta",
+    "createdAt": "2026-09-28T15:58:03.034Z",
+    "email": "test-default-type-1790611083032@example.com",
+    "password": "test_password"
   }
 ]

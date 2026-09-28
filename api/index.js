@@ -237,6 +237,60 @@ function sanitizeRestaurantPayload(data) {
       };
     });
   }
+
+  // Sanitize kids mode fields in dishes
+  if (Array.isArray(clean.dishes)) {
+    clean.dishes = clean.dishes.map(d => ({
+      ...d,
+      kid_friendly: Boolean(d.kid_friendly),
+      allergens: Array.isArray(d.allergens)
+        ? [...new Set(d.allergens.map(a => String(a).toLowerCase().trim()))].filter(Boolean)
+        : []
+    }));
+  }
+
+  // Sanitize eventConfig menuSections (for events mode)
+  if (clean.eventConfig?.menuSections && Array.isArray(clean.eventConfig.menuSections)) {
+    clean.eventConfig.menuSections = clean.eventConfig.menuSections.slice(0, 20).map(section => ({
+      id: String(section.id || ('sec_' + Date.now())).slice(0, 40),
+      title: String(section.title || '').slice(0, 80),
+      icon: String(section.icon || '').slice(0, 10),
+      items: Array.isArray(section.items) ? section.items.slice(0, 50).map(item => ({
+        name: String(item.name || '').slice(0, 100),
+        desc: String(item.desc || '').slice(0, 300),
+        icon: String(item.icon || '').slice(0, 10),
+        kid_friendly: Boolean(item.kid_friendly),
+        allergens: Array.isArray(item.allergens)
+          ? [...new Set(item.allergens.map(a => String(a).toLowerCase().trim()))].filter(Boolean)
+          : [],
+        pairing: item.pairing ? String(item.pairing).slice(0, 80) : ''
+      })) : []
+    }));
+  }
+
+  // Sanitize eventConfig guests (for events mode)
+  if (clean.eventConfig?.guests && Array.isArray(clean.eventConfig.guests)) {
+    clean.eventConfig.guests = clean.eventConfig.guests.slice(0, 500).map(g => ({
+      id: String(g.id || ('gst_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6))),
+      name: String(g.name || 'Invitado').slice(0, 80),
+      isChild: Boolean(g.isChild),
+      parentGuestId: g.parentGuestId ? String(g.parentGuestId).slice(0, 60) : null,
+      parentContact: g.parentContact ? {
+        name: String(g.parentContact.name || '').slice(0, 80),
+        phone: String(g.parentContact.phone || '').replace(/[^0-9+]/g, '').slice(0, 20),
+        whatsapp: String(g.parentContact.whatsapp || g.parentContact.phone || '').replace(/[^0-9+]/g, '').slice(0, 20)
+      } : null,
+      dietary: String(g.dietary || '').slice(0, 200),
+      allergens: Array.isArray(g.allergens)
+        ? [...new Set(g.allergens.map(a => String(a).toLowerCase().trim()))].filter(Boolean)
+        : [],
+      tableId: g.tableId ? String(g.tableId).slice(0, 60) : null,
+      seatNumber: g.seatNumber ? Math.max(1, Math.min(20, parseInt(g.seatNumber) || 1)) : null,
+      qrToken: String(g.qrToken || ('qr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8))),
+      createdAt: g.createdAt || new Date().toISOString()
+    }));
+  }
+
   if (Array.isArray(clean.customCoupons)) {
     clean.customCoupons = clean.customCoupons.slice(0, 20).map(cp => ({
       code: String(cp.code || '').trim().toUpperCase().slice(0, 20),
@@ -630,6 +684,150 @@ app.delete('/api/studio/events/:id', authMiddleware, requireVerifiedEmail, async
     res.json({ success: true, message: 'Evento finalizado' });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/events/:slug/guest/:qrToken - Guest Companion page data
+app.get('/api/events/:slug/guest/:qrToken', async (req, res, next) => {
+  try {
+    const { slug, qrToken } = req.params;
+    
+    const restaurant = db.findRestaurantBySlug(slug);
+    if (!restaurant || (restaurant.businessType !== 'events' && !restaurant.isEvent)) {
+      return res.status(404).json({ error: 'Evento no encontrado' });
+    }
+    
+    // Buscar guest por qrToken
+    const guests = restaurant.eventConfig?.guests || [];
+    const guest = guests.find(g => g.qrToken === qrToken);
+    if (!guest) {
+      return res.status(404).json({ error: 'Invitado no encontrado' });
+    }
+    
+    // Verificar expiración del evento
+    const expiresAt = restaurant.expiresAt ? new Date(restaurant.expiresAt) : null;
+    const eventDate = restaurant.eventDate ? new Date(restaurant.eventDate) : null;
+    const expiryCheck = expiresAt || eventDate;
+    if (expiryCheck && expiryCheck < new Date()) {
+      return res.status(410).json({ 
+        error: 'Evento finalizado',
+        expired: true,
+        message: 'Este evento ya ha finalizado. ¡Gracias por participar!'
+      });
+    }
+    
+    // Buscar padre si es niño
+    let parentGuest = null;
+    if (guest.isChild && guest.parentGuestId) {
+      parentGuest = guests.find(g => g.id === guest.parentGuestId) || null;
+    }
+    
+    // Construir respuesta completa para la Guest Page
+    const response = {
+      event: {
+        slug: restaurant.slug,
+        coupleNames: restaurant.eventConfig?.coupleNames || restaurant.name,
+        eventType: restaurant.eventConfig?.eventType || 'wedding',
+        eventDate: restaurant.eventDate,
+        venue: restaurant.eventConfig?.venue,
+        dressCode: restaurant.eventConfig?.dressCode,
+        theme: restaurant.eventConfig?.theme || 'wedding_elegant',
+        heroImage: restaurant.eventConfig?.heroImage || restaurant.bannerUrl,
+        menuSections: restaurant.eventConfig?.menuSections || [],
+        timeline: restaurant.eventConfig?.timeline || [],
+        waiterConfig: restaurant.eventConfig?.waiterConfig || {},
+        tables: restaurant.eventConfig?.tables || [],
+        gifts: restaurant.eventConfig?.gifts || {}
+      },
+      guest: {
+        id: guest.id,
+        name: guest.name,
+        isChild: guest.isChild || false,
+        tableId: guest.tableId,
+        tableName: guest.tableId ? (restaurant.eventConfig?.tables?.find(t => t.id === guest.tableId)?.name || guest.tableId) : null,
+        seatNumber: guest.seatNumber,
+        dietary: guest.dietary,
+        allergens: guest.allergens || [],
+        parentGuestId: guest.parentGuestId,
+        parentContact: guest.parentContact,
+        parentGuest: parentGuest ? {
+          id: parentGuest.id,
+          name: parentGuest.name,
+          phone: parentGuest.phone
+        } : null,
+        qrToken: guest.qrToken
+      }
+    };
+    
+    res.json({ success: true, data: response });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/events/:slug/waiter-call - Waiter call with kids mode support
+app.post('/api/events/:slug/waiter-call', async (req, res, next) => {
+  try {
+    const { slug } = req.params;
+    const { guestToken, categoryId, itemId, notes, kidMode } = req.body;
+    
+    const restaurant = db.findRestaurantBySlug(slug);
+    if (!restaurant) return res.status(404).json({ error: 'Evento no encontrado' });
+    
+    const guests = restaurant.eventConfig?.guests || [];
+    const guest = guests.find(g => g.qrToken === guestToken);
+    if (!guest) return res.status(404).json({ error: 'Invitado no encontrado' });
+    
+    const tableName = guest.tableId ? (restaurant.eventConfig?.tables?.find(t => t.id === guest.tableId)?.name || guest.tableId) : 'Sin mesa';
+    const isChild = guest.isChild || false;
+    const allergens = guest.allergens?.length ? guest.allergens : [];
+    
+    // Construir payload para telemetría + staff push
+    const callData = {
+      eventId: restaurant.id,
+      guestId: guest.id,
+      guestName: guest.name,
+      guestIsChild: isChild,
+      tableName,
+      seatNumber: guest.seatNumber,
+      categoryId,
+      itemId,
+      notes: notes || '',
+      allergens,
+      kidMode: kidMode || false,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Telemetría
+    telemetryService.recordEvent({
+      restaurantId: restaurant.id,
+      eventType: 'event_waiter_call',
+      metadata: callData
+    });
+    
+    // Push a staff (Supabase Realtime channel: event_waiters_{slug})
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.channel(`event_waiters_${slug}`)
+          .send({ type: 'broadcast', event: 'waiter_call', payload: callData });
+      } catch (e) {
+        console.warn('[Event Waiter Push]', e.message);
+      }
+    }
+    
+    // Si es llamada a padres, log específico
+    if (itemId === 'call_parent' && guest.parentContact?.whatsapp) {
+      telemetryService.recordEvent({
+        restaurantId: restaurant.id,
+        eventType: 'kid_call_parent',
+        metadata: { guestId: guest.id, parentContact: guest.parentContact }
+      });
+    }
+    
+    res.json({ success: true, callId: 'wc_' + Date.now() });
+  } catch (err) {
+    next(err);
   }
 });
 

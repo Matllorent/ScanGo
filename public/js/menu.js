@@ -193,6 +193,27 @@
       const themeClass = validThemes.includes(restaurantData.theme) ? `theme-${restaurantData.theme}` : 'theme-emerald';
       document.body.className = `${themeClass} font-${restaurantData.themeFont || 'serif'} ${layoutClass}`;
 
+      // === EVENT VISUAL THEMES: Aplicar tema visual cuando businessType='events' o ?event= parâmetro
+      const urlParams = new URLSearchParams(window.location.search);
+      const eventParam = urlParams.get('event'); // wedding | cumple_15 | birthday | catering
+      const isEventMode = restaurantData.businessType === 'events' || eventParam === 'true' || eventParam === 'wedding' || eventParam === 'cumple_15' || eventParam === 'birthday' || eventParam === 'catering';
+      let eventThemeClass = '';
+      if (isEventMode) {
+        let resolvedEventType = eventParam;
+        if (!resolvedEventType && restaurantData.businessType === 'events') {
+          // Default: si es events pero no hay param, usar 'wedding' como tema por defecto
+          // o podríamos leer de restaurantData.eventType si existiera
+          resolvedEventType = 'wedding';
+        }
+        if (resolvedEventType === 'cumple_15') eventThemeClass = 'theme-cumple15';
+        else if (resolvedEventType === 'birthday') eventThemeClass = 'theme-birthday';
+        else if (resolvedEventType === 'catering') eventThemeClass = 'theme-catering';
+        else eventThemeClass = 'theme-wedding'; // default: wedding
+      }
+      if (eventThemeClass) {
+        document.body.classList.add(eventThemeClass);
+      }
+
       // Render the hero image and temporarily move the existing brand/status nodes into it.
       const bannerEl = document.getElementById('menuBannerHero');
       const logoContainer = document.getElementById('restaurantLogoContainer');
