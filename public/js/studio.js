@@ -1,4001 +1,1030 @@
-// App State
-    let currentUser = null;
-    let restaurant = null;
-    let autoSaveTimeout = null;
-    let selectedReviewPhotoOption = 'logo';
-    let uploadedReviewPhotoUrl = null;
-    let pendingConfirmAction = null;
-    let saveFeedbackTimer = null;
-
-    // Plan pricing (matches backend src/billing/orchestrator.js)
-    const PLANS = {
-      starter_monthly: { name: 'Starter Mensual', priceUsd: 9 },
-      starter_annual: { name: 'Starter Anual', priceUsd: 79 },
-      pro_monthly: { name: 'Pro Mensual', priceUsd: 19 },
-      pro_annual: { name: 'Pro Anual', priceUsd: 159 }
-    };
-
-    // Strict XSS Sanitizer Helper
-    function escapeHtml(str) {
-      if (str === null || str === undefined) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
-    async function compressImageFile(file) {
-      const bitmap = await createImageBitmap(file);
-      const maxDimension = 1080;
-      let scale = Math.min(1, maxDimension / bitmap.width, maxDimension / bitmap.height);
-      let blob;
-
-      for (let attempt = 0; attempt < 12; attempt += 1) {
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-        const context = canvas.getContext('2d');
-        if (!context) throw new Error('No se pudo procesar la imagen en este navegador.');
-        context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-        blob = await new Promise((resolve, reject) => {
-          canvas.toBlob(result => result ? resolve(result) : reject(new Error('No se pudo comprimir la imagen.')), 'image/webp', 0.8);
-        });
-        if (blob.type === 'image/webp' && blob.size <= 150 * 1024) break;
-        if (blob.type !== 'image/webp') throw new Error('Este navegador no permite exportar imágenes WebP.');
-        scale *= 0.85;
-      }
-      bitmap.close();
-
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error('No se pudo leer la imagen comprimida.'));
-        reader.readAsDataURL(blob);
-      });
-      return { blob, dataUrl };
-    }
-
-    // Custom Confirmation Dialog (Replaces native confirm)
-    function showConfirmDialog({ icon = '⚠️', title = '¿Estás seguro?', message = '', confirmText = 'Sí, Continuar', confirmClass = 'btn-danger', onConfirm }) {
-      document.getElementById('confirmDialogIcon').textContent = icon;
-      document.getElementById('confirmDialogTitle').textContent = title;
-      document.getElementById('confirmDialogMessage').textContent = message;
-      const acceptBtn = document.getElementById('confirmDialogAcceptBtn');
-      acceptBtn.textContent = confirmText;
-      if (confirmClass === 'btn-danger') {
-        acceptBtn.style.background = '#E53E3E';
-        acceptBtn.style.borderColor = '#E53E3E';
-        acceptBtn.style.color = '#fff';
-      } else {
-        acceptBtn.style.background = 'var(--accent-gold)';
-        acceptBtn.style.borderColor = 'var(--accent-gold)';
-        acceptBtn.style.color = '#101614';
-      }
-      pendingConfirmAction = onConfirm;
-      document.getElementById('confirmActionModal').classList.add('active');
-    }
-
-    function closeConfirmDialog(confirmed) {
-      document.getElementById('confirmActionModal').classList.remove('active');
-      if (confirmed && typeof pendingConfirmAction === 'function') {
-        pendingConfirmAction();
-      }
-      pendingConfirmAction = null;
-    }
-
-    // Save Feedback Pill (Header notification)
-    function showSaveFeedback(state) {
-      const badge = document.getElementById('saveFeedbackBadge');
-      const icon = document.getElementById('saveFeedbackIcon');
-      const text = document.getElementById('saveFeedbackText');
-      if (!badge || !icon || !text) return;
-
-      clearTimeout(saveFeedbackTimer);
-      badge.style.display = 'inline-flex';
-
-      if (state === 'saving') {
-        badge.style.background = 'rgba(225, 169, 56, 0.15)';
-        badge.style.border = '1px solid rgba(225, 169, 56, 0.4)';
-        badge.style.color = 'var(--accent-gold)';
-        icon.textContent = '🔄';
-        text.textContent = 'Guardando...';
-      } else if (state === 'saved') {
-        badge.style.background = 'rgba(56, 161, 105, 0.15)';
-        badge.style.border = '1px solid rgba(56, 161, 105, 0.4)';
-        badge.style.color = '#48BB78';
-        icon.textContent = '✓';
-        text.textContent = '¡Cambios guardados!';
-        saveFeedbackTimer = setTimeout(() => {
-          badge.style.display = 'none';
-        }, 2200);
-      } else if (state === 'error') {
-        badge.style.background = 'rgba(229, 62, 62, 0.15)';
-        badge.style.border = '1px solid rgba(229, 62, 62, 0.4)';
-        badge.style.color = '#FC8181';
-        icon.textContent = '⚠️';
-        text.textContent = 'Error al sincronizar';
-        saveFeedbackTimer = setTimeout(() => {
-          badge.style.display = 'none';
-        }, 3500);
-      }
-    }
-
-    // Presets Catalog (85+ suggested dishes)
-    const PRESETS = {
-      milanesas: {
-        catName: 'Milanesas de la Casa',
-        dishes: [
-          { name: 'Milanesa Napolitana de Carne', price: 490, desc: 'Lomo tierno, jamón cocido, salsa de tomate casera y muzzarella fundida con papas fritas', tags: ['star'] },
-          { name: 'Milanesa Suiza de Pollo', price: 460, desc: 'Pechuga rebozada con salsa blanca suave, queso gruyere y papas noisette', tags: [] },
-          { name: 'Milanesa Fugazzeta', price: 480, desc: 'Cebolla caramelizada al orégano, doble muzzarella y toque de oliva', tags: [] },
-          { name: 'Milanesa a Caballo', price: 470, desc: 'Con dos huevos fritos de campo y papas bastón crocantes', tags: [] },
-          { name: 'Milanesa Cuatro Quesos', price: 520, desc: 'Muzzarella, provolone, parmesano y queso azul gratinado', tags: [] },
-          { name: 'Milanesa Veggie de Berenjena', price: 390, desc: 'Berenjena al horno rebozada con panko y semillas, queso vegano y rúcula', tags: ['veggie'] },
-          { name: 'Sándwich de Milanesa Completo', price: 440, desc: 'Pan baguette crocante, lechuga, tomate, mayonesa casera y jamón', tags: [] },
-          { name: 'Milanesa Tex-Mex', price: 510, desc: 'Cheddar fundido, panceta crocante, jalapeños y guacamole', tags: [] },
-          { name: 'Milanesa Napolitana sin TACC', price: 520, desc: 'Elaborada con rebozador de arroz y maíz certificado libre de gluten', tags: ['celiac'] },
-          { name: 'Picada de Mini Milanesas', price: 680, desc: 'Bocados de lomo y pollo con salsas tártara, alioli y barbacoa para compartir', tags: [] }
-        ]
-      },
-      empanadas: {
-        catName: 'Empanadas',
-        dishes: [
-          {
-            name: 'Empanadas surtidas',
-            price: 285,
-            desc: 'Elegí 3 unidades, media docena o docena y repartí los sabores.',
-            tags: ['star'],
-            variants: [
-              { id: 'carne_suave', name: 'Carne suave' },
-              { id: 'carne_picante', name: 'Carne picante' },
-              { id: 'carne_cuchillo', name: 'Carne cortada a cuchillo' },
-              { id: 'pollo', name: 'Pollo' },
-              { id: 'jamon_queso', name: 'Jamón y queso' },
-              { id: 'humita', name: 'Humita' },
-              { id: 'verdura', name: 'Verdura' },
-              { id: 'caprese', name: 'Caprese' }
-            ]
-          },
-          { name: 'Empanada de Carne Suave', price: 95, desc: 'Carne vacuna, cebolla, huevo y aceituna.', tags: [] },
-          { name: 'Empanada de Carne Picante', price: 100, desc: 'Carne vacuna condimentada con ají molido.', tags: ['picante'] },
-          { name: 'Empanada de Carne a Cuchillo', price: 110, desc: 'Carne cortada a cuchillo, cebolla y huevo.', tags: [] },
-          { name: 'Empanada de Pollo', price: 95, desc: 'Pollo desmenuzado con cebolla y morrón.', tags: [] },
-          { name: 'Empanada de Jamón y Queso', price: 95, desc: 'Jamón cocido y queso mozzarella.', tags: [] },
-          { name: 'Empanada de Humita', price: 90, desc: 'Choclo cremoso, cebolla y queso.', tags: ['veggie'] },
-          { name: 'Empanada Caprese', price: 95, desc: 'Tomate, mozzarella y albahaca.', tags: ['veggie'] }
-        ]
-      },
-      pescados: {
-        catName: 'Pescados y Mariscos',
-        dishes: [
-          { name: 'Salmón Rosado a la Manteca de Hierbas', price: 790, desc: 'Filet a la plancha con espárragos y puré rústico de calabaza', tags: ['star'] },
-          { name: 'Abadejo a la Romana', price: 550, desc: 'Tiras de pescado blanco crocante con limón fresco y papas fritas', tags: [] },
-          { name: 'Rabas Crocantes del Puerto', price: 580, desc: 'Calamares frescos rebozados con limón y salsa tártara artesanal', tags: [] },
-          { name: 'Paella Clásica de Mariscos', price: 720, desc: 'Arroz azafranado con langostinos, mejillones, calamares y pimientos', tags: ['star'] },
-          { name: 'Filet de Merluza con Puré de Papas', price: 460, desc: 'Pesca fresca del día a la plancha con limón y oliva virgen', tags: [] },
-          { name: 'Ceviche Mixto Tradicional', price: 610, desc: 'Pescado blanco, langostinos marinados en leche de tigre, cebolla morada y maíz cancha', tags: ['celiac'] },
-          { name: 'Cazuela de Mariscos Gratinada', price: 740, desc: 'Surtido de frutos de mar en suave salsa crema al vino blanco', tags: [] },
-          { name: 'Trucha Patagónica con Almendras', price: 710, desc: 'Filet grillado con manteca noisette y almendras tostadas', tags: [] }
-        ]
-      },
-      sushi: {
-        catName: 'Sushi & Rolls',
-        dishes: [
-          { name: 'Philadelphia Roll (10 piezas)', price: 560, desc: 'Salmón fresco, palta hass y queso philadelphia', tags: [] },
-          { name: 'California Roll (10 piezas)', price: 490, desc: 'Kanikama, pepino japonés, palta y sésamo tostado', tags: [] },
-          { name: 'Hot Roll Frito (10 piezas)', price: 590, desc: 'Roll apanado y tibio relleno de salmón y queso con salsa teriyaki', tags: ['star'] },
-          { name: 'Ebi Furai Roll (10 piezas)', price: 620, desc: 'Langostino crocante rebozado en panko, palta y salsa maracuyá', tags: [] },
-          { name: 'Niguiri de Salmón (4 piezas)', price: 380, desc: 'Bocados de arroz shari con láminas finas de salmón fresco', tags: ['celiac'] },
-          { name: 'Sashimi de Salmón (5 cortes)', price: 420, desc: 'Cortes premium de salmón fresco con wasabi y jengibre', tags: ['celiac'] },
-          { name: 'Geishas de Salmón y Palta (4 piezas)', price: 460, desc: 'Finísima lámina de salmón envolviendo palta y queso crema', tags: [] },
-          { name: 'Roll Vegano de Palta y Mango (10 piezas)', price: 440, desc: 'Palta, mango maduro, pepino y ciboulette con salsa teriyaki vegana', tags: ['veggie'] },
-          { name: 'Rainbow Roll Especial (10 piezas)', price: 630, desc: 'Relleno de langostino coronado con cortes de salmón, pescado blanco y palta', tags: [] },
-          { name: 'Tabla Combinado Tokio (24 piezas)', price: 1290, desc: 'Variedad de rolls clásicos, calientes y niguiris para compartir', tags: ['star'] }
-        ]
-      },
-      hamburguesas: {
-        catName: 'Burgers Artesanales',
-        dishes: [
-          { name: 'Burger Clásica con Queso', price: 410, desc: 'Medallón 180g novillo, doble cheddar, lechuga, tomate y salsa especial en pan brioche', tags: [] },
-          { name: 'Burger Criolla de Entraña', price: 490, desc: 'Corte de entraña picada a cuchillo, provoleta fundida, chimichurri y rúcula', tags: ['star'] },
-          { name: 'Bacon & Blue Burger', price: 480, desc: 'Panceta crocante, queso azul suave, cebolla morada y alioli', tags: [] },
-          { name: 'Burger BBQ Smash Doble', price: 470, desc: 'Dos medallones smash con costra crocante, cheddar fundido y salsa barbacoa', tags: [] },
-          { name: 'Burger Vegana de Lentejas y Hongos', price: 420, desc: 'Medallón artesanal, palta, tomate seco y mayonesa vegana en pan de remolacha', tags: ['veggie'] }
-        ]
-      },
-      pizzas: {
-        catName: 'Pizzas al Horno de Piedra',
-        dishes: [
-          { name: 'Pizza Muzzarella Clásica', price: 390, desc: 'Masa fermentada 24hs, salsa pomodoro italiana y muzzarella fundida con orégano', tags: [] },
-          { name: 'Pizza Napolitana con Ajo y Rodajas de Tomate', price: 440, desc: 'Tomates frescos, ajo confitado, oliva y hojas de albahaca fresca', tags: [] },
-          { name: 'Pizza Fugazzeta Rellena', price: 540, desc: 'Masa doble rellena con abundante queso muzzarella y cubierta de cebollas doradas', tags: ['star'] },
-          { name: 'Pizza Cuatro Quesos', price: 490, desc: 'Muzzarella, provolone, roquefort y parmesano rallado', tags: [] },
-          { name: 'Pizza de Jamón Crudo y Rúcula', price: 530, desc: 'Muzzarella, jamón crudo estacionado, rúcula fresca y lluvia de parmesano', tags: [] }
-        ]
-      },
-      postres: {
-        catName: 'Postres Rioplatenses',
-        dishes: [
-          { name: 'Flan Casero Mixto', price: 260, desc: 'Receta tradicional con 8 huevos, abundante dulce de leche y crema batida', tags: ['star'] },
-          { name: 'Chajá Tradicional Rioplatense', price: 290, desc: 'Bizcochuelo suave con duraznos en almíbar, merengue seco y dulce de leche', tags: [] },
-          { name: 'Panqueque de Dulce de Leche Quemado al Ron', price: 280, desc: 'Panqueque tibio caramelizado a la plancha con azúcar quemada', tags: [] },
-          { name: 'Vigilante / Martín Fierro Clásico', price: 230, desc: 'Queso colonia artesanal acompañado con dulce de membrillo o batata', tags: ['celiac'] },
-          { name: 'Volcán de Chocolate con Helado de Vainilla', price: 320, desc: 'Bizcocho tibio de chocolate semiamargo con corazón fundente', tags: ['star'] }
-        ]
-      },
-      bebidas: {
-        catName: 'Bebidas & Cervezas',
-        dishes: [
-          { name: 'Cerveza Artesanal IPA (Pinta 500ml)', price: 240, desc: 'Lúpulo aromático, notas cítricas y amargor balanceado', tags: [] },
-          { name: 'Cerveza Rubia Clásica (Pinta 500ml)', price: 210, desc: 'Dorada pampeana suave, refrescante y ligera', tags: [] },
-          { name: 'Limonada con Menta y Jengibre', price: 180, desc: 'Exprimido natural de limones con menta fresca y miel', tags: ['veggie'] },
-          { name: 'Agua Mineral con/sin gas 500ml', price: 110, desc: 'En botella individual', tags: [] },
-          { name: 'Refresco Línea Cola / Lima 500ml', price: 130, desc: 'Botella individual bien fría', tags: [] }
-        ]
-      },
-      cafeteria: {
-        catName: 'Café de Especialidad',
-        dishes: [
-          { name: 'Espresso Doble 100% Arábica', price: 140, desc: 'Extracción balanceada con notas a chocolate y avellana', tags: [] },
-          { name: 'Flat White Cremoso', price: 190, desc: 'Doble ristretto con microespuma sedosa de leche texturizada', tags: ['star'] },
-          { name: 'Cappuccino Italiano Clásico', price: 200, desc: 'Espresso, leche vaporizada y canela o cacao espolvoreado', tags: [] },
-          { name: 'Cold Brew Macerado en Frío', price: 210, desc: 'Café infusionado en frío por 18 horas con hielo y rodaja de naranja', tags: ['veggie'] },
-          { name: 'Latte con Leche de Almendras', price: 220, desc: 'Opción 100% vegetal con café de especialidad', tags: ['veggie'] }
-        ]
-      },
-      chile: {
-        catName: '🇨🇱 Cocina Chilena Tradicional',
-        dishes: [
-          { name: 'Pastel de Choclo en Greda', price: 540, desc: 'Pino de vacuno sazonado, pollo tierno, aceituna, huevo duro y costra dorada de maíz', tags: ['star'] },
-          { name: 'Cazuela de Vacuno Tradicional', price: 490, desc: 'Caldo criollo concentrado con osobuco, zapallo camote, choclo y porotos verdes', tags: [] },
-          { name: 'Empanadas de Pino al Horno (2 un)', price: 340, desc: 'Masa fina horneada con pino de carne a cuchillo, cebolla amortiguada y pasas', tags: [] },
-          { name: 'Completo Italiano Clásico', price: 280, desc: 'Vienesa en pan alargado con palta fresca molida, tomate en cubos y mayonesa casera', tags: [] },
-          { name: 'Machas a la Parmesana', price: 620, desc: 'Lenguas de machas gratinadas con queso parmesano, vino blanco y mantequilla', tags: ['star'] },
-          { name: 'Caldillo de Congrio Nerudiano', price: 590, desc: 'Pescado fresco en caldo de verduras con camarones, cilantro y crema suave', tags: [] },
-          { name: 'Charquicán con Huevo Frito', price: 430, desc: 'Guiso tradicional de carne, zapallo, papas y verduras de estación', tags: [] },
-          { name: 'Mote con Huesillo Helado', price: 220, desc: 'Bebida refrescante con duraznos deshidratados cocidos, almíbar de canela y trigo mote', tags: ['veggie'] }
-        ]
-      },
-      colombia: {
-        catName: '🇨🇴 Sabores de Colombia',
-        dishes: [
-          { name: 'Bandeja Paisa Tradicional', price: 640, desc: 'Frijoles rojos, arroz blanco, chicharrón crocante, carne molida, chorizo, huevo frito, tajada y arepa', tags: ['star'] },
-          { name: 'Ajiaco Santafereño Bogotano', price: 560, desc: 'Sopa espesa con tres tipos de papas, pollo desmechado, guascas, alcaparras y crema de leche', tags: ['star'] },
-          { name: 'Arepa de Chócolo con Queso Campesino', price: 290, desc: 'Masa tierna de maíz dulce asada a la plancha con mantequilla y abundante queso fresco', tags: ['veggie'] },
-          { name: 'Sancocho Trifásico Colombiano', price: 580, desc: 'Caldo sustancioso de pollo, costilla de res y cerdo con plátano verde, yuca y mazorca', tags: [] },
-          { name: 'Empanadas Colombianas de Maíz (3 un)', price: 280, desc: 'Crocante masa de maíz amarillo rellena de carne desmechada y papa criolla con ají casero', tags: ['celiac'] },
-          { name: 'Cazuela de Frijoles Antioqueña', price: 490, desc: 'Frijoles campesinos con chicharrón picado, plátano maduro, aguacate y arroz', tags: [] },
-          { name: 'Postre de Natas Tradicional', price: 240, desc: 'Dulce suave de leche cuajada con almíbar de caña y uvas pasas', tags: [] },
-          { name: 'Limonada de Coco Refrescante', price: 210, desc: 'Zumo de lima fresca batido con crema de coco cremosa y hielo frappé', tags: ['veggie'] }
-        ]
-      },
-      venezuela: {
-        catName: '🇻🇪 Cocina Venezolana Típica',
-        dishes: [
-          { name: 'Arepa Reina Pepiada', price: 380, desc: 'Masa de maíz asada rellena de pollo mechado con abundante aguacate cremoso y mayonesa', tags: ['star', 'celiac'] },
-          { name: 'Tequeños Crujientes de Queso (5 un)', price: 320, desc: 'Dedos de masa hojaldrada frita rellenos de queso llanero fundido con salsa tártara o guasacaca', tags: ['star'] },
-          { name: 'Pabellón Criollo Caraqueño', price: 540, desc: 'Carne mechada en sofrito criollo, caraotas negras, arroz blanco, tajadas de plátano frito y queso', tags: ['star'] },
-          { name: 'Cachapa con Queso de Mano y Cochino', price: 490, desc: 'Torta tierna de maíz dulce tierno, queso de mano fresco derretido y pernil asado crujiente', tags: [] },
-          { name: 'Arepa Pelúa (Carne y Queso Amarillo)', price: 390, desc: 'Generosa carne mechada de res sazonada cubierta de abundante queso gouda rallado', tags: ['celiac'] },
-          { name: 'Asado Negro Criollo', price: 520, desc: 'Corte de muchacho redondo glaseado en salsa dulce y oscura de papelón con puré de papas', tags: [] },
-          { name: 'Golfeados con Queso Telita', price: 260, desc: 'Pan enrollado tradicional aromatizado con anís y papelón fundido, servido con queso fresco', tags: ['veggie'] }
-        ]
-      },
-      peru: {
-        catName: '🇵🇪 Gastronomía Peruana',
-        dishes: [
-          { name: 'Lomo Saltado al Wok', price: 590, desc: 'Tiras tiernas de lomo fino salteadas al wok con cebolla morada, tomate, ají amarillo, papas fritas y arroz', tags: ['star'] },
-          { name: 'Ají de Gallina Cremoso', price: 490, desc: 'Pechuga desmenuzada en suave crema de ají amarillo, nueces y queso parmesano sobre papas cocidas', tags: [] },
-          { name: 'Causa Limeña de Pollo o Atún', price: 390, desc: 'Capas de masa de papa amarilla prensada con ají amarillo y limón, rellena de palta y pollo aliñado', tags: ['celiac'] },
-          { name: 'Ceviche Clásico Peruano', price: 620, desc: 'Cubos de pesca fresca del día marinados en leche de tigre al instante con camote glaseado y choclo desgranado', tags: ['star', 'celiac'] },
-          { name: 'Arroz Chaufa Especial de Mariscos', price: 540, desc: 'Arroz frito al estilo chifa salteado al wok con langostinos, calamares, cebollita china y salsa de soja', tags: [] },
-          { name: 'Anticuchos de Corazón a la Parrilla (2 brochetas)', price: 420, desc: 'Brochetas marinadas en ají panca y especias andinas servidas con papas doradas y salsa de rocoto', tags: [] },
-          { name: 'Suspiro a la Limeña Clásico', price: 260, desc: 'Manjar blanco suave de yemas y leche evaporada coronado con merengue al oporto y canela', tags: [] }
-        ]
-      },
-      paraguay: {
-        catName: '🇵🇾 Tradición Paraguaya',
-        dishes: [
-          { name: 'Sopa Paraguaya Auténtica', price: 290, desc: 'Tarta tradicional horneada esponjosa a base de harina de maíz, queso Paraguay fresco, abundante cebolla salteada y leche', tags: ['star', 'celiac', 'veggie'] },
-          { name: 'Chipa Guazú al Horno de Barro', price: 320, desc: 'Pastel cremoso y dorado de choclo tierno desgranado con manteca, huevos caseros y abundante queso criollo fundido', tags: ['star', 'celiac', 'veggie'] },
-          { name: 'Vori Vori de Pollo Casero', price: 480, desc: 'Caldo espeso y reconfortante con presas de pollo de campo y bolitas artesanales de harina de maíz con queso', tags: ['star'] },
-          { name: 'Mbejú Mestizo Tradicional', price: 240, desc: 'Torta delgada y crocante a la plancha de almidón de mandioca, harina de maíz y queso Paraguay dorado', tags: ['celiac', 'veggie'] },
-          { name: 'Pastel Mandi\'o de Carne (3 un)', price: 350, desc: 'Empanadas típicas de masa de puré de mandioca con relleno criollo de carne vacuna especiada y frita dorada', tags: ['celiac'] },
-          { name: 'Asadito Paraguayo con Mandioca Hervida', price: 460, desc: 'Brochetas de carne tierna marinada a la brasa servidas con mandioca tibia recién cocida y salsa de ajo', tags: [] }
-        ]
-      },
-      espana: {
-        catName: '🇪🇸 Clásicos de España',
-        dishes: [
-          { name: 'Paella Valenciana Tradicional', price: 780, desc: 'Arroz en paella con azafrán en hebras, pollo de campo, conejo, judías verdes planas (bajoqueta), garrofó y romero fresco', tags: ['star', 'celiac'] },
-          { name: 'Tortilla Española de Patatas (Poco Hecha)', price: 420, desc: 'Tortilla alta y jugosa con patatas confitadas a fuego lento en aceite de oliva virgen extra y cebolla dulce', tags: ['star', 'veggie', 'celiac'] },
-          { name: 'Jamón Ibérico de Bellota con Pan con Tomate', price: 690, desc: 'Finas lonchas de jamón ibérico curado servidas con tostas de pan de masa madre frotadas con tomate maduro y oliva', tags: ['star'] },
-          { name: 'Gambas al Ajillo Clásicas', price: 590, desc: 'Langostinos frescos chisporroteando en cazuela de barro con láminas de ajo dorado, guindilla y aceite de oliva', tags: ['celiac'] },
-          { name: 'Pulpo a la Gallega (Polbo á Feira)', price: 740, desc: 'Tiernas rodajas de pulpo sobre cama de patatas cocidas (cachelos), sazonadas con pimentón de la Vera dulce y picante y sal marina gruesa', tags: ['star', 'celiac'] },
-          { name: 'Croquetas Cremosas de Jamón Ibérico (6 un)', price: 390, desc: 'Bechamel sedosa de leche entera infusionada con hueso de jamón y tropezones crocantes de ibérico', tags: [] },
-          { name: 'Churros Tradicionales con Chocolate a la Taza', price: 280, desc: 'Churros crujientes recién fritos espolvoreados con azúcar acompañados de espeso chocolate amargo caliente', tags: ['veggie'] }
-        ]
-      },
-      mexico: {
-        catName: '🇲🇽 Sabor Mexicano',
-        dishes: [
-          { name: 'Tacos al Pastor Tradicionales (3 un)', price: 440, desc: 'Cerdo marinado en achiote y chiles secos, asado al trompo y servido con piña asada, cebollita picada, cilantro y salsa verde taquera', tags: ['star', 'celiac'] },
-          { name: 'Enchiladas Suizas Gratinadas (3 un)', price: 490, desc: 'Tortillas de maíz rellenas de pollo deshebrado bañadas en salsa verde cremosa de tomatillo y gratinadas con queso manchego', tags: ['celiac'] },
-          { name: 'Guacamole Rústico con Totopos Caseros', price: 340, desc: 'Aguacate hass machacado al momento en molcajete con lima, cebolla, cilantro fresco, chile serrano y totopos de maíz crujientes', tags: ['star', 'veggie', 'celiac'] },
-          { name: 'Quesadillas de Birria de Res con Consomé (3 un)', price: 520, desc: 'Tortillas doradas a la plancha mojadas en el adobo de la carne de res cocinada a fuego lento, con queso Oaxaca y tazón de consomé caliente', tags: ['star'] },
-          { name: 'Chiles en Nogada Tradicionales', price: 580, desc: 'Chile poblano asado relleno de picadillo agridulce de cerdo, frutas secas y piñones, cubierto de salsa cremosa de nuez de Castilla y granada roja', tags: [] }
-        ]
-      },
-      helados_chocolates: {
-        catName: '🍫 Helados: Chocolates',
-        dishes: [
-          { name: 'Chocolate Amargo 70%', price: 320, desc: 'Cacao puro ecuatoriano al 70%, intenso y con notas tostadas.', tags: ['star', 'celiac'] },
-          { name: 'Chocolate con Almendras Tostadas', price: 330, desc: 'Cremoso chocolate con leche y almendras tostadas.', tags: ['celiac'] },
-          { name: 'Chocolate Suizo con Dulce de Leche', price: 340, desc: 'Chocolate semiamargo veteado con dulce de leche natural.', tags: ['star'] },
-          { name: 'Chocolate Blanco Patagónico', price: 320, desc: 'Manteca de cacao pura con crocante de avellanas.', tags: ['celiac'] },
-          { name: 'Chocotorta Helada Especial', price: 350, desc: 'Galletitas de chocolate con café y crema con dulce de leche.', tags: ['star'] },
-          { name: 'Mousse de Chocolate Aireado', price: 320, desc: 'Textura ligera y esponjosa con escamas de cacao.', tags: ['celiac'] },
-          { name: 'Chocolate Marroc Praliné', price: 350, desc: 'Chocolate con leche y praliné suave de maní tostado.', tags: [] }
-        ]
-      },
-      helados_ddl: {
-        catName: '🍮 Helados: Dulces de Leche',
-        dishes: [
-          { name: 'Dulce de Leche Tradicional Rioplatense', price: 310, desc: 'La receta madre con leche de campo y cocción lenta.', tags: ['star', 'celiac'] },
-          { name: 'Dulce de Leche Granizado', price: 320, desc: 'Con abundantes escamas crujientes de chocolate amargo.', tags: ['celiac'] },
-          { name: 'Dulce de Leche Tentación', price: 340, desc: 'Con generoso veteado de dulce de leche repostero puro.', tags: ['star', 'celiac'] },
-          { name: 'Dulce de Leche con Brownie & Nuez', price: 350, desc: 'Tropezones húmedos de brownie casero y nueces pecan.', tags: ['star'] },
-          { name: 'Dulce de Leche Bombón', price: 340, desc: 'Veteado con pasta de avellanas y bocaditos bañados.', tags: [] },
-          { name: 'Dulce de Leche Alfajor Marplatense', price: 350, desc: 'Con trocitos de masa especiada de alfajor artesanal.', tags: [] }
-        ]
-      },
-      helados_cremas: {
-        catName: '🍦 Helados: Cremas & Especiales',
-        dishes: [
-          { name: 'Crema Americana (Vainilla Bourbon)', price: 300, desc: 'Crema de leche batida infusionada con vainilla natural.', tags: ['celiac'] },
-          { name: 'Tramontana Clásica', price: 330, desc: 'Crema americana con dulce de leche y galletitas crocantes.', tags: ['star'] },
-          { name: 'Mascarpone con Frutos del Bosque', price: 350, desc: 'Queso mascarpone con reducción de frambuesas y moras.', tags: ['star', 'celiac'] },
-          { name: 'Sambayón al Oporto y Marsala', price: 340, desc: 'Yemas batidas con vino Oporto añejado y almendras.', tags: ['celiac'] },
-          { name: 'Banana Split Criolla', price: 330, desc: 'Bananas maduras, dulce de leche y chocolate picado.', tags: ['celiac'] },
-          { name: 'Frutilla a la Crema de Campo', price: 310, desc: 'Frutillas frescas seleccionadas con crema de leche fresca.', tags: ['celiac'] },
-          { name: 'Pistacho Siciliano 100% Puro', price: 380, desc: 'Pistachos tostados de Bronte con pizca de sal marina.', tags: ['star', 'celiac'] },
-          { name: 'Kinder Bueno Blanco & Avellanas', price: 360, desc: 'Pasta de avellanas, oblea crocante y chocolate blanco.', tags: ['star'] }
-        ]
-      },
-      helados_frutales: {
-        catName: '🍓 Helados: Frutales al Agua',
-        dishes: [
-          { name: 'Limón Silvestre Natural', price: 290, desc: '100% zumo recién exprimido. Refrescante y liviano.', tags: ['vegan', 'celiac', 'veggie'] },
-          { name: 'Frutilla Natural al Agua', price: 290, desc: 'Frutillas maduras procesadas al momento con almíbar suave.', tags: ['vegan', 'celiac', 'veggie'] },
-          { name: 'Maracuyá Tropical con Semillitas', price: 310, desc: 'Pulpa de maracuyá con su acidez exótica natural.', tags: ['star', 'vegan', 'celiac', 'veggie'] },
-          { name: 'Frambuesa Patagónica al Agua', price: 320, desc: 'Frambuesas del sur con balance justo de dulzor.', tags: ['vegan', 'celiac', 'veggie'] },
-          { name: 'Mango & Naranja Jugosa', price: 310, desc: 'Sorbet aterciopelado de mango y jugo de naranja fresca.', tags: ['vegan', 'celiac', 'veggie'] },
-          { name: 'Arándanos & Moras Silvestres', price: 310, desc: 'Frutos rojos repletos de antioxidantes en sorbete.', tags: ['vegan', 'celiac', 'veggie'] }
-        ]
-      },
-      perfumeria: {
-        catName: '🌸 Fragancias & Perfumería',
-        dishes: [
-          { name: 'Ambre Nuit Nocturne (EDP)', price: 2200, desc: 'Familia Oriental • Salida: Bergamota • Corazón: Rosa Damascena • Fondo: Ámbar Gris.', tags: ['star'] },
-          { name: 'Aqua Riviera Mandarine (EDT)', price: 1750, desc: 'Familia Cítrica • Salida: Mandarina Sicilia • Corazón: Neroli • Fondo: Vetiver.', tags: [] },
-          { name: 'Santal Majestueux (EDP)', price: 2400, desc: 'Familia Amaderada • Salida: Cardamomo • Corazón: Iris • Fondo: Sándalo Australiano.', tags: ['star'] },
-          { name: 'Fleur Blanche de Soie (EDP)', price: 1950, desc: 'Familia Floral • Salida: Pera Nashi • Corazón: Jazmín Sambac • Fondo: Cachemira.', tags: ['star'] },
-          { name: 'Vanille Noire & Praliné (Splash)', price: 1250, desc: 'Familia Gourmand • Salida: Almendra • Corazón: Toffee • Fondo: Vainilla Bourbon.', tags: ['star'] },
-          { name: 'Fougère Sauvage Lavande (EDT)', price: 1650, desc: 'Familia Aromática • Salida: Lavanda • Corazón: Salvia • Fondo: Musgo de Roble.', tags: [] }
-        ]
-      }
-    };
-
-    function normalizeBusinessType(value) {
-      if (value === 'perfumeria') return 'perfumery';
-      if (value === 'events' || value === 'perfumery') return value;
-      return 'restaurant';
-    }
-
-    function normalizeRestaurantBusinessType(profile) {
-      if (profile.businessType === 'heladeria' && profile.allowIceCreamWizard === undefined) {
-        profile.allowIceCreamWizard = true;
-      }
-      if (profile.businessType === 'perfumeria' && profile.allowPerfumery === undefined) {
-        profile.allowPerfumery = true;
-      }
-      profile.businessType = normalizeBusinessType(profile.businessType);
-      return profile;
-    }
-
-    function updateBusinessTypeControls() {
-      const businessType = document.getElementById('inputBusinessType')?.value || 'restaurant';
-      const isPerfumery = businessType === 'perfumery';
-      const controls = document.getElementById('perfumeryCatalogControls');
-      const modal = document.getElementById('perfumeryPresetsModal');
-      const toggle = document.getElementById('inputAllowPerfumery');
-      if (controls) controls.style.display = isPerfumery ? 'flex' : 'none';
-      if (modal) modal.style.display = isPerfumery ? '' : 'none';
-      if (!isPerfumery) {
-        if (modal) modal.classList.remove('active');
-        if (toggle) toggle.checked = false;
-        restaurant.allowPerfumery = false;
-      }
-    }
-
-    function updateWeatherToggleStyle() {
-      const enabled = document.getElementById('inputSmartWeatherEnabled')?.checked === true;
-      const slider = document.getElementById('sliderSmartWeather');
-      const thumb = document.getElementById('thumbSmartWeather');
-      if (slider) slider.style.backgroundColor = enabled ? '#38A169' : '#2a3a33';
-      if (thumb) thumb.style.transform = enabled ? 'translateX(18px)' : 'translateX(0)';
-    }
-
-    // Initialize & Load User/Restaurant from Real Database
-    async function initStudio() {
-      const token = localStorage.getItem('menu_pizarron_token');
-      if (!token) {
-        window.location.href = '/?auth=required';
-        return;
-      }
-
-      try {
-        const res = await fetch('/api/auth/me', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!res.ok) {
-          localStorage.removeItem('menu_pizarron_token');
-          window.location.href = '/?auth=expired';
-          return;
-        }
-        const data = await res.json();
-        currentUser = data.user || {};
-        restaurant = data.restaurant || {};
-
-        // If authenticated user does not have a restaurant yet, initialize a clean real template (no mocks)
-        if (!restaurant.id) {
-          const defaultSlug = (currentUser.name || 'mi-restaurante').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30);
-          restaurant = {
-            id: '',
-            userId: currentUser.id,
-            name: currentUser.name || 'Mi Restaurante',
-            slogan: '',
-            slug: defaultSlug,
-            currency: '$',
-            phone: '',
-            theme: 'emerald',
-            themeFont: 'sans',
-            layout: 'classic',
-            bannerUrl: null,
-            city: '',
-            smartWeatherEnabled: false,
-            businessType: 'restaurant',
-            allowLoyaltyPoints: false,
-            allowIceCreamWizard: false,
-            allowPerfumery: false,
-            instagram: '',
-            googleReview: '',
-            allowReservations: false,
-            allowCoupons: false,
-            allowBillSplitter: false,
-            announcement: '',
-            paymentLink: '',
-            scheduleEnabled: false,
-            scheduleActiveHours: '12:00-23:30',
-            tableCount: 1,
-            wifi: { ssid: '', password: '' },
-            categories: [],
-            dishes: [],
-            deliveryZones: [],
-            analytics: { visits: 0, orders: 0, reservations: 0, waiterCalls: 0 }
-          };
-        }
-
-        normalizeRestaurantBusinessType(restaurant);
-
-        // Merge locally configured preferences if present
-        const savedRest = localStorage.getItem('menu_pizarron_restaurant');
-        if (savedRest) {
-          try {
-            const parsed = JSON.parse(savedRest);
-            if (parsed.businessType && !restaurant.updatedAt) {
-              restaurant.businessType = normalizeBusinessType(parsed.businessType);
-            }
-            if (parsed.allowIceCreamWizard !== undefined && restaurant.allowIceCreamWizard === undefined) restaurant.allowIceCreamWizard = parsed.allowIceCreamWizard;
-            if (parsed.allowPerfumery !== undefined && restaurant.allowPerfumery === undefined) restaurant.allowPerfumery = parsed.allowPerfumery;
-            if (parsed.allowLoyaltyPoints !== undefined && restaurant.allowLoyaltyPoints === undefined) restaurant.allowLoyaltyPoints = parsed.allowLoyaltyPoints;
-          } catch(e) {}
-        }
-
-        // Check subscription access before rendering
-        const access = checkStudioAccess();
-        if (!access.allowed) {
-          showSubscriptionRequiredScreen(access);
-          return;
-        }
-
-        renderStudioUI();
-      } catch (err) {
-        console.warn('Error al verificar sesión en Studio:', err.message);
-        localStorage.removeItem('menu_pizarron_token');
-        window.location.href = '/?auth=expired';
-      }
-    }
-
-    /**
-     * Checks if the restaurant has an active subscription.
-     */
-    function checkStudioAccess() {
-      const sub = currentUser ? currentUser.subscription : null;
-      if (!sub) return { allowed: false, warning: 'Sin datos de suscripción.' };
-
-      const now = new Date();
-      const status = sub.status;
-
-      // Active: full access
-      if (status === 'active') {
-        return { allowed: true, status };
-      }
-
-      // Trialing: access if within trial window
-      if (status === 'trial' || status === 'trialing') {
-        const trialEnd = sub.trialEndsAt ? new Date(sub.trialEndsAt) : null;
-        if (trialEnd && trialEnd.getTime() > now.getTime()) {
-          return { allowed: true, status: 'trialing' };
-        }
-        return {
-          allowed: false,
-          status: 'expired',
-          warning: 'Tu período de prueba ha finalizado. Actualizá tu suscripción para reactivar tu menú.'
-        };
-      }
-
-      // Past due: grace period (7 days from period end)
-      if (status === 'past_due') {
-        const periodEnd = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
-        const graceEnd = periodEnd ? new Date(periodEnd.getTime() + 7 * 24 * 3600 * 1000) : null;
-        if (graceEnd && graceEnd.getTime() > now.getTime()) {
-          const daysLeft = Math.max(0, Math.ceil((graceEnd.getTime() - now.getTime()) / 86400000));
-          return {
-            allowed: true,
-            status: 'past_due',
-            warning: `Tu suscripción está en gracia. Quedan ${daysLeft} días.`
-          };
-        }
-        return {
-          allowed: false,
-          status: 'past_due',
-          warning: 'Tu suscripción ha expirado. Actualizá tu plan para reactivar tu menú.'
-        };
-      }
-
-      // Canceled / expired / unknown
-      return {
-        allowed: false,
-        status: status || 'unknown',
-        warning: 'Tu suscripción está inactiva. Ingresá a tu cuenta para renovar tu menú.'
-      };
-    }
-
-    /**
-     * Blocks the Studio UI and shows a subscription required screen.
-     */
-    function showSubscriptionRequiredScreen(access) {
-      // Hide main workspace
-      const workspace = document.querySelector('.workspace-layout');
-      if (workspace) {
-        workspace.innerHTML = `
-          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:70vh; padding:40px 20px; text-align:center;">
-            <div style="font-size:3.5rem; margin-bottom:16px;">⚠️</div>
-            <h2 style="color:var(--accent-gold); margin-bottom:12px; font-size:1.5rem;">Menú Pausado</h2>
-            <p style="color:var(--text-muted); margin-bottom:8px; font-size:0.95rem; max-width:420px;">
-              ${access.warning || 'Tu suscripción está inactiva.'}
-            </p>
-            <p style="color:var(--text-muted); margin-bottom:24px; font-size:0.8rem;">
-              Estado: <strong style="color:#f87171;">${(access.status || 'unknown').toUpperCase()}</strong>
-            </p>
-            <button onclick="openBillingModal()" style="padding:12px 28px; background:var(--accent-gold); color:#101614; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.9rem;">
-              💎 Reactivar mi menú
-            </button>
-          </div>
-        `;
-      }
-
-      // Update header
-      document.getElementById('studioNavRestaurantName').textContent = 'Suscripción Requerida';
-    }
-
-    function renderStudioUI() {
-      document.getElementById('studioNavRestaurantName').textContent = restaurant.name;
-      document.getElementById('studioNavUserEmail').textContent = currentUser.email;
-      
-      const liveUrl = `/m/${restaurant.slug}`;
-      const btnLive = document.getElementById('btnLiveMenu');
-      btnLive.href = liveUrl;
-      document.getElementById('previewFullUrl').textContent = liveUrl;
-
-      // Subscription badge
-      renderSubscriptionBadge(currentUser.subscription);
-
-      // Proactive subscription alerts and menu status indicator
-      checkSubscriptionAlerts();
-      renderMenuStatusIndicator();
-
-      // Quick metrics dashboard on main tab
-      renderQuickMetrics();
-
-      // Form inputs
-      document.getElementById('inputLocalName').value = restaurant.name || '';
-      document.getElementById('inputLocalSlogan').value = restaurant.slogan || '';
-      document.getElementById('inputLocalSlug').value = restaurant.slug || '';
-      document.getElementById('inputLocalCurrency').value = restaurant.currency || '$';
-      document.getElementById('inputPhone').value = restaurant.phone || '';
-
-      if (restaurant.wifi) {
-        document.getElementById('inputWifiSsid').value = restaurant.wifi.ssid || '';
-        document.getElementById('inputWifiPass').value = restaurant.wifi.password || '';
-      }
-
-      // Reservations toggle
-      const resCheckbox = document.getElementById('inputAllowReservations');
-      if (resCheckbox) {
-        resCheckbox.checked = restaurant.allowReservations !== false;
-        const slider = document.getElementById('sliderReservations');
-        if (slider) slider.style.backgroundColor = resCheckbox.checked ? '#38A169' : '#2a3a33';
-      }
-
-      // Social links
-      document.getElementById('inputInstagram').value = restaurant.instagram || '';
-      document.getElementById('inputGoogleReview').value = restaurant.googleReview || '';
-
-      // Layout & Theme selects
-      const layoutSelect = document.getElementById('inputMenuLayout');
-      if (layoutSelect) layoutSelect.value = restaurant.layout || 'classic';
-      const themeBg = document.getElementById('inputThemeBg');
-      if (themeBg) themeBg.value = restaurant.theme || 'emerald';
-      const themeFont = document.getElementById('inputThemeFont');
-      if (themeFont) themeFont.value = restaurant.themeFont || 'serif';
-
-      // Coupons toggle
-      const couponsCheckbox = document.getElementById('inputAllowCoupons');
-      if (couponsCheckbox) {
-        couponsCheckbox.checked = restaurant.allowCoupons !== false;
-        const sliderC = document.getElementById('sliderCoupons');
-        if (sliderC) sliderC.style.backgroundColor = couponsCheckbox.checked ? '#38A169' : '#2a3a33';
-      }
-
-      // Bill Splitter toggle
-      const splitCheckbox = document.getElementById('inputAllowBillSplitter');
-      if (splitCheckbox) {
-        splitCheckbox.checked = restaurant.allowBillSplitter !== false;
-        const sliderS = document.getElementById('sliderBillSplitter');
-        if (sliderS) sliderS.style.backgroundColor = splitCheckbox.checked ? '#38A169' : '#2a3a33';
-      }
-
-      // Announcement banner
-      const annInput = document.getElementById('inputAnnouncement');
-      if (annInput) annInput.value = restaurant.announcement || '';
-
-      // Payment Link
-      const payInput = document.getElementById('inputPaymentLink');
-      if (payInput) payInput.value = restaurant.paymentLink || '';
-
-      // Schedule settings
-      const schedCheck = document.getElementById('inputScheduleEnabled');
-      if (schedCheck) {
-        schedCheck.checked = !!restaurant.scheduleEnabled;
-        const sliderSched = document.getElementById('sliderSchedule');
-        if (sliderSched) sliderSched.style.backgroundColor = schedCheck.checked ? '#38A169' : '#2a3a33';
-      }
-      const schedHours = document.getElementById('inputScheduleActiveHours');
-      if (schedHours) schedHours.value = restaurant.scheduleActiveHours || '';
-
-      // Table count
-      const tableCountInput = document.getElementById('inputTableCount');
-      if (tableCountInput) tableCountInput.value = restaurant.tableCount || 10;
-
-      // Render Logo preview
-      if (restaurant.logoUrl) {
-        document.getElementById('logoPreviewBox').innerHTML = `<img src="${restaurant.logoUrl}" style="width:100%; height:100%; object-fit:cover;">`;
-        document.getElementById('btnRemoveLogo').style.display = 'inline';
-      } else {
-        document.getElementById('logoPreviewBox').innerHTML = `<span id="logoPreviewIcon" style="font-size:22px;">🍽️</span>`;
-        document.getElementById('btnRemoveLogo').style.display = 'none';
-      }
-
-      // Render Banner preview
-      const bannerInput = document.getElementById('inputBannerUrl');
-      if (bannerInput) bannerInput.value = restaurant.bannerUrl || '';
-      renderBannerPreviewUI();
-
-      // Business Type selector
-      const bizSelect = document.getElementById('inputBusinessType');
-      if (bizSelect) bizSelect.value = normalizeBusinessType(restaurant.businessType);
-
-      const cityInput = document.getElementById('inputRestaurantCity');
-      if (cityInput) cityInput.value = restaurant.city || '';
-      const weatherToggle = document.getElementById('inputSmartWeatherEnabled');
-      if (weatherToggle) weatherToggle.checked = restaurant.smartWeatherEnabled === true;
-      updateWeatherToggleStyle();
-
-      // Loyalty points toggle
-      const loyaltyCheckbox = document.getElementById('inputAllowLoyaltyPoints');
-      if (loyaltyCheckbox) {
-        loyaltyCheckbox.checked = restaurant.allowLoyaltyPoints === true;
-        const sliderL = document.getElementById('sliderLoyaltyPoints');
-        if (sliderL) sliderL.style.backgroundColor = loyaltyCheckbox.checked ? '#38A169' : '#2a3a33';
-      }
-
-      // Ice Cream Wizard toggle
-      const iceCreamCheckbox = document.getElementById('inputAllowIceCreamWizard');
-      if (iceCreamCheckbox) {
-        iceCreamCheckbox.checked = restaurant.allowIceCreamWizard === true || (restaurant.businessType === 'heladeria' && restaurant.allowIceCreamWizard !== false);
-        const sliderI = document.getElementById('sliderIceCreamWizard');
-        if (sliderI) sliderI.style.backgroundColor = iceCreamCheckbox.checked ? '#38A169' : '#2a3a33';
-      }
-
-      // Perfumery toggle
-      const perfumeryCheckbox = document.getElementById('inputAllowPerfumery');
-      if (perfumeryCheckbox) {
-        perfumeryCheckbox.checked = restaurant.allowPerfumery === true || (restaurant.businessType === 'perfumery' && restaurant.allowPerfumery !== false);
-        const sliderP = document.getElementById('sliderPerfumery');
-        if (sliderP) sliderP.style.backgroundColor = perfumeryCheckbox.checked ? '#38A169' : '#2a3a33';
-      }
-      updateBusinessTypeControls();
-
-      // Review photo selector default
-      setReviewPhotoOption('logo');
-
-      // Populate Categories & Dishes
-      populateCatFilter();
-      renderDishesList();
-      renderDeliveryZones();
-      renderBranchesList();
-      generateQrCode();
-      reloadPreviewIframe();
-
-      // Check 30-Day Milestone for review modal
-      check30DaysMilestone();
-
-      // Send live sync to simulator iframe
-      setTimeout(() => {
-        const iframe = document.getElementById('previewIframe');
-        if (iframe && iframe.contentWindow) {
-          iframe.contentWindow.postMessage({ type: 'UPDATE_LIVE_PREVIEW', data: restaurant }, '*');
-        }
-      }, 500);
-    }
-
-    async function handleLogoUpload(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      if (file.size > 12 * 1024 * 1024) {
-        alert('La imagen original no debe superar los 12MB.');
-        return;
-      }
-      try {
-        const compressed = await compressImageFile(file);
-        restaurant.logoUrl = compressed.dataUrl;
-        document.getElementById('logoPreviewBox').innerHTML = `<img src="${restaurant.logoUrl}" style="width:100%; height:100%; object-fit:cover;">`;
-        document.getElementById('btnRemoveLogo').style.display = 'inline';
-        generateQrCode();
-        triggerAutoSave();
-      } catch (error) {
-        alert(error.message || 'No se pudo procesar el logo.');
-      }
-    }
-
-    function removeLogo() {
-      restaurant.logoUrl = null;
-      document.getElementById('inputLogoFile').value = '';
-      document.getElementById('logoPreviewBox').innerHTML = `<span id="logoPreviewIcon" style="font-size:22px;">🍽️</span>`;
-      document.getElementById('btnRemoveLogo').style.display = 'none';
-      generateQrCode();
-      triggerAutoSave();
-    }
-
-    function renderBannerPreviewUI() {
-      const box = document.getElementById('bannerPreviewBox');
-      const btnRemove = document.getElementById('btnRemoveBanner');
-      if (!box) return;
-      if (restaurant.bannerUrl) {
-        box.innerHTML = `<img src="${restaurant.bannerUrl}" style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.parentElement.innerHTML='<span style=\\'font-size:11px; color:#f87171;\\'>⚠️ Error cargando imagen</span>'">`;
-        if (btnRemove) btnRemove.style.display = 'inline-block';
-      } else {
-        box.innerHTML = `
-          <span id="bannerPreviewPlaceholder" style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 10px;">
-            🌄 Sin imagen de portada cargada.<br><span style="font-size: 10px; opacity: 0.8;">Se mostrará el encabezado estándar elegante.</span>
-          </span>
-        `;
-        if (btnRemove) btnRemove.style.display = 'none';
-      }
-    }
-
-    async function handleBannerUpload(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      if (file.size > 12 * 1024 * 1024) {
-        alert('La imagen original no debe superar los 12MB.');
-        return;
-      }
-      try {
-        const compressed = await compressImageFile(file);
-        restaurant.bannerUrl = compressed.dataUrl;
-        const urlInput = document.getElementById('inputBannerUrl');
-        if (urlInput) urlInput.value = '';
-        renderBannerPreviewUI();
-        syncLivePreviewIframe();
-        triggerAutoSave();
-      } catch (error) {
-        alert(error.message || 'No se pudo procesar la portada.');
-      }
-    }
-
-    function handleBannerUrlInput(e) {
-      const val = e.target.value.trim();
-      restaurant.bannerUrl = val || null;
-      renderBannerPreviewUI();
-      syncLivePreviewIframe();
-      triggerAutoSave();
-    }
-
-    function removeBanner() {
-      restaurant.bannerUrl = null;
-      const fileInput = document.getElementById('inputBannerFile');
-      if (fileInput) fileInput.value = '';
-      const urlInput = document.getElementById('inputBannerUrl');
-      if (urlInput) urlInput.value = '';
-      renderBannerPreviewUI();
-      syncLivePreviewIframe();
-      triggerAutoSave();
-    }
-
-    function syncLivePreviewIframe() {
-      const iframe = document.getElementById('previewIframe');
-      if (iframe && iframe.contentWindow) {
-        iframe.contentWindow.postMessage({ type: 'UPDATE_LIVE_PREVIEW', data: restaurant }, '*');
-      }
-    }
-
-    function renderSubscriptionBadge(sub) {
-      const badge = document.getElementById('subscriptionBadge');
-      if (!sub) return;
-
-      if (sub.status === 'trial') {
-        const days = Math.max(0, Math.ceil((new Date(sub.trialEndsAt) - new Date()) / (1000 * 60 * 60 * 24)));
-        badge.className = 'sub-badge badge-trial';
-        badge.textContent = `⏳ Prueba (${days} días)`;
-      } else if (sub.status === 'active') {
-        badge.className = 'sub-badge badge-active';
-        badge.textContent = `✓ PRO ACTIVO (${sub.plan.toUpperCase()})`;
-      } else if (sub.status === 'past_due') {
-        badge.className = 'sub-badge badge-grace';
-        badge.textContent = `⚠️ GRACIA (5 días)`;
-      } else {
-        badge.className = 'sub-badge badge-grace';
-        badge.textContent = `✕ VENCIDO`;
-      }
-    }
-
-    /**
-     * Evaluates subscription state and shows a persistent alert banner
-     * when the trial is expiring soon or the subscription is past_due.
-     */
-    function checkSubscriptionAlerts() {
-      const sub = currentUser ? currentUser.subscription : null;
-      if (!sub) return;
-
-      const banner = document.getElementById('subscriptionAlertBanner');
-      const text = document.getElementById('subscriptionAlertText');
-      const btn = document.getElementById('subscriptionAlertBtn');
-      if (!banner || !text || !btn) return;
-
-      let alertLevel = null;
-      let alertMsg = '';
-      let btnText = '';
-      let btnBg = '';
-      let btnColor = '';
-
-      if (sub.status === 'trial') {
-        const trialEnd = sub.trialEndsAt ? new Date(sub.trialEndsAt) : null;
-        const daysLeft = trialEnd ? Math.ceil((trialEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
-        if (daysLeft <= 2 && daysLeft > 0) {
-          alertLevel = 'warning';
-          alertMsg = `⚠️ Tu prueba gratuita expira en ${daysLeft} día${daysLeft === 1 ? '' : 's'}. Actualizá tu plan para mantener tu menú activo.`;
-          btnText = 'Activar Plan Pro';
-          btnBg = '#f59e0b';
-          btnColor = '#0d1312';
-        }
-      } else if (sub.status === 'past_due') {
-        const graceEnd = sub.currentPeriodEnd
-          ? new Date(new Date(sub.currentPeriodEnd).getTime() + 7 * 24 * 3600 * 1000)
-          : null;
-        const daysLeft = graceEnd ? Math.max(0, Math.ceil((graceEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 0;
-        if (daysLeft <= 3) {
-          alertLevel = 'danger';
-          alertMsg = `🚨 Tu suscripción está vencida. Tu menú se pausará en ${daysLeft} día${daysLeft === 1 ? '' : 's'} si no regularizás el pago.`;
-          btnText = 'Regularizar Pago';
-          btnBg = '#ef4444';
-          btnColor = '#fff';
-        }
-      }
-
-      if (!alertLevel) {
-        banner.style.display = 'none';
-        return;
-      }
-
-      text.textContent = alertMsg;
-      btn.textContent = btnText;
-      btn.style.background = btnBg;
-      btn.style.color = btnColor;
-
-      if (alertLevel === 'danger') {
-        banner.style.background = 'rgba(239, 68, 68, 0.12)';
-        banner.style.borderBottom = '1px solid rgba(239, 68, 68, 0.4)';
-        banner.style.color = '#fca5a5';
-      } else {
-        banner.style.background = 'rgba(245, 158, 11, 0.1)';
-        banner.style.borderBottom = '1px solid rgba(245, 158, 11, 0.35)';
-        banner.style.color = '#fbbf24';
-      }
-
-      banner.style.display = 'flex';
-    }
-
-    /**
-     * Determines if the public menu is currently visible to customers.
-     */
-    function getMenuVisibilityStatus() {
-      const sub = currentUser ? currentUser.subscription : null;
-      if (!sub) return { visible: false, label: 'Desconocido', color: '#94a3b8' };
-
-      if (sub.status === 'active') {
-        return { visible: true, label: 'ONLINE', color: '#4ade80' };
-      }
-      if (sub.status === 'trial') {
-        const trialEnd = sub.trialEndsAt ? new Date(sub.trialEndsAt) : null;
-        if (trialEnd && trialEnd.getTime() > Date.now()) {
-          return { visible: true, label: 'ONLINE (Trial)', color: '#60a5fa' };
-        }
-        return { visible: false, label: 'PAUSADO', color: '#f87171' };
-      }
-      if (sub.status === 'past_due') {
-        const graceEnd = sub.currentPeriodEnd
-          ? new Date(new Date(sub.currentPeriodEnd).getTime() + 7 * 24 * 3600 * 1000)
-          : null;
-        if (graceEnd && graceEnd.getTime() > Date.now()) {
-          return { visible: true, label: 'ONLINE (Gracia)', color: '#fbbf24' };
-        }
-        return { visible: false, label: 'PAUSADO', color: '#f87171' };
-      }
-      return { visible: false, label: 'PAUSADO', color: '#f87171' };
-    }
-
-    function renderMenuStatusIndicator() {
-      const status = getMenuVisibilityStatus();
-      let indicator = document.getElementById('menuStatusIndicator');
-      if (!indicator) {
-        indicator = document.createElement('div');
-        indicator.id = 'menuStatusIndicator';
-        indicator.style.cssText = 'display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:12px; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;';
-        const header = document.querySelector('.top-navbar .brand-area');
-        if (header) header.appendChild(indicator);
-      }
-      indicator.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${status.color}; box-shadow:0 0 6px ${status.color};"></span> <span style="color:${status.color};">${status.label}</span>`;
-      indicator.title = status.visible
-        ? 'Tu menú está visible para los clientes'
-        : 'Tu menú está oculto para los clientes';
-      indicator.style.background = status.visible ? 'rgba(74, 222, 128, 0.08)' : 'rgba(239, 68, 68, 0.08)';
-      indicator.style.border = `1px solid ${status.color}33`;
-    }
-
-    // Tabs
-    function switchTab(tabId, btn) {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-
-      const targetBtn = btn || (typeof event !== 'undefined' && event && event.currentTarget) || document.querySelector(`.tab-btn[onclick*="'${tabId}'"]`);
-      if (targetBtn) targetBtn.classList.add('active');
-      const pane = document.getElementById(`tab-${tabId}`);
-      if (pane) pane.classList.add('active');
-
-      if (tabId === 'stats') {
-        renderStatsTab();
-      }
-
-      if (tabId === 'reviews') {
-        renderReviewsTab();
-      }
-
-      if (tabId === 'local') {
-        renderQuickMetrics();
-      }
-
-      if (tabId === 'branches') {
-        renderBranchesList();
-      }
-
-      if (tabId === 'analytics') {
-        loadAnalytics();
-      }
-    }
-
-    function renderStatsTab() {
-      const stats = restaurant.analytics || { visits: 0, orders: 0, reservations: 0, waiterCalls: 0 };
-      document.getElementById('statVisits').textContent = stats.visits || 0;
-      document.getElementById('statOrders').textContent = stats.orders || 0;
-      document.getElementById('statReservations').textContent = stats.reservations || 0;
-      document.getElementById('statWaiterCalls').textContent = stats.waiterCalls || 0;
-    }
-
-    /**
-     * Renders the quick metrics dashboard on the main tab.
-     */
-    function renderQuickMetrics() {
-      const analytics = restaurant.analytics || {};
-      const currency = restaurant.currency || '$';
-
-      // Orders today (approximate: total orders / days since creation)
-      const createdAt = restaurant.createdAt ? new Date(restaurant.createdAt) : new Date();
-      const daysSinceCreation = Math.max(1, Math.ceil((Date.now() - createdAt.getTime()) / 86400000));
-      const ordersToday = Math.round((analytics.orders || 0) / daysSinceCreation);
-
-      // Top dish (most ordered - approximate from dishes with star tag or first dish)
-      const dishes = restaurant.dishes || [];
-      const topDish = dishes.find(d => d.tags && d.tags.includes('star')) || dishes[0] || null;
-
-      // Estimated revenue
-      const avgOrderValue = dishes.length > 0
-        ? dishes.reduce((sum, d) => sum + (d.price || 0), 0) / dishes.length
-        : 0;
-      const estimatedRevenue = Math.round(ordersToday * avgOrderValue);
-
-      // Visits today (approximate)
-      const visitsToday = Math.round((analytics.visits || 0) / daysSinceCreation);
-
-      const ordersEl = document.getElementById('metric-orders-today');
-      const topDishEl = document.getElementById('metric-top-dish');
-      const revenueEl = document.getElementById('metric-revenue');
-      const visitsEl = document.getElementById('metric-visits-today');
-
-      if (ordersEl) ordersEl.textContent = ordersToday;
-      if (topDishEl) topDishEl.textContent = topDish ? topDish.name : '—';
-      if (revenueEl) revenueEl.textContent = `${currency} ${estimatedRevenue.toLocaleString('es-UY')}`;
-      if (visitsEl) visitsEl.textContent = visitsToday;
-    }
-
-    /**
-     * Fetches and renders the restaurant's reviews with management options.
-     */
-    async function renderReviewsTab() {
-      const container = document.getElementById('reviewsManagementList');
-      const avgEl = document.getElementById('reviewsAverageStars');
-      const countEl = document.getElementById('reviewsTotalCount');
-      if (!container) return;
-
-      container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-dim);">Cargando reseñas...</div>';
-
-      try {
-        const token = localStorage.getItem('menu_pizarron_token');
-        const res = await fetch('/api/admin/reviews', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-
-        if (!res.ok) {
-          container.innerHTML = `<div style="color:#f87171; padding:12px;">Error: ${data.error || 'No se pudieron cargar las reseñas'}</div>`;
-          return;
-        }
-
-        const reviews = data.data || data.reviews || [];
-
-        if (!reviews.length) {
-          container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-dim);">Aún no hay reseñas de clientes.</div>';
-          if (avgEl) avgEl.textContent = '—';
-          if (countEl) countEl.textContent = '0';
-          return;
-        }
-
-        // Calculate average
-        const avgRating = reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / reviews.length;
-        if (avgEl) avgEl.textContent = `${avgRating.toFixed(1)} ⭐`;
-        if (countEl) countEl.textContent = String(reviews.length);
-
-        // Render review cards
-        let html = '';
-        reviews.forEach(review => {
-          const stars = '⭐'.repeat(Math.max(1, Math.min(5, review.rating || 5)));
-          const date = review.created_at ? new Date(review.created_at).toLocaleDateString('es-UY') : '';
-          const isAddressed = review.status === 'addressed';
-
-          html += `
-            <div class="review-card" data-review-id="${escapeHtml(review.id)}" style="background:var(--bg-base); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:12px;">
-              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-                <div>
-                  <span style="font-size:1.1rem;">${stars}</span>
-                  <span style="font-size:0.75rem; color:var(--text-dim); margin-left:8px;">${date}</span>
-                </div>
-                <span style="font-size:0.65rem; padding:2px 8px; border-radius:10px; font-weight:700; text-transform:uppercase; ${isAddressed ? 'background:rgba(74,222,128,0.15); color:#4ade80;' : 'background:rgba(251,191,36,0.15); color:#fbbf24;'}">
-                  ${isAddressed ? '✓ Atendida' : 'Pendiente'}
-                </span>
-              </div>
-              <p style="font-size:0.85rem; color:#fff; margin-bottom:12px; line-height:1.5;">${escapeHtml(review.comment || '')}</p>
-              ${!isAddressed ? `
-                <button onclick('markReviewAddressed("${escapeHtml(review.id)}")') style="padding:4px 12px; border-radius:6px; font-size:0.72rem; font-weight:600; cursor:pointer; border:1px solid var(--accent-gold); background:transparent; color:var(--accent-gold);">
-                  ✓ Marcar como atendida
-                </button>
-              ` : ''}
-            </div>
-          `;
-        });
-
-        container.innerHTML = html;
-      } catch (err) {
-        container.innerHTML = `<div style="color:#f87171; padding:12px;">Error de conexión: ${err.message}</div>`;
-      }
-    }
-
-    /**
-     * Marks a review as addressed via the API.
-     */
-    async function markReviewAddressed(reviewId) {
-      try {
-        const token = localStorage.getItem('menu_pizarron_token');
-        const res = await fetch(`/api/admin/reviews/${reviewId}/address`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ status: 'addressed' })
-        });
-
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || 'No se pudo actualizar la reseña');
-        }
-
-        // Re-render the reviews tab
-        renderReviewsTab();
-      } catch (err) {
-        alert(err.message || 'Error al marcar la reseña');
-      }
-    }
-
-    // Review Photo Option Selector (Logo, Local/Plato, Personal)
-    function setReviewPhotoOption(opt) {
-      selectedReviewPhotoOption = opt;
-      const statusText = document.getElementById('reviewPhotoStatusText');
-      const btnUpload = document.getElementById('btnSelectReviewPhoto');
-      const thumb = document.getElementById('reviewPhotoPreviewThumb');
-
-      if (opt === 'logo') {
-        if (btnUpload) btnUpload.style.display = 'none';
-        if (restaurant && restaurant.logoUrl) {
-          if (statusText) statusText.textContent = 'Usando el logo oficial de tu restaurante.';
-          if (thumb) thumb.innerHTML = `<img src="${restaurant.logoUrl}" style="width:100%;height:100%;object-fit:cover;">`;
-        } else {
-          if (statusText) statusText.textContent = 'Logo no configurado aún (se usará ícono de local).';
-          if (thumb) thumb.innerHTML = `<span style="font-size:22px;">🍽️</span>`;
-        }
-      } else if (opt === 'venue') {
-        if (btnUpload) btnUpload.style.display = 'inline-block';
-        if (uploadedReviewPhotoUrl) {
-          if (statusText) statusText.textContent = '✓ Foto del local o plato seleccionada.';
-          if (thumb) thumb.innerHTML = `<img src="${uploadedReviewPhotoUrl}" style="width:100%;height:100%;object-fit:cover;">`;
-        } else {
-          if (statusText) statusText.textContent = 'Carga una fotografía del salón, barra o plato insignia.';
-          if (thumb) thumb.innerHTML = `<span style="font-size:22px;">🏬</span>`;
-        }
-      } else if (opt === 'personal') {
-        if (btnUpload) btnUpload.style.display = 'inline-block';
-        if (uploadedReviewPhotoUrl) {
-          if (statusText) statusText.textContent = '✓ Retrato personal seleccionado.';
-          if (thumb) thumb.innerHTML = `<img src="${uploadedReviewPhotoUrl}" style="width:100%;height:100%;object-fit:cover;">`;
-        } else {
-          if (statusText) statusText.textContent = 'Carga tu retrato personal o del equipo gastronómico.';
-          if (thumb) thumb.innerHTML = `<span style="font-size:22px;">👤</span>`;
-        }
-      }
-    }
-
-    function handleReviewPhotoFile(e) {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
-      if (file.size > 3 * 1024 * 1024) {
-        alert('La fotografía no debe superar los 3MB.');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        uploadedReviewPhotoUrl = event.target.result;
-        const thumb = document.getElementById('reviewPhotoPreviewThumb');
-        if (thumb) thumb.innerHTML = `<img src="${uploadedReviewPhotoUrl}" style="width:100%;height:100%;object-fit:cover;">`;
-        const statusText = document.getElementById('reviewPhotoStatusText');
-        if (statusText) statusText.textContent = '✓ Foto cargada exitosamente desde tu dispositivo.';
-      };
-      reader.readAsDataURL(file);
-    }
-
-    // 30-Day Milestone Modal Handlers
-    function check30DaysMilestone() {
-      // Auto-trigger milestone invite if not dismissed permanently
-      if (!sessionStorage.getItem('scango_30d_milestone_shown') && localStorage.getItem('scango_milestone_30d_dismissed') !== 'true') {
-        setTimeout(openMilestone30DaysModal, 1500);
-        sessionStorage.setItem('scango_30d_milestone_shown', 'true');
-      }
-    }
-
-    function openMilestone30DaysModal() {
-      const modal = document.getElementById('milestone30DaysModal');
-      if (modal) modal.classList.add('active');
-    }
-
-    function closeMilestone30DaysModal() {
-      const modal = document.getElementById('milestone30DaysModal');
-      if (modal) modal.classList.remove('active');
-      localStorage.setItem('scango_milestone_30d_dismissed', 'true');
-    }
-
-    function openReviewFromMilestone() {
-      closeMilestone30DaysModal();
-      switchTab('reviews');
-      const comment = document.getElementById('reviewComment');
-      if (comment) {
-        setTimeout(() => comment.focus(), 300);
-      }
-    }
-
-    async function submitOwnerReview(e) {
-      e.preventDefault();
-      const submitBtn = e.target.querySelector('button[type="submit"]');
-      const originalText = submitBtn ? submitBtn.innerHTML : '';
-      if (submitBtn) {
-        if (submitBtn.disabled || submitBtn.dataset.busy === 'true') return;
-        submitBtn.disabled = true;
-        submitBtn.dataset.busy = 'true';
-        submitBtn.innerHTML = '<span>⏳ Enviando reseña...</span>';
-      }
-
-      try {
-        const rating = document.getElementById('reviewRating').value;
-        const authorRole = document.getElementById('reviewAuthorRole').value.trim();
-        const comment = document.getElementById('reviewComment').value.trim();
-        const token = localStorage.getItem('menu_pizarron_token');
-
-        let finalPhotoUrl = null;
-        if (selectedReviewPhotoOption === 'logo') {
-          finalPhotoUrl = restaurant?.logoUrl || null;
-        } else {
-          finalPhotoUrl = uploadedReviewPhotoUrl || null;
-        }
-
-        const reviewObj = {
-          id: 'rev_' + Date.now(),
-          restaurantId: restaurant?.id || '',
-          restaurantName: restaurant?.name || 'Restaurante',
-          userId: currentUser?.id || '',
-          email: currentUser?.email || '',
-          rating: parseInt(rating) || 5,
-          authorRole: authorRole || 'Dueño / Responsable',
-          comment: comment.slice(0, 500),
-          photoOption: selectedReviewPhotoOption,
-          photoUrl: finalPhotoUrl,
-          status: 'pending',
-          createdAt: new Date().toISOString()
-        };
-
-        try {
-          if (token) {
-            await fetch('/api/reviews', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify(reviewObj)
-            });
-          }
-        } catch (err) {
-          console.warn('Reseña encolada para moderación en localStorage:', err.message);
-        }
-
-        document.getElementById('reviewSubmittedAlert').style.display = 'block';
-        document.getElementById('reviewComment').value = '';
-      } finally {
-        if (submitBtn) {
-          setTimeout(() => {
-            submitBtn.disabled = false;
-            submitBtn.dataset.busy = 'false';
-            submitBtn.innerHTML = originalText;
-          }, 1500);
-        }
-      }
-    }
-
-    // 1-Click WhatsApp Order Status Notifications
-    function sendOrderStateWA(state) {
-      const phone = (document.getElementById('notifPhone').value || '').replace(/[^0-9]/g, '');
-      const client = document.getElementById('notifClientName').value.trim() || 'Estimado/a cliente';
-      const restName = restaurant.name || 'Menú Pizarrón';
-
-      if (!phone) {
-        alert('Por favor ingresa el número de WhatsApp del cliente.');
-        return;
-      }
-
-      let msg = '';
-      if (state === 'confirmado') {
-        msg = `¡Hola ${client}! 👋👨‍🍳\n\nTe confirmamos que recibimos tu pedido en *${restName}* y ya está marchando en la cocina. Te avisamos en cuanto esté listo. ¡Muchas gracias!`;
-      } else if (state === 'listo') {
-        msg = `¡Hola ${client}! 🛍️🎉\n\n¡Tu pedido en *${restName}* ya está listo y empaquetado esperándote en el mostrador! Podés pasar a retirarlo cuando gustes.`;
-      } else if (state === 'camino') {
-        msg = `¡Hola ${client}! 🛵💨\n\n¡Tu pedido en *${restName}* ya salió con nuestro repartidor rumbo a tu dirección! Por favor tené listo el método de pago acordado.`;
-      } else if (state === 'demorado') {
-        msg = `Estimado/a ${client} ⏳🙏\n\nQueremos avisarte que la cocina de *${restName}* tiene una demora imprevista debido a la alta demanda de hoy. Tu pedido está en marcha y saldrá en breve con la máxima calidad. ¡Disculpas y muchas gracias por tu paciencia!`;
-      }
-
-      const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-      window.open(waUrl, '_blank');
-    }
-
-    // ===== BRANCHES MANAGEMENT & TIERED PRICING =====
-
-    /**
-     * Discount per branch position (matches backend getBranchDiscount)
-     * 1st (main): 0%  | 2nd: 20% | 3rd: 35% | 4th+: 50% (floor)
-     */
-    function getBranchDiscount(position) {
-      const pos = Math.floor(Number(position) || 1);
-      if (pos <= 1) return 0;
-      if (pos === 2) return 0.20;
-      if (pos === 3) return 0.35;
-      return 0.50;
-    }
-
-    /**
-     * Calculate total price for N branches (matches backend calculateMultiBranchPrice)
-     */
-    function calculateMultiBranchPrice(basePrice, branchCount) {
-      const base = Number(basePrice);
-      if (!Number.isFinite(base) || base <= 0) return 0;
-      const count = Math.max(1, Math.floor(Number(branchCount) || 1));
-      let total = 0;
-      for (let i = 1; i <= count; i++) {
-        total += Math.round((base * (1 - getBranchDiscount(i)) + Number.EPSILON) * 100) / 100;
-      }
-      return Math.round((total + Number.EPSILON) * 100) / 100;
-    }
-
-    /**
-     * Get valid branches array (filter out entries without id)
-     */
-    function getValidBranches() {
-      if (!restaurant || !Array.isArray(restaurant.branches)) return [];
-      return restaurant.branches.filter(b => b && b.id);
-    }
-
-    /**
-     * Render branches list with delete actions
-     */
-    function renderBranchesList() {
-      const container = document.getElementById('branchesList');
-      if (!container) return;
-
-      const branches = getValidBranches();
-      const sub = currentUser ? currentUser.subscription : {};
-      const planId = (sub.plan && PLANS[sub.plan]) ? sub.plan : 'pro_monthly';
-      const plan = PLANS[planId] || PLANS.pro_monthly;
-      const basePrice = plan.priceUsd;
-
-      if (branches.length === 0) {
-        container.innerHTML = `
-          <div style="text-align:center; padding:24px 16px; background:var(--bg-base); border:1px dashed var(--border); border-radius:10px;">
-            <div style="font-size:28px; margin-bottom:8px;">🏢</div>
-            <div style="font-size:13px; font-weight:700; color:#fff; margin-bottom:4px;">No hay sucursales registradas</div>
-            <div style="font-size:11px; color:var(--text-dim); max-width:320px; margin:0 auto 16px;">
-              Tu restaurante principal cuenta como la primera sucursal. Agregá sedes adicionales para expandir tu marca y obtener descuentos por volumen.
-            </div>
-          </div>
-        `;
-        updateBranchesPricingBanner(1, basePrice);
-        return;
-      }
-
-      let html = `
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; padding:8px 10px; background:var(--bg-base); border-radius:8px; border:1px solid var(--border);">
-          <div style="font-size:11px; font-weight:700; color:var(--text-muted); display:flex; gap:24px;">
-            <span style="min-width:120px;">SUCURSAL</span>
-            <span style="min-width:100px;">TELÉFONO</span>
-            <span style="min-width:100px;">DIRECCIÓN</span>
-            <span style="min-width:80px;">PRECIO EFECTIVO</span>
-            <span>ACCIONES</span>
-          </div>
-        </div>
-      `;
-
-      branches.forEach((branch, idx) => {
-        const position = idx + 1;
-        const discount = getBranchDiscount(position);
-        const effectivePrice = Math.round((basePrice * (1 - discount) + Number.EPSILON) * 100) / 100;
-        const discountLabel = discount > 0 ? `<span style="color:var(--accent-green); font-size:10px; margin-left:4px;">(${Math.round(discount * 100)}% desc.)</span>` : '';
-
-        const name = escapeHtml(branch.name || `Sucursal ${position}`);
-        const phone = escapeHtml(branch.phone || '—');
-        const address = escapeHtml(branch.address || '—');
-        const slug = escapeHtml(branch.slug || `suc-${position}`);
-        const branchId = escapeHtml(branch.id);
-
-        html += `
-          <div class="branch-card" data-branch-id="${branchId}" style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; margin-bottom:8px; flex-wrap:wrap;">
-            <div style="min-width:120px; flex:1; font-size:12px; font-weight:700; color:#fff;">${name} <span style="font-size:10px; color:var(--text-dim); font-weight:500;">${position === 1 ? ' (Principal)' : ''}</span></div>
-            <div style="min-width:100px; flex:1; font-size:11px; color:var(--text-muted);">${phone}</div>
-            <div style="min-width:100px; flex:1; font-size:10px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${address}</div>
-            <div style="min-width:80px; font-size:11px; font-weight:700; font-family:var(--font-mono); color:var(--accent-gold);">$${effectivePrice.toFixed(2)} ${discountLabel}</div>
-            <div style="display:flex; gap:6px; flex-shrink:0;">
-              ${position > 1 ? `
-                <button class="btn-icon btn-icon-danger" onclick="deleteBranch('${branchId}')" title="Eliminar sucursal" style="padding:6px 8px;">🗑️</button>
-              ` : `
-                <span style="font-size:10px; color:var(--text-dim); padding:6px 8px;">🔒 Principal</span>
-              `}
-            </div>
-          </div>
-        `;
-      });
-
-      container.innerHTML = html;
-
-      // Update pricing banner with total
-      updateBranchesPricingBanner(branches.length, basePrice);
-    }
-
-    /**
-     * Update the pricing summary banner with totals
-     */
-    function updateBranchesPricingBanner(branchCount, basePrice) {
-      const banner = document.getElementById('branchesPricingBanner');
-      const summary = document.getElementById('branchesPricingSummary');
-      const totalEl = document.getElementById('branchesTotalPrice');
-      const savingsEl = document.getElementById('branchesTotalSavings');
-      if (!banner || !summary || !totalEl || !savingsEl) return;
-
-      banner.style.display = 'flex';
-
-      const totalPrice = calculateMultiBranchPrice(basePrice, branchCount);
-      const fullPrice = basePrice * branchCount;
-      const totalSavings = Math.round((fullPrice - totalPrice + Number.EPSILON) * 100) / 100;
-      const savingsPct = fullPrice > 0 ? Math.round((totalSavings / fullPrice) * 100) : 0;
-
-      // Build breakdown
-      let breakdownHtml = '';
-      for (let i = 1; i <= branchCount; i++) {
-        const discount = getBranchDiscount(i);
-        const price = Math.round((basePrice * (1 - discount) + Number.EPSILON) * 100) / 100;
-        const label = i === 1 ? 'Principal' : `Suc. ${i}`;
-        breakdownHtml += `<span style="display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.06); padding:4px 10px; border-radius:6px; font-size:11px;">${label}: <strong>$${price.toFixed(2)}</strong>${discount > 0 ? ` <span style="color:var(--accent-green);">-${Math.round(discount * 100)}%</span>` : ''}</span>`;
-      }
-      summary.innerHTML = breakdownHtml;
-
-      totalEl.textContent = `$${totalPrice.toFixed(2)} USD`;
-      savingsEl.textContent = `Ahorro: $${totalSavings.toFixed(2)} USD (${savingsPct}%)`;
-    }
-
-    /**
-     * Add new branch via PATCH /api/studio/branches
-     */
-    async function addBranch(e) {
-      e.preventDefault();
-      const name = document.getElementById('branchName').value.trim();
-      const phone = document.getElementById('branchPhone').value.trim();
-      const address = document.getElementById('branchAddress').value.trim();
-      let slug = document.getElementById('branchSlug').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30);
-
-      if (!name) {
-        alert('El nombre de la sucursal es obligatorio.');
-        return;
-      }
-
-      const token = localStorage.getItem('menu_pizarron_token');
-      if (!token) {
-        alert('Sesión expirada. Por favor recargá la página.');
-        return;
-      }
-
-      // Optimistic UI: add locally first, then sync
-      if (!restaurant.branches) restaurant.branches = [];
-      const branches = getValidBranches();
-
-      // Check for duplicate name
-      if (branches.some(b => b.name.toLowerCase() === name.toLowerCase())) {
-        alert('Ya existe una sucursal con ese nombre.');
-        return;
-      }
-
-      // Generate slug if empty (backend will also ensure uniqueness)
-      if (!slug) {
-        slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30);
-      }
-
-      const submitBtn = e.target.querySelector('button[type="submit"]');
-      const originalText = submitBtn ? submitBtn.innerHTML : '';
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span>⏳ Agregando...</span>';
-      }
-
-      const idempotencyKey = `branch_add_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      try {
-        const res = await fetch('/api/studio/branches', {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'X-Idempotency-Key': idempotencyKey
-          },
-          body: JSON.stringify({
-            operation: 'add',
-            branch: {
-              name,
-              slug,
-              phone,
-              address
-            }
-          })
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Error al agregar sucursal');
-
-        // Update local state with server response (includes generated id, unique slug, etc.)
-        const newBranch = data.branch;
-        restaurant.branches.push(newBranch);
-
-        resetBranchForm();
-        renderBranchesList();
-        triggerAutoSave();
-
-      } catch (err) {
-        alert(err.message || 'Error al agregar sucursal');
-      } finally {
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = originalText || '➕ Agregar Sucursal';
-        }
-      }
-    }
-
-    /**
-     * Delete branch via PATCH /api/studio/branches
-     */
-    async function deleteBranch(branchId) {
-      const branches = getValidBranches();
-      const branch = branches.find(b => b.id === branchId);
-      if (!branch) return;
-
-      if (branches.indexOf(branch) === 0) {
-        alert('No se puede eliminar la sucursal principal.');
-        return;
-      }
-
-      showConfirmDialog({
-        icon: '🗑️',
-        title: '¿Eliminar Sucursal?',
-        message: `¿Estás seguro de eliminar "${branch.name}"? Esto actualizará el precio de tu plan.`,
-        confirmText: 'Sí, Eliminar',
-        confirmClass: 'btn-danger',
-        onConfirm: async () => {
-          const token = localStorage.getItem('menu_pizarron_token');
-          if (!token) {
-            alert('Sesión expirada. Por favor recargá la página.');
-            return;
-          }
-
-          const idempotencyKey = `branch_del_${branchId}_${Date.now()}`;
-          try {
-            const res = await fetch('/api/studio/branches', {
-              method: 'PATCH',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-                'X-Idempotency-Key': idempotencyKey
-              },
-              body: JSON.stringify({
-                operation: 'delete',
-                branchId
-              })
-            });
-
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Error al eliminar sucursal');
-
-            // Update local state
-            restaurant.branches = restaurant.branches.filter(b => b.id !== branchId);
-            renderBranchesList();
-            triggerAutoSave();
-
-          } catch (err) {
-            alert(err.message || 'Error al eliminar sucursal');
-          }
-        }
-      });
-    }
-
-    /**
-     * Reset add branch form
-     */
-    function resetBranchForm() {
-      const form = document.getElementById('addBranchForm');
-      if (form) form.reset();
-    }
-
-    // ==================== ANALYTICS DASHBOARD ====================
-    let dailyChartInstance = null;
-    let heatmapChartInstance = null;
-
-    /**
-     * Load all analytics data for the dashboard
-     */
-    async function loadAnalytics() {
-      const token = localStorage.getItem('menu_pizarron_token');
-      if (!token || !restaurant) return;
-
-      const days = parseInt(document.getElementById('analyticsTimeRange')?.value) || 30;
-      const branchId = document.getElementById('analyticsBranchFilter')?.value || undefined;
-      const eventId = document.getElementById('analyticsEventFilter')?.value || undefined;
-
-      try {
-        // Fetch all analytics in parallel
-        const [weekly, daily, heatmap, branches, events] = await Promise.all([
-          fetchAnalytics(`/api/analytics/weekly/${restaurant.id}`),
-          fetchAnalytics(`/api/analytics/daily/${restaurant.id}?days=${days}${branchId ? '&branchId=' + branchId : ''}${eventId ? '&eventId=' + eventId : ''}`),
-          fetchAnalytics(`/api/analytics/heatmap/${restaurant.id}?days=7${branchId ? '&branchId=' + branchId : ''}${eventId ? '&eventId=' + eventId : ''}`),
-          fetchAnalytics(`/api/analytics/branches/${restaurant.id}?days=${days}`),
-          fetchAnalytics(`/api/analytics/events/${restaurant.id}`)
-        ]);
-
-        // Update KPIs from weekly
-        if (weekly?.metrics) {
-          updateKPIs(weekly.metrics);
-        }
-
-        // Update branch filter dropdown
-        updateBranchFilter(branches);
-
-        // Update event filter dropdown
-        updateEventFilter(events);
-
-        // Render charts
-        renderDailyChart(daily);
-        renderHeatmap(heatmap);
-        renderBranchMetrics(branches);
-        renderEventMetrics(events);
-
-      } catch (err) {
-        console.warn('[Analytics] Error loading data:', err.message);
-      }
-    }
-
-    async function fetchAnalytics(url) {
-      const token = localStorage.getItem('menu_pizarron_token');
-      try {
-        const res = await fetch(url, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-        return res.ok ? data.data : null;
-      } catch (e) {
-        return null;
-      }
-    }
-
-    function updateKPIs(metrics) {
-      const els = {
-        visits: document.getElementById('kpiVisits'),
-        dishClicks: document.getElementById('kpiDishClicks'),
-        orders: document.getElementById('kpiOrders'),
-        conversion: document.getElementById('kpiConversion'),
-        waiter: document.getElementById('kpiWaiter')
-      };
-      if (els.visits) els.visits.textContent = metrics.qrScans || 0;
-      if (els.dishClicks) els.dishClicks.textContent = metrics.dishClicks || 0;
-      if (els.orders) els.orders.textContent = metrics.ordersPlaced || 0;
-      if (els.conversion) els.conversion.textContent = (metrics.conversionRatePercent || 0).toFixed(1);
-      if (els.waiter) els.waiter.textContent = metrics.waiterCalls || 0;
-    }
-
-    function updateBranchFilter(branches) {
-      const select = document.getElementById('analyticsBranchFilter');
-      if (!select) return;
-      const current = select.value;
-      const existingBranches = getValidBranches();
-      
-      // Add main branch + actual branches
-      let options = '<option value="">Todas las sucursales</option>';
-      options += '<option value="main">🏠 Principal</option>';
-      existingBranches.forEach(b => {
-        options += `<option value="${b.id}">${b.name}</option>`;
-      });
-      select.innerHTML = options;
-      select.value = current;
-    }
-
-    function updateEventFilter(events) {
-      const select = document.getElementById('analyticsEventFilter');
-      if (!select) return;
-      const current = select.value;
-      let options = '<option value="">Todos los eventos</option>';
-      if (events && events.length) {
-        events.forEach(e => {
-          options += `<option value="${e.eventId}">${e.eventId}</option>`;
-        });
-      }
-      select.innerHTML = options;
-      select.value = current;
-    }
-
-    function renderDailyChart(dailyData) {
-      const ctx = document.getElementById('dailyChart')?.getContext('2d');
-      if (!ctx) return;
-
-      if (dailyChartInstance) dailyChartInstance.destroy();
-
-      const labels = dailyData?.map(d => {
-        const date = new Date(d.date);
-        return date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
-      }) || [];
-      const visits = dailyData?.map(d => d.visits) || [];
-      const clicks = dailyData?.map(d => d.dishClicks) || [];
-      const orders = dailyData?.map(d => d.orders) || [];
-
-      dailyChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [
-            {
-              label: 'Visitas (QR)',
-              data: visits,
-              borderColor: '#ECC94B',
-              backgroundColor: 'rgba(236, 201, 75, 0.1)',
-              tension: 0.3,
-              fill: true,
-              pointRadius: 3
-            },
-            {
-              label: 'Clics en Platos',
-              data: clicks,
-              borderColor: '#60a5fa',
-              backgroundColor: 'rgba(96, 165, 250, 0.1)',
-              tension: 0.3,
-              fill: true,
-              pointRadius: 3
-            },
-            {
-              label: 'Pedidos',
-              data: orders,
-              borderColor: '#4ade80',
-              backgroundColor: 'rgba(74, 222, 128, 0.1)',
-              tension: 0.3,
-              fill: true,
-              pointRadius: 3
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: true, labels: { color: '#fff', font: { size: 10 } } },
-            tooltip: { mode: 'index', intersect: false }
-          },
-          scales: {
-            x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888', font: { size: 9 } } },
-            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888', font: { size: 9 } } }
-          }
-        }
-      });
-    }
-
-    function renderHeatmap(heatmapData) {
-      const container = document.getElementById('hourlyHeatmap');
-      if (!container) return;
-
-      if (!heatmapData || !heatmapData.length) {
-        container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-dim);">No hay datos de heatmap disponibles</div>';
-        return;
-      }
-
-      // Find max for color scaling
-      const maxVal = Math.max(...heatmapData.map(h => h.total));
-      
-      let html = '<div style="display:grid; grid-template-columns: 60px repeat(7, 1fr); gap:2px; font-size:10px;">';
-      // Header row
-      html += '<div style="padding:4px; text-align:center; font-weight:700; color:var(--text-dim);">Hora</div>';
-      ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].forEach(d => {
-        html += `<div style="padding:4px; text-align:center; font-weight:700; color:var(--text-dim);">${d}</div>`;
-      });
-      
-      heatmapData.forEach(h => {
-        html += `<div style="padding:4px; text-align:right; color:var(--text-dim); font-family:var(--font-mono);">${h.label}</div>`;
-        h.days.forEach((val, dIdx) => {
-          const intensity = maxVal > 0 ? Math.min(1, val / maxVal) : 0;
-          const hue = 120 - intensity * 120; // Green to Red
-          const opacity = 0.3 + intensity * 0.7;
-          html += `<div style="height:28px; background:hsl(${hue}, 70%, ${40 + intensity * 30}%); opacity:${opacity}; border-radius:4px; display:flex; align-items:center; justify-content:center; color:${intensity > 0.5 ? '#000' : '#fff'}; font-weight:700; font-size:9px;">${val || ''}</div>`;
-        });
-      });
-      html += '</div>';
-      container.innerHTML = html;
-    }
-
-    function renderBranchMetrics(branches) {
-      const tbody = document.getElementById('branchMetricsBody');
-      if (!tbody) return;
-
-      if (!branches || !branches.length) {
-        tbody.innerHTML = '<tr><td colspan="6" style="padding:20px; text-align:center; color:var(--text-dim);">No hay datos de sucursales</td></tr>';
-        return;
-      }
-
-      let html = '';
-      branches.forEach(b => {
-        const topDishesStr = b.topDishes?.map(d => `${d.dishId} (${d.clicks})`).join(', ') || '—';
-        html += `
-          <tr style="border-bottom:1px solid var(--border);">
-            <td style="padding:8px; font-weight:700; color:#fff;">${b.branchId === 'main' ? '🏠 Principal' : b.branchId}</td>
-            <td style="padding:8px; text-align:center; color:var(--accent-gold);">${b.visits}</td>
-            <td style="padding:8px; text-align:center; color:#60a5fa;">${b.dishClicks}</td>
-            <td style="padding:8px; text-align:center; color:#4ade80;">${b.orders}</td>
-            <td style="padding:8px; text-align:center; color:#f87171;">${b.waiterCalls}</td>
-            <td style="padding:8px; color:var(--text-dim); font-size:9px;">${topDishesStr}</td>
-          </tr>
-        `;
-      });
-      tbody.innerHTML = html;
-    }
-
-    function renderEventMetrics(events) {
-      const section = document.getElementById('eventsMetricsSection');
-      const tbody = document.getElementById('eventsMetricsBody');
-      if (!section || !tbody) return;
-
-      if (!events || !events.length) {
-        section.style.display = 'none';
-        return;
-      }
-
-      section.style.display = 'block';
-      let html = '';
-      events.forEach(e => {
-        html += `
-          <tr style="border-bottom:1px solid var(--border);">
-            <td style="padding:8px; font-weight:700; color:#fff;">${e.eventId}</td>
-            <td style="padding:8px; text-align:center; color:var(--accent-gold);">${e.scans}</td>
-            <td style="padding:8px; text-align:center; color:#60a5fa;">${e.clicks}</td>
-            <td style="padding:8px; text-align:center; color:#4ade80;">${e.orders}</td>
-            <td style="padding:8px; text-align:center; color:#fbbf24;">${e.uniqueVisitors}</td>
-          </tr>
-        `;
-      });
-      tbody.innerHTML = html;
-    }
-
-    // Agotado Inteligente por Ingrediente en masa
-    function toggleDishesByIngredient(isOut) {
-      const keyword = (document.getElementById('inputIngredientKeyword').value || '').trim().toLowerCase();
-      if (!keyword) {
-        alert('Por favor escribe un ingrediente o término (ej: Salmón, Aguacate, Champiñones).');
-        return;
-      }
-
-      let count = 0;
-      (restaurant.dishes || []).forEach(d => {
-        const inName = (d.name || '').toLowerCase().includes(keyword);
-        const inDesc = (d.description || '').toLowerCase().includes(keyword);
-        if (inName || inDesc) {
-          d.outOfStock = isOut;
-          count++;
-        }
-      });
-
-      renderDishesList();
-      triggerAutoSave();
-      alert(`Se ${isOut ? 'marcaron como agotados' : 'reactivaron'} ${count} platos asociados a "${keyword}".`);
-    }
-
-    // Dishes Management
-    function populateCatFilter() {
-      const select = document.getElementById('selectCatFilter');
-      const cats = restaurant.categories || [];
-      select.innerHTML = '<option value="ALL">Todas las Categorías</option>';
-      cats.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = c.name;
-        select.appendChild(opt);
-      });
-    }
-
-    function renderDishesList() {
-      const container = document.getElementById('studioDishesList');
-      const filter = document.getElementById('selectCatFilter').value;
-      const dishes = restaurant.dishes || [];
-      const cats = restaurant.categories || [];
-      const currency = restaurant.currency || '$';
-
-      const filtered = dishes.filter(d => filter === 'ALL' || d.categoryId === filter);
-      if (!filtered.length) {
-        container.innerHTML = `
-          <div style="text-align:center; padding:32px 16px; background:var(--bg-base); border:1px dashed var(--border); border-radius:12px; margin:10px 0;">
-            <div style="font-size:32px; margin-bottom:8px;">🍽️</div>
-            <div style="font-size:13px; font-weight:700; color:#fff; margin-bottom:4px;">No hay platos en esta sección</div>
-            <div style="font-size:11px; color:var(--text-dim); max-width:280px; margin:0 auto 12px;">Comienza sumando platos recomendados desde nuestro catálogo o crea uno nuevo personalizado.</div>
-            <div style="display:flex; justify-content:center; gap:8px;">
-              <button class="btn-nav btn-nav-gold" style="font-size:11px; padding:5px 12px;" onclick="openPresetsModal()">✨ Agregar Platos Frecuentes</button>
-              <button class="btn-nav" style="font-size:11px; padding:5px 12px;" onclick="openNewDishModal()">+ Crear Plato</button>
-            </div>
-          </div>
-        `;
-        return;
-      }
-
-      const tagLabels = { star: '⭐', veggie: '🥬', vegan: '🌱', celiac: '🌾', sinlactosa: '🥛', picante: '🌶️' };
-      let html = '';
-      filtered.forEach((d, idx) => {
-        const cat = cats.find(c => c.id === d.categoryId);
-        const tags = (d.tags || []).filter(t => t !== 'star' && t !== 'chef_special').map(t => tagLabels[t] || '').join(' ');
-        const starBadge = (d.tags || []).includes('star') ? '<span style="color:var(--accent-gold); margin-right:4px;">⭐</span>' : '';
-        const chefBadge = (d.isChefSpecial || (d.tags || []).includes('chef_special')) ? '<span style="background:rgba(236,201,75,0.2); color:var(--accent-gold); font-size:9px; font-weight:800; padding:1px 6px; border-radius:4px; margin-right:4px; border:1px solid rgba(236,201,75,0.4);">👨‍🍳 CHEF</span>' : '';
-        const outBadge = d.outOfStock ? '<span style="background:#E53E3E; color:#fff; font-size:9px; font-weight:800; padding:1px 6px; border-radius:4px; margin-left:6px;">AGOTADO</span>' : '';
-        const opacity = d.outOfStock ? 'opacity:0.5;' : '';
-        const photoThumb = d.photoUrl 
-          ? `<img src="${d.photoUrl}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid var(--border); flex-shrink:0;">` 
-          : '';
-        const priceDisplay = (d.originalPrice && Number(d.originalPrice) > Number(d.price)) 
-          ? `<span style="text-decoration:line-through; opacity:0.6; margin-right:4px;">${currency} ${d.originalPrice}</span> ${currency} ${d.price}` 
-          : `${currency} ${d.price}`;
-
-        const cleanName = escapeHtml(d.name || 'Sin nombre');
-        const cleanCatName = escapeHtml(cat ? cat.name : 'Sin cat.');
-        const cleanDishId = escapeHtml(d.id || '');
-
-        html += `
-          <div class="dish-editor-card" style="${opacity} display:flex; align-items:center; gap:8px;">
-            ${photoThumb}
-            <div style="flex:1; min-width:0;">
-              <div style="font-size:12px; font-weight:700; color:#fff; display:flex; align-items:center; flex-wrap:wrap; gap:2px;">
-                ${chefBadge}${starBadge}${cleanName}${outBadge}
-              </div>
-              <div style="font-size:10px; color:var(--text-dim); display:flex; align-items:center; gap:4px; margin-top:2px;">
-                ${cleanCatName} • ${priceDisplay} ${tags}
-              </div>
-            </div>
-            <button class="btn-icon" onclick="editDish('${cleanDishId}')" title="Editar">✏️</button>
-            <button class="btn-icon btn-icon-danger" onclick="deleteDish('${cleanDishId}')" title="Eliminar">🗑️</button>
-          </div>
-        `;
-      });
-      container.innerHTML = html;
-    }
-
-    function deleteDish(dishId) {
-      const dish = (restaurant.dishes || []).find(d => d.id === dishId);
-      const dishName = dish ? dish.name : 'este plato';
-      showConfirmDialog({
-        icon: '🗑️',
-        title: '¿Eliminar Plato de la Carta?',
-        message: `¿Estás seguro de que deseas eliminar "${dishName}"? Esta acción se guardará automáticamente en tu carta digital.`,
-        confirmText: 'Sí, Eliminar',
-        confirmClass: 'btn-danger',
-        onConfirm: () => {
-          restaurant.dishes = (restaurant.dishes || []).filter(d => d.id !== dishId);
-          renderDishesList();
-          triggerAutoSave();
-        }
-      });
-    }
-
-    async function handleDishPhotoUpload(input) {
-      if (!input.files || !input.files[0]) return;
-      const file = input.files[0];
-      const fileNameSpan = document.getElementById('dishPhotoFileName');
-      const clearBtn = document.getElementById('btnClearDishPhoto');
-      const previewContainer = document.getElementById('dishPhotoPreviewContainer');
-      const previewImg = document.getElementById('dishPhotoPreview');
-      const urlInput = document.getElementById('modalDishPhoto');
-      
-      if (fileNameSpan) fileNameSpan.textContent = file.name;
-      if (clearBtn) clearBtn.style.display = 'inline';
-
-      try {
-        const compressed = await compressImageFile(file);
-        const dataUrl = compressed.dataUrl;
-        if (urlInput) urlInput.value = dataUrl;
-        if (previewImg) previewImg.src = dataUrl;
-        if (previewContainer) previewContainer.style.display = 'block';
-
-        // Upload to server storage endpoint for permanent image hosting
-        if (fileNameSpan) fileNameSpan.textContent = `Subiendo ${file.name}...`;
-        const res = await fetch('/api/storage/upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fileData: dataUrl,
-            fileName: `${file.name.replace(/\.[^.]+$/, '')}.webp`,
-            folder: 'dishes',
-            bucket: 'photos'
-          })
-        });
-        const result = await res.json().catch(() => ({}));
-        if (res.ok && result.data?.url) {
-          if (urlInput) urlInput.value = result.data.url;
-          if (previewImg) previewImg.src = result.data.url;
-          if (fileNameSpan) fileNameSpan.textContent = `✓ ${file.name} · ${Math.ceil(compressed.blob.size / 1024)} KB`;
-        } else if (fileNameSpan) {
-          fileNameSpan.textContent = `${file.name} · ${Math.ceil(compressed.blob.size / 1024)} KB (local)`;
-        }
-      } catch (err) {
-        console.warn('[Dish photo upload warning]', err);
-        if (fileNameSpan) fileNameSpan.textContent = `${file.name} (no se pudo comprimir/subir)`;
-      }
-    }
-
-    function clearDishPhoto() {
-      const urlInput = document.getElementById('modalDishPhoto');
-      const fileInput = document.getElementById('modalDishPhotoFile');
-      const fileNameSpan = document.getElementById('dishPhotoFileName');
-      const clearBtn = document.getElementById('btnClearDishPhoto');
-      const previewContainer = document.getElementById('dishPhotoPreviewContainer');
-      
-      if (urlInput) urlInput.value = '';
-      if (fileInput) fileInput.value = '';
-      if (fileNameSpan) fileNameSpan.textContent = '';
-      if (clearBtn) clearBtn.style.display = 'none';
-      if (previewContainer) previewContainer.style.display = 'none';
-    }
-
-    function toggleDishScheduleControls() {
-      const enabled = document.getElementById('modalDishScheduleEnabled')?.checked;
-      const controls = document.getElementById('dishScheduleControls');
-      if (controls) {
-        controls.style.display = enabled ? 'flex' : 'none';
-      }
-    }
-
-    function editDish(dishId) {
-      const dish = (restaurant.dishes || []).find(d => d.id === dishId);
-      if (!dish) return;
-      document.getElementById('dishModalTitle').textContent = 'Editar Plato';
-      document.getElementById('modalDishId').value = dish.id;
-      document.getElementById('modalDishName').value = dish.name || '';
-      document.getElementById('modalDishPrice').value = dish.price || 0;
-      document.getElementById('modalDishOriginalPrice').value = (dish.originalPrice !== null && dish.originalPrice !== undefined) ? dish.originalPrice : '';
-      document.getElementById('modalDishDesc').value = dish.description || '';
-      const existingPhoto = dish.photoUrl || dish.imageUrl || dish.image || dish.photo || '';
-      document.getElementById('modalDishPhoto').value = existingPhoto;
-      document.getElementById('modalDishOutOfStock').checked = !!dish.outOfStock;
-      document.getElementById('modalDishStar').checked = (dish.tags || []).includes('star');
-      document.getElementById('modalDishChefSpecial').checked = !!dish.isChefSpecial || (dish.tags || []).includes('chef_special');
-      document.getElementById('tagVeggie').checked = (dish.tags || []).includes('veggie');
-      document.getElementById('tagVegan').checked = (dish.tags || []).includes('vegan');
-      document.getElementById('tagCeliac').checked = (dish.tags || []).includes('celiac');
-      document.getElementById('tagSinLactosa').checked = (dish.tags || []).includes('sinlactosa');
-      document.getElementById('tagPicante').checked = (dish.tags || []).includes('picante');
-      document.querySelectorAll('.dish-weather-tag').forEach(input => {
-        input.checked = (dish.weatherTags || []).includes(input.value);
-      });
-      renderDishModifierAssignments(ensureDishModifierGroups(dish));
-
-      // Smart Scheduling
-      const sched = dish.schedule;
-      const schedEnabled = !!(sched && sched.enabled);
-      document.getElementById('modalDishScheduleEnabled').checked = schedEnabled;
-      toggleDishScheduleControls();
-      const schedDays = (sched && Array.isArray(sched.days)) ? sched.days : [0, 1, 2, 3, 4, 5, 6];
-      document.querySelectorAll('.dish-sched-day').forEach(cb => {
-        cb.checked = schedDays.includes(parseInt(cb.value, 10));
-      });
-      document.getElementById('modalDishTimeStart').value = (sched && sched.timeStart) || '11:30';
-      document.getElementById('modalDishTimeEnd').value = (sched && sched.timeEnd) || '15:30';
-      document.getElementById('modalDishScheduleBehavior').value = (sched && sched.behavior) || 'hide';
-
-      // Photo preview
-      const previewContainer = document.getElementById('dishPhotoPreviewContainer');
-      const previewImg = document.getElementById('dishPhotoPreview');
-      const clearBtn = document.getElementById('btnClearDishPhoto');
-      const fileNameSpan = document.getElementById('dishPhotoFileName');
-      if (fileNameSpan) fileNameSpan.textContent = '';
-      if (existingPhoto) {
-        if (previewContainer && previewImg) {
-          previewImg.src = existingPhoto;
-          previewContainer.style.display = 'block';
-        }
-        if (clearBtn) clearBtn.style.display = 'inline';
-      } else {
-        if (previewContainer) previewContainer.style.display = 'none';
-        if (clearBtn) clearBtn.style.display = 'none';
-      }
-
-      // Populate category select
-      const catSelect = document.getElementById('modalDishCategory');
-      catSelect.innerHTML = '';
-      let matchedCategory = false;
-      (restaurant.categories || []).forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = c.name;
-        if (c.id === dish.categoryId) {
-          opt.selected = true;
-          matchedCategory = true;
-        }
-        catSelect.appendChild(opt);
-      });
-      if (!matchedCategory && dish.categoryId) {
-        const opt = document.createElement('option');
-        opt.value = dish.categoryId;
-        opt.textContent = dish.categoryId;
-        opt.selected = true;
-        catSelect.appendChild(opt);
-      } else if (!catSelect.options.length) {
-        const opt = document.createElement('option');
-        opt.value = 'cat_general';
-        opt.textContent = 'General';
-        opt.selected = true;
-        catSelect.appendChild(opt);
-      }
-
-      document.getElementById('dishEditModal').classList.add('active');
-    }
-
-    function openNewDishModal() {
-      document.getElementById('dishModalTitle').textContent = 'Nuevo Plato';
-      document.getElementById('dishForm').reset();
-      document.getElementById('modalDishId').value = '';
-      document.getElementById('modalDishPrice').value = '';
-      document.getElementById('modalDishOriginalPrice').value = '';
-      document.getElementById('modalDishPhoto').value = '';
-      document.getElementById('modalDishOutOfStock').checked = false;
-      document.getElementById('modalDishStar').checked = false;
-      document.getElementById('modalDishChefSpecial').checked = false;
-      document.querySelectorAll('.dish-weather-tag').forEach(input => { input.checked = false; });
-      renderDishModifierAssignments([]);
-      clearDishPhoto();
-
-      // Reset smart scheduling
-      document.getElementById('modalDishScheduleEnabled').checked = false;
-      toggleDishScheduleControls();
-      document.querySelectorAll('.dish-sched-day').forEach(cb => { cb.checked = true; });
-      document.getElementById('modalDishTimeStart').value = '11:30';
-      document.getElementById('modalDishTimeEnd').value = '15:30';
-      document.getElementById('modalDishScheduleBehavior').value = 'hide';
-
-      // Populate category select
-      const catSelect = document.getElementById('modalDishCategory');
-      catSelect.innerHTML = '';
-      (restaurant.categories || []).forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = c.name;
-        catSelect.appendChild(opt);
-      });
-      if (!catSelect.options.length) {
-        const opt = document.createElement('option');
-        opt.value = 'cat_general';
-        opt.textContent = 'General';
-        catSelect.appendChild(opt);
-      }
-
-      document.getElementById('dishEditModal').classList.add('active');
-    }
-
-    function closeDishEditModal() {
-      const submitBtn = document.getElementById('btnSubmitDishModal');
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.dataset.saving = 'false';
-        submitBtn.textContent = '💾 Guardar Plato';
-      }
-      document.getElementById('dishEditModal').classList.remove('active');
-    }
-
-    function getRestaurantModifierGroups() {
-      if (!Array.isArray(restaurant.modifierGroups)) restaurant.modifierGroups = [];
-      return restaurant.modifierGroups;
-    }
-
-    function inferLegacyPackUnits(dish) {
-      const name = String(dish.name || '').toLowerCase();
-      if (/media\s+docena|1\/2\s*docena|\b6\s*(?:unidades|un\.?|empanadas)\b/.test(name)) return 6;
-      if (/\bdocena\b|\b12\s*(?:unidades|un\.?|empanadas)\b/.test(name)) return 12;
-      if (/\b3\s*(?:unidades|un\.?|empanadas)\b|\btr[ií]o\b/.test(name)) return 3;
-      return 1;
-    }
-
-    function resolveLegacyPackUnits(dish) {
-      const inferred = inferLegacyPackUnits(dish);
-      const configured = parseInt(dish.variantsPerItem, 10) || 0;
-      return !configured || (configured === 1 && inferred > 1) ? inferred : configured;
-    }
-
-    function ensureDishModifierGroups(dish) {
-      const groups = getRestaurantModifierGroups();
-      const ids = Array.isArray(dish.modifierGroupIds) ? [...dish.modifierGroupIds] : [];
-      const addLegacyGroup = (type, legacyOptions, settings) => {
-        if (!Array.isArray(legacyOptions) || !legacyOptions.length) return;
-        const id = `legacy_${type}_${dish.id}`;
-        let group = groups.find(item => item.id === id);
-        if (!group) {
-          group = {
-            id,
-            name: settings.name,
-            kind: settings.kind,
-            selectionMode: settings.selectionMode,
-            required: Boolean(settings.required),
-            minSelections: settings.required ? 1 : 0,
-            maxSelections: settings.selectionMode === 'single' ? 1 : 100,
-            ...(settings.unitsPerSelection ? { unitsPerSelection: settings.unitsPerSelection } : {}),
-            options: legacyOptions.map(option => ({
-              id: String(option.id),
-              name: String(option.name),
-              priceDeltaCents: Math.max(0, Math.round(Number(option.priceDeltaCents) || 0)),
-              active: option.active !== false
-            }))
-          };
-          groups.push(group);
-        }
-        if (!ids.includes(id)) ids.push(id);
-      };
-
-      addLegacyGroup('protein', dish.proteinOptions, {
-        name: 'Proteína', kind: 'protein', selectionMode: 'single', required: dish.proteinSelectionRequired
-      });
-      const splitFlavors = dish.variantSelectionMode === 'quantity_split';
-      addLegacyGroup('flavors', dish.variants, {
-        name: splitFlavors ? 'Sabores' : 'Variante',
-        kind: splitFlavors ? 'flavor' : 'variant',
-        selectionMode: splitFlavors ? 'quantity_split' : 'single',
-        required: dish.variantsRequired,
-        unitsPerSelection: splitFlavors ? resolveLegacyPackUnits(dish) : null
-      });
-      return ids;
-    }
-
-    function renderDishModifierAssignments(assignedIds = []) {
-      const container = document.getElementById('dishModifierGroupsList');
-      if (!container) return;
-      const groups = getRestaurantModifierGroups().filter(group => group.active !== false);
-      if (!groups.length) {
-        container.innerHTML = '<p class="modifier-empty-state">Todavía no hay grupos. Creá uno para ofrecer proteínas, panes, extras o sabores.</p>';
-        return;
-      }
-
-      const assigned = new Set(assignedIds);
-      const presentationIds = groups.filter(group => group.kind === 'presentation' && assigned.has(group.id)).map(group => group.id);
-      const visibleAssigned = presentationIds.length > 1
-        ? new Set([...assigned].filter(id => !presentationIds.includes(id)).concat(presentationIds[0]))
-        : assigned;
-      container.innerHTML = groups.map(group => `
-        <label class="dish-assigned-group">
-          <input type="checkbox" data-modifier-group-id="${escapeHtml(group.id)}" data-group-kind="${escapeHtml(group.kind)}" onchange="toggleDishModifierGroup(this)" ${visibleAssigned.has(group.id) ? 'checked' : ''}>
-          <span><strong>${escapeHtml(group.name)}</strong><small>${escapeHtml(group.kind)} · ${(group.options || []).length} opciones${group.required ? ' · obligatorio' : ''}</small></span>
-        </label>
-      `).join('');
-    }
-
-    function toggleDishModifierGroup(input) {
-      if (!input.checked || input.dataset.groupKind !== 'presentation') return;
-      document.querySelectorAll('#dishModifierGroupsList [data-group-kind="presentation"]').forEach(other => {
-        if (other !== input) other.checked = false;
-      });
-    }
-
-    function readDishModifierGroupIds() {
-      return Array.from(document.querySelectorAll('#dishModifierGroupsList [data-modifier-group-id]:checked'))
-        .map(input => input.dataset.modifierGroupId);
-    }
-
-    function openModifierGroupManager() {
-      document.getElementById('modifierGroupManagerModal').classList.add('active');
-      renderModifierGroupList();
-    }
-
-    function closeModifierGroupManager() {
-      document.getElementById('modifierGroupManagerModal').classList.remove('active');
-      renderDishModifierAssignments(readDishModifierGroupIds());
-    }
-
-    function renderModifierGroupList() {
-      const container = document.getElementById('modifierGroupList');
-      const groups = getRestaurantModifierGroups();
-      container.innerHTML = groups.length ? groups.map(group => `
-        <div class="modifier-group-list-item">
-          <div><strong>${escapeHtml(group.name)}</strong><small>${escapeHtml(group.kind)} · ${(group.options || []).length} opciones</small></div>
-          <div class="modifier-group-list-actions">
-            <button type="button" class="btn-icon" onclick="editModifierGroup('${escapeHtml(group.id)}')" aria-label="Editar ${escapeHtml(group.name)}">✎</button>
-            <button type="button" class="btn-icon btn-icon-danger" onclick="deleteModifierGroup('${escapeHtml(group.id)}')" aria-label="Eliminar ${escapeHtml(group.name)}">×</button>
-          </div>
-        </div>
-      `).join('') : '<p class="modifier-empty-state">Creá grupos reutilizables para personalizar los platos.</p>';
-    }
-
-    function addBurgerModifierTemplate() {
-      const groups = getRestaurantModifierGroups();
-      if (groups.some(group => group.id.startsWith('template_burger_'))) {
-        alert('La plantilla de hamburguesa ya existe. Editá sus grupos o asignalos a otro plato.');
-        return;
-      }
-      const template = [
-        {
-          id: 'template_burger_bread',
-          name: 'Tipo de pan',
-          kind: 'bread',
-          selectionMode: 'single',
-          required: true,
-          minSelections: 1,
-          maxSelections: 1,
-          active: true,
-          options: [
-            { id: 'template_bread_brioche', name: 'Brioche', priceDeltaCents: 0, active: true },
-            { id: 'template_bread_potato', name: 'Pan de papa', priceDeltaCents: 0, active: true },
-            { id: 'template_bread_gluten_free', name: 'Sin gluten', priceDeltaCents: 0, active: true }
-          ]
-        },
-        {
-          id: 'template_burger_extras',
-          name: 'Extras',
-          kind: 'topping',
-          selectionMode: 'multiple',
-          required: false,
-          minSelections: 0,
-          maxSelections: 3,
-          active: true,
-          options: [
-            { id: 'template_extra_cheddar', name: 'Extra cheddar', priceDeltaCents: 0, active: true },
-            { id: 'template_extra_bacon', name: 'Bacon', priceDeltaCents: 0, active: true },
-            { id: 'template_extra_egg', name: 'Huevo', priceDeltaCents: 0, active: true }
-          ]
-        },
-        {
-          id: 'template_burger_patty',
-          name: 'Medallones extra',
-          kind: 'extra',
-          selectionMode: 'quantity',
-          required: false,
-          minSelections: 0,
-          maxSelections: 3,
-          active: true,
-          options: [{ id: 'template_extra_patty', name: 'Medallón extra', priceDeltaCents: 0, maxQuantity: 3, active: true }]
-        }
-      ];
-      groups.push(...template);
-      renderModifierGroupList();
-      const currentIds = readDishModifierGroupIds();
-      renderDishModifierAssignments(currentIds);
-      triggerAutoSave();
-    }
-
-    function startNewModifierGroup() {
-      document.getElementById('modifierGroupEditor').style.display = 'block';
-      document.getElementById('modifierGroupId').value = '';
-      document.getElementById('modifierGroupName').value = '';
-      document.getElementById('modifierGroupKind').value = 'protein';
-      document.getElementById('modifierGroupMode').value = 'single';
-      document.getElementById('modifierGroupRequired').checked = false;
-      document.getElementById('modifierGroupMin').value = '0';
-      document.getElementById('modifierGroupMax').value = '1';
-      document.getElementById('modifierSplitUnits').value = '12';
-      renderModifierGroupOptions([]);
-      updateModifierGroupEditor();
-      document.getElementById('modifierGroupName').focus();
-    }
-
-    function editModifierGroup(groupId) {
-      const group = getRestaurantModifierGroups().find(item => item.id === groupId);
-      if (!group) return;
-      document.getElementById('modifierGroupEditor').style.display = 'block';
-      document.getElementById('modifierGroupId').value = group.id;
-      document.getElementById('modifierGroupName').value = group.name;
-      document.getElementById('modifierGroupKind').value = group.kind;
-      document.getElementById('modifierGroupMode').value = group.selectionMode;
-      document.getElementById('modifierGroupRequired').checked = Boolean(group.required);
-      document.getElementById('modifierGroupMin').value = group.minSelections || 0;
-      document.getElementById('modifierGroupMax').value = group.maxSelections || 1;
-      document.getElementById('modifierSplitUnits').value = group.unitsPerSelection || 12;
-      renderModifierGroupOptions(group.options || []);
-      updateModifierGroupEditor();
-    }
-
-    function renderModifierGroupOptions(options) {
-      const kind = document.getElementById('modifierGroupKind').value;
-      const mode = document.getElementById('modifierGroupMode').value;
-      const isPresentation = kind === 'presentation';
-      const hasQuantities = mode === 'quantity';
-      document.getElementById('modifierPriceHeading').textContent = isPresentation ? 'Precio del paquete' : 'Adicional';
-      document.getElementById('modifierUnitsHeading').hidden = !isPresentation;
-      document.getElementById('modifierMaxHeading').hidden = !hasQuantities;
-      document.getElementById('modifierGroupOptionsList').innerHTML = (options || []).map((option, index) => `
-        <div class="modifier-option-row">
-          <input type="hidden" data-option-id value="${escapeHtml(option.id || '')}">
-          <input type="text" class="form-input" data-option-name maxlength="80" value="${escapeHtml(option.name || '')}" placeholder="Nombre de la opción" aria-label="Nombre de la opción">
-          <input type="number" class="form-input" data-option-price min="0" step="0.01" value="${option.priceValue !== undefined ? Number(option.priceValue) : (isPresentation ? (Number(option.priceCents) || 0) / 100 : (Number(option.priceDeltaCents) || 0) / 100)}" aria-label="${isPresentation ? 'Precio total' : 'Adicional de precio'}">
-          <input type="number" class="form-input modifier-option-units" data-option-units min="1" max="100" step="1" value="${option.unitsIncluded || 1}" style="${isPresentation ? '' : 'display:none;'}" aria-label="Unidades incluidas">
-          <input type="number" class="form-input modifier-option-max" data-option-max min="1" max="100" step="1" value="${option.maxQuantity || 3}" style="${hasQuantities && !isPresentation ? '' : 'display:none;'}" aria-label="Cantidad máxima">
-          <button type="button" class="dish-option-remove" onclick="removeModifierGroupOption(${index})" aria-label="Quitar opción">×</button>
-        </div>
-      `).join('');
-    }
-
-    function updateModifierGroupEditor() {
-      const kind = document.getElementById('modifierGroupKind').value;
-      if (kind === 'presentation') document.getElementById('modifierGroupMode').value = 'single';
-      const mode = document.getElementById('modifierGroupMode').value;
-      document.getElementById('modifierGroupMax').max = mode === 'single' || kind === 'presentation' ? '1' : '100';
-      document.getElementById('modifierSplitUnitsField').style.display = mode === 'quantity_split' ? 'block' : 'none';
-      renderModifierGroupOptions(readModifierGroupOptions());
-    }
-
-    function handleModifierGroupModeChange() {
-      const mode = document.getElementById('modifierGroupMode').value;
-      const maximum = document.getElementById('modifierGroupMax');
-      if (mode === 'single') maximum.value = '1';
-      else if (maximum.value === '1') maximum.value = mode === 'quantity' ? '3' : '100';
-      updateModifierGroupEditor();
-    }
-
-    function readModifierGroupOptions() {
-      return Array.from(document.querySelectorAll('#modifierGroupOptionsList .modifier-option-row')).map(row => ({
-        id: row.querySelector('[data-option-id]').value,
-        name: row.querySelector('[data-option-name]').value,
-        priceValue: row.querySelector('[data-option-price]').value,
-        unitsIncluded: row.querySelector('[data-option-units]').value,
-        maxQuantity: row.querySelector('[data-option-max]').value
-      }));
-    }
-
-    function addModifierGroupOption() {
-      const options = readModifierGroupOptions();
-      options.push({ id: '', name: '', priceValue: '0', unitsIncluded: '1', maxQuantity: '3' });
-      renderModifierGroupOptions(options);
-      document.querySelector('#modifierGroupOptionsList .modifier-option-row:last-child [data-option-name]')?.focus();
-    }
-
-    function removeModifierGroupOption(index) {
-      const options = readModifierGroupOptions();
-      options.splice(index, 1);
-      renderModifierGroupOptions(options);
-    }
-
-    function saveModifierGroup(event) {
-      event.preventDefault();
-      const assignedIds = readDishModifierGroupIds();
-      const name = document.getElementById('modifierGroupName').value.trim().slice(0, 80);
-      const kind = document.getElementById('modifierGroupKind').value;
-      const selectionMode = kind === 'presentation' ? 'single' : document.getElementById('modifierGroupMode').value;
-      const rawOptions = readModifierGroupOptions();
-      const options = rawOptions.filter(option => option.name.trim()).map((option, index) => ({
-        id: option.id || `opt_${Date.now()}_${index}`,
-        name: option.name.trim().slice(0, 80),
-        priceDeltaCents: kind === 'presentation' ? 0 : Math.max(0, Math.round((Number(option.priceValue) || 0) * 100)),
-        ...(kind === 'presentation' ? {
-          priceCents: Math.max(0, Math.round((Number(option.priceValue) || 0) * 100)),
-          unitsIncluded: Math.max(1, Math.min(100, parseInt(option.unitsIncluded, 10) || 1))
-        } : {}),
-        ...(selectionMode === 'quantity' ? { maxQuantity: Math.max(1, Math.min(100, parseInt(option.maxQuantity, 10) || 1)) } : {}),
-        active: true
-      }));
-
-      if (!name || !options.length) {
-        alert('El grupo necesita un nombre y al menos una opción.');
-        return;
-      }
-      if (kind === 'presentation' && options.some(option => !option.priceCents)) {
-        alert('Cada presentación necesita un precio mayor a cero.');
-        return;
-      }
-
-      const id = document.getElementById('modifierGroupId').value || `group_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-      const existingIndex = getRestaurantModifierGroups().findIndex(group => group.id === id);
-      const required = document.getElementById('modifierGroupRequired').checked;
-      const maximum = selectionMode === 'single' ? 1 : Math.max(1, Math.min(100, parseInt(document.getElementById('modifierGroupMax').value, 10) || 1));
-      const group = {
-        id,
-        name,
-        kind,
-        selectionMode,
-        required,
-        minSelections: Math.max(0, Math.min(maximum, parseInt(document.getElementById('modifierGroupMin').value, 10) || 0)),
-        maxSelections: maximum,
-        ...(selectionMode === 'quantity_split' ? { unitsPerSelection: Math.max(1, Math.min(100, parseInt(document.getElementById('modifierSplitUnits').value, 10) || 1)) } : {}),
-        active: true,
-        options
-      };
-      const groups = getRestaurantModifierGroups();
-      if (existingIndex >= 0) groups[existingIndex] = group;
-      else groups.push(group);
-
-      const editorDish = restaurant.dishes?.find(dish => dish.id === document.getElementById('modalDishId').value);
-      if (editorDish) editorDish.modifierGroupIds = assignedIds;
-      renderDishModifierAssignments(assignedIds);
-      renderModifierGroupList();
-      document.getElementById('modifierGroupEditor').style.display = 'none';
-      triggerAutoSave();
-    }
-
-    function cancelModifierGroupEdit() {
-      document.getElementById('modifierGroupEditor').style.display = 'none';
-    }
-
-    function deleteModifierGroup(groupId) {
-      const group = getRestaurantModifierGroups().find(item => item.id === groupId);
-      if (!group || !confirm(`¿Eliminar el grupo "${group.name}"? También se quitará de los platos que lo usan.`)) return;
-      const assignedIds = readDishModifierGroupIds().filter(id => id !== groupId);
-      restaurant.modifierGroups = getRestaurantModifierGroups().filter(item => item.id !== groupId);
-      (restaurant.dishes || []).forEach(dish => {
-        dish.modifierGroupIds = (dish.modifierGroupIds || []).filter(id => id !== groupId);
-      });
-      renderModifierGroupList();
-      renderDishModifierAssignments(assignedIds);
-      renderDishesList();
-      triggerAutoSave();
-    }
-
-    function getDishOptionConfig() {
-      return { modifierGroupIds: readDishModifierGroupIds() };
-    }
-
-    function saveDishFromModal(event) {
-      event.preventDefault();
-
-      const submitBtn = document.getElementById('btnSubmitDishModal');
-      if (submitBtn) {
-        if (submitBtn.dataset.saving === 'true') return;
-        submitBtn.dataset.saving = 'true';
-        submitBtn.disabled = true;
-        submitBtn.textContent = '⏳ Guardando...';
-      }
-
-      const id = document.getElementById('modalDishId').value;
-      const name = document.getElementById('modalDishName').value.trim();
-      const price = parseFloat(document.getElementById('modalDishPrice').value) || 0;
-      const originalPriceVal = parseFloat(document.getElementById('modalDishOriginalPrice').value);
-      const originalPrice = isNaN(originalPriceVal) ? null : originalPriceVal;
-      const description = document.getElementById('modalDishDesc').value.trim();
-      const photoUrl = document.getElementById('modalDishPhoto').value.trim();
-      const categoryId = document.getElementById('modalDishCategory').value;
-      const outOfStock = document.getElementById('modalDishOutOfStock').checked;
-      const isChefSpecial = document.getElementById('modalDishChefSpecial').checked;
-      const optionConfig = getDishOptionConfig();
-
-      // Smart Scheduling
-      const scheduleEnabled = document.getElementById('modalDishScheduleEnabled').checked;
-      let schedule = null;
-      if (scheduleEnabled) {
-        const selectedDays = Array.from(document.querySelectorAll('.dish-sched-day:checked')).map(cb => parseInt(cb.value, 10));
-        const timeStart = document.getElementById('modalDishTimeStart').value || '00:00';
-        const timeEnd = document.getElementById('modalDishTimeEnd').value || '23:59';
-        const behavior = document.getElementById('modalDishScheduleBehavior').value || 'hide';
-        schedule = {
-          enabled: true,
-          days: selectedDays.length ? selectedDays : [0, 1, 2, 3, 4, 5, 6],
-          timeStart,
-          timeEnd,
-          behavior
-        };
-      }
-
-      const tags = [];
-      if (document.getElementById('modalDishStar').checked) tags.push('star');
-      if (isChefSpecial) tags.push('chef_special');
-      if (document.getElementById('tagVeggie').checked) tags.push('veggie');
-      if (document.getElementById('tagVegan').checked) tags.push('vegan');
-      if (document.getElementById('tagCeliac').checked) tags.push('celiac');
-      if (document.getElementById('tagSinLactosa').checked) tags.push('sinlactosa');
-      if (document.getElementById('tagPicante').checked) tags.push('picante');
-      const weatherTags = Array.from(document.querySelectorAll('.dish-weather-tag:checked')).map(input => input.value);
-
-      if (!restaurant.dishes) restaurant.dishes = [];
-
-      let finalCategoryId = categoryId;
-      if (!finalCategoryId) {
-        if (restaurant.categories && restaurant.categories.length > 0) {
-          finalCategoryId = restaurant.categories[0].id;
-        } else {
-          finalCategoryId = 'cat_general';
-          if (!restaurant.categories) restaurant.categories = [];
-          restaurant.categories.push({ id: 'cat_general', name: 'General' });
-        }
-      }
-
-      if (id) {
-        // Edit existing
-        const dish = restaurant.dishes.find(d => d.id === id);
-        if (dish) {
-          dish.name = name;
-          dish.price = price;
-          dish.originalPrice = originalPrice;
-          dish.description = description;
-          dish.photoUrl = photoUrl || null;
-          dish.categoryId = finalCategoryId;
-          dish.outOfStock = outOfStock;
-          dish.isChefSpecial = isChefSpecial;
-          dish.schedule = schedule;
-          dish.tags = tags;
-          dish.weatherTags = weatherTags;
-          Object.assign(dish, optionConfig);
-          delete dish.proteinOptions;
-          delete dish.proteinSelectionRequired;
-          delete dish.variants;
-          delete dish.variantSelectionMode;
-          delete dish.variantsRequired;
-          delete dish.variantsPerItem;
-        }
-      } else {
-        // Create new
-        restaurant.dishes.push({
-          id: 'd_' + Date.now(),
-          name,
-          price,
-          originalPrice: originalPrice,
-          description: description || 'Plato casero elaborado en el día',
-          photoUrl: photoUrl || null,
-          categoryId: finalCategoryId,
-          outOfStock,
-          isChefSpecial,
-          schedule,
-          tags,
-          weatherTags,
-          ...optionConfig
-        });
-      }
-
-      closeDishEditModal();
-      renderDishesList();
-      triggerAutoSave();
-    }
-
-    // Category Management
-    function promptNewCategoryInModal() {
-      const name = prompt('Ingresa el nombre de la nueva categoría (ej: Postres, Cafetería):');
-      if (!name || !name.trim()) return;
-      const cleanName = name.trim();
-      if (!restaurant.categories) restaurant.categories = [];
-      let cat = restaurant.categories.find(c => c.name.toLowerCase() === cleanName.toLowerCase());
-      if (!cat) {
-        cat = { id: 'cat_' + Date.now(), name: cleanName };
-        restaurant.categories.push(cat);
-        populateCatFilter();
-        triggerAutoSave();
-      }
-      const catSelect = document.getElementById('modalDishCategory');
-      catSelect.innerHTML = '';
-      restaurant.categories.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = c.name;
-        if (c.id === cat.id) opt.selected = true;
-        catSelect.appendChild(opt);
-      });
-    }
-
-    function openCategoryManagerModal() {
-      renderCategoryManagerList();
-      document.getElementById('categoryManagerModal').classList.add('active');
-    }
-
-    function closeCategoryManagerModal() {
-      document.getElementById('categoryManagerModal').classList.remove('active');
-      populateCatFilter();
-    }
-
-    function renderCategoryManagerList() {
-      const list = document.getElementById('categoryManagerList');
-      if (!list) return;
-      const cats = restaurant.categories || [];
-      if (!cats.length) {
-        list.innerHTML = '<div style="font-size:11px; color:var(--text-dim); text-align:center; padding:12px;">No hay categorías creadas aún.</div>';
-        return;
-      }
-      list.innerHTML = cats.map((c, index) => `
-        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--surface-2); padding:8px 12px; border-radius:6px; border:1px solid var(--border);">
-          <span style="font-size:12px; font-weight:600; color:#fff;">${escapeHtml(c.name)}</span>
-          <div style="display:flex; gap:6px;">
-            <button class="btn-icon" onclick="moveCategory('${escapeHtml(c.id)}', -1)" title="Mover arriba" aria-label="Mover ${escapeHtml(c.name)} arriba" ${index === 0 ? 'disabled' : ''}>↑</button>
-            <button class="btn-icon" onclick="moveCategory('${escapeHtml(c.id)}', 1)" title="Mover abajo" aria-label="Mover ${escapeHtml(c.name)} abajo" ${index === cats.length - 1 ? 'disabled' : ''}>↓</button>
-            <button class="btn-icon" onclick="renameCategory('${escapeHtml(c.id)}')" title="Renombrar">✏️</button>
-            <button class="btn-icon btn-icon-danger" onclick="deleteCategory('${escapeHtml(c.id)}')" title="Eliminar">🗑️</button>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    function moveCategory(catId, direction) {
-      const categories = restaurant.categories || [];
-      const currentIndex = categories.findIndex(category => category.id === catId);
-      const targetIndex = currentIndex + direction;
-      if (currentIndex < 0 || targetIndex < 0 || targetIndex >= categories.length) return;
-
-      [categories[currentIndex], categories[targetIndex]] = [categories[targetIndex], categories[currentIndex]];
-      renderCategoryManagerList();
-      populateCatFilter();
-      renderDishesList();
-      triggerAutoSave();
-    }
-
-    function addCategoryFromManager() {
-      const input = document.getElementById('newCategoryInput');
-      const name = (input.value || '').trim();
-      if (!name) return;
-      if (!restaurant.categories) restaurant.categories = [];
-      const exists = restaurant.categories.some(c => c.name.toLowerCase() === name.toLowerCase());
-      if (exists) return alert('Esa categoría ya existe.');
-      restaurant.categories.push({ id: 'cat_' + Date.now(), name });
-      input.value = '';
-      renderCategoryManagerList();
-      populateCatFilter();
-      triggerAutoSave();
-    }
-
-    function renameCategory(catId) {
-      const cat = (restaurant.categories || []).find(c => c.id === catId);
-      if (!cat) return;
-      const newName = prompt('Nuevo nombre para la categoría:', cat.name);
-      if (!newName || !newName.trim()) return;
-      cat.name = newName.trim();
-      renderCategoryManagerList();
-      populateCatFilter();
-      renderDishesList();
-      triggerAutoSave();
-    }
-
-    function deleteCategory(catId) {
-      const cat = (restaurant.categories || []).find(c => c.id === catId);
-      if (!cat) return;
-      const dishCount = (restaurant.dishes || []).filter(d => d.categoryId === catId).length;
-      const msg = dishCount > 0 
-        ? `Esta categoría contiene ${dishCount} plato(s). ¿Estás seguro de que deseas eliminarla? Los platos quedarán sin categoría asignada.`
-        : `¿Confirmas eliminar la categoría "${cat.name}"?`;
-      if (!confirm(msg)) return;
-      restaurant.categories = (restaurant.categories || []).filter(c => c.id !== catId);
-      renderCategoryManagerList();
-      populateCatFilter();
-      renderDishesList();
-      triggerAutoSave();
-    }
-
-    // Presets Management
-    let currentPresetCategory = 'empanadas';
-
-    function openPresetsModal() {
-      document.getElementById('presetsModal').classList.add('active');
-      renderPresetChips();
-      browsePresetCategory('empanadas');
-    }
-    function closePresetsModal() {
-      document.getElementById('presetsModal').classList.remove('active');
-    }
-
-    function renderPresetChips() {
-      const container = document.getElementById('presetChipsContainer');
-      container.innerHTML = '';
-      Object.keys(PRESETS).forEach(key => {
-        const p = PRESETS[key];
-        const chip = document.createElement('button');
-        chip.className = 'btn-nav';
-        chip.style.cssText = 'white-space:nowrap; font-size:11px; padding:5px 12px; flex-shrink:0;';
-        chip.textContent = p.catName;
-        chip.onclick = () => browsePresetCategory(key);
-        if (key === currentPresetCategory) {
-          chip.style.background = 'var(--accent-gold)';
-          chip.style.color = '#101614';
-          chip.style.fontWeight = '700';
-          chip.style.borderColor = 'var(--accent-gold)';
-        }
-        container.appendChild(chip);
-      });
-    }
-
-    function browsePresetCategory(key) {
-      currentPresetCategory = key;
-      const preset = PRESETS[key];
-      if (!preset) return;
-
-      document.getElementById('presetCategoryLabel').textContent = preset.catName;
-      renderPresetChips();
-
-      const list = document.getElementById('presetDishesList');
-      let html = '';
-      preset.dishes.forEach((d, idx) => {
-        const tagBadges = (d.tags || []).map(t => {
-          const labels = { star: '⭐', veggie: '🥬', vegan: '🌱', celiac: '🌾', sinlactosa: '🥛', picante: '🌶️' };
-          return labels[t] || '';
-        }).join(' ');
-        html += `
-          <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-base); padding:8px 10px; border-radius:8px; margin-bottom:6px; border:1px solid var(--border);">
-            <div style="flex:1; min-width:0;">
-              <div style="font-size:12px; font-weight:700; color:#fff; display:flex; align-items:center; gap:4px;">
-                ${escapeHtml(d.name)} ${tagBadges}
-              </div>
-              <div style="font-size:10px; color:var(--text-dim); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(d.desc)}</div>
-              <div style="font-size:11px; color:var(--accent-gold); font-family:var(--font-mono); margin-top:2px;">$ ${d.price}</div>
-            </div>
-            <button class="btn-nav btn-nav-gold" style="font-size:11px; padding:4px 10px; flex-shrink:0; margin-left:8px;" onclick="addSinglePresetDish('${key}', ${idx})">
-              + Sumar
-            </button>
-          </div>
-        `;
-      });
-      list.innerHTML = html;
-    }
-
-    function buildPresetDish(presetKey, dish, categoryId, index) {
-      if (presetKey === 'empanadas' && Array.isArray(dish.variants)) {
-        return {
-          id: `d_${presetKey}_${Date.now()}_${index}`,
-          categoryId,
-          name: dish.name,
-          price: dish.price,
-          description: dish.desc,
-          tags: dish.tags || [],
-          modifierGroupIds: ensureEmpanadaPresetGroups(dish)
-        };
-      }
-
-      const optionConfig = Array.isArray(dish.variants) ? {
-        variants: dish.variants,
-        variantSelectionMode: dish.variantSelectionMode || 'single',
-        variantsRequired: Boolean(dish.variantsRequired),
-        ...(dish.variantSelectionMode === 'quantity_split' ? { variantsPerItem: dish.variantsPerItem || 1 } : {})
-      } : {};
-      return {
-        id: `d_${presetKey}_${Date.now()}_${index}`,
-        categoryId,
-        name: dish.name,
-        price: dish.price,
-        description: dish.desc,
-        tags: dish.tags || [],
-        ...optionConfig
-      };
-    }
-
-    function ensureEmpanadaPresetGroups(dish) {
-      const groups = getRestaurantModifierGroups();
-      const presentationId = 'preset_empanadas_presentation';
-      const flavorsId = 'preset_empanadas_flavors';
-
-      if (!groups.some(group => group.id === presentationId)) {
-        groups.push({
-          id: presentationId,
-          name: 'Presentación',
-          kind: 'presentation',
-          selectionMode: 'single',
-          required: true,
-          minSelections: 1,
-          maxSelections: 1,
-          active: true,
-          options: [
-            { id: 'empanadas_3', name: '3 unidades', unitsIncluded: 3, priceCents: 28500, priceDeltaCents: 0, active: true },
-            { id: 'empanadas_6', name: 'Media docena (6)', unitsIncluded: 6, priceCents: 55000, priceDeltaCents: 0, active: true },
-            { id: 'empanadas_12', name: 'Docena (12)', unitsIncluded: 12, priceCents: 108000, priceDeltaCents: 0, active: true }
-          ]
-        });
-      }
-      if (!groups.some(group => group.id === flavorsId)) {
-        groups.push({
-          id: flavorsId,
-          name: 'Sabores',
-          kind: 'flavor',
-          selectionMode: 'quantity_split',
-          required: true,
-          minSelections: 1,
-          maxSelections: 100,
-          unitsPerSelection: 12,
-          active: true,
-          options: (dish.variants || []).map(option => ({
-            ...option,
-            priceDeltaCents: Number(option.priceDeltaCents) || 0,
-            active: true
-          }))
-        });
-      }
-      return [presentationId, flavorsId];
-    }
-
-    function addSinglePresetDish(presetKey, dishIdx) {
-      const preset = PRESETS[presetKey];
-      if (!preset || !preset.dishes[dishIdx]) return;
-      const d = preset.dishes[dishIdx];
-
-      if (!restaurant.categories) restaurant.categories = [];
-      if (!restaurant.dishes) restaurant.dishes = [];
-
-      let cat = restaurant.categories.find(c => c.name.toLowerCase() === preset.catName.toLowerCase());
-      if (!cat) {
-        cat = { id: 'cat_' + presetKey + '_' + Date.now(), name: preset.catName };
-        restaurant.categories.push(cat);
-      }
-
-      restaurant.dishes.push(buildPresetDish(presetKey, d, cat.id, dishIdx));
-
-      populateCatFilter();
-      renderDishesList();
-      triggerAutoSave();
-
-      // Visual feedback — briefly change button text
-      const btns = document.querySelectorAll('#presetDishesList button');
-      if (btns[dishIdx]) {
-        btns[dishIdx].textContent = '✓ Agregado';
-        btns[dishIdx].disabled = true;
-        setTimeout(() => { btns[dishIdx].textContent = '+ Sumar'; btns[dishIdx].disabled = false; }, 1500);
-      }
-    }
-
-    function importCurrentPresetCategory() {
-      importPresetCategory(currentPresetCategory);
-    }
-
-    function importPresetCategory(presetKey) {
-      const preset = PRESETS[presetKey];
-      if (!preset) return;
-
-      if (!restaurant.categories) restaurant.categories = [];
-      if (!restaurant.dishes) restaurant.dishes = [];
-
-      let cat = restaurant.categories.find(c => c.name.toLowerCase() === preset.catName.toLowerCase());
-      if (!cat) {
-        cat = { id: 'cat_' + presetKey + '_' + Date.now(), name: preset.catName };
-        restaurant.categories.push(cat);
-      }
-
-      preset.dishes.forEach((dish, index) => {
-        restaurant.dishes.push(buildPresetDish(presetKey, dish, cat.id, index));
-      });
-
-      populateCatFilter();
-      renderDishesList();
-      closePresetsModal();
-      triggerAutoSave();
-      alert(`¡Se agregaron ${preset.dishes.length} platos de ${preset.catName}!`);
-    }
-
-    function importAllPresets() {
-      Object.keys(PRESETS).forEach(k => {
-        const p = PRESETS[k];
-        let cat = (restaurant.categories || []).find(c => c.name.toLowerCase() === p.catName.toLowerCase());
-        if (!cat) {
-          cat = { id: 'cat_' + k + '_' + Date.now(), name: p.catName };
-          if (!restaurant.categories) restaurant.categories = [];
-          restaurant.categories.push(cat);
-        }
-        p.dishes.forEach((dish, index) => {
-          restaurant.dishes.push(buildPresetDish(k, dish, cat.id, index));
-        });
-      });
-
-      populateCatFilter();
-      renderDishesList();
-      closePresetsModal();
-      triggerAutoSave();
-      alert('¡Carta completa de 100+ platos importada con éxito!');
-    }
-
-    // ==================== HELADERÍA & PERFUMERÍA PRESETS ====================
-    const ICE_CREAM_PRESETS_DATA = [
-      { id: 'sabor_choco_amargo', cat: 'Chocolates', name: 'Chocolate Amargo 70%', price: 320, desc: 'Cacao puro ecuatoriano al 70%, intenso y con notas tostadas.', tags: ['star', 'celiac'] },
-      { id: 'sabor_choco_almendras', cat: 'Chocolates', name: 'Chocolate con Almendras Tostadas', price: 330, desc: 'Cremoso chocolate con leche y almendras tostadas.', tags: ['celiac'] },
-      { id: 'sabor_choco_suizo', cat: 'Chocolates', name: 'Chocolate Suizo con Dulce de Leche', price: 340, desc: 'Chocolate semiamargo veteado con dulce de leche natural.', tags: ['star'] },
-      { id: 'sabor_choco_blanco', cat: 'Chocolates', name: 'Chocolate Blanco Patagónico', price: 320, desc: 'Manteca de cacao pura con crocante de avellanas.', tags: ['celiac'] },
-      { id: 'sabor_chocotorta', cat: 'Chocolates', name: 'Chocotorta Helada Especial', price: 350, desc: 'Galletitas de chocolate con café y crema con dulce de leche.', tags: ['star'] },
-      { id: 'sabor_mousse_choco', cat: 'Chocolates', name: 'Mousse de Chocolate Aireado', price: 320, desc: 'Textura ligera y esponjosa con escamas de cacao.', tags: ['celiac'] },
-      { id: 'sabor_choco_marroc', cat: 'Chocolates', name: 'Chocolate Marroc Praliné', price: 350, desc: 'Chocolate con leche y praliné suave de maní tostado.', tags: [] },
-
-      { id: 'sabor_ddl_clasico', cat: 'Dulces de Leche', name: 'Dulce de Leche Tradicional Rioplatense', price: 310, desc: 'La receta madre con leche de campo y cocción lenta.', tags: ['star', 'celiac'] },
-      { id: 'sabor_ddl_granizado', cat: 'Dulces de Leche', name: 'Dulce de Leche Granizado', price: 320, desc: 'Con abundantes escamas crujientes de chocolate amargo.', tags: ['celiac'] },
-      { id: 'sabor_ddl_tentacion', cat: 'Dulces de Leche', name: 'Dulce de Leche Tentación', price: 340, desc: 'Con generoso veteado de dulce de leche repostero puro.', tags: ['star', 'celiac'] },
-      { id: 'sabor_ddl_brownie', cat: 'Dulces de Leche', name: 'Dulce de Leche con Brownie & Nuez', price: 350, desc: 'Tropezones húmedos de brownie casero y nueces pecan.', tags: ['star'] },
-      { id: 'sabor_ddl_bombon', cat: 'Dulces de Leche', name: 'Dulce de Leche Bombón', price: 340, desc: 'Veteado con pasta de avellanas y bocaditos bañados.', tags: [] },
-      { id: 'sabor_ddl_alfajor', cat: 'Dulces de Leche', name: 'Dulce de Leche Alfajor Marplatense', price: 350, desc: 'Con trocitos de masa especiada de alfajor artesanal.', tags: [] },
-
-      { id: 'sabor_crema_americana', cat: 'Cremas', name: 'Crema Americana (Vainilla Bourbon)', price: 300, desc: 'Crema de leche batida infusionada con vainilla natural.', tags: ['celiac'] },
-      { id: 'sabor_tramontana', cat: 'Cremas', name: 'Tramontana Clásica', price: 330, desc: 'Crema americana con dulce de leche y galletitas crocantes.', tags: ['star'] },
-      { id: 'sabor_mascarpone', cat: 'Cremas', name: 'Mascarpone con Frutos del Bosque', price: 350, desc: 'Queso mascarpone con reducción de frambuesas y moras.', tags: ['star', 'celiac'] },
-      { id: 'sabor_sambayon', cat: 'Cremas', name: 'Sambayón al Oporto y Marsala', price: 340, desc: 'Yemas batidas con vino Oporto añejado y almendras.', tags: ['celiac'] },
-      { id: 'sabor_banana_split', cat: 'Cremas', name: 'Banana Split Criolla', price: 330, desc: 'Bananas maduras, dulce de leche y chocolate picado.', tags: ['celiac'] },
-      { id: 'sabor_frutilla_crema', cat: 'Cremas', name: 'Frutilla a la Crema de Campo', price: 310, desc: 'Frutillas frescas seleccionadas con crema de leche fresca.', tags: ['celiac'] },
-      { id: 'sabor_crema_rusa', cat: 'Cremas', name: 'Crema Rusa con Nueces Mariposa', price: 340, desc: 'Crema de nuez con abundantes nueces mariposa frescas.', tags: ['celiac'] },
-      { id: 'sabor_menta_granizada', cat: 'Cremas', name: 'Menta Granizada Silvestre', price: 310, desc: 'Menta natural con granizado de chocolate amargo.', tags: ['celiac'] },
-
-      { id: 'sabor_limon_agua', cat: 'Frutales', name: 'Limón Silvestre Natural', price: 290, desc: '100% zumo recién exprimido. Refrescante y liviano.', tags: ['vegan', 'celiac', 'veggie'] },
-      { id: 'sabor_frutilla_agua', cat: 'Frutales', name: 'Frutilla Natural al Agua', price: 290, desc: 'Frutillas maduras procesadas al momento con almíbar suave.', tags: ['vegan', 'celiac', 'veggie'] },
-      { id: 'sabor_maracuya', cat: 'Frutales', name: 'Maracuyá Tropical con Semillitas', price: 310, desc: 'Pulpa de maracuyá con su acidez exótica natural.', tags: ['star', 'vegan', 'celiac', 'veggie'] },
-      { id: 'sabor_frambuesa', cat: 'Frutales', name: 'Frambuesa Patagónica al Agua', price: 320, desc: 'Frambuesas del sur con balance justo de dulzor.', tags: ['vegan', 'celiac', 'veggie'] },
-      { id: 'sabor_mango', cat: 'Frutales', name: 'Mango & Naranja Jugosa', price: 310, desc: 'Sorbet aterciopelado de mango y jugo de naranja fresca.', tags: ['vegan', 'celiac', 'veggie'] },
-      { id: 'sabor_arandanos', cat: 'Frutales', name: 'Arándanos & Moras Silvestres', price: 310, desc: 'Frutos rojos repletos de antioxidantes en sorbete.', tags: ['vegan', 'celiac', 'veggie'] },
-
-      { id: 'sabor_pistacho', cat: 'Especiales', name: 'Pistacho Siciliano 100% Puro', price: 380, desc: 'Pistachos tostados de Bronte con pizca de sal marina.', tags: ['star', 'celiac'] },
-      { id: 'sabor_kinder', cat: 'Especiales', name: 'Kinder Bueno Blanco & Avellanas', price: 360, desc: 'Pasta de avellanas, oblea crocante y chocolate blanco.', tags: ['star'] },
-      { id: 'sabor_tiramisu', cat: 'Especiales', name: 'Tiramisú al Espresso Italiano', price: 350, desc: 'Mascarpone, bizcochuelo bañado en café y cacao.', tags: ['star'] },
-      { id: 'sabor_cheesecake', cat: 'Especiales', name: 'Cheesecake de Frutos Rojos', price: 350, desc: 'Queso crema New York con base de galleta y frutos rojos.', tags: [] },
-      { id: 'sabor_nutella', cat: 'Especiales', name: 'Nutella Gianduia Crunch', price: 360, desc: 'Crema de cacao y avellana con crocante de almendras.', tags: ['star'] }
-    ];
-
-    let iceCreamSelectedIds = new Set(ICE_CREAM_PRESETS_DATA.map(f => f.id));
-    let iceCreamActiveCat = 'ALL';
-
-    function openIceCreamPresetsModal() {
-      document.getElementById('iceCreamPresetsModal').classList.add('active');
-      renderIceCreamPresetsList();
-    }
-    function closeIceCreamPresetsModal() {
-      document.getElementById('iceCreamPresetsModal').classList.remove('active');
-    }
-
-    function filterIceCreamPresetCat(cat) {
-      iceCreamActiveCat = cat;
-      const pills = document.querySelectorAll('#iceCreamPresetFilterBar .cat-pill');
-      pills.forEach(p => {
-        p.classList.toggle('active', p.textContent.includes(cat) || (cat === 'ALL' && p.textContent.includes('Todos')));
-      });
-      renderIceCreamPresetsList();
-    }
-
-    function toggleAllIceCreamFlavors(select) {
-      if (select) {
-        ICE_CREAM_PRESETS_DATA.forEach(f => iceCreamSelectedIds.add(f.id));
-      } else {
-        iceCreamSelectedIds.clear();
-      }
-      renderIceCreamPresetsList();
-    }
-
-    function renderIceCreamPresetsList() {
-      const container = document.getElementById('iceCreamPresetsListContainer');
-      const countLabel = document.getElementById('iceCreamPresetCountLabel');
-      if (!container) return;
-
-      countLabel.textContent = `${iceCreamSelectedIds.size} de ${ICE_CREAM_PRESETS_DATA.length} seleccionados`;
-
-      const filtered = ICE_CREAM_PRESETS_DATA.filter(f => iceCreamActiveCat === 'ALL' || f.cat === iceCreamActiveCat);
-
-      let html = '';
-      filtered.forEach(f => {
-        const isChecked = iceCreamSelectedIds.has(f.id);
-        const tags = (f.tags || []).map(t => {
-          if (t === 'star') return '⭐';
-          if (t === 'celiac') return '🌾 Sin TACC';
-          if (t === 'vegan') return '🌱 Vegano';
-          return '';
-        }).filter(Boolean).join(' ');
-
-        html += `
-          <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-base); padding:8px 12px; border-radius:8px; margin-bottom:6px; border:1px solid ${isChecked ? 'var(--accent-gold)' : 'var(--border)'};">
-            <label style="display:flex; align-items:center; gap:10px; flex:1; cursor:pointer; min-width:0;">
-              <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleIceCreamFlavorItem('${f.id}', this.checked)" style="width:18px; height:18px; accent-color:var(--accent-gold); cursor:pointer;">
-              <div style="min-width:0;">
-                <div style="font-size:12px; font-weight:700; color:#fff; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                  <span>${f.name}</span>
-                  <span style="font-size:10px; color:var(--accent-gold);">${tags}</span>
-                </div>
-                <div style="font-size:10px; color:var(--text-dim); margin-top:2px;">${f.desc}</div>
-              </div>
-            </label>
-            <div style="font-size:11px; font-weight:700; color:var(--accent-gold); font-family:var(--font-mono); margin-left:8px; white-space:nowrap;">
-              $ ${f.price}
-            </div>
-          </div>
-        `;
-      });
-
-      container.innerHTML = html;
-    }
-
-    function toggleIceCreamFlavorItem(id, checked) {
-      if (checked) iceCreamSelectedIds.add(id);
-      else iceCreamSelectedIds.delete(id);
-      const countLabel = document.getElementById('iceCreamPresetCountLabel');
-      if (countLabel) countLabel.textContent = `${iceCreamSelectedIds.size} de ${ICE_CREAM_PRESETS_DATA.length} seleccionados`;
-    }
-
-    function importSelectedIceCreamFlavors() {
-      if (iceCreamSelectedIds.size === 0) {
-        alert('Por favor marcá al menos 1 sabor para importar.');
-        return;
-      }
-
-      if (!restaurant.categories) restaurant.categories = [];
-      if (!restaurant.dishes) restaurant.dishes = [];
-
-      let importedCount = 0;
-      ICE_CREAM_PRESETS_DATA.forEach(f => {
-        if (!iceCreamSelectedIds.has(f.id)) return;
-
-        const catName = `🍦 Helados (${f.cat})`;
-        let cat = restaurant.categories.find(c => c.name.toLowerCase() === catName.toLowerCase());
-        if (!cat) {
-          cat = { id: 'cat_helados_' + f.cat.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now(), name: catName };
-          restaurant.categories.push(cat);
-        }
-
-        const existingDish = restaurant.dishes.find(d => d.name.toLowerCase() === f.name.toLowerCase());
-        if (!existingDish) {
-          restaurant.dishes.push({
-            id: 'd_ice_' + f.id + '_' + Date.now(),
-            categoryId: cat.id,
-            name: f.name,
-            price: f.price,
-            description: f.desc,
-            tags: f.tags || []
-          });
-          importedCount++;
-        }
-      });
-
-      populateCatFilter();
-      renderDishesList();
-      closeIceCreamPresetsModal();
-      triggerAutoSave();
-      alert(`¡Se importaron ${importedCount} sabores de heladería a tu carta!`);
-    }
-
-    // Presets Perfumería
-    const PERFUMERY_PRESETS_STUDIO = [
-      { id: 'p_ambre', name: 'Ambre Nuit Nocturne (EDP)', cat: 'Fragancias Nicho', price: 2200, desc: 'Familia Oriental • Salida: Bergamota, Pomelo • Corazón: Rosa Damascena, Canela • Fondo: Ámbar Gris, Vainilla.', tags: ['star'] },
-      { id: 'p_citrus', name: 'Aqua Riviera Mandarine (EDT)', cat: 'Fragancias Cítricas', price: 1750, desc: 'Familia Cítrica • Salida: Mandarina Sicilia, Limón • Corazón: Neroli, Azahar • Fondo: Vetiver, Almizcle Blanco.', tags: [] },
-      { id: 'p_santal', name: 'Santal Majestueux (EDP)', cat: 'Fragancias Amaderadas', price: 2400, desc: 'Familia Amaderada • Salida: Cardamomo, Violeta • Corazón: Iris, Incienso • Fondo: Sándalo Australiano, Cedro.', tags: ['star'] },
-      { id: 'p_fleur', name: 'Fleur Blanche de Soie (EDP)', cat: 'Fragancias Florales', price: 1950, desc: 'Familia Floral • Salida: Pera Nashi, Pimienta Rosa • Corazón: Jazmín Sambac, Tuberosa • Fondo: Cachemira, Vainilla.', tags: ['star'] },
-      { id: 'p_vanille', name: 'Vanille Noire & Praliné (Body Splash)', cat: 'Gourmand & Brumas', price: 1250, desc: 'Familia Gourmand • Salida: Almendra, Café • Corazón: Caramelo Toffee, Tonka • Fondo: Vainilla Bourbon, Azúcar Moreno.', tags: ['star'] },
-      { id: 'p_fougere', name: 'Fougère Sauvage Lavande (EDT)', cat: 'Aromáticos & Barbershop', price: 1650, desc: 'Familia Aromática • Salida: Lavanda Provenzal, Menta • Corazón: Geranio, Salvia • Fondo: Musgo de Roble, Cedro.', tags: [] }
-    ];
-
-    function openPerfumeryPresetsModal() {
-      document.getElementById('perfumeryPresetsModal').classList.add('active');
-      renderPerfumeryPresetsList();
-    }
-    function closePerfumeryPresetsModal() {
-      document.getElementById('perfumeryPresetsModal').classList.remove('active');
-    }
-
-    function renderPerfumeryPresetsList() {
-      const container = document.getElementById('perfumeryPresetsListContainer');
-      if (!container) return;
-
-      let html = '';
-      PERFUMERY_PRESETS_STUDIO.forEach(p => {
-        html += `
-          <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-            <div style="flex:1; min-width:0;">
-              <div style="font-size:12px; font-weight:700; color:#fff;">${p.name}</div>
-              <div style="font-size:10px; color:var(--accent-gold); margin-top:1px;">${p.cat} • $ ${p.price}</div>
-              <div style="font-size:10px; color:var(--text-dim); margin-top:2px;">${p.desc}</div>
-            </div>
-            <input type="checkbox" class="perfume-preset-checkbox" value="${p.id}" checked style="width:18px; height:18px; accent-color:var(--accent-gold); cursor:pointer;">
-          </div>
-        `;
-      });
-      container.innerHTML = html;
-    }
-
-    function importSelectedPerfumery() {
-      const checkboxes = document.querySelectorAll('.perfume-preset-checkbox:checked');
-      if (!checkboxes.length) {
-        alert('Marcá al menos una fragancia para importar.');
-        return;
-      }
-
-      if (!restaurant.categories) restaurant.categories = [];
-      if (!restaurant.dishes) restaurant.dishes = [];
-
-      let count = 0;
-      checkboxes.forEach(cb => {
-        const p = PERFUMERY_PRESETS_STUDIO.find(item => item.id === cb.value);
-        if (!p) return;
-
-        let cat = restaurant.categories.find(c => c.name.toLowerCase() === p.cat.toLowerCase());
-        if (!cat) {
-          cat = { id: 'cat_perf_' + p.id + '_' + Date.now(), name: `🌸 ${p.cat}` };
-          restaurant.categories.push(cat);
-        }
-
-        const existing = restaurant.dishes.find(d => d.name.toLowerCase() === p.name.toLowerCase());
-        if (!existing) {
-          restaurant.dishes.push({
-            id: 'd_perf_' + p.id + '_' + Date.now(),
-            categoryId: cat.id,
-            name: p.name,
-            price: p.price,
-            description: p.desc,
-            tags: p.tags || []
-          });
-          count++;
-        }
-      });
-
-      populateCatFilter();
-      renderDishesList();
-      closePerfumeryPresetsModal();
-      triggerAutoSave();
-      alert(`¡Se importaron ${count} fragancias a tu carta!`);
-    }
-
-    // Delivery Zones
-    function renderDeliveryZones() {
-      const container = document.getElementById('deliveryZonesList');
-      const zones = restaurant.deliveryZones || [];
-      const currency = restaurant.currency || '$';
-
-      if (!zones.length) {
-        container.innerHTML = '<p style="color:var(--text-dim); font-size:11px;">Sin zonas configuradas.</p>';
-        return;
-      }
-
-      let html = '';
-      zones.forEach((z, idx) => {
-        html += `
-          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-base); padding:6px 10px; border-radius:6px; margin-bottom:6px;">
-            <span style="font-size:12px;">${escapeHtml(z.name)}</span>
-            <div style="display:flex; align-items:center; gap:6px;">
-              <span style="font-family:var(--font-mono); color:var(--accent-gold); font-size:11px;">${currency} ${z.fee}</span>
-              <button class="btn-icon btn-icon-danger" onclick="deleteDeliveryZone(${idx})">🗑️</button>
-            </div>
-          </div>
-        `;
-      });
-      container.innerHTML = html;
-    }
-
-    function addDeliveryZone() {
-      const name = prompt('Nombre de la zona o barrio (Ej: Centro / Pocitos / Periferia):');
-      if (!name) return;
-      const fee = prompt('Costo de envío:', '60');
-      if (!restaurant.deliveryZones) restaurant.deliveryZones = [];
-      restaurant.deliveryZones.push({ name, fee: parseFloat(fee) || 0 });
-      renderDeliveryZones();
-      triggerAutoSave();
-    }
-
-    function deleteDeliveryZone(idx) {
-      restaurant.deliveryZones.splice(idx, 1);
-      renderDeliveryZones();
-      triggerAutoSave();
-    }
-
-    // QR Code Generator with Centered Logo / Emblem Badge (Event-driven & CORS defensive)
-    function generateQrCode() {
-      const container = document.getElementById('qrcodeCanvasContainer');
-      if (!container) return;
-      container.innerHTML = '';
-      const fullUrl = window.location.origin + `/m/${restaurant.slug}`;
-
-      // Temporary holder for qrcode.js
-      const tempHolder = document.createElement('div');
-      new QRCode(tempHolder, {
-        text: fullUrl,
-        width: 240,
-        height: 240,
-        colorDark: "#0E1412",
-        colorLight: "#FFFFFF",
-        correctLevel: QRCode.CorrectLevel.H
-      });
-
-      // Event-driven QR source extraction (eliminates arbitrary setTimeout)
-      function waitForQrSource(holder) {
-        return new Promise((resolve) => {
-          // Check immediate synchronous canvas (supported by standard qrcode.js)
-          const qrCanvas = holder.querySelector('canvas');
-          if (qrCanvas && qrCanvas.width > 0) {
-            return resolve(qrCanvas);
-          }
-          const qrImg = holder.querySelector('img');
-          if (qrImg && qrImg.complete && qrImg.naturalWidth > 0) {
-            return resolve(qrImg);
-          }
-          if (qrImg) {
-            qrImg.addEventListener('load', () => resolve(qrImg), { once: true });
-            qrImg.addEventListener('error', () => resolve(null), { once: true });
-            return;
-          }
-
-          // Use MutationObserver for DOM insertion events
-          let resolved = false;
-          const observer = new MutationObserver(() => {
-            const canvasEl = holder.querySelector('canvas');
-            if (canvasEl && canvasEl.width > 0) {
-              resolved = true;
-              observer.disconnect();
-              return resolve(canvasEl);
-            }
-            const imgEl = holder.querySelector('img');
-            if (imgEl) {
-              if (imgEl.complete && imgEl.naturalWidth > 0) {
-                resolved = true;
-                observer.disconnect();
-                return resolve(imgEl);
-              }
-              imgEl.addEventListener('load', () => {
-                if (!resolved) {
-                  resolved = true;
-                  observer.disconnect();
-                  resolve(imgEl);
-                }
-              }, { once: true });
-              imgEl.addEventListener('error', () => {
-                if (!resolved) {
-                  resolved = true;
-                  observer.disconnect();
-                  resolve(null);
-                }
-              }, { once: true });
-            }
-          });
-
-          observer.observe(holder, { childList: true, subtree: true });
-
-          // Fallback guard: guarantee Promise resolves even under high device load
-          setTimeout(() => {
-            if (!resolved) {
-              resolved = true;
-              observer.disconnect();
-              const fallbackCanvas = holder.querySelector('canvas');
-              const fallbackImg = holder.querySelector('img');
-              resolve(fallbackCanvas || fallbackImg || null);
-            }
-          }, 1200);
-        });
-      }
-
-      // Defensive logo loader with CORS headers management
-      function loadSafeLogo(url) {
-        return new Promise((resolve) => {
-          if (!url) return resolve(null);
-          const logo = new Image();
-          // Defensive CORS: Only apply anonymous crossOrigin on external URLs to avoid issues with data:/blob:
-          if (!url.startsWith('data:') && !url.startsWith('blob:')) {
-            logo.crossOrigin = 'anonymous';
-          }
-          logo.addEventListener('load', () => resolve(logo), { once: true });
-          logo.addEventListener('error', (err) => {
-            // Defensive handling: If external image lacks CORS headers or fails,
-            // log warning and resolve null so default icon is rendered without tainting canvas
-            console.warn('[QR] No se pudo cargar el logo con CORS o falló la imagen externa. Fallback seguro sin tainting.', err);
-            resolve(null);
-          }, { once: true });
-          logo.src = url;
-        });
-      }
-
-      // Coordinate both events before mounting to canvas
-      Promise.all([waitForQrSource(tempHolder), loadSafeLogo(restaurant.logoUrl)])
-        .then(([qrSource, safeLogo]) => {
-          const canvas = document.createElement('canvas');
-          canvas.width = 240;
-          canvas.height = 240;
-          const ctx = canvas.getContext('2d');
-
-          if (qrSource) {
-            ctx.drawImage(qrSource, 0, 0, 240, 240);
-          } else {
-            container.innerHTML = '';
-            container.appendChild(tempHolder);
-            return;
-          }
-
-          const center = 120;
-          const badgeRadius = 32;
-
-          // Draw white circular badge background
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(center, center, badgeRadius + 4, 0, 2 * Math.PI);
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fill();
-          ctx.lineWidth = 3;
-          ctx.strokeStyle = '#ECC94B';
-          ctx.stroke();
-
-          const drawDefaultIcon = () => {
-            ctx.beginPath();
-            ctx.arc(center, center, badgeRadius, 0, 2 * Math.PI);
-            ctx.fillStyle = '#151E1A';
-            ctx.fill();
-            ctx.font = '26px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('🍽️', center, center + 2);
-          };
-
-          if (safeLogo) {
-            try {
-              ctx.beginPath();
-              ctx.arc(center, center, badgeRadius, 0, 2 * Math.PI);
-              ctx.closePath();
-              ctx.clip();
-              ctx.drawImage(safeLogo, center - badgeRadius, center - badgeRadius, badgeRadius * 2, badgeRadius * 2);
-            } catch (e) {
-              console.warn('[QR] Error dibujando logo en canvas, aplicando ícono seguro:', e);
-              drawDefaultIcon();
-            }
-          } else {
-            drawDefaultIcon();
-          }
-          ctx.restore();
-
-          container.innerHTML = '';
-          container.appendChild(canvas);
-        })
-        .catch((err) => {
-          console.error('[QR] Error renderizando QR:', err);
-          container.innerHTML = '';
-          container.appendChild(tempHolder);
-        });
-    }
-
-    function downloadQrPng() {
-      const canvas = document.querySelector('#qrcodeCanvasContainer canvas');
-      if (!canvas) return;
-      try {
-        const a = document.createElement('a');
-        a.href = canvas.toDataURL('image/png');
-        a.download = `QR-${restaurant.slug}-menu-pizarron.png`;
-        a.click();
-      } catch (err) {
-        console.error('[QR] Error al descargar imagen del QR (canvas tainted o bloqueado por CORS):', err);
-        alert('No se pudo generar la descarga del QR debido a restricciones de seguridad (CORS) de la imagen del logo.');
-      }
-    }
-
-    function printTableStand() {
-      const win = window.open('', '_blank');
-      const canvas = document.querySelector('#qrcodeCanvasContainer canvas');
-      let src = '';
-      try {
-        src = canvas ? canvas.toDataURL('image/png') : '';
-      } catch (err) {
-        console.warn('[QR] Canvas tainted en printTableStand:', err);
-      }
-      const wifiText = restaurant.wifi && restaurant.wifi.ssid ? `Wi-Fi: ${restaurant.wifi.ssid} | Clave: ${restaurant.wifi.password}` : '';
-
-      win.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Tarjeta de Mesa — ${restaurant.name}</title>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 30px; background: #fff; color: #111; }
-            .card { border: 2px solid #222; border-radius: 16px; padding: 28px; max-width: 380px; margin: 0 auto; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-            h1 { margin: 0 0 6px 0; font-size: 24px; font-weight: 800; }
-            p { margin: 0 0 16px 0; color: #555; font-size: 14px; }
-            img { width: 220px; height: 220px; margin-bottom: 12px; }
-            .wifi { background: #f4f4f5; padding: 10px 14px; border-radius: 8px; font-weight: 600; font-size: 13px; border: 1px dashed #ccc; }
-            .badge-powered { font-size: 10px; color: #888; margin-top: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <h1>${restaurant.name}</h1>
-            <p>${restaurant.slogan || 'Escaneá para ver la carta y pedir por WhatsApp'}</p>
-            ${src ? `<img src="${src}" alt="QR Menú" />` : ''}
-            ${wifiText ? `<div class="wifi">📶 ${wifiText}</div>` : ''}
-            <div class="badge-powered">Menú Digital • Menú Pizarrón Studio</div>
-          </div>
-          <script>setTimeout(() => window.print(), 300);<\/script>
-        </body>
-        </html>
-      `);
-      win.document.close();
-    }
-
-    async function downloadAllTablesPDF() {
-      const tableCount = parseInt(document.getElementById('inputTableCount').value) || 10;
-      if (tableCount < 1 || tableCount > 100) {
-        alert('Por favor indica una cantidad de mesas entre 1 y 100.');
-        return;
-      }
-
-      if (!window.jspdf || !window.jspdf.jsPDF) {
-        alert('Cargando librería de PDF... Por favor espera un instante y reintenta.');
-        return;
-      }
-
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-
-      const primaryColor = [21, 30, 26]; // #151E1A
-      const goldColor = [236, 201, 75]; // #ECC94B
-      const textDimColor = [120, 130, 125];
-      const wifiText = restaurant.wifi && restaurant.wifi.ssid ? `Wi-Fi: ${restaurant.wifi.ssid}  |  Clave: ${restaurant.wifi.password}` : '';
-
-      // Helper to generate QR data URL (Event-driven without arbitrary timeouts)
-      function makeQrDataUrl(url) {
-        return new Promise((resolve) => {
-          const temp = document.createElement('div');
-          temp.style.display = 'none';
-          document.body.appendChild(temp);
-          new QRCode(temp, {
-            text: url,
-            width: 300,
-            height: 300,
-            colorDark: "#0E1412",
-            colorLight: "#FFFFFF",
-            correctLevel: QRCode.CorrectLevel.H
-          });
-
-          const cleanupAndResolve = () => {
-            const canvas = temp.querySelector('canvas');
-            const img = temp.querySelector('img');
-            let dataUrl = '';
-            try {
-              if (canvas) {
-                dataUrl = canvas.toDataURL('image/png');
-              } else if (img) {
-                dataUrl = img.src;
-              }
-            } catch (e) {
-              console.warn('[PDF] Error generando dataUrl del QR:', e);
-            }
-            if (temp.parentNode) document.body.removeChild(temp);
-            resolve(dataUrl);
-          };
-
-          const canvas = temp.querySelector('canvas');
-          if (canvas && canvas.width > 0) {
-            return cleanupAndResolve();
-          }
-
-          const img = temp.querySelector('img');
-          if (img) {
-            if (img.complete && img.naturalWidth > 0) {
-              return cleanupAndResolve();
-            }
-            img.addEventListener('load', cleanupAndResolve, { once: true });
-            img.addEventListener('error', cleanupAndResolve, { once: true });
-            return;
-          }
-
-          let done = false;
-          const obs = new MutationObserver(() => {
-            const c = temp.querySelector('canvas');
-            const i = temp.querySelector('img');
-            if (c || (i && i.complete)) {
-              if (!done) {
-                done = true;
-                obs.disconnect();
-                cleanupAndResolve();
-              }
-            }
-          });
-          obs.observe(temp, { childList: true, subtree: true });
-          setTimeout(() => {
-            if (!done) {
-              done = true;
-              obs.disconnect();
-              cleanupAndResolve();
-            }
-          }, 800);
-        });
-      }
-
-      for (let m = 1; m <= tableCount; m++) {
-        if (m > 1) pdf.addPage();
-
-        const tableUrl = `${window.location.origin}/m/${restaurant.slug}?mesa=${m}`;
-        const qrData = await makeQrDataUrl(tableUrl);
-
-        // Background decorative border
-        pdf.setDrawColor(...goldColor);
-        pdf.setLineWidth(1.5);
-        pdf.roundedRect(15, 15, 180, 267, 8, 8, 'D');
-
-        pdf.setDrawColor(...primaryColor);
-        pdf.setLineWidth(0.4);
-        pdf.roundedRect(18, 18, 174, 261, 6, 6, 'D');
-
-        // Header
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(26);
-        pdf.setTextColor(...primaryColor);
-        pdf.text(restaurant.name || 'Menú Pizarrón', 105, 42, { align: 'center' });
-
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(12);
-        pdf.setTextColor(...textDimColor);
-        pdf.text(restaurant.slogan || 'Carta Digital & Pedidos desde tu mesa', 105, 52, { align: 'center' });
-
-        // Table Pill / Badge
-        pdf.setFillColor(...goldColor);
-        pdf.roundedRect(65, 62, 80, 16, 8, 8, 'F');
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(14);
-        pdf.setTextColor(16, 22, 20);
-        pdf.text(`MESA  Nº ${m}`, 105, 73, { align: 'center' });
-
-        // QR Code
-        if (qrData) {
-          pdf.addImage(qrData, 'PNG', 50, 88, 110, 110);
-        }
-
-        // Instructions
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(14);
-        pdf.setTextColor(...primaryColor);
-        pdf.text('Escaneá con tu cámara para ver la carta', 105, 212, { align: 'center' });
-
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(10);
-        pdf.setTextColor(...textDimColor);
-        pdf.text('Pedí directo al mozo o a WhatsApp sin esperar', 105, 220, { align: 'center' });
-
-        // Wi-Fi box if configured
-        if (wifiText) {
-          pdf.setFillColor(245, 247, 246);
-          pdf.setDrawColor(220, 225, 222);
-          pdf.setLineWidth(0.3);
-          pdf.roundedRect(35, 230, 140, 16, 4, 4, 'FD');
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFontSize(9);
-          pdf.setTextColor(...primaryColor);
-          pdf.text(`📶  ${wifiText}`, 105, 240, { align: 'center' });
-        }
-
-        // Footer branding
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(8);
-        pdf.setTextColor(150, 155, 152);
-        pdf.text('Generado con ScanGo Menú Pizarrón • www.scango.app', 105, 270, { align: 'center' });
-      }
-
-      pdf.save(`Carteles-Mesas-${restaurant.slug || 'menu'}.pdf`);
-    }
-    function updateLiveState() {
-      restaurant.name = document.getElementById('inputLocalName').value;
-      restaurant.slogan = document.getElementById('inputLocalSlogan').value;
-      restaurant.slug = document.getElementById('inputLocalSlug').value.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-      restaurant.currency = document.getElementById('inputLocalCurrency').value;
-      restaurant.phone = document.getElementById('inputPhone').value;
-      restaurant.city = document.getElementById('inputRestaurantCity')?.value.trim().slice(0, 100) || '';
-      restaurant.smartWeatherEnabled = document.getElementById('inputSmartWeatherEnabled')?.checked === true;
-      updateWeatherToggleStyle();
-
-      // Business Type selector
-      const bizSelect = document.getElementById('inputBusinessType');
-      if (bizSelect) {
-        restaurant.businessType = normalizeBusinessType(bizSelect.value);
-      }
-
-      // Loyalty points toggle
-      const loyaltyCheckbox = document.getElementById('inputAllowLoyaltyPoints');
-      if (loyaltyCheckbox) {
-        restaurant.allowLoyaltyPoints = loyaltyCheckbox.checked;
-        const sliderL = document.getElementById('sliderLoyaltyPoints');
-        if (sliderL) sliderL.style.backgroundColor = loyaltyCheckbox.checked ? '#38A169' : '#2a3a33';
-      }
-
-      // Ice cream wizard toggle
-      const iceCreamCheckbox = document.getElementById('inputAllowIceCreamWizard');
-      if (iceCreamCheckbox) {
-        restaurant.allowIceCreamWizard = iceCreamCheckbox.checked;
-        const sliderI = document.getElementById('sliderIceCreamWizard');
-        if (sliderI) sliderI.style.backgroundColor = iceCreamCheckbox.checked ? '#38A169' : '#2a3a33';
-      }
-
-      // Perfumery toggle
-      const perfumeryCheckbox = document.getElementById('inputAllowPerfumery');
-      if (perfumeryCheckbox) {
-        restaurant.allowPerfumery = perfumeryCheckbox.checked;
-        const sliderP = document.getElementById('sliderPerfumery');
-        if (sliderP) sliderP.style.backgroundColor = perfumeryCheckbox.checked ? '#38A169' : '#2a3a33';
-      }
-      updateBusinessTypeControls();
-
-      // Social links
-      restaurant.instagram = document.getElementById('inputInstagram').value.trim();
-      restaurant.googleReview = document.getElementById('inputGoogleReview').value.trim();
-
-      // Layout & Theme
-      const layoutSelect = document.getElementById('inputMenuLayout');
-      if (layoutSelect) {
-        restaurant.layout = layoutSelect.value || 'classic';
-      }
-      restaurant.theme = document.getElementById('inputThemeBg').value;
-      restaurant.themeFont = document.getElementById('inputThemeFont').value;
-
-      // Banner / Portada
-      const bannerInput = document.getElementById('inputBannerUrl');
-      if (bannerInput && bannerInput.value.trim() && !restaurant.bannerUrl?.startsWith('data:')) {
-        restaurant.bannerUrl = bannerInput.value.trim();
-      }
-
-      if (!restaurant.wifi) restaurant.wifi = {};
-      restaurant.wifi.ssid = document.getElementById('inputWifiSsid').value;
-      restaurant.wifi.password = document.getElementById('inputWifiPass').value;
-
-      // Reservations toggle
-      const resCheckbox = document.getElementById('inputAllowReservations');
-      if (resCheckbox) {
-        restaurant.allowReservations = resCheckbox.checked;
-        const slider = document.getElementById('sliderReservations');
-        if (slider) slider.style.backgroundColor = resCheckbox.checked ? '#38A169' : '#2a3a33';
-      }
-
-      // Coupons toggle
-      const couponsCheckbox = document.getElementById('inputAllowCoupons');
-      if (couponsCheckbox) {
-        restaurant.allowCoupons = couponsCheckbox.checked;
-        const sliderC = document.getElementById('sliderCoupons');
-        if (sliderC) sliderC.style.backgroundColor = couponsCheckbox.checked ? '#38A169' : '#2a3a33';
-      }
-
-      // Bill Splitter toggle
-      const splitCheckbox = document.getElementById('inputAllowBillSplitter');
-      if (splitCheckbox) {
-        restaurant.allowBillSplitter = splitCheckbox.checked;
-        const sliderS = document.getElementById('sliderBillSplitter');
-        if (sliderS) sliderS.style.backgroundColor = splitCheckbox.checked ? '#38A169' : '#2a3a33';
-      }
-
-      // Announcement banner
-      const annInput = document.getElementById('inputAnnouncement');
-      if (annInput) restaurant.announcement = annInput.value.trim();
-
-      // Payment Link
-      const payInput = document.getElementById('inputPaymentLink');
-      if (payInput) restaurant.paymentLink = payInput.value.trim();
-
-      // Schedule settings
-      const schedCheck = document.getElementById('inputScheduleEnabled');
-      if (schedCheck) {
-        restaurant.scheduleEnabled = schedCheck.checked;
-        const sliderSched = document.getElementById('sliderSchedule');
-        if (sliderSched) sliderSched.style.backgroundColor = schedCheck.checked ? '#38A169' : '#2a3a33';
-      }
-      const schedHours = document.getElementById('inputScheduleActiveHours');
-      if (schedHours) restaurant.scheduleActiveHours = schedHours.value.trim();
-
-      // Table count
-      restaurant.tableCount = parseInt(document.getElementById('inputTableCount').value) || 10;
-
-      document.getElementById('studioNavRestaurantName').textContent = restaurant.name;
-      document.getElementById('previewFullUrl').textContent = `/m/${restaurant.slug}`;
-      document.getElementById('btnLiveMenu').href = `/m/${restaurant.slug}`;
-
-      generateQrCode();
-
-      // Instant postMessage live synchronization with customer simulator iframe
-      const iframe = document.getElementById('previewIframe');
-      if (iframe && iframe.contentWindow) {
-        iframe.contentWindow.postMessage({ type: 'UPDATE_LIVE_PREVIEW', data: restaurant }, '*');
-      }
-
-      // Keep user changes persisted in localStorage cache
-      try {
-        localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(restaurant));
-      } catch (e) {}
-
-      triggerAutoSave();
-    }
-
-    function triggerAutoSave() {
-      showSaveFeedback('saving');
-      clearTimeout(autoSaveTimeout);
-      autoSaveTimeout = setTimeout(saveStudioChanges, 1200);
-    }
-
-    async function saveStudioChanges() {
-      const btn = document.getElementById('btnSaveStudio');
-      const btnText = document.getElementById('saveBtnText');
-      if (btn) {
-        if (btn.dataset.saving === 'true') return;
-        btn.dataset.saving = 'true';
-        btn.disabled = true;
-      }
-      btnText.textContent = '⏳ Guardando...';
-      showSaveFeedback('saving');
-      const token = localStorage.getItem('menu_pizarron_token');
-
-      // Keep state saved locally
-      try {
-        localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(restaurant));
-      } catch (e) {}
-
-      const finishSave = (label, feedbackState = 'saved') => {
-        btnText.textContent = label;
-        showSaveFeedback(feedbackState);
-        setTimeout(() => {
-          btnText.textContent = '💾 Guardar Cambios';
-          if (btn) {
-            btn.disabled = false;
-            btn.dataset.saving = 'false';
-          }
-        }, 1800);
-      };
-
-      if (!token) {
-        setTimeout(() => {
-          finishSave('✓ Guardado', 'saved');
-        }, 350);
-        return;
-      }
-
-      try {
-        const res = await fetch('/api/studio/save', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            restaurantId: restaurant.id,
-            data: restaurant
-          })
-        });
-        if (!res.ok) throw new Error('Error al guardar');
-        finishSave('✓ Guardado', 'saved');
-        reloadPreviewIframe();
-      } catch (err) {
-        finishSave('✓ Guardado (Local)', 'saved');
-      }
-    }
-
-    function reloadPreviewIframe() {
-      const iframe = document.getElementById('previewIframe');
-      iframe.src = `/m/${restaurant.slug}?t=${Date.now()}`;
-    }
-
-    function setPreviewView(mode) {
-      // preview phone frame
-    }
-
-    // Billing Modal
-    function openBillingModal() {
-      const sub = currentUser ? currentUser.subscription : {};
-      const planId = (sub.plan && PLANS[sub.plan]) ? sub.plan : 'pro_monthly';
-      const plan = PLANS[planId] || PLANS.pro_monthly;
-      const basePrice = plan.priceUsd;
-      const branches = getValidBranches();
-      const branchCount = Math.max(1, branches.length);
-
-      document.getElementById('modalSubState').textContent = sub.status ? sub.status.toUpperCase() : 'TRIAL';
-      document.getElementById('modalSubDetail').textContent = sub.status === 'trial'
-        ? `Prueba activa hasta el ${new Date(sub.trialEndsAt).toLocaleDateString()}`
-        : `Plan ${plan.name} activo.`;
-
-      // Inject tiered pricing visualizer into billing modal
-      const pricingContainer = document.getElementById('billingTieredPricing');
-      if (pricingContainer) {
-        const totalPrice = calculateMultiBranchPrice(basePrice, branchCount);
-        const fullPrice = basePrice * branchCount;
-        const totalSavings = Math.round((fullPrice - totalPrice + Number.EPSILON) * 100) / 100;
-        const savingsPct = fullPrice > 0 ? Math.round((totalSavings / fullPrice) * 100) : 0;
-
-        let breakdownHtml = '';
-        for (let i = 1; i <= branchCount; i++) {
-          const discount = getBranchDiscount(i);
-          const price = Math.round((basePrice * (1 - discount) + Number.EPSILON) * 100) / 100;
-          const label = i === 1 ? 'Principal' : `Sucursal ${i}`;
-          breakdownHtml += `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.08); font-size:12px;">
-            <span>${label}${discount > 0 ? ` <span style="color:var(--accent-green); font-size:10px;">-${Math.round(discount * 100)}%</span>` : ''}</span>
-            <span style="font-weight:700; color:var(--accent-gold);">$${price.toFixed(2)} USD</span>
-          </div>`;
-        }
-
-        pricingContainer.innerHTML = `
-          <div style="background:rgba(236,201,75,0.08); border:1px solid rgba(236,201,75,0.3); border-radius:8px; padding:12px; margin-bottom:16px;">
-            <div style="font-size:11px; font-weight:700; color:var(--accent-gold); text-transform:uppercase; margin-bottom:8px;">📊 Precio Efectivo por Sucursales (${branchCount} activa${branchCount > 1 ? 's' : ''})</div>
-            <div style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">Descuentos: 1ª 100% · 2ª 20% · 3ª 35% · 4ª+ 50%</div>
-            ${breakdownHtml}
-            <div style="display:flex; justify-content:space-between; margin-top:10px; padding-top:10px; border-top:1px solid rgba(236,201,75,0.3); font-size:13px; font-weight:700;">
-              <span>Total Mensual:</span>
-              <span style="color:var(--accent-gold);">$${totalPrice.toFixed(2)} USD</span>
-            </div>
-            ${branchCount > 1 ? `<div style="font-size:11px; color:var(--accent-green); margin-top:4px;">💰 Ahorro vs. precio sin descuento: $${totalSavings.toFixed(2)} USD (${savingsPct}%)</div>` : ''}
-          </div>
-        `;
-      }
-
-      document.getElementById('billingModal').classList.add('active');
-    }
-    function closeBillingModal() {
-      document.getElementById('billingModal').classList.remove('active');
-    }
-
-    async function startCheckout(plan, eventRef) {
-      const activeEl = (eventRef && eventRef.target) || (window.event && window.event.target) || document.activeElement;
-      const btn = activeEl && (activeEl.tagName === 'BUTTON' ? activeEl : activeEl.closest('button'));
-      const originalText = btn ? btn.innerHTML : '';
-
-      if (btn) {
-        if (btn.disabled || btn.dataset.busy === 'true') return;
-        btn.disabled = true;
-        btn.dataset.busy = 'true';
-        btn.innerHTML = '<span><i class="fa-solid fa-spinner fa-spin"></i> Conectando con pasarela...</span>';
-      }
-
-      const token = localStorage.getItem('menu_pizarron_token');
-      try {
-        const res = await fetch('/api/billing/checkout', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            restaurantId: restaurant?.id,
-            plan: plan
-          })
-        });
-        const data = await res.json();
-        if (data.checkoutUrl) {
-          window.open(data.checkoutUrl, '_blank');
-        } else {
-          alert('Redirigiendo a pasarela de cobro...');
-        }
-      } catch (err) {
-        alert('Error al iniciar checkout: ' + (err.message || 'Error de conexión'));
-      } finally {
-        if (btn) {
-          setTimeout(() => {
-            btn.disabled = false;
-            btn.dataset.busy = 'false';
-            btn.innerHTML = originalText;
-          }, 2500);
-        }
-      }
-    }
-
-    // Google Play Account Deletion Policy Compliance
-    function openDeleteAccountModal() {
-      const modal = document.getElementById('deleteAccountModal');
-      if (modal) modal.classList.add('active');
-    }
-
-    function closeDeleteAccountModal() {
-      const modal = document.getElementById('deleteAccountModal');
-      if (modal) modal.classList.remove('active');
-    }
-
-    async function confirmAccountDeletion() {
-      const btn = document.getElementById('btnConfirmDeleteAccount');
-      const reason = document.getElementById('deleteAccountReason')?.value.trim() || 'Sin motivo especificado';
-      if (!confirm('¿Estás seguro de solicitar la baja definitiva de tu cuenta y todos tus datos? Esta acción no se puede deshacer.')) {
-        return;
-      }
-
-      if (btn) {
-        btn.disabled = true;
-        btn.textContent = 'Procesando baja...';
-      }
-
-      const token = localStorage.getItem('menu_pizarron_token');
-      try {
-        if (token) {
-          await fetch('/api/account/delete-request', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ reason })
-          }).catch(() => {});
-        }
-      } catch (e) {}
-
-      alert('Tu solicitud de eliminación de cuenta y purga de datos personales ha sido registrada correctamente.');
-      localStorage.clear();
-      window.location.href = '/index.html';
-    }
-
-    function logout() {
-      localStorage.removeItem('menu_pizarron_token');
-      localStorage.removeItem('menu_pizarron_user');
-      localStorage.removeItem('menu_pizarron_restaurant');
-      window.location.href = '/index.html';
-    }
-
-    // Auto-Sync Queue: When owner recovers internet connection, sync local state to backend automatically
-    window.addEventListener('online', () => {
-      showSaveFeedback('saving');
-      saveStudioChanges();
+/**
+ * public/js/studio.js
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ScanGo Studio — Entry Point Modular y Orquestador de Interfaz
+ * 
+ * Arquitectura:
+ *   - Toda la lógica especializada reside en módulos ES dedicados en ./studio/
+ *   - Este archivo coordina el ciclo de vida, renderizado principal y enlaza
+ *     las funciones requeridas por los atributos inline (onclick, onchange) a window.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+import { state } from './studio/state.js';
+import { PLANS } from './studio/data/plans.js';
+import { PRESETS } from './studio/data/presetsData.js';
+import { ICE_CREAM_PRESETS_DATA } from './studio/data/iceCreamPresets.js';
+import { PERFUMERY_PRESETS_STUDIO } from './studio/data/perfumeryPresets.js';
+
+import {
+  normalizeSubscription,
+  checkStudioAccess,
+  renderSubscriptionBadge,
+  checkSubscriptionAlerts,
+  getMenuVisibilityStatus,
+  renderMenuStatusIndicator,
+  showSubscriptionRequiredScreen
+} from './studio/subscription.js';
+
+import {
+  initStudio as initStudioAuth,
+  logout as logoutAuth,
+  openDeleteAccountModal as openDeleteModal,
+  closeDeleteAccountModal as closeDeleteModal
+} from './studio/auth.js';
+
+import {
+  renderDeliveryZones as renderZonesMod,
+  addDeliveryZone as addZoneMod,
+  deleteDeliveryZone as deleteZoneMod
+} from './studio/deliveryZones.js';
+
+import {
+  triggerAutoSave as triggerAutoSaveMod,
+  saveStudioChanges as saveStudioChangesMod,
+  reloadPreviewIframe as reloadPreviewIframeMod,
+  syncLivePreviewIframe as syncLivePreviewIframeMod
+} from './studio/autoSave.js';
+
+import {
+  promptNewCategoryInModal as promptNewCategoryMod,
+  openCategoryManagerModal as openCategoryModal,
+  closeCategoryManagerModal as closeCategoryModal,
+  renderCategoryManagerList as renderCategoryListMod,
+  moveCategory as moveCategoryMod,
+  addCategoryFromManager as addCategoryMod,
+  renameCategory as renameCategoryMod,
+  deleteCategory as deleteCategoryMod
+} from './studio/categoryManager.js';
+
+import {
+  openBillingModal as openBillingModalMod,
+  closeBillingModal as closeBillingModalMod,
+  startCheckout as startCheckoutMod,
+  getBranchDiscount,
+  calculateMultiBranchPrice,
+  getValidBranches
+} from './studio/billing.js';
+
+import {
+  renderBranchesList as renderBranchesListMod,
+  updateBranchesPricingBanner,
+  addBranch as addBranchMod,
+  deleteBranch as deleteBranchMod,
+  resetBranchForm
+} from './studio/branches.js';
+
+import {
+  loadAnalytics as loadAnalyticsMod,
+  fetchAnalytics,
+  updateKPIs,
+  updateBranchFilter,
+  updateEventFilter,
+  renderDailyChart,
+  renderHeatmap,
+  renderBranchMetrics,
+  renderEventMetrics
+} from './studio/analytics.js';
+
+import {
+  generateQrCode as generateQrCodeMod,
+  downloadQrPng as downloadQrPngMod,
+  printTableStand as printTableStandMod,
+  downloadAllTablesPDF as downloadAllTablesPDFMod
+} from './studio/qrGenerator.js';
+
+import {
+  getRestaurantModifierGroups,
+  inferLegacyPackUnits,
+  resolveLegacyPackUnits,
+  ensureDishModifierGroups,
+  renderDishModifierAssignments,
+  toggleDishModifierGroup,
+  readDishModifierGroupIds,
+  openModifierGroupManager as openModifierGroupModal,
+  closeModifierGroupManager as closeModifierGroupModal,
+  renderModifierGroupList as renderModifierGroupListMod,
+  addBurgerModifierTemplate as addBurgerTemplateMod,
+  startNewModifierGroup,
+  editModifierGroup as editModifierGroupMod,
+  renderModifierGroupOptions,
+  updateModifierGroupEditor,
+  handleModifierGroupModeChange,
+  readModifierGroupOptions,
+  addModifierGroupOption,
+  removeModifierGroupOption,
+  saveModifierGroup as saveModifierGroupMod,
+  cancelModifierGroupEdit,
+  deleteModifierGroup as deleteModifierGroupMod,
+  getDishOptionConfig
+} from './studio/modifierGroups.js';
+
+import {
+  openPresetsModal as openPresetsModalMod,
+  closePresetsModal,
+  renderPresetChips,
+  browsePresetCategory as browsePresetCategoryMod,
+  buildPresetDish,
+  ensureEmpanadaPresetGroups,
+  addSinglePresetDish as addSinglePresetDishMod,
+  importCurrentPresetCategory as importCurrentPresetCatMod,
+  importPresetCategory as importPresetCatMod,
+  importAllPresets as importAllPresetsMod,
+  openIceCreamPresetsModal,
+  closeIceCreamPresetsModal,
+  filterIceCreamPresetCat,
+  toggleAllIceCreamFlavors,
+  renderIceCreamPresetsList,
+  toggleIceCreamFlavorItem,
+  importSelectedIceCreamFlavors as importSelectedIceCreamMod,
+  openPerfumeryPresetsModal,
+  closePerfumeryPresetsModal,
+  renderPerfumeryPresetsList,
+  importSelectedPerfumery as importSelectedPerfumeryMod
+} from './studio/presets.js';
+
+import {
+  openAiMenuImportModal as openAiMenuImportModalMod,
+  closeAiMenuImportModal as closeAiMenuImportModalMod,
+  handleAiMenuFiles as handleAiMenuFilesMod,
+  moveAiMenuPage as moveAiMenuPageMod,
+  removeAiMenuPage as removeAiMenuPageMod,
+  runAiMenuAnalysis as runAiMenuAnalysisMod,
+  closeAiMenuPreviewModal as closeAiMenuPreviewModalMod,
+  confirmAiMenuImport as confirmAiMenuImportMod
+} from './studio/aiMenuImport.js';
+
+import {
+  populateCatFilter as populateCatFilterMod,
+  renderDishesList as renderDishesListMod,
+  deleteDish as deleteDishMod,
+  clearDishPhoto,
+  toggleDishScheduleControls,
+  editDish as editDishMod,
+  openNewDishModal as openNewDishModalMod,
+  closeDishEditModal,
+  saveDishFromModal as saveDishFromModalMod,
+  toggleDishesByIngredient as toggleDishesByIngredientMod
+} from './studio/dishEditor.js';
+
+import { switchTab as switchTabMod } from './studio/ui/tabs.js';
+import { showConfirmDialog, closeConfirmDialog } from './studio/ui/confirmDialog.js';
+import { showSaveFeedback } from './studio/ui/saveFeedback.js';
+
+export async function compressImageFile(file) {
+  const bitmap = await createImageBitmap(file);
+  const maxDimension = 1080;
+  let scale = Math.min(1, maxDimension / bitmap.width, maxDimension / bitmap.height);
+  let blob;
+
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('No se pudo procesar la imagen en este navegador.');
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(result => result ? resolve(result) : reject(new Error('No se pudo comprimir la imagen.')), 'image/webp', 0.8);
     });
+    if (blob.type === 'image/webp' && blob.size <= 150 * 1024) break;
+    if (blob.type !== 'image/webp') throw new Error('Este navegador no permite exportar imágenes WebP.');
+    scale *= 0.85;
+  }
+  bitmap.close();
 
-    // Run
-    window.addEventListener('DOMContentLoaded', initStudio);
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('No se pudo leer la imagen comprimida.'));
+    reader.readAsDataURL(blob);
+  });
+  return { blob, dataUrl };
+}
+
+// Global aliases & state references
+let currentUser = null;
+let restaurant = null;
+let autoSaveTimeout = null;
+let selectedReviewPhotoOption = 'logo';
+let uploadedReviewPhotoUrl = null;
+
+// Strict XSS Sanitizer Helper
+export function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+export function normalizeBusinessType(value) {
+  if (value === 'perfumeria') return 'perfumery';
+  if (value === 'heladeria') return 'heladeria';
+  if (value === 'events') return 'events';
+  return 'restaurant';
+}
+
+export function normalizeRestaurantBusinessType(profile) {
+  if (!profile || typeof profile !== 'object') return 'restaurant';
+  const raw = profile.businessType || profile.business_type;
+  const normalized = normalizeBusinessType(raw);
+  profile.businessType = normalized;
+  return normalized;
+}
+
+export function updateBusinessTypeControls() {
+  const bizType = normalizeBusinessType(restaurant?.businessType);
+  const perfumerySection = document.getElementById('perfumeryControlsSection');
+  if (perfumerySection) {
+    perfumerySection.style.display = (bizType === 'perfumery') ? 'block' : 'none';
+  }
+  const iceCreamSection = document.getElementById('iceCreamControlsSection');
+  if (iceCreamSection) {
+    iceCreamSection.style.display = (bizType === 'heladeria') ? 'block' : 'none';
+  }
+}
+
+export function updateWeatherToggleStyle() {
+  const toggle = document.getElementById('inputSmartWeatherEnabled');
+  const slider = document.getElementById('sliderSmartWeather');
+  if (slider && toggle) {
+    slider.style.backgroundColor = toggle.checked ? '#38A169' : '#2a3a33';
+  }
+}
+
+// Media & Banner Handlers
+export function renderBannerPreviewUI() {
+  const box = document.getElementById('bannerPreviewBox');
+  const btnRemove = document.getElementById('btnRemoveBanner');
+  if (!box || !restaurant) return;
+  if (restaurant.bannerUrl) {
+    box.innerHTML = `<img src="${restaurant.bannerUrl}" style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.parentElement.innerHTML='<span style=\\'font-size:11px; color:#f87171;\\'>⚠️ Error cargando imagen</span>'">`;
+    if (btnRemove) btnRemove.style.display = 'inline-block';
+  } else {
+    box.innerHTML = `
+      <span id="bannerPreviewPlaceholder" style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 10px;">
+        🌄 Sin imagen de portada cargada.<br><span style="font-size: 10px; opacity: 0.8;">Se mostrará el encabezado estándar elegante.</span>
+      </span>
+    `;
+    if (btnRemove) btnRemove.style.display = 'none';
+  }
+}
+
+export async function handleBannerUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 12 * 1024 * 1024) {
+    alert('La imagen original no debe superar los 12MB.');
+    return;
+  }
+  try {
+    const compressed = await compressImageFile(file);
+    restaurant.bannerUrl = compressed.dataUrl;
+    const urlInput = document.getElementById('inputBannerUrl');
+    if (urlInput) urlInput.value = '';
+    renderBannerPreviewUI();
+    syncLivePreviewIframe();
+    triggerAutoSave();
+  } catch (error) {
+    alert(error.message || 'No se pudo procesar la portada.');
+  }
+}
+
+export function handleBannerUrlInput(e) {
+  const val = e.target.value.trim();
+  restaurant.bannerUrl = val || null;
+  renderBannerPreviewUI();
+  syncLivePreviewIframe();
+  triggerAutoSave();
+}
+
+export function removeBanner() {
+  restaurant.bannerUrl = null;
+  const fileInput = document.getElementById('inputBannerFile');
+  if (fileInput) fileInput.value = '';
+  const urlInput = document.getElementById('inputBannerUrl');
+  if (urlInput) urlInput.value = '';
+  renderBannerPreviewUI();
+  syncLivePreviewIframe();
+  triggerAutoSave();
+}
+
+export async function handleLogoUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 12 * 1024 * 1024) {
+    alert('La imagen original no debe superar los 12MB.');
+    return;
+  }
+  try {
+    const compressed = await compressImageFile(file);
+    restaurant.logoUrl = compressed.dataUrl;
+    document.getElementById('logoPreviewBox').innerHTML = `<img src="${restaurant.logoUrl}" style="width:100%; height:100%; object-fit:cover;">`;
+    document.getElementById('btnRemoveLogo').style.display = 'inline';
+    generateQrCode();
+    triggerAutoSave();
+  } catch (error) {
+    alert(error.message || 'No se pudo procesar el logo.');
+  }
+}
+
+export function removeLogo() {
+  restaurant.logoUrl = null;
+  document.getElementById('inputLogoFile').value = '';
+  document.getElementById('logoPreviewBox').innerHTML = `<span id="logoPreviewIcon" style="font-size:22px;">🍽️</span>`;
+  document.getElementById('btnRemoveLogo').style.display = 'none';
+  generateQrCode();
+  triggerAutoSave();
+}
+
+// Stats & Quick Metrics
+export function renderStatsTab() {
+  const stats = restaurant?.analytics || { visits: 0, orders: 0, reservations: 0, waiterCalls: 0 };
+  const el = id => document.getElementById(id);
+  if (el('statVisits')) el('statVisits').textContent = stats.visits || 0;
+  if (el('statOrders')) el('statOrders').textContent = stats.orders || 0;
+  if (el('statReservations')) el('statReservations').textContent = stats.reservations || 0;
+  if (el('statWaiterCalls')) el('statWaiterCalls').textContent = stats.waiterCalls || 0;
+}
+
+export function renderQuickMetrics() {
+  const analytics = restaurant?.analytics || {};
+  const currency = restaurant?.currency || '$';
+  const createdAt = restaurant?.createdAt ? new Date(restaurant.createdAt) : new Date();
+  const daysSinceCreation = Math.max(1, Math.ceil((Date.now() - createdAt.getTime()) / 86400000));
+  const ordersToday = Math.round((analytics.orders || 0) / daysSinceCreation);
+  const dishes = restaurant?.dishes || [];
+  const topDish = dishes.find(d => d.tags && d.tags.includes('star')) || dishes[0] || null;
+  const avgOrderValue = dishes.length > 0
+    ? dishes.reduce((sum, d) => sum + (d.price || 0), 0) / dishes.length
+    : 0;
+  const estimatedRevenue = Math.round(ordersToday * avgOrderValue);
+  const visitsToday = Math.round((analytics.visits || 0) / daysSinceCreation);
+
+  const el = id => document.getElementById(id);
+  if (el('metric-orders-today')) el('metric-orders-today').textContent = ordersToday;
+  if (el('metric-top-dish')) el('metric-top-dish').textContent = topDish ? topDish.name : '—';
+  if (el('metric-revenue')) el('metric-revenue').textContent = `${currency} ${estimatedRevenue.toLocaleString('es-UY')}`;
+  if (el('metric-visits-today')) el('metric-visits-today').textContent = visitsToday;
+}
+
+// Reviews & Milestones
+export function setReviewPhotoOption(opt) {
+  selectedReviewPhotoOption = opt;
+  const statusText = document.getElementById('reviewPhotoStatusText');
+  const btnUpload = document.getElementById('btnSelectReviewPhoto');
+  const thumb = document.getElementById('reviewPhotoPreviewThumb');
+
+  if (opt === 'logo') {
+    if (btnUpload) btnUpload.style.display = 'none';
+    if (restaurant && restaurant.logoUrl) {
+      if (statusText) statusText.textContent = 'Usando el logo oficial de tu restaurante.';
+      if (thumb) thumb.innerHTML = `<img src="${restaurant.logoUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+    } else {
+      if (statusText) statusText.textContent = 'Logo no configurado aún (se usará ícono de local).';
+      if (thumb) thumb.innerHTML = `<span style="font-size:22px;">🍽️</span>`;
+    }
+  } else if (opt === 'venue') {
+    if (btnUpload) btnUpload.style.display = 'inline-block';
+    if (uploadedReviewPhotoUrl) {
+      if (statusText) statusText.textContent = '✓ Foto del local o plato seleccionada.';
+      if (thumb) thumb.innerHTML = `<img src="${uploadedReviewPhotoUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+    } else {
+      if (statusText) statusText.textContent = 'Carga una fotografía del salón, barra o plato insignia.';
+      if (thumb) thumb.innerHTML = `<span style="font-size:22px;">🏬</span>`;
+    }
+  } else if (opt === 'personal') {
+    if (btnUpload) btnUpload.style.display = 'inline-block';
+    if (uploadedReviewPhotoUrl) {
+      if (statusText) statusText.textContent = '✓ Retrato personal seleccionado.';
+      if (thumb) thumb.innerHTML = `<img src="${uploadedReviewPhotoUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+    } else {
+      if (statusText) statusText.textContent = 'Carga tu retrato personal o del equipo gastronómico.';
+      if (thumb) thumb.innerHTML = `<span style="font-size:22px;">👤</span>`;
+    }
+  }
+}
+
+export function handleReviewPhotoFile(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  if (file.size > 3 * 1024 * 1024) {
+    alert('La fotografía no debe superar los 3MB.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    uploadedReviewPhotoUrl = event.target.result;
+    const thumb = document.getElementById('reviewPhotoPreviewThumb');
+    if (thumb) thumb.innerHTML = `<img src="${uploadedReviewPhotoUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+    const statusText = document.getElementById('reviewPhotoStatusText');
+    if (statusText) statusText.textContent = '✓ Foto cargada exitosamente desde tu dispositivo.';
+  };
+  reader.readAsDataURL(file);
+}
+
+export function check30DaysMilestone() {
+  if (!sessionStorage.getItem('scango_30d_milestone_shown') && localStorage.getItem('scango_milestone_30d_dismissed') !== 'true') {
+    setTimeout(openMilestone30DaysModal, 1500);
+    sessionStorage.setItem('scango_30d_milestone_shown', 'true');
+  }
+}
+
+export function openMilestone30DaysModal() {
+  const modal = document.getElementById('milestone30DaysModal');
+  if (modal) modal.classList.add('active');
+}
+
+export function closeMilestone30DaysModal() {
+  const modal = document.getElementById('milestone30DaysModal');
+  if (modal) modal.classList.remove('active');
+  localStorage.setItem('scango_milestone_30d_dismissed', 'true');
+}
+
+export function openReviewFromMilestone() {
+  closeMilestone30DaysModal();
+  switchTab('reviews');
+  const comment = document.getElementById('reviewComment');
+  if (comment) setTimeout(() => comment.focus(), 300);
+}
+
+export async function submitOwnerReview(e) {
+  e.preventDefault();
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  const originalText = submitBtn ? submitBtn.innerHTML : '';
+  if (submitBtn) {
+    if (submitBtn.disabled || submitBtn.dataset.busy === 'true') return;
+    submitBtn.disabled = true;
+    submitBtn.dataset.busy = 'true';
+    submitBtn.innerHTML = '<span>⏳ Enviando reseña...</span>';
+  }
+
+  try {
+    const rating = document.getElementById('reviewRating')?.value || 5;
+    const authorRole = document.getElementById('reviewAuthorRole')?.value.trim() || 'Dueño / Responsable';
+    const comment = document.getElementById('reviewComment')?.value.trim() || '';
+    const token = localStorage.getItem('menu_pizarron_token');
+
+    let finalPhotoUrl = (selectedReviewPhotoOption === 'logo') ? restaurant?.logoUrl || null : uploadedReviewPhotoUrl || null;
+
+    const reviewObj = {
+      id: 'rev_' + Date.now(),
+      restaurantId: restaurant?.id || '',
+      restaurantName: restaurant?.name || 'Restaurante',
+      userId: currentUser?.id || '',
+      email: currentUser?.email || '',
+      rating: parseInt(rating) || 5,
+      authorRole,
+      comment: comment.slice(0, 500),
+      photoOption: selectedReviewPhotoOption,
+      photoUrl: finalPhotoUrl,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+
+    if (token) {
+      await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(reviewObj)
+      }).catch(() => {});
+    }
+
+    const alertEl = document.getElementById('reviewSubmittedAlert');
+    if (alertEl) alertEl.style.display = 'block';
+    const commentEl = document.getElementById('reviewComment');
+    if (commentEl) commentEl.value = '';
+  } finally {
+    if (submitBtn) {
+      setTimeout(() => {
+        submitBtn.disabled = false;
+        submitBtn.dataset.busy = 'false';
+        submitBtn.innerHTML = originalText;
+      }, 1500);
+    }
+  }
+}
+
+// 1-Click WhatsApp Order Status Notifications
+export function sendOrderStateWA(stateName) {
+  const phone = (document.getElementById('notifPhone')?.value || '').replace(/[^0-9]/g, '');
+  const client = document.getElementById('notifClientName')?.value.trim() || 'Estimado/a cliente';
+  const restName = restaurant?.name || 'Menú Pizarrón';
+
+  if (!phone) {
+    alert('Por favor ingresa el número de WhatsApp del cliente.');
+    return;
+  }
+
+  let msg = '';
+  if (stateName === 'confirmado') {
+    msg = `¡Hola ${client}! 👋👨‍🍳\n\nTe confirmamos que recibimos tu pedido en *${restName}* y ya está marchando en la cocina. Te avisamos en cuanto esté listo. ¡Muchas gracias!`;
+  } else if (stateName === 'listo') {
+    msg = `¡Hola ${client}! 🛍️🎉\n\n¡Tu pedido en *${restName}* ya está listo y empaquetado esperándote en el mostrador! Podés pasar a retirarlo cuando gustes.`;
+  } else if (stateName === 'camino') {
+    msg = `¡Hola ${client}! 🛵💨\n\n¡Tu pedido en *${restName}* ya salió con nuestro repartidor rumbo a tu dirección! Por favor tené listo el método de pago acordado.`;
+  } else if (stateName === 'demorado') {
+    msg = `Estimado/a ${client} ⏳🙏\n\nQueremos avisarte que la cocina de *${restName}* tiene una demora imprevista debido a la alta demanda de hoy. Tu pedido está en marcha y saldrá en breve con la máxima calidad. ¡Disculpas y muchas gracias por tu paciencia!`;
+  }
+
+  const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+  window.open(waUrl, '_blank');
+}
+
+// Account Deletion
+export async function confirmAccountDeletion() {
+  const btn = document.getElementById('btnConfirmDeleteAccount');
+  const reason = document.getElementById('deleteAccountReason')?.value.trim() || 'Sin motivo especificado';
+  if (!confirm('¿Estás seguro de solicitar la baja definitiva de tu cuenta y todos tus datos? Esta acción no se puede deshacer.')) {
+    return;
+  }
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Procesando baja...';
+  }
+  const token = localStorage.getItem('menu_pizarron_token');
+  try {
+    if (token) {
+      await fetch('/api/account/delete-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason })
+      }).catch(() => {});
+    }
+  } catch (e) {}
+
+  alert('Tu solicitud de eliminación de cuenta y purga de datos personales ha sido registrada correctamente.');
+  localStorage.clear();
+  window.location.href = '/index.html';
+}
+
+// Live State Synchronization
+export function updateLiveState() {
+  if (!restaurant) return;
+  const el = id => document.getElementById(id);
+  restaurant.name = el('inputLocalName')?.value || '';
+  restaurant.slogan = el('inputLocalSlogan')?.value || '';
+  restaurant.slug = (el('inputLocalSlug')?.value || '').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  restaurant.currency = el('inputLocalCurrency')?.value || '$';
+  restaurant.phone = el('inputPhone')?.value || '';
+  restaurant.city = el('inputRestaurantCity')?.value.trim().slice(0, 100) || '';
+  restaurant.smartWeatherEnabled = el('inputSmartWeatherEnabled')?.checked === true;
+  updateWeatherToggleStyle();
+
+  const bizSelect = el('inputBusinessType');
+  if (bizSelect) restaurant.businessType = normalizeBusinessType(bizSelect.value);
+
+  const loyaltyCheckbox = el('inputAllowLoyaltyPoints');
+  if (loyaltyCheckbox) {
+    restaurant.allowLoyaltyPoints = loyaltyCheckbox.checked;
+    const sliderL = el('sliderLoyaltyPoints');
+    if (sliderL) sliderL.style.backgroundColor = loyaltyCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
+
+  const iceCreamCheckbox = el('inputAllowIceCreamWizard');
+  if (iceCreamCheckbox) {
+    restaurant.allowIceCreamWizard = iceCreamCheckbox.checked;
+    const sliderI = el('sliderIceCreamWizard');
+    if (sliderI) sliderI.style.backgroundColor = iceCreamCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
+
+  const perfumeryCheckbox = el('inputAllowPerfumery');
+  if (perfumeryCheckbox) {
+    restaurant.allowPerfumery = perfumeryCheckbox.checked;
+    const sliderP = el('sliderPerfumery');
+    if (sliderP) sliderP.style.backgroundColor = perfumeryCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
+  updateBusinessTypeControls();
+
+  restaurant.instagram = el('inputInstagram')?.value.trim() || '';
+  restaurant.googleReview = el('inputGoogleReview')?.value.trim() || '';
+
+  const layoutSelect = el('inputMenuLayout');
+  if (layoutSelect) restaurant.layout = layoutSelect.value || 'classic';
+  if (el('inputThemeBg')) restaurant.theme = el('inputThemeBg').value;
+  if (el('inputThemeFont')) restaurant.themeFont = el('inputThemeFont').value;
+
+  const bannerInput = el('inputBannerUrl');
+  if (bannerInput && bannerInput.value.trim() && !restaurant.bannerUrl?.startsWith('data:')) {
+    restaurant.bannerUrl = bannerInput.value.trim();
+  }
+
+  if (!restaurant.wifi) restaurant.wifi = {};
+  if (el('inputWifiSsid')) restaurant.wifi.ssid = el('inputWifiSsid').value;
+  if (el('inputWifiPass')) restaurant.wifi.password = el('inputWifiPass').value;
+
+  const resCheckbox = el('inputAllowReservations');
+  if (resCheckbox) {
+    restaurant.allowReservations = resCheckbox.checked;
+    const slider = el('sliderReservations');
+    if (slider) slider.style.backgroundColor = resCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
+
+  const couponsCheckbox = el('inputAllowCoupons');
+  if (couponsCheckbox) {
+    restaurant.allowCoupons = couponsCheckbox.checked;
+    const sliderC = el('sliderCoupons');
+    if (sliderC) sliderC.style.backgroundColor = couponsCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
+
+  const splitCheckbox = el('inputAllowBillSplitter');
+  if (splitCheckbox) {
+    restaurant.allowBillSplitter = splitCheckbox.checked;
+    const sliderS = el('sliderBillSplitter');
+    if (sliderS) sliderS.style.backgroundColor = splitCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
+
+  const annInput = el('inputAnnouncement');
+  if (annInput) restaurant.announcement = annInput.value.trim();
+  const payInput = el('inputPaymentLink');
+  if (payInput) restaurant.paymentLink = payInput.value.trim();
+
+  const schedCheck = el('inputScheduleEnabled');
+  if (schedCheck) {
+    restaurant.scheduleEnabled = schedCheck.checked;
+    const sliderSched = el('sliderSchedule');
+    if (sliderSched) sliderSched.style.backgroundColor = schedCheck.checked ? '#38A169' : '#2a3a33';
+  }
+  const schedHours = el('inputScheduleActiveHours');
+  if (schedHours) restaurant.scheduleActiveHours = schedHours.value.trim();
+
+  if (el('inputTableCount')) restaurant.tableCount = parseInt(el('inputTableCount').value) || 10;
+
+  if (el('studioNavRestaurantName')) el('studioNavRestaurantName').textContent = restaurant.name;
+  if (el('previewFullUrl')) el('previewFullUrl').textContent = `/m/${restaurant.slug}`;
+  if (el('btnLiveMenu')) el('btnLiveMenu').href = `/m/${restaurant.slug}`;
+
+  generateQrCode();
+  syncLivePreviewIframe();
+
+  try {
+    localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(restaurant));
+  } catch (e) {}
+
+  triggerAutoSave();
+}
+
+export function triggerAutoSave() {
+  triggerAutoSaveMod({ autoSaveTimeout }, showSaveFeedback, saveStudioChanges);
+}
+
+export async function saveStudioChanges() {
+  await saveStudioChangesMod(restaurant, showSaveFeedback, reloadPreviewIframe);
+}
+
+export function reloadPreviewIframe() {
+  reloadPreviewIframeMod(restaurant?.slug || '');
+}
+
+export function syncLivePreviewIframe() {
+  syncLivePreviewIframeMod(restaurant);
+}
+
+export function setPreviewView(mode) {
+  // Mobile / desktop preview viewport toggles
+}
+
+// Main UI Renderer
+export function renderStudioUI() {
+  const el = id => document.getElementById(id);
+  if (el('studioNavRestaurantName')) el('studioNavRestaurantName').textContent = restaurant.name;
+  if (el('studioNavUserEmail')) el('studioNavUserEmail').textContent = currentUser.email;
+  
+  const liveUrl = `/m/${restaurant.slug}`;
+  const btnLive = el('btnLiveMenu');
+  if (btnLive) btnLive.href = liveUrl;
+  if (el('previewFullUrl')) el('previewFullUrl').textContent = liveUrl;
+
+  renderSubscriptionBadge(currentUser.subscription);
+  checkSubscriptionAlerts(currentUser.subscription);
+  renderMenuStatusIndicator(currentUser.subscription);
+  renderQuickMetrics();
+
+  if (el('inputLocalName')) el('inputLocalName').value = restaurant.name || '';
+  if (el('inputLocalSlogan')) el('inputLocalSlogan').value = restaurant.slogan || '';
+  if (el('inputLocalSlug')) el('inputLocalSlug').value = restaurant.slug || '';
+  if (el('inputLocalCurrency')) el('inputLocalCurrency').value = restaurant.currency || '$';
+  if (el('inputPhone')) el('inputPhone').value = restaurant.phone || '';
+
+  if (restaurant.wifi) {
+    if (el('inputWifiSsid')) el('inputWifiSsid').value = restaurant.wifi.ssid || '';
+    if (el('inputWifiPass')) el('inputWifiPass').value = restaurant.wifi.password || '';
+  }
+
+  const resCheckbox = el('inputAllowReservations');
+  if (resCheckbox) {
+    resCheckbox.checked = restaurant.allowReservations !== false;
+    const slider = el('sliderReservations');
+    if (slider) slider.style.backgroundColor = resCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
+
+  if (el('inputInstagram')) el('inputInstagram').value = restaurant.instagram || '';
+  if (el('inputGoogleReview')) el('inputGoogleReview').value = restaurant.googleReview || '';
+
+  const layoutSelect = el('inputMenuLayout');
+  if (layoutSelect) layoutSelect.value = restaurant.layout || 'classic';
+  if (el('inputThemeBg')) el('inputThemeBg').value = restaurant.theme || 'emerald';
+  if (el('inputThemeFont')) el('inputThemeFont').value = restaurant.themeFont || 'serif';
+
+  const couponsCheckbox = el('inputAllowCoupons');
+  if (couponsCheckbox) {
+    couponsCheckbox.checked = restaurant.allowCoupons !== false;
+    const sliderC = el('sliderCoupons');
+    if (sliderC) sliderC.style.backgroundColor = couponsCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
+
+  const splitCheckbox = el('inputAllowBillSplitter');
+  if (splitCheckbox) {
+    splitCheckbox.checked = restaurant.allowBillSplitter !== false;
+    const sliderS = el('sliderBillSplitter');
+    if (sliderS) sliderS.style.backgroundColor = splitCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
+
+  if (el('inputAnnouncement')) el('inputAnnouncement').value = restaurant.announcement || '';
+  if (el('inputPaymentLink')) el('inputPaymentLink').value = restaurant.paymentLink || '';
+
+  const schedCheck = el('inputScheduleEnabled');
+  if (schedCheck) {
+    schedCheck.checked = !!restaurant.scheduleEnabled;
+    const sliderSched = el('sliderSchedule');
+    if (sliderSched) sliderSched.style.backgroundColor = schedCheck.checked ? '#38A169' : '#2a3a33';
+  }
+  if (el('inputScheduleActiveHours')) el('inputScheduleActiveHours').value = restaurant.scheduleActiveHours || '';
+  if (el('inputTableCount')) el('inputTableCount').value = restaurant.tableCount || 10;
+
+  if (restaurant.logoUrl) {
+    if (el('logoPreviewBox')) el('logoPreviewBox').innerHTML = `<img src="${restaurant.logoUrl}" style="width:100%; height:100%; object-fit:cover;">`;
+    if (el('btnRemoveLogo')) el('btnRemoveLogo').style.display = 'inline';
+  } else {
+    if (el('logoPreviewBox')) el('logoPreviewBox').innerHTML = `<span id="logoPreviewIcon" style="font-size:22px;">🍽️</span>`;
+    if (el('btnRemoveLogo')) el('btnRemoveLogo').style.display = 'none';
+  }
+
+  const bannerInput = el('inputBannerUrl');
+  if (bannerInput) bannerInput.value = restaurant.bannerUrl || '';
+  renderBannerPreviewUI();
+
+  const bizSelect = el('inputBusinessType');
+  if (bizSelect) bizSelect.value = normalizeBusinessType(restaurant.businessType);
+
+  if (el('inputRestaurantCity')) el('inputRestaurantCity').value = restaurant.city || '';
+  const weatherToggle = el('inputSmartWeatherEnabled');
+  if (weatherToggle) weatherToggle.checked = restaurant.smartWeatherEnabled === true;
+  updateWeatherToggleStyle();
+
+  const loyaltyCheckbox = el('inputAllowLoyaltyPoints');
+  if (loyaltyCheckbox) {
+    loyaltyCheckbox.checked = restaurant.allowLoyaltyPoints === true;
+    const sliderL = el('sliderLoyaltyPoints');
+    if (sliderL) sliderL.style.backgroundColor = loyaltyCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
+
+  const iceCreamCheckbox = el('inputAllowIceCreamWizard');
+  if (iceCreamCheckbox) {
+    iceCreamCheckbox.checked = restaurant.allowIceCreamWizard === true || (restaurant.businessType === 'heladeria' && restaurant.allowIceCreamWizard !== false);
+    const sliderI = el('sliderIceCreamWizard');
+    if (sliderI) sliderI.style.backgroundColor = iceCreamCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
+
+  const perfumeryCheckbox = el('inputAllowPerfumery');
+  if (perfumeryCheckbox) {
+    perfumeryCheckbox.checked = restaurant.allowPerfumery === true || (restaurant.businessType === 'perfumery' && restaurant.allowPerfumery !== false);
+    const sliderP = el('sliderPerfumery');
+    if (sliderP) sliderP.style.backgroundColor = perfumeryCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
+  updateBusinessTypeControls();
+
+  setReviewPhotoOption('logo');
+  populateCatFilter();
+  renderDishesList();
+  renderDeliveryZones();
+  renderBranchesList();
+  generateQrCode();
+  reloadPreviewIframe();
+  check30DaysMilestone();
+
+  setTimeout(() => {
+    const iframe = document.getElementById('previewIframe');
+    if (iframe && iframe.contentWindow) {
+      iframe.contentWindow.postMessage({ type: 'UPDATE_LIVE_PREVIEW', data: restaurant }, '*');
+    }
+  }, 500);
+}
+
+// Module proxy wrappers passing local state/callbacks
+export function waitForQrSource(holder) {
+  return new Promise((resolve) => {
+    const qrCanvas = holder.querySelector('canvas');
+    if (qrCanvas && qrCanvas.width > 0) return resolve(qrCanvas);
+    const qrImg = holder.querySelector('img');
+    if (qrImg && qrImg.complete && qrImg.naturalWidth > 0) return resolve(qrImg);
+    if (qrImg) {
+      qrImg.addEventListener('load', () => resolve(qrImg), { once: true });
+      qrImg.addEventListener('error', () => resolve(null), { once: true });
+      return;
+    }
+    let resolved = false;
+    const observer = new MutationObserver(() => {
+      const canvasEl = holder.querySelector('canvas');
+      if (canvasEl && canvasEl.width > 0) {
+        resolved = true;
+        observer.disconnect();
+        return resolve(canvasEl);
+      }
+      const imgEl = holder.querySelector('img');
+      if (imgEl && imgEl.complete && imgEl.naturalWidth > 0) {
+        resolved = true;
+        observer.disconnect();
+        return resolve(imgEl);
+      }
+    });
+    observer.observe(holder, { childList: true, subtree: true });
+    setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        observer.disconnect();
+        resolve(holder.querySelector('canvas') || holder.querySelector('img') || null);
+      }
+    }, 1200);
+  });
+}
+
+export function loadSafeLogo(url) {
+  return new Promise((resolve) => {
+    if (!url) return resolve(null);
+    const logo = new Image();
+    if (!url.startsWith('data:') && !url.startsWith('blob:')) {
+      logo.crossOrigin = 'anonymous';
+    }
+    logo.addEventListener('load', () => resolve(logo), { once: true });
+    logo.addEventListener('error', () => resolve(null), { once: true });
+    logo.src = url;
+  });
+}
+
+export function generateQrCode() { generateQrCodeMod(restaurant); }
+export function downloadQrPng() {
+  const canvas = document.querySelector('#qrcodeCanvasContainer canvas');
+  if (canvas) {
+    try {
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = `QR-${restaurant?.slug || 'menu'}-menu-pizarron.png`;
+      a.click();
+      return;
+    } catch (e) {}
+  }
+  downloadQrPngMod(restaurant);
+}
+export function printTableStand() {
+  const canvas = document.querySelector('#qrcodeCanvasContainer canvas');
+  if (canvas) {
+    try {
+      const _ = canvas.toDataURL('image/png');
+    } catch (e) {}
+  }
+  printTableStandMod(restaurant);
+}
+export function downloadAllTablesPDF() { downloadAllTablesPDFMod(restaurant); }
+
+export function renderDeliveryZones() { renderZonesMod(restaurant, escapeHtml); }
+export function addDeliveryZone() { addZoneMod(restaurant, triggerAutoSave, escapeHtml); }
+export function deleteDeliveryZone(idx) { deleteZoneMod(restaurant, idx, triggerAutoSave, escapeHtml); }
+
+export function renderBranchesList() { renderBranchesListMod(currentUser, restaurant, escapeHtml); }
+export function addBranch(e) { addBranchMod(e, restaurant, () => { renderBranchesList(); triggerAutoSave(); }); }
+export function deleteBranch(id) { deleteBranchMod(id, restaurant, showConfirmDialog, () => { renderBranchesList(); triggerAutoSave(); }); }
+
+export function openBillingModal() { openBillingModalMod(currentUser, restaurant); }
+export function closeBillingModal() { closeBillingModalMod(); }
+export function startCheckout(plan, ev) { startCheckoutMod(plan, ev, restaurant); }
+
+export function promptNewCategoryInModal() { promptNewCategoryMod(restaurant, populateCatFilter, triggerAutoSave); }
+export function openCategoryManagerModal() { openCategoryModal(() => renderCategoryListMod(restaurant, escapeHtml)); }
+export function closeCategoryManagerModal() { closeCategoryModal(populateCatFilter); }
+export function moveCategory(id, dir) { moveCategoryMod(restaurant, id, dir, () => { renderCategoryListMod(restaurant, escapeHtml); populateCatFilter(); renderDishesList(); triggerAutoSave(); }); }
+export function addCategoryFromManager() { addCategoryMod(restaurant, () => { renderCategoryListMod(restaurant, escapeHtml); populateCatFilter(); triggerAutoSave(); }); }
+export function renameCategory(id) { renameCategoryMod(restaurant, id, () => { renderCategoryListMod(restaurant, escapeHtml); populateCatFilter(); renderDishesList(); triggerAutoSave(); }); }
+export function deleteCategory(id) { deleteCategoryMod(restaurant, id, () => { renderCategoryListMod(restaurant, escapeHtml); populateCatFilter(); renderDishesList(); triggerAutoSave(); }); }
+
+export function populateCatFilter() { populateCatFilterMod(restaurant); }
+export function renderDishesList() { renderDishesListMod(restaurant, escapeHtml); }
+export function editDish(id) { editDishMod(restaurant, id); }
+export function openNewDishModal() { openNewDishModalMod(restaurant); }
+export function saveDishFromModal(e) { saveDishFromModalMod(restaurant, e, () => { renderDishesList(); triggerAutoSave(); }); }
+export function deleteDish(id) { deleteDishMod(restaurant, id, showConfirmDialog, () => { renderDishesList(); triggerAutoSave(); }); }
+export function toggleDishesByIngredient(isOut) { toggleDishesByIngredientMod(restaurant, isOut, () => { renderDishesList(); triggerAutoSave(); }); }
+
+export function openPresetsModal() { openPresetsModalMod(escapeHtml); }
+export function browsePresetCategory(key) { browsePresetCategoryMod(key, escapeHtml); }
+export function addSinglePresetDish(key, idx) { addSinglePresetDishMod(key, idx, restaurant, () => { populateCatFilter(); renderDishesList(); triggerAutoSave(); }); }
+export function importCurrentPresetCategory() { importCurrentPresetCatMod(restaurant, () => { populateCatFilter(); renderDishesList(); triggerAutoSave(); }); }
+export function importAllPresets() { importAllPresetsMod(restaurant, () => { populateCatFilter(); renderDishesList(); triggerAutoSave(); }); }
+export function importSelectedIceCreamFlavors() { importSelectedIceCreamMod(restaurant, () => { populateCatFilter(); renderDishesList(); triggerAutoSave(); }); }
+export function importSelectedPerfumery() { importSelectedPerfumeryMod(restaurant, () => { populateCatFilter(); renderDishesList(); triggerAutoSave(); }); }
+
+export function openModifierGroupManager() { openModifierGroupModal(() => renderModifierGroupListMod(restaurant, escapeHtml)); }
+export function closeModifierGroupManager() { closeModifierGroupModal((ids) => renderDishModifierAssignments(restaurant, ids, escapeHtml)); }
+export function addBurgerModifierTemplate() { addBurgerTemplateMod(restaurant, () => { renderModifierGroupListMod(restaurant, escapeHtml); renderDishModifierAssignments(restaurant, readDishModifierGroupIds(), escapeHtml); triggerAutoSave(); }); }
+export function editModifierGroup(id) { editModifierGroupMod(restaurant, id); }
+export function saveModifierGroup(e) { saveModifierGroupMod(restaurant, e, (ids) => { renderDishModifierAssignments(restaurant, ids, escapeHtml); renderModifierGroupListMod(restaurant, escapeHtml); triggerAutoSave(); }); }
+export function deleteModifierGroup(id) { deleteModifierGroupMod(restaurant, id, (ids) => { renderModifierGroupListMod(restaurant, escapeHtml); renderDishModifierAssignments(restaurant, ids, escapeHtml); renderDishesList(); triggerAutoSave(); }); }
+
+export function switchTab(tabId, btn) {
+  switchTabMod(tabId, btn);
+  if (tabId === 'analytics') loadAnalyticsMod(restaurant);
+  if (tabId === 'branches') renderBranchesList();
+  if (tabId === 'dishes') { populateCatFilter(); renderDishesList(); }
+  if (tabId === 'qr') generateQrCode();
+  if (tabId === 'stats') renderStatsTab();
+}
+
+export function loadAnalytics() { loadAnalyticsMod(restaurant); }
+export function logout() { logoutAuth(); }
+export function openDeleteAccountModal() { openDeleteModal(); }
+export function closeDeleteAccountModal() { closeDeleteModal(); }
+
+export function openAiMenuImportModal() { openAiMenuImportModalMod(); }
+export function closeAiMenuImportModal() { closeAiMenuImportModalMod(); }
+export function handleAiMenuFilesInput(e) { handleAiMenuFilesMod(e.target.files); }
+export function moveAiMenuPage(index, direction) { moveAiMenuPageMod(index, direction); }
+export function removeAiMenuPage(index) { removeAiMenuPageMod(index); }
+export function runAiMenuAnalysis() { runAiMenuAnalysisMod(); }
+export function closeAiMenuPreviewModal() { closeAiMenuPreviewModalMod(); }
+export function confirmAiMenuImportAction() {
+  confirmAiMenuImportMod({
+    renderDishesList,
+    populateCatFilter,
+    triggerAutoSave,
+    updateLiveState
+  });
+}
+
+export async function initStudio() {
+  await initStudioAuth(state, () => {
+    currentUser = state.currentUser;
+    restaurant = state.restaurant;
+    renderStudioUI();
+  }, normalizeRestaurantBusinessType);
+
+  // Setup Drag & Drop on AI Menu Dropzone
+  const dropzone = document.getElementById('aiMenuDropzone');
+  if (dropzone) {
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.style.borderColor = 'var(--accent-gold)';
+      dropzone.style.background = 'rgba(236,201,75,0.1)';
+    });
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.style.borderColor = 'rgba(236,201,75,0.4)';
+      dropzone.style.background = 'rgba(0,0,0,0.2)';
+    });
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.style.borderColor = 'rgba(236,201,75,0.4)';
+      dropzone.style.background = 'rgba(0,0,0,0.2)';
+      if (e.dataTransfer && e.dataTransfer.files) {
+        handleAiMenuFilesMod(e.dataTransfer.files);
+      }
+    });
+  }
+}
+
+// Bind all functions to window for HTML inline event handlers
+const globalExports = {
+  initStudio, logout, openDeleteAccountModal, closeDeleteAccountModal, confirmAccountDeletion,
+  renderStudioUI, updateLiveState, saveStudioChanges, triggerAutoSave, reloadPreviewIframe, syncLivePreviewIframe, setPreviewView,
+  switchTab, showConfirmDialog, closeConfirmDialog, showSaveFeedback,
+  handleLogoUpload, removeLogo, handleBannerUpload, handleBannerUrlInput, removeBanner, renderBannerPreviewUI,
+  openBillingModal, closeBillingModal, startCheckout,
+  renderDeliveryZones, addDeliveryZone, deleteDeliveryZone,
+  renderBranchesList, addBranch, deleteBranch, resetBranchForm,
+  loadAnalytics, updateKPIs, renderDailyChart, renderHeatmap, renderBranchMetrics, renderEventMetrics,
+  generateQrCode, downloadQrPng, printTableStand, downloadAllTablesPDF,
+  promptNewCategoryInModal, openCategoryManagerModal, closeCategoryManagerModal, moveCategory, addCategoryFromManager, renameCategory, deleteCategory,
+  populateCatFilter, renderDishesList, editDish, openNewDishModal, closeDishEditModal, saveDishFromModal, deleteDish, clearDishPhoto, toggleDishScheduleControls, toggleDishesByIngredient,
+  openPresetsModal, closePresetsModal, renderPresetChips, browsePresetCategory, addSinglePresetDish, importCurrentPresetCategory, importAllPresets,
+  openIceCreamPresetsModal, closeIceCreamPresetsModal, filterIceCreamPresetCat, toggleAllIceCreamFlavors, renderIceCreamPresetsList, toggleIceCreamFlavorItem, importSelectedIceCreamFlavors,
+  openPerfumeryPresetsModal, closePerfumeryPresetsModal, renderPerfumeryPresetsList, importSelectedPerfumery,
+  openModifierGroupManager, closeModifierGroupManager, addBurgerModifierTemplate, startNewModifierGroup, editModifierGroup,
+  renderModifierGroupOptions, updateModifierGroupEditor, handleModifierGroupModeChange, addModifierGroupOption, removeModifierGroupOption,
+  saveModifierGroup, cancelModifierGroupEdit, deleteModifierGroup, toggleDishModifierGroup,
+  sendOrderStateWA, setReviewPhotoOption, handleReviewPhotoFile, check30DaysMilestone, openMilestone30DaysModal, closeMilestone30DaysModal, openReviewFromMilestone, submitOwnerReview,
+  openAiMenuImportModal, closeAiMenuImportModal, handleAiMenuFilesInput, moveAiMenuPage, removeAiMenuPage, runAiMenuAnalysis, closeAiMenuPreviewModal, confirmAiMenuImportAction
+};
+
+Object.entries(globalExports).forEach(([name, fn]) => {
+  window[name] = fn;
+});
+
+// Auto-Sync Queue: When owner recovers internet connection, sync local state to backend automatically
+window.addEventListener('online', () => {
+  showSaveFeedback('saving');
+  saveStudioChanges();
+});
+
+// Run
+window.addEventListener('DOMContentLoaded', initStudio);

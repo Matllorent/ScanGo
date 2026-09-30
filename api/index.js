@@ -31,6 +31,7 @@ const emailRouter = require('./routes/email');
 const healthRouter = require('./routes/health');
 const ordersRouter = require('./routes/orders');
 const analyticsRouter = require('./routes/analytics');
+const aiRouter = require('./routes/ai');
 const billingDunningRouter = require('./cron/billing-dunning');
 
 const app = express();
@@ -472,6 +473,12 @@ app.post('/api/studio/save', authMiddleware, requireVerifiedEmail, async (req, r
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// POST /api/studio/ai-import (Physical menu multimodal parser with Gemini Flash)
+app.post('/api/studio/ai-import', authMiddleware, async (req, res, next) => {
+  req.url = '/parse-menu';
+  aiRouter(req, res, next);
 });
 
 // ==================== GRANULAR BRANCHES OPERATIONS ====================
@@ -2026,6 +2033,7 @@ app.post('/api/logs', (req, res) => {
 app.use('/api/auth', authLimiter, authRouter);
 app.use('/api/reviews', reviewsLimiter, reviewsRouter);
 app.use('/api/storage', storageRouter);
+app.use('/api/ai', aiRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/email', emailRouter);

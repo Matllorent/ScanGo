@@ -38,6 +38,31 @@ function normalizeBusinessType(value) {
   return ['restaurant', 'perfumery', 'events'].includes(normalized) ? normalized : 'restaurant';
 }
 
+/**
+ * Ensures a restaurant always has a valid subscription object.
+ * Falls back to a 7-day trial so new or migrated restaurants are never
+ * locked out with status UNKNOWN.
+ */
+function normalizeSubscription(restaurant) {
+  if (!restaurant) return restaurant;
+  const sub = restaurant.subscription;
+  if (!sub || typeof sub !== 'object') {
+    restaurant.subscription = {
+      status: 'trialing',
+      plan: 'pro_monthly',
+      provider: 'trial',
+      trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      currentPeriodEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      gracePeriodDaysRemaining: 7
+    };
+  } else {
+    // Ensure plan and status are always present strings
+    if (!sub.status) sub.status = 'trialing';
+    if (!sub.plan) sub.plan = 'pro_monthly';
+  }
+  return restaurant;
+}
+
 function normalizeRestaurantBusinessType(restaurant) {
   if (!restaurant) return restaurant;
   if (restaurant.city === undefined) restaurant.city = '';
@@ -49,6 +74,7 @@ function normalizeRestaurantBusinessType(restaurant) {
     restaurant.allowPerfumery = true;
   }
   restaurant.businessType = normalizeBusinessType(restaurant.businessType);
+  normalizeSubscription(restaurant);
   return restaurant;
 }
 
