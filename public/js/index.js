@@ -45,10 +45,10 @@ function hideError() {
   err.textContent = '';
 }
 
-// Función auxiliar ficticia por si no está definida en tu entorno
 function setGoogleButtonsDisabled(disabled) {
-  const btn = document.getElementById('googleLoginBtn');
-  if (btn) btn.disabled = disabled;
+  document.querySelectorAll('.btn-google').forEach(button => {
+    button.disabled = disabled;
+  });
 }
 
 async function ensureGoogleIdentityReady() {
@@ -75,7 +75,10 @@ async function ensureGoogleIdentityReady() {
 }
 
 // Google credential callback handler
-async function handleGoogleCredential(credential) {
+async function handleGoogleCredential(credentialResponse) {
+  const credential = typeof credentialResponse === 'string'
+    ? credentialResponse
+    : credentialResponse?.credential;
   if (!credential) {
     showError('Google no devolvió una credencial válida. Intentá de nuevo.');
     return;
@@ -85,7 +88,11 @@ async function handleGoogleCredential(credential) {
     const res = await fetch('/api/auth/google', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ credential })
+      body: JSON.stringify({
+        credential,
+        restaurantName: document.getElementById('regRestaurant')?.value.trim() || '',
+        businessType: document.getElementById('regBusinessType')?.value || 'restaurant'
+      })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'No se pudo validar tu cuenta de Google.');
@@ -102,35 +109,20 @@ async function handleGoogleCredential(credential) {
   }
 }
 
-async function startGoogleSignup(response) {
-  if (!response?.credential) {
-    showError('Google no devolvió una credencial válida. Intentá de nuevo.');
-    return;
-  }
-
-  setGoogleButtonsDisabled(true);
+async function startGoogleSignup() {
+  hideError();
   try {
-    const res = await fetch('/api/auth/google', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        credential: response.credential,
-        restaurantName: document.getElementById('regRestaurant')?.value.trim() || '',
-        businessType: document.getElementById('regBusinessType')?.value || 'restaurant'
-      })
+    await ensureGoogleIdentityReady();
+    google.accounts.id.prompt(notification => {
+      if (notification?.isNotDisplayed?.()) {
+        const reason = notification.getNotDisplayedReason?.();
+        showError(reason
+          ? `Google no pudo mostrar la selección de cuenta (${reason}). Intentá de nuevo.`
+          : 'Google no pudo mostrar la selección de cuenta. Intentá de nuevo.');
+      }
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'No se pudo validar tu cuenta de Google.');
-
-    localStorage.setItem('menu_pizarron_token', data.token);
-    localStorage.setItem('menu_pizarron_user', JSON.stringify(data.user));
-    localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(data.restaurant));
-    localStorage.setItem('scango_demo_restaurant', JSON.stringify(data.restaurant));
-    window.location.href = '/studio.html';
   } catch (error) {
-    showError(error.message || 'No se pudo iniciar sesión con Google.');
-  } finally {
-    setGoogleButtonsDisabled(false);
+    showError(error.message || 'No se pudo iniciar el acceso con Google.');
   }
 }
 
