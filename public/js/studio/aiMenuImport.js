@@ -277,20 +277,35 @@ export function openAiMenuPreviewModal(result) {
   const categoriesList = document.getElementById('aiPreviewCategoriesList');
 
   // Render detected style
-  if (styleBox && result.detectedStyle) {
-    const { primaryColor, accentColor, vibe } = result.detectedStyle;
-    styleBox.innerHTML = `
-      <div style="display:flex; align-items:center; gap:12px; background:var(--bg-base); padding:10px 14px; border-radius:8px; border:1px solid var(--border);">
-        <div style="display:flex; gap:6px;">
-          <span style="width:24px; height:24px; border-radius:50%; background:${primaryColor || '#1F2937'}; border:1px solid rgba(255,255,255,0.3); display:inline-block;" title="Color primario: ${primaryColor}"></span>
-          <span style="width:24px; height:24px; border-radius:50%; background:${accentColor || '#ECC94B'}; border:1px solid rgba(255,255,255,0.3); display:inline-block;" title="Color de acento: ${accentColor}"></span>
+  // Render detected style
+  if (styleBox) {
+    let html = '';
+    if (result.isDemoFallback) {
+      html += `
+        <div style="background:rgba(236,201,75,0.15); border:1px solid rgba(236,201,75,0.4); border-radius:8px; padding:10px 12px; margin-bottom:12px; font-size:11px; color:#FEFCBF; display:flex; gap:8px; align-items:center;">
+          <span style="font-size:18px;">💡</span>
+          <div>
+            <strong>Modo Demostración:</strong> Se utilizó una extracción simulada porque aún no se configuró <code>GEMINI_API_KEY</code> en tu <code>.env</code>. Puedes probar el flujo completo e importar estos platos de ejemplo.
+          </div>
         </div>
-        <div>
-          <div style="font-size:12px; font-weight:700; color:#fff;">Estilo Sugerido: <span style="color:var(--accent-gold);">${vibe || 'Bistró Moderno'}</span></div>
-          <div style="font-size:10px; color:var(--text-dim);">Primario: <code>${primaryColor}</code> | Acento: <code>${accentColor}</code></div>
+      `;
+    }
+    if (result.detectedStyle) {
+      const { primaryColor, accentColor, vibe } = result.detectedStyle;
+      html += `
+        <div style="display:flex; align-items:center; gap:12px; background:var(--bg-base); padding:10px 14px; border-radius:8px; border:1px solid var(--border);">
+          <div style="display:flex; gap:6px;">
+            <span style="width:24px; height:24px; border-radius:50%; background:${primaryColor || '#1F2937'}; border:1px solid rgba(255,255,255,0.3); display:inline-block;" title="Color primario: ${primaryColor}"></span>
+            <span style="width:24px; height:24px; border-radius:50%; background:${accentColor || '#ECC94B'}; border:1px solid rgba(255,255,255,0.3); display:inline-block;" title="Color de acento: ${accentColor}"></span>
+          </div>
+          <div>
+            <div style="font-size:12px; font-weight:700; color:#fff;">Estilo Sugerido: <span style="color:var(--accent-gold);">${vibe || 'Bistró Moderno'}</span></div>
+            <div style="font-size:10px; color:var(--text-dim);">Primario: <code>${primaryColor}</code> | Acento: <code>${accentColor}</code></div>
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    }
+    styleBox.innerHTML = html;
   }
 
   // Count total dishes
@@ -309,20 +324,25 @@ export function openAiMenuPreviewModal(result) {
   if (categoriesList && Array.isArray(result.categories)) {
     categoriesList.innerHTML = result.categories.map((cat, cIdx) => `
       <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px;">
-        <div style="font-size:12px; font-weight:700; color:var(--accent-gold); margin-bottom:6px; display:flex; justify-content:space-between;">
+        <div style="font-size:12px; font-weight:700; color:var(--accent-gold); margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
           <span>📁 ${cat.name}</span>
           <span style="font-size:10px; color:var(--text-dim);">${cat.items?.length || 0} platos</span>
         </div>
         <div style="display:flex; flex-direction:column; gap:4px; max-height:160px; overflow-y:auto;">
-          ${(cat.items || []).map(item => `
-            <div style="display:flex; justify-content:space-between; align-items:baseline; font-size:11px; padding:3px 0; border-bottom:1px dashed rgba(255,255,255,0.06);">
-              <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">
+          ${(cat.items || []).map((item, itemIdx) => `
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; padding:3px 0; border-bottom:1px dashed rgba(255,255,255,0.06);">
+              <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:65%;">
                 <strong style="color:#fff;">${item.name}</strong>
                 ${item.description ? `<span style="color:var(--text-dim); font-size:10px; display:block; text-overflow:ellipsis; overflow:hidden;">${item.description}</span>` : ''}
               </div>
-              <span style="color:#68D391; font-weight:700; font-family:var(--font-mono); white-space:nowrap;">
-                $ ${item.price.toFixed(2)}
-              </span>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="color:#68D391; font-weight:700; font-family:var(--font-mono); white-space:nowrap;">
+                  $ ${item.price.toFixed(2)}
+                </span>
+                <button type="button" onclick="window.removeDetectedAiDish(${cIdx}, ${itemIdx})" style="background:transparent; border:none; color:#E53E3E; cursor:pointer; font-size:12px; padding:2px 4px;" title="Descartar este plato">
+                  ✕
+                </button>
+              </div>
             </div>
           `).join('')}
         </div>
@@ -331,6 +351,18 @@ export function openAiMenuPreviewModal(result) {
   }
 
   modal.classList.add('active');
+}
+
+/**
+ * Discards a single detected dish from the preview
+ */
+export function removeDetectedAiDish(catIndex, itemIndex) {
+  if (!parsedResult || !parsedResult.categories || !parsedResult.categories[catIndex]) return;
+  parsedResult.categories[catIndex].items.splice(itemIndex, 1);
+  if (parsedResult.categories[catIndex].items.length === 0) {
+    parsedResult.categories.splice(catIndex, 1);
+  }
+  openAiMenuPreviewModal(parsedResult);
 }
 
 /**

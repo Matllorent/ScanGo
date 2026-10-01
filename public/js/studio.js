@@ -151,7 +151,8 @@ import {
   removeAiMenuPage as removeAiMenuPageMod,
   runAiMenuAnalysis as runAiMenuAnalysisMod,
   closeAiMenuPreviewModal as closeAiMenuPreviewModalMod,
-  confirmAiMenuImport as confirmAiMenuImportMod
+  confirmAiMenuImport as confirmAiMenuImportMod,
+  removeDetectedAiDish as removeDetectedAiDishMod
 } from './studio/aiMenuImport.js';
 
 import {
@@ -954,6 +955,8 @@ export function moveAiMenuPage(index, direction) { moveAiMenuPageMod(index, dire
 export function removeAiMenuPage(index) { removeAiMenuPageMod(index); }
 export function runAiMenuAnalysis() { runAiMenuAnalysisMod(); }
 export function closeAiMenuPreviewModal() { closeAiMenuPreviewModalMod(); }
+export function removeDetectedAiDish(catIndex, itemIndex) { removeDetectedAiDishMod(catIndex, itemIndex); }
+
 export function confirmAiMenuImportAction() {
   confirmAiMenuImportMod({
     renderDishesList,
@@ -1013,7 +1016,7 @@ const globalExports = {
   renderModifierGroupOptions, updateModifierGroupEditor, handleModifierGroupModeChange, addModifierGroupOption, removeModifierGroupOption,
   saveModifierGroup, cancelModifierGroupEdit, deleteModifierGroup, toggleDishModifierGroup,
   sendOrderStateWA, setReviewPhotoOption, handleReviewPhotoFile, check30DaysMilestone, openMilestone30DaysModal, closeMilestone30DaysModal, openReviewFromMilestone, submitOwnerReview,
-  openAiMenuImportModal, closeAiMenuImportModal, handleAiMenuFilesInput, moveAiMenuPage, removeAiMenuPage, runAiMenuAnalysis, closeAiMenuPreviewModal, confirmAiMenuImportAction
+  openAiMenuImportModal, closeAiMenuImportModal, handleAiMenuFilesInput, moveAiMenuPage, removeAiMenuPage, runAiMenuAnalysis, closeAiMenuPreviewModal, confirmAiMenuImportAction, removeDetectedAiDish
 };
 
 Object.entries(globalExports).forEach(([name, fn]) => {

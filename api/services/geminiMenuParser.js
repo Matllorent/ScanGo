@@ -232,7 +232,8 @@ function getFallbackDemoMenu() {
           { name: 'Café Espresso Doble', description: 'Granos de especialidad tostado medio', price: 280 }
         ]
       }
-    ]
+    ],
+    isDemoFallback: true
   };
 }
 

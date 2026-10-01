@@ -4,14 +4,26 @@ import { LoyaltyRewardsModal } from '/js/components/LoyaltyRewardsModal.js';
 import { I18nCurrencyManager } from '/js/components/I18nCurrencyManager.js';
 import { VirtualWaiter } from '/js/components/VirtualWaiter.js';
 import { GroupCartManager } from '/js/components/GroupCartManager.js';
+import * as smartReviews from '/js/menu/smartReviews.js';
+import * as virtualWaiterHeuristics from '/js/menu/virtualWaiterHeuristics.js';
+import * as orderCheckout from '/js/menu/orderCheckout.js';
+import * as cartOperations from '/js/menu/cartOperations.js';
+import * as menuModals from '/js/menu/menuModals.js';
+import * as eventGuestMode from '/js/menu/eventGuestMode.js';
 
-// Expose classes on window
+// Expose classes and modules on window
 window.IceCreamWizard = IceCreamWizard;
 window.PerfumeryView = PerfumeryView;
 window.LoyaltyRewardsModal = LoyaltyRewardsModal;
 window.I18nCurrencyManager = I18nCurrencyManager;
 window.VirtualWaiter = VirtualWaiter;
 window.GroupCartManager = GroupCartManager;
+window.smartReviewsModule = smartReviews;
+window.virtualWaiterHeuristicsModule = virtualWaiterHeuristics;
+window.orderCheckoutModule = orderCheckout;
+window.cartOperationsModule = cartOperations;
+window.menuModalsModule = menuModals;
+window.eventGuestModeModule = eventGuestMode;
 
     // Initialize i18n & Currency Manager
     window.i18nManager = new I18nCurrencyManager({

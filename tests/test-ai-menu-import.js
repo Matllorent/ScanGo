@@ -69,6 +69,30 @@ async function runAiImportTests() {
   assert(parsed.categories.length > 0, 'Debe extraer categorías de las páginas');
   console.log(`✓ Procesamiento multi-página con ${samplePages.length} imágenes verificado exitosamente`);
 
+  // 5. Verify router and endpoint registration
+  const fs = require('fs');
+  const path = require('path');
+  const apiIndexSrc = fs.readFileSync(path.join(__dirname, '../api/index.js'), 'utf8');
+  assert.ok(apiIndexSrc.includes("app.use('/api/ai', aiRouter)"), 'api/index.js debe montar /api/ai');
+  assert.ok(apiIndexSrc.includes("app.post('/api/studio/ai-import'"), 'api/index.js debe exponer POST /api/studio/ai-import');
+  assert.ok(apiIndexSrc.includes("limit: '25mb'"), 'api/index.js debe admitir payloads de hasta 25mb para imágenes');
+  console.log('✓ Endpoints /api/ai y /api/studio/ai-import registrados con límite ampliado (25mb)');
+
+  // 6. Verify Studio UI Modals and Button
+  const studioHtmlSrc = fs.readFileSync(path.join(__dirname, '../public/studio.html'), 'utf8');
+  assert.ok(studioHtmlSrc.includes('aiMenuImportModal'), 'studio.html debe contener el modal #aiMenuImportModal');
+  assert.ok(studioHtmlSrc.includes('aiMenuPreviewModal'), 'studio.html debe contener el modal #aiMenuPreviewModal');
+  assert.ok(studioHtmlSrc.includes('openAiMenuImportModal()'), 'studio.html debe contener botón para invocar openAiMenuImportModal');
+  console.log('✓ Modales de carga multi-página y previsualización interactiva presentes en studio.html');
+
+  // 7. Verify Studio ES Module and globalExports
+  const studioJsSrc = fs.readFileSync(path.join(__dirname, '../public/js/studio.js'), 'utf8');
+  assert.ok(studioJsSrc.includes('openAiMenuImportModal'), 'studio.js debe exportar openAiMenuImportModal');
+  assert.ok(studioJsSrc.includes('runAiMenuAnalysis'), 'studio.js debe exportar runAiMenuAnalysis');
+  assert.ok(studioJsSrc.includes('removeDetectedAiDish'), 'studio.js debe exportar removeDetectedAiDish');
+  assert.ok(studioJsSrc.includes('confirmAiMenuImportAction'), 'studio.js debe exportar confirmAiMenuImportAction');
+  console.log('✓ Funciones del importador enlazadas globalmente en studio.js');
+
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE IMPORTACIÓN CON GEMINI FLASH PASARON AL 100%!');
 }
 

@@ -74,10 +74,10 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** — crean restaurantes/usuarios reales en el store local. **No son aislados**.
 - `tests/test-e2e.js` existe pero **NO está incluido en `npm test`**
-- Suite completa (`npm test`) ejecuta 11 tests en secuencia — **todos deben pasar (11/11)**
+- Suite completa (`npm test`) ejecuta 13 tests en secuencia — **todos deben pasar (13/13)**
 - Para debug rápido: `node tests/test-billing.js` (o el test específico)
 
-### Tests Disponibles (11 suites)
+### Tests Disponibles (13 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
@@ -92,6 +92,8 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-landing-conversion.js` | Landing page, Google seguro, simulador sin registro |
 | `test-group-cart-mozo.js` | GroupCartManager, Mozo Virtual, permisos por comensal, Realtime |
 | `test-email-notifications.js` | Los 4 métodos de email (Resend/SMTP): recibo, fallido, dunning, warning trial |
+| `test-ai-menu-import.js` | Gemini Flash multimodal, JSON schema, carga multi-página, límites 25mb, descarte por plato |
+| `test-menu-componentization.js` | Módulos ES de menu (smartReviews, virtualWaiterHeuristics, orderCheckout) |
 
 ## Configuración (`.env`)
 
@@ -106,6 +108,7 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 | `STRIPE_*` | Secret key, webhook secret, price IDs |
 | `MERCADOPAGO_*` | Access token, webhook secret |
 | `RESEND_API_KEY` + `EMAIL_FROM` | Emails transaccionales |
+| `GEMINI_API_KEY` | Importación de cartas físicas con Google Gemini Flash |
 | `SENTRY_DSN` | Monitoreo errores (opcional) |
 | `GOOGLE_CLIENT_ID` | OAuth 2.0 para login social |
 | `ADMIN_TOTP_SECRET` | 2FA opcional panel admin |
