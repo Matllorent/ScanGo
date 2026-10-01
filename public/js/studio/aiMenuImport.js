@@ -60,9 +60,9 @@ function resetAiImportState() {
 export async function handleAiMenuFiles(files) {
   if (!files || files.length === 0) return;
 
-  const validFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+  const validFiles = Array.from(files).filter(f => f.type.startsWith('image/') || f.type === 'application/pdf');
   if (validFiles.length === 0) {
-    alert('Por favor selecciona únicamente archivos de imagen (JPEG, PNG, WEBP).');
+    alert('Por favor selecciona únicamente archivos de imagen (JPEG, PNG, WEBP) o documentos PDF.');
     return;
   }
 
@@ -73,21 +73,53 @@ export async function handleAiMenuFiles(files) {
 
   for (const file of validFiles) {
     try {
-      const { dataUrl, base64, mimeType } = await processAndCompressImage(file);
-      selectedPages.push({
-        id: 'page_' + Math.random().toString(36).substr(2, 9),
-        file,
-        dataUrl,
-        base64,
-        mimeType,
-        name: file.name
-      });
+      if (file.type === 'application/pdf') {
+        const { base64, mimeType } = await processPdfFile(file);
+        selectedPages.push({
+          id: 'page_' + Math.random().toString(36).substr(2, 9),
+          file,
+          dataUrl: '',
+          base64,
+          mimeType,
+          name: file.name,
+          isPdf: true
+        });
+      } else {
+        const { dataUrl, base64, mimeType } = await processAndCompressImage(file);
+        selectedPages.push({
+          id: 'page_' + Math.random().toString(36).substr(2, 9),
+          file,
+          dataUrl,
+          base64,
+          mimeType,
+          name: file.name,
+          isPdf: false
+        });
+      }
     } catch (e) {
-      console.error('[AI-IMPORT] Error procesando imagen:', e);
+      console.error('[AI-IMPORT] Error procesando archivo:', e);
     }
   }
 
   renderAiMenuPages();
+}
+
+/**
+ * Reads a PDF file as base64 data for multimodal Gemini processing
+ */
+function processPdfFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (e) => {
+      const dataUrl = e.target.result;
+      const base64 = typeof dataUrl === 'string' && dataUrl.includes(';base64,')
+        ? dataUrl.split(';base64,')[1]
+        : dataUrl;
+      resolve({ base64, mimeType: 'application/pdf' });
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 /**
@@ -154,9 +186,16 @@ export function renderAiMenuPages() {
   list.innerHTML = selectedPages.map((page, index) => `
     <div class="ai-page-card" style="position:relative; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; overflow:hidden; display:flex; flex-direction:column; width:130px; box-shadow:0 2px 6px rgba(0,0,0,0.3);">
       <div style="position:relative; width:100%; height:130px; background:#000;">
-        <img src="${page.dataUrl}" alt="Página ${index + 1}" style="width:100%; height:100%; object-fit:cover;">
+        ${page.isPdf ? `
+          <div style="width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#1A202C; color:#ECC94B;">
+            <span style="font-size:36px;">📄</span>
+            <span style="font-size:10px; font-weight:700; margin-top:4px; text-transform:uppercase; letter-spacing:0.5px;">PDF Menú</span>
+          </div>
+        ` : `
+          <img src="${page.dataUrl}" alt="Página ${index + 1}" style="width:100%; height:100%; object-fit:cover;">
+        `}
         <span style="position:absolute; top:6px; left:6px; background:rgba(0,0,0,0.75); color:var(--accent-gold); font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; border:1px solid rgba(236,201,75,0.4);">
-          Pág. ${index + 1}
+          ${page.isPdf ? 'PDF' : `Pág. ${index + 1}`}
         </span>
         <button type="button" onclick="window.removeAiMenuPage(${index})" title="Eliminar página" style="position:absolute; top:6px; right:6px; background:#e53e3e; color:#fff; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; font-size:11px; display:flex; align-items:center; justify-content:center;">
           ✕
@@ -166,7 +205,7 @@ export function renderAiMenuPages() {
         <button type="button" class="btn-nav" style="padding:2px 6px; font-size:10px;" onclick="window.moveAiMenuPage(${index}, -1)" ${index === 0 ? 'disabled' : ''} title="Mover a la izquierda">
           ◀
         </button>
-        <span style="font-size:9px; color:var(--text-dim); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:60px;">
+        <span style="font-size:9px; color:var(--text-dim); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:60px;" title="${page.name}">
           ${page.name}
         </span>
         <button type="button" class="btn-nav" style="padding:2px 6px; font-size:10px;" onclick="window.moveAiMenuPage(${index}, 1)" ${index === selectedPages.length - 1 ? 'disabled' : ''} title="Mover a la derecha">

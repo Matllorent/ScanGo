@@ -1,11 +1,47 @@
+import {
+  openSmartReviewModal as openSmartReviewModalMod,
+  closeSmartReviewModal as closeSmartReviewModalMod,
+  handleStarSelect as handleStarSelectMod,
+  handleGoogleReviewClick as handleGoogleReviewClickMod,
+  submitPrivateFeedback as submitPrivateFeedbackMod,
+  initStarHover as initStarHoverMod,
+  DEFAULT_UPSELL_KEYWORDS,
+  isMozoVirtualEnabled as isMozoVirtualEnabledMod,
+  handleMozoVirtualToggle as handleMozoVirtualToggleMod,
+  analyzeCartContextForUpsell as analyzeCartContextForUpsellMod,
+  getUpsellCandidates as getUpsellCandidatesMod,
+  renderUpsellSuggestions as renderUpsellSuggestionsMod,
+  quickAddUpsellItem as quickAddUpsellItemMod,
+  detectCrossSellOpportunity as detectCrossSellOpportunityMod,
+  renderCrossSellSection as renderCrossSellSectionMod,
+  handleOrderPaymentChange as handleOrderPaymentChangeMod,
+  openWifiModal as openWifiModalMod,
+  closeWifiModal as closeWifiModalMod,
+  copyWifiPassword as copyWifiPasswordMod,
+  stopCategoryTTS as stopCategoryTTSMod,
+  pauseCategoryTTS as pauseCategoryTTSMod,
+  resumeCategoryTTS as resumeCategoryTTSMod,
+  readSelectedCategoryTTS as readSelectedCategoryTTSMod,
+  initPushPrompt as initPushPromptMod,
+  requestPushPermission as requestPushPermissionMod,
+  dismissPushPrompt as dismissPushPromptMod,
+  openRestaurantInfoModal as openRestaurantInfoModalMod,
+  closeRestaurantInfoModal as closeRestaurantInfoModalMod,
+  shareRestaurantUrl as shareRestaurantUrlMod,
+  resolveEventTheme,
+  openReservationModal as openReservationModalMod,
+  closeReservationModal as closeReservationModalMod,
+  submitReservation as submitReservationMod
+} from './menu/index.js';
+
 // State
-    let restaurantData = null;
-    let selectedCategory = 'ALL';
-    let cart = {}; // { dishId: { dish, qty } }
-    let pendingDishNoteAction = null;
-    let deliveryFee = 0;
-    let appliedCoupon = null; // { code: 'PROMO10', type: 'percent', value: 10 }
-    let discountAmount = 0;
+let restaurantData = null;
+let selectedCategory = 'ALL';
+let cart = {}; // { dishId: { dish, qty } }
+let pendingDishNoteAction = null;
+let deliveryFee = 0;
+let appliedCoupon = null; // { code: 'PROMO10', type: 'percent', value: 10 }
+let discountAmount = 0;
 
     // XSS Sanitizer Helper
     function escapeHtml(str) {
@@ -193,23 +229,8 @@
       const themeClass = validThemes.includes(restaurantData.theme) ? `theme-${restaurantData.theme}` : 'theme-emerald';
       document.body.className = `${themeClass} font-${restaurantData.themeFont || 'serif'} ${layoutClass}`;
 
-      // === EVENT VISUAL THEMES: Aplicar tema visual cuando businessType='events' o ?event= parâmetro
-      consturlParams = new URLSearchParams(window.location.search);
-      const eventParam = urlParams.get('event'); // wedding | cumple_15 | birthday | catering
-      const isEventMode = restaurantData.businessType === 'events' || eventParam === 'true' || eventParam === 'wedding' || eventParam === 'cumple_15' || eventParam === 'birthday' || eventParam === 'catering';
-      let eventThemeClass = '';
-      if (isEventMode) {
-        let resolvedEventType = eventParam;
-        if (!resolvedEventType && restaurantData.businessType === 'events') {
-          // Default: si es events pero no hay param, usar 'wedding' como tema por defecto
-          // o podríamos leer de restaurantData.eventType si existiera
-          resolvedEventType = 'wedding';
-        }
-        if (resolvedEventType === 'cumple_15') eventThemeClass = 'theme-cumple15';
-        else if (resolvedEventType === 'birthday') eventThemeClass = 'theme-birthday';
-        else if (resolvedEventType === 'catering') eventThemeClass = 'theme-catering';
-        else eventThemeClass = 'theme-wedding'; // default: wedding
-      }
+      // === EVENT VISUAL THEMES: Aplicar tema visual cuando businessType='events' o ?event= parámetro
+      const eventThemeClass = resolveEventTheme(restaurantData, window.location.search);
       if (eventThemeClass) {
         document.body.classList.add(eventThemeClass);
       }
@@ -1861,23 +1882,11 @@
      * Preferencia de usuario persistida en localStorage para El Mozo Virtual
      */
     function isMozoVirtualEnabled() {
-      try {
-        return localStorage.getItem('scango_mozo_virtual_enabled') !== 'false';
-      } catch (e) {
-        return true;
-      }
+      return isMozoVirtualEnabledMod();
     }
 
     function handleMozoVirtualToggle(checked) {
-      try {
-        localStorage.setItem('scango_mozo_virtual_enabled', checked ? 'true' : 'false');
-      } catch (e) {}
-      const box = document.getElementById('virtualWaiterUpsellBox');
-      if (!checked) {
-        if (box) box.style.display = 'none';
-      } else {
-        renderUpsellSuggestions();
-      }
+      handleMozoVirtualToggleMod(checked, renderUpsellSuggestions);
     }
 
     /**
@@ -2249,141 +2258,28 @@
 
     function openSmartReviewModal() {
       selectedStarRating = 0;
-
-      // Reset UI state
-      const modal = document.getElementById('smartReviewModal');
-      document.getElementById('review5StarsBox').style.display = 'none';
-      document.getElementById('reviewPrivateFeedbackBox').style.display = 'none';
-      document.getElementById('feedbackSuccessMessage').style.display = 'none';
-      document.getElementById('starHintText').textContent = 'Tocá las estrellas para calificar';
-
-      // Reset stars
-      document.querySelectorAll('.star-btn').forEach(btn => btn.classList.remove('active', 'hover-active'));
-
-      // Set restaurant name
-      const nameEl = document.getElementById('smartReviewRestName');
-      if (nameEl) nameEl.textContent = restaurantData.name || 'nuestro local';
-
-      // Set Google Maps URL for 5-star redirect
-      const googleBtn = document.getElementById('btnGoogleReviewRedirect');
-      if (googleBtn) googleBtn.href = restaurantData.googleReview || '#';
-
-      // Show form
-      const form = document.getElementById('privateFeedbackForm');
-      if (form) { form.reset(); form.style.display = 'block'; }
-      const submitBtn = document.getElementById('btnSubmitFeedback');
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.querySelector('span').textContent = '📩 Enviar Comentario Privado a la Gerencia'; }
-
-      modal.classList.add('active');
-      modal.setAttribute('aria-hidden', 'false');
+      openSmartReviewModalMod(restaurantData);
     }
 
     function closeSmartReviewModal() {
-      const modal = document.getElementById('smartReviewModal');
-      modal.classList.remove('active');
-      modal.setAttribute('aria-hidden', 'true');
+      closeSmartReviewModalMod();
       selectedStarRating = 0;
     }
 
     function handleStarSelect(rating) {
       selectedStarRating = rating;
-
-      // Highlight stars up to selected
-      document.querySelectorAll('.star-btn').forEach(btn => {
-        const star = parseInt(btn.dataset.star);
-        btn.classList.toggle('active', star <= rating);
-      });
-
-      const hintTexts = ['', '😞 Muy mala', '😕 Regular', '🙂 Buena', '😊 Muy buena', '🤩 ¡Excelente!'];
-      document.getElementById('starHintText').textContent = hintTexts[rating] || '';
-
-      // Branch logic: 5 stars → Google Maps, 1-4 → private feedback
-      if (rating === 5) {
-        document.getElementById('review5StarsBox').style.display = 'block';
-        document.getElementById('reviewPrivateFeedbackBox').style.display = 'none';
-      } else {
-        document.getElementById('review5StarsBox').style.display = 'none';
-        document.getElementById('reviewPrivateFeedbackBox').style.display = 'block';
-      }
+      handleStarSelectMod(rating);
     }
 
     function handleGoogleReviewClick() {
-      // Track the click
-      fetch('/api/analytics/event', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: getSlug(), event: 'google_review_click' })
-      }).catch(() => {});
+      handleGoogleReviewClickMod(getSlug);
     }
 
     async function submitPrivateFeedback(e) {
-      e.preventDefault();
-      const btn = document.getElementById('btnSubmitFeedback');
-      if (btn) { btn.disabled = true; btn.querySelector('span').textContent = '⏳ Enviando...'; }
-
-      const comment = document.getElementById('feedbackCommentInput').value.trim();
-      const customerName = document.getElementById('feedbackNameInput').value.trim();
-      const customerContact = document.getElementById('feedbackContactInput').value.trim();
-
-      if (!comment) {
-        if (btn) { btn.disabled = false; btn.querySelector('span').textContent = '📩 Enviar Comentario Privado a la Gerencia'; }
-        alert('Por favor escribí un comentario antes de enviar.');
-        return;
-      }
-
-      try {
-        const response = await fetch('/api/reviews/feedback', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            restaurantId: restaurantData.id,
-            rating: selectedStarRating,
-            comment,
-            customerName: customerName || 'Anónimo',
-            customerContact: customerContact || ''
-          })
-        });
-
-        if (response.ok) {
-          // Show success, hide form
-          document.getElementById('privateFeedbackForm').style.display = 'none';
-          document.getElementById('feedbackSuccessMessage').style.display = 'block';
-
-          // Track event
-          fetch('/api/analytics/event', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ slug: getSlug(), event: 'private_feedback' })
-          }).catch(() => {});
-        } else {
-          const data = await response.json().catch(() => ({}));
-          alert(data.error || 'No se pudo enviar el comentario. Intentá nuevamente.');
-          if (btn) { btn.disabled = false; btn.querySelector('span').textContent = '📩 Enviar Comentario Privado a la Gerencia'; }
-        }
-      } catch (err) {
-        alert('Error de conexión. Por favor, intentá nuevamente.');
-        if (btn) { btn.disabled = false; btn.querySelector('span').textContent = '📩 Enviar Comentario Privado a la Gerencia'; }
-      }
+      await submitPrivateFeedbackMod(e, restaurantData, getSlug);
     }
 
-    // Hover effect for stars
-    (function initStarHover() {
-      const wrap = document.getElementById('starsSelectorWrap');
-      if (!wrap) return;
-      wrap.addEventListener('mouseover', e => {
-        const btn = e.target.closest('.star-btn');
-        if (!btn) return;
-        const hoverStar = parseInt(btn.dataset.star);
-        document.querySelectorAll('.star-btn').forEach(b => {
-          b.classList.toggle('hover-active', parseInt(b.dataset.star) <= hoverStar);
-        });
-      });
-      wrap.addEventListener('mouseout', () => {
-        document.querySelectorAll('.star-btn').forEach(b => {
-          b.classList.remove('hover-active');
-        });
-      });
-    })();
+    initStarHoverMod();
 
     // Reservation Modal Logic
     function openReservationModal() {
@@ -2393,205 +2289,56 @@
         dateInput.min = today;
         if (!dateInput.value) dateInput.value = today;
       }
-      document.getElementById('reservationModal').classList.add('active');
+      openReservationModalMod();
     }
 
     function closeReservationModal() {
-      document.getElementById('reservationModal').classList.remove('active');
+      closeReservationModalMod();
     }
 
     function submitReservation(e) {
-      e.preventDefault();
-      const submitBtn = e.target.querySelector('button[type="submit"]');
-      const originalText = submitBtn ? submitBtn.innerHTML : '';
-      if (submitBtn) {
-        if (submitBtn.disabled || submitBtn.dataset.busy === 'true') return;
-        submitBtn.disabled = true;
-        submitBtn.dataset.busy = 'true';
-        submitBtn.innerHTML = '<span>⏳ Conectando con WhatsApp...</span>';
-      }
-
-      const name = document.getElementById('resName').value.trim();
-      const date = document.getElementById('resDate').value;
-      const time = document.getElementById('resTime').value;
-      const guests = document.getElementById('resGuests').value;
-      const notes = document.getElementById('resNotes').value.trim();
-
-      let msg = `📅 *SOLICITUD DE RESERVA - ${restaurantData.name.toUpperCase()}*\n\n`;
-      msg += `👤 *Titular:* ${name}\n`;
-      msg += `📆 *Fecha:* ${date}\n`;
-      msg += `⏰ *Hora:* ${time} hs\n`;
-      msg += `👥 *Comensales:* ${guests}\n`;
-      if (notes) {
-        msg += `📝 *Observaciones:* ${notes}\n`;
-      }
-      msg += `\n_¿Tienen disponibilidad para confirmar la reserva?_\n`;
-      msg += `_Enviado desde ScanGo_`;
-
-      const rawPhone = (restaurantData.phone || '').replace(/[^0-9]/g, '');
-      const waUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`;
-      // Track reservation analytics
-      fetch('/api/analytics/event', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: getSlug(), event: 'reservation' })
-      }).catch(() => {});
-      window.open(waUrl, '_blank');
-
-      setTimeout(() => {
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.dataset.busy = 'false';
-          submitBtn.innerHTML = originalText;
-        }
-        closeReservationModal();
-      }, 1500);
+      submitReservationMod(e, restaurantData, getSlug);
     }
 
     // Wi-Fi Modal
     function openWifiModal() {
-      document.getElementById('wifiModal').classList.add('active');
+      openWifiModalMod();
     }
     function closeWifiModal() {
-      document.getElementById('wifiModal').classList.remove('active');
+      closeWifiModalMod();
     }
     function copyWifiPassword() {
-      const pass = restaurantData.wifi ? restaurantData.wifi.password : '';
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(pass).then(() => alert('Contraseña copiada al portapapeles'));
-      } else {
-        prompt('Copia la contraseña:', pass);
-      }
+      copyWifiPasswordMod(restaurantData ? restaurantData.wifi : {});
     }
 
-    // TTS Accessibility — with loop control and clean pause/stop
-    let _ttsAbortController = null;
-    let _ttsIsReading = false;
-
+    // TTS Accessibility
     function stopCategoryTTS() {
-      if (_ttsAbortController) {
-        _ttsAbortController.abort();
-        _ttsAbortController = null;
-      }
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-      _ttsIsReading = false;
+      stopCategoryTTSMod();
     }
 
     function pauseCategoryTTS() {
-      if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
-        window.speechSynthesis.pause();
-      }
+      pauseCategoryTTSMod();
     }
 
     function resumeCategoryTTS() {
-      if ('speechSynthesis' in window && window.speechSynthesis.paused) {
-        window.speechSynthesis.resume();
-      }
+      resumeCategoryTTSMod();
     }
 
     function readSelectedCategoryTTS() {
-      if (!('speechSynthesis' in window)) {
-        alert('La síntesis de voz no está soportada en este navegador.');
-        return;
-      }
-
-      // Prevent infinite loop: if already reading, stop first
-      if (_ttsIsReading) {
-        stopCategoryTTS();
-        return;
-      }
-
-      const category = selectedCategory === 'ALL' 
-        ? 'Todos los platos disponibles' 
-        : (restaurantData.categories.find(c => c.id === selectedCategory) || {}).name;
-      
-      const dishes = restaurantData.dishes.filter(d => selectedCategory === 'ALL' || d.categoryId === selectedCategory);
-      let text = `Estás escuchando la sección ${category}. `;
-      dishes.forEach(d => {
-        text += `${d.name}, precio ${d.price} pesos. ${d.description || ''}. `;
-      });
-
-      // Use AbortController for clean cancellation
-      _ttsAbortController = new AbortController();
-      const signal = _ttsAbortController.signal;
-
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = 'es-ES';
-      utter.rate = 1;
-      utter.pitch = 1;
-      utter.volume = 1;
-
-      utter.onstart = () => { _ttsIsReading = true; };
-      utter.onend = () => { _ttsIsReading = false; _ttsAbortController = null; };
-      utter.onerror = () => { _ttsIsReading = false; _ttsAbortController = null; };
-
-      // If abort is triggered, cancel synthesis
-      signal.addEventListener('abort', () => {
-        window.speechSynthesis.cancel();
-        _ttsIsReading = false;
-      }, { once: true });
-
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(utter);
+      readSelectedCategoryTTSMod(selectedCategory, restaurantData ? restaurantData.categories : [], restaurantData ? restaurantData.dishes : []);
     }
 
     // Push Notifications Prompt & Permissions
     function initPushPrompt() {
-      const pushStatus = localStorage.getItem('scango_push_status');
-      if (pushStatus === 'granted' || pushStatus === 'dismissed' || pushStatus === 'denied') {
-        return;
-      }
-      setTimeout(() => {
-        const banner = document.getElementById('pushPromptBanner');
-        if (banner) banner.style.display = 'flex';
-      }, 2500);
+      initPushPromptMod();
     }
 
     async function requestPushPermission() {
-      const banner = document.getElementById('pushPromptBanner');
-      if (banner) banner.style.display = 'none';
-
-      try {
-        if ('Notification' in window) {
-          const perm = await Notification.requestPermission();
-          localStorage.setItem('scango_push_status', perm);
-          if (perm === 'granted') {
-            localStorage.setItem('scango_push_subscribed', 'true');
-            showPushToast('¡Notificaciones activadas! Te avisaremos de novedades y tus pedidos 🔔');
-          }
-        } else {
-          localStorage.setItem('scango_push_status', 'granted');
-          localStorage.setItem('scango_push_subscribed', 'true');
-          showPushToast('¡Notificaciones activadas con éxito! 🔔');
-        }
-      } catch (e) {
-        localStorage.setItem('scango_push_status', 'granted');
-        localStorage.setItem('scango_push_subscribed', 'true');
-        showPushToast('¡Notificaciones activadas con éxito! 🔔');
-      }
+      await requestPushPermissionMod();
     }
 
     function dismissPushPrompt() {
-      const banner = document.getElementById('pushPromptBanner');
-      if (banner) banner.style.display = 'none';
-      localStorage.setItem('scango_push_status', 'dismissed');
-    }
-
-    function showPushToast(msg) {
-      let toast = document.getElementById('pushToastFeedback');
-      if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'pushToastFeedback';
-        toast.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#2D3748; color:#ECC94B; border:1px solid #ECC94B; border-radius:30px; padding:10px 20px; font-size:0.85rem; font-weight:700; z-index:9999; box-shadow:0 8px 24px rgba(0,0,0,0.5); display:flex; align-items:center; gap:8px; animation:slideDown 0.3s ease;';
-        document.body.appendChild(toast);
-      }
-      toast.textContent = msg;
-      toast.style.display = 'flex';
-      setTimeout(() => {
-        if (toast) toast.style.display = 'none';
-      }, 3500);
+      dismissPushPromptMod();
     }
 
     // ========== NEW HEADER & MODAL FUNCTIONS ==========
@@ -2608,39 +2355,24 @@
 
     // Restaurant Info Modal
     function openRestaurantInfoModal() {
-      // Populate address
       const addrEl = document.getElementById('infoAddressFullText');
       if (addrEl && restaurantData) {
         addrEl.textContent = restaurantData.address || 'Dirección no disponible';
       }
-      // Populate delivery time in modal
       const dtModal = document.getElementById('infoDeliveryTimeModal');
       if (dtModal && restaurantData) {
         dtModal.textContent = restaurantData.deliveryTime || '30 - 45min.';
       }
-      // Render weekly schedule
       renderWeeklySchedule();
-      document.getElementById('restaurantInfoModal').classList.add('active');
+      openRestaurantInfoModalMod();
     }
     function closeRestaurantInfoModal() {
-      document.getElementById('restaurantInfoModal').classList.remove('active');
+      closeRestaurantInfoModalMod();
     }
 
     // Share Restaurant URL (Web Share API with clipboard fallback)
     function shareRestaurantUrl() {
-      const url = window.location.href;
-      const title = restaurantData ? restaurantData.name : 'Menú Digital';
-      if (navigator.share) {
-        navigator.share({ title: title, url: url }).catch(() => {});
-      } else if (navigator.clipboard) {
-        navigator.clipboard.writeText(url).then(() => {
-          alert('¡Enlace copiado al portapapeles!');
-        }).catch(() => {
-          prompt('Copiá el enlace:', url);
-        });
-      } else {
-        prompt('Copiá el enlace:', url);
-      }
+      shareRestaurantUrlMod(restaurantData ? restaurantData.name : 'Menú Digital');
     }
 
     // Focus Search Input (from category nav icon)
@@ -2745,6 +2477,64 @@
     function openLoyaltyModal() {
       alert('🌟 Funcionalidad de Club de Puntos próximamente disponible.');
     }
+
+    // Expose all interactive functions to window for HTML inline event handlers
+    Object.assign(window, {
+      loadMenu,
+      selectCategory,
+      selectCategoryFromModal,
+      openCategoriesMenuModal,
+      closeCategoriesMenuModal,
+      filterDishes,
+      clearSearchFilter,
+      focusSearchInput,
+      selectDietFilter,
+      togglePerfumeryMode,
+      openDishNoteModal,
+      closeDishNoteModal,
+      confirmDishNote,
+      addToCart,
+      removeFromCart,
+      openCartModal,
+      closeCartModal,
+      handleOrderModeChange,
+      handleOrderPaymentChange,
+      updateDeliveryFee,
+      applyCoupon,
+      updateSplitCalculation,
+      submitWhatsAppOrder,
+      toggleGroupConsolidatedView,
+      openSmartReviewModal,
+      closeSmartReviewModal,
+      handleStarSelect,
+      handleGoogleReviewClick,
+      submitPrivateFeedback,
+      openReservationModal,
+      closeReservationModal,
+      submitReservation,
+      openWifiModal,
+      closeWifiModal,
+      copyWifiPassword,
+      stopCategoryTTS,
+      pauseCategoryTTS,
+      resumeCategoryTTS,
+      readSelectedCategoryTTS,
+      initPushPrompt,
+      requestPushPermission,
+      dismissPushPrompt,
+      openWhatsAppChat,
+      openRestaurantInfoModal,
+      closeRestaurantInfoModal,
+      shareRestaurantUrl,
+      openLoyaltyModal,
+      openWaiterModal,
+      closeWaiterModal,
+      sendWaiterCall,
+      isMozoVirtualEnabled,
+      handleMozoVirtualToggle,
+      quickAddUpsellItem,
+      renderUpsellSuggestions
+    });
 
     // Init
     window.addEventListener('DOMContentLoaded', () => {

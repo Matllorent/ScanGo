@@ -1439,13 +1439,13 @@
 
       <!-- Drag & Drop Zone -->
       <div id="aiMenuDropzone" style="border: 2px dashed rgba(236,201,75,0.4); border-radius: 10px; padding: 24px; text-align: center; background: rgba(0,0,0,0.2); cursor: pointer; transition: border-color .2s;" onclick="document.getElementById('aiMenuFilesInput').click()">
-        <input type="file" id="aiMenuFilesInput" multiple accept="image/*" style="display:none;" onchange="handleAiMenuFilesInput(event)">
+        <input type="file" id="aiMenuFilesInput" multiple accept="image/*,.pdf,application/pdf" style="display:none;" onchange="handleAiMenuFilesInput(event)">
         <div style="font-size: 32px; margin-bottom: 8px;">📑 📸</div>
         <div style="font-size: 13px; font-weight: 600; color: #fff; margin-bottom: 4px;">
-          Haz clic aquí o arrastra las fotos de las páginas de tu menú
+          Haz clic aquí o arrastra las fotos o PDF de tu menú
         </div>
         <div style="font-size: 10px; color: var(--text-dim);">
-          Puedes seleccionar varias imágenes a la vez (PNG, JPG, WEBP — Máx. 10 páginas)
+          Puedes seleccionar varias imágenes o documentos PDF (PNG, JPG, WEBP, PDF — Máx. 10 páginas)
         </div>
       </div>
 

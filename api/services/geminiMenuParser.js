@@ -4,7 +4,7 @@
  * Model: gemini-3.8-flash (multimodal, structured JSON schema output)
  */
 
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenAI, Type } = require('@google/genai');
 
 /**
  * Strict JSON schema matching the required menu output structure.
@@ -104,9 +104,9 @@ async function parseMenuWithGemini(images) {
   }
 
   const ai = new GoogleGenAI({ apiKey });
-  const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
-  // Format image parts for Google GenAI SDK
+  // Format parts for Google GenAI SDK (supports images and PDF documents)
   const formattedParts = images.map((img, idx) => {
     let rawData = img.data || img;
     let mimeType = img.mimeType || 'image/jpeg';
@@ -129,12 +129,11 @@ async function parseMenuWithGemini(images) {
   try {
     const response = await ai.models.generateContent({
       model,
-      contents: [
-        { text: SYSTEM_PROMPT },
-        ...formattedParts
-      ],
+      contents: formattedParts,
       config: {
+        systemInstruction: SYSTEM_PROMPT,
         responseMimeType: 'application/json',
+        responseJsonSchema: MENU_RESPONSE_SCHEMA,
         responseSchema: MENU_RESPONSE_SCHEMA
       }
     });
@@ -152,7 +151,13 @@ async function parseMenuWithGemini(images) {
     return sanitizeParsedMenu(parsed);
   } catch (err) {
     console.error('[GEMINI-MENU-PARSER-ERROR]', err);
-    throw new Error(`Error al procesar la carta con Gemini: ${err.message || 'Error desconocido'}`);
+    let msg = err.message || 'Error desconocido';
+    if (msg.includes('API_KEY_INVALID') || msg.includes('API key not valid')) {
+      msg = 'La clave GEMINI_API_KEY no es válida o está deshabilitada.';
+    } else if (msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Quota exceeded')) {
+      msg = 'Se ha superado la cuota de la API de Gemini. Espera unos segundos o revisa tus límites en Google AI Studio.';
+    }
+    throw new Error(`Error al procesar la carta con Gemini: ${msg}`);
   }
 }
 

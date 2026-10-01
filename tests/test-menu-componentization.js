@@ -169,7 +169,17 @@ async function runMenuComponentizationTests() {
   assert.ok(reservationMsg.includes('*Comensales:* 4'));
   console.log('✓ Módulo de eventos, resolución de temas y reservas WhatsApp validado');
 
-  // 7. Test menu-modules.js integration
+  // 7. Test barrel export menu/index.js
+  const menuIndexModule = await import('../public/js/menu/index.js');
+  assert.ok(typeof menuIndexModule.openSmartReviewModal === 'function', 'index.js debe re-exportar openSmartReviewModal');
+  assert.ok(typeof menuIndexModule.analyzeCartContextForUpsell === 'function', 'index.js debe re-exportar analyzeCartContextForUpsell');
+  assert.ok(typeof menuIndexModule.calculateSplitPerPerson === 'function', 'index.js debe re-exportar calculateSplitPerPerson');
+  assert.ok(typeof menuIndexModule.getCartUnitPrice === 'function', 'index.js debe re-exportar getCartUnitPrice');
+  assert.ok(typeof menuIndexModule.openWifiModal === 'function', 'index.js debe re-exportar openWifiModal');
+  assert.ok(typeof menuIndexModule.resolveEventTheme === 'function', 'index.js debe re-exportar resolveEventTheme');
+  console.log('✓ Barrel export public/js/menu/index.js verificado y unificado');
+
+  // 8. Test menu-modules.js integration
   const menuModulesSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu-modules.js'), 'utf8');
   assert.ok(menuModulesSrc.includes('/js/menu/smartReviews.js'), 'menu-modules.js debe importar smartReviews.js');
   assert.ok(menuModulesSrc.includes('/js/menu/virtualWaiterHeuristics.js'), 'menu-modules.js debe importar virtualWaiterHeuristics.js');
@@ -177,6 +187,7 @@ async function runMenuComponentizationTests() {
   assert.ok(menuModulesSrc.includes('/js/menu/cartOperations.js'), 'menu-modules.js debe importar cartOperations.js');
   assert.ok(menuModulesSrc.includes('/js/menu/menuModals.js'), 'menu-modules.js debe importar menuModals.js');
   assert.ok(menuModulesSrc.includes('/js/menu/eventGuestMode.js'), 'menu-modules.js debe importar eventGuestMode.js');
+  assert.ok(menuModulesSrc.includes('/js/menu/index.js'), 'menu-modules.js debe importar index.js');
   console.log('✓ Enlace de todos los módulos en menu-modules.js verificado');
 
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE COMPONENTIZACIÓN DE MENU PASARON AL 100%!');

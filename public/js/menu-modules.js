@@ -10,6 +10,7 @@ import * as orderCheckout from '/js/menu/orderCheckout.js';
 import * as cartOperations from '/js/menu/cartOperations.js';
 import * as menuModals from '/js/menu/menuModals.js';
 import * as eventGuestMode from '/js/menu/eventGuestMode.js';
+import * as menuBundle from '/js/menu/index.js';
 
 // Expose classes and modules on window
 window.IceCreamWizard = IceCreamWizard;
@@ -24,6 +25,7 @@ window.orderCheckoutModule = orderCheckout;
 window.cartOperationsModule = cartOperations;
 window.menuModalsModule = menuModals;
 window.eventGuestModeModule = eventGuestMode;
+window.menuBundle = menuBundle;
 
     // Initialize i18n & Currency Manager
     window.i18nManager = new I18nCurrencyManager({

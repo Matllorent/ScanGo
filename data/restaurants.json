@@ -42,6 +42,10 @@
       {
         "id": "cat_empanadas_1790367213760",
         "name": "Empanadas Argentinas"
+      },
+      {
+        "id": "cat_empanadas_1790824188350",
+        "name": "Empanadas"
       }
     ],
     "dishes": [
@@ -69,7 +73,9 @@
           ],
           "timeStart": "11:30",
           "timeEnd": "15:30",
-          "behavior": "badge"
+          "behavior": "badge",
+          "overridePrice": null,
+          "originalPriceRef": null
         },
         "modifierGroupIds": [],
         "variants": [],
@@ -79,7 +85,9 @@
         "tags": [
           "star",
           "picante"
-        ]
+        ],
+        "kid_friendly": false,
+        "allergens": []
       },
       {
         "id": "d_3",
@@ -100,7 +108,9 @@
         "variantsRequired": false,
         "tags": [
           "star"
-        ]
+        ],
+        "kid_friendly": false,
+        "allergens": []
       },
       {
         "id": "d_4",
@@ -121,7 +131,9 @@
         "variantsRequired": false,
         "tags": [
           "veggie"
-        ]
+        ],
+        "kid_friendly": false,
+        "allergens": []
       },
       {
         "id": "d_milanesas_1790360667176_4",
@@ -140,7 +152,9 @@
         "proteinOptions": [],
         "variantSelectionMode": "single",
         "variantsRequired": false,
-        "tags": []
+        "tags": [],
+        "kid_friendly": false,
+        "allergens": []
       },
       {
         "id": "d_milanesas_1790365308341_3",
@@ -159,7 +173,9 @@
         "proteinOptions": [],
         "variantSelectionMode": "single",
         "variantsRequired": false,
-        "tags": []
+        "tags": [],
+        "kid_friendly": false,
+        "allergens": []
       },
       {
         "id": "d_milanesas_1790366202485_7",
@@ -178,7 +194,9 @@
         "proteinOptions": [],
         "variantSelectionMode": "single",
         "variantsRequired": false,
-        "tags": []
+        "tags": [],
+        "kid_friendly": false,
+        "allergens": []
       },
       {
         "id": "d_empanadas_1790367213760_0",
@@ -248,7 +266,30 @@
         "variantsRequired": true,
         "tags": [
           "star"
-        ]
+        ],
+        "kid_friendly": false,
+        "allergens": []
+      },
+      {
+        "id": "d_empanadas_1790824188350_4",
+        "categoryId": "cat_empanadas_1790824188350",
+        "name": "Empanada de Pollo",
+        "price": 95,
+        "originalPrice": null,
+        "description": "Pollo desmenuzado con cebolla y morrón.",
+        "photoUrl": null,
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "weatherTags": [],
+        "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
+        "tags": [],
+        "kid_friendly": false,
+        "allergens": []
       }
     ],
     "analytics": {
@@ -259,10 +300,10 @@
       "lastUpdated": "2026-09-27T18:44:29.937Z"
     },
     "businessType": "restaurant",
-    "allowIceCreamWizard": false,
+    "allowIceCreamWizard": true,
     "allowPerfumery": false,
-    "allowLoyaltyPoints": true,
-    "updatedAt": "2026-09-26T22:04:01.092Z",
+    "allowLoyaltyPoints": false,
+    "updatedAt": "2026-10-01T03:13:35.592Z",
     "instagram": "",
     "googleReview": "",
     "themeFont": "urban",
