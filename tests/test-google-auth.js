@@ -17,6 +17,10 @@ async function runTests() {
   let googleCallback = null;
   let initializedClientId = '';
   let promptCount = 0;
+  let promptListener = null;
+  let promptResult;
+  let legacyStatusApiCalls = 0;
+  const consoleMessages = [];
 
   const context = {
     document: {
@@ -43,7 +47,7 @@ async function runTests() {
       };
     },
     window: {
-      location: { href: '' },
+      location: { href: '', origin: 'http://localhost:3000', hostname: 'localhost' },
       addEventListener: () => {},
       loadGoogleIdentityServices: async () => {}
     },
@@ -54,11 +58,19 @@ async function runTests() {
             initializedClientId = options.client_id;
             googleCallback = options.callback;
           },
-          prompt: () => { promptCount += 1; }
+          prompt: listener => {
+            promptCount += 1;
+            promptListener = listener;
+            return promptResult;
+          }
         }
       }
     },
-    console
+    console: {
+      warn: (...args) => consoleMessages.push(args.join(' ')),
+      info: (...args) => consoleMessages.push(args.join(' ')),
+      error: (...args) => consoleMessages.push(args.join(' '))
+    }
   };
 
   const clientPath = path.join(__dirname, '../public/js/index.js');
@@ -70,6 +82,16 @@ async function runTests() {
   assert.strictEqual(typeof googleCallback, 'function', 'GIS must receive the credential callback');
   assert.strictEqual(requests[0].url, '/api/auth/google/config', 'The client ID must be fetched before initializing GIS');
   assert.strictEqual(initializedClientId, 'test-client.apps.googleusercontent.com', 'GIS must use the configured client ID');
+  assert.ok(consoleMessages.some(message => message.includes('http://localhost:3000') && message.includes('Authorized JavaScript origins')), 'Local development should explain the OAuth origin allowlist');
+
+  promptListener({
+    isNotDisplayed: () => { legacyStatusApiCalls += 1; return true; },
+    getNotDisplayedReason: () => { legacyStatusApiCalls += 1; return 'unregistered_origin'; },
+    isSkippedMoment: () => true
+  });
+  assert.strictEqual(legacyStatusApiCalls, 0, 'FedCM migration must not call unsupported display moment methods');
+  assert.ok(elements.authError.textContent.includes('http://localhost:3000'), 'A skipped prompt should show the current origin to authorize');
+  assert.ok(elements.authError.textContent.includes('Orígenes de JavaScript autorizados'), 'A skipped prompt should point to Google Cloud OAuth origins');
 
   await googleCallback({ credential: 'google-id-token' });
   const authRequest = requests.find(request => request.url === '/api/auth/google');
@@ -82,6 +104,10 @@ async function runTests() {
   assert.strictEqual(localStorage.get('menu_pizarron_token'), 'session-token');
   assert.strictEqual(context.window.location.href, '/studio.html');
   assert.strictEqual(elements.authError.textContent, '');
+
+  promptResult = Promise.reject(Object.assign(new Error('The FedCM request was aborted.'), { name: 'AbortError' }));
+  await context.startGoogleSignup();
+  assert.ok(elements.authError.textContent.includes('http://localhost:3000'), 'An aborted FedCM prompt should recover with actionable guidance');
 
   const server = http.createServer(app);
   await new Promise(resolve => server.listen(0, resolve));

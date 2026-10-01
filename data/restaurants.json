@@ -4746,5 +4746,131 @@
     "allowIceCreamWizard": false,
     "allowPerfumery": false,
     "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790833480184_phgpv3",
+    "userId": "usr_1790833480171_xl1vqr",
+    "slug": "esquina-gourmet",
+    "subscription": {
+      "status": "past_due",
+      "plan": "pro_monthly",
+      "provider": "lemonsqueezy",
+      "trialEndsAt": "2026-10-08T05:44:40.184Z",
+      "currentPeriodEnd": "2026-10-01T05:44:40.368Z",
+      "gracePeriodDaysRemaining": 7,
+      "lastPaymentError": "Falló el cobro automático de la tarjeta",
+      "updatedAt": "2026-10-01T05:44:40.388Z"
+    },
+    "createdAt": "2026-10-01T05:44:40.184Z",
+    "bizName": "La Esquina Gourmet",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "branches": [],
+    "updatedAt": "2026-10-01T05:44:40.801Z"
+  },
+  {
+    "id": "rest_1790833481939_hsfwi1",
+    "userId": "user_exp_test_1790833481933",
+    "slug": "mi-local",
+    "subscription": {
+      "status": "trialing",
+      "trialEndsAt": "2026-10-01T04:44:41.933Z",
+      "plan": "pro_monthly"
+    },
+    "createdAt": "2026-10-01T05:44:41.939Z",
+    "name": "Restaurante Expirado Test",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790833483086_shxbgb",
+    "userId": "usr_1790833483072_1odzqz",
+    "slug": "vanguardia-test-1790833483077",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T05:44:43.087Z",
+      "currentPeriodEnd": "2026-10-08T05:44:43.087Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T05:44:43.087Z",
+    "bizName": "Restaurante Vanguardia Test",
+    "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+    "businessType": "events",
+    "layout": "bento",
+    "theme": "emerald",
+    "font": "sans",
+    "categories": [],
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false
+  },
+  {
+    "id": "rest_1790833483138_x0fu6i",
+    "userId": "usr_1790833483121_5a7800",
+    "slug": "perfil-predeterminado",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T05:44:43.138Z",
+      "currentPeriodEnd": "2026-10-08T05:44:43.138Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T05:44:43.138Z",
+    "bizName": "Perfil Predeterminado",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790833489049_bhg6vd",
+    "userId": "usr_1790833489037_gzg6rk",
+    "slug": "schema-bistro-1790833489035",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T05:44:49.049Z",
+      "currentPeriodEnd": "2026-10-08T05:44:49.049Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T05:44:49.049Z",
+    "name": "Schema Bistro",
+    "bizName": "Schema Bistro",
+    "slogan": "Cocina & pastas",
+    "currency": "UYU",
+    "phone": "+59899123456",
+    "city": "Montevideo",
+    "bannerUrl": "https://example.com/schema-bistro.jpg",
+    "categories": [
+      {
+        "id": "cat-main",
+        "name": "Platos principales"
+      }
+    ],
+    "dishes": [
+      {
+        "id": "dish-pasta",
+        "categoryId": "cat-main",
+        "name": "Pasta fresca",
+        "description": "Salsa casera </script><script>alert(\"x\")</script>",
+        "price": 420
+      }
+    ],
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
   }
 ]

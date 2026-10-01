@@ -1,5 +1,6 @@
 let googleIdentityPromise = null;
 let googleIdentityClientId = '';
+let googleLocalOriginHintLogged = false;
 
 function openAuthModal(mode = 'register') {
   const modal = document.getElementById('authModal');
@@ -51,6 +52,28 @@ function setGoogleButtonsDisabled(disabled) {
   });
 }
 
+function getGooglePromptHelpMessage() {
+  const origin = window.location?.origin;
+  const originHelp = origin
+    ? ` Si estás en desarrollo, verifica que ${origin} esté en "Orígenes de JavaScript autorizados" del cliente OAuth en Google Cloud.`
+    : '';
+  return `Google no pudo completar la selección de cuenta. Revisa los permisos de inicio con terceros del navegador e intenta registrarte con correo si el problema continúa.${originHelp}`;
+}
+
+function warnAboutLocalGoogleOrigin() {
+  const { hostname, origin } = window.location || {};
+  if (!['localhost', '127.0.0.1', '[::1]', '::1'].includes(hostname) || googleLocalOriginHintLogged) return;
+  googleLocalOriginHintLogged = true;
+  console.info(`[Google Identity Services] Si aparece "unregistered_origin", agrega ${origin} y http://localhost en Authorized JavaScript origins para este OAuth client.`);
+}
+
+function handleGooglePromptFailure(error) {
+  if (error?.name === 'AbortError') {
+    console.info('[Google Identity Services] El navegador canceló el prompt de FedCM; el formulario sigue disponible.');
+  }
+  showError(getGooglePromptHelpMessage());
+}
+
 async function ensureGoogleIdentityReady() {
   if (googleIdentityPromise) return googleIdentityPromise;
   googleIdentityPromise = (async () => {
@@ -83,6 +106,7 @@ async function handleGoogleCredential(credentialResponse) {
     showError('Google no devolvió una credencial válida. Intentá de nuevo.');
     return;
   }
+  hideError();
   setGoogleButtonsDisabled(true);
   try {
     const res = await fetch('/api/auth/google', {
@@ -111,18 +135,21 @@ async function handleGoogleCredential(credentialResponse) {
 
 async function startGoogleSignup() {
   hideError();
+  warnAboutLocalGoogleOrigin();
   try {
     await ensureGoogleIdentityReady();
-    google.accounts.id.prompt(notification => {
-      if (notification?.isNotDisplayed?.()) {
-        const reason = notification.getNotDisplayedReason?.();
-        showError(reason
-          ? `Google no pudo mostrar la selección de cuenta (${reason}). Intentá de nuevo.`
-          : 'Google no pudo mostrar la selección de cuenta. Intentá de nuevo.');
+    const promptResult = google.accounts.id.prompt(notification => {
+      try {
+        if (notification?.isSkippedMoment?.()) handleGooglePromptFailure();
+      } catch (error) {
+        handleGooglePromptFailure(error);
       }
     });
+    if (promptResult && typeof promptResult.then === 'function') {
+      await promptResult.catch(handleGooglePromptFailure);
+    }
   } catch (error) {
-    showError(error.message || 'No se pudo iniciar el acceso con Google.');
+    handleGooglePromptFailure(error);
   }
 }
 
