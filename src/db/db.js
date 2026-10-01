@@ -1,7 +1,11 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
+const IS_VERCEL = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
+const DATA_DIR = IS_VERCEL
+  ? path.join(os.tmpdir(), 'menu-pizarron-saas')
+  : path.join(__dirname, '..', '..', 'data');
 if (!fs.existsSync(DATA_DIR)) {
   try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
 }
@@ -17,10 +21,15 @@ function readJson(file, def = []) {
 }
 
 function writeJson(file, data) {
+  const temporaryFile = `${file}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
   try {
-    fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
+    fs.writeFileSync(temporaryFile, JSON.stringify(data, null, 2), 'utf8');
+    fs.renameSync(temporaryFile, file);
+    return true;
   } catch (e) {
     console.error('Error writing to', file, e);
+    try { fs.rmSync(temporaryFile, { force: true }); } catch (cleanupError) {}
+    return false;
   }
 }
 
@@ -102,11 +111,21 @@ function findRestaurantBranch(restaurant, branchId) {
 
 // Supabase Cloud PostgreSQL Dual-Mode Adapter
 let supabase = null;
-const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_SERVICE_KEY ||
-  process.env.SUPABASE_KEY ||
-  process.env.SUPABASE_ANON_KEY;
+const pendingSupabaseWrites = new Set();
+let databaseReady = Promise.resolve({ ready: true, mode: 'json' });
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+
+function trackSupabaseWrite(operation, context) {
+  let trackedWrite;
+  trackedWrite = Promise.resolve(operation)
+    .then(result => {
+      if (result?.error) throw result.error;
+    })
+    .catch(error => console.warn(`[Supabase ${context}]`, error.message))
+    .finally(() => pendingSupabaseWrites.delete(trackedWrite));
+  pendingSupabaseWrites.add(trackedWrite);
+  return trackedWrite;
+}
 
 if (process.env.SUPABASE_URL && supabaseKey) {
   try {
@@ -118,53 +137,87 @@ if (process.env.SUPABASE_URL && supabaseKey) {
     );
     console.log('⚡ [DB] Conectado a Cloud Supabase (PostgreSQL)');
 
-    // Sync cloud data into memory/cache on boot
-    (async () => {
+    databaseReady = (async () => {
       try {
-        const { data: uData } = await supabase.from('users').select('*');
-        if (uData && uData.length) writeJson(USERS_FILE, uData);
+        const [usersResult, restaurantsResult] = await Promise.all([
+          supabase.from('users').select('*'),
+          supabase.from('restaurants').select('*')
+        ]);
+        if (usersResult.error) throw usersResult.error;
+        if (restaurantsResult.error) throw restaurantsResult.error;
 
-        const { data: rData } = await supabase.from('restaurants').select('*');
-        if (rData && rData.length) {
-          const mapped = rData.map(r => ({
+        const cloudUsers = (usersResult.data || []).map(user => ({
+          ...user,
+          createdAt: user.createdAt || user.created_at,
+          updatedAt: user.updatedAt || user.updated_at
+        }));
+        const cloudRestaurants = (restaurantsResult.data || []).map(r => {
+          const profile = r.profile && typeof r.profile === 'object' ? r.profile : {};
+          return {
+            ...profile,
             id: r.id,
             userId: r.user_id,
             slug: r.slug,
-            name: r.name,
-            bizName: r.biz_name,
-            slogan: r.slogan,
-            currency: r.currency,
-            phone: r.phone,
-            city: r.city || '',
+            name: r.name || profile.name,
+            bizName: r.biz_name || profile.bizName,
+            slogan: r.slogan || profile.slogan,
+            currency: r.currency || profile.currency,
+            phone: r.phone || profile.phone,
+            city: r.city || profile.city || '',
             smartWeatherEnabled: Boolean(r.smart_weather_enabled),
-            theme: r.theme,
-            logoUrl: r.logo_url,
-            bannerUrl: r.banner_url || r.bannerUrl || null,
-            businessType: normalizeBusinessType(r.business_type),
-            layout: r.layout || 'classic',
-            wifi: r.wifi,
-            categories: r.categories,
-            dishes: r.dishes,
-            modifierGroups: r.modifier_groups || [],
-            deliveryZones: r.delivery_zones,
-            subscription: r.subscription,
-            createdAt: r.created_at,
-            updatedAt: r.updated_at
-          })).map(normalizeRestaurantBusinessType);
-          writeJson(RESTAURANTS_FILE, mapped);
+            theme: r.theme || profile.theme,
+            logoUrl: r.logo_url || profile.logoUrl,
+            bannerUrl: r.banner_url || profile.bannerUrl || null,
+            businessType: normalizeBusinessType(r.business_type || profile.businessType),
+            layout: r.layout || profile.layout || 'classic',
+            wifi: r.wifi || profile.wifi,
+            categories: r.categories || profile.categories || [],
+            dishes: r.dishes || profile.dishes || [],
+            modifierGroups: r.modifier_groups || profile.modifierGroups || [],
+            deliveryZones: r.delivery_zones || profile.deliveryZones || [],
+            branches: r.branches || profile.branches || [],
+            subscription: r.subscription || profile.subscription,
+            createdAt: r.created_at || profile.createdAt,
+            updatedAt: r.updated_at || profile.updatedAt
+          };
+        }).map(normalizeRestaurantBusinessType);
+
+        if (!writeJson(USERS_FILE, cloudUsers) || !writeJson(RESTAURANTS_FILE, cloudRestaurants)) {
+          throw new Error('No se pudo hidratar el snapshot local desde Supabase.');
         }
+        return { ready: true, mode: 'supabase' };
       } catch (err) {
         console.warn('⚠️ [DB] Aviso en sincronización inicial con Supabase:', err.message);
+        return {
+          ready: process.env.NODE_ENV !== 'production',
+          mode: 'json-fallback',
+          error: err.message
+        };
       }
     })();
   } catch (err) {
     console.warn('⚠️ [DB] No se pudo conectar a Supabase, utilizando archivos JSON locales:', err.message);
+    databaseReady = Promise.resolve({ ready: process.env.NODE_ENV !== 'production', mode: 'json-fallback', error: err.message });
   }
 } else {
   console.log('📁 [DB] Modo Local: Almacenamiento JSON activo');
+  if (IS_VERCEL && process.env.NODE_ENV === 'production') {
+    databaseReady = Promise.resolve({
+      ready: false,
+      mode: 'unconfigured',
+      error: 'Supabase server credentials are required for Vercel production.'
+    });
+  }
 }
 
 const db = {
+  ready: databaseReady,
+  async flushCloudWrites() {
+    while (pendingSupabaseWrites.size) {
+      await Promise.all([...pendingSupabaseWrites]);
+    }
+  },
+
   // Users
   findUserByEmail(email) {
     const users = readJson(USERS_FILE, []);
@@ -183,13 +236,14 @@ const db = {
 
     // Sync to Supabase in background if connected
     if (supabase) {
-      supabase.from('users').insert([{
+      trackSupabaseWrite(supabase.from('users').insert([{
         id: newUser.id,
         email: newUser.email,
         password: newUser.password,
         name: newUser.name,
+        email_confirmed_at: newUser.email_confirmed_at || null,
         created_at: newUser.createdAt
-      }]).then().catch(e => console.warn('[Supabase Insert User]', e.message));
+      }]), 'Insert User');
     }
     return newUser;
   },
@@ -202,10 +256,10 @@ const db = {
     writeJson(USERS_FILE, users);
 
     if (supabase) {
-      supabase.from('users').update({
+      trackSupabaseWrite(supabase.from('users').update({
         password: newHashedPassword,
         updated_at: user.updatedAt
-      }).eq('id', userId).then().catch(e => console.warn('[Supabase Update Password]', e.message));
+      }).eq('id', userId), 'Update Password');
     }
     return user;
   },
@@ -297,7 +351,7 @@ const db = {
 
     // Sync to Supabase in background if connected
     if (supabase) {
-      supabase.from('restaurants').upsert([{
+      trackSupabaseWrite(supabase.from('restaurants').upsert([{
         id: rest.id,
         user_id: rest.userId,
         slug: rest.slug,
@@ -320,8 +374,10 @@ const db = {
         delivery_zones: rest.deliveryZones,
         branches: rest.branches || [],
         subscription: rest.subscription,
+        profile: rest,
+        created_at: rest.createdAt,
         updated_at: new Date().toISOString()
-      }], { onConflict: 'id' }).then().catch(e => console.warn('[Supabase Save Rest]', e.message));
+      }], { onConflict: 'id' }), 'Save Restaurant');
     }
     return rest;
   },
@@ -437,10 +493,11 @@ const db = {
 
     // Sync to Supabase
     if (supabase) {
-      supabase.from('restaurants').update({
+      trackSupabaseWrite(supabase.from('restaurants').update({
         branches: rest.branches,
+        profile: rest,
         updated_at: new Date().toISOString()
-      }).eq('id', restaurantId).then().catch(e => console.warn('[Supabase Update Branches]', e.message));
+      }).eq('id', restaurantId), 'Update Branches');
     }
 
     return { success: true, restaurant: rest, branch: resultBranch, action };
@@ -456,10 +513,11 @@ const db = {
 
     // Sync to Supabase in background if connected
     if (supabase) {
-      supabase.from('restaurants').update({
+      trackSupabaseWrite(supabase.from('restaurants').update({
         subscription: rest.subscription,
+        profile: rest,
         updated_at: new Date().toISOString()
-      }).eq('id', restaurantId).then().catch(e => console.warn('[Supabase Update Sub]', e.message));
+      }).eq('id', restaurantId), 'Update Subscription');
     }
     return rest.subscription;
   },
@@ -483,12 +541,13 @@ const db = {
 
     // Sync to Supabase in background if connected
     if (supabase) {
-      supabase.from('webhooks').insert([{
+      trackSupabaseWrite(supabase.from('webhooks').upsert([{
         provider,
         event_id: eventId,
         event_type: eventType,
-        data
-      }]).then().catch(e => console.warn('[Supabase Insert Webhook]', e.message));
+        data,
+        received_at: new Date().toISOString()
+      }], { onConflict: 'provider,event_id' }), 'Insert Webhook');
     }
   },
 
@@ -509,6 +568,13 @@ const db = {
     rest.subscription.status = newStatus;
     rest.subscription.updatedAt = new Date().toISOString();
     writeJson(RESTAURANTS_FILE, rests);
+    if (supabase) {
+      trackSupabaseWrite(supabase.from('restaurants').update({
+        subscription: rest.subscription,
+        profile: rest,
+        updated_at: rest.subscription.updatedAt
+      }).eq('id', restaurantId), 'Update Restaurant Status');
+    }
     return rest;
   },
 
@@ -526,6 +592,12 @@ const db = {
     else if (eventType === 'waiter') rest.analytics.waiterCalls = (rest.analytics.waiterCalls || 0) + 1;
     rest.analytics.lastUpdated = new Date().toISOString();
     writeJson(RESTAURANTS_FILE, rests);
+    if (supabase) {
+      trackSupabaseWrite(supabase.from('restaurants').update({
+        profile: rest,
+        updated_at: rest.analytics.lastUpdated
+      }).eq('id', rest.id), 'Update Analytics Snapshot');
+    }
     return rest.analytics;
   },
 

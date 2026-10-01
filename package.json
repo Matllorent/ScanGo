@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node api/index.js",
     "dev": "nodemon api/index.js",
-    "test": "node tests/test-billing.js && node tests/test-fixes.js && node tests/test-new-features.js && node tests/test-resilience-security.js && node tests/test-banner-and-layouts.js && node tests/test-mp-upsell-reviews.js && node tests/test-geo-killswitch-upsell.js && node tests/test-weather.js && node tests/test-landing-conversion.js && node tests/test-group-cart-mozo.js && node tests/test-email-notifications.js && node tests/test-ai-menu-import.js && node tests/test-menu-componentization.js && node tests/test-menu-seo.js && node tests/test-google-auth.js",
+    "test": "node tests/test-billing.js && node tests/test-fixes.js && node tests/test-new-features.js && node tests/test-resilience-security.js && node tests/test-banner-and-layouts.js && node tests/test-mp-upsell-reviews.js && node tests/test-geo-killswitch-upsell.js && node tests/test-weather.js && node tests/test-landing-conversion.js && node tests/test-group-cart-mozo.js && node tests/test-email-notifications.js && node tests/test-ai-menu-import.js && node tests/test-menu-componentization.js && node tests/test-menu-seo.js && node tests/test-google-auth.js && node tests/test-security-endpoints.js",
+    "test:security-endpoints": "node tests/test-security-endpoints.js",
     "test:google-auth": "node tests/test-google-auth.js",
     "test:menu-seo": "node tests/test-menu-seo.js",
     "test:menu-comp": "node tests/test-menu-componentization.js",

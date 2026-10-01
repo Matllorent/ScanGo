@@ -19,6 +19,7 @@ export class GroupCartManager {
     this.restaurantSlug = options.restaurantSlug || this.restaurantData?.slug || 'default';
     this.restaurantId = options.restaurantData?.id || this.restaurantSlug;
     this.tableNumber = options.tableNumber || this.extractTableFromUrl();
+    this.groupToken = options.groupToken || this.extractGroupToken();
     this.onCartUpdate = typeof options.onCartUpdate === 'function' ? options.onCartUpdate : null;
     this.onNotification = typeof options.onNotification === 'function' ? options.onNotification : this.defaultNotification.bind(this);
     this.supabaseClient = options.supabaseClient || (typeof window !== 'undefined' ? window.supabaseClient : null);
@@ -49,11 +50,16 @@ export class GroupCartManager {
     return urlParams.get('mesa') || urlParams.get('table') || null;
   }
 
+  extractGroupToken() {
+    if (typeof window === 'undefined' || !window.location) return null;
+    return new URLSearchParams(window.location.hash.slice(1)).get('groupToken');
+  }
+
   /**
    * Indica si la sesión actual corresponde a una mesa grupal activa
    */
   isGroupActive() {
-    return Boolean(this.tableNumber);
+    return Boolean(this.tableNumber && this.groupToken);
   }
 
   /**
@@ -197,7 +203,7 @@ export class GroupCartManager {
   async connectRealtimeChannel() {
     if (!this.tableNumber) return;
 
-    this.channelName = `realtime:${this.restaurantSlug}:mesa_${this.tableNumber}`;
+    this.channelName = `realtime:${this.restaurantSlug}:mesa_${this.tableNumber}:${this.groupToken}`;
 
     // Obtener credenciales públicas si no existe cliente supabase aún
     if (!this.supabaseClient && typeof window !== 'undefined') {
@@ -276,7 +282,9 @@ export class GroupCartManager {
    */
   async fetchServerTableCart() {
     try {
-      const res = await fetch(`/api/orders/group/${encodeURIComponent(this.restaurantId)}/${encodeURIComponent(this.tableNumber)}`);
+      const res = await fetch(`/api/orders/group/${encodeURIComponent(this.restaurantId)}/${encodeURIComponent(this.tableNumber)}`, {
+        headers: { 'X-Group-Cart-Token': this.groupToken }
+      });
       const payload = await res.json();
       if (payload?.success && payload?.data?.items && payload.data.items.length > 0) {
         this.mergeIncomingItems(payload.data.items);
@@ -298,7 +306,10 @@ export class GroupCartManager {
       const itemsList = Object.values(this.cart);
       await fetch(`/api/orders/group/${encodeURIComponent(this.restaurantId)}/${encodeURIComponent(this.tableNumber)}/sync`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Group-Cart-Token': this.groupToken
+        },
         body: JSON.stringify({
           items: itemsList,
           participants: Array.from(this.participants),
@@ -317,7 +328,8 @@ export class GroupCartManager {
     this.cart = {};
     try {
       await fetch(`/api/orders/group/${encodeURIComponent(this.restaurantId)}/${encodeURIComponent(this.tableNumber)}/clear`, {
-        method: 'POST'
+        method: 'POST',
+        headers: { 'X-Group-Cart-Token': this.groupToken }
       });
       this.broadcast('cart_update', {
         action: 'clear',

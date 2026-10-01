@@ -29,7 +29,7 @@ const storageService = {
    * @param {string} [options.bucket='photos'] - Bucket name
    * @returns {Promise<{ url: string, path: string, bucket: string }>}
    */
-  async uploadImage({ fileData, mimeType, folder = 'general', fileName, bucket = 'photos' }) {
+  async uploadImage({ fileData, mimeType, folder = 'general', fileName, bucket = 'photos', tenantId }) {
     let buffer;
     let detectedMimeType = mimeType || 'image/png';
 
@@ -68,7 +68,10 @@ const storageService = {
       ? fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
       : `img_${Date.now()}_${Math.random().toString(36).substr(2, 6)}.${extension}`;
 
-    const storagePath = `${cleanFolder}/${cleanFileName}`;
+    const cleanTenantId = tenantId ? String(tenantId).replace(/[^a-zA-Z0-9_-]/g, '_') : '';
+    const storagePath = [cleanTenantId ? `tenants/${cleanTenantId}` : '', cleanFolder, cleanFileName]
+      .filter(Boolean)
+      .join('/');
     const supabase = getSupabaseClient();
 
     if (supabase) {

@@ -3,6 +3,8 @@ const { z } = require('zod');
 const storageService = require('../services/storage');
 const { successResponse } = require('../utils/response');
 const { validateBody } = require('../middleware/validation');
+const { authMiddleware } = require('../middleware/auth');
+const { storageLimiter } = require('../middleware/rateLimits');
 
 const router = express.Router();
 
@@ -11,14 +13,14 @@ const uploadSchema = z.object({
   mimeType: z.string().optional(),
   fileName: z.string().optional(),
   folder: z.enum(['dishes', 'logos', 'reviews', 'general']).optional().default('general'),
-  bucket: z.string().optional().default('photos')
+  bucket: z.literal('photos').optional().default('photos')
 });
 
 /**
  * POST /api/storage/upload
  * Route for uploading dish, logo, and review images with strict size & MIME type validation
  */
-router.post('/upload', validateBody(uploadSchema), async (req, res, next) => {
+router.post('/upload', authMiddleware, storageLimiter, validateBody(uploadSchema), async (req, res, next) => {
   try {
     const { fileData, mimeType, fileName, folder, bucket } = req.body;
 
@@ -27,7 +29,8 @@ router.post('/upload', validateBody(uploadSchema), async (req, res, next) => {
       mimeType,
       fileName,
       folder,
-      bucket
+      bucket,
+      tenantId: req.user.userId
     });
 
     return successResponse(res, result, 'Imagen subida exitosamente', 201);

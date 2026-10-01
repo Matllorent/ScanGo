@@ -7,15 +7,11 @@ let supabase = null;
  */
 function getSupabaseClient() {
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SERVICE_KEY ||
-    process.env.SUPABASE_KEY ||
-    process.env.SUPABASE_ANON_KEY;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
 
-  if (!supabase && supabaseUrl && supabaseKey) {
+  if (!supabase && supabaseUrl && supabaseServiceKey) {
     try {
-      supabase = createClient(supabaseUrl, supabaseKey, {
+      supabase = createClient(supabaseUrl, supabaseServiceKey, {
         auth: { persistSession: false }
       });
     } catch (e) {

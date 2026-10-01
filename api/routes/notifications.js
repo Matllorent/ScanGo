@@ -3,12 +3,15 @@ const { z } = require('zod');
 const notificationsService = require('../services/notifications');
 const { successResponse } = require('../utils/response');
 const { validateBody } = require('../middleware/validation');
+const { authMiddleware } = require('../middleware/auth');
+const { tenantGuard } = require('../middleware/tenantGuard');
+const { notificationLimiter } = require('../middleware/rateLimits');
 
 const router = express.Router();
 
 const subscribeSchema = z.object({
   userId: z.string().optional(),
-  restaurantId: z.string().optional(),
+  restaurantId: z.string().min(1),
   endpoint: z.string().url({ message: 'Endpoint de suscripción push inválido' }),
   keys: z.object({
     p256dh: z.string().min(1),
@@ -29,7 +32,7 @@ const sendNotificationSchema = z.object({
  * POST /api/notifications/subscribe
  * Register a Web Push / FCM subscription token
  */
-router.post('/subscribe', validateBody(subscribeSchema), async (req, res, next) => {
+router.post('/subscribe', notificationLimiter, validateBody(subscribeSchema), async (req, res, next) => {
   try {
     const { userId, restaurantId, endpoint, keys } = req.body;
     const subscription = await notificationsService.saveSubscription({
@@ -49,7 +52,7 @@ router.post('/subscribe', validateBody(subscribeSchema), async (req, res, next) 
  * POST /api/notifications/send
  * Send promotional push notification alert
  */
-router.post('/send', validateBody(sendNotificationSchema), async (req, res, next) => {
+router.post('/send', authMiddleware, tenantGuard, notificationLimiter, validateBody(sendNotificationSchema), async (req, res, next) => {
   try {
     const { title, body, icon, url, restaurantId, targetUserId } = req.body;
 

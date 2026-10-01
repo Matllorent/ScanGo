@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const express = require('express');
+const { createGroupCartToken } = require('../api/utils/groupCartToken');
 
 // Importar rutas de orders
 const ordersRouter = require('../api/routes/orders');
@@ -156,6 +157,7 @@ async function runGroupCartAndMozoTests() {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
   const baseUrl = `http://127.0.0.1:${port}`;
+  const groupCartToken = createGroupCartToken('rest_123', '4');
 
   try {
     // 6.1 GET /api/orders/realtime-config
@@ -165,10 +167,17 @@ async function runGroupCartAndMozoTests() {
     assert.ok(configData.success, 'realtime-config debe responder con éxito');
     assert.ok('supabaseUrl' in configData.data, 'realtime-config debe incluir supabaseUrl');
 
-    // 6.2 POST /api/orders/group/:restaurantId/:tableNumber/sync
+    // 6.2 Anonymous access to a table cart is rejected
+    const anonymousGet = await fetch(`${baseUrl}/api/orders/group/rest_123/4`);
+    assert.strictEqual(anonymousGet.status, 403);
+
+    // 6.3 POST /api/orders/group/:restaurantId/:tableNumber/sync
     const syncRes = await fetch(`${baseUrl}/api/orders/group/rest_123/4/sync`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Group-Cart-Token': groupCartToken
+      },
       body: JSON.stringify({
         items: [
           {
@@ -192,8 +201,10 @@ async function runGroupCartAndMozoTests() {
     assert.strictEqual(syncData.data.items.length, 1);
     assert.ok(syncData.data.participants.includes('Juan'));
 
-    // 6.3 GET /api/orders/group/:restaurantId/:tableNumber
-    const getGroupRes = await fetch(`${baseUrl}/api/orders/group/rest_123/4`);
+    // 6.4 GET /api/orders/group/:restaurantId/:tableNumber
+    const getGroupRes = await fetch(`${baseUrl}/api/orders/group/rest_123/4`, {
+      headers: { 'X-Group-Cart-Token': groupCartToken }
+    });
     const getGroupData = await getGroupRes.json();
     assert.strictEqual(getGroupRes.status, 200);
     assert.ok(getGroupData.success);
@@ -202,6 +213,7 @@ async function runGroupCartAndMozoTests() {
 
     console.log('✓ Endpoints de sincronización y configuración en api/routes/orders.js verificados');
   } finally {
+    if (server.closeAllConnections) server.closeAllConnections();
     server.close();
   }
 

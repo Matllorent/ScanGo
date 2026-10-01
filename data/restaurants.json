@@ -4872,5 +4872,691 @@
     "allowIceCreamWizard": false,
     "allowPerfumery": false,
     "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790835950886_pmugqr",
+    "userId": "usr_1790835950865_sfnbbr",
+    "slug": "security-test-1790835950878",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:25:50.886Z",
+      "currentPeriodEnd": "2026-10-08T06:25:50.886Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:25:50.886Z",
+    "name": "Security Test Bistro",
+    "bizName": "Security Test Bistro",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "analytics": {
+      "visits": 1,
+      "orders": 0,
+      "reservations": 0,
+      "waiterCalls": 0,
+      "lastUpdated": "2026-10-01T06:25:51.657Z"
+    }
+  },
+  {
+    "id": "rest_1790836210545_dzinvd",
+    "userId": "usr_1790836210529_h1samk",
+    "slug": "security-test-1790836210536",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:30:10.545Z",
+      "currentPeriodEnd": "2026-10-08T06:30:10.545Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:30:10.545Z",
+    "name": "Security Test Bistro",
+    "bizName": "Security Test Bistro",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "analytics": {
+      "visits": 1,
+      "orders": 0,
+      "reservations": 0,
+      "waiterCalls": 0,
+      "lastUpdated": "2026-10-01T06:30:11.279Z"
+    }
+  },
+  {
+    "id": "rest_1790836281715_drjiox",
+    "userId": "usr_1790836281702_yge9rx",
+    "slug": "security-test-1790836281708",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:31:21.715Z",
+      "currentPeriodEnd": "2026-10-08T06:31:21.715Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:31:21.715Z",
+    "name": "Security Test Bistro",
+    "bizName": "Security Test Bistro",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "analytics": {
+      "visits": 1,
+      "orders": 0,
+      "reservations": 0,
+      "waiterCalls": 0,
+      "lastUpdated": "2026-10-01T06:31:22.258Z"
+    }
+  },
+  {
+    "id": "rest_1790836316114_bmq8zm",
+    "userId": "usr_1790836316101_nhfxsa",
+    "slug": "security-test-1790836316107",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:31:56.114Z",
+      "currentPeriodEnd": "2026-10-08T06:31:56.114Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:31:56.114Z",
+    "name": "Security Test Bistro",
+    "bizName": "Security Test Bistro",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "analytics": {
+      "visits": 1,
+      "orders": 0,
+      "reservations": 0,
+      "waiterCalls": 0,
+      "lastUpdated": "2026-10-01T06:31:56.494Z"
+    }
+  },
+  {
+    "id": "rest_1790836394485_noqjd9",
+    "userId": "usr_1790836394473_tfqtpu",
+    "slug": "security-test-1790836394479",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:33:14.485Z",
+      "currentPeriodEnd": "2026-10-08T06:33:14.485Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:33:14.485Z",
+    "name": "Security Test Bistro",
+    "bizName": "Security Test Bistro",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "analytics": {
+      "visits": 1,
+      "orders": 0,
+      "reservations": 0,
+      "waiterCalls": 0,
+      "lastUpdated": "2026-10-01T06:33:14.821Z"
+    }
+  },
+  {
+    "id": "rest_1790836444044_grj59g",
+    "userId": "usr_1790836444027_ojmsky",
+    "slug": "security-test-1790836444034",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:34:04.045Z",
+      "currentPeriodEnd": "2026-10-08T06:34:04.045Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:34:04.045Z",
+    "name": "Security Test Bistro",
+    "bizName": "Security Test Bistro",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790836493199_pocrfo",
+    "userId": "usr_1790836493188_0hmhx7",
+    "slug": "security-test-1790836493194",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:34:53.199Z",
+      "currentPeriodEnd": "2026-10-08T06:34:53.199Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:34:53.199Z",
+    "name": "Security Test Bistro",
+    "bizName": "Security Test Bistro",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790836528360_qupzdt",
+    "userId": "usr_1790836528349_j9qmr5",
+    "slug": "security-test-1790836528354",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:35:28.360Z",
+      "currentPeriodEnd": "2026-10-08T06:35:28.360Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:35:28.360Z",
+    "name": "Security Test Bistro",
+    "bizName": "Security Test Bistro",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "analytics": {
+      "visits": 1,
+      "orders": 0,
+      "reservations": 0,
+      "waiterCalls": 0,
+      "lastUpdated": "2026-10-01T06:35:29.148Z"
+    }
+  },
+  {
+    "id": "rest_1790836617100_n9v80v",
+    "userId": "usr_1790836617090_l5zmo4",
+    "slug": "security-test-1790836617095",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:36:57.100Z",
+      "currentPeriodEnd": "2026-10-08T06:36:57.100Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:36:57.100Z",
+    "name": "Security Test Bistro",
+    "bizName": "Security Test Bistro",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "analytics": {
+      "visits": 1,
+      "orders": 0,
+      "reservations": 0,
+      "waiterCalls": 0,
+      "lastUpdated": "2026-10-01T06:36:57.523Z"
+    }
+  },
+  {
+    "id": "rest_1790836761937_06fkw6",
+    "userId": "usr_1790836761922_ekc7ky",
+    "slug": "security-test-1790836761927",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:39:21.938Z",
+      "currentPeriodEnd": "2026-10-08T06:39:21.938Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:39:21.938Z",
+    "name": "Security Test Bistro",
+    "bizName": "Security Test Bistro",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "analytics": {
+      "visits": 1,
+      "orders": 0,
+      "reservations": 0,
+      "waiterCalls": 0,
+      "lastUpdated": "2026-10-01T06:39:22.509Z"
+    }
+  },
+  {
+    "id": "rest_1790836867792_5bn2c0",
+    "userId": "usr_1790836867778_7zdwwd",
+    "slug": "security-test-1790836867784",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:41:07.792Z",
+      "currentPeriodEnd": "2026-10-08T06:41:07.792Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:41:07.792Z",
+    "name": "Security Test Bistro",
+    "bizName": "Security Test Bistro",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "analytics": {
+      "visits": 1,
+      "orders": 0,
+      "reservations": 0,
+      "waiterCalls": 0,
+      "lastUpdated": "2026-10-01T06:41:08.266Z"
+    }
+  },
+  {
+    "id": "rest_1790836906594_o7um9z",
+    "userId": "usr_1790836906584_lcix1s",
+    "slug": "security-test-1790836906589",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:41:46.594Z",
+      "currentPeriodEnd": "2026-10-08T06:41:46.594Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:41:46.594Z",
+    "name": "Security Test Bistro",
+    "bizName": "Security Test Bistro",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "analytics": {
+      "visits": 1,
+      "orders": 0,
+      "reservations": 0,
+      "waiterCalls": 0,
+      "lastUpdated": "2026-10-01T06:41:47.052Z"
+    }
+  },
+  {
+    "id": "rest_1790837168665_mhk5d9",
+    "userId": "usr_1790837168653_050hd0",
+    "slug": "security-test-1790837168659",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:46:08.665Z",
+      "currentPeriodEnd": "2026-10-08T06:46:08.665Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:46:08.665Z",
+    "name": "Security Test Bistro",
+    "bizName": "Security Test Bistro",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "analytics": {
+      "visits": 1,
+      "orders": 0,
+      "reservations": 0,
+      "waiterCalls": 0,
+      "lastUpdated": "2026-10-01T06:46:09.165Z"
+    }
+  },
+  {
+    "id": "rest_1790837185150_48bkpi",
+    "userId": "usr_1790837185136_4spf5m",
+    "slug": "esquina-gourmet",
+    "subscription": {
+      "status": "past_due",
+      "plan": "pro_monthly",
+      "provider": "lemonsqueezy",
+      "trialEndsAt": "2026-10-08T06:46:25.150Z",
+      "currentPeriodEnd": "2026-10-01T06:46:25.434Z",
+      "gracePeriodDaysRemaining": 7,
+      "lastPaymentError": "Falló el cobro automático de la tarjeta",
+      "updatedAt": "2026-10-01T06:46:25.484Z"
+    },
+    "createdAt": "2026-10-01T06:46:25.150Z",
+    "bizName": "La Esquina Gourmet",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "branches": [],
+    "updatedAt": "2026-10-01T06:46:25.875Z"
+  },
+  {
+    "id": "rest_1790837186953_q6kun2",
+    "userId": "user_exp_test_1790837186947",
+    "slug": "mi-local",
+    "subscription": {
+      "status": "trialing",
+      "trialEndsAt": "2026-10-01T05:46:26.947Z",
+      "plan": "pro_monthly"
+    },
+    "createdAt": "2026-10-01T06:46:26.953Z",
+    "name": "Restaurante Expirado Test",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790837188368_trugqv",
+    "userId": "usr_1790837188354_upamwa",
+    "slug": "vanguardia-test-1790837188362",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:46:28.368Z",
+      "currentPeriodEnd": "2026-10-08T06:46:28.368Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:46:28.368Z",
+    "bizName": "Restaurante Vanguardia Test",
+    "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+    "businessType": "events",
+    "layout": "bento",
+    "theme": "emerald",
+    "font": "sans",
+    "categories": [],
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false
+  },
+  {
+    "id": "rest_1790837188426_nb3jzd",
+    "userId": "usr_1790837188394_4x0tnu",
+    "slug": "perfil-predeterminado",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:46:28.426Z",
+      "currentPeriodEnd": "2026-10-08T06:46:28.426Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:46:28.426Z",
+    "bizName": "Perfil Predeterminado",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790837193915_viqv59",
+    "userId": "usr_1790837193903_88ih28",
+    "slug": "schema-bistro-1790837193902",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:46:33.916Z",
+      "currentPeriodEnd": "2026-10-08T06:46:33.916Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:46:33.916Z",
+    "name": "Schema Bistro",
+    "bizName": "Schema Bistro",
+    "slogan": "Cocina & pastas",
+    "currency": "UYU",
+    "phone": "+59899123456",
+    "city": "Montevideo",
+    "bannerUrl": "https://example.com/schema-bistro.jpg",
+    "categories": [
+      {
+        "id": "cat-main",
+        "name": "Platos principales"
+      }
+    ],
+    "dishes": [
+      {
+        "id": "dish-pasta",
+        "categoryId": "cat-main",
+        "name": "Pasta fresca",
+        "description": "Salsa casera </script><script>alert(\"x\")</script>",
+        "price": 420
+      }
+    ],
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790837198173_9x78ty",
+    "userId": "usr_1790837198156_bdiyew",
+    "slug": "security-test-1790837198164",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:46:38.173Z",
+      "currentPeriodEnd": "2026-10-08T06:46:38.173Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:46:38.173Z",
+    "name": "Security Test Bistro",
+    "bizName": "Security Test Bistro",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "analytics": {
+      "visits": 1,
+      "orders": 0,
+      "reservations": 0,
+      "waiterCalls": 0,
+      "lastUpdated": "2026-10-01T06:46:38.643Z"
+    }
+  },
+  {
+    "id": "rest_1790837244034_ynx0cr",
+    "userId": "usr_1790837244019_bkc9wj",
+    "slug": "security-test-1790837244026",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:47:24.034Z",
+      "currentPeriodEnd": "2026-10-08T06:47:24.034Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:47:24.034Z",
+    "name": "Security Test Bistro",
+    "bizName": "Security Test Bistro",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "analytics": {
+      "visits": 1,
+      "orders": 0,
+      "reservations": 0,
+      "waiterCalls": 0,
+      "lastUpdated": "2026-10-01T06:47:24.449Z"
+    }
+  },
+  {
+    "id": "rest_1790837260930_q0ia10",
+    "userId": "usr_1790837260916_rdh7oq",
+    "slug": "esquina-gourmet",
+    "subscription": {
+      "status": "past_due",
+      "plan": "pro_monthly",
+      "provider": "lemonsqueezy",
+      "trialEndsAt": "2026-10-08T06:47:40.930Z",
+      "currentPeriodEnd": "2026-10-01T06:47:41.123Z",
+      "gracePeriodDaysRemaining": 7,
+      "lastPaymentError": "Falló el cobro automático de la tarjeta",
+      "updatedAt": "2026-10-01T06:47:41.131Z"
+    },
+    "createdAt": "2026-10-01T06:47:40.930Z",
+    "bizName": "La Esquina Gourmet",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "branches": [],
+    "updatedAt": "2026-10-01T06:47:41.605Z"
+  },
+  {
+    "id": "rest_1790837262503_k61d87",
+    "userId": "user_exp_test_1790837262496",
+    "slug": "mi-local",
+    "subscription": {
+      "status": "trialing",
+      "trialEndsAt": "2026-10-01T05:47:42.496Z",
+      "plan": "pro_monthly"
+    },
+    "createdAt": "2026-10-01T06:47:42.504Z",
+    "name": "Restaurante Expirado Test",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790837264161_yl16je",
+    "userId": "usr_1790837264140_nfl80m",
+    "slug": "vanguardia-test-1790837264155",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:47:44.161Z",
+      "currentPeriodEnd": "2026-10-08T06:47:44.161Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:47:44.161Z",
+    "bizName": "Restaurante Vanguardia Test",
+    "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+    "businessType": "events",
+    "layout": "bento",
+    "theme": "emerald",
+    "font": "sans",
+    "categories": [],
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false
+  },
+  {
+    "id": "rest_1790837264239_91jqf7",
+    "userId": "usr_1790837264205_bpr7bo",
+    "slug": "perfil-predeterminado",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:47:44.239Z",
+      "currentPeriodEnd": "2026-10-08T06:47:44.239Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:47:44.239Z",
+    "bizName": "Perfil Predeterminado",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790837269995_nj787k",
+    "userId": "usr_1790837269983_w587vj",
+    "slug": "schema-bistro-1790837269981",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:47:49.996Z",
+      "currentPeriodEnd": "2026-10-08T06:47:49.996Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:47:49.996Z",
+    "name": "Schema Bistro",
+    "bizName": "Schema Bistro",
+    "slogan": "Cocina & pastas",
+    "currency": "UYU",
+    "phone": "+59899123456",
+    "city": "Montevideo",
+    "bannerUrl": "https://example.com/schema-bistro.jpg",
+    "categories": [
+      {
+        "id": "cat-main",
+        "name": "Platos principales"
+      }
+    ],
+    "dishes": [
+      {
+        "id": "dish-pasta",
+        "categoryId": "cat-main",
+        "name": "Pasta fresca",
+        "description": "Salsa casera </script><script>alert(\"x\")</script>",
+        "price": 420
+      }
+    ],
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790837274003_nf1q88",
+    "userId": "usr_1790837273992_g1q4tc",
+    "slug": "security-test-1790837273998",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T06:47:54.003Z",
+      "currentPeriodEnd": "2026-10-08T06:47:54.003Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T06:47:54.003Z",
+    "name": "Security Test Bistro",
+    "bizName": "Security Test Bistro",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "analytics": {
+      "visits": 1,
+      "orders": 0,
+      "reservations": 0,
+      "waiterCalls": 0,
+      "lastUpdated": "2026-10-01T06:47:54.388Z"
+    }
   }
 ]

@@ -149,7 +149,8 @@ window.menuBundle = menuBundle;
       if (!window.GroupCartManager) return null;
       const urlParams = new URLSearchParams(window.location.search);
       const mesa = urlParams.get('mesa') || urlParams.get('table');
-      if (!mesa) return null;
+      const groupToken = new URLSearchParams(window.location.hash.slice(1)).get('groupToken');
+      if (!mesa || !groupToken) return null;
 
       if (window.groupCartManagerInstance) {
         return window.groupCartManagerInstance;
@@ -160,6 +161,7 @@ window.menuBundle = menuBundle;
         restaurantData: restData,
         restaurantSlug: restData.slug,
         tableNumber: mesa,
+        groupToken,
         onCartUpdate: (updatedCart, meta) => {
           if (typeof window.syncCartFromGroupManager === 'function') {
             window.syncCartFromGroupManager(updatedCart, meta);

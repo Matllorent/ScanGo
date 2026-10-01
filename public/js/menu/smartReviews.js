@@ -97,7 +97,7 @@ export function handleStarSelect(rating) {
  * @param {Function} getSlugFn Function returning the restaurant slug
  */
 export function handleGoogleReviewClick(getSlugFn = () => '') {
-  fetch('/api/analytics/event', {
+  fetch('/api/public/analytics/event', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ slug: getSlugFn(), event: 'google_review_click' })
@@ -148,7 +148,7 @@ export async function submitPrivateFeedback(e, restaurantData = {}, getSlugFn = 
       if (form) form.style.display = 'none';
       if (successMsg) successMsg.style.display = 'block';
 
-      fetch('/api/analytics/event', {
+      fetch('/api/public/analytics/event', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slug: getSlugFn(), event: 'private_feedback' })

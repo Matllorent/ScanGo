@@ -37,7 +37,7 @@ async function idempotencyMiddleware(req, res, next) {
   if (!isProcessed && supabase) {
     try {
       const { data } = await supabase
-        .from('processed_webhooks')
+        .from('webhooks')
         .select('id')
         .eq('provider', provider)
         .eq('event_id', cleanKey)
@@ -68,13 +68,6 @@ async function idempotencyMiddleware(req, res, next) {
       });
 
       db.markWebhookProcessed(provider, cleanKey, 'idempotent_operation', req.body);
-      if (supabase) {
-        supabase.from('processed_webhooks').insert([{
-          provider,
-          event_id: cleanKey,
-          processed_at: new Date().toISOString()
-        }]).then().catch(e => console.warn('[Supabase Insert Idempotency]', e.message));
-      }
     }
     return originalJson(body);
   };

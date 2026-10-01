@@ -10,6 +10,8 @@ const { tenantGuard } = require('../middleware/tenantGuard');
 const { validateAndPriceOrderLine } = require('../utils/menuOptions');
 const AppError = require('../utils/AppError');
 const sentry = require('../utils/sentry');
+const { groupCartLimiter } = require('../middleware/rateLimits');
+const { verifyGroupCartToken } = require('../utils/groupCartToken');
 
 const router = express.Router();
 
@@ -31,6 +33,15 @@ function requireAuth(req, res, next) {
   } catch (e) {
     return res.status(401).json({ success: false, error: 'Token inválido o expirado', code: 'INVALID_TOKEN' });
   }
+}
+
+function requireGroupCartCapability(req, res, next) {
+  const { restaurantId, tableNumber } = req.params;
+  const token = req.headers['x-group-cart-token'];
+  if (!verifyGroupCartToken(restaurantId, tableNumber, token)) {
+    return res.status(403).json({ success: false, error: 'QR de mesa no autorizado', code: 'GROUP_CART_TOKEN_INVALID' });
+  }
+  next();
 }
 
 const orderItemSchema = z.object({
@@ -333,7 +344,7 @@ function getGroupCartId(restaurantId, tableNumber) {
  * Recupera el carrito grupal activo de la mesa.
  * Usa Supabase si está disponible, si no fallback a memoria local.
  */
-router.get('/group/:restaurantId/:tableNumber', async (req, res, next) => {
+router.get('/group/:restaurantId/:tableNumber', groupCartLimiter, requireGroupCartCapability, async (req, res, next) => {
   try {
     const { restaurantId, tableNumber } = req.params;
     const key = getGroupCartId(restaurantId, tableNumber);
@@ -380,7 +391,7 @@ router.get('/group/:restaurantId/:tableNumber', async (req, res, next) => {
  * Sincroniza y consolida el estado del carrito grupal de la mesa.
  * Persiste en Supabase + emite broadcast Realtime si está disponible.
  */
-router.post('/group/:restaurantId/:tableNumber/sync', async (req, res, next) => {
+router.post('/group/:restaurantId/:tableNumber/sync', groupCartLimiter, requireGroupCartCapability, async (req, res, next) => {
   try {
     const { restaurantId, tableNumber } = req.params;
     const { items = [], participants = [], action = 'sync', fromUser = '' } = req.body;
@@ -460,7 +471,7 @@ router.post('/group/:restaurantId/:tableNumber/sync', async (req, res, next) => 
  * Limpia el carrito grupal una vez enviado el pedido.
  * Elimina de Supabase + emite broadcast si está disponible.
  */
-router.post('/group/:restaurantId/:tableNumber/clear', async (req, res, next) => {
+router.post('/group/:restaurantId/:tableNumber/clear', groupCartLimiter, requireGroupCartCapability, async (req, res, next) => {
   try {
     const { restaurantId, tableNumber } = req.params;
     const key = getGroupCartId(restaurantId, tableNumber);

@@ -17,7 +17,13 @@ const FREE_PLAN = 'free';
 function verifyCronAuth(req, res, next) {
   const cronSecret = process.env.CRON_SECRET || '';
   if (!cronSecret) {
-    // Si no hay secret configurado, permite acceso (desarrollo)
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(503).json({
+        success: false,
+        error: 'Cron deshabilitado: configura CRON_SECRET en el entorno.',
+        code: 'CRON_AUTH_NOT_CONFIGURED'
+      });
+    }
     return next();
   }
 

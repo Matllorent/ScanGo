@@ -21,6 +21,9 @@ const { successResponse, errorResponse } = require('./utils/response');
 const requireVerifiedEmail = require('./middleware/requireVerifiedEmail');
 const requestIdMiddleware = require('./middleware/requestId');
 const { menuCacheMiddleware, invalidateMenuCache } = require('./middleware/cache');
+const { authMiddleware, adminMiddleware } = require('./middleware/auth');
+const { publicAnalyticsLimiter, emailLimiter } = require('./middleware/rateLimits');
+const { createGroupCartToken } = require('./utils/groupCartToken');
 const sentry = require('./utils/sentry');
 const authRouter = require('./routes/auth');
 const reviewsRouter = require('./routes/reviews');
@@ -63,6 +66,33 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(cookieParser());
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+
+app.use(async (req, res, next) => {
+  if ((!req.path.startsWith('/api/') && !req.path.startsWith('/m/')) ||
+      req.path === '/api/health' || req.path === '/api/healthz') {
+    return next();
+  }
+
+  try {
+    const readiness = await db.ready;
+    if (!readiness?.ready) {
+      return res.status(503).json({
+        success: false,
+        error: 'La persistencia no está disponible; intenta nuevamente en unos instantes.',
+        code: 'DATABASE_NOT_READY'
+      });
+    }
+    return next();
+  } catch (error) {
+    return res.status(503).json({ success: false, error: 'La base de datos no está disponible.', code: 'DATABASE_NOT_READY' });
+  }
+});
+
+app.use((req, res, next) => {
+  const originalJson = res.json.bind(res);
+  res.json = (...args) => db.flushCloudWrites().then(() => originalJson(...args));
+  next();
+});
 
 // Dynamic Tenant & IP Rate Limiter
 const tenantKeyGenerator = (req) => {
@@ -354,19 +384,6 @@ function getCachedMenu(slug, fetcherFn) {
 // Static files (allow dotfiles because workspace path contains .gemini)
 app.use(express.static(PUBLIC_DIR, { dotfiles: 'allow' }));
 
-// Helper: Verify Auth
-function authMiddleware(req, res, next) {
-  const token = req.cookies.auth_token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
-  if (!token) return res.status(401).json({ error: 'No autorizado' });
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (e) {
-    return res.status(401).json({ error: 'Token inválido o expirado' });
-  }
-}
-
 // Helper: Admin Master Auth with optional TOTP (Google Authenticator)
 const crypto = require('crypto');
 function verifyTotpToken(token, secret) {
@@ -431,34 +448,6 @@ function verifyTotpToken(token, secret) {
   return false;
 }
 
-function adminMiddleware(req, res, next) {
-  const authHeader = req.headers['authorization'] || '';
-  const token = (authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null) ||
-    req.headers['x-admin-token'] ||
-    req.cookies?.admin_token;
-
-  if (!token) {
-    return res.status(403).json({ error: 'Acceso denegado: se requiere una sesión administrativa autenticada con 2FA' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    if (!decoded || decoded.role !== 'admin_master') {
-      return res.status(403).json({ error: 'Acceso denegado: sesión administrativa no válida' });
-    }
-    const renewedToken = jwt.sign(
-      { role: 'admin_master', timestamp: decoded.timestamp || Date.now() },
-      JWT_SECRET,
-      { expiresIn: ADMIN_SESSION_IDLE_TIMEOUT_SECONDS }
-    );
-    res.cookie('admin_token', renewedToken, COOKIE_OPTIONS);
-    req.isAdmin = true;
-    return next();
-  } catch (e) {
-    return res.status(403).json({ error: 'Sesión administrativa expirada. Ingresá nuevamente con contraseña y código 2FA.' });
-  }
-}
-
 // ==================== STUDIO & RESTAURANT ROUTES ====================
 app.post('/api/studio/save', authMiddleware, requireVerifiedEmail, async (req, res) => {
   try {
@@ -473,6 +462,25 @@ app.post('/api/studio/save', authMiddleware, requireVerifiedEmail, async (req, r
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+app.post('/api/studio/group-cart-tokens', authMiddleware, requireVerifiedEmail, (req, res) => {
+  const tableCount = Number(req.body?.tableCount);
+  if (!Number.isInteger(tableCount) || tableCount < 1 || tableCount > 100) {
+    return res.status(400).json({ error: 'Cantidad de mesas inválida. Debe estar entre 1 y 100.' });
+  }
+
+  const restaurant = db.findRestaurantByUserId(req.user.userId);
+  if (!restaurant) return res.status(404).json({ error: 'Restaurante no encontrado' });
+
+  const access = billingOrchestrator.verifyAccess(restaurant.id);
+  if (!access.allowed) return res.status(402).json({ error: 'Suscripción requerida' });
+
+  const tokens = Array.from({ length: tableCount }, (_, index) => {
+    const tableNumber = String(index + 1);
+    return { tableNumber, token: createGroupCartToken(restaurant.id, tableNumber) };
+  });
+  return successResponse(res, { tokens }, 'Capabilities de QR de mesa generadas');
 });
 
 // POST /api/studio/ai-import (Physical menu multimodal parser with Gemini Flash)
@@ -1389,7 +1397,7 @@ app.post('/api/admin/invite-restaurant', adminMiddleware, async (req, res, next)
 });
 
 // ==================== ANALYTICS ROUTES ====================
-app.post('/api/analytics/event', (req, res) => {
+app.post('/api/public/analytics/event', publicAnalyticsLimiter, (req, res) => {
   try {
     const { slug, event } = req.body;
     if (!slug || !event) return res.status(400).json({ error: 'slug y event requeridos' });
@@ -2160,7 +2168,7 @@ app.use('/api/studio', requireActiveSubscription);
 app.use('/api/billing', requireActiveSubscription);
 
 // Test Email Endpoint
-app.get('/api/test-email', async (req, res, next) => {
+app.get('/api/test-email', adminMiddleware, emailLimiter, async (req, res, next) => {
   try {
     const targetEmail = req.query.to || 'mat2001llorent@gmail.com';
     const result = await emailService.sendEmail({

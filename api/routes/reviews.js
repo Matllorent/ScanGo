@@ -6,6 +6,7 @@ const { successResponse, errorResponse } = require('../utils/response');
 const { validateBody, validateQuery } = require('../middleware/validation');
 const requireVerifiedEmail = require('../middleware/requireVerifiedEmail');
 const AppError = require('../utils/AppError');
+const { adminMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -165,7 +166,7 @@ router.get('/public', validateQuery(paginationQuerySchema), async (req, res, nex
  * GET /api/admin/reviews
  * Returns all reviews for admin moderation
  */
-router.get('/admin', async (req, res, next) => {
+router.get('/admin', adminMiddleware, async (req, res, next) => {
   try {
     const supabase = getSupabaseClient();
     if (supabase) {
@@ -194,7 +195,7 @@ router.get('/admin', async (req, res, next) => {
  * PATCH /api/admin/reviews/:id/approve
  * Approves a review for public display
  */
-router.patch('/admin/:id/approve', async (req, res, next) => {
+router.patch('/admin/:id/approve', adminMiddleware, async (req, res, next) => {
   try {
     const reviewId = req.params.id;
     const updatedLocal = db.updateReviewStatus(reviewId, 'approved');

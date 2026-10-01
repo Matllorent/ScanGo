@@ -75,7 +75,7 @@ let discountAmount = 0;
         msg = `🧾 *CUENTA SOLICITADA*%0A📍 Mesa: ${mesa}%0A💳 Forma de pago: *Tarjeta*%0A🕐 ${new Date().toLocaleTimeString()}%0A%0A_Enviado desde el menú digital ScanGo_`;
       }
       // Track analytics
-      fetch('/api/analytics/event', {
+      fetch('/api/public/analytics/event', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slug: getSlug(), event: 'waiter' })
@@ -169,7 +169,7 @@ let discountAmount = 0;
         renderCategories();
         renderDishes();
         // Track visit analytics
-        fetch('/api/analytics/event', {
+        fetch('/api/public/analytics/event', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ slug, event: 'visit' })
@@ -1854,7 +1854,7 @@ let discountAmount = 0;
         const waUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`;
         if (popup) popup.location = waUrl;
         else window.location.assign(waUrl);
-        fetch('/api/analytics/event', {
+        fetch('/api/public/analytics/event', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ slug: getSlug(), event: 'order' })

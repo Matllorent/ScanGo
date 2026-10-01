@@ -39,9 +39,12 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 ### Base de Datos — Dual Mode
 - **Default**: archivos JSON en `data/` (`users.json`, `restaurants.json`, `webhooks.json`, `reset_tokens.json`, `reviews.json`, `feedback.json`, `settings.json`)
 - **Supabase (PostgreSQL)**: si existen `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` en `.env`
-  - Al arrancar: sincroniza **cloud → local** (lee de Supabase, escribe en JSON)
-  - En runtime: **escritura dual** (JSON + Supabase en background, fire-and-forget)
+  - Al arrancar: `db.ready` hidrata el snapshot local desde Supabase antes de atender `/api/*` y `/m/*`.
+  - En runtime: JSON funciona como cache/fallback y las escrituras se replican a Supabase; las respuestas esperan escrituras pendientes.
+  - En Vercel: el fallback JSON usa `/tmp` (efímero); producción falla cerrado si falta una service key válida o falla la hidratación.
+  - `SUPABASE_ANON_KEY` es solo para Supabase Realtime en el navegador; el backend no la usa como clave de servicio.
 - Helpers clave en `src/db/db.js`: `getRestaurantBranches()`, `findRestaurantBranch()`, `updateBranches()`, `normalizeRestaurantBusinessType()`
+- Tablas Supabase declaradas: `users`, `restaurants`, `webhooks`, `group_carts`, `orders`, `reviews`, `customer_feedback`, `audit_logs`, `push_subscriptions`, `telemetry_events`. RLS deniega acceso directo de roles cliente; el backend usa service role.
 
 ### Billing — Multi-Provider (`src/billing/orchestrator.js`)
 - **Lemon Squeezy** (default, Merchant of Record global)
@@ -62,7 +65,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 ### Deploy (Vercel)
 - `vercel.json`:
   - `/api/*` → `api/index.js` (@vercel/node)
-  - `/m/*` → `public/menu.html`
+  - `/m/*` → `api/index.js` (SSR de Open Graph, canonical y JSON-LD `Restaurant`/`Menu`)
   - `/studio` → `public/studio.html`
   - `/admin` → `public/admin.html`
   - `/terminos`, `/privacidad` → páginas legales
@@ -74,7 +77,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** — crean restaurantes/usuarios reales en el store local. **No son aislados**.
 - `tests/test-e2e.js` existe pero **NO está incluido en `npm test`**
-- Suite completa (`npm test`) ejecuta 13 tests en secuencia — **todos deben pasar (13/13)**
+- Suite completa (`npm test`) ejecuta 16 tests en secuencia — **todos deben pasar (16/16)**
 - Para debug rápido: `node tests/test-billing.js` (o el test específico)
 
 ### Tests Disponibles (13 suites)
@@ -94,6 +97,9 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-email-notifications.js` | Los 4 métodos de email (Resend/SMTP): recibo, fallido, dunning, warning trial |
 | `test-ai-menu-import.js` | Gemini Flash multimodal, JSON schema, carga multi-página, límites 25mb, descarte por plato |
 | `test-menu-componentization.js` | Módulos ES de menu (smartReviews, virtualWaiterHeuristics, orderCheckout) |
+| `test-menu-seo.js` | SSR, metadatos y JSON-LD por restaurante |
+| `test-google-auth.js` | GIS, callback OAuth y configuración backend |
+| `test-security-endpoints.js` | Auth/tenant, límites, cron/readiness y QR capability |
 
 ## Configuración (`.env`)
 
@@ -112,6 +118,9 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 | `SENTRY_DSN` | Monitoreo errores (opcional) |
 | `GOOGLE_CLIENT_ID` | OAuth 2.0 para login social |
 | `ADMIN_TOTP_SECRET` | 2FA opcional panel admin |
+| `SUPABASE_ANON_KEY` | Clave pública para Realtime en navegador (protegida por RLS) |
+| `CRON_SECRET` | Bearer/header requerido para cron en producción |
+| `GROUP_CART_SECRET` | Firma HMAC de QR de mesa; puede usar `JWT_SECRET` como fallback |
 
 ## Convenciones y Gotchas
 

@@ -261,6 +261,22 @@ export async function downloadAllTablesPDF(restaurant) {
     return;
   }
 
+  const token = localStorage.getItem('menu_pizarron_token');
+  const tokenResponse = await fetch('/api/studio/group-cart-tokens', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token || ''}`
+    },
+    body: JSON.stringify({ tableCount })
+  });
+  const tokenPayload = await tokenResponse.json().catch(() => ({}));
+  if (!tokenResponse.ok || !Array.isArray(tokenPayload.data?.tokens)) {
+    alert(tokenPayload.error || 'No se pudieron generar los QR seguros de mesa. Iniciá sesión nuevamente e intenta otra vez.');
+    return;
+  }
+  const groupCartTokens = new Map(tokenPayload.data.tokens.map(entry => [entry.tableNumber, entry.token]));
+
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({
     orientation: 'portrait',
@@ -341,7 +357,8 @@ export async function downloadAllTablesPDF(restaurant) {
   for (let m = 1; m <= tableCount; m++) {
     if (m > 1) pdf.addPage();
 
-    const tableUrl = `${window.location.origin}/m/${restaurant?.slug}?mesa=${m}`;
+    const groupToken = groupCartTokens.get(String(m));
+    const tableUrl = `${window.location.origin}/m/${restaurant?.slug}?mesa=${m}#groupToken=${encodeURIComponent(groupToken)}`;
     const qrData = await makeQrDataUrl(tableUrl);
 
     pdf.setDrawColor(...goldColor);

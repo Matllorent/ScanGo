@@ -123,7 +123,7 @@ export function submitReservation(e, restaurantData = {}, getSlugFn = () => '') 
   const rawPhone = (restaurantData.phone || '').replace(/[^0-9]/g, '');
   const waUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`;
 
-  fetch('/api/analytics/event', {
+  fetch('/api/public/analytics/event', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ slug: getSlugFn(), event: 'reservation' })

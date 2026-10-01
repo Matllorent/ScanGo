@@ -3,8 +3,12 @@ const { z } = require('zod');
 const emailService = require('../services/email');
 const { successResponse } = require('../utils/response');
 const { validateBody } = require('../middleware/validation');
+const { adminMiddleware } = require('../middleware/auth');
+const { emailLimiter } = require('../middleware/rateLimits');
 
 const router = express.Router();
+
+router.use(adminMiddleware, emailLimiter);
 
 const welcomeEmailSchema = z.object({
   to: z.string().email({ message: 'Email inválido' }),

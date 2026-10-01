@@ -3,8 +3,11 @@ const { z } = require('zod');
 const telemetryService = require('../services/telemetry');
 const { successResponse } = require('../utils/response');
 const { validateBody } = require('../middleware/validation');
+const { authMiddleware } = require('../middleware/auth');
+const { tenantGuard } = require('../middleware/tenantGuard');
 
 const router = express.Router();
+router.use(authMiddleware);
 
 const trackEventSchema = z.object({
   restaurantId: z.string().min(1, { message: 'ID de restaurante requerido' }),
@@ -24,7 +27,7 @@ const trackEventSchema = z.object({
  * Non-blocking fire-and-forget event tracking for QR scans and dish clicks
  * Supports branchId and eventId for granular analytics
  */
-router.post('/track', validateBody(trackEventSchema), (req, res) => {
+router.post('/track', tenantGuard, validateBody(trackEventSchema), (req, res) => {
   const { restaurantId, eventType, dishId, branchId, eventId, metadata } = req.body;
 
   telemetryService.recordEvent({
@@ -44,7 +47,7 @@ router.post('/track', validateBody(trackEventSchema), (req, res) => {
  * GET /api/analytics/weekly/:restaurantId
  * Returns weekly aggregated telemetry metrics for restaurant owners
  */
-router.get('/weekly/:restaurantId', async (req, res, next) => {
+router.get('/weekly/:restaurantId', tenantGuard, async (req, res, next) => {
   try {
     const restaurantId = req.params.restaurantId;
     const weeklyData = await telemetryService.getWeeklyAggregatedMetrics(restaurantId);
@@ -59,7 +62,7 @@ router.get('/weekly/:restaurantId', async (req, res, next) => {
  * Returns daily metrics for the last 30 days (for charts)
  * Query params: ?days=30&branchId=xxx&eventId=xxx
  */
-router.get('/daily/:restaurantId', async (req, res, next) => {
+router.get('/daily/:restaurantId', tenantGuard, async (req, res, next) => {
   try {
     const restaurantId = req.params.restaurantId;
     const days = Math.min(90, Math.max(1, parseInt(req.query.days) || 30));
@@ -77,7 +80,7 @@ router.get('/daily/:restaurantId', async (req, res, next) => {
  * Returns hourly heatmap for peak hours analysis
  * Query params: ?days=7&branchId=xxx&eventId=xxx
  */
-router.get('/heatmap/:restaurantId', async (req, res, next) => {
+router.get('/heatmap/:restaurantId', tenantGuard, async (req, res, next) => {
   try {
     const restaurantId = req.params.restaurantId;
     const days = Math.min(30, Math.max(1, parseInt(req.query.days) || 7));
@@ -95,7 +98,7 @@ router.get('/heatmap/:restaurantId', async (req, res, next) => {
  * Returns per-branch comparison metrics
  * Query params: ?days=30
  */
-router.get('/branches/:restaurantId', async (req, res, next) => {
+router.get('/branches/:restaurantId', tenantGuard, async (req, res, next) => {
   try {
     const restaurantId = req.params.restaurantId;
     const days = Math.min(90, Math.max(1, parseInt(req.query.days) || 30));
@@ -110,7 +113,7 @@ router.get('/branches/:restaurantId', async (req, res, next) => {
  * GET /api/analytics/events/:restaurantId
  * Returns event-specific metrics (for events mode)
  */
-router.get('/events/:restaurantId', async (req, res, next) => {
+router.get('/events/:restaurantId', tenantGuard, async (req, res, next) => {
   try {
     const restaurantId = req.params.restaurantId;
     const eventMetrics = await telemetryService.getEventMetrics(restaurantId);
