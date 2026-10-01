@@ -67,11 +67,15 @@ function normalizeRestaurantBusinessType(restaurant) {
   if (!restaurant) return restaurant;
   if (restaurant.city === undefined) restaurant.city = '';
   if (restaurant.smartWeatherEnabled === undefined) restaurant.smartWeatherEnabled = false;
-  if (restaurant.businessType === 'heladeria' && restaurant.allowIceCreamWizard === undefined) {
-    restaurant.allowIceCreamWizard = true;
+  if (restaurant.businessType === 'heladeria') {
+    if (restaurant.allowIceCreamWizard === undefined) restaurant.allowIceCreamWizard = true;
+  } else {
+    restaurant.allowIceCreamWizard = false;
   }
-  if (['perfumeria', 'perfumery'].includes(restaurant.businessType) && restaurant.allowPerfumery === undefined) {
-    restaurant.allowPerfumery = true;
+  if (['perfumeria', 'perfumery'].includes(restaurant.businessType)) {
+    if (restaurant.allowPerfumery === undefined) restaurant.allowPerfumery = true;
+  } else {
+    restaurant.allowPerfumery = false;
   }
   restaurant.businessType = normalizeBusinessType(restaurant.businessType);
   normalizeSubscription(restaurant);

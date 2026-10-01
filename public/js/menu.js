@@ -5,7 +5,6 @@ import {
   handleGoogleReviewClick as handleGoogleReviewClickMod,
   submitPrivateFeedback as submitPrivateFeedbackMod,
   initStarHover as initStarHoverMod,
-  DEFAULT_UPSELL_KEYWORDS,
   isMozoVirtualEnabled as isMozoVirtualEnabledMod,
   handleMozoVirtualToggle as handleMozoVirtualToggleMod,
   analyzeCartContextForUpsell as analyzeCartContextForUpsellMod,
@@ -418,11 +417,9 @@ let discountAmount = 0;
       }
 
       // Vertical / Special Features Visibility Control (Heladería & Perfumería)
-      // Only show if explicitly enabled, or if businessType matches and hasn't been disabled
-      const isHeladeria = restaurantData.allowIceCreamWizard === true || 
-        (restaurantData.businessType === 'heladeria' && restaurantData.allowIceCreamWizard !== false);
-      const isPerfumeria = restaurantData.allowPerfumery === true || 
-        (['perfumery', 'perfumeria'].includes(restaurantData.businessType) && restaurantData.allowPerfumery !== false);
+      // Strictly modular by businessType: restaurants and events do not have ice cream or perfumery enabled
+      const isHeladeria = restaurantData.businessType === 'heladeria' && restaurantData.allowIceCreamWizard !== false;
+      const isPerfumeria = ['perfumery', 'perfumeria'].includes(restaurantData.businessType) && restaurantData.allowPerfumery !== false;
 
       const btnIceCream = document.getElementById('btnOpenIceCreamWizard');
       if (btnIceCream) {
@@ -2537,7 +2534,12 @@ let discountAmount = 0;
     });
 
     // Init
-    window.addEventListener('DOMContentLoaded', () => {
+    if (typeof document !== 'undefined' && document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', () => {
+        loadMenu();
+        initPushPrompt();
+      });
+    } else {
       loadMenu();
       initPushPrompt();
-    });
+    }

@@ -17,7 +17,7 @@
     },
     {
       "src": "/m/(.*)",
-      "dest": "/public/menu.html"
+      "dest": "/api/index.js"
     },
     {
       "src": "/studio",

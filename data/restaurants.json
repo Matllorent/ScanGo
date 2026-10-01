@@ -4112,5 +4112,513 @@
     "city": "",
     "smartWeatherEnabled": false,
     "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790831345520_bjpy3v",
+    "userId": "usr_1790831345513_3rcsxn",
+    "slug": "bistro-don-alberto",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T05:09:05.520Z",
+      "currentPeriodEnd": "2026-10-08T05:09:05.520Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T05:09:05.520Z",
+    "name": "Bistro Don Alberto",
+    "bizName": "Bistro Don Alberto",
+    "slogan": "Cocina de autor y carnes maduradas",
+    "currency": "UYU",
+    "phone": "59899123456",
+    "theme": "emerald",
+    "businessType": "restaurant",
+    "allowPerfumery": false,
+    "wifi": {
+      "ssid": "Restaurante_Clientes",
+      "password": "pizarronrico"
+    },
+    "categories": [
+      {
+        "id": "cat-main",
+        "name": "Platos principales"
+      }
+    ],
+    "dishes": [
+      {
+        "id": "dish-pasta",
+        "categoryId": "cat-main",
+        "name": "Pasta fresca",
+        "price": 420,
+        "originalPrice": null,
+        "description": "Salsa casera </script><script>alert(\"x\")</script>",
+        "photoUrl": null,
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "weatherTags": [],
+        "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
+        "tags": [],
+        "kid_friendly": false,
+        "allergens": []
+      }
+    ],
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "deliveryZones": [
+      {
+        "name": "Zona 1 (Centro)",
+        "fee": 40
+      },
+      {
+        "name": "Zona 2 (Periferia)",
+        "fee": 90
+      }
+    ],
+    "layout": "classic",
+    "modifierGroups": [],
+    "updatedAt": "2026-10-01T05:09:05.587Z"
+  },
+  {
+    "id": "rest_1790831391756_pqo6kw",
+    "userId": "usr_1790831391750_l84ls1",
+    "slug": "bistro-don-alberto",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T05:09:51.756Z",
+      "currentPeriodEnd": "2026-10-08T05:09:51.756Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T05:09:51.756Z",
+    "name": "Bistro Don Alberto",
+    "bizName": "Bistro Don Alberto",
+    "slogan": "Cocina de autor y carnes maduradas",
+    "currency": "UYU",
+    "phone": "59899123456",
+    "theme": "emerald",
+    "businessType": "restaurant",
+    "allowPerfumery": false,
+    "wifi": {
+      "ssid": "Restaurante_Clientes",
+      "password": "pizarronrico"
+    },
+    "categories": [
+      {
+        "id": "cat-main",
+        "name": "Platos principales"
+      }
+    ],
+    "dishes": [
+      {
+        "id": "dish-pasta",
+        "categoryId": "cat-main",
+        "name": "Pasta fresca",
+        "price": 420,
+        "originalPrice": null,
+        "description": "Salsa casera </script><script>alert(\"x\")</script>",
+        "photoUrl": null,
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "weatherTags": [],
+        "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
+        "tags": [],
+        "kid_friendly": false,
+        "allergens": []
+      }
+    ],
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "deliveryZones": [
+      {
+        "name": "Zona 1 (Centro)",
+        "fee": 40
+      },
+      {
+        "name": "Zona 2 (Periferia)",
+        "fee": 90
+      }
+    ],
+    "layout": "classic",
+    "modifierGroups": [],
+    "updatedAt": "2026-10-01T05:09:51.822Z"
+  },
+  {
+    "id": "rest_1790831445425_kyoeta",
+    "userId": "usr_1790831445410_qrbn7n",
+    "slug": "schema-bistro-1790831445404",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T05:10:45.425Z",
+      "currentPeriodEnd": "2026-10-08T05:10:45.425Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T05:10:45.425Z",
+    "name": "Schema Bistro",
+    "bizName": "Schema Bistro",
+    "slogan": "Cocina & pastas",
+    "currency": "UYU",
+    "phone": "+59899123456",
+    "city": "Montevideo",
+    "bannerUrl": "https://example.com/schema-bistro.jpg",
+    "categories": [
+      {
+        "id": "cat-main",
+        "name": "Platos principales"
+      }
+    ],
+    "dishes": [
+      {
+        "id": "dish-pasta",
+        "categoryId": "cat-main",
+        "name": "Pasta fresca",
+        "description": "Salsa casera </script><script>alert(\"x\")</script>",
+        "price": 420
+      }
+    ],
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790831511120_2yaplo",
+    "userId": "usr_1790831511112_ld1b6y",
+    "slug": "schema-bistro-1790831511110",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T05:11:51.120Z",
+      "currentPeriodEnd": "2026-10-08T05:11:51.120Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T05:11:51.120Z",
+    "name": "Schema Bistro",
+    "bizName": "Schema Bistro",
+    "slogan": "Cocina & pastas",
+    "currency": "UYU",
+    "phone": "+59899123456",
+    "city": "Montevideo",
+    "bannerUrl": "https://example.com/schema-bistro.jpg",
+    "categories": [
+      {
+        "id": "cat-main",
+        "name": "Platos principales"
+      }
+    ],
+    "dishes": [
+      {
+        "id": "dish-pasta",
+        "categoryId": "cat-main",
+        "name": "Pasta fresca",
+        "description": "Salsa casera </script><script>alert(\"x\")</script>",
+        "price": 420
+      }
+    ],
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790831552899_egue2s",
+    "userId": "usr_1790831552890_31nhpc",
+    "slug": "schema-bistro-1790831552889",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T05:12:32.899Z",
+      "currentPeriodEnd": "2026-10-08T05:12:32.899Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T05:12:32.899Z",
+    "name": "Schema Bistro",
+    "bizName": "Schema Bistro",
+    "slogan": "Cocina & pastas",
+    "currency": "UYU",
+    "phone": "+59899123456",
+    "city": "Montevideo",
+    "bannerUrl": "https://example.com/schema-bistro.jpg",
+    "categories": [
+      {
+        "id": "cat-main",
+        "name": "Platos principales"
+      }
+    ],
+    "dishes": [
+      {
+        "id": "dish-pasta",
+        "categoryId": "cat-main",
+        "name": "Pasta fresca",
+        "description": "Salsa casera </script><script>alert(\"x\")</script>",
+        "price": 420
+      }
+    ],
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790831565381_p51wd4",
+    "userId": "usr_1790831565372_jqutjf",
+    "slug": "schema-bistro-1790831565370",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T05:12:45.381Z",
+      "currentPeriodEnd": "2026-10-08T05:12:45.381Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T05:12:45.381Z",
+    "name": "Schema Bistro",
+    "bizName": "Schema Bistro",
+    "slogan": "Cocina & pastas",
+    "currency": "UYU",
+    "phone": "+59899123456",
+    "city": "Montevideo",
+    "bannerUrl": "https://example.com/schema-bistro.jpg",
+    "categories": [
+      {
+        "id": "cat-main",
+        "name": "Platos principales"
+      }
+    ],
+    "dishes": [
+      {
+        "id": "dish-pasta",
+        "categoryId": "cat-main",
+        "name": "Pasta fresca",
+        "description": "Salsa casera </script><script>alert(\"x\")</script>",
+        "price": 420
+      }
+    ],
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790831589738_2pw2x6",
+    "userId": "usr_1790831589728_n7hv4s",
+    "slug": "schema-bistro-1790831589727",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T05:13:09.738Z",
+      "currentPeriodEnd": "2026-10-08T05:13:09.738Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T05:13:09.738Z",
+    "name": "Schema Bistro",
+    "bizName": "Schema Bistro",
+    "slogan": "Cocina & pastas",
+    "currency": "UYU",
+    "phone": "+59899123456",
+    "city": "Montevideo",
+    "bannerUrl": "https://example.com/schema-bistro.jpg",
+    "categories": [
+      {
+        "id": "cat-main",
+        "name": "Platos principales"
+      }
+    ],
+    "dishes": [
+      {
+        "id": "dish-pasta",
+        "categoryId": "cat-main",
+        "name": "Pasta fresca",
+        "description": "Salsa casera </script><script>alert(\"x\")</script>",
+        "price": 420
+      }
+    ],
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790831608886_qu9vt1",
+    "userId": "usr_1790831608875_qta36t",
+    "slug": "schema-bistro-1790831608874",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T05:13:28.886Z",
+      "currentPeriodEnd": "2026-10-08T05:13:28.886Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T05:13:28.886Z",
+    "name": "Schema Bistro",
+    "bizName": "Schema Bistro",
+    "slogan": "Cocina & pastas",
+    "currency": "UYU",
+    "phone": "+59899123456",
+    "city": "Montevideo",
+    "bannerUrl": "https://example.com/schema-bistro.jpg",
+    "categories": [
+      {
+        "id": "cat-main",
+        "name": "Platos principales"
+      }
+    ],
+    "dishes": [
+      {
+        "id": "dish-pasta",
+        "categoryId": "cat-main",
+        "name": "Pasta fresca",
+        "description": "Salsa casera </script><script>alert(\"x\")</script>",
+        "price": 420
+      }
+    ],
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790831621470_759ko7",
+    "userId": "usr_1790831621463_fud2y8",
+    "slug": "esquina-gourmet",
+    "subscription": {
+      "status": "past_due",
+      "plan": "pro_monthly",
+      "provider": "lemonsqueezy",
+      "trialEndsAt": "2026-10-08T05:13:41.470Z",
+      "currentPeriodEnd": "2026-10-01T05:13:41.545Z",
+      "gracePeriodDaysRemaining": 7,
+      "lastPaymentError": "Falló el cobro automático de la tarjeta",
+      "updatedAt": "2026-10-01T05:13:41.551Z"
+    },
+    "createdAt": "2026-10-01T05:13:41.470Z",
+    "bizName": "La Esquina Gourmet",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "branches": [],
+    "updatedAt": "2026-10-01T05:13:41.595Z"
+  },
+  {
+    "id": "rest_1790831622003_s7t4i1",
+    "userId": "user_exp_test_1790831621997",
+    "slug": "mi-local",
+    "subscription": {
+      "status": "trialing",
+      "trialEndsAt": "2026-10-01T04:13:41.997Z",
+      "plan": "pro_monthly"
+    },
+    "createdAt": "2026-10-01T05:13:42.003Z",
+    "name": "Restaurante Expirado Test",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790831622708_nslnk6",
+    "userId": "usr_1790831622702_jfb0uk",
+    "slug": "vanguardia-test-1790831622704",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T05:13:42.708Z",
+      "currentPeriodEnd": "2026-10-08T05:13:42.708Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T05:13:42.708Z",
+    "bizName": "Restaurante Vanguardia Test",
+    "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+    "businessType": "events",
+    "layout": "bento",
+    "theme": "emerald",
+    "font": "sans",
+    "categories": [],
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false
+  },
+  {
+    "id": "rest_1790831622730_k3t229",
+    "userId": "usr_1790831622724_e0i9wj",
+    "slug": "perfil-predeterminado",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T05:13:42.730Z",
+      "currentPeriodEnd": "2026-10-08T05:13:42.730Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T05:13:42.730Z",
+    "bizName": "Perfil Predeterminado",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1790831628011_h49wm9",
+    "userId": "usr_1790831628001_pe20n9",
+    "slug": "schema-bistro-1790831627999",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-08T05:13:48.012Z",
+      "currentPeriodEnd": "2026-10-08T05:13:48.012Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-01T05:13:48.012Z",
+    "name": "Schema Bistro",
+    "bizName": "Schema Bistro",
+    "slogan": "Cocina & pastas",
+    "currency": "UYU",
+    "phone": "+59899123456",
+    "city": "Montevideo",
+    "bannerUrl": "https://example.com/schema-bistro.jpg",
+    "categories": [
+      {
+        "id": "cat-main",
+        "name": "Platos principales"
+      }
+    ],
+    "dishes": [
+      {
+        "id": "dish-pasta",
+        "categoryId": "cat-main",
+        "name": "Pasta fresca",
+        "description": "Salsa casera </script><script>alert(\"x\")</script>",
+        "price": 420
+      }
+    ],
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
   }
 ]

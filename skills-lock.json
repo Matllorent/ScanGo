@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "skills": {
+    "code-review": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/code-review/SKILL.md",
+      "computedHash": "b4f17857c85ca60af1df7d0b623dd03c2a48419f6123e714f3d9748ca744a1bf"
+    },
+    "diagnosing-bugs": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/diagnosing-bugs/SKILL.md",
+      "computedHash": "ed5cbc42b8ef8313ddd3d284b6a17e6c18137512aa382ad720b3dcd48316d789"
+    },
+    "domain-modeling": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/domain-modeling/SKILL.md",
+      "computedHash": "f377a1341e1b368833cfe5889ace3e61d7df48d7a9e5da9253dba75d062bbfbc"
+    },
+    "fleet-auditor": {
+      "source": "alexgreensh/token-optimizer",
+      "sourceType": "github",
+      "skillPath": "skills/fleet-auditor/SKILL.md",
+      "computedHash": "f30dc484cd19f57c005bc81d95e2e618468c9fddc1c73a2568de072dd35ff879"
+    },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "106acf230014cbb43ca34e6410371321b56ca742f9ee0442e8ec05bf02eb0384"
+    },
+    "geo-audit": {
+      "source": "Cognitic-Labs/geoskills",
+      "sourceType": "github",
+      "skillPath": "skills/geo-audit/SKILL.md",
+      "computedHash": "47064f93add41b4590808ee72d3c5c9cfe4ec82a07f77847033eed50c2454379"
+    },
+    "geo-compare": {
+      "source": "Cognitic-Labs/geoskills",
+      "sourceType": "github",
+      "skillPath": "skills/geo-compare/SKILL.md",
+      "computedHash": "72b85704346b19ced30c70ed645e0fcd9a89c5ed5aef9f1a61bc7713e89e9eb4"
+    },
+    "geo-fix-content": {
+      "source": "Cognitic-Labs/geoskills",
+      "sourceType": "github",
+      "skillPath": "skills/geo-fix-content/SKILL.md",
+      "computedHash": "7219f654695a17753e9941fbbb809c4bf3dfc3549e3e4eccf292bd938fd5f5f0"
+    },
+    "geo-fix-llmstxt": {
+      "source": "Cognitic-Labs/geoskills",
+      "sourceType": "github",
+      "skillPath": "skills/geo-fix-llmstxt/SKILL.md",
+      "computedHash": "1d45eaefbf2f7b0f07cbfc3b473da1737ee78f0f5e017b8c39053b6bbd5a234d"
+    },
+    "geo-fix-schema": {
+      "source": "Cognitic-Labs/geoskills",
+      "sourceType": "github",
+      "skillPath": "skills/geo-fix-schema/SKILL.md",
+      "computedHash": "1fe91378f06332978d8b8cc1cf914052bd9e1d5f59ae336e08f0cb9b3963d74a"
+    },
+    "geo-monitor": {
+      "source": "Cognitic-Labs/geoskills",
+      "sourceType": "github",
+      "skillPath": "skills/geo-monitor/SKILL.md",
+      "computedHash": "f3e2895e281e8dc684ea28134d97e1d22ca4dc05e7dd5e10b0b61b2a9e93ded9"
+    },
+    "grill-me": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/grill-me/SKILL.md",
+      "computedHash": "5e0c683385eafd83f106ac6c9d67dfbbfe5aa4b3fe65aad114eb1055a99c818f"
+    },
+    "improve-codebase-architecture": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
+      "computedHash": "f74b0bf1be26220dd615523fc1c0562567f9c463d9e9b255d4031345ffb37cd3"
+    },
+    "research": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/research/SKILL.md",
+      "computedHash": "2c8b768d5f0309eaea9f92ef740101e813645b39aef88fb82733a52eae23dc0b"
+    },
+    "resume-checkpoint": {
+      "source": "alexgreensh/token-optimizer",
+      "sourceType": "github",
+      "skillPath": "skills/resume-checkpoint/SKILL.md",
+      "computedHash": "81a363a425d481a8d3e7929642ac66ce5de8e8166aa741feaff64cce4b44eef2"
+    },
+    "supabase-postgres-best-practices": {
+      "source": "supabase/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/supabase-postgres-best-practices/SKILL.md",
+      "computedHash": "128fac78002d916c8ca908245d398e634f540d8bcf20915b2b2359aeb18eba59"
+    },
+    "test-driven-development": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/test-driven-development/SKILL.md",
+      "computedHash": "3cfe4ebb6fa7288f668d87880d279c8e48f7a92b63415e296857060f5ce22e05"
+    },
+    "token-coach": {
+      "source": "alexgreensh/token-optimizer",
+      "sourceType": "github",
+      "skillPath": "skills/token-coach/SKILL.md",
+      "computedHash": "d2ef9617fd5889fcd47c8aaae0aac1996ae2ca6272640b2ea97c37a1096cfa3b"
+    },
+    "token-dashboard": {
+      "source": "alexgreensh/token-optimizer",
+      "sourceType": "github",
+      "skillPath": "skills/token-dashboard/SKILL.md",
+      "computedHash": "621e480adcd0090f802aa38aa002deda0b20a1634a5e6e61555428a1763aa301"
+    },
+    "token-optimizer": {
+      "source": "alexgreensh/token-optimizer",
+      "sourceType": "github",
+      "skillPath": "skills/token-optimizer/SKILL.md",
+      "computedHash": "c834b8eee32d274bf242878497c3c234cfc4649dd96fac1a2fa8375e227040e0"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/web-design-guidelines/SKILL.md",
+      "computedHash": "d8e7d3afe37dcc8a97b99ffb5afdb4d0919ae0092ea8b68f44eb201f035e33ac"
+    }
+  }
+}
