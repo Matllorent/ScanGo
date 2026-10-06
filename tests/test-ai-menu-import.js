@@ -4,6 +4,8 @@
  */
 
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 const { parseMenuWithGemini, sanitizeParsedMenu, getFallbackDemoMenu, MENU_RESPONSE_SCHEMA } = require('../api/services/geminiMenuParser');
 
 async function runAiImportTests() {
@@ -13,6 +15,8 @@ async function runAiImportTests() {
   assert(MENU_RESPONSE_SCHEMA.properties.detectedStyle, 'El esquema debe contener detectedStyle');
   assert(MENU_RESPONSE_SCHEMA.properties.categories, 'El esquema debe contener categories');
   assert.deepStrictEqual(MENU_RESPONSE_SCHEMA.required, ['detectedStyle', 'categories']);
+  const parserSrc = fs.readFileSync(path.join(__dirname, '../api/services/geminiMenuParser.js'), 'utf8');
+  assert.ok(parserSrc.includes("process.env.GEMINI_MODEL || 'gemini-3.8-flash'"), 'El parser debe usar por defecto el modelo Gemini vigente');
   console.log('✓ Esquema JSON de Gemini Flash estructurado correctamente');
 
   // 2. Verify fallback demo menu
@@ -70,8 +74,6 @@ async function runAiImportTests() {
   console.log(`✓ Procesamiento multi-página con ${samplePages.length} imágenes verificado exitosamente`);
 
   // 5. Verify router and endpoint registration
-  const fs = require('fs');
-  const path = require('path');
   const apiIndexSrc = fs.readFileSync(path.join(__dirname, '../api/index.js'), 'utf8');
   assert.ok(apiIndexSrc.includes("app.use('/api/ai', aiRouter)"), 'api/index.js debe montar /api/ai');
   assert.ok(apiIndexSrc.includes("app.post('/api/studio/ai-import'"), 'api/index.js debe exponer POST /api/studio/ai-import');
@@ -91,7 +93,51 @@ async function runAiImportTests() {
   assert.ok(studioJsSrc.includes('runAiMenuAnalysis'), 'studio.js debe exportar runAiMenuAnalysis');
   assert.ok(studioJsSrc.includes('removeDetectedAiDish'), 'studio.js debe exportar removeDetectedAiDish');
   assert.ok(studioJsSrc.includes('confirmAiMenuImportAction'), 'studio.js debe exportar confirmAiMenuImportAction');
+  assert.ok(/\bhandleDishPhotoUpload\b/.test(studioJsSrc), 'studio.js debe exponer el handler de carga de foto de plato');
   console.log('✓ Funciones del importador enlazadas globalmente en studio.js');
+
+  const previousDocument = global.document;
+  let importModalActive = false;
+  const photoElements = {
+    dishEditModal: { classList: { add() {}, remove() {} } },
+    aiMenuImportModal: { classList: { add() { importModalActive = true; }, remove() { importModalActive = false; } } },
+    aiMenuPagesList: { innerHTML: '' },
+    aiMenuDropzone: { style: {} },
+    aiMenuPreviewContainer: { style: {} },
+    aiMenuLoadingState: { style: {} },
+    btnRunAiMenuImport: { disabled: false, innerHTML: '' },
+    aiMenuFilesInput: { value: '' },
+    modalDishPhoto: { value: '' },
+    dishPhotoFileName: { textContent: '' },
+    dishPhotoPreviewContainer: { style: {} },
+    dishPhotoPreview: { src: '' },
+    btnClearDishPhoto: { style: {} }
+  };
+  global.document = { getElementById: id => photoElements[id] || null };
+  try {
+    const aiImporter = await import('../public/js/studio/aiMenuImport.js');
+    aiImporter.openAiMenuImportModal();
+    assert.strictEqual(importModalActive, true, 'El botón IA debe abrir el modal de carga');
+
+    const dishEditor = await import('../public/js/studio/dishEditor.js');
+    await dishEditor.handleDishPhotoUpload(
+      { files: [{ name: 'plato.jpg', size: 100, type: 'image/jpeg' }] },
+      async () => ({ dataUrl: 'data:image/webp;base64,dGVzdA==' })
+    );
+    assert.strictEqual(photoElements.modalDishPhoto.value, 'data:image/webp;base64,dGVzdA==');
+    assert.strictEqual(photoElements.dishPhotoPreview.src, 'data:image/webp;base64,dGVzdA==');
+    assert.strictEqual(photoElements.dishPhotoFileName.textContent, 'plato.jpg');
+  } finally {
+    global.document = previousDocument;
+  }
+  console.log('✓ El botón IA abre su modal y el selector de foto actualiza la vista previa');
+
+  const tabsPath = path.join(__dirname, '../public/js/studio/ui/tabs.js');
+  const tabsSrc = fs.readFileSync(tabsPath, 'utf8');
+  const lazyImports = [...tabsSrc.matchAll(/import\(['"]([^'"]+)['"]\)/g)].map(match => match[1]);
+  const missingModules = lazyImports.filter(modulePath => !fs.existsSync(path.resolve(path.dirname(tabsPath), modulePath)));
+  assert.deepStrictEqual(missingModules, [], 'Las pestañas de Studio no deben importar módulos inexistentes');
+  console.log('✓ Imports diferidos de pestañas de Studio apuntan a módulos existentes');
 
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE IMPORTACIÓN CON GEMINI FLASH PASARON AL 100%!');
 }

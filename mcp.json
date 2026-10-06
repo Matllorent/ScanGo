@@ -1,0 +1,70 @@
+{
+  "mcpServers": {
+    "menu-filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "C:\\Users\\Flor Alcaraz\\.gemini\\antigravity\\scratch\\menu-pizarron-saas"
+      ]
+    },
+    "supabase-db": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://postgres:ñññScanGoMat2001ñññ@db.olqdcudvstbawkcvsfdd.supabase.co:5432/postgres"
+      ]
+    },
+    "git-tools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-git",
+        "C:\\Users\\Flor Alcaraz\\.gemini\\antigravity\\scratch\\menu-pizarron-saas"
+      ]
+    },
+    "memory-graph": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ]
+    },
+    "github-tools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ]
+    },
+    "brave-search": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-brave-search"
+      ]
+    },
+    "playwright-testing": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-playwright"
+      ]
+    },
+    "sentry-errors": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sentry"
+      ]
+    },
+    "docker-tools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-docker"
+      ]
+    }
+  }
+}

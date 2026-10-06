@@ -181,6 +181,7 @@ async function runMenuComponentizationTests() {
 
   // 8. Test menu-modules.js integration
   const menuModulesSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu-modules.js'), 'utf8');
+  const menuMainSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu.js'), 'utf8');
   assert.ok(menuModulesSrc.includes('/js/menu/smartReviews.js'), 'menu-modules.js debe importar smartReviews.js');
   assert.ok(menuModulesSrc.includes('/js/menu/virtualWaiterHeuristics.js'), 'menu-modules.js debe importar virtualWaiterHeuristics.js');
   assert.ok(menuModulesSrc.includes('/js/menu/orderCheckout.js'), 'menu-modules.js debe importar orderCheckout.js');
@@ -188,6 +189,11 @@ async function runMenuComponentizationTests() {
   assert.ok(menuModulesSrc.includes('/js/menu/menuModals.js'), 'menu-modules.js debe importar menuModals.js');
   assert.ok(menuModulesSrc.includes('/js/menu/eventGuestMode.js'), 'menu-modules.js debe importar eventGuestMode.js');
   assert.ok(menuModulesSrc.includes('/js/menu/index.js'), 'menu-modules.js debe importar index.js');
+  assert.ok(menuModulesSrc.includes('window.togglePerfumeryMode = function()'), 'menu-modules.js debe registrar el interruptor de perfumería en window');
+  assert.ok(menuModulesSrc.includes('window.toggleGroupConsolidatedView = function()'), 'menu-modules.js debe registrar la vista consolidada grupal en window');
+  assert.ok(!/^[\t ]*togglePerfumeryMode,$/m.test(menuMainSrc), 'menu.js no debe exponer como local una función registrada solo en window');
+  assert.ok(!/^[\t ]*removeFromCart,$/m.test(menuMainSrc), 'menu.js no debe exponer funciones de carrito inexistentes');
+  assert.ok(!/^[\t ]*toggleGroupConsolidatedView,$/m.test(menuMainSrc), 'menu.js no debe exponer como local una función registrada solo en window');
   console.log('✓ Enlace de todos los módulos en menu-modules.js verificado');
 
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE COMPONENTIZACIÓN DE MENU PASARON AL 100%!');

@@ -146,6 +146,34 @@ export function clearDishPhoto() {
   if (previewContainer) previewContainer.style.display = 'none';
 }
 
+export async function handleDishPhotoUpload(input, compressImage) {
+  const file = input?.files?.[0];
+  if (!file) return;
+  if (file.size > 12 * 1024 * 1024) {
+    alert('La imagen original no debe superar los 12MB.');
+    input.value = '';
+    return;
+  }
+
+  try {
+    const compressed = await compressImage(file);
+    const urlInput = document.getElementById('modalDishPhoto');
+    const previewContainer = document.getElementById('dishPhotoPreviewContainer');
+    const preview = document.getElementById('dishPhotoPreview');
+    const fileName = document.getElementById('dishPhotoFileName');
+    const clearButton = document.getElementById('btnClearDishPhoto');
+
+    if (urlInput) urlInput.value = compressed.dataUrl;
+    if (preview) preview.src = compressed.dataUrl;
+    if (previewContainer) previewContainer.style.display = 'block';
+    if (fileName) fileName.textContent = file.name;
+    if (clearButton) clearButton.style.display = 'inline';
+  } catch (error) {
+    alert(error.message || 'No se pudo procesar la foto del plato.');
+    input.value = '';
+  }
+}
+
 export function toggleDishScheduleControls() {
   const enabled = document.getElementById('modalDishScheduleEnabled')?.checked;
   const controls = document.getElementById('dishScheduleControls');

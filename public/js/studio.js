@@ -165,6 +165,7 @@ import {
   openNewDishModal as openNewDishModalMod,
   closeDishEditModal,
   saveDishFromModal as saveDishFromModalMod,
+  handleDishPhotoUpload as handleDishPhotoUploadMod,
   toggleDishesByIngredient as toggleDishesByIngredientMod
 } from './studio/dishEditor.js';
 
@@ -916,6 +917,7 @@ export function renderDishesList() { renderDishesListMod(restaurant, escapeHtml)
 export function editDish(id) { editDishMod(restaurant, id); }
 export function openNewDishModal() { openNewDishModalMod(restaurant); }
 export function saveDishFromModal(e) { saveDishFromModalMod(restaurant, e, () => { renderDishesList(); triggerAutoSave(); }); }
+export function handleDishPhotoUpload(input) { return handleDishPhotoUploadMod(input, compressImageFile); }
 export function deleteDish(id) { deleteDishMod(restaurant, id, showConfirmDialog, () => { renderDishesList(); triggerAutoSave(); }); }
 export function toggleDishesByIngredient(isOut) { toggleDishesByIngredientMod(restaurant, isOut, () => { renderDishesList(); triggerAutoSave(); }); }
 
@@ -1008,7 +1010,7 @@ const globalExports = {
   loadAnalytics, updateKPIs, renderDailyChart, renderHeatmap, renderBranchMetrics, renderEventMetrics,
   generateQrCode, downloadQrPng, printTableStand, downloadAllTablesPDF,
   promptNewCategoryInModal, openCategoryManagerModal, closeCategoryManagerModal, moveCategory, addCategoryFromManager, renameCategory, deleteCategory,
-  populateCatFilter, renderDishesList, editDish, openNewDishModal, closeDishEditModal, saveDishFromModal, deleteDish, clearDishPhoto, toggleDishScheduleControls, toggleDishesByIngredient,
+  populateCatFilter, renderDishesList, editDish, openNewDishModal, closeDishEditModal, saveDishFromModal, handleDishPhotoUpload, deleteDish, clearDishPhoto, toggleDishScheduleControls, toggleDishesByIngredient,
   openPresetsModal, closePresetsModal, renderPresetChips, browsePresetCategory, addSinglePresetDish, importCurrentPresetCategory, importAllPresets,
   openIceCreamPresetsModal, closeIceCreamPresetsModal, filterIceCreamPresetCat, toggleAllIceCreamFlavors, renderIceCreamPresetsList, toggleIceCreamFlavorItem, importSelectedIceCreamFlavors,
   openPerfumeryPresetsModal, closePerfumeryPresetsModal, renderPerfumeryPresetsList, importSelectedPerfumery,

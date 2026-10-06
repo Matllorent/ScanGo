@@ -15,11 +15,4 @@ export function switchTab(tabId, btn) {
     if (fallbackBtn) fallbackBtn.classList.add('active');
   }
 
-  // Lazy-render de pestañas pesadas
-  if (tabId === 'stats') import('./modules/analytics.js').then(m => m.renderStatsTab?.());
-  if (tabId === 'reviews') import('./modules/reviews.js').then(m => m.renderReviewsTab?.());
-  if (tabId === 'analytics') import('./modules/analytics.js').then(m => m.loadAnalytics?.());
-  if (tabId === 'branches') import('./modules/branches.js').then(m => m.renderBranchesList?.());
-  if (tabId === 'dishes') import('./modules/dishes.js').then(m => { m.populateCatFilter?.(); m.renderDishesList?.(); });
-  if (tabId === 'qr') import('./modules/qr.js').then(m => m.generateQrCode?.());
 }
