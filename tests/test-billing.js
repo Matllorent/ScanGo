@@ -4,35 +4,35 @@ const billingOrchestrator = require('../src/billing/orchestrator');
 
 console.log('🧪 Iniciando pruebas de la Pasarela de Pagos & Escalabilidad...');
 
-// 1. Crear restaurante de prueba
-const user = db.createUser({ email: 'test-restaurante@pizarron.com', password: 'secret_demo_pwd' });
-const rest = db.saveRestaurant(user.id, { bizName: 'La Esquina Gourmet', slug: 'esquina-gourmet' });
-console.log('✓ Restaurante creado con id:', rest.id, 'en estado trial');
+async function runTests() {
+  // 1. Crear restaurante de prueba
+  const user = await db.createUser({ email: 'test-restaurante@pizarron.com', password: 'secret_demo_pwd' });
+  const rest = await db.saveRestaurant(user.id, { bizName: 'La Esquina Gourmet', slug: 'esquina-gourmet' });
+  console.log('✓ Restaurante creado con id:', rest.id, 'en estado trial');
 
-// 2. Verificar acceso inicial en trial
-const accessTrial = billingOrchestrator.verifyAccess(rest.id);
-assert.strictEqual(accessTrial.allowed, true, 'El trial debe tener acceso permitido');
-assert.strictEqual(accessTrial.status, 'trialing');
-console.log('✓ Acceso permitido en Free Trial (14 días)');
+  // 2. Verificar acceso inicial en trial
+  const accessTrial = billingOrchestrator.verifyAccess(rest.id);
+  assert.strictEqual(accessTrial.allowed, true, 'El trial debe tener acceso permitido');
+  assert.strictEqual(accessTrial.status, 'trialing');
+  console.log('✓ Acceso permitido en Free Trial (14 días)');
 
-// 3. Simular Webhook de pago exitoso (Lemon Squeezy)
-const fakeEventId = 'evt_test_' + Date.now();
-const webhookPayload = {
-  meta: {
-    event_name: 'subscription_payment_success',
-    custom_data: { restaurant_id: rest.id, event_id: fakeEventId }
-  },
-  data: {
-    id: fakeEventId,
-    attributes: {
-      status: 'active',
-      user_email: user.email,
-      renews_at: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString()
+  // 3. Simular Webhook de pago exitoso (Lemon Squeezy)
+  const fakeEventId = 'evt_test_' + Date.now();
+  const webhookPayload = {
+    meta: {
+      event_name: 'subscription_payment_success',
+      custom_data: { restaurant_id: rest.id, event_id: fakeEventId }
+    },
+    data: {
+      id: fakeEventId,
+      attributes: {
+        status: 'active',
+        user_email: user.email,
+        renews_at: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString()
+      }
     }
-  }
-};
+  };
 
-(async () => {
   // Primer webhook
   const res1 = await billingOrchestrator.processWebhook('lemonsqueezy', {}, JSON.stringify(webhookPayload), webhookPayload);
   assert.strictEqual(res1.success, true);
@@ -88,7 +88,7 @@ const webhookPayload = {
   console.log(`✓ calculateMultiBranchPrice escalonado: 1→$${p1} | 2→$${p2} | 3→$${p3} | 4→$${p4} | 6→$${p6}`);
 
   // 5b. verifyAccess aplica el cálculo cuando el restaurante tiene múltiples sucursales
-  db.saveRestaurant(user.id, {
+  await db.saveRestaurant(user.id, {
     branches: [
       { id: 'br_1', name: 'Principal' },
       { id: 'br_2', name: 'Centro' },
@@ -115,7 +115,7 @@ const webhookPayload = {
   console.log('✓ createCheckout incluye pricing multi-sucursal');
 
   // 5d. Restaurante sin branches = 1 sucursal (sin descuento)
-  db.saveRestaurant(user.id, { branches: [] });
+  await db.saveRestaurant(user.id, { branches: [] });
   const accessSingle = billingOrchestrator.verifyAccess(rest.id);
   assert.strictEqual(accessSingle.pricing.branchCount, 1, 'sin branches se cuenta 1 sucursal principal');
   assert.strictEqual(accessSingle.pricing.totalPrice, 19, 'sin descuento mantiene precio base');
@@ -123,4 +123,9 @@ const webhookPayload = {
   console.log('✓ Restaurante single-branch conserva el precio base ($19 USD)');
 
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE BILLING PASARON EXITOSAMENTE AL 100%!\n');
-})();
+}
+
+runTests().catch(err => {
+  console.error('Test failed:', err);
+  process.exit(1);
+});

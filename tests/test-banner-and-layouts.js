@@ -18,7 +18,7 @@ async function runTests() {
   console.log('🧪 Iniciando verificación de Banner Superior y Nuevos Layouts...');
 
   // 1. Persistencia en DB
-  const user = db.createUser({ email: `test-layout-${Date.now()}@example.com`, password: 'test_password' });
+  const user = await db.createUser({ email: `test-layout-${Date.now()}@example.com`, password: 'test_password' });
   const testData = {
     bizName: 'Restaurante Vanguardia Test',
     slug: `vanguardia-test-${Date.now()}`,
@@ -30,10 +30,10 @@ async function runTests() {
     categories: []
   };
 
-  const saved = db.saveRestaurant(user.id, testData);
+  const saved = await db.saveRestaurant(user.id, testData);
   const fetched = db.findRestaurantById(saved.id);
-  const defaultUser = db.createUser({ email: `test-default-type-${Date.now()}@example.com`, password: 'test_password' });
-  const defaultProfile = db.saveRestaurant(defaultUser.id, { bizName: 'Perfil Predeterminado' });
+  const defaultUser = await db.createUser({ email: `test-default-type-${Date.now()}@example.com`, password: 'test_password' });
+  const defaultProfile = await db.saveRestaurant(defaultUser.id, { bizName: 'Perfil Predeterminado' });
 
   assert.strictEqual(fetched.bannerUrl, testData.bannerUrl, 'bannerUrl debe persistir en db');
   assert.strictEqual(fetched.businessType, 'events', 'businessType debe persistir en db');

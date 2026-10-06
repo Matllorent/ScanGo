@@ -175,10 +175,10 @@ function testTotp() {
 }
 
 // 3. Verify Trial Expiration
-function testBillingTrial() {
+async function testBillingTrial() {
   const db = require('../src/db/db');
   const userId = 'user_exp_test_' + Date.now();
-  const expiredRest = db.saveRestaurant(userId, {
+  const expiredRest = await db.saveRestaurant(userId, {
     name: 'Restaurante Expirado Test',
     subscription: {
       status: 'trialing',
@@ -212,7 +212,7 @@ function testHydrationGuard() {
 async function run() {
   await testStorage();
   testTotp();
-  testBillingTrial();
+  await testBillingTrial();
   testHydrationGuard();
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE LAS 7 MEJORAS PASARON AL 100%!');
 }

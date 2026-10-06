@@ -20,17 +20,37 @@ function readJson(file, def = []) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { return def; }
 }
 
-function writeJson(file, data) {
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function writeJson(file, data, retries = 3, delay = 100) {
   const temporaryFile = `${file}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
-  try {
-    fs.writeFileSync(temporaryFile, JSON.stringify(data, null, 2), 'utf8');
-    fs.renameSync(temporaryFile, file);
-    return true;
-  } catch (e) {
-    console.error('Error writing to', file, e);
-    try { fs.rmSync(temporaryFile, { force: true }); } catch (cleanupError) {}
-    return false;
+  
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      fs.writeFileSync(temporaryFile, JSON.stringify(data, null, 2), 'utf8');
+      fs.renameSync(temporaryFile, file);
+      return true;
+    } catch (e) {
+      console.error(`Error writing to ${file} (attempt ${attempt}/${retries}):`, e.message);
+      
+      // Limpiar archivo temporal
+      try { fs.rmSync(temporaryFile, { force: true }); } catch (cleanupError) {}
+      
+      // Si es el último intento, retornar false
+      if (attempt === retries) {
+        console.error(`Failed to write ${file} after ${retries} attempts`);
+        return false;
+      }
+      
+      // Esperar con backoff exponencial antes de reintentar (non-blocking)
+      const waitTime = delay * Math.pow(2, attempt - 1);
+      console.log(`Retrying in ${waitTime}ms...`);
+      await sleep(waitTime);
+    }
   }
+  return false;
 }
 
 function hasMeaningfulRecords(rows) {
@@ -223,7 +243,7 @@ if (process.env.SUPABASE_URL && supabaseKey) {
           console.warn('[DB] Snapshot de Supabase vacío para restaurantes; conservando datos locales válidos.');
         }
 
-        if (!writeJson(USERS_FILE, hydrated.users) || !writeJson(RESTAURANTS_FILE, hydrated.restaurants)) {
+        if (!await writeJson(USERS_FILE, hydrated.users) || !await writeJson(RESTAURANTS_FILE, hydrated.restaurants)) {
           throw new Error('No se pudo hidratar el snapshot local desde Supabase.');
         }
         return { ready: true, mode: 'supabase' };
@@ -268,12 +288,12 @@ const db = {
     const users = readJson(USERS_FILE, []);
     return users.find(u => u.id === id) || null;
   },
-  createUser(userData) {
+  async createUser(userData) {
     const users = readJson(USERS_FILE, []);
     const id = 'usr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
     const newUser = { id, createdAt: new Date().toISOString(), ...userData };
     users.push(newUser);
-    writeJson(USERS_FILE, users);
+    await writeJson(USERS_FILE, users);
 
     // Sync to Supabase in background if connected
     if (supabase) {
@@ -288,13 +308,13 @@ const db = {
     }
     return newUser;
   },
-  updateUserPassword(userId, newHashedPassword) {
+  async updateUserPassword(userId, newHashedPassword) {
     const users = readJson(USERS_FILE, []);
     const user = users.find(u => u.id === userId);
     if (!user) return null;
     user.password = newHashedPassword;
     user.updatedAt = new Date().toISOString();
-    writeJson(USERS_FILE, users);
+    await writeJson(USERS_FILE, users);
 
     if (supabase) {
       trackSupabaseWrite(supabase.from('users').update({
@@ -306,7 +326,7 @@ const db = {
   },
 
   // Password Recovery Tokens (Single-use with JTI & Expiry)
-  savePasswordResetToken(userId, jti, expiresAt) {
+  async savePasswordResetToken(userId, jti, expiresAt) {
     const tokens = readJson(RESET_TOKENS_FILE, []);
     // Invalidate any previously pending unused tokens for this user
     tokens.forEach(t => {
@@ -324,7 +344,7 @@ const db = {
     });
     // Keep max 500 recent token records
     if (tokens.length > 500) tokens.splice(0, tokens.length - 500);
-    writeJson(RESET_TOKENS_FILE, tokens);
+    await writeJson(RESET_TOKENS_FILE, tokens);
   },
   isResetTokenValid(userId, jti) {
     const tokens = readJson(RESET_TOKENS_FILE, []);
@@ -335,13 +355,13 @@ const db = {
     if (Date.now() > record.expiresAt) return false;
     return true;
   },
-  invalidateResetToken(jti) {
+  async invalidateResetToken(jti) {
     const tokens = readJson(RESET_TOKENS_FILE, []);
     const record = tokens.find(t => t.jti === jti);
     if (record) {
       record.used = true;
       record.usedAt = new Date().toISOString();
-      writeJson(RESET_TOKENS_FILE, tokens);
+      await writeJson(RESET_TOKENS_FILE, tokens);
       return true;
     }
     return false;
@@ -360,7 +380,7 @@ const db = {
     const rests = readJson(RESTAURANTS_FILE, []);
     return normalizeRestaurantBusinessType(rests.find(r => r.id === id) || null);
   },
-  saveRestaurant(userId, data) {
+  async saveRestaurant(userId, data) {
     const rests = readJson(RESTAURANTS_FILE, []);
     let rest = rests.find(r => r.userId === userId);
     if (!rest) {
@@ -388,7 +408,7 @@ const db = {
       normalizeRestaurantBusinessType(rest);
       rest.updatedAt = new Date().toISOString();
     }
-    writeJson(RESTAURANTS_FILE, rests);
+    await writeJson(RESTAURANTS_FILE, rests);
 
     // Sync to Supabase in background if connected
     if (supabase) {
@@ -433,7 +453,7 @@ const db = {
    * @param {string} opts.branchSlug - branch slug (alternative to branchId for update/delete)
    * @returns {object} { success: true, restaurant, branch, action }
    */
-  updateBranches(restaurantId, { operation, branch, branchId, branchSlug }) {
+  async updateBranches(restaurantId, { operation, branch, branchId, branchSlug }) {
     const rests = readJson(RESTAURANTS_FILE, []);
     const rest = rests.find(r => r.id === restaurantId);
     if (!rest) return { success: false, error: 'Restaurante no encontrado' };
@@ -530,7 +550,7 @@ const db = {
 
     // Persist to local JSON
     rest.updatedAt = new Date().toISOString();
-    writeJson(RESTAURANTS_FILE, rests);
+    await writeJson(RESTAURANTS_FILE, rests);
 
     // Sync to Supabase
     if (supabase) {
@@ -545,12 +565,12 @@ const db = {
   },
 
   // Subscriptions
-  updateSubscription(restaurantId, subData) {
+  async updateSubscription(restaurantId, subData) {
     const rests = readJson(RESTAURANTS_FILE, []);
     const rest = rests.find(r => r.id === restaurantId);
     if (!rest) return null;
     rest.subscription = { ...rest.subscription, ...subData, updatedAt: new Date().toISOString() };
-    writeJson(RESTAURANTS_FILE, rests);
+    await writeJson(RESTAURANTS_FILE, rests);
 
     // Sync to Supabase in background if connected
     if (supabase) {
@@ -568,7 +588,7 @@ const db = {
     const hooks = readJson(WEBHOOKS_FILE, []);
     return hooks.some(h => h.provider === provider && h.eventId === eventId);
   },
-  markWebhookProcessed(provider, eventId, eventType, data = {}) {
+  async markWebhookProcessed(provider, eventId, eventType, data = {}) {
     const hooks = readJson(WEBHOOKS_FILE, []);
     hooks.push({
       provider,
@@ -578,7 +598,7 @@ const db = {
       data
     });
     if (hooks.length > 1000) hooks.shift();
-    writeJson(WEBHOOKS_FILE, hooks);
+    await writeJson(WEBHOOKS_FILE, hooks);
 
     // Sync to Supabase in background if connected
     if (supabase) {
@@ -601,14 +621,14 @@ const db = {
     // Sanitize: do not expose password hashes to admin views
     return users.map(u => ({ id: u.id, email: u.email, name: u.name, createdAt: u.createdAt }));
   },
-  setRestaurantStatus(restaurantId, newStatus) {
+  async setRestaurantStatus(restaurantId, newStatus) {
     const rests = readJson(RESTAURANTS_FILE, []);
     const rest = rests.find(r => r.id === restaurantId);
     if (!rest) return null;
     if (!rest.subscription) rest.subscription = {};
     rest.subscription.status = newStatus;
     rest.subscription.updatedAt = new Date().toISOString();
-    writeJson(RESTAURANTS_FILE, rests);
+    await writeJson(RESTAURANTS_FILE, rests);
     if (supabase) {
       trackSupabaseWrite(supabase.from('restaurants').update({
         subscription: rest.subscription,
@@ -620,7 +640,7 @@ const db = {
   },
 
   // Analytics tracking
-  recordAnalyticsEvent(slug, eventType) {
+  async recordAnalyticsEvent(slug, eventType) {
     const rests = readJson(RESTAURANTS_FILE, []);
     const rest = rests.find(r => r.slug === slug);
     if (!rest) return null;
@@ -632,7 +652,7 @@ const db = {
     else if (eventType === 'reservation') rest.analytics.reservations = (rest.analytics.reservations || 0) + 1;
     else if (eventType === 'waiter') rest.analytics.waiterCalls = (rest.analytics.waiterCalls || 0) + 1;
     rest.analytics.lastUpdated = new Date().toISOString();
-    writeJson(RESTAURANTS_FILE, rests);
+    await writeJson(RESTAURANTS_FILE, rests);
     if (supabase) {
       trackSupabaseWrite(supabase.from('restaurants').update({
         profile: rest,
@@ -643,7 +663,7 @@ const db = {
   },
 
   // Customer Reviews & Moderation
-  addReview(reviewData) {
+  async addReview(reviewData) {
     const reviews = readJson(path.join(DATA_DIR, 'reviews.json'), []);
     const newRev = {
       id: 'rev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
@@ -652,7 +672,7 @@ const db = {
       ...reviewData
     };
     reviews.push(newRev);
-    writeJson(path.join(DATA_DIR, 'reviews.json'), reviews);
+    await writeJson(path.join(DATA_DIR, 'reviews.json'), reviews);
     return newRev;
   },
   getAllReviews() {
@@ -662,13 +682,13 @@ const db = {
     const reviews = readJson(path.join(DATA_DIR, 'reviews.json'), []);
     return reviews.filter(r => r.status === 'approved');
   },
-  updateReviewStatus(id, status) {
+  async updateReviewStatus(id, status) {
     const reviews = readJson(path.join(DATA_DIR, 'reviews.json'), []);
     const rev = reviews.find(r => r.id === id);
     if (!rev) return null;
     rev.status = status;
     rev.moderatedAt = new Date().toISOString();
-    writeJson(path.join(DATA_DIR, 'reviews.json'), reviews);
+    await writeJson(path.join(DATA_DIR, 'reviews.json'), reviews);
     return rev;
   },
 
@@ -685,15 +705,15 @@ const db = {
     };
     return { ...defaultSettings, ...readJson(SETTINGS_FILE, {}) };
   },
-  updateSettings(newSettings) {
+  async updateSettings(newSettings) {
     const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
     const current = this.getSettings();
     const updated = { ...current, ...newSettings };
-    writeJson(SETTINGS_FILE, updated);
+    await writeJson(SETTINGS_FILE, updated);
     return updated;
   },
   // Customer Private Feedback (Smart Google Reviews filter)
-  addFeedback(feedbackData) {
+  async addFeedback(feedbackData) {
     const FEEDBACK_FILE = path.join(DATA_DIR, 'feedback.json');
     const all = readJson(FEEDBACK_FILE, []);
     const newFb = {
@@ -702,7 +722,7 @@ const db = {
       ...feedbackData
     };
     all.push(newFb);
-    writeJson(FEEDBACK_FILE, all);
+    await writeJson(FEEDBACK_FILE, all);
     return newFb;
   },
   getFeedbackByRestaurantId(restaurantId) {

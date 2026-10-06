@@ -1,0 +1,22 @@
+{
+  "watch": ["api", "src", "public"],
+  "ignore": [
+    "data/",
+    "node_modules/",
+    "*.log",
+    "*.pid",
+    "*.tmp",
+    "coverage/",
+    ".git/",
+    "mobile/",
+    "tests/"
+  ],
+  "ext": "js,json,mjs,cjs",
+  "exec": "node api/index.js",
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "verbose": false,
+  "legacyWatch": false,
+  "delay": 500
+}

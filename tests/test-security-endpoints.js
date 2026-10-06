@@ -9,12 +9,12 @@ async function runTests() {
   const readiness = await db.ready;
   assert.strictEqual(readiness.ready, true, 'The database must be hydrated before tests create or read records');
 
-  const user = db.createUser({
+  const user = await db.createUser({
     email: `security-owner-${Date.now()}@example.com`,
     password: 'test_password',
     email_confirmed_at: new Date().toISOString()
   });
-  const restaurant = db.saveRestaurant(user.id, {
+  const restaurant = await db.saveRestaurant(user.id, {
     name: 'Security Test Bistro',
     bizName: 'Security Test Bistro',
     slug: `security-test-${Date.now()}`
