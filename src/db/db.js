@@ -107,6 +107,17 @@ function normalizeRestaurantBusinessType(restaurant) {
   return restaurant;
 }
 
+function isExpectedSupabaseSchemaWarning(error) {
+  const message = (error && (error.message || String(error))) || '';
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes('schema cache') ||
+    normalized.includes('could not find the') && normalized.includes('column') ||
+    normalized.includes('column') && normalized.includes('does not exist') ||
+    error?.code === '42703'
+  );
+}
+
 /**
  * Returns the branches array for a restaurant.
  * Ensures the field always returns a valid array.
@@ -137,7 +148,10 @@ function trackSupabaseWrite(operation, context) {
     .then(result => {
       if (result?.error) throw result.error;
     })
-    .catch(error => console.warn(`[Supabase ${context}]`, error.message))
+    .catch(error => {
+      if (isExpectedSupabaseSchemaWarning(error)) return;
+      console.warn(`[Supabase ${context}]`, error.message || String(error));
+    })
     .finally(() => pendingSupabaseWrites.delete(trackedWrite));
   pendingSupabaseWrites.add(trackedWrite);
   return trackedWrite;

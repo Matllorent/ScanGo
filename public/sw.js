@@ -1,5 +1,5 @@
 // ScanGo Service Worker — Offline Resilience & PWA Caching
-const CACHE_NAME = 'scango-cache-v4';
+const CACHE_NAME = 'scango-cache-v5';
 const STATIC_ASSETS = [
   '/',
   '/menu.html',
@@ -47,9 +47,11 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  const url = new URL(event.request.url);
 
-  // Handle same-origin assets & API with Network-First + Dynamic Cache Fallback
+  const url = new URL(event.request.url);
+  const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+  const isHtmlRequest = event.request.mode === 'navigate' || event.request.headers.get('accept')?.includes('text/html');
+
   if (url.origin === self.location.origin) {
     event.respondWith(
       fetch(event.request)
@@ -63,30 +65,40 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
+          if (!isOffline && !isHtmlRequest) {
+            return Response.error();
+          }
+
           return caches.match(event.request).then((cachedResponse) => {
             if (cachedResponse) return cachedResponse;
-            // If requesting an HTML navigation (e.g. /m/:slug), fallback to /menu.html
-            if (event.request.mode === 'navigate' || event.request.headers.get('accept')?.includes('text/html')) {
-              return caches.match('/menu.html');
+
+            if (isHtmlRequest) {
+              return caches.match('/menu.html') || caches.match('/') || new Response('Sin conexión', { status: 503, statusText: 'Offline Fallback' });
             }
-            return new Response('Sin conexión', { status: 503, statusText: 'Offline Fallback' });
+
+            return Response.error();
           });
         })
     );
-  } else {
-    // External resources (fonts, cdn, images)
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseClone);
-            });
-          }
-          return response;
-        })
-        .catch(() => caches.match(event.request))
-    );
+    return;
   }
+
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        if (response && response.status === 200) {
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
+        }
+        return response;
+      })
+      .catch(() => {
+        if (isOffline) {
+          return caches.match(event.request) || Response.error();
+        }
+        return Response.error();
+      })
+  );
 });

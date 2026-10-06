@@ -221,21 +221,30 @@
     .hero-grid {
       display: grid;
       grid-template-columns: 1.15fr 0.85fr;
-      gap: 50px;
+      gap: 40px;
       align-items: center;
     }
-    .hero-content { max-width: 620px; }
+    .hero-content {
+      max-width: 620px;
+      padding-right: 12px;
+    }
     .hero-one-liner {
+      max-width: 560px;
       font-family: var(--font-heading);
-      font-size: clamp(1.1rem, 1.8vw, 1.35rem);
+      font-size: clamp(1.08rem, 1.7vw, 1.3rem);
       font-style: italic;
       color: var(--accent-gold);
-      margin-bottom: 20px;
+      margin-bottom: 14px;
       border-left: 3px solid var(--accent-gold);
       padding-left: 16px;
+      line-height: 1.5;
+    }
+    .lead {
+      max-width: 600px;
+      margin-bottom: 0;
     }
     .hero-actions {
-      margin-top: 32px;
+      margin-top: 28px;
       display: flex;
       align-items: center;
       gap: 16px;
@@ -285,6 +294,11 @@
       border-radius: 16px;
       padding: 24px;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .hero-mockup-wrapper:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 26px 70px rgba(0, 0, 0, 0.75);
     }
     .mockup-header {
       display: flex;

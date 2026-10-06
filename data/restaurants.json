@@ -469,5 +469,22 @@
     "city": "",
     "smartWeatherEnabled": false,
     "allowIceCreamWizard": false
+  },
+  {
+    "id": "rest_1791301301564_24lnmm",
+    "userId": "user_exp_test_1791301301559",
+    "slug": "mi-local",
+    "subscription": {
+      "status": "trialing",
+      "trialEndsAt": "2026-10-06T14:41:41.559Z",
+      "plan": "pro_monthly"
+    },
+    "createdAt": "2026-10-06T15:41:41.564Z",
+    "name": "Restaurante Expirado Test",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
   }
 ]
