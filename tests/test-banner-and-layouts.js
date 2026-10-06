@@ -43,7 +43,8 @@ async function runTests() {
 
   // 2. Verificación de layouts permitidos e integridad en api/index.js
   const apiFile = fs.readFileSync(path.join(__dirname, '../api/index.js'), 'utf8');
-  assert.ok(apiFile.includes("allowedLayouts = ['classic', 'bento', 'minimalist', 'neon']"), 'allowedLayouts debe incluir classic, bento, minimalist y neon');
+  const sanitizeFile = fs.readFileSync(path.join(__dirname, '../api/utils/sanitizeRestaurant.js'), 'utf8');
+  assert.ok(sanitizeFile.includes("ALLOWED_LAYOUTS = ['classic', 'bento', 'minimalist', 'neon']"), 'allowedLayouts debe incluir classic, bento, minimalist y neon');
   assert.ok(apiFile.includes('bannerUrl:'), 'api/index.js debe sanitizar y devolver bannerUrl');
   console.log('✓ Saneamiento y lista blanca de layouts en el backend verificados');
 

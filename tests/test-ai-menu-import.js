@@ -75,8 +75,10 @@ async function runAiImportTests() {
 
   // 5. Verify router and endpoint registration
   const apiIndexSrc = fs.readFileSync(path.join(__dirname, '../api/index.js'), 'utf8');
+  const studioRouterSrc = fs.readFileSync(path.join(__dirname, '../api/routes/studio.js'), 'utf8');
   assert.ok(apiIndexSrc.includes("app.use('/api/ai', aiRouter)"), 'api/index.js debe montar /api/ai');
-  assert.ok(apiIndexSrc.includes("app.post('/api/studio/ai-import'"), 'api/index.js debe exponer POST /api/studio/ai-import');
+  assert.ok(apiIndexSrc.includes("app.use('/api/studio', studioRouter)"), 'api/index.js debe montar /api/studio router');
+  assert.ok(studioRouterSrc.includes("router.post('/ai-import'"), 'studio router debe exponer POST /ai-import');
   assert.ok(apiIndexSrc.includes("limit: '25mb'"), 'api/index.js debe admitir payloads de hasta 25mb para imágenes');
   console.log('✓ Endpoints /api/ai y /api/studio/ai-import registrados con límite ampliado (25mb)');
 
