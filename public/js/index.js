@@ -284,14 +284,50 @@ function updateSimUI() {
   if (totalSpan) totalSpan.textContent = `Pedir por WhatsApp ($${total.toLocaleString('es-UY')}) →`;
 }
 
+let simToastTimer = null;
+
+function triggerCartAttention() {
+  const cartBar = document.getElementById('simCartBar');
+  if (!cartBar) return;
+
+  cartBar.classList.remove('attention');
+  void cartBar.offsetWidth;
+  cartBar.classList.add('attention');
+
+  clearTimeout(cartBar._attentionTimer);
+  cartBar._attentionTimer = setTimeout(() => cartBar.classList.remove('attention'), 1400);
+}
+
+function showDemoToast(message, title = '¡Excelente!') {
+  const toast = document.getElementById('demoToast');
+  if (!toast) return;
+
+  const titleEl = toast.querySelector('.demo-toast-title');
+  const bodyEl = toast.querySelector('.demo-toast-body');
+  const closeBtn = toast.querySelector('.demo-toast-close');
+  const actionBtn = toast.querySelector('.demo-toast-action');
+
+  if (titleEl) titleEl.textContent = title;
+  if (bodyEl) bodyEl.textContent = message;
+
+  if (closeBtn) closeBtn.onclick = () => toast.classList.remove('active');
+  if (actionBtn) actionBtn.onclick = () => toast.classList.remove('active');
+
+  toast.classList.add('active');
+  triggerCartAttention();
+  clearTimeout(simToastTimer);
+  simToastTimer = setTimeout(() => toast.classList.remove('active'), 5200);
+}
+
 function simOrderWhatsApp() {
   if (!simCart.length) {
-    alert('¡Hacé clic en el botón "+" de cualquiera de los platos para agregarlo al carrito!');
+    showDemoToast('¡Hacé clic en el botón "+" de cualquiera de los platos para agregarlo al carrito!', 'Tu carrito está vacío');
     return;
   }
+
   const total = simCart.reduce((sum, it) => sum + it.price, 0);
-  alert(`🎉 ¡Excelente! En tu restaurante real, esto abre WhatsApp con el pedido ya listo:\n\n"Hola ScanGo Bistro, quiero pedir:\n${simCart.map(i => '▪ ' + i.name + ' - $' + i.price).join('\n')}\nTotal: $${total}"\n\n¡Creá tu cuenta gratis por 7 días para configurar tu propio menú!`);
-  openAuthModal('register');
+  const message = `"Hola ScanGo Bistro, quiero pedir:\n${simCart.map(i => '▪ ' + i.name + ' - $' + i.price).join('\n')}\nTotal: $${total}"\n\n¡Gracias! Podés probar la demo sin interrupciones y luego crear tu menú desde el panel de administración.`;
+  showDemoToast(message, '¡Excelente!');
 }
 
 // Forgot Password Modal Logic
