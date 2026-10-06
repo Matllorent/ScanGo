@@ -106,6 +106,25 @@ async function parseMenuWithGemini(images) {
   const ai = new GoogleGenAI({ apiKey });
   const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 
+  const fallbackToDemo = (err, reason) => {
+    const errText = [
+      err?.message,
+      err?.status,
+      err?.code,
+      err?.error?.message,
+      err?.body?.error?.message,
+      err?.details,
+      JSON.stringify(err)
+    ].filter(Boolean).join(' ');
+
+    const hasTemporaryIssue = /UNAVAILABLE|RESOURCE_EXHAUSTED|quota|RATE_LIMIT|429|503|high demand|temporarily|too many requests|capacity|overloaded/i.test(errText);
+    if (hasTemporaryIssue) {
+      console.warn(`[GEMINI-MENU-PARSER] Gemini temporarily unavailable (${reason}). Returning demo fallback menu.`);
+      return getFallbackDemoMenu();
+    }
+    return null;
+  };
+
   // Format parts for Google GenAI SDK (supports images and PDF documents)
   const formattedParts = images.map((img, idx) => {
     let rawData = img.data || img;
@@ -151,6 +170,10 @@ async function parseMenuWithGemini(images) {
     return sanitizeParsedMenu(parsed);
   } catch (err) {
     console.error('[GEMINI-MENU-PARSER-ERROR]', err);
+
+    const fallback = fallbackToDemo(err, 'generateContent failed');
+    if (fallback) return fallback;
+
     let msg = err.message || 'Error desconocido';
     if (msg.includes('API_KEY_INVALID') || msg.includes('API key not valid')) {
       msg = 'La clave GEMINI_API_KEY no es válida o está deshabilitada.';

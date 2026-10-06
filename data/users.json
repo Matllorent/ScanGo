@@ -1,1 +1,73 @@
-[]
+[
+  {
+    "id": "usr_1791264976991_u6wmdb",
+    "createdAt": "2026-10-06T05:36:16.991Z",
+    "email": "test-restaurante@pizarron.com",
+    "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1791264979360_hst3fj",
+    "createdAt": "2026-10-06T05:36:19.360Z",
+    "email": "test_security_1791264979354@example.com",
+    "password": "new_secure_hashed_password",
+    "name": "Test Security User",
+    "updatedAt": "2026-10-06T05:36:19.511Z"
+  },
+  {
+    "id": "usr_1791264980166_p15tzw",
+    "createdAt": "2026-10-06T05:36:20.166Z",
+    "email": "test-layout-1791264980162@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1791264980195_8n2wru",
+    "createdAt": "2026-10-06T05:36:20.195Z",
+    "email": "test-default-type-1791264980193@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1791264989291_ivbzsy",
+    "createdAt": "2026-10-06T05:36:29.291Z",
+    "email": "schema-bistro-1791264989290@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1791264995244_y15zzh",
+    "createdAt": "2026-10-06T05:36:35.244Z",
+    "email": "security-owner-1791264995242@example.com",
+    "password": "test_password",
+    "email_confirmed_at": "2026-10-06T05:36:35.242Z"
+  },
+  {
+    "id": "usr_1791265067966_5f4c71dc",
+    "createdAt": "2026-10-06T05:37:48.809Z",
+    "email": "gravitya023@gmail.com",
+    "password": "$2b$12$R92N.k1ABL2vSW82beY1VuZiOTtxy1Uq5rFYoZtd6rthdt.VZwD7u",
+    "name": "anti gravity",
+    "email_confirmed_at": "2026-10-06T05:37:48.807Z"
+  },
+  {
+    "id": "usr_1791265257874_3et53m",
+    "createdAt": "2026-10-06T05:40:57.874Z",
+    "email": "diag_1791265255376@test.com",
+    "password": "$2b$12$tkPeq1/8SThE7.0Ie6.D6OxDAb2/UvByMeLguGCGpPlFVTPB0fZbS",
+    "name": "Diag User",
+    "email_confirmed_at": "2026-10-06T05:40:57.869Z"
+  },
+  {
+    "id": "usr_1791265471622_dcnpgc",
+    "createdAt": "2026-10-06T05:44:31.623Z",
+    "email": "diag_api_1791265469992@test.com",
+    "password": "$2b$12$qhD2EF1fQ7kz23ILz.GFZu9K54idJEumluQchE.cQS4fRqQMQ997S",
+    "name": "Diag User",
+    "email_confirmed_at": "2026-10-06T05:44:31.576Z"
+  },
+  {
+    "id": "usr_1791265521947_3upfrk",
+    "createdAt": "2026-10-06T05:45:21.947Z",
+    "email": "diag_afterfix_1791265520365@test.com",
+    "password": "$2b$12$M7UW.ZbFmWwsdpYeTVkDH.uCQIRE.RRcSo35iv5ImgwbER8.hreDi",
+    "name": "Diag User",
+    "email_confirmed_at": "2026-10-06T05:45:21.945Z"
+  }
+]
