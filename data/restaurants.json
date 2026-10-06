@@ -1,1 +1,19 @@
-[]
+[
+  {
+    "id": "rest_1791264059294_4jxslv",
+    "userId": "user_exp_test_1791264059292",
+    "slug": "mi-local",
+    "subscription": {
+      "status": "trialing",
+      "trialEndsAt": "2026-10-06T04:20:59.292Z",
+      "plan": "pro_monthly"
+    },
+    "createdAt": "2026-10-06T05:20:59.294Z",
+    "name": "Restaurante Expirado Test",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  }
+]

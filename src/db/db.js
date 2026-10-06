@@ -33,6 +33,22 @@ function writeJson(file, data) {
   }
 }
 
+function hasMeaningfulRecords(rows) {
+  return Array.isArray(rows) && rows.some(row => row && typeof row === 'object' && Object.keys(row).length > 0);
+}
+
+function resolveHydrationData(cloudUsers, localUsers, cloudRestaurants, localRestaurants) {
+  const resolvedUsers = hasMeaningfulRecords(cloudUsers) || !hasMeaningfulRecords(localUsers)
+    ? (Array.isArray(cloudUsers) ? cloudUsers : [])
+    : (Array.isArray(localUsers) ? localUsers : []);
+
+  const resolvedRestaurants = hasMeaningfulRecords(cloudRestaurants) || !hasMeaningfulRecords(localRestaurants)
+    ? (Array.isArray(cloudRestaurants) ? cloudRestaurants : [])
+    : (Array.isArray(localRestaurants) ? localRestaurants : []);
+
+  return { users: resolvedUsers, restaurants: resolvedRestaurants };
+}
+
 function normalizeBusinessType(value) {
   const aliases = {
     restaurante: 'restaurant',
@@ -182,7 +198,18 @@ if (process.env.SUPABASE_URL && supabaseKey) {
           };
         }).map(normalizeRestaurantBusinessType);
 
-        if (!writeJson(USERS_FILE, cloudUsers) || !writeJson(RESTAURANTS_FILE, cloudRestaurants)) {
+        const localUsers = readJson(USERS_FILE, []);
+        const localRestaurants = readJson(RESTAURANTS_FILE, []);
+        const hydrated = resolveHydrationData(cloudUsers, localUsers, cloudRestaurants, localRestaurants);
+
+        if (cloudUsers.length === 0 && localUsers.length > 0) {
+          console.warn('[DB] Snapshot de Supabase vacío para usuarios; conservando datos locales válidos.');
+        }
+        if (cloudRestaurants.length === 0 && localRestaurants.length > 0) {
+          console.warn('[DB] Snapshot de Supabase vacío para restaurantes; conservando datos locales válidos.');
+        }
+
+        if (!writeJson(USERS_FILE, hydrated.users) || !writeJson(RESTAURANTS_FILE, hydrated.restaurants)) {
           throw new Error('No se pudo hidratar el snapshot local desde Supabase.');
         }
         return { ready: true, mode: 'supabase' };
@@ -677,6 +704,9 @@ const db = {
   findRestaurantBranch(restaurant, branchId) {
     const branches = this.getRestaurantBranches(restaurant);
     return branches.find(b => b.id === branchId) || null;
+  },
+  resolveHydrationData(cloudUsers, localUsers, cloudRestaurants, localRestaurants) {
+    return resolveHydrationData(cloudUsers, localUsers, cloudRestaurants, localRestaurants);
   }
 };
 

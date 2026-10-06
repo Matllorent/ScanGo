@@ -192,10 +192,28 @@ function testBillingTrial() {
   console.log('✓ Test 5 & 6: Expiración automática de período de prueba (Free Trial) validada');
 }
 
+function testHydrationGuard() {
+  const db = require('../src/db/db');
+
+  const protectedUsers = [{ id: 'u_local_1', email: 'owner@local.test' }];
+  const protectedRestaurants = [{ id: 'r_local_1', userId: 'u_local_1', slug: 'local-test', name: 'Local Test' }];
+
+  const guardedEmptyCloud = db.resolveHydrationData([], protectedUsers, [], protectedRestaurants);
+  assert.deepStrictEqual(guardedEmptyCloud.users, protectedUsers, 'Debe conservar el snapshot local cuando Supabase devuelve usuarios vacíos');
+  assert.deepStrictEqual(guardedEmptyCloud.restaurants, protectedRestaurants, 'Debe conservar el snapshot local cuando Supabase devuelve restaurantes vacíos');
+
+  const cloudOnly = db.resolveHydrationData([{ id: 'u_cloud_1' }], [], [{ id: 'r_cloud_1' }], []);
+  assert.strictEqual(cloudOnly.users.length, 1, 'Debe aceptar un snapshot cloud no vacío');
+  assert.strictEqual(cloudOnly.restaurants.length, 1, 'Debe aceptar un snapshot cloud de restaurantes no vacío');
+
+  console.log('✓ Test 7: guard de hidratación local/cloud para preservar datos válidos');
+}
+
 async function run() {
   await testStorage();
   testTotp();
   testBillingTrial();
+  testHydrationGuard();
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE LAS 7 MEJORAS PASARON AL 100%!');
 }
 

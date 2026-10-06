@@ -1,5 +1,5 @@
 // ScanGo Service Worker — Offline Resilience & PWA Caching
-const CACHE_NAME = 'scango-cache-v3';
+const CACHE_NAME = 'scango-cache-v4';
 const STATIC_ASSETS = [
   '/',
   '/menu.html',
@@ -12,6 +12,7 @@ const STATIC_ASSETS = [
   '/css/index.css',
   '/css/menu.css',
   '/css/studio.css',
+  '/js/index.js',
   '/js/pwa.js',
   '/js/menu.js',
   '/js/menu-modules.js',
