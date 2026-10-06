@@ -90,7 +90,12 @@ app.use(async (req, res, next) => {
 
 app.use((req, res, next) => {
   const originalJson = res.json.bind(res);
-  res.json = (...args) => db.flushCloudWrites().then(() => originalJson(...args));
+  res.json = (...args) => db.flushCloudWrites()
+    .then(() => originalJson(...args))
+    .catch(err => {
+      console.error('[res.json] flushCloudWrites failed:', err.message);
+      originalJson(...args);
+    });
   next();
 });
 
@@ -823,11 +828,20 @@ app.post('/api/events/:slug/waiter-call', async (req, res, next) => {
     // Push a staff (Supabase Realtime channel: event_waiters_{slug})
     const supabase = getSupabaseClient();
     if (supabase) {
+      let channel;
       try {
-        await supabase.channel(`event_waiters_${slug}`)
-          .send({ type: 'broadcast', event: 'waiter_call', payload: callData });
+        channel = supabase.channel(`event_waiters_${slug}`);
+        await channel.send({ type: 'broadcast', event: 'waiter_call', payload: callData });
       } catch (e) {
         console.warn('[Event Waiter Push]', e.message);
+      } finally {
+        if (channel) {
+          try {
+            await supabase.removeChannel(channel);
+          } catch (removeErr) {
+            console.warn('[Event Waiter Push] Failed to remove channel:', removeErr.message);
+          }
+        }
       }
     }
     
@@ -850,9 +864,10 @@ app.post('/api/events/:slug/waiter-call', async (req, res, next) => {
 app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
   const slug = (req.params.slug || '').toLowerCase();
   try {
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('DB_TIMEOUT_800MS')), 800)
-    );
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error('DB_TIMEOUT_800MS')), 800);
+    });
 
     const fetchPromise = getCachedMenu(slug, async () => {
       const restaurant = db.findRestaurantBySlug(slug);
@@ -1052,6 +1067,8 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
         }
       }
       data = await fetchPromise;
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     if (!data) {
