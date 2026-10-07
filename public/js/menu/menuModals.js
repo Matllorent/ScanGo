@@ -18,6 +18,35 @@ export function openWifiModal() {
 }
 
 /**
+ * Initializes global modal dismissal: ESC key + backdrop click
+ * closes the topmost active .modal-overlay (a11y + mobile UX polish).
+ */
+export function initGlobalModalDismiss() {
+  if (typeof document === 'undefined' || window.__modalDismissInit) return;
+  window.__modalDismissInit = true;
+
+  const getActiveOverlays = () =>
+    [...document.querySelectorAll('.modal-overlay.active')];
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const overlays = getActiveOverlays();
+    const top = overlays[overlays.length - 1];
+    if (top) {
+      top.classList.remove('active');
+      top.setAttribute('aria-hidden', 'true');
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target.classList && e.target.classList.contains('modal-overlay') && e.target.classList.contains('active')) {
+      e.target.classList.remove('active');
+      e.target.setAttribute('aria-hidden', 'true');
+    }
+  });
+}
+
+/**
  * Closes Wi-Fi connection modal
  */
 export function closeWifiModal() {

@@ -29,6 +29,7 @@ import {
   closeRestaurantInfoModal as closeRestaurantInfoModalMod,
   shareRestaurantUrl as shareRestaurantUrlMod,
   resolveEventTheme,
+  initGlobalModalDismiss as initGlobalModalDismissMod,
   openReservationModal as openReservationModalMod,
   closeReservationModal as closeReservationModalMod,
   submitReservation as submitReservationMod
@@ -227,8 +228,13 @@ Object.defineProperties(window, {
       document.getElementById('restaurantSlogan').textContent = restaurantData.slogan || 'Carta Gastronómica';
 
       // Apply Layout Morphology & 14 Authentic Classic Themes & Fonts to body
-      const validLayouts = ['bento', 'minimalist', 'neon'];
-      const layoutClass = validLayouts.includes(restaurantData.layout) ? `layout-${restaurantData.layout}` : 'layout-classic';
+      const validLayouts = ['classic', 'bento', 'minimalist', 'neon'];
+      const morphParam = new URLSearchParams(window.location.search).get('morph');
+      let layout = restaurantData.layout;
+      if (morphParam && validLayouts.includes(morphParam)) {
+        layout = morphParam;
+      }
+      const layoutClass = validLayouts.includes(layout) ? `layout-${layout}` : 'layout-classic';
       const validThemes = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football'];
       const themeClass = validThemes.includes(restaurantData.theme) ? `theme-${restaurantData.theme}` : 'theme-emerald';
       document.body.className = `${themeClass} font-${restaurantData.themeFont || 'serif'} ${layoutClass}`;
@@ -2549,8 +2555,10 @@ Object.defineProperties(window, {
       window.addEventListener('DOMContentLoaded', () => {
         loadMenu();
         initPushPrompt();
+        initGlobalModalDismissMod();
       });
     } else {
       loadMenu();
       initPushPrompt();
+      initGlobalModalDismissMod();
     }

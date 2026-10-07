@@ -118,8 +118,13 @@ async function parseMenuWithGemini(images) {
     ].filter(Boolean).join(' ');
 
     const hasTemporaryIssue = /UNAVAILABLE|RESOURCE_EXHAUSTED|quota|RATE_LIMIT|429|503|high demand|temporarily|too many requests|capacity|overloaded/i.test(errText);
-    if (hasTemporaryIssue) {
-      console.warn(`[GEMINI-MENU-PARSER] Gemini temporarily unavailable (${reason}). Returning demo fallback menu.`);
+    const isUnprocessableImage = /400|INVALID_ARGUMENT|Unable to process input image|bad image|cannot process|unsupported image/i.test(errText);
+    if (hasTemporaryIssue || isUnprocessableImage) {
+      if (isUnprocessableImage) {
+        console.warn(`[GEMINI-MENU-PARSER] Image not readable by Gemini (${reason}). Falling back to demo menu. Tip: use JPG/PDF with good lighting.`);
+      } else {
+        console.warn(`[GEMINI-MENU-PARSER] Gemini temporarily unavailable (${reason}). Returning demo fallback menu.`);
+      }
       return getFallbackDemoMenu();
     }
     return null;
