@@ -196,6 +196,45 @@ async function runMenuComponentizationTests() {
   assert.ok(!/^[\t ]*toggleGroupConsolidatedView,$/m.test(menuMainSrc), 'menu.js no debe exponer como local una función registrada solo en window');
   console.log('✓ Enlace de todos los módulos en menu-modules.js verificado');
 
+  // 9. Regression: todo handler inline (menu.html + HTML generado por menu.js)
+  //    debe ser alcanzable desde window, si no los botones lanzan ReferenceError.
+  const menuHtmlSrc = fs.readFileSync(path.join(__dirname, '../public/menu.html'), 'utf8');
+  const assignMatch = menuMainSrc.match(/Object\.assign\(window,\s*\{([\s\S]*?)\}\);/);
+  assert.ok(assignMatch, 'menu.js debe exponer funciones interactivas con Object.assign(window, {...})');
+
+  const exposed = new Set(
+    [...assignMatch[1].matchAll(/^\s*([A-Za-z_$][\w$]*)\s*,?\s*(?:\/\/.*)?$/gm)].map(m => m[1])
+  );
+  for (const m of menuModulesSrc.matchAll(/window\.([A-Za-z_$][\w$]*)\s*=/g)) exposed.add(m[1]);
+
+  const JS_KEYWORDS = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'typeof', 'new', 'void', 'delete', 'do', 'else', 'try', 'function']);
+  const collectInlineHandlers = (src) => {
+    const names = new Set();
+    const withoutInterpolations = src.replace(/\$\{[\s\S]*?\}/g, '');
+    for (const attr of withoutInterpolations.matchAll(/\son(?:click|change|input|submit)="([^"]*)"/g)) {
+      for (const call of attr[1].matchAll(/(?<![.$\w])[A-Za-z_$][\w$]*(?=\s*\()/g)) {
+        if (!JS_KEYWORDS.has(call[0])) names.add(call[0]);
+      }
+    }
+    return names;
+  };
+
+  const missing = [...new Set([...collectInlineHandlers(menuHtmlSrc), ...collectInlineHandlers(menuMainSrc)])]
+    .filter(name => !exposed.has(name));
+  assert.deepStrictEqual(
+    missing, [],
+    `Handlers inline sin exponer en window (dispararían ReferenceError al hacer clic): ${missing.join(', ')}`
+  );
+  console.log(`✓ ${exposed.size} funciones expuestas en window: handlers inline de menu.html y menu.js 100% resueltos`);
+
+  // 10. Puente window ↔ estado del módulo: menu-modules.js lee window.restaurantData
+  //     (GroupCartManager, wizards, i18n) y escribe window.cart; deben apuntar al estado real.
+  assert.ok(/restaurantData:\s*\{\s*get:/.test(menuMainSrc),
+    'menu.js debe exponer window.restaurantData vía getter (lo consume menu-modules.js)');
+  assert.ok(/cart:\s*\{\s*get:[\s\S]*?set:/.test(menuMainSrc),
+    'menu.js debe exponer window.cart con getter y setter (los wizards escriben en el carrito real)');
+  console.log('✓ Puente window.restaurantData / window.cart definido en menu.js');
+
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE COMPONENTIZACIÓN DE MENU PASARON AL 100%!');
 }
 

@@ -783,7 +783,7 @@ app.post('/api/admin/restaurant/:id/status', adminMiddleware, async (req, res) =
     }
   }
 
-  const updated = db.setRestaurantStatus(req.params.id, status);
+  const updated = await db.setRestaurantStatus(req.params.id, status);
   if (!updated) return res.status(404).json({ error: 'Restaurante no encontrado' });
   res.json({ success: true, restaurant: updated });
 });
@@ -814,7 +814,7 @@ app.post('/api/admin/restaurant/:id/remove-trial', adminMiddleware, async (req, 
       }
     }
 
-    db.updateSubscription(id, updatedSub);
+    await db.updateSubscription(id, updatedSub);
     res.json({ success: true, message: 'Prueba gratuita revocada exitosamente', subscription: updatedSub });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -855,7 +855,7 @@ app.post('/api/admin/invite-restaurant', adminMiddleware, async (req, res, next)
     }
 
     // Create user in local DB
-    const user = db.createUser({
+    const user = await db.createUser({
       ...(sbUserId ? { id: sbUserId } : {}),
       email: rawEmail,
       name,
@@ -865,7 +865,7 @@ app.post('/api/admin/invite-restaurant', adminMiddleware, async (req, res, next)
     const finalBizName = req.body.restaurantName || req.body.bizName || name;
     const cleanSlug = rawSlug.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30);
 
-    const restaurant = db.saveRestaurant(user.id, {
+    const restaurant = await db.saveRestaurant(user.id, {
       name: finalBizName,
       bizName: finalBizName,
       slug: cleanSlug,
@@ -902,13 +902,13 @@ app.post('/api/admin/invite-restaurant', adminMiddleware, async (req, res, next)
 });
 
 // ==================== ANALYTICS ROUTES ====================
-app.post('/api/public/analytics/event', publicAnalyticsLimiter, (req, res) => {
+app.post('/api/public/analytics/event', publicAnalyticsLimiter, async (req, res) => {
   try {
     const { slug, event } = req.body;
     if (!slug || !event) return res.status(400).json({ error: 'slug y event requeridos' });
     const validEvents = ['visit', 'order', 'reservation', 'waiter'];
     if (!validEvents.includes(event)) return res.status(400).json({ error: 'Evento inválido' });
-    const analytics = db.recordAnalyticsEvent(slug, event);
+    const analytics = await db.recordAnalyticsEvent(slug, event);
     if (!analytics) return res.status(404).json({ error: 'Restaurante no encontrado' });
     res.json({ success: true, analytics });
   } catch (e) {
@@ -929,13 +929,13 @@ app.get('/api/analytics/:slug', authMiddleware, (req, res) => {
 });
 
 // ==================== REVIEWS ROUTES ====================
-app.post('/api/reviews', authMiddleware, (req, res) => {
+app.post('/api/reviews', authMiddleware, async (req, res) => {
   try {
     const { rating, comment, authorRole } = req.body;
     if (!rating || !comment) return res.status(400).json({ error: 'Calificación y comentario requeridos' });
     const restaurant = db.findRestaurantByUserId(req.user.userId);
     if (!restaurant) return res.status(404).json({ error: 'Restaurante no encontrado' });
-    const review = db.addReview({
+    const review = await db.addReview({
       restaurantId: restaurant.id,
       restaurantName: restaurant.name,
       userId: req.user.userId,
@@ -968,13 +968,13 @@ app.get('/api/admin/reviews', adminMiddleware, (req, res) => {
   }
 });
 
-app.post('/api/admin/reviews/:id/moderate', adminMiddleware, (req, res) => {
+app.post('/api/admin/reviews/:id/moderate', adminMiddleware, async (req, res) => {
   try {
     const { status } = req.body;
     if (!['approved', 'rejected'].includes(status)) {
       return res.status(400).json({ error: 'Estado debe ser approved o rejected' });
     }
-    const review = db.updateReviewStatus(req.params.id, status);
+    const review = await db.updateReviewStatus(req.params.id, status);
     if (!review) return res.status(404).json({ error: 'Reseña no encontrada' });
     res.json({ success: true, review });
   } catch (e) {
@@ -992,7 +992,7 @@ app.get('/api/settings/pricing', (req, res) => {
   }
 });
 
-app.post('/api/admin/settings/pricing', adminMiddleware, (req, res) => {
+app.post('/api/admin/settings/pricing', adminMiddleware, async (req, res) => {
   try {
     const {
       monthlyPrice,
@@ -1011,7 +1011,7 @@ app.post('/api/admin/settings/pricing', adminMiddleware, (req, res) => {
     if (promoDiscountPercent !== undefined) payload.promoDiscountPercent = Number(promoDiscountPercent);
     if (promoBannerText !== undefined) payload.promoBannerText = String(promoBannerText).trim();
 
-    const updated = db.updateSettings(payload);
+    const updated = await db.updateSettings(payload);
     res.json({ success: true, settings: updated });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });

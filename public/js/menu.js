@@ -1,3 +1,4 @@
+import { escapeHtml } from '/js/utils/escapeHtmlBrowser.js';
 import {
   openSmartReviewModal as openSmartReviewModalMod,
   closeSmartReviewModal as closeSmartReviewModalMod,
@@ -41,6 +42,18 @@ let pendingDishNoteAction = null;
 let deliveryFee = 0;
 let appliedCoupon = null; // { code: 'PROMO10', type: 'percent', value: 10 }
 let discountAmount = 0;
+
+// Puente window ↔ estado del módulo: menu-modules.js y componentes (wizards, GroupCartManager)
+// leen/escriben window.restaurantData y window.cart, pero el estado real vive en este módulo.
+// Sin este puente recibían undefined/{} y los canales Realtime caían al slug 'default'.
+Object.defineProperties(window, {
+  restaurantData: { get: () => restaurantData, configurable: true },
+  cart: {
+    get: () => cart,
+    set: (value) => { cart = value; },
+    configurable: true
+  }
+});
 
     // XSS Sanitizer Helper
     
@@ -2519,7 +2532,16 @@ let discountAmount = 0;
       isMozoVirtualEnabled,
       handleMozoVirtualToggle,
       quickAddUpsellItem,
-      renderUpsellSuggestions
+      renderUpsellSuggestions,
+      // Inline handlers generados por JS (carrito y modificadores):
+      changeCartQty,
+      editCartItemNote,
+      adjustChoiceQuantity,
+      updateModifierSplitTotals,
+      // Contratos que consume menu-modules.js vía window:
+      renderDishes,
+      updateCartUI,
+      updateTotals
     });
 
     // Init

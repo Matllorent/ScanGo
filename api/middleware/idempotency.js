@@ -67,7 +67,11 @@ async function idempotencyMiddleware(req, res, next) {
         expiresAt: Date.now() + 24 * 3600 * 1000 // 24 hours TTL
       });
 
-      db.markWebhookProcessed(provider, cleanKey, 'idempotent_operation', req.body);
+      // Persistencia del marcador de idempotencia: el interceptor de res.json es
+      // síncrono, así que solo se puede lanzar en background con catch explícito
+      // (un rejection sin catch tumbaría el proceso durante un webhook de pago).
+      db.markWebhookProcessed(provider, cleanKey, 'idempotent_operation', req.body)
+        .catch((e) => console.warn('[Idempotency] markWebhookProcessed failed:', e.message));
     }
     return originalJson(body);
   };

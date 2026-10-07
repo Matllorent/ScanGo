@@ -1,4 +1,4 @@
-import { escapeHtml } from '/js/utils/escapeHtml.js';
+import { escapeHtml } from '/js/utils/escapeHtmlBrowser.js';
 /**
  * LoyaltyRewardsModal.js
  * Tarjeta y modal interactivo de fidelización de clientes ("Club Puntos & Recompensas ScanGo").

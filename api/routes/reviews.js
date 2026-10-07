@@ -81,7 +81,7 @@ router.post('/', requireVerifiedEmail, validateBody(createReviewSchema), require
       created_at: utcNow
     };
 
-    db.addReview(newReview);
+    await db.addReview(newReview);
 
     const supabase = getSupabaseClient();
     if (supabase) {
@@ -198,7 +198,7 @@ router.get('/admin', adminMiddleware, async (req, res, next) => {
 router.patch('/admin/:id/approve', adminMiddleware, async (req, res, next) => {
   try {
     const reviewId = req.params.id;
-    const updatedLocal = db.updateReviewStatus(reviewId, 'approved');
+    const updatedLocal = await db.updateReviewStatus(reviewId, 'approved');
 
     const supabase = getSupabaseClient();
     if (supabase) {
@@ -252,7 +252,7 @@ router.post('/feedback', validateBody(feedbackSchema), async (req, res, next) =>
       customerContact: customerContact ? String(customerContact).slice(0, 100) : ''
     };
 
-    const saved = db.addFeedback(feedbackRecord);
+    const saved = await db.addFeedback(feedbackRecord);
 
     const supabase = getSupabaseClient();
     if (supabase) {

@@ -72,27 +72,31 @@ console.log('Quick Wins 1-3 done. Now fixing escapeHtml imports...');
 
 // QUICK WIN 4 & 5: Replace inline escapeHtml with import from utils
 const filesToFix = [
-  { path: path.join(__dirname, 'public', 'js', 'menu.js'), importLine: "import { escapeHtml } from '/js/utils/escapeHtml.js';" },
-  { path: path.join(__dirname, 'public', 'js', 'studio.js'), importLine: "import { escapeHtml } from '/js/utils/escapeHtml.js';" },
-  { path: path.join(__dirname, 'public', 'js', 'components', 'GroupCartManager.js'), importLine: "import { escapeHtml } from '/js/utils/escapeHtml.js';" },
-  { path: path.join(__dirname, 'public', 'js', 'components', 'VirtualWaiter.js'), importLine: "import { escapeHtml } from '/js/utils/escapeHtml.js';" },
-  { path: path.join(__dirname, 'public', 'js', 'components', 'LoyaltyRewardsModal.js'), importLine: "import { escapeHtml } from '/js/utils/escapeHtml.js';" }
+  { path: path.join(__dirname, 'public', 'js', 'menu.js'), importLine: "import { escapeHtml } from '/js/utils/escapeHtmlBrowser.js';" },
+  { path: path.join(__dirname, 'public', 'js', 'studio.js'), importLine: "import { escapeHtml } from '/js/utils/escapeHtmlBrowser.js';" },
+  { path: path.join(__dirname, 'public', 'js', 'components', 'GroupCartManager.js'), importLine: "import { escapeHtml } from '/js/utils/escapeHtmlBrowser.js';" },
+  { path: path.join(__dirname, 'public', 'js', 'components', 'VirtualWaiter.js'), importLine: "import { escapeHtml } from '/js/utils/escapeHtmlBrowser.js';" },
+  { path: path.join(__dirname, 'public', 'js', 'components', 'LoyaltyRewardsModal.js'), importLine: "import { escapeHtml } from '/js/utils/escapeHtmlBrowser.js';" }
 ];
 
 for (const file of filesToFix) {
   if (fs.existsSync(file.path)) {
     let content = fs.readFileSync(file.path, 'utf8');
-    if (!content.includes("from '/js/utils/escapeHtml.js'")) {
+    // Guard: import del módulo ESM browser-safe (NUNCA /js/utils/escapeHtml.js, que es CJS
+    // backend y rompe en navegador con "module is not defined")
+    if (!content.includes("from '/js/utils/escapeHtmlBrowser.js'")) {
       // Add import at the top after existing imports or at the very top
       if (content.startsWith('import ') || content.includes('\nimport ')) {
         content = content.replace(/((?:import .*?;\n)+)/, '$1' + file.importLine + '\n');
       } else {
         content = file.importLine + '\n' + content;
       }
-      // Remove inline escapeHtml function (various patterns)
-      content = content.replace(/function escapeHtml\(str\) \{[\s\S]*?return String\(str\)[\s\S]*?\}/g, '');
-      content = content.replace(/escapeHtml\(str\) \{[\s\S]*?return String\(str\)[\s\S]*?\}/g, '');
-      content = content.replace(/const escapeHtml = \(str\) => \{[\s\S]*?\};/g, '');
+      // Remove inline escapeHtml function (various patterns).
+      // El prefijo (?:export\s+)? es crítico: sin él, "export function escapeHtml..."
+      // dejaba un "export" huérfano → SyntaxError → rompía el módulo entero (studio.js).
+      content = content.replace(/(?:export\s+)?function escapeHtml\(str\) \{[\s\S]*?return String\(str\)[\s\S]*?\}/g, '');
+      content = content.replace(/(?:export\s+)?escapeHtml\(str\) \{[\s\S]*?return String\(str\)[\s\S]*?\}/g, '');
+      content = content.replace(/(?:export\s+)?const escapeHtml = \(str\) => \{[\s\S]*?\};/g, '');
       fs.writeFileSync(file.path, content);
       console.log(`✅ ${path.basename(file.path)}: import added, inline removed`);
     } else {

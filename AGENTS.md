@@ -8,7 +8,7 @@ SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. 
 ```bash
 npm run dev          # Desarrollo con nodemon (puerto 3000)
 npm start            # Producción (node api/index.js)
-npm test             # Suite completa (11 tests en secuencia, 100% verde)
+npm test             # Suite completa (19 tests en secuencia, 100% verde)
 npm run test:billing # Test individual de pasarelas de pago
 npm run mobile:sync  # npx cap sync (sincroniza Capacitor)
 npm run mobile:build # npx cap copy android (copia web a Android)
@@ -77,10 +77,10 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** — crean restaurantes/usuarios reales en el store local. **No son aislados**.
 - `tests/test-e2e.js` existe pero **NO está incluido en `npm test`**
-- Suite completa (`npm test`) ejecuta 16 tests en secuencia — **todos deben pasar (16/16)**
+- Suite completa (`npm test`) ejecuta 19 tests en secuencia — **todos deben pasar (19/19)**
 - Para debug rápido: `node tests/test-billing.js` (o el test específico)
 
-### Tests Disponibles (13 suites)
+### Tests Disponibles (19 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
@@ -100,6 +100,9 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-menu-seo.js` | SSR, metadatos y JSON-LD por restaurante |
 | `test-google-auth.js` | GIS, callback OAuth y configuración backend |
 | `test-security-endpoints.js` | Auth/tenant, límites, cron/readiness y QR capability |
+| `test-db-await-integrity.js` | Integridad `await` en llamadas a métodos async de `db` (regresión 47ea3f7) |
+| `test-frontend-esm-syntax.js` | Todos los JS de `public/js/` parsean como ES Module (regresión codemod quick-wins) |
+| `test-frontend-structure.js` | `<div>` balanceados, modales a nivel body en 3 HTML + orden close→assign→open del import IA |
 
 ## Configuración (`.env`)
 

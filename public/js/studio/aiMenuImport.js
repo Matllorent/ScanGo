@@ -288,10 +288,13 @@ export async function runAiMenuAnalysis() {
       throw new Error(data.error || 'No se pudo procesar la carta con IA');
     }
 
+    // Cerrar ANTES de asignar: closeAiMenuImportModal() ejecuta resetAiImportState(),
+    // que pone parsedResult = null. Si se cerraba después de asignar, el preview
+    // recibía null y explotaba con "reading 'isDemoFallback'" (rompía el import IA).
+    closeAiMenuImportModal();
+
     parsedResult = data.data || data;
 
-    // Close import modal and open preview modal
-    closeAiMenuImportModal();
     openAiMenuPreviewModal(parsedResult);
   } catch (err) {
     console.error('[AI-IMPORT-ERROR]', err);

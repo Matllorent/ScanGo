@@ -185,7 +185,7 @@ const billingOrchestrator = {
     // 4. Update restaurant subscription in DB
     if (parsed.restaurantId) {
       let graceDays = 7;
-      db.updateSubscription(parsed.restaurantId, {
+      await db.updateSubscription(parsed.restaurantId, {
         status: parsed.status,
         provider: providerName,
         currentPeriodEnd: parsed.renewsAt,
@@ -240,8 +240,9 @@ const billingOrchestrator = {
       }
     }
 
-    // 5. Mark webhook as processed
-    db.markWebhookProcessed(providerName, parsed.eventId, parsed.eventName, parsed);
+    // 5. Mark webhook as processed (await: el 200 al proveedor solo debe volver
+    //    cuando el marcador de idempotencia está persistido en DB)
+    await db.markWebhookProcessed(providerName, parsed.eventId, parsed.eventName, parsed);
 
     return { success: true, eventId: parsed.eventId, status: parsed.status };
   },

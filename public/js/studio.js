@@ -10,6 +10,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
+import { escapeHtml } from '/js/utils/escapeHtmlBrowser.js';
 import { state } from './studio/state.js';
 import { PLANS } from './studio/data/plans.js';
 import { PRESETS } from './studio/data/presetsData.js';
@@ -210,9 +211,6 @@ let restaurant = null;
 let autoSaveTimeout = null;
 let selectedReviewPhotoOption = 'logo';
 let uploadedReviewPhotoUrl = null;
-
-// Strict XSS Sanitizer Helper
-export 
 
 export function normalizeBusinessType(value) {
   if (value === 'perfumeria') return 'perfumery';

@@ -136,11 +136,11 @@
     "smartWeatherEnabled": true,
     "allowIceCreamWizard": false,
     "analytics": {
-      "visits": 1251,
+      "visits": 1260,
       "orders": 89,
       "reservations": 23,
       "waiterCalls": 12,
-      "lastUpdated": "2026-10-06T23:29:08.733Z"
+      "lastUpdated": "2026-10-07T05:07:00.879Z"
     },
     "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&h=400&fit=crop",
     "layout": "bento",
@@ -338,33 +338,81 @@
       "gracePeriodDaysRemaining": 7
     },
     "createdAt": "2026-10-06T23:29:51.442Z",
-    "name": "Schema Bistro",
-    "bizName": "Schema Bistro",
-    "slogan": "Cocina & pastas",
-    "currency": "UYU",
-    "phone": "+59899123456",
+    "name": "La Parrilla QA",
+    "bizName": "La Parrilla QA",
+    "slogan": "Especialidad, masas artesanales y cocina de autor",
+    "currency": "$",
+    "phone": "59899123456",
     "city": "Montevideo",
     "bannerUrl": "https://example.com/schema-bistro.jpg",
     "categories": [
       {
-        "id": "cat-main",
-        "name": "Platos principales"
+        "id": "cat_hamburguesas",
+        "name": "Burgers Artesanales"
+      },
+      {
+        "id": "cat_milanesas",
+        "name": "Milanesas de la Casa"
+      },
+      {
+        "id": "cat_postres",
+        "name": "Postres Rioplatenses"
+      },
+      {
+        "id": "cat_bebidas",
+        "name": "Bebidas & Cafetería"
       }
     ],
     "dishes": [
       {
-        "id": "dish-pasta",
-        "categoryId": "cat-main",
-        "name": "Pasta fresca",
-        "description": "Salsa casera </script><script>alert(\"x\")</script>",
-        "price": 420
+        "id": "d_1",
+        "categoryId": "cat_hamburguesas",
+        "name": "Burger Criolla de Entraña",
+        "price": 490,
+        "description": "Pan brioche, provoleta fundida y chimichurri",
+        "tags": [
+          "star"
+        ]
+      },
+      {
+        "id": "d_2",
+        "categoryId": "cat_milanesas",
+        "name": "Milanesa Napolitana Clásica",
+        "price": 540,
+        "description": "Lomo empanado, salsa casera, jamón y muzzarella",
+        "tags": []
+      },
+      {
+        "id": "d_3",
+        "categoryId": "cat_postres",
+        "name": "Flan Casero con Dulce de Leche",
+        "price": 260,
+        "description": "Receta tradicional con crema batida",
+        "tags": [
+          "star"
+        ]
+      },
+      {
+        "id": "d_4",
+        "categoryId": "cat_bebidas",
+        "name": "Flat White Cremoso",
+        "price": 190,
+        "description": "Café de especialidad con leche texturizada",
+        "tags": [
+          "veggie"
+        ]
       }
     ],
     "smartWeatherEnabled": false,
     "allowIceCreamWizard": false,
     "allowPerfumery": false,
     "businessType": "restaurant",
-    "updatedAt": "2026-10-07T00:08:38.526Z"
+    "updatedAt": "2026-10-07T04:29:34.619Z",
+    "theme": "emerald",
+    "wifi": {
+      "ssid": "Restaurante_Clientes",
+      "password": "pizarronrico"
+    }
   },
   {
     "id": "rest_1791329394248_k3ydia",
@@ -965,5 +1013,479 @@
       "waiterCalls": 0,
       "lastUpdated": "2026-10-07T00:11:08.838Z"
     }
+  },
+  {
+    "id": "rest_1791344534580_gr1tbv",
+    "userId": "usr_1791344534572_opccjc",
+    "slug": "esquina-gourmet",
+    "subscription": {
+      "status": "past_due",
+      "plan": "pro_monthly",
+      "provider": "lemonsqueezy",
+      "trialEndsAt": "2026-10-14T03:42:14.581Z",
+      "currentPeriodEnd": "2026-10-07T03:42:14.657Z",
+      "gracePeriodDaysRemaining": 7,
+      "lastPaymentError": "Falló el cobro automático de la tarjeta",
+      "updatedAt": "2026-10-07T03:42:14.662Z"
+    },
+    "createdAt": "2026-10-07T03:42:14.581Z",
+    "bizName": "La Esquina Gourmet",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "branches": [],
+    "updatedAt": "2026-10-07T03:42:14.689Z"
+  },
+  {
+    "id": "rest_1791344538037_0pv4cm",
+    "userId": "user_exp_test_1791344538030",
+    "slug": "mi-local",
+    "subscription": {
+      "status": "trialing",
+      "trialEndsAt": "2026-10-07T02:42:18.030Z",
+      "plan": "pro_monthly"
+    },
+    "createdAt": "2026-10-07T03:42:18.038Z",
+    "name": "Restaurante Expirado Test",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1791344538552_bjb9t0",
+    "userId": "usr_1791344538546_5iwq5n",
+    "slug": "vanguardia-test-1791344538550",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-14T03:42:18.552Z",
+      "currentPeriodEnd": "2026-10-14T03:42:18.552Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-07T03:42:18.552Z",
+    "bizName": "Restaurante Vanguardia Test",
+    "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+    "businessType": "events",
+    "layout": "bento",
+    "theme": "emerald",
+    "font": "sans",
+    "categories": [],
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false
+  },
+  {
+    "id": "rest_1791344538563_kje3uv",
+    "userId": "usr_1791344538559_373lz4",
+    "slug": "perfil-predeterminado",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-14T03:42:18.563Z",
+      "currentPeriodEnd": "2026-10-14T03:42:18.563Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-07T03:42:18.563Z",
+    "bizName": "Perfil Predeterminado",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1791348053166_0ys91i",
+    "userId": "usr_1791348053159_ez6bcp",
+    "slug": "el-barril-qa",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-14T04:40:53.166Z",
+      "currentPeriodEnd": "2026-10-14T04:40:53.166Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-07T04:40:53.166Z",
+    "name": "El Barril QA",
+    "bizName": "El Barril QA",
+    "slogan": "Especialidad, masas artesanales y cocina de autor",
+    "currency": "$",
+    "phone": "59899123456",
+    "theme": "rustic",
+    "businessType": "restaurant",
+    "allowPerfumery": false,
+    "wifi": {
+      "ssid": "Restaurante_Clientes",
+      "password": "pizarronrico"
+    },
+    "categories": [
+      {
+        "id": "cat_hamburguesas",
+        "name": "Burgers Artesanales"
+      },
+      {
+        "id": "cat_milanesas",
+        "name": "Milanesas de la Casa"
+      },
+      {
+        "id": "cat_postres",
+        "name": "Postres Rioplatenses"
+      },
+      {
+        "id": "cat_bebidas",
+        "name": "Bebidas & Cafetería"
+      },
+      {
+        "id": "cat_1791349700210_gebjp",
+        "name": "Entradas & Tapas"
+      },
+      {
+        "id": "cat_1791349700210_bs6gm",
+        "name": "Platos Principales"
+      }
+    ],
+    "dishes": [
+      {
+        "id": "d_1",
+        "categoryId": "cat_hamburguesas",
+        "name": "Burger Criolla de Entraña",
+        "price": 490,
+        "originalPrice": null,
+        "description": "Pan brioche, provoleta fundida y chimichurri",
+        "photoUrl": "",
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "weatherTags": [],
+        "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
+        "kid_friendly": false,
+        "allergens": [],
+        "tags": [
+          "star"
+        ]
+      },
+      {
+        "id": "d_2",
+        "categoryId": "cat_milanesas",
+        "name": "Milanesa Napolitana Clásica",
+        "price": 540,
+        "originalPrice": null,
+        "description": "Lomo empanado, salsa casera, jamón y muzzarella",
+        "photoUrl": "",
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "weatherTags": [],
+        "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
+        "kid_friendly": false,
+        "allergens": [],
+        "tags": []
+      },
+      {
+        "id": "d_3",
+        "categoryId": "cat_postres",
+        "name": "Flan Casero con Dulce de Leche",
+        "price": 260,
+        "originalPrice": null,
+        "description": "Receta tradicional con crema batida",
+        "photoUrl": "",
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "weatherTags": [],
+        "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
+        "kid_friendly": false,
+        "allergens": [],
+        "tags": [
+          "star"
+        ]
+      },
+      {
+        "id": "d_4",
+        "categoryId": "cat_bebidas",
+        "name": "Flat White Cremoso",
+        "price": 190,
+        "originalPrice": null,
+        "description": "Café de especialidad con leche texturizada",
+        "photoUrl": "",
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "weatherTags": [],
+        "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
+        "kid_friendly": false,
+        "allergens": [],
+        "tags": [
+          "veggie"
+        ]
+      },
+      {
+        "id": "d_1791349700210_in3osc",
+        "categoryId": "cat_1791349700210_gebjp",
+        "name": "Empanada Criolla Cortada a Cuchillo",
+        "price": 350,
+        "originalPrice": null,
+        "description": "Carne vacuna seleccionada, cebolla de verdeo y huevo de campo",
+        "photoUrl": "",
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "weatherTags": [],
+        "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
+        "kid_friendly": false,
+        "allergens": [],
+        "tags": []
+      },
+      {
+        "id": "d_1791349700210_xw3p2c",
+        "categoryId": "cat_1791349700210_gebjp",
+        "name": "Provoleta a las Brasas con Orégano",
+        "price": 620,
+        "originalPrice": null,
+        "description": "Queso provolone fundido con aceite de oliva virgen extra y ají molido",
+        "photoUrl": "",
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "weatherTags": [],
+        "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
+        "kid_friendly": false,
+        "allergens": [],
+        "tags": []
+      },
+      {
+        "id": "d_1791349700210_hc9tcl",
+        "categoryId": "cat_1791349700210_bs6gm",
+        "name": "Bife de Chorizo Clásico (400g)",
+        "price": 1450,
+        "originalPrice": null,
+        "description": "Corte de novillo a punto con papas rústicas al romero",
+        "photoUrl": "",
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "weatherTags": [],
+        "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
+        "kid_friendly": false,
+        "allergens": [],
+        "tags": []
+      },
+      {
+        "id": "d_1791349700210_2z9v1g",
+        "categoryId": "cat_1791349700210_bs6gm",
+        "name": "Sorrentinos Caseros de Calabaza y Ricota",
+        "price": 980,
+        "originalPrice": null,
+        "description": "Con suave crema de salvia y nueces tostadas",
+        "photoUrl": "",
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "weatherTags": [],
+        "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
+        "kid_friendly": false,
+        "allergens": [],
+        "tags": []
+      },
+      {
+        "id": "d_1791349700210_bla6mp",
+        "categoryId": "cat_bebidas",
+        "name": "Cerveza IPA Artesanal (Pinta)",
+        "price": 420,
+        "originalPrice": null,
+        "description": "Notas cítricas y amargor equilibrado",
+        "photoUrl": "",
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "weatherTags": [],
+        "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
+        "kid_friendly": false,
+        "allergens": [],
+        "tags": []
+      },
+      {
+        "id": "d_1791349700210_g2cami",
+        "categoryId": "cat_bebidas",
+        "name": "Café Espresso Doble",
+        "price": 280,
+        "originalPrice": null,
+        "description": "Granos de especialidad tostado medio",
+        "photoUrl": "",
+        "outOfStock": false,
+        "isChefSpecial": false,
+        "weatherTags": [],
+        "schedule": null,
+        "modifierGroupIds": [],
+        "variants": [],
+        "proteinOptions": [],
+        "variantSelectionMode": "single",
+        "variantsRequired": false,
+        "kid_friendly": false,
+        "allergens": [],
+        "tags": []
+      }
+    ],
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "analytics": {
+      "visits": 3,
+      "orders": 0,
+      "reservations": 0,
+      "waiterCalls": 0,
+      "lastUpdated": "2026-10-07T05:08:22.005Z"
+    },
+    "allowLoyaltyPoints": false,
+    "instagram": "",
+    "googleReview": "",
+    "layout": "classic",
+    "themeFont": "serif",
+    "allowReservations": true,
+    "allowCoupons": true,
+    "allowBillSplitter": true,
+    "announcement": "",
+    "paymentLink": "",
+    "scheduleEnabled": false,
+    "scheduleActiveHours": "",
+    "tableCount": 10,
+    "eventDate": "",
+    "eventType": "",
+    "expiresAt": "",
+    "isEvent": false,
+    "eventCustomQR": "",
+    "modifierGroups": [],
+    "customCoupons": [],
+    "teamMembers": [],
+    "updatedAt": "2026-10-07T05:08:21.447Z"
+  },
+  {
+    "id": "rest_1791350021942_8ctptx",
+    "userId": "usr_1791350021933_9qoxhm",
+    "slug": "esquina-gourmet",
+    "subscription": {
+      "status": "past_due",
+      "plan": "pro_monthly",
+      "provider": "lemonsqueezy",
+      "trialEndsAt": "2026-10-14T05:13:41.942Z",
+      "currentPeriodEnd": "2026-10-07T05:13:42.022Z",
+      "gracePeriodDaysRemaining": 7,
+      "lastPaymentError": "Falló el cobro automático de la tarjeta",
+      "updatedAt": "2026-10-07T05:13:42.029Z"
+    },
+    "createdAt": "2026-10-07T05:13:41.942Z",
+    "bizName": "La Esquina Gourmet",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant",
+    "branches": [],
+    "updatedAt": "2026-10-07T05:13:42.060Z"
+  },
+  {
+    "id": "rest_1791350023651_f0yr6s",
+    "userId": "user_exp_test_1791350023648",
+    "slug": "mi-local",
+    "subscription": {
+      "status": "trialing",
+      "trialEndsAt": "2026-10-07T04:13:43.648Z",
+      "plan": "pro_monthly"
+    },
+    "createdAt": "2026-10-07T05:13:43.651Z",
+    "name": "Restaurante Expirado Test",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
+  },
+  {
+    "id": "rest_1791350024178_iccx9p",
+    "userId": "usr_1791350024165_zjxcji",
+    "slug": "vanguardia-test-1791350024170",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-14T05:13:44.178Z",
+      "currentPeriodEnd": "2026-10-14T05:13:44.178Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-07T05:13:44.178Z",
+    "bizName": "Restaurante Vanguardia Test",
+    "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+    "businessType": "events",
+    "layout": "bento",
+    "theme": "emerald",
+    "font": "sans",
+    "categories": [],
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false
+  },
+  {
+    "id": "rest_1791350024193_h94kv7",
+    "userId": "usr_1791350024187_ekz7l8",
+    "slug": "perfil-predeterminado",
+    "subscription": {
+      "status": "trialing",
+      "plan": "pro_monthly",
+      "provider": "trial",
+      "trialEndsAt": "2026-10-14T05:13:44.193Z",
+      "currentPeriodEnd": "2026-10-14T05:13:44.193Z",
+      "gracePeriodDaysRemaining": 7
+    },
+    "createdAt": "2026-10-07T05:13:44.193Z",
+    "bizName": "Perfil Predeterminado",
+    "city": "",
+    "smartWeatherEnabled": false,
+    "allowIceCreamWizard": false,
+    "allowPerfumery": false,
+    "businessType": "restaurant"
   }
 ]

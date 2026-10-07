@@ -730,5 +730,73 @@
     "email": "security-owner-1791331868390@example.com",
     "password": "test_password",
     "email_confirmed_at": "2026-10-07T00:11:08.390Z"
+  },
+  {
+    "id": "usr_1791344534572_opccjc",
+    "createdAt": "2026-10-07T03:42:14.572Z",
+    "email": "test-restaurante@pizarron.com",
+    "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1791344538379_ijxz0t",
+    "createdAt": "2026-10-07T03:42:18.379Z",
+    "email": "test_security_1791344538378@example.com",
+    "password": "new_secure_hashed_password",
+    "name": "Test Security User",
+    "updatedAt": "2026-10-07T03:42:18.421Z"
+  },
+  {
+    "id": "usr_1791344538546_5iwq5n",
+    "createdAt": "2026-10-07T03:42:18.546Z",
+    "email": "test-layout-1791344538544@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1791344538559_373lz4",
+    "createdAt": "2026-10-07T03:42:18.559Z",
+    "email": "test-default-type-1791344538557@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1791347374611_pz9mhi",
+    "createdAt": "2026-10-07T04:29:34.611Z",
+    "email": "playwright.ai.import@test.local",
+    "password": "$2b$12$8q/KClL8HCi1fYzlWOr7FuNlRKl9rOQTRxVpQBf1uxlxqZGWhhqtC",
+    "name": "Playwright QA",
+    "email_confirmed_at": "2026-10-07T04:29:34.610Z"
+  },
+  {
+    "id": "usr_1791348053159_ez6bcp",
+    "createdAt": "2026-10-07T04:40:53.159Z",
+    "email": "qa.await.fix@test.local",
+    "password": "$2b$12$NUAWf0gTv7dToI2xhxZgBuXdSXD78nNaWT09HMLzQEXDEl/KtaLaC",
+    "name": "QA Await Fix",
+    "email_confirmed_at": "2026-10-07T04:40:53.157Z"
+  },
+  {
+    "id": "usr_1791350021933_9qoxhm",
+    "createdAt": "2026-10-07T05:13:41.933Z",
+    "email": "test-restaurante@pizarron.com",
+    "password": "secret_demo_pwd"
+  },
+  {
+    "id": "usr_1791350023970_xji3hu",
+    "createdAt": "2026-10-07T05:13:43.970Z",
+    "email": "test_security_1791350023968@example.com",
+    "password": "new_secure_hashed_password",
+    "name": "Test Security User",
+    "updatedAt": "2026-10-07T05:13:44.024Z"
+  },
+  {
+    "id": "usr_1791350024165_zjxcji",
+    "createdAt": "2026-10-07T05:13:44.165Z",
+    "email": "test-layout-1791350024163@example.com",
+    "password": "test_password"
+  },
+  {
+    "id": "usr_1791350024187_ekz7l8",
+    "createdAt": "2026-10-07T05:13:44.187Z",
+    "email": "test-default-type-1791350024185@example.com",
+    "password": "test_password"
   }
 ]

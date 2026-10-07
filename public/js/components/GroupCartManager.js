@@ -1,4 +1,4 @@
-import { escapeHtml } from '/js/utils/escapeHtml.js';
+import { escapeHtml } from '/js/utils/escapeHtmlBrowser.js';
 /**
  * GroupCartManager.js — Pedido Grupal Colaborativo en Tiempo Real para Mesas
  * Conecta comensales de una misma mesa vía Supabase Realtime Channels.
@@ -145,7 +145,7 @@ export class GroupCartManager {
         <div id="groupUserNameModal" class="modal-overlay active" style="z-index: 99999; backdrop-filter: blur(8px);">
           <div class="modal-box" style="max-width: 380px; text-align: center; border: 1px solid var(--border-gold, #ECC94B); box-shadow: 0 10px 30px rgba(0,0,0,0.8);">
             <div style="font-size: 2.2rem; margin-bottom: 10px;">👋 👥</div>
-            <h3 class="modal-title" style="color: var(--chalk-gold, #ECC94B); margin-bottom: 6px;">¡Mesa ${this.escapeHtml(this.tableNumber)}!</h3>
+            <h3 class="modal-title" style="color: var(--chalk-gold, #ECC94B); margin-bottom: 6px;">¡Mesa ${escapeHtml(this.tableNumber)}!</h3>
             <p style="color: var(--chalk-muted, #A0AEC0); font-size: 0.88rem; margin-bottom: 18px; line-height: 1.4;">
               Estás en el <strong>Pedido Grupal en Tiempo Real</strong>. ¿Cuál es tu nombre para sumarte al pedido de la mesa?
             </p>
@@ -761,8 +761,8 @@ export class GroupCartManager {
     bar.innerHTML = `
       <div class="group-bar-content">
         <span class="group-pulse-dot" title="En vivo"></span>
-        <span class="group-table-title">Mesa ${this.escapeHtml(this.tableNumber)} • 👥 Pedido Grupal</span>
-        <span class="group-user-tag" title="Tu nombre en la mesa">👤 <strong>${this.escapeHtml(this.userName || 'Comensal')}</strong></span>
+        <span class="group-table-title">Mesa ${escapeHtml(this.tableNumber)} • 👥 Pedido Grupal</span>
+        <span class="group-user-tag" title="Tu nombre en la mesa">👤 <strong>${escapeHtml(this.userName || 'Comensal')}</strong></span>
         <span class="group-counter-tag">🛒 ${totalCount} ítems</span>
         <button type="button" class="btn-group-name-edit" onclick="window.groupCartManagerInstance?.promptUserNameModal()" title="Cambiar mi nombre">✏️</button>
       </div>

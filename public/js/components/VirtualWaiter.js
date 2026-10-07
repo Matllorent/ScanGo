@@ -1,4 +1,4 @@
-import { escapeHtml } from '/js/utils/escapeHtml.js';
+import { escapeHtml } from '/js/utils/escapeHtmlBrowser.js';
 /**
  * VirtualWaiter.js — "El Mozo Virtual" con Recomendaciones de Clima y Maridaje Inteligente
  * Asistente heurístico en tiempo real para el carrito de compras de ScanGo.
@@ -342,21 +342,21 @@ export class VirtualWaiter {
     let cardsHtml = '';
     candidates.forEach(dish => {
       const thumbHtml = dish.photoUrl
-        ? `<img class="mozo-item-thumb" src="${this.escapeHtml(dish.photoUrl)}" alt="${this.escapeHtml(dish.name)}" loading="lazy" onerror="this.style.display='none'">`
+        ? `<img class="mozo-item-thumb" src="${escapeHtml(dish.photoUrl)}" alt="${escapeHtml(dish.name)}" loading="lazy" onerror="this.style.display='none'">`
         : `<div class="mozo-item-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🍽️</div>`;
 
       const discountTagHtml = discount
-        ? `<span style="font-size:10px; background:rgba(239,68,68,0.2); color:#F87171; border:1px solid rgba(239,68,68,0.3); border-radius:4px; padding:1px 5px; font-weight:700; margin-left:4px;">${this.escapeHtml(discount)}</span>`
+        ? `<span style="font-size:10px; background:rgba(239,68,68,0.2); color:#F87171; border:1px solid rgba(239,68,68,0.3); border-radius:4px; padding:1px 5px; font-weight:700; margin-left:4px;">${escapeHtml(discount)}</span>`
         : '';
 
       cardsHtml += `
-        <div class="mozo-item-card" data-dish-id="${this.escapeHtml(dish.id)}">
+        <div class="mozo-item-card" data-dish-id="${escapeHtml(dish.id)}">
           ${thumbHtml}
           <div class="mozo-item-info">
-            <div class="mozo-item-title">${this.escapeHtml(dish.name)} ${discountTagHtml}</div>
+            <div class="mozo-item-title">${escapeHtml(dish.name)} ${discountTagHtml}</div>
             <div class="mozo-item-price">${this.formatPrice(dish.price)}</div>
           </div>
-          <button type="button" class="btn-mozo-quick-add" data-dish-id="${this.escapeHtml(dish.id)}" aria-label="Agregar ${this.escapeHtml(dish.name)} al pedido">
+          <button type="button" class="btn-mozo-quick-add" data-dish-id="${escapeHtml(dish.id)}" aria-label="Agregar ${escapeHtml(dish.name)} al pedido">
             + Agregar
           </button>
         </div>
@@ -367,9 +367,9 @@ export class VirtualWaiter {
       <div class="mozo-header">
         <span class="mozo-icon">🤖</span>
         <span class="mozo-title">El Mozo Virtual sugiere</span>
-        ${badge ? `<span class="mozo-badge" style="margin-left:auto;">${this.escapeHtml(badge)}</span>` : ''}
+        ${badge ? `<span class="mozo-badge" style="margin-left:auto;">${escapeHtml(badge)}</span>` : ''}
       </div>
-      ${reason ? `<div class="mozo-reason-banner">${this.escapeHtml(reason)}</div>` : ''}
+      ${reason ? `<div class="mozo-reason-banner">${escapeHtml(reason)}</div>` : ''}
       <div class="mozo-suggestions-list">
         ${cardsHtml}
       </div>

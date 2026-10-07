@@ -107,7 +107,7 @@ router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
     const isNewUser = !user;
     if (!user) {
       const randomPassword = crypto.randomBytes(48).toString('hex');
-      user = db.createUser({
+      user = await db.createUser({
         id: 'usr_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex'),
         email,
         password: await hashPassword(randomPassword),
@@ -119,7 +119,7 @@ router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
     if (!restaurant) {
       const displayName = googleProfile.name || 'Responsable';
       const restaurantNameFinal = requestedRestaurantName || String(`Mi local (${displayName})`).slice(0, 80);
-      restaurant = db.saveRestaurant(user.id, {
+      restaurant = await db.saveRestaurant(user.id, {
         name: restaurantNameFinal,
         bizName: restaurantNameFinal,
         businessType: requestedType,
@@ -290,7 +290,7 @@ router.post('/supabase-callback', checkSubscriptionKillSwitch, async (req, res, 
 
     if (!user) {
       const randomPassword = crypto.randomBytes(48).toString('hex');
-      user = db.createUser({
+      user = await db.createUser({
         id: supabaseUser.id,
         email,
         password: await hashPassword(randomPassword),
@@ -302,7 +302,7 @@ router.post('/supabase-callback', checkSubscriptionKillSwitch, async (req, res, 
     if (!restaurant) {
       const displayName = supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name;
       const restaurantName = requestedRestaurantName || String(displayName ? `Mi local (${displayName})` : 'Mi Restaurante').slice(0, 80);
-      restaurant = db.saveRestaurant(user.id, {
+      restaurant = await db.saveRestaurant(user.id, {
         name: restaurantName,
         bizName: restaurantName,
         businessType: requestedType,
@@ -372,7 +372,7 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
     const hashedPassword = await hashPassword(password);
     const userId = sbUser ? sbUser.id : undefined;
 
-    const user = db.createUser({
+    const user = await db.createUser({
       ...(userId ? { id: userId } : {}),
       email,
       password: hashedPassword,
@@ -381,7 +381,7 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
     });
 
     const finalBizName = restaurantName || bizName || 'Mi Restaurante';
-    const restaurant = db.saveRestaurant(user.id, {
+    const restaurant = await db.saveRestaurant(user.id, {
       name: finalBizName,
       bizName: finalBizName,
       slogan: 'Especialidad, masas artesanales y cocina de autor',
@@ -414,6 +414,9 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
       restaurantName: restaurant.name || restaurant.bizName,
       menuUrl: `${appUrl}/m/${restaurant.slug}`,
       studioUrl: `${appUrl}/studio`
+    }).catch((err) => {
+      // Fire-and-forget: un fallo de email jamás debe tumbar el proceso
+      console.error('❌ [WelcomeEmail]', err.message);
     });
 
     const { password: _, ...safeUser } = user;
@@ -510,7 +513,7 @@ router.post('/forgot-password', normalizeEmailInput, async (req, res, next) => {
       );
 
       // Persist active token and jti in DB to guarantee single-use and prevent reuse
-      db.savePasswordResetToken(user.id, jti, Date.now() + expiresInSeconds * 1000);
+      await db.savePasswordResetToken(user.id, jti, Date.now() + expiresInSeconds * 1000);
 
       const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
       const resetUrl = `${appUrl}/reset-password.html?token=${resetToken}`;
@@ -616,11 +619,11 @@ router.post('/reset-password', async (req, res, next) => {
     }
 
     // Immediately revoke/invalidate the JTI to prevent reuse
-    db.invalidateResetToken(decoded.jti);
+    await db.invalidateResetToken(decoded.jti);
 
     // Hash new password and update in database
     const hashedPassword = await hashPassword(finalPassword);
-    db.updateUserPassword(user.id, hashedPassword);
+    await db.updateUserPassword(user.id, hashedPassword);
 
     return successResponse(res, null, 'Contraseña restablecida exitosamente. Ya podés iniciar sesión.');
   } catch (err) {

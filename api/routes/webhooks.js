@@ -145,7 +145,7 @@ router.post('/payments', async (req, res, next) => {
         };
 
         // Update in local DB memory/cache adapter
-        db.updateSubscription(restaurant.id, updatedSubscription);
+        await db.updateSubscription(restaurant.id, updatedSubscription);
 
         // Sync to Supabase PostgreSQL table `restaurants` and `webhooks`
         const supabase = getSupabaseClient();

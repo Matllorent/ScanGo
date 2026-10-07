@@ -220,7 +220,7 @@ router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
         };
 
         // Actualizar en DB local
-        db.updateSubscription(restaurantId, downgradedSubscription);
+        await db.updateSubscription(restaurantId, downgradedSubscription);
 
         // Actualizar en Supabase
         if (supabase) {

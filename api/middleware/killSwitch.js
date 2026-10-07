@@ -23,11 +23,9 @@ function getSubscriptionKillSwitch() {
 
 function setSubscriptionKillSwitch(status) {
   allowNewSubscriptions = Boolean(status);
-  try {
-    db.updateSettings({ allowNewSubscriptions });
-  } catch (e) {
-    console.warn('[KillSwitch Persist Warning]', e.message);
-  }
+  // Lanzamiento en background: una falla de persistencia no debe romper el request
+  db.updateSettings({ allowNewSubscriptions })
+    .catch((e) => console.warn('[KillSwitch Persist Warning]', e.message));
   return allowNewSubscriptions;
 }
 
