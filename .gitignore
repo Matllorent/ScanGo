@@ -25,3 +25,10 @@ Thumbs.db
 data/*.json
 public/uploads/
 
+# Evidencia / artefactos de Playwright MCP (screenshots, logs de consola, snapshots)
+.playwright-mcp/
+
+# Scripts temporales de diagnóstico (borrar tras usar)
+tests/tmp-*
+public/qa-menu-*
+
