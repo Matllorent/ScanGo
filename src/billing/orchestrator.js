@@ -4,6 +4,7 @@ const stripeProvider = require('./providers/stripe');
 const mpProvider = require('./providers/mercadopago');
 const sentry = require('../../api/utils/sentry');
 const emailService = require('../../api/services/email');
+const AppError = require('../../api/utils/AppError');
 
 const PROVIDERS = {
   lemonsqueezy: lemonProvider,
@@ -41,12 +42,129 @@ function round2(value) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const TRIAL_DAYS = 7;
+// Días extra en los que el menú público sigue online después de vencer el trial
+// (el Studio muestra el paywall desde el día 8, pero el local no pierde visitas).
+const TRIAL_GRACE_DAYS = 3;
+const PAST_DUE_GRACE_DAYS = 7;
+
+/**
+ * Alias cortos que la UI manda al checkout (botones "Suscribirme" / "Activar Anual")
+ * mapeados a las claves reales de plan.
+ */
+const PLAN_ALIASES = {
+  monthly: 'pro_monthly',
+  mensual: 'pro_monthly',
+  pro: 'pro_monthly',
+  annual: 'pro_annual',
+  anual: 'pro_annual',
+  starter: 'starter_monthly'
+};
+
 const billingOrchestrator = {
+  /**
+   * Normaliza cualquier alias de plan que llegue del frontend
+   * ('monthly', 'annual', 'pro'…) a una clave real de PLANS.
+   * Lanza 400 si el plan no existe (evita cobrar un plan equivocado).
+   */
+  normalizePlanId(planId) {
+    const raw = String(planId || '').trim().toLowerCase();
+    const key = PLAN_ALIASES[raw] || raw;
+    if (!PLANS[key]) {
+      throw new AppError(
+        `Plan inválido "${planId}". Planes disponibles: ${Object.keys(PLANS).join(', ')}.`,
+        400,
+        'INVALID_PLAN'
+      );
+    }
+    return key;
+  },
+
+  /**
+   * Resuelve el proveedor de pago según país/moneda.
+   * UY/AR → Mercado Pago (con fallback a otro proveedor si MP no está configurado).
+   * El resto del mundo → DEFAULT_BILLING_PROVIDER (lemonsqueezy por defecto).
+   */
   resolveProvider(countryCode, currency) {
-    if (['UY', 'AR'].includes((countryCode || '').toUpperCase()) && ['UYU', 'ARS', '$U'].includes(currency)) {
+    const cc = String(countryCode || '').toUpperCase();
+    const cur = String(currency || '').toUpperCase();
+    // '$' es la moneda por defecto que asigna el registro en Uruguay
+    const mpCurrencies = ['UYU', 'ARS', '$U', '$', 'US$', 'USD'];
+    const wantsMp = ['UY', 'AR'].includes(cc) && (mpCurrencies.includes(cur) || !cur);
+
+    if (wantsMp) {
+      if (this.isProviderConfigured('mercadopago')) return 'mercadopago';
+      if (this.isProviderConfigured('stripe')) return 'stripe';
+      if (this.isProviderConfigured('lemonsqueezy')) return 'lemonsqueezy';
+      // Sin credenciales: devolvemos mercadopago para que createCheckout
+      // reporte exactamente qué falta configurar en lugar de fallar opaco.
       return 'mercadopago';
     }
-    return process.env.DEFAULT_BILLING_PROVIDER || 'lemonsqueezy';
+
+    const preferred = process.env.DEFAULT_BILLING_PROVIDER || 'lemonsqueezy';
+    if (this.isProviderConfigured(preferred)) return preferred;
+    const fallback = ['lemonsqueezy', 'stripe', 'mercadopago'].find(name => this.isProviderConfigured(name));
+    return fallback || preferred;
+  },
+
+  /**
+   * ¿El proveedor tiene credenciales/IDs suficientes para generar un checkout real?
+   */
+  isProviderConfigured(name) {
+    if (name === 'mercadopago') {
+      return typeof mpProvider.isConfigured === 'function' ? mpProvider.isConfigured() : false;
+    }
+    if (name === 'stripe') {
+      return Boolean(process.env.STRIPE_SECRET_KEY && this.getProviderPlanId('stripe', 'pro_monthly'));
+    }
+    if (name === 'lemonsqueezy') {
+      return Boolean(process.env.LEMONSQUEEZY_STORE_ID && this.getProviderPlanId('lemonsqueezy', 'pro_monthly'));
+    }
+    return false;
+  },
+
+  /**
+   * IDs de precio/variante por plan y proveedor (variables de entorno).
+   * Los IDs por plan tienen prioridad; si faltan caen a los genéricos por período.
+   */
+  getProviderPlanId(providerName, planId) {
+    const plan = PLANS[planId] ? planId : 'pro_monthly';
+    const period = plan.endsWith('_annual') ? 'ANNUAL' : 'MONTHLY';
+    const planEnv = plan.toUpperCase();
+
+    if (providerName === 'lemonsqueezy') {
+      return process.env[`LEMONSQUEEZY_VARIANT_${planEnv}`]
+        || process.env[`LEMONSQUEEZY_PLAN_${period}_VARIANT_ID`]
+        || '';
+    }
+    if (providerName === 'stripe') {
+      return process.env[`STRIPE_PRICE_${planEnv}`]
+        || process.env[`STRIPE_PRICE_${period}`]
+        || '';
+    }
+    return '';
+  },
+
+  /**
+   * Lista de variables de entorno faltantes para que la UI muestre un error claro.
+   */
+  getProviderMissingConfig(providerName) {
+    if (providerName === 'mercadopago') {
+      const missing = [];
+      if (!mpProvider.isConfigured || !mpProvider.isConfigured()) missing.push('MERCADOPAGO_ACCESS_TOKEN');
+      return missing;
+    }
+    if (providerName === 'stripe') {
+      const missing = [];
+      if (!process.env.STRIPE_SECRET_KEY) missing.push('STRIPE_SECRET_KEY');
+      if (!this.getProviderPlanId('stripe', 'pro_monthly')) missing.push('STRIPE_PRICE_MONTHLY');
+      return missing;
+    }
+    const missing = [];
+    if (!process.env.LEMONSQUEEZY_STORE_ID) missing.push('LEMONSQUEEZY_STORE_ID');
+    if (!this.getProviderPlanId('lemonsqueezy', 'pro_monthly')) missing.push('LEMONSQUEEZY_PLAN_MONTHLY_VARIANT_ID');
+    return missing;
   },
 
   /**
@@ -132,31 +250,56 @@ const billingOrchestrator = {
     };
   },
 
-  createCheckout({ restaurantId, planId, customerEmail, countryCode, currency, returnUrl }) {
+  /**
+   * Crea el checkout en el proveedor resuelto por país/moneda.
+   * Es async porque Mercado Pago y Stripe requieren crear la sesión vía API.
+   *
+   * No lanza por falta de credenciales: devuelve `checkoutUrl: null` más
+   * `configuration.missing` para que la ruta HTTP responda 503 con un mensaje
+   * accionable. Lanza 400 sólo ante un plan inválido.
+   */
+  async createCheckout({ restaurantId, planId, customerEmail, countryCode, currency, returnUrl }) {
+    const resolvedPlanId = this.normalizePlanId(planId);
     const providerName = this.resolveProvider(countryCode, currency);
     const provider = PROVIDERS[providerName];
-    if (!provider) throw new Error('Proveedor de pagos no soportado: ' + providerName);
+    if (!provider) throw new AppError('Proveedor de pagos no soportado: ' + providerName, 400, 'PAYMENT_PROVIDER_UNSUPPORTED');
 
-    const redirectUrl = returnUrl || (process.env.APP_URL || 'http://localhost:3000') + '/studio?billing=success';
+    const appUrl = (process.env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
+    const successUrl = returnUrl || `${appUrl}/studio?billing=success`;
+    const cancelUrl = `${appUrl}/studio?billing=canceled`;
+    const restaurant = db.findRestaurantById(restaurantId);
 
     const checkout = {
       provider: providerName,
-      checkoutUrl: provider.createCheckoutUrl({
-        variantId: planId,
-        priceId: planId,
-        planId,
-        customerEmail,
-        restaurantId,
-        redirectUrl,
-        successUrl: redirectUrl,
-        cancelUrl: (process.env.APP_URL || 'http://localhost:3000') + '/studio?billing=canceled'
-      })
+      planId: resolvedPlanId,
+      planName: PLANS[resolvedPlanId].name,
+      checkoutUrl: null,
+      // Precio efectivo por volumen de sucursales (los proveedores cobran vía variant/price ID)
+      pricing: restaurant ? this.getPlanPricing(restaurant, resolvedPlanId) : null
     };
 
-    // Precio efectivo por volumen de sucursales (los proveedores cobran vía variant/price ID)
-    const restaurant = db.findRestaurantById(restaurantId);
-    if (restaurant) {
-      checkout.pricing = this.getPlanPricing(restaurant, planId);
+    if (!this.isProviderConfigured(providerName)) {
+      checkout.configuration = { missing: this.getProviderMissingConfig(providerName) };
+      return checkout;
+    }
+
+    try {
+      checkout.checkoutUrl = await provider.createCheckoutUrl({
+        planId: resolvedPlanId,
+        variantId: this.getProviderPlanId('lemonsqueezy', resolvedPlanId),
+        priceId: this.getProviderPlanId('stripe', resolvedPlanId),
+        pricing: checkout.pricing,
+        customerEmail,
+        restaurantId,
+        countryCode: countryCode || 'UY',
+        currency: currency || (restaurant && restaurant.currency) || 'USD',
+        successUrl,
+        cancelUrl,
+        redirectUrl: successUrl
+      });
+    } catch (e) {
+      checkout.error = e.message;
+      sentry.captureException(e, { source: 'billing.checkout', tags: { provider: providerName } });
     }
 
     return checkout;
@@ -174,8 +317,11 @@ const billingOrchestrator = {
       throw new Error('Firma de webhook inválida para ' + providerName);
     }
 
-    // 2. Parse payload
-    const parsed = provider.parseWebhookPayload(payload);
+    // 2. Parse payload (algunos proveedores resuelven el pago vía API — ej. Mercado Pago IPN)
+    const parsed = await provider.parseWebhookPayload(payload);
+    if (parsed.ignored) {
+      return { success: true, ignored: true, eventId: parsed.eventId };
+    }
 
     // 3. Idempotency check: Ignore duplicate events
     if (db.hasProcessedWebhook(providerName, parsed.eventId)) {
@@ -183,15 +329,18 @@ const billingOrchestrator = {
     }
 
     // 4. Update restaurant subscription in DB
-    if (parsed.restaurantId) {
-      let graceDays = 7;
-      await db.updateSubscription(parsed.restaurantId, {
+    if (parsed.restaurantId && parsed.status && parsed.status !== 'pending') {
+      const subUpdate = {
         status: parsed.status,
         provider: providerName,
         currentPeriodEnd: parsed.renewsAt,
-        gracePeriodDaysRemaining: graceDays,
+        gracePeriodDaysRemaining: PAST_DUE_GRACE_DAYS,
         lastPaymentError: parsed.status === 'past_due' ? 'Falló el cobro automático de la tarjeta' : null
-      });
+      };
+      // Conserva el plan comprado (Lemon/Stripe lo infieren del webhook; MP del external_reference)
+      if (parsed.plan && PLANS[parsed.plan]) subUpdate.plan = parsed.plan;
+
+      await db.updateSubscription(parsed.restaurantId, subUpdate);
 
       sentry.captureMessage('[Billing] Suscripción actualizada: Rest=' + parsed.restaurantId + ' Status=' + parsed.status + ' Provider=' + providerName, {
         level: 'info',
@@ -247,6 +396,42 @@ const billingOrchestrator = {
     return { success: true, eventId: parsed.eventId, status: parsed.status };
   },
 
+  /**
+   * Estado de acceso cuando el trial de 7 días ya venció.
+   * - Días 1-3 tras el vencimiento: el menú público sigue ONLINE (gracia post-trial)
+   *   y se devuelve `requiresPayment: true` para que el Studio muestre el paywall.
+   * - Día 4 en adelante: menú pausado.
+   */
+  buildTrialExpiredAccess(rest, sub, trialEnds, now) {
+    const graceEnd = new Date(trialEnds.getTime() + TRIAL_GRACE_DAYS * DAY_MS);
+    const inGrace = now <= graceEnd;
+    const planKey = PLANS[sub.plan] ? sub.plan : 'pro_monthly';
+
+    if (inGrace) {
+      const daysLeft = Math.max(0, Math.ceil((graceEnd.getTime() - now.getTime()) / DAY_MS));
+      return {
+        allowed: true,
+        status: 'expired',
+        trialExpired: true,
+        requiresPayment: true,
+        trialGraceDaysRemaining: daysLeft,
+        plan: planKey,
+        features: PLANS[planKey].features,
+        pricing: this.getPlanPricing(rest, planKey),
+        inGracePeriod: true,
+        warning: `Tu prueba gratuita terminó. Tu menú sigue online ${daysLeft} día${daysLeft === 1 ? '' : 's'} más: activá tu plan para no perderlo.`
+      };
+    }
+
+    return {
+      allowed: false,
+      status: 'expired',
+      isTrialExpired: true,
+      reason: 'trial_expirado',
+      warning: 'Tu período de prueba gratuita ha finalizado. Actualizá tu suscripción para reactivar tu menú.'
+    };
+  },
+
   verifyAccess(restaurantId) {
     const rest = db.findRestaurantById(restaurantId);
     if (!rest) return { allowed: false, reason: 'restaurante_no_encontrado' };
@@ -267,12 +452,13 @@ const billingOrchestrator = {
       };
     }
 
-    // Trialing: Full access if within 7-day trial window
+    // Trialing: Full access during the 7-day trial window
     if (sub.status === 'trialing') {
-      const trialEnds = sub.trialEndsAt ? new Date(sub.trialEndsAt) : new Date(periodEnd.getTime() + 7 * 24 * 3600 * 1000);
-      const isTrialValid = now <= trialEnds;
-      if (isTrialValid) {
-        const daysLeft = Math.max(0, Math.ceil((trialEnds.getTime() - now.getTime()) / (24 * 3600 * 1000)));
+      const trialEnds = sub.trialEndsAt
+        ? new Date(sub.trialEndsAt)
+        : new Date(periodEnd.getTime() + TRIAL_DAYS * DAY_MS);
+      if (now <= trialEnds) {
+        const daysLeft = Math.max(0, Math.ceil((trialEnds.getTime() - now.getTime()) / DAY_MS));
         return {
           allowed: true,
           status: 'trialing',
@@ -283,20 +469,30 @@ const billingOrchestrator = {
           inGracePeriod: false
         };
       }
+      return this.buildTrialExpiredAccess(rest, sub, trialEnds, now);
+    }
+
+    // Expired: primeros TRIAL_GRACE_DAYS el menú público sigue online (decisión de producto)
+    if (sub.status === 'expired') {
+      const trialEnds = sub.trialEndsAt ? new Date(sub.trialEndsAt) : null;
+      // La gracia post-trial sólo aplica a suscripciones que nunca estuvieron pagas:
+      // una suscripción degradada por dunning no vuelve a ganar 3 días de menú online.
+      const wasPaid = Boolean(sub.downgradedAt) || Boolean(sub.provider && sub.provider !== 'trial');
+      if (trialEnds && !wasPaid) return this.buildTrialExpiredAccess(rest, sub, trialEnds, now);
       return {
         allowed: false,
         status: 'expired',
         isTrialExpired: true,
-        reason: 'trial_expirado',
-        warning: 'Tu período de prueba gratuita ha finalizado. Actualizá tu suscripción para reactivar tu menú.'
+        reason: 'suscripcion_inactiva',
+        warning: 'Tu suscripción ha finalizado. Activá tu plan para reactivar tu menú.'
       };
     }
 
     // Past Due: In Grace Period (7 days allowed before locking menu)
     if (sub.status === 'past_due') {
-      const graceEnd = new Date(periodEnd.getTime() + 7 * 24 * 3600 * 1000);
+      const graceEnd = new Date(periodEnd.getTime() + PAST_DUE_GRACE_DAYS * DAY_MS);
       const isStillInGrace = now <= graceEnd;
-      const daysLeft = Math.max(0, Math.ceil((graceEnd.getTime() - now.getTime()) / (24 * 3600 * 1000)));
+      const daysLeft = Math.max(0, Math.ceil((graceEnd.getTime() - now.getTime()) / DAY_MS));
 
       return {
         allowed: isStillInGrace,

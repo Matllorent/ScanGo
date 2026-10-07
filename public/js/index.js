@@ -266,6 +266,13 @@ async function handleRegister(e) {
     localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(data.restaurant));
     localStorage.setItem('scango_demo_restaurant', JSON.stringify(data.restaurant));
 
+    // Con Supabase activo la casilla se confirma desde el correo: tirar al usuario
+    // al Studio sin confirmar sólo le hace chocar con un 403 al querer guardar.
+    if (data.requiresEmailVerification) {
+      showEmailVerificationScreen(email);
+      return;
+    }
+
     window.location.href = '/studio.html';
   } catch (err) {
     showError(err.message);
@@ -273,6 +280,46 @@ async function handleRegister(e) {
     btn.disabled = false;
     btn.textContent = 'Comenzar Prueba Gratis (7 Días) →';
   }
+}
+
+/**
+ * Pantalla "revisá tu correo" mostrada tras registrarse con casilla sin confirmar.
+ * La cuenta y la prueba de 7 días ya existen: sólo falta el click del enlace.
+ */
+function showEmailVerificationScreen(email) {
+  const safeEmail = escapeHtml(email || '');
+  const overlay = document.createElement('div');
+  overlay.id = 'emailVerificationScreen';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.style.cssText = 'position:fixed; inset:0; z-index:9999; background:rgba(8,12,11,0.97); display:flex; align-items:center; justify-content:center; padding:24px; text-align:center; backdrop-filter:blur(8px);';
+  overlay.innerHTML = `
+    <div style="max-width:440px;">
+      <div style="font-size:3rem; margin-bottom:12px;">✉️</div>
+      <h2 style="margin-bottom:10px;">Revisá tu correo</h2>
+      <p style="opacity:.85; font-size:.95rem; line-height:1.6;">
+        Te enviamos un enlace de confirmación a <strong>${safeEmail}</strong>.
+        Abrilo para confirmar tu casilla y empezar a editar tu menú.
+      </p>
+      <p style="opacity:.6; font-size:.8rem; margin-top:12px; line-height:1.5;">
+        Tu cuenta y tu prueba de 7 días ya están creadas. Si el correo no llega,
+        revisá la carpeta de spam o promociones.
+      </p>
+      <button id="btnGoToStudioAfterVerify" style="margin-top:22px; padding:12px 26px; border:none; border-radius:8px; font-weight:700; cursor:pointer; background:#D4A853; color:#101614; font-size:.95rem;">
+        Ya confirmé mi correo →
+      </button>
+      <button id="btnBackToLanding" style="display:block; margin:14px auto 0; background:none; border:none; color:rgba(255,255,255,.6); cursor:pointer; font-size:.82rem; text-decoration:underline;">
+        Volver a la página
+      </button>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#btnGoToStudioAfterVerify').addEventListener('click', () => {
+    window.location.href = '/studio.html';
+  });
+  overlay.querySelector('#btnBackToLanding').addEventListener('click', () => {
+    overlay.remove();
+  });
 }
 
 async function handleLogin(e) {

@@ -4,10 +4,26 @@
  * Módulo ES para toda la lógica de suscripción del Studio.
  * Extraído de studio.js para reducir su tamaño y permitir pruebas independientes.
  *
- * Uso desde studio.js (mientras sea script normal, no type="module"):
- *   Las funciones se importan internamente al convertir studio.js a módulo.
- *   Por ahora, este archivo sirve como referencia canónica del código corregido.
+ * Contrato espejo de `verifyAccess()` en src/billing/orchestrator.js:
+ *  - trial 7 días → acceso total
+ *  - días 8-10    → menú público online (gracia), Studio en paywall descartable
+ *  - día 11+      → menú pausado
  */
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const TRIAL_GRACE_DAYS = 3;
+const TRIAL_GRACE_DAYS_MS = TRIAL_GRACE_DAYS * DAY_MS;
+
+// Etiquetas en español de los status de máquina que muestra el paywall ("Estado: …")
+const STATUS_LABELS = {
+  active: 'ACTIVO',
+  trial: 'EN PRUEBA',
+  trialing: 'EN PRUEBA',
+  trial_expired: 'PRUEBA VENCIDA',
+  expired: 'VENCIDO',
+  past_due: 'PAGO VENCIDO',
+  inactive: 'INACTIVO'
+};
 
 /**
  * Normaliza un objeto subscription para que siempre tenga `status` y `plan`.
@@ -33,6 +49,24 @@ export function normalizeSubscription(rawSub) {
 }
 
 /**
+ * Normaliza el status PARA MOSTRAR: un trial con `trialEndsAt` vencido se
+ * muestra como 'expired' aunque el cron diario todavía no haya cambiado el
+ * status en la DB (hasta 24 h de retraso). Así badge, alertas e indicador de
+ * menú dicen la verdad desde el día 8 y no "Prueba (0 días)" / "PAUSADO".
+ * @param {string|undefined} rawStatus
+ * @param {object|null|undefined} sub
+ * @returns {string}
+ */
+export function resolveDisplayStatus(rawStatus, sub) {
+  const status = rawStatus || 'trialing';
+  const isTrial = status === 'trial' || status === 'trialing';
+  if (isTrial && sub?.trialEndsAt && new Date(sub.trialEndsAt).getTime() <= Date.now()) {
+    return 'expired';
+  }
+  return status;
+}
+
+/**
  * Evalúa si el usuario tiene acceso activo al Studio.
  * Si subscription falta o es inválida, trata como trial activo (7 días).
  *
@@ -52,15 +86,37 @@ export function checkStudioAccess(currentUser) {
     return { allowed: true, status };
   }
 
-  if (status === 'trial' || status === 'trialing') {
+  if (status === 'trial' || status === 'trialing' || status === 'expired') {
     const trialEnd = sub.trialEndsAt ? new Date(sub.trialEndsAt) : null;
-    if (!trialEnd || trialEnd.getTime() > now.getTime()) {
+    if (status !== 'expired' && (!trialEnd || trialEnd.getTime() > now.getTime())) {
       return { allowed: true, status: 'trialing' };
     }
+
+    // La gracia post-trial (3 días de menú online) sólo aplica a cuentas que
+    // nunca estuvieron pagas: un plan degradado por dunning no la tiene.
+    const wasPaid = Boolean(sub.downgradedAt) || Boolean(sub.provider && sub.provider !== 'trial');
+    const graceEnd = trialEnd ? new Date(trialEnd.getTime() + TRIAL_GRACE_DAYS_MS) : null;
+    const inGrace = !wasPaid && graceEnd && graceEnd.getTime() > now.getTime();
+
+    if (inGrace) {
+      const graceDays = Math.max(1, Math.ceil((graceEnd.getTime() - now.getTime()) / DAY_MS));
+      return {
+        allowed: false,
+        status: 'trial_expired',
+        inGrace: true,
+        canDismiss: true,
+        graceDaysLeft: graceDays,
+        warning: `Tu prueba gratuita terminó. Tu menú sigue online ${graceDays} día${graceDays === 1 ? '' : 's'} más: activá tu plan para no perderlo.`
+      };
+    }
+
     return {
       allowed: false,
       status: 'expired',
-      warning: 'Tu período de prueba ha finalizado. Activá tu suscripción para reactivar tu menú.'
+      inGrace: false,
+      warning: graceEnd
+        ? 'Tu período de prueba finalizó y tu menú quedó pausado. Activá tu plan para reactivarlo al instante.'
+        : 'Tu período de prueba ha finalizado. Activá tu suscripción para reactivar tu menú.'
     };
   }
 
@@ -97,7 +153,7 @@ export function renderSubscriptionBadge(sub) {
   const badge = document.getElementById('subscriptionBadge');
   if (!badge) return;
 
-  const status = sub?.status || 'trialing';
+  const status = resolveDisplayStatus(sub?.status, sub);
   const plan = sub?.plan || 'pro_monthly';
 
   if (status === 'trial' || status === 'trialing') {
@@ -114,8 +170,14 @@ export function renderSubscriptionBadge(sub) {
     badge.className = 'sub-badge badge-grace';
     badge.textContent = `⚠️ GRACIA`;
   } else {
+    // Vencido: si seguimos dentro de la gracia post-trial, lo decimos con el contador
+    const trialEnd = sub?.trialEndsAt ? new Date(sub.trialEndsAt) : null;
+    const graceEnd = trialEnd ? new Date(trialEnd.getTime() + TRIAL_GRACE_DAYS_MS) : null;
+    const graceDaysLeft = graceEnd ? Math.max(0, Math.ceil((graceEnd.getTime() - Date.now()) / DAY_MS)) : 0;
     badge.className = 'sub-badge badge-grace';
-    badge.textContent = `✕ VENCIDO`;
+    badge.textContent = graceDaysLeft > 0
+      ? `⚠️ VENCIDO (gracia ${graceDaysLeft}d)`
+      : `✕ VENCIDO`;
   }
 }
 
@@ -129,7 +191,7 @@ export function checkSubscriptionAlerts(sub) {
   const btn = document.getElementById('subscriptionAlertBtn');
   if (!banner || !text || !btn) return;
 
-  const status = sub?.status || 'trialing';
+  const status = resolveDisplayStatus(sub?.status, sub);
   let alertLevel = null;
   let alertMsg = '';
   let btnText = '';
@@ -146,6 +208,17 @@ export function checkSubscriptionAlerts(sub) {
       btnBg = '#f59e0b';
       btnColor = '#0d1312';
     }
+  } else if (status === 'expired' || status === 'trial_expired') {
+    const trialEnd = sub?.trialEndsAt ? new Date(sub.trialEndsAt) : null;
+    const graceEnd = trialEnd ? new Date(trialEnd.getTime() + TRIAL_GRACE_DAYS_MS) : null;
+    const daysLeft = graceEnd ? Math.max(0, Math.ceil((graceEnd.getTime() - Date.now()) / DAY_MS)) : 0;
+    alertLevel = 'danger';
+    btnText = 'Activar mi plan';
+    btnBg = '#ef4444';
+    btnColor = '#fff';
+    alertMsg = daysLeft > 0
+      ? `🚨 Tu prueba terminó. Tu menú deja de estar online en ${daysLeft} día${daysLeft === 1 ? '' : 's'} si no activás tu plan.`
+      : '🚨 Tu menú está pausado. Activá tu plan para volver a estar online al instante.';
   } else if (status === 'past_due') {
     const graceEnd = sub?.currentPeriodEnd
       ? new Date(new Date(sub.currentPeriodEnd).getTime() + 7 * 24 * 3600 * 1000)
@@ -187,7 +260,7 @@ export function checkSubscriptionAlerts(sub) {
  * @returns {{ visible: boolean, label: string, color: string }}
  */
 export function getMenuVisibilityStatus(sub) {
-  const status = sub?.status || 'trialing';
+  const status = resolveDisplayStatus(sub?.status, sub);
 
   if (status === 'active') return { visible: true, label: 'ONLINE', color: '#4ade80' };
 
@@ -195,6 +268,15 @@ export function getMenuVisibilityStatus(sub) {
     const trialEnd = sub?.trialEndsAt ? new Date(sub.trialEndsAt) : null;
     if (!trialEnd || trialEnd.getTime() > Date.now()) {
       return { visible: true, label: 'ONLINE (Trial)', color: '#60a5fa' };
+    }
+  }
+
+  if (status === 'expired' || status === 'trial_expired') {
+    const trialEnd = sub?.trialEndsAt ? new Date(sub.trialEndsAt) : null;
+    const graceEnd = trialEnd ? new Date(trialEnd.getTime() + TRIAL_GRACE_DAYS_MS) : null;
+    if (graceEnd && graceEnd.getTime() > Date.now()) {
+      const days = Math.max(1, Math.ceil((graceEnd.getTime() - Date.now()) / DAY_MS));
+      return { visible: true, label: `ONLINE (gracia ${days}d)`, color: '#fbbf24' };
     }
     return { visible: false, label: 'PAUSADO', color: '#f87171' };
   }
@@ -228,28 +310,56 @@ export function renderMenuStatusIndicator(sub) {
 }
 
 /**
- * Muestra la pantalla de "Menú Pausado" bloqueando el workspace.
- * @param {{ status: string, warning?: string }} access
+ * Muestra la pantalla de bloqueo (paywall) sobre el workspace.
+ * @param {{ status: string, warning?: string, inGrace?: boolean, graceDaysLeft?: number }} access
+ * @param {{ onContinue?: Function }} [options] — si `onContinue` viene dado y
+ *   estamos en gracia post-trial, se ofrece un botón secundario para seguir
+ *   editando (el menú público sigue online igual).
  */
-export function showSubscriptionRequiredScreen(access) {
+export function showSubscriptionRequiredScreen(access, options = {}) {
   const workspace = document.querySelector('.workspace-layout');
+  const inGrace = Boolean(access.inGrace);
+  const statusLabel = STATUS_LABELS[access.status] || String(access.status || 'unknown').toUpperCase();
+
   if (workspace) {
     workspace.innerHTML = `
       <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:70vh; padding:40px 20px; text-align:center;">
-        <div style="font-size:3.5rem; margin-bottom:16px;">⚠️</div>
-        <h2 style="color:var(--accent-gold); margin-bottom:12px; font-size:1.5rem;">Menú Pausado</h2>
-        <p style="color:var(--text-muted); margin-bottom:8px; font-size:0.95rem; max-width:420px;">
+        <div style="font-size:3.5rem; margin-bottom:16px;">${inGrace ? '⏳' : '⚠️'}</div>
+        <h2 style="color:var(--accent-gold); margin-bottom:12px; font-size:1.5rem;">
+          ${inGrace ? 'Tu prueba gratuita terminó' : 'Menú pausado'}
+        </h2>
+        <p style="color:var(--text-muted); margin-bottom:8px; font-size:0.95rem; max-width:440px;">
           ${access.warning || 'Tu suscripción está inactiva.'}
         </p>
         <p style="color:var(--text-muted); margin-bottom:24px; font-size:0.8rem;">
-          Estado: <strong style="color:#f87171;">${(access.status || 'unknown').toUpperCase()}</strong>
+          Estado: <strong style="color:${inGrace ? '#fbbf24' : '#f87171'};">${statusLabel}</strong>
+          ${inGrace ? ' · Tu menú público sigue <strong style="color:#4ade80;">ONLINE</strong>' : ''}
         </p>
-        <button onclick="openBillingModal()" style="padding:12px 28px; background:var(--accent-gold); color:#101614; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.9rem;">
-          💎 Reactivar mi menú
+        <button data-action="activate-plan" style="padding:12px 28px; background:var(--accent-gold); color:#101614; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.9rem;">
+          💎 Activar mi plan
         </button>
+        ${inGrace && typeof options.onContinue === 'function' ? `
+          <button data-action="continue-editing" style="margin-top:14px; padding:10px 22px; background:transparent; color:var(--text-muted); border:1px solid var(--border-color, rgba(255,255,255,0.18)); border-radius:8px; cursor:pointer; font-size:0.82rem;">
+            Seguir editando (quedan ${access.graceDaysLeft} día${access.graceDaysLeft === 1 ? '' : 's'} de gracia)
+          </button>
+        ` : ''}
       </div>
     `;
+
+    const activateBtn = workspace.querySelector('[data-action="activate-plan"]');
+    if (activateBtn) {
+      activateBtn.addEventListener('click', () => {
+        if (typeof window !== 'undefined' && typeof window.openBillingModal === 'function') {
+          window.openBillingModal();
+        }
+      });
+    }
+    const continueBtn = workspace.querySelector('[data-action="continue-editing"]');
+    if (continueBtn) {
+      continueBtn.addEventListener('click', () => options.onContinue());
+    }
   }
+
   const nameEl = document.getElementById('studioNavRestaurantName');
-  if (nameEl) nameEl.textContent = 'Suscripción Requerida';
+  if (nameEl) nameEl.textContent = inGrace ? 'Prueba finalizada' : 'Suscripción Requerida';
 }

@@ -578,31 +578,55 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
 });
 
 // ==================== BILLING ROUTES ====================
-app.post('/api/billing/checkout', authMiddleware, checkSubscriptionKillSwitch, (req, res) => {
+app.post('/api/billing/checkout', authMiddleware, checkSubscriptionKillSwitch, async (req, res, next) => {
   try {
     const restaurant = db.findRestaurantByUserId(req.user.userId);
-    if (!restaurant) return res.status(404).json({ error: 'Restaurante no encontrado' });
+    if (!restaurant) return res.status(404).json({ error: 'Restaurante no encontrado', code: 'RESTAURANT_NOT_FOUND' });
 
-    const { planId, countryCode, currency } = req.body;
-    const checkout = billingOrchestrator.createCheckout({
+    const { planId, plan, countryCode, currency } = req.body || {};
+    const checkout = await billingOrchestrator.createCheckout({
       restaurantId: restaurant.id,
-      planId: planId || 'pro_monthly',
+      // Acepta planId ('pro_monthly') o el alias corto que manda la UI ('monthly' | 'annual')
+      planId: planId || plan || (restaurant.subscription && restaurant.subscription.plan) || 'pro_monthly',
       customerEmail: req.user.email,
-      countryCode: countryCode || 'UY',
+      countryCode: countryCode || req.headers['x-vercel-ip-country'] || req.headers['cf-ipcountry'] || 'UY',
       currency: currency || restaurant.currency || 'USD'
     });
 
+    if (!checkout.checkoutUrl) {
+      const missing = checkout.configuration && checkout.configuration.missing;
+      return res.status(503).json({
+        success: false,
+        error: checkout.error
+          || (missing && missing.length
+            ? `La pasarela de pagos (${checkout.provider}) no está configurada. Faltan variables: ${missing.join(', ')}.`
+            : 'No pudimos generar el enlace de pago. Intentá nuevamente en unos minutos.'),
+        code: checkout.error ? 'PAYMENT_PROVIDER_ERROR' : 'PAYMENT_PROVIDER_NOT_CONFIGURED',
+        provider: checkout.provider,
+        ...(missing ? { missing } : {}),
+        ...(checkout.pricing ? { pricing: checkout.pricing } : {})
+      });
+    }
+
     res.json(checkout);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    next(e);
   }
 });
 
 app.post('/api/billing/webhook/:provider', async (req, res) => {
   try {
     const provider = req.params.provider;
-    const rawBody = JSON.stringify(req.body);
-    const result = await billingOrchestrator.processWebhook(provider, req.headers, rawBody, req.body);
+    // Mercado Pago entrega el secreto por query string (notification_url)
+    const expectedSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+    if (provider === 'mercadopago' && expectedSecret && req.query.secret !== expectedSecret) {
+      return res.status(401).json({ error: 'Webhook secret inválido', code: 'WEBHOOK_SECRET_INVALID' });
+    }
+
+    // IPN legado manda topic/id por query y el body viene vacío
+    const payload = { ...(req.query || {}), ...(req.body || {}) };
+    const rawBody = JSON.stringify(payload);
+    const result = await billingOrchestrator.processWebhook(provider, req.headers, rawBody, payload);
     res.json(result);
   } catch (e) {
     sentry.captureException(e, {
@@ -729,21 +753,21 @@ app.get('/api/admin/overview', adminMiddleware, async (req, res) => {
     }
 
     const now = new Date();
-    // Audit trial and subscription expiration
-    restaurants.forEach(r => {
-      const sub = r.subscription || {};
-      if (sub.status === 'trialing' && sub.trialEndsAt && new Date(sub.trialEndsAt) < now) {
-        sub.isTrialExpired = true;
-      }
-    });
+    // ¿Trial vencido? Se calcula sin mutar: escribir `isTrialExpired` sobre el
+    // objeto compartido del caché dejaba basura que data/restaurants.json
+    // persistía en la siguiente escritura.
+    const isTrialEnded = (r) => {
+      const s = r.subscription;
+      return Boolean(s && s.status === 'trialing' && s.trialEndsAt && new Date(s.trialEndsAt) < now);
+    };
 
     const totalRestaurants = restaurants.length;
     const activeSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'active').length;
-    const trialingSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'trialing' && !r.subscription.isTrialExpired).length;
+    const trialingSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'trialing' && !isTrialEnded(r)).length;
     const pastDueSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'past_due').length;
     const expiredSubs = restaurants.filter(r => {
       const s = r.subscription || {};
-      return s.status === 'expired' || s.status === 'canceled' || (s.status === 'trialing' && s.trialEndsAt && new Date(s.trialEndsAt) < now);
+      return s.status === 'expired' || s.status === 'canceled' || isTrialEnded(r);
     }).length;
     const mrrEst = activeSubs * 9; // Estimado base USD
 
@@ -1666,13 +1690,19 @@ app.use('/api/auth', authLimiter, authRouter);
 app.use('/api/reviews', reviewsLimiter, reviewsRouter);
 app.use('/api/storage', storageRouter);
 app.use('/api/ai', aiRouter);
-app.use('/api/studio', studioRouter); // Includes requireVerifiedEmail + requireActiveSubscription internally
+// Nota: las rutas de studio exigen `requireVerifiedEmail` + `authMiddleware`
+// (el guard de suscripción vive en la UI del Studio y en los gates que pausan
+// el menú público, no en este mount).
+app.use('/api/studio', studioRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/email', emailRouter);
 app.use('/api/cron', billingDunningRouter);
 
 // Protected routes: require active subscription (Billing operations)
+// IMPORTANTE: sólo aplica a rutas /api/billing montadas DESPUÉS de esta línea.
+// checkout/webhook/status (líneas 581/617/642) quedan ex a propósito: un usuario
+// con trial vencido DEBE poder llegar al checkout para pagarse.
 app.use('/api/billing', requireActiveSubscription);
 
 // Test Email Endpoint

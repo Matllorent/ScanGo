@@ -127,29 +127,22 @@ router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
         theme: 'emerald',
         city: '',
         smartWeatherEnabled: false,
-        categories: [],
-        dishes: []
+        ...buildStarterMenu()
       });
     }
 
     const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
     res.cookie('auth_token', token, COOKIE_OPTIONS);
 
-    // Send welcome email for new Google Auth users
+    // Welcome email for new Google Auth users (same template as register)
     if (isNewUser && restaurant) {
       const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
-      emailService.sendEmailAsync({
+      emailService.sendWelcomeEmail({
         to: user.email,
-        subject: `¡Bienvenido a Menú Pizarrón, ${restaurant.name}!`,
-        html: `
-          <div style="font-family:sans-serif; padding:20px; color:#1e293b;">
-            <h2 style="color:#10b981;">¡Tu menú digital de ${restaurant.name} ya está activo!</h2>
-            <p>Gracias por unirte a Menú Pizarrón SaaS. Ya podés cargar tus platos, ajustar precios y personalizar la estética de tu menú.</p>
-            <p><a href="${appUrl}/studio" style="background:#10b981; color:white; padding:12px 20px; text-decoration:none; border-radius:6px; display:inline-block;">Acceder al Panel Studio</a></p>
-            <p>Tu menú público: <a href="${appUrl}/m/${restaurant.slug}">${appUrl}/m/${restaurant.slug}</a></p>
-          </div>
-        `
-      });
+        restaurantName: restaurant.name || restaurant.bizName,
+        menuUrl: `${appUrl}/m/${restaurant.slug}`,
+        studioUrl: `${appUrl}/studio`
+      }).catch((err) => console.error('❌ [WelcomeEmail]', err.message));
     }
 
     const { password: _, ...safeUser } = user;
@@ -310,8 +303,7 @@ router.post('/supabase-callback', checkSubscriptionKillSwitch, async (req, res, 
         theme: 'emerald',
         city: '',
         smartWeatherEnabled: false,
-        categories: [],
-        dishes: []
+        ...buildStarterMenu()
       });
     }
 
@@ -323,6 +315,28 @@ router.post('/supabase-callback', checkSubscriptionKillSwitch, async (req, res, 
     next(err);
   }
 });
+
+/**
+ * Menú de ejemplo con el que arranca toda cuenta nueva (registro con correo o
+ * con Google): el usuario ve un menú publicable de inmediato en lugar de un
+ * Studio vacío, y sirve para probar el flujo completo sin cargar datos.
+ */
+function buildStarterMenu() {
+  return {
+    categories: [
+      { id: 'cat_hamburguesas', name: 'Burgers Artesanales' },
+      { id: 'cat_milanesas', name: 'Milanesas de la Casa' },
+      { id: 'cat_postres', name: 'Postres Rioplatenses' },
+      { id: 'cat_bebidas', name: 'Bebidas & Cafetería' }
+    ],
+    dishes: [
+      { id: 'd_1', categoryId: 'cat_hamburguesas', name: 'Burger Criolla de Entraña', price: 490, description: 'Pan brioche, provoleta fundida y chimichurri', tags: ['star'] },
+      { id: 'd_2', categoryId: 'cat_milanesas', name: 'Milanesa Napolitana Clásica', price: 540, description: 'Lomo empanado, salsa casera, jamón y muzzarella', tags: [] },
+      { id: 'd_3', categoryId: 'cat_postres', name: 'Flan Casero con Dulce de Leche', price: 260, description: 'Receta tradicional con crema batida', tags: ['star'] },
+      { id: 'd_4', categoryId: 'cat_bebidas', name: 'Flat White Cremoso', price: 190, description: 'Café de especialidad con leche texturizada', tags: ['veggie'] }
+    ]
+  };
+}
 
 /**
  * POST /api/auth/register
@@ -362,6 +376,11 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
         });
         if (!authError && authData) {
           sbUser = authData.user;
+        } else if (authError) {
+          // Casos reales: dominio rechazado ("invalid email") o cuota de envíos
+          // ("email rate limit exceeded"). Se degrada a cuenta local sin
+          // verificación, pero tiene que quedar visible en los logs.
+          console.warn('[Supabase Auth SignUp Error]', authError.message, '| email:', email);
         }
       } catch (err) {
         console.warn('[Supabase Auth SignUp Warning]', err.message);
@@ -391,18 +410,7 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
       businessType,
       allowPerfumery: businessType === 'perfumery',
       wifi: { ssid: 'Restaurante_Clientes', password: 'pizarronrico' },
-      categories: [
-        { id: 'cat_hamburguesas', name: 'Burgers Artesanales' },
-        { id: 'cat_milanesas', name: 'Milanesas de la Casa' },
-        { id: 'cat_postres', name: 'Postres Rioplatenses' },
-        { id: 'cat_bebidas', name: 'Bebidas & Cafetería' }
-      ],
-      dishes: [
-        { id: 'd_1', categoryId: 'cat_hamburguesas', name: 'Burger Criolla de Entraña', price: 490, description: 'Pan brioche, provoleta fundida y chimichurri', tags: ['star'] },
-        { id: 'd_2', categoryId: 'cat_milanesas', name: 'Milanesa Napolitana Clásica', price: 540, description: 'Lomo empanado, salsa casera, jamón y muzzarella', tags: [] },
-        { id: 'd_3', categoryId: 'cat_postres', name: 'Flan Casero con Dulce de Leche', price: 260, description: 'Receta tradicional con crema batida', tags: ['star'] },
-        { id: 'd_4', categoryId: 'cat_bebidas', name: 'Flat White Cremoso', price: 190, description: 'Café de especialidad con leche texturizada', tags: ['veggie'] }
-      ]
+      ...buildStarterMenu()
     });
 
     const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
@@ -420,7 +428,19 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
     });
 
     const { password: _, ...safeUser } = user;
-    return successResponse(res, { user: safeUser, restaurant, token }, 'Registro exitoso. Se ha enviado un correo de confirmación.', 200, { flatData: true });
+    // Con Supabase activo, la casilla recién se confirma desde el link del correo:
+    // el frontend usa este flag para mostrar la pantalla "revisá tu correo"
+    // en vez de tirar al usuario a un Studio donde no puede guardar nada (403).
+    const requiresEmailVerification = Boolean(sbUser && !sbUser.email_confirmed_at);
+    return successResponse(
+      res,
+      { user: safeUser, restaurant, token, requiresEmailVerification },
+      requiresEmailVerification
+        ? 'Registro exitoso. Te enviamos un correo para confirmar tu casilla: abrí el enlace para empezar a editar tu menú.'
+        : 'Registro exitoso. Tu cuenta está lista: ya podés editar y publicar tu menú.',
+      200,
+      { flatData: true }
+    );
   } catch (err) {
     next(err);
   }

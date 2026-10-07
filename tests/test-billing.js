@@ -104,15 +104,29 @@ async function runTests() {
   assert.strictEqual(accessMulti.pricing.hasMultiBranchDiscount, true, 'flag de descuento activo');
   console.log('✓ verifyAccess aplica precio escalonado multi-sucursal (3 sucursales → $46.55 USD, ahorro $10.45)');
 
-  // 5c. createCheckout expone el pricing efectivo del plan
-  const checkout = billingOrchestrator.createCheckout({
+  // 5c. createCheckout expone el pricing efectivo del plan (async: MP/Stripe
+  //     crean la sesión vía API)
+  const checkout = await billingOrchestrator.createCheckout({
     restaurantId: rest.id,
     planId: 'pro_monthly',
     customerEmail: user.email
   });
   assert.strictEqual(checkout.pricing.branchCount, 3, 'checkout hereda el conteo de sucursales');
   assert.strictEqual(checkout.pricing.totalPrice, 46.55, 'checkout calcula el total multi-sucursal');
-  console.log('✓ createCheckout incluye pricing multi-sucursal');
+  assert.strictEqual(checkout.planId, 'pro_monthly', 'checkout normaliza el planId');
+  assert.strictEqual(checkout.provider, 'lemonsqueezy', 'sin país se resuelve el proveedor por defecto');
+  assert.ok(checkout.checkoutUrl === null || typeof checkout.checkoutUrl === 'string', 'checkoutUrl es null cuando no hay credenciales, o una URL válida');
+  console.log('✓ createCheckout incluye pricing multi-sucursal (y resuelve proveedor)');
+
+  // 5c'. Normalización de planes: la UI manda aliases cortos ('monthly'/'annual')
+  assert.strictEqual(billingOrchestrator.normalizePlanId('monthly'), 'pro_monthly', 'alias monthly → pro_monthly');
+  assert.strictEqual(billingOrchestrator.normalizePlanId('annual'), 'pro_annual', 'alias annual → pro_annual');
+  assert.strictEqual(billingOrchestrator.normalizePlanId('pro_monthly'), 'pro_monthly', 'plan real se conserva');
+  assert.throws(() => billingOrchestrator.normalizePlanId('gold_plan'), /Plan inválido/, 'plan desconocido debe rechazarse');
+  assert.strictEqual(billingOrchestrator.resolveProvider('UY', '$'), 'mercadopago', 'UY + moneda $ → Mercado Pago');
+  assert.strictEqual(billingOrchestrator.resolveProvider('AR', 'ARS'), 'mercadopago', 'AR → Mercado Pago');
+  assert.strictEqual(billingOrchestrator.resolveProvider('US', 'USD'), 'lemonsqueezy', 'resto del mundo → Lemon Squeezy');
+  console.log('✓ Normalización de planes y resolución de proveedor por país/moneda');
 
   // 5d. Restaurante sin branches = 1 sucursal (sin descuento)
   await db.saveRestaurant(user.id, { branches: [] });

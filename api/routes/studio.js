@@ -10,13 +10,17 @@ const { sanitizeRestaurantPayload } = require('../utils/sanitizeRestaurant');
 const { menuCacheMiddleware, invalidateMenuCache, memoryCache } = require('../middleware/cache');
 const { authMiddleware } = require('../middleware/auth');
 const requireVerifiedEmail = require('../middleware/requireVerifiedEmail');
+const { requireActiveSubscription } = require('../middleware/subscriptionGuard');
 const { createGroupCartToken } = require('../utils/groupCartToken');
 const aiRouter = require('./ai');
 
 /**
  * POST /api/studio/save - Guardar restaurante/menú completo
+ * Requiere sesión + casilla verificada + suscripción vigente (o gracia activa):
+ * con el trial vencido y sin plan, el menú está pausado y no debería editar se
+ * como si nada. Los gates de gracia post-trial viven en verifyAccess().
  */
-router.post('/save', authMiddleware, requireVerifiedEmail, async (req, res) => {
+router.post('/save', authMiddleware, requireVerifiedEmail, requireActiveSubscription, async (req, res) => {
   try {
     const payload = req.body.data || req.body;
     const cleanPayload = sanitizeRestaurantPayload(payload);

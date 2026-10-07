@@ -70,13 +70,14 @@ const emailService = {
    * Send Welcome Email
    */
   async sendWelcomeEmail({ to, restaurantName, menuUrl, studioUrl }) {
-    const subject = `¡Bienvenido a Menú Pizarrón, ${restaurantName}!`;
+    const subject = `¡Bienvenido a ScanGo, ${restaurantName}!`;
     const html = `
       <div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
         <h2 style="color: #10b981;">¡Tu menú digital de ${restaurantName} ya está activo!</h2>
-        <p>Gracias por unirte a Menú Pizarrón SaaS. Ya podés cargar tus platos, ajustar precios y personalizar la estética de tu menú.</p>
-        <p><a href="${studioUrl || 'https://menupizarron.com/studio'}" style="background: #10b981; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Acceder al Panel Studio</a></p>
-        ${menuUrl ? `<p>Tu menú público: <a href="${menuUrl}">${menuUrl}</a></p>` : ''}
+        <p>Gracias por unirte a ScanGo. Tenés <strong>7 días gratis</strong> para cargar tus platos, ajustar precios y personalizar la estética de tu menú: sin tarjeta y sin compromiso.</p>
+        <p style="margin: 18px 0;"><a href="${studioUrl || 'https://menupizarron.com/studio'}" style="background: #10b981; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Empezar en el Panel Studio</a></p>
+        ${menuUrl ? `<p>Tu menú público (ya compartible): <a href="${menuUrl}">${menuUrl}</a></p>` : ''}
+        <p style="font-size: 12px; color: #888;">Te avisaremos por correo cuando tu prueba esté por terminar.</p>
       </div>
     `;
     return this.sendEmail({ to, subject, html });
@@ -86,10 +87,10 @@ const emailService = {
    * Send Admin Invitation Email
    */
   async sendAdminInvitationEmail({ to, name, restaurantName, inviteLink }) {
-    const subject = `Invitación especial a Menú Pizarrón — ${restaurantName}`;
+    const subject = `Invitación especial a ScanGo — ${restaurantName}`;
     const html = `
       <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
-        <h2 style="color: #2563eb;">Hola ${name}, te invitamos a Menú Pizarrón SaaS</h2>
+        <h2 style="color: #2563eb;">Hola ${name}, te invitamos a ScanGo</h2>
         <p>Has sido invitado como administrador del restaurante <strong>${restaurantName}</strong> con suscripción Pro activa.</p>
         <p>Para activar tu cuenta y establecer tu contraseña, hacé clic en el siguiente enlace seguro:</p>
         <p style="margin: 25px 0;">
@@ -161,7 +162,7 @@ const emailService = {
         <p style="margin: 24px 0;">
           <a href="${link}" style="background: #ef4444; color: #fff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">Activar Plan Pro</a>
         </p>
-        <p style="font-size: 12px; color: #888;">Si no actualizás, tu menú se pausará automáticamente.</p>
+        <p style="font-size: 12px; color: #888;">Si no actualizás, tu menú sigue online 3 días más y después queda pausado.</p>
       </div>
     `
       : `
@@ -173,7 +174,7 @@ const emailService = {
         <p style="margin: 24px 0;">
           <a href="${link}" style="background: #f59e0b; color: #111; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">Activar Plan Pro</a>
         </p>
-        <p style="font-size: 12px; color: #888;">Si no actualizás, tu menú se pausará automáticamente.</p>
+        <p style="font-size: 12px; color: #888;">Si no actualizás, tu menú sigue online 3 días más y después queda pausado.</p>
       </div>
     `;
 
@@ -205,7 +206,7 @@ const emailService = {
         <p>Tu suscripción al plan <strong>${plan}</strong> está activa.</p>
         <p>Restaurante: <strong>${restaurant}</strong></p>
         <p>Próximo cobro: ${renewLabel}</p>
-        <p style="font-size: 12px; color: #888;">Gracias por confiar en Menú Pizarrón SaaS.</p>
+        <p style="font-size: 12px; color: #888;">Gracias por confiar en ScanGo.</p>
       </div>
     `;
 
@@ -280,6 +281,72 @@ const emailService = {
           <a href="${link}" style="background: ${accent}; color: #fff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">Regularizar Ahora</a>
         </p>
         <p style="font-size: 12px; color: #888;">Si ya regularizaste el pago, ignorá este correo.</p>
+      </div>
+    `;
+
+    return this.sendEmail({ to, subject, html });
+  },
+
+  /**
+   * Send Trial Expired Email (día 8: terminó la prueba, empieza la gracia de 3 días)
+   * @param {object} options
+   * @param {string} options.to - Recipient email
+   * @param {string} [options.userName] - Recipient display name
+   * @param {string} [options.restaurantName] - Restaurant display name
+   * @param {number} [options.graceDays] - Días que el menú sigue online sin pagar
+   * @param {string} [options.studioUrl] - Studio upgrade URL
+   * @param {string} [options.menuUrl] - Public menu URL
+   * @returns {Promise<object>} sendEmail result
+   */
+  async sendTrialExpiredEmail({ to, userName, restaurantName, graceDays, studioUrl, menuUrl }) {
+    const restaurant = restaurantName || 'Tu restaurante';
+    const name = userName || 'Responsable';
+    const grace = Number(graceDays) || 3;
+    const link = studioUrl || `${process.env.APP_URL || ''}/studio`;
+
+    const subject = `Tu prueba gratuita de ScanGo terminó — ${restaurant}`;
+    const html = `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #ef4444;">Terminó tu prueba gratuita</h2>
+        <p>Hola <strong>${name}</strong>,</p>
+        <p>Los 7 días gratis de <strong>${restaurant}</strong> en ScanGo llegaron a su fin.</p>
+        <p>Buena noticia: tu menú sigue <strong>online</strong> durante <strong>${grace} días más</strong> para que no pierdas ni un cliente. Activá tu plan para mantenerlo publicado.</p>
+        <p style="margin: 24px 0;">
+          <a href="${link}" style="background: #10b981; color: #fff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">Activar mi plan</a>
+        </p>
+        ${menuUrl ? `<p style="font-size: 12px;">Tu menú: <a href="${menuUrl}">${menuUrl}</a></p>` : ''}
+        <p style="font-size: 12px; color: #888;">Pasados los ${grace} días de gracia, el menú queda pausado hasta que actives tu plan. Podés reactivarlo en cualquier momento.</p>
+      </div>
+    `;
+
+    return this.sendEmail({ to, subject, html });
+  },
+
+  /**
+   * Send Menu Paused Email (día 11: se agotó la gracia post-trial)
+   * @param {object} options
+   * @param {string} options.to - Recipient email
+   * @param {string} [options.userName] - Recipient display name
+   * @param {string} [options.restaurantName] - Restaurant display name
+   * @param {string} [options.studioUrl] - Studio upgrade URL
+   * @returns {Promise<object>} sendEmail result
+   */
+  async sendMenuPausedEmail({ to, userName, restaurantName, studioUrl }) {
+    const restaurant = restaurantName || 'Tu restaurante';
+    const name = userName || 'Responsable';
+    const link = studioUrl || `${process.env.APP_URL || ''}/studio`;
+
+    const subject = `⚠️ El menú de ${restaurant} quedó pausado`;
+    const html = `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #ef4444;">Tu menú quedó pausado</h2>
+        <p>Hola <strong>${name}</strong>,</p>
+        <p>Se agotó el período de gracia de <strong>${restaurant}</strong> y tu menú digital dejó de estar disponible para tus clientes.</p>
+        <p>Al activar tu plan se reactiva al instante: volvés a estar online con todos tus platos y precios tal como los dejaste.</p>
+        <p style="margin: 24px 0;">
+          <a href="${link}" style="background: #10b981; color: #fff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">Reactivar mi menú</a>
+        </p>
+        <p style="font-size: 12px; color: #888;">No se realizó ningún cobro: tu suscripción sólo se activa cuando pagás.</p>
       </div>
     `;
 

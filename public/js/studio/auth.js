@@ -9,7 +9,15 @@
  * En la migración final, esas dependencias se moverán a sus propios módulos.
  */
 
-import { normalizeSubscription, checkStudioAccess, showSubscriptionRequiredScreen } from './subscription.js';
+import {
+  normalizeSubscription,
+  checkStudioAccess,
+  showSubscriptionRequiredScreen,
+  renderSubscriptionBadge,
+  checkSubscriptionAlerts,
+  renderMenuStatusIndicator
+} from './subscription.js';
+import { handleBillingReturn } from './billing.js';
 
 const TOKEN_KEY = 'menu_pizarron_token';
 
@@ -27,6 +35,9 @@ export async function initStudio(state, renderStudioUI, normalizeBusinessType) {
   }
 
   try {
+    // Retorno de una pasarela (?billing=success|canceled): avisa y limpia la URL
+    handleBillingReturn();
+
     const res = await fetch('/api/auth/me', {
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -41,8 +52,13 @@ export async function initStudio(state, renderStudioUI, normalizeBusinessType) {
     state.currentUser = data.user || {};
     state.restaurant = data.restaurant || {};
 
-    // Ensure subscription is always valid before checkStudioAccess runs
-    state.currentUser.subscription = normalizeSubscription(state.currentUser.subscription);
+    // La suscripción vive en el RESTAURANTE ({user, restaurant} es lo que
+    // devuelve /api/auth/me). Normalizar la del user fabricaba un trial nuevo
+    // en cada carga y el paywall/cuenta regresiva nunca aparecían.
+    state.currentUser.subscription = normalizeSubscription(
+      (state.restaurant && state.restaurant.subscription) || state.currentUser.subscription
+    );
+    if (state.restaurant) state.restaurant.subscription = state.currentUser.subscription;
 
     // If user has no restaurant yet, scaffold a clean default
     if (!state.restaurant.id) {
@@ -115,7 +131,16 @@ export async function initStudio(state, renderStudioUI, normalizeBusinessType) {
     // Gate: check subscription before rendering UI
     const access = checkStudioAccess(state.currentUser);
     if (!access.allowed) {
-      showSubscriptionRequiredScreen(access);
+      // El header queda visible sobre el paywall: sin este paso badge, alertas
+      // e indicador conservan los defaults estáticos del HTML (p. ej. "⏳ 7 días
+      // de prueba") y contradicen el estado real (vencido / pausado).
+      renderSubscriptionBadge(state.currentUser.subscription);
+      checkSubscriptionAlerts(state.currentUser.subscription);
+      renderMenuStatusIndicator(state.currentUser.subscription);
+      showSubscriptionRequiredScreen(access, {
+        // Durante la gracia post-trial (3 días) el dueño puede seguir editando
+        onContinue: () => renderStudioUI()
+      });
       return;
     }
 

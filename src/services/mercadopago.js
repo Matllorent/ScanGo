@@ -31,6 +31,12 @@ async function createPreference(options) {
     throw new Error('MERCADOPAGO_ACCESS_TOKEN no está configurado en las variables de entorno');
   }
 
+  const backUrls = options.backUrls || {
+    success: (process.env.APP_URL || 'http://localhost:3000') + '/?status=mp_success',
+    failure: (process.env.APP_URL || 'http://localhost:3000') + '/?status=mp_failure',
+    pending: (process.env.APP_URL || 'http://localhost:3000') + '/?status=mp_pending'
+  };
+
   const payload = {
     items: options.items.map(it => ({
       id: String(it.id || 'item'),
@@ -39,21 +45,23 @@ async function createPreference(options) {
       unit_price: Math.max(0.01, parseFloat(it.unit_price) || 1),
       currency_id: it.currency_id || 'UYU'
     })),
-    payer: options.payer ? {
-      name: options.payer.name ? String(options.payer.name).slice(0, 100) : undefined,
-      email: options.payer.email ? String(options.payer.email).slice(0, 100) : 'cliente@menupizarron.com'
-    } : {
-      email: 'cliente@menupizarron.com'
+    payer: {
+      name: options.payer && options.payer.name ? String(options.payer.name).slice(0, 100) : undefined,
+      email: options.payer && options.payer.email ? String(options.payer.email).slice(0, 100) : 'cliente@scango.app'
     },
     external_reference: options.externalReference ? String(options.externalReference).slice(0, 255) : `ref_${Date.now()}`,
-    statement_descriptor: 'MENU PIZARRON',
-    auto_return: options.autoReturn || 'approved',
-    back_urls: options.backUrls || {
-      success: (process.env.APP_URL || 'http://localhost:3000') + '/?status=mp_success',
-      failure: (process.env.APP_URL || 'http://localhost:3000') + '/?status=mp_failure',
-      pending: (process.env.APP_URL || 'http://localhost:3000') + '/?status=mp_pending'
-    }
+    statement_descriptor: 'SCANGO',
+    back_urls: backUrls
   };
+
+  // MP sólo acepta `auto_return` si back_urls.success es https (rechaza
+  // http://localhost con 400 "invalid_auto_return"). En dev local lo omitimos:
+  // el comprador vuelve al menú con el botón que muestra MP.
+  const successUrl = String(backUrls.success || '');
+  const successIsHttpLocalhost = /^http:\/\/localhost(:|\/|$)/i.test(successUrl);
+  if (!successIsHttpLocalhost) {
+    payload.auto_return = options.autoReturn || 'approved';
+  }
 
   if (options.notificationUrl) {
     payload.notification_url = options.notificationUrl;

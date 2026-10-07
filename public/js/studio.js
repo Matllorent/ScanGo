@@ -965,6 +965,11 @@ export async function initStudio() {
     renderStudioUI();
   }, normalizeRestaurantBusinessType);
 
+  // El paywall (initStudioAuth retorna temprano sin pasar por el callback de
+  // render) también necesita estos datos: `openBillingModal` los lee de acá.
+  currentUser = state.currentUser || currentUser;
+  restaurant = state.restaurant || restaurant;
+
   // Setup Drag & Drop on AI Menu Dropzone
   const dropzone = document.getElementById('aiMenuDropzone');
   if (dropzone) {

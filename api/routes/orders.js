@@ -333,8 +333,11 @@ function cleanupActiveGroupCarts() {
     }
   }
 }
-// Run cleanup every hour
-setInterval(cleanupActiveGroupCarts, 60 * 60 * 1000);
+// Run cleanup every hour. `unref()` para que el timer no mantenga vivo el
+// process en tests (que hacen require de api/index): sin esto, cualquier suite
+// que lo importe se quedaba colgada para siempre después de pasar.
+const groupCartCleanupTimer = setInterval(cleanupActiveGroupCarts, 60 * 60 * 1000);
+if (typeof groupCartCleanupTimer.unref === 'function') groupCartCleanupTimer.unref();
 
 
 /**

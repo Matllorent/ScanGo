@@ -1241,7 +1241,7 @@
   <div id="billingModal" class="modal-overlay">
     <div class="modal-box" style="text-align: center;">
       <button class="modal-close" onclick="closeBillingModal()">✕</button>
-      <h3 class="modal-title">Gestionar Suscripción Menú Pizarrón</h3>
+      <h3 class="modal-title">Gestionar Suscripción — ScanGo</h3>
       
       <div style="background:var(--surface-2); padding:16px; border-radius:10px; margin-bottom:16px; text-align:left;">
         <div style="font-size:12px; color:var(--text-dim);">Estado Actual:</div>
@@ -1254,20 +1254,37 @@
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
         <div style="background:var(--surface-3); padding:12px; border-radius:8px; border:1px solid var(--border);">
-          <div style="font-size:12px; font-weight:700;">Mensual</div>
+          <div style="font-size:12px; font-weight:700;">Starter · Mensual</div>
           <div style="font-size:18px; font-weight:700; color:#fff;">$9 <span style="font-size:10px;">USD/mes</span></div>
-          <button class="btn-nav btn-nav-gold" style="width:100%; margin-top:8px;" onclick="startCheckout('monthly', event)">Suscribirme</button>
+          <div style="font-size:10px; color:var(--text-dim); margin-bottom:6px;">Hasta 1 local · anual $79</div>
+          <button class="btn-nav btn-nav-gold" style="width:100%;" onclick="startCheckout('starter_monthly', event)">Elegir Starter</button>
         </div>
         <div style="background:var(--surface-3); padding:12px; border-radius:8px; border:1px solid var(--accent-gold);">
-          <div style="font-size:10px; color:var(--accent-gold); font-weight:800;">RECOMENDADO (AHORRA 27%)</div>
-          <div style="font-size:12px; font-weight:700;">Anual Pro</div>
+          <div style="font-size:10px; color:var(--accent-gold); font-weight:800;">RECOMENDADO</div>
+          <div style="font-size:12px; font-weight:700;">Pro · Mensual</div>
+          <div style="font-size:18px; font-weight:700; color:#fff;">$19 <span style="font-size:10px;">USD/mes</span></div>
+          <div style="font-size:10px; color:var(--text-dim); margin-bottom:6px;">Multi-sucursal · anual $159</div>
+          <button class="btn-nav btn-nav-gold" style="width:100%;" onclick="startCheckout('pro_monthly', event)">Suscribirme</button>
+        </div>
+        <div style="background:var(--surface-3); padding:12px; border-radius:8px; border:1px solid var(--border);">
+          <div style="font-size:12px; font-weight:700;">Starter · Anual</div>
           <div style="font-size:18px; font-weight:700; color:#fff;">$79 <span style="font-size:10px;">USD/año</span></div>
-          <button class="btn-nav btn-nav-gold" style="width:100%; margin-top:8px;" onclick="startCheckout('annual', event)">Activar Anual</button>
+          <div style="font-size:10px; color:var(--accent-green); margin-bottom:6px;">Ahorrá 27% vs. mensual</div>
+          <button class="btn-nav btn-nav-gold" style="width:100%;" onclick="startCheckout('starter_annual', event)">Activar Anual</button>
+        </div>
+        <div style="background:var(--surface-3); padding:12px; border-radius:8px; border:1px solid var(--border);">
+          <div style="font-size:12px; font-weight:700;">Pro · Anual</div>
+          <div style="font-size:18px; font-weight:700; color:#fff;">$159 <span style="font-size:10px;">USD/año</span></div>
+          <div style="font-size:10px; color:var(--accent-green); margin-bottom:6px;">Ahorrá 30% vs. mensual</div>
+          <button class="btn-nav btn-nav-gold" style="width:100%;" onclick="startCheckout('pro_annual', event)">Activar Pro Anual</button>
         </div>
       </div>
 
+      <div id="billingCheckoutError" style="display:none; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.4); color:#fca5a5; border-radius:8px; padding:10px 12px; font-size:12px; text-align:left; margin-bottom:12px;"></div>
+
       <div style="font-size:11px; color:var(--text-dim);">
-        🛡️ Pasarelas seguras: Lemon Squeezy (Global) y Mercado Pago (Latam). Smart Dunning con 5 días de gracia ante rechazo de tarjeta.
+        🛡️ Pasarelas seguras: Mercado Pago (Uruguay y Argentina) y Lemon Squeezy (internacional).<br>
+        7 días de prueba gratis · Smart Dunning con 7 días de gracia ante rechazo de tarjeta · Sin permanencia mínima.
       </div>
     </div>
   </div>

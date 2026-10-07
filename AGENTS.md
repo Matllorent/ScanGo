@@ -8,7 +8,7 @@ SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. 
 ```bash
 npm run dev          # Desarrollo con nodemon (puerto 3000)
 npm start            # Producción (node api/index.js)
-npm test             # Suite completa (19 tests en secuencia, 100% verde)
+npm test             # Suite completa (19 tests en secuencia)
 npm run test:billing # Test individual de pasarelas de pago
 npm run mobile:sync  # npx cap sync (sincroniza Capacitor)
 npm run mobile:build # npx cap copy android (copia web a Android)
@@ -16,29 +16,34 @@ npm run mobile:build # npx cap copy android (copia web a Android)
 
 Ejecución de test individual: `node tests/test-billing.js` (más rápido que `npm run test:billing`).
 
+`npm run dev` (nodemon) solo observa `api/`, `src/` y `public/` con `NODE_ENV=development` — cambios en `tests/` o `data/` no reinician el server.
+
 ## Arquitectura
 
 ### Backend
-- **Entrypoint**: `api/index.js` (~2068 líneas) — rutas inline + routers modulares en `api/routes/`
-- **Routers modulares**: auth, reviews, storage, webhooks, notifications, email, health, orders, analytics, billing-dunning (cron)
-- **Middleware**: `api/middleware/` (auth, validation, rate-limit, kill-switch, subscription-guard, cache, error-handler, request-id)
-- **Services**: `api/services/` (mercadopago, email, weather, audit, telemetry)
-- **Utils**: `api/utils/` (response, sentry, hash, menuOptions, sentry)
+- **Entrypoint**: `api/index.js` — rutas inline + routers modulares en `api/routes/`
+- **Routers modulares** (11 en `api/routes/`): auth, reviews, storage, webhooks, notifications, email, health, orders, analytics, **studio**, **ai**
+- **Cron**: `api/cron/billing-dunning.js` (montado como `/api/cron/billing-dunning`, requiere `CRON_SECRET`)
+- **Middleware**: `api/middleware/` (auth, validation, rateLimits, killSwitch, subscriptionGuard, tenantGuard, requireVerifiedEmail, idempotency, cache, errorHandler, requestId)
+- **Services**: `api/services/` (audit, email, geminiMenuParser, notifications, storage, telemetry, weather). El servicio de Mercado Pago vive en `src/services/mercadopago.js`.
+- **Utils**: `api/utils/` (response, sentry, hash, menuOptions, groupCartToken, …)
 
 ### Frontend (`public/`)
 - HTML/CSS/JS plano — **sin bundler, sin framework**
 - `menu.html` — visor de menú público (ruta `/m/*`)
 - `studio.html` — panel de restaurante (ruta `/studio`)
 - `admin.html` — panel maestro (ruta `/admin`)
+- **Guard de HTML distinto según entorno**: en dev, `GET /studio` y `GET /admin` pasan por `studioHtmlAuthMiddleware` / `adminHtmlAuthMiddleware` (cookie `auth_token` / `admin_token` con JWT, redirigen sin sesión). **En Vercel, `vercel.json` los sirve estáticos sin pasar por Express** → el guard solo existe en dev; la seguridad real está en las APIs `/api/*`.
 - Assets servidos estáticamente desde `public/`
 - `public/js/components/` — 14 componentes ES Module (DishCard, GroupCartManager, IceCreamWizard, etc.)
 - `public/js/menu-modules.js` — ES Module que importa componentes y expone en `window.`
-- `public/js/menu.js` — script inline principal (2740 líneas)
-- `public/js/utils/` — nuevos utilitarios modulares (escapeHtml, eventThemes, dishPriceFormatter, categoryFilter)
+- `public/js/menu.js` — script inline principal (módulo raíz)
+- `public/js/menu/` — módulos ES internos (eventGuestMode, menuState, menuViewModel, menuModals, menuLoader, cartOperations, orderCheckout, smartReviews, virtualWaiterHeuristics)
+- `public/js/utils/` — utilitarios ES: **`escapeHtmlBrowser.js`** (el que usa todo el frontend), `dishPriceFormatter.js`, `categoryFilter.js`, `eventThemes.js` (ver gotcha abajo)
 
 ### Base de Datos — Dual Mode
 - **Default**: archivos JSON en `data/` (`users.json`, `restaurants.json`, `webhooks.json`, `reset_tokens.json`, `reviews.json`, `feedback.json`, `settings.json`)
-- **Supabase (PostgreSQL)**: si existen `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` en `.env`
+- **Supabase (PostgreSQL)**: si existen `SUPABASE_URL` + (`SUPABASE_SERVICE_ROLE_KEY` o `SUPABASE_SERVICE_KEY`) en `.env`
   - Al arrancar: `db.ready` hidrata el snapshot local desde Supabase antes de atender `/api/*` y `/m/*`.
   - En runtime: JSON funciona como cache/fallback y las escrituras se replican a Supabase; las respuestas esperan escrituras pendientes.
   - En Vercel: el fallback JSON usa `/tmp` (efímero); producción falla cerrado si falta una service key válida o falla la hidratación.
@@ -47,14 +52,15 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - Tablas Supabase declaradas: `users`, `restaurants`, `webhooks`, `group_carts`, `orders`, `reviews`, `customer_feedback`, `audit_logs`, `push_subscriptions`, `telemetry_events`. RLS deniega acceso directo de roles cliente; el backend usa service role.
 
 ### Billing — Multi-Provider (`src/billing/orchestrator.js`)
-- **Lemon Squeezy** (default, Merchant of Record global)
-- **Stripe** (global, requiere LLC)
-- **Mercado Pago** (auto-selecciona para `countryCode` UY/AR con moneda UYU/ARS/$U)
+- **Resolución de proveedor** (`resolveProvider`): UY/AR + moneda `$|UYU|ARS|$U|USD` → **Mercado Pago**; resto → `DEFAULT_BILLING_PROVIDER` (`lemonsqueezy`), con fallback a la primera pasarela configurada.
+- **`createCheckout` es async** (MP/Stripe crean la sesión vía API). Acepta `planId` real o alias `monthly|annual` (`normalizePlanId()` → 400 `INVALID_PLAN`). Sin credenciales devuelve `checkoutUrl: null` + `configuration.missing` y la ruta responde **503 `PAYMENT_PROVIDER_NOT_CONFIGURED`** (nunca URL trucha).
+- **Lemon**: link `/buy/<variant_id>` con `LEMONSQUEEZY_VARIANT_<PLAN>` (fallback `LEMONSQUEEZY_PLAN_<PERIOD>_VARIANT_ID`). **Stripe**: Checkout Session real (`STRIPE_PRICE_<PLAN>`). **MP**: preferencia real con `external_reference = <restaurantId>:<planId>` y `notification_url` con `?secret=`; el webhook consulta `GET /v1/payments/:id` porque el IPN no trae `external_reference`.
 - Planes: `starter_monthly|annual` (9/79 USD), `pro_monthly|annual` (19/159 USD)
 - **Descuento escalonado por sucursales**: 1ª=100%, 2ª=80%, 3ª=65%, 4ª+=50% (`calculateMultiBranchPrice()`)
 - **Webhooks idempotentes**: `db.hasProcessedWebhook()` / `markWebhookProcessed()` evitan duplicados
 - **Smart Dunning**: `past_due` → 7 días de gracia antes de bloquear menú (`verifyAccess()`)
-- **Trial**: 7 días (`trialing` status) con acceso completo
+- **Trial 7 + 3**: días 1-7 acceso total; **días 8-10** `verifyAccess()` devuelve `allowed:true` + `requiresPayment:true` (menú público online, Studio muestra paywall con "Seguir editando"); **día 11+** menú pausado. Excepción: una suscripción que ya estuvo pagas (`provider !== 'trial'` o `downgradedAt`) no gana la gracia. El cron pasa `trialing` → `expired` y manda los emails de vencido/pausado una sola vez (banderas `trialWarning3dSent|trialWarning1dSent|trialExpiredEmailSent|menuPausedEmailSent`).
+- **Espejo client** en `public/js/studio/subscription.js` (`checkStudioAccess`) — si se cambia uno, cambiar el otro.
 
 ### Mobile (Capacitor)
 - Config: `mobile/capacitor.config.json`
@@ -76,11 +82,12 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** — crean restaurantes/usuarios reales en el store local. **No son aislados**.
-- `tests/test-e2e.js` existe pero **NO está incluido en `npm test`**
 - Suite completa (`npm test`) ejecuta 19 tests en secuencia — **todos deben pasar (19/19)**
-- Para debug rápido: `node tests/test-billing.js` (o el test específico)
+- **3 tests existen pero NO están en `npm test`**: `test-e2e.js`, `test-db-write.js`, `test-escape-html.js` (ejecutarlos a mano si tocas esas áreas)
+- **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 3 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell` (usan credenciales reales).
+- Para debug rápido: `node tests/test-billing.js` (o el test específico, o `npm run test:<alias>`)
 
-### Tests Disponibles (19 suites)
+### Tests incluidos en `npm test` (19 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
@@ -94,7 +101,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-weather.js` | Contexto de clima, caché por ciudad, fallback rápido |
 | `test-landing-conversion.js` | Landing page, Google seguro, simulador sin registro |
 | `test-group-cart-mozo.js` | GroupCartManager, Mozo Virtual, permisos por comensal, Realtime |
-| `test-email-notifications.js` | Los 4 métodos de email (Resend/SMTP): recibo, fallido, dunning, warning trial |
+| `test-email-notifications.js` | Los 7 métodos de email (Resend/SMTP): bienvenida, recibo, fallido, dunning, warning trial, trial vencido, menú pausado |
 | `test-ai-menu-import.js` | Gemini Flash multimodal, JSON schema, carga multi-página, límites 25mb, descarte por plato |
 | `test-menu-componentization.js` | Módulos ES de menu (smartReviews, virtualWaiterHeuristics, orderCheckout) |
 | `test-menu-seo.js` | SSR, metadatos y JSON-LD por restaurante |
@@ -112,10 +119,11 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 |----------|-------------|
 | `JWT_SECRET` | Firma de tokens (cambiar en prod) |
 | `ADMIN_KEY` | Clave maestra panel `/admin` |
-| `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` | Habilita modo cloud PostgreSQL |
-| `LEMONSQUEEZY_*` | API key, store ID, webhook secret, variant IDs |
-| `STRIPE_*` | Secret key, webhook secret, price IDs |
-| `MERCADOPAGO_*` | Access token, webhook secret |
+| `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (alias: `SUPABASE_SERVICE_KEY`) | Habilita modo cloud PostgreSQL; clave de servicio, nunca al navegador |
+| `LEMONSQUEEZY_*` | API key, store ID, webhook secret, variant IDs (`LEMONSQUEEZY_VARIANT_<PLAN>` por plan, fallback `_PLAN_<PERIOD>_VARIANT_ID`) |
+| `STRIPE_*` | Secret key, webhook secret, price IDs (`STRIPE_PRICE_<PLAN>`, fallback `_MONTHLY`/`_ANNUAL`) |
+| `MERCADOPAGO_*` | Access token, webhook secret, `MERCADOPAGO_CURRENCY` (default USD; no-USD exige `MERCADOPAGO_FX_<CUR>`) |
+| `DEFAULT_BILLING_PROVIDER` | Proveedor para países fuera de UY/AR (default `lemonsqueezy`) |
 | `RESEND_API_KEY` + `EMAIL_FROM` | Emails transaccionales |
 | `GEMINI_API_KEY` | Importación de cartas físicas con Google Gemini Flash |
 | `SENTRY_DSN` | Monitoreo errores (opcional) |
@@ -124,6 +132,9 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 | `SUPABASE_ANON_KEY` | Clave pública para Realtime en navegador (protegida por RLS) |
 | `CRON_SECRET` | Bearer/header requerido para cron en producción |
 | `GROUP_CART_SECRET` | Firma HMAC de QR de mesa; puede usar `JWT_SECRET` como fallback |
+
+### Tooling OpenCode
+- `opencode.json` define 6 MCP locales: `menu-filesystem`, `memory-graph`, `playwright-testing`, `chrome-devtools`, `context7` y `supabase` (**read-only**, project-ref `olqdcudvstbawkcvsfdd`, requiere `SUPABASE_ACCESS_TOKEN` en el entorno).
 
 ## Convenciones y Gotchas
 
@@ -139,58 +150,49 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 - No hay ESLint, Prettier, ni workflows de GitHub Actions
 - `tsconfig.json` existe pero **el app corre JS puro** — no hay paso de compilación
 
+### Trampas conocidas del codebase
+- **`data/*.json` está en `.gitignore` pero `restaurants.json`, `users.json` y `webhooks.json` están trackeados** (fueron `git add -f`). Los tests los mutan: revisar el diff antes de commitear y no borrar los tracks sin pensarlo.
+- **Dos escapeHtml**: `public/js/utils/escapeHtml.js` es CommonJS legacy usado solo por `tests/test-escape-html.js`; el frontend importa `escapeHtmlBrowser.js`. No "unificar" a ciegas.
+- **Archivos muertos** (sin imports en todo el repo, no "arreglar" ni referenciar): `public/js/utils/eventThemes.js`, `src/menuRenderer.js`. Los comentarios de `public/js/menu/menuState.js` mencionan `menuRenderer.js` pero ese archivo no se importa.
+- **`test-frontend-esm-syntax.js` solo valida *sintaxis*** (copia cada `public/js/**` a `.mjs` y corre `node --check`). Un `require()`/`module.exports` en tiempo de ejecución NO lo rompe: `eventThemes.js` pasa el test pero fallaría en el navegador. No asumir "pasó el test ⇒ es usable".
+
 ### Estructura de Datos Clave
 - **Restaurant** incluye: `subscription` (status, plan, provider, trialEndsAt, currentPeriodEnd, gracePeriodDaysRemaining), `branches[]`, `categories[]`, `dishes[]`, `modifierGroups[]`, `deliveryZones[]`, `businessType` (`restaurant|perfumery|events`), `layout` (`classic|modern|minimal`), `theme`, `city`, `smartWeatherEnabled`
 - **Branch**: `id`, `name`, `slug`, `phone`, `address`, `overridePrices{}`, `customDishes[]`
 - **User**: `id`, `email`, `password` (bcrypt), `name`, `createdAt`
 
 ### Rate Limiting
-- Por tenant/IP (`x-tenant-id` o `x-restaurant-id` header)
-- Límites: auth=30/15min, reviews=30/15min, orders=60/15min
+- Por tenant/IP (`x-tenant-id` o `x-restaurant-id` header), ventana 15 min
+- En `api/index.js`: auth=30, reviews=30, orders=60, **admin=5**
+- En `api/middleware/rateLimits.js`: email=10, notifications=20, storage=20, groupCart=90, analytics=120
 
 ### Helpers Útiles (referencia rápida)
-- `src/utils/response.js`: `successResponse()`, `errorResponse()` — formato estándar API
-- `src/middleware/killSwitch.js`: `checkSubscriptionKillSwitch` — bloquea features por plan
-- `src/middleware/cache.js`: `menuCacheMiddleware`, `invalidateMenuCache()` — cache menú público
-- `src/utils/sentry.js`: `captureMessage()`, `captureException()` — no-op si no hay DSN
+- `api/utils/response.js`: `successResponse()`, `errorResponse()` — formato estándar API
+- `api/middleware/killSwitch.js`: `checkSubscriptionKillSwitch` — bloquea features por plan
+- `api/middleware/cache.js`: `menuCacheMiddleware`, `invalidateMenuCache()` — cache menú público
+- `api/utils/sentry.js`: `captureMessage()`, `captureException()` — no-op si no hay DSN
 
-### Nuevos Módulos de Utilidades (`public/js/utils/`)
+> **Ojo**: `src/` solo contiene `db/`, `billing/`, `services/mercadopago.js`, `email/` y `menuRenderer.js`. Todo el código del runtime HTTP (helpers, middleware, utils) vive en **`api/utils/`** y **`api/middleware/`**.
+
+### Módulos de Utilidades (`public/js/utils/`)
 
 | Módulo | Propósito |
 |--------|-----------|
-| `escapeHtml.js` | Sanitizador XSS modularizado |
-| `eventThemes.js` | Detector de modo evento → clase CSS de tema |
+| `escapeHtmlBrowser.js` | Sanitizador XSS — **el que importa todo el frontend** (`menu.js`, `studio.js`, componentes) |
 | `dishPriceFormatter.js` | Formateo de precios, Happy Hour, strike |
 | `categoryFilter.js` | Filtros dietéticos, orden por clima |
+| `eventThemes.js` | **Legacy/CommonJS y sin imports** — no usar (ver gotcha) |
 
-## Temas Visuales para Eventos (nuevos)
+## Temas Visuales para Eventos
 
-### Activación
-- `businessType='events'` → `theme-wedding` por defecto
-- `?event=cumple_15` → `theme-cumple15`
-- `?event=birthday` → `theme-birthday`
-- `?event=catering` → `theme-catering`
-- `businessType='restaurant'` → **no aplica** tema de evento
+Lógica real: **`resolveEventTheme()` en `public/js/menu/eventGuestMode.js`** (llamado desde `menu.js`). `public/js/utils/eventThemes.js` es código CommonJS legacy **que nadie importa** — ignorarlo.
 
-### Estética Bodas / Casamientos
-- Tonos blancos, marfil, marcos sutiles, tipografías serif (Playfair Display)
-- Detalles decorativos con estilo floral/botánico suave
-- Fondo `#FAFAFA`, tarjetas `#FFFFFF`, acentos `#D4A853` (dorado viejo)
+- Se activa si `businessType==='events'` **o** `?event=` ∈ `true|wedding|cumple_15|birthday|catering`
+- Sin parámetro y `businessType='events'` → `theme-wedding`
+- Mapeo: `cumple_15`→`theme-cumple15`, `birthday`→`theme-birthday`, `catering`→`theme-catering`, resto→`theme-wedding`
+- **`?event=...` funciona también con `businessType='restaurant'`** (el flag solo fuerza el default wedding)
 
-### Estética Cumpleaños de 15 / Celebraciones
-- Colores pastel suaves (rosados, champán)
-- Tipografías finas, atmósfera sofisticada y festiva
-- Fondo `#F9F0F5`, tarjetas `#FFFFFF`, acentos `#D4A853` + `#F4C2C2` (rosa)
-
-### Estética Cumpleaños Generales
-- Paleta suave festiva, elegante pero celebratorio
-- Acentos mint (`#A8D5C7`), oro `#C9A867`
-- Fondo `#FAF8F5`, tarjetas `#FFFFFF`
-
-### Estética Catering
-- Limpio, profesional, enfoque en comida
-- Paleta neutral con acentos cálidos
-- Fondo `#F7F4F0`, tarjetas `#FFFFFF`, acentos `#C49A4A` + `#A4753C` (umber)
+Estéticas (definiciones CSS en `public/css/menu.css`): wedding = marfil + serif Playfair + dorado `#D4A853`; cumple15 = pastel rosado/champán sobre `#F9F0F5`; birthday = mint `#A8D5C7` + oro `#C9A867` sobre `#FAF8F5`; catering = neutral cálido `#C49A4A`/`#A4753C` sobre `#F7F4F0`.
 
 ## Archivos de Referencia Rápida
 
@@ -203,5 +205,7 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 | `mobile/capacitor.config.json` | Config Android/Capacitor |
 | `src/db/schema.sql` | Esquema PostgreSQL para Supabase |
 | `.cursorrules` | Reglas de desarrollo (cero mocks, sync API↔Admin) |
-| `public/js/utils/` | Nuevos módulos modulares (escapeHtml, eventThemes, etc.) |
+| `public/js/menu/eventGuestMode.js` | Resolución de tema de evento, contexto de invitado, reservas WhatsApp |
+| `public/js/utils/` | Utilidades frontend (usan `escapeHtmlBrowser.js`, ver trampas) |
 | `public/js/components/` | 14 componentes ES Module reutilizables |
+| `tests/` | 22 suites; 19 corren en `npm test` (ver sección Testing) |

@@ -174,22 +174,55 @@ function testTotp() {
   console.log('✓ Test 3: Validación y Sanitización 2FA (TOTP) verificada con token:', validToken);
 }
 
-// 3. Verify Trial Expiration
+// 3. Verify Trial Expiration (7 días de prueba + 3 días de gracia de menú online)
 async function testBillingTrial() {
   const db = require('../src/db/db');
-  const userId = 'user_exp_test_' + Date.now();
-  const expiredRest = await db.saveRestaurant(userId, {
-    name: 'Restaurante Expirado Test',
+
+  // (a) Vencido hace 1 hora → dentro de la gracia post-trial:
+  //     el menú público sigue online pero el Studio exige pago (paywall)
+  const graceRest = await db.saveRestaurant('user_grace_test_' + Date.now(), {
+    name: 'Restaurante En Gracia Test',
     subscription: {
       status: 'trialing',
       trialEndsAt: new Date(Date.now() - 3600000).toISOString() // 1 hour ago
     }
   });
 
+  const graceAccess = billingOrchestrator.verifyAccess(graceRest.id);
+  assert.strictEqual(graceAccess.allowed, true, 'Dentro de la gracia de 3 días el menú debe seguir online');
+  assert.strictEqual(graceAccess.status, 'expired', 'Estado debe ser expired');
+  assert.strictEqual(graceAccess.trialExpired, true, 'Flag de trial vencido');
+  assert.strictEqual(graceAccess.requiresPayment, true, 'Debe exigir pago (paywall en Studio)');
+  assert.ok(graceAccess.trialGraceDaysRemaining >= 1, 'Quedan días de gracia');
+
+  // (b) Vencido hace 4 días → agotó la gracia: menú pausado
+  const expiredRest = await db.saveRestaurant('user_exp_test_' + Date.now(), {
+    name: 'Restaurante Expirado Test',
+    subscription: {
+      status: 'trialing',
+      trialEndsAt: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString() // 4 days ago
+    }
+  });
+
   const access = billingOrchestrator.verifyAccess(expiredRest.id);
-  assert.strictEqual(access.allowed, false, 'Acceso debe ser denegado si el trial expiró');
+  assert.strictEqual(access.allowed, false, 'Fuera de la gracia el acceso debe ser denegado');
   assert.strictEqual(access.status, 'expired', 'Estado debe ser expired');
-  console.log('✓ Test 5 & 6: Expiración automática de período de prueba (Free Trial) validada');
+  assert.strictEqual(access.isTrialExpired, true, 'Debe marcar trial expirado');
+
+  // (c) Una suscripción que ya estuvo paga y se degradó NO vuelve a ganar gracia
+  const downgradedRest = await db.saveRestaurant('user_downgrade_test_' + Date.now(), {
+    name: 'Restaurante Degradado Test',
+    subscription: {
+      status: 'expired',
+      provider: 'mercadopago',
+      downgradedAt: new Date(Date.now() - 3600000).toISOString(),
+      trialEndsAt: new Date(Date.now() - 3600000).toISOString()
+    }
+  });
+  const downgradedAccess = billingOrchestrator.verifyAccess(downgradedRest.id);
+  assert.strictEqual(downgradedAccess.allowed, false, 'Plan degradado por dunning no gana gracia post-trial');
+
+  console.log('✓ Test 5 & 6: Expiración de prueba con gracia de 3 días (día 8-10 online, día 11 pausado) validada');
 }
 
 function testHydrationGuard() {

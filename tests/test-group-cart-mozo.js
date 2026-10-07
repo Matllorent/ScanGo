@@ -224,7 +224,12 @@ async function runGroupCartAndMozoTests() {
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE PEDIDO GRUPAL Y MOZO VIRTUAL PASARON EXITOSAMENTE AL 100%!');
 }
 
-runGroupCartAndMozoTests().catch(err => {
+runGroupCartAndMozoTests().then(() => {
+  // El canal de Supabase Realtime abierto durante el test mantiene vivo el
+  // event loop: sin este exit el proceso nunca terminaba y npm test se colgaba
+  // en este suite (los otros suites que levantan server hacen lo mismo).
+  process.exit(0);
+}).catch(err => {
   console.error('❌ Error en test-group-cart-mozo:', err);
   process.exit(1);
 });

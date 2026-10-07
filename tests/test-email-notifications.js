@@ -5,11 +5,14 @@ console.log('🧪 Iniciando pruebas de notificaciones por email...');
 
 (async () => {
   // 1. Verificar que el servicio de email existe y tiene los métodos requeridos
+  assert.strictEqual(typeof emailService.sendWelcomeEmail, 'function', 'sendWelcomeEmail debe ser una función');
   assert.strictEqual(typeof emailService.sendTrialWarningEmail, 'function', 'sendTrialWarningEmail debe ser una función');
   assert.strictEqual(typeof emailService.sendPaymentReceiptEmail, 'function', 'sendPaymentReceiptEmail debe ser una función');
   assert.strictEqual(typeof emailService.sendPaymentFailedEmail, 'function', 'sendPaymentFailedEmail debe ser una función');
   assert.strictEqual(typeof emailService.sendDunningReminderEmail, 'function', 'sendDunningReminderEmail debe ser una función');
-  console.log('✓ Los 4 métodos de email existen en el servicio');
+  assert.strictEqual(typeof emailService.sendTrialExpiredEmail, 'function', 'sendTrialExpiredEmail debe ser una función');
+  assert.strictEqual(typeof emailService.sendMenuPausedEmail, 'function', 'sendMenuPausedEmail debe ser una función');
+  console.log('✓ Los 7 métodos de email existen en el servicio');
 
   // 2. Probar sendTrialWarningEmail (día 3) — sin RESEND_API_KEY usa fallback local
   const trialWarning3 = await emailService.sendTrialWarningEmail({
@@ -70,7 +73,40 @@ console.log('🧪 Iniciando pruebas de notificaciones por email...');
   assert.strictEqual(dunning.success, true, 'Dunning reminder debe ser exitoso');
   console.log('✓ sendDunningReminderEmail funciona correctamente');
 
-  // 7. Probar sendEmailAsync (fire-and-forget)
+  // 7. Probar sendTrialExpiredEmail (día 8: empieza la gracia de 3 días)
+  const trialExpired = await emailService.sendTrialExpiredEmail({
+    to: 'test@example.com',
+    userName: 'Lucía',
+    restaurantName: 'Café Central',
+    graceDays: 3,
+    studioUrl: 'https://menupizarron.com/studio',
+    menuUrl: 'https://menupizarron.com/m/cafe-central'
+  });
+  assert.strictEqual(trialExpired.success, true, 'Trial expired email debe ser exitoso');
+  assert.strictEqual(trialExpired.provider, 'local_mock', 'Sin RESEND_API_KEY debe usar fallback local');
+  console.log('✓ sendTrialExpiredEmail funciona correctamente');
+
+  // 8. Probar sendMenuPausedEmail (día 11: se agotó la gracia)
+  const menuPaused = await emailService.sendMenuPausedEmail({
+    to: 'test@example.com',
+    userName: 'Lucía',
+    restaurantName: 'Café Central',
+    studioUrl: 'https://menupizarron.com/studio'
+  });
+  assert.strictEqual(menuPaused.success, true, 'Menu paused email debe ser exitoso');
+  console.log('✓ sendMenuPausedEmail funciona correctamente');
+
+  // 9. Probar sendWelcomeEmail (onboarding de cuenta nueva, marca ScanGo)
+  const welcome = await emailService.sendWelcomeEmail({
+    to: 'test@example.com',
+    restaurantName: 'La Parrilla',
+    menuUrl: 'https://menupizarron.com/m/la-parrilla',
+    studioUrl: 'https://menupizarron.com/studio'
+  });
+  assert.strictEqual(welcome.success, true, 'Welcome email debe ser exitoso');
+  console.log('✓ sendWelcomeEmail funciona correctamente');
+
+  // 10. Probar sendEmailAsync (fire-and-forget)
   emailService.sendEmailAsync({
     to: 'async@example.com',
     subject: 'Email asíncrono de prueba',
