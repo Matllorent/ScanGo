@@ -1,3 +1,4 @@
+import { escapeHtml } from '/js/utils/escapeHtml.js';
 /**
  * VirtualWaiter.js — "El Mozo Virtual" con Recomendaciones de Clima y Maridaje Inteligente
  * Asistente heurístico en tiempo real para el carrito de compras de ScanGo.
@@ -388,15 +389,7 @@ export class VirtualWaiter {
     container.style.display = 'block';
   }
 
-  escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
+  
 }
 
 if (typeof window !== 'undefined') {

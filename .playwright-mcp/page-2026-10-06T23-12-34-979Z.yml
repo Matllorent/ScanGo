@@ -1,0 +1,370 @@
+- generic [active] [ref=f3e1]:
+  - banner [ref=f3e2]:
+    - generic [ref=f3e3]:
+      - link "ScanGo Logo ScanGo" [ref=f3e4] [cursor=pointer]:
+        - /url: "#"
+        - img "ScanGo Logo" [ref=f3e5]
+        - generic [ref=f3e6]: ScanGo
+      - navigation [ref=f3e7]:
+        - link "Inicio" [ref=f3e8] [cursor=pointer]:
+          - /url: "#inicio"
+        - link "Funcionalidades" [ref=f3e9] [cursor=pointer]:
+          - /url: "#funcionalidades"
+        - link "Testimonios" [ref=f3e10] [cursor=pointer]:
+          - /url: "#testimonios"
+        - link "Precios" [ref=f3e11] [cursor=pointer]:
+          - /url: "#precios"
+        - link "Preguntas" [ref=f3e12] [cursor=pointer]:
+          - /url: "#faq"
+      - generic [ref=f3e13]:
+        - button "Iniciar Sesión" [ref=f3e14] [cursor=pointer]
+        - button "Probar 7 Días Gratis" [ref=f3e15] [cursor=pointer]
+  - main [ref=f3e16]:
+    - generic [ref=f3e19]:
+      - generic [ref=f3e20]:
+        - generic [ref=f3e21]: 🚀 Tu Menú Digital en Minutos
+        - heading "Creá el menú digital de tu restaurante y vendé directo" [level=1] [ref=f3e22]
+        - paragraph [ref=f3e23]: Tus clientes escanean el QR desde la mesa o desde casa y te piden directo por WhatsApp, sin comisiones.
+        - paragraph [ref=f3e24]:
+          - strong [ref=f3e25]: ScanGo
+          - text: "reemplaza la carta de papel por una experiencia moderna y directa: tus clientes exploran platos con fotos, eligen ingredientes, reservan mesas y te envían el pedido ordenado por WhatsApp con el total listo al instante."
+        - generic [ref=f3e26]:
+          - button "Comenzar Prueba Gratis (7 Días) →" [ref=f3e27] [cursor=pointer]
+          - button "Probar 7 días gratis con Google" [ref=f3e28] [cursor=pointer]:
+            - generic [aria-hidden] [ref=f3e29]: G
+            - text: Probar 7 días gratis con Google
+        - generic [ref=f3e30]:
+          - generic [ref=f3e31]:
+            - generic [ref=f3e32]: ✓
+            - text: 7 días de prueba sin costo
+          - generic [ref=f3e33]:
+            - generic [ref=f3e34]: ✓
+            - text: Sin tarjeta para empezar
+          - generic [ref=f3e35]:
+            - generic [ref=f3e36]: ✓
+            - text: 0% comisiones por pedidos
+      - generic [ref=f3e37]:
+        - generic [ref=f3e38]: 🟢 DEMO EN VIVO — ¡PROBALO AHORA!
+        - generic [ref=f3e44]:
+          - alert:
+            - generic:
+              - generic: ✨
+              - generic: ¡Excelente!
+              - button "Cerrar mensaje": ✕
+            - generic: ¡Hacé clic en el botón "+" de cualquiera de los platos para agregarlo al carrito!
+            - generic:
+              - button "Aceptar"
+          - generic [ref=f3e45]:
+            - generic [ref=f3e46]: "📶 Wi-Fi: Bistro_Free"
+            - generic [ref=f3e47]: 100% 🔋
+          - generic [ref=f3e48]: ☕ ScanGo Bistro & Bar
+          - generic [ref=f3e49]: Especialidad, cocina de autor y tragos artesanales
+          - generic [ref=f3e50]:
+            - generic [ref=f3e51]:
+              - generic [ref=f3e52]: 🍔 Burger Criolla de Entraña
+              - paragraph [ref=f3e53]: Pan brioche, provoleta fundida y chimichurri
+            - generic [ref=f3e54]:
+              - generic [ref=f3e55]: $490
+              - button "+" [ref=f3e56] [cursor=pointer]
+          - generic [ref=f3e57]:
+            - generic [ref=f3e58]:
+              - generic [ref=f3e59]: 🥩 Milanesa Napolitana Clásica
+              - paragraph [ref=f3e60]: Lomo empanado, salsa casera, jamón y muzzarella
+            - generic [ref=f3e61]:
+              - generic [ref=f3e62]: $540
+              - button "+" [ref=f3e63] [cursor=pointer]
+          - generic [ref=f3e64]:
+            - generic [ref=f3e65]:
+              - generic [ref=f3e66]: 🍮 Flan Casero con Dulce de Leche
+              - paragraph [ref=f3e67]: Receta tradicional con crema batida
+            - generic [ref=f3e68]:
+              - generic [ref=f3e69]: $260
+              - button "+" [ref=f3e70] [cursor=pointer]
+          - generic [ref=f3e71]:
+            - generic [ref=f3e72]:
+              - generic [ref=f3e73]: 🥑 Arepa Reina Pepiada
+              - paragraph [ref=f3e74]: Pollo desmechado, palta cremosa y mayonesa
+            - generic [ref=f3e75]:
+              - generic [ref=f3e76]: $380
+              - button "+" [ref=f3e77] [cursor=pointer]
+          - generic [ref=f3e78] [cursor=pointer]:
+            - generic [ref=f3e79]: 🛒 0 ítems en el carrito
+            - generic [ref=f3e80]: Pedir por WhatsApp ($0) →
+          - button "🔄 Vaciar carrito de prueba" [ref=f3e82] [cursor=pointer]
+    - region [ref=f3e83]:
+      - generic [ref=f3e84]:
+        - generic [ref=f3e85]:
+          - generic [ref=f3e86]: Tus ventas, sin comisión
+          - heading "¿Cuánto se queda la app con tus pedidos?" [level=2] [ref=f3e87]
+          - paragraph [ref=f3e88]: Mové el control hasta tus ventas mensuales y compará el costo de una comisión del 20% con el plan ScanGo.
+          - generic [ref=f3e89]:
+            - text: Ventas mensuales
+            - status [ref=f3e90]: $100.000
+          - slider "Ventas mensuales" [ref=f3e91] [cursor=pointer]: "100000"
+          - generic [ref=f3e92]:
+            - generic [ref=f3e93]: $10.000
+            - generic [ref=f3e94]: $1.000.000
+        - generic [ref=f3e95]:
+          - generic [ref=f3e96]:
+            - generic [ref=f3e97]: En apps de delivery con 20% de comisión pagás
+            - strong [ref=f3e98]: $20.000/mes
+          - generic [ref=f3e99]:
+            - generic [ref=f3e100]: Con ScanGo pagás solo
+            - strong [ref=f3e101]: $9/mes
+          - generic [ref=f3e102]:
+            - generic [ref=f3e103]: Te ahorrás
+            - strong [ref=f3e104]: $19.991/mes
+          - button "Quiero dejar de pagar comisiones →" [ref=f3e105] [cursor=pointer]
+    - generic [ref=f3e107]:
+      - generic [ref=f3e108]:
+        - generic [ref=f3e109]: Tecnología Especializada
+        - heading "Todo lo que tu restaurante necesita para operar sin fricción" [level=2] [ref=f3e110]
+        - paragraph [ref=f3e111]: Olvídate de pagar 15% o 30% de comisiones por cada pedido que toman tus clientes.
+      - generic [ref=f3e112]:
+        - generic [ref=f3e113]:
+          - generic [ref=f3e114]: "01"
+          - heading "Menú QR Interactivo con Logo" [level=3] [ref=f3e115]
+          - paragraph [ref=f3e116]: Genera códigos QR de alta resolución con el logo de tu local en el centro. Tus comensales navegan la carta al instante desde su smartphone sin descargar aplicaciones pesadas.
+        - generic [ref=f3e117]:
+          - generic [ref=f3e118]: "02"
+          - heading "Catálogo con 85+ Platos Sugeridos" [level=3] [ref=f3e119]
+          - paragraph [ref=f3e120]: "Añade categorías completas en 1 clic: Milanesas, Pescados, Hamburguesas, Sushi, Pastas, Postres Rioplatenses, Cervezas y Cafetería. Editar precios y fotos toma segundos."
+        - generic [ref=f3e121]:
+          - generic [ref=f3e122]: "03"
+          - heading "Delivery Inteligente por Zonas" [level=3] [ref=f3e123]
+          - paragraph [ref=f3e124]: "Configura tarifas de envío escalonadas según barrios o radios de distancia (ej: Centro $50, Periferia $100, Retiro en local $0). El total se calcula en vivo antes de enviar al WhatsApp."
+        - generic [ref=f3e125]:
+          - generic [ref=f3e126]: "04"
+          - heading "Pedidos Directos a tu WhatsApp" [level=3] [ref=f3e127]
+          - paragraph [ref=f3e128]: "Recibe los pedidos estructurados y limpios directamente en el WhatsApp de la barra o cocina: mesa, artículos, aclaraciones especiales, dirección de entrega y método de pago."
+    - generic [ref=f3e130]:
+      - generic [ref=f3e131]:
+        - generic [ref=f3e132]: Implementación Inmediata
+        - heading "Tu menú en línea en menos de 5 minutos" [level=2] [ref=f3e133]
+        - paragraph [ref=f3e134]: Sin instalaciones de software complicadas ni necesidad de contratar programadores.
+      - generic [ref=f3e135]:
+        - generic [ref=f3e136]:
+          - generic [ref=f3e137]: "1"
+          - heading "Crea tu Cuenta" [level=3] [ref=f3e138]
+          - paragraph [ref=f3e139]: Regístrate en segundos con el nombre de tu local y activa tus 14 días de prueba con acceso total.
+        - generic [ref=f3e140]:
+          - generic [ref=f3e141]: "2"
+          - heading "Personaliza tu Carta" [level=3] [ref=f3e142]
+          - paragraph [ref=f3e143]: Carga tus platos, define tus zonas de delivery, tu número de WhatsApp y la clave Wi-Fi para tus clientes.
+        - generic [ref=f3e144]:
+          - generic [ref=f3e145]: "3"
+          - heading "Descarga tu Cartelería QR" [level=3] [ref=f3e146]
+          - paragraph [ref=f3e147]: Imprime las tarjetas de mesa listas con QR y datos de Wi-Fi con el diseño elegante Dark Artisanal Chic.
+        - generic [ref=f3e148]:
+          - generic [ref=f3e149]: "4"
+          - heading "Recibe Pedidos" [level=3] [ref=f3e150]
+          - paragraph [ref=f3e151]: Tus clientes leen la carta en mesa o a domicilio y los pedidos ingresan ordenados a tu WhatsApp comercial.
+    - generic [ref=f3e153]:
+      - generic [ref=f3e154]:
+        - generic [ref=f3e155]: Precios Claros y Transparentes
+        - heading "Planes diseñados para la rentabilidad de tu negocio" [level=2] [ref=f3e156]
+        - paragraph [ref=f3e157]: Prueba 7 días gratis sin compromiso. Paga en USD o en tu moneda local vía Mercado Pago / Lemon Squeezy.
+      - generic [ref=f3e158]:
+        - generic [ref=f3e159]:
+          - generic [ref=f3e160]:
+            - heading "Plan Mensual" [level=3] [ref=f3e161]
+            - paragraph [ref=f3e162]: Flexibilidad mes a mes para restaurantes que están comenzando.
+            - generic [ref=f3e163]:
+              - text: $9
+              - generic [ref=f3e164]: USD / mes
+            - generic [ref=f3e165]: Cobro mensual recurrente
+            - list [ref=f3e166]:
+              - listitem [ref=f3e167]:
+                - generic [ref=f3e168]: ✓
+                - strong [ref=f3e169]: Menú QR ilimitado
+              - listitem [ref=f3e170]:
+                - generic [ref=f3e171]: ✓
+                - strong [ref=f3e172]: Pedidos por WhatsApp (0% comisión)
+              - listitem [ref=f3e173]:
+                - generic [ref=f3e174]: ✓
+                - text: Soporte para delivery por zonas
+              - listitem [ref=f3e175]:
+                - generic [ref=f3e176]: ✓
+                - text: Cartelería de mesa imprimible (PDF)
+              - listitem [ref=f3e177]:
+                - generic [ref=f3e178]: ✓
+                - text: Acceso para 1 local gastronómico
+              - listitem [ref=f3e179]:
+                - generic [ref=f3e180]: ✓
+                - text: Actualizaciones en tiempo real
+          - button "Comenzar 7 Días Gratis" [ref=f3e181] [cursor=pointer]
+        - generic [ref=f3e182]:
+          - generic [ref=f3e183]: MÁS ELEGIDO • AHORRA 36%
+          - generic [ref=f3e184]:
+            - heading "Plan Anual Pro" [level=3] [ref=f3e185]
+            - paragraph [ref=f3e186]: Tranquilidad para todo el año al costo más competitivo del mercado.
+            - generic [ref=f3e187]:
+              - text: $69
+              - generic [ref=f3e188]: USD / año
+            - generic [ref=f3e189]: Equivale a solo $5.75 USD por mes
+            - list [ref=f3e190]:
+              - listitem [ref=f3e191]:
+                - generic [ref=f3e192]: ✓
+                - strong [ref=f3e193]: Todo lo del Plan Mensual
+              - listitem [ref=f3e194]:
+                - generic [ref=f3e195]: ✓
+                - strong [ref=f3e196]: Logo en el centro del código QR
+              - listitem [ref=f3e197]:
+                - generic [ref=f3e198]: ✓
+                - strong [ref=f3e199]: Catálogo internacional de 85+ platos sugeridos
+              - listitem [ref=f3e200]:
+                - generic [ref=f3e201]: ✓
+                - strong [ref=f3e202]: Módulo de Reservas de Mesa por WhatsApp
+              - listitem [ref=f3e203]:
+                - generic [ref=f3e204]: ✓
+                - text: Período de gracia garantizado de 7 días
+              - listitem [ref=f3e205]:
+                - generic [ref=f3e206]: ✓
+                - text: Soporte prioritario por WhatsApp
+          - button "Activar Plan Anual Pro" [ref=f3e207] [cursor=pointer]
+        - generic [ref=f3e208]:
+          - generic [ref=f3e209]:
+            - heading "Plan Regional Latam" [level=3] [ref=f3e210]
+            - paragraph [ref=f3e211]: Facturación directa en Pesos locales con Mercado Pago.
+            - generic [ref=f3e212]:
+              - text: $380
+              - generic [ref=f3e213]: UYU / mes
+            - generic [ref=f3e214]: O equivalente en tu moneda nacional
+            - list [ref=f3e215]:
+              - listitem [ref=f3e216]:
+                - generic [ref=f3e217]: ✓
+                - text: Todo el poder de ScanGo
+              - listitem [ref=f3e218]:
+                - generic [ref=f3e219]: ✓
+                - text: Pago con tarjetas locales o saldo Mercado Pago
+              - listitem [ref=f3e220]:
+                - generic [ref=f3e221]: ✓
+                - text: Sin comisiones por ventas ni pedidos
+              - listitem [ref=f3e222]:
+                - generic [ref=f3e223]: ✓
+                - text: Cupones de descuento y promociones
+              - listitem [ref=f3e224]:
+                - generic [ref=f3e225]: ✓
+                - text: Generador de QR con clave Wi-Fi
+          - button "Elegir Mercado Pago" [ref=f3e226] [cursor=pointer]
+    - generic [ref=f3e228]:
+      - generic [ref=f3e229]:
+        - generic [ref=f3e230]: Casos de Éxito
+        - heading "Restaurantes que aumentaron sus ventas con ScanGo" [level=2] [ref=f3e231]
+        - paragraph [ref=f3e232]: Negocios gastronómicos que recuperaron el control de sus clientes y eliminaron comisiones abusivas.
+      - generic [ref=f3e234]:
+        - generic [ref=f3e235]: ⏳
+        - text: Cargando opiniones verificadas...
+    - generic [ref=f3e237]:
+      - generic [ref=f3e238]:
+        - generic [ref=f3e239]: Preguntas Frecuentes
+        - heading "¿Tienes dudas? Todo lo que necesitas saber sobre ScanGo" [level=2] [ref=f3e240]
+        - paragraph [ref=f3e241]: Respuestas claras para que pongas tu menú digital en marcha hoy mismo sin riesgos.
+      - generic [ref=f3e242]:
+        - generic [ref=f3e243]:
+          - generic [ref=f3e244] [cursor=pointer]:
+            - generic [ref=f3e245]: ¿Cobran comisiones sobre los pedidos o ventas que recibo?
+            - generic [ref=f3e246]: +
+          - generic [ref=f3e247]:
+            - strong [ref=f3e248]: 0% comisiones.
+            - text: En ScanGo pagas únicamente tu suscripción fija mensual o anual. Todo el dinero de las ventas y pedidos de tus clientes va 100% directo a tu negocio.
+        - generic [ref=f3e249]:
+          - generic [ref=f3e250] [cursor=pointer]:
+            - generic [ref=f3e251]: ¿Mis clientes necesitan descargar alguna aplicación en su teléfono?
+            - generic [ref=f3e252]: +
+          - generic:
+            - strong [ref=f3e253]: No, ninguna.
+            - text: Tus clientes solo apuntan la cámara de su celular al código QR y la carta abre al instante en su navegador web en menos de 1 segundo.
+        - generic [ref=f3e254]:
+          - generic [ref=f3e255] [cursor=pointer]:
+            - generic [ref=f3e256]: ¿Cómo funciona la prueba gratuita de 7 días?
+            - generic [ref=f3e257]: +
+          - generic: Te registras con el nombre de tu local y tu correo electrónico. Tienes 7 días de acceso ilimitado a todas las funciones profesionales sin ingresar ninguna tarjeta de crédito. Si decides no continuar, tu cuenta simplemente expira sin cargos sorpresa.
+        - generic [ref=f3e258]:
+          - generic [ref=f3e259] [cursor=pointer]:
+            - generic [ref=f3e260]: ¿Qué es la semana de gracia (Smart Dunning)?
+            - generic [ref=f3e261]: +
+          - generic:
+            - text: Si un mes tu tarjeta de crédito vence, no tiene saldo temporalmente o el banco rechaza el cobro automático, tu menú
+            - strong [ref=f3e262]: NO se apaga de inmediato
+            - text: . Te otorgamos 7 días de gracia para que puedas actualizar el pago con tranquilidad sin perder ventas un fin de semana.
+        - generic [ref=f3e263]:
+          - generic [ref=f3e264] [cursor=pointer]:
+            - generic [ref=f3e265]: ¿Cómo llegan los pedidos a mi restaurante?
+            - generic [ref=f3e266]: +
+          - generic: "Llegan organizados, legibles y numerados al WhatsApp oficial de tu restaurante: mesa o dirección de delivery, platos seleccionados, aclaraciones del cliente, método de pago y monto total exacto."
+        - generic [ref=f3e267]:
+          - generic [ref=f3e268] [cursor=pointer]:
+            - generic [ref=f3e269]: ¿Puedo cambiar precios o platos desde mi celular sobre la marcha?
+            - generic [ref=f3e270]: +
+          - generic: Sí. Ingresas al Studio de ScanGo desde tu smartphone o computadora, editas el precio o el plato en 10 segundos y el cambio se refleja inmediatamente en el menú que ven los comensales.
+    - generic [ref=f3e272]:
+      - generic [ref=f3e273]:
+        - generic [ref=f3e274]: Compromiso de Servicio
+        - heading "Los principios que protegen a tu restaurante" [level=2] [ref=f3e275]
+      - generic [ref=f3e276]:
+        - generic [ref=f3e277]:
+          - generic [ref=f3e278]: Autonomía
+          - paragraph [ref=f3e279]: Tus clientes son tuyos. No retenemos sus datos para publicidades de terceros ni intermediamos tus ingresos.
+        - generic [ref=f3e280]:
+          - generic [ref=f3e281]: Smart Dunning
+          - paragraph [ref=f3e282]: Si tu tarjeta falla, tu menú no se apaga. Cuentas con 7 días de gracia completa para regularizar.
+        - generic [ref=f3e283]:
+          - generic [ref=f3e284]: Simplicidad
+          - paragraph [ref=f3e285]: Panel claro e intuitivo. Modifica un precio, plato o agrega una promo desde tu celular en 10 segundos.
+        - generic [ref=f3e286]:
+          - generic [ref=f3e287]: 99.9% Uptime
+          - paragraph [ref=f3e288]: Arquitectura serverless en la nube de Vercel de ultra alta disponibilidad y velocidad en toda Latinoamérica.
+  - contentinfo [ref=f3e289]:
+    - generic [ref=f3e290]:
+      - generic [ref=f3e291]:
+        - generic [ref=f3e292]:
+          - generic [ref=f3e293]:
+            - img "ScanGo" [ref=f3e294]
+            - generic [ref=f3e295]: ScanGo
+          - paragraph [ref=f3e296]: Plataforma para cartas gastronómicas interactivas, generación de cartelería QR y canalización directa de pedidos y reservas vía WhatsApp sin intermediarios ni comisiones.
+        - generic [ref=f3e297]:
+          - generic [ref=f3e298]: Navegación
+          - list [ref=f3e299]:
+            - listitem [ref=f3e300]:
+              - link "Inicio" [ref=f3e301] [cursor=pointer]:
+                - /url: "#inicio"
+            - listitem [ref=f3e302]:
+              - link "Funcionalidades" [ref=f3e303] [cursor=pointer]:
+                - /url: "#funcionalidades"
+            - listitem [ref=f3e304]:
+              - link "Testimonios" [ref=f3e305] [cursor=pointer]:
+                - /url: "#testimonios"
+            - listitem [ref=f3e306]:
+              - link "Planes y Precios" [ref=f3e307] [cursor=pointer]:
+                - /url: "#precios"
+            - listitem [ref=f3e308]:
+              - link "Preguntas Frecuentes" [ref=f3e309] [cursor=pointer]:
+                - /url: "#faq"
+        - generic [ref=f3e310]:
+          - generic [ref=f3e311]: Acceso Clientes & Legal
+          - list [ref=f3e312]:
+            - listitem [ref=f3e313]:
+              - link "Ingresar al Studio" [ref=f3e314] [cursor=pointer]:
+                - /url: javascript:void(0)
+            - listitem [ref=f3e315]:
+              - link "Registrar Restaurante (7 Días Gratis)" [ref=f3e316] [cursor=pointer]:
+                - /url: javascript:void(0)
+            - listitem [ref=f3e317]:
+              - link "Términos del Servicio" [ref=f3e318] [cursor=pointer]:
+                - /url: /terminos
+            - listitem [ref=f3e319]:
+              - link "Política de Privacidad" [ref=f3e320] [cursor=pointer]:
+                - /url: /privacidad
+      - paragraph [ref=f3e322]:
+        - text: © 2026 ScanGo. Todos los derechos reservados. •
+        - link "Términos" [ref=f3e323] [cursor=pointer]:
+          - /url: /terminos
+        - text: •
+        - link "Privacidad" [ref=f3e324] [cursor=pointer]:
+          - /url: /privacidad
+  - generic:
+    - link "¿Dudas? ¡Chateá con nosotros!" [ref=f3e325] [cursor=pointer]:
+      - /url: https://wa.me/59897089957?text=Hola%20ScanGo,%20quiero%20hacer%20una%20consulta%20sobre%20el%20menú%20digital
+    - link "Contactar por WhatsApp a ScanGo" [ref=f3e328] [cursor=pointer]:
+      - /url: https://wa.me/59897089957?text=Hola%20ScanGo,%20quiero%20hacer%20una%20consulta%20sobre%20el%20menú%20digital

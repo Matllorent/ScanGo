@@ -43,15 +43,7 @@ let appliedCoupon = null; // { code: 'PROMO10', type: 'percent', value: 10 }
 let discountAmount = 0;
 
     // XSS Sanitizer Helper
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
+    
 
     // Waiter Call & Analytics Tracking
     function openWaiterModal() {

@@ -167,8 +167,52 @@ function initSavingsCalculator() {
     salesValue.textContent = money(sales);
     commissionValue.textContent = `${money(deliveryCommission)}/mes`;
     savingsValue.textContent = `${money(Math.max(0, deliveryCommission - 9))}/mes`;
+    slider.setAttribute('aria-valuenow', slider.value);
   };
   slider.addEventListener('input', update);
+  
+  // Keyboard accessibility for slider
+  slider.addEventListener('keydown', (e) => {
+    const step = Number(slider.step) || 5000;
+    const min = Number(slider.min) || 10000;
+    const max = Number(slider.max) || 1000000;
+    let newVal = Number(slider.value);
+    
+    switch (e.key) {
+      case 'ArrowRight':
+      case 'ArrowUp':
+        e.preventDefault();
+        newVal = Math.min(newVal + step, max);
+        break;
+      case 'ArrowLeft':
+      case 'ArrowDown':
+        e.preventDefault();
+        newVal = Math.max(newVal - step, min);
+        break;
+      case 'Home':
+        e.preventDefault();
+        newVal = min;
+        break;
+      case 'End':
+        e.preventDefault();
+        newVal = max;
+        break;
+      case 'PageUp':
+        e.preventDefault();
+        newVal = Math.min(newVal + step * 10, max);
+        break;
+      case 'PageDown':
+        e.preventDefault();
+        newVal = Math.max(newVal - step * 10, min);
+        break;
+    }
+    
+    if (newVal !== Number(slider.value)) {
+      slider.value = newVal;
+      update();
+    }
+  });
+  
   update();
 }
 

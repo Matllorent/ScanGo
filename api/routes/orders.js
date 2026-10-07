@@ -322,6 +322,21 @@ router.get('/realtime-config', (req, res) => {
  */
 const activeGroupTableCarts = new Map();
 
+// TTL cleanup for active group carts (24h max age)
+const GROUP_CART_TTL_MS = 24 * 60 * 60 * 1000;
+function cleanupActiveGroupCarts() {
+  const now = Date.now();
+  for (const [key, cart] of activeGroupTableCarts.entries()) {
+    if (cart.lastActivity && (now - cart.lastActivity > GROUP_CART_TTL_MS)) {
+      activeGroupTableCarts.delete(key);
+      console.log('[GroupCart] Cleaned up expired cart:', key);
+    }
+  }
+}
+// Run cleanup every hour
+setInterval(cleanupActiveGroupCarts, 60 * 60 * 1000);
+
+
 /**
  * Canal de Supabase Realtime para un mesa específica
  */

@@ -1,0 +1,5 @@
+[     158ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3000/#demo-interactiva:0
+[     158ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3000/#demo-interactiva:0
+[     181ms] [LOG] [PWA] Service Worker registrado con éxito: http://localhost:3000/ @ http://localhost:3000/js/pwa.js:9
+[     318ms] [LOG] [PWA] Evento beforeinstallprompt capturado y listo para instalación. @ http://localhost:3000/js/pwa.js:27
+[     319ms] [INFO] Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner. @ http://localhost:3000/#demo-interactiva:0

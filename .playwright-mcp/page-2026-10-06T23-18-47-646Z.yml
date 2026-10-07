@@ -1,0 +1,64 @@
+- generic [active] [ref=f7e1]:
+  - button "Club Puntos y Recompensas" [ref=f7e2] [cursor=pointer]:
+    - generic [ref=f7e3]:
+      - generic [ref=f7e4]: ⭐
+      - generic [ref=f7e5]: ¡Gana puntos y recompensas!
+    - generic "Ver mi saldo y tarjeta de puntos" [ref=f7e6]: 👤
+  - banner [ref=f7e8]:
+    - generic [ref=f7e9]:
+      - generic [ref=f7e10]:
+        - link "WhatsApp" [ref=f7e11] [cursor=pointer]:
+          - /url: javascript:void(0)
+          - text: 💬
+        - link "Instagram" [ref=f7e12] [cursor=pointer]:
+          - /url: javascript:void(0)
+          - text: 📸
+        - link "Facebook" [ref=f7e13] [cursor=pointer]:
+          - /url: javascript:void(0)
+          - text: 👥
+        - link "TikTok" [ref=f7e14] [cursor=pointer]:
+          - /url: javascript:void(0)
+          - text: 🎵
+      - button "Información del restaurante" [ref=f7e15] [cursor=pointer]:
+        - generic [ref=f7e16]: ℹ️
+        - text: Información
+    - heading "Cargando Menú..." [level=1] [ref=f7e17]
+    - generic [ref=f7e18]: Abierto
+    - generic [ref=f7e21]:
+      - generic [ref=f7e22] [cursor=pointer]:
+        - text: 📍
+        - generic [ref=f7e23]: Uruguay
+      - generic [ref=f7e24] [cursor=pointer]:
+        - text: 🕒 Entrega
+        - strong [ref=f7e25]: 30 - 45min.
+  - main [ref=f7e26]:
+    - generic [ref=f7e27]:
+      - generic [ref=f7e29]:
+        - generic [ref=f7e30]:
+          - generic [ref=f7e31]: 🌐
+          - generic [ref=f7e32]:
+            - button "ES" [ref=f7e33] [cursor=pointer]
+            - button "EN" [ref=f7e34] [cursor=pointer]
+            - button "PT" [ref=f7e35] [cursor=pointer]
+        - generic [ref=f7e36]:
+          - generic [ref=f7e37]: 💵
+          - combobox [ref=f7e38] [cursor=pointer]:
+            - option "$ UYU" [selected]
+            - option "US$ USD"
+            - option "$ ARS"
+      - textbox "🔍 Buscar plato, ingrediente..." [ref=f7e40]
+      - generic [ref=f7e41]:
+        - button "Buscar en la carta" [ref=f7e42] [cursor=pointer]: 🔍
+        - button "Ver todas las categorías" [ref=f7e43] [cursor=pointer]: ☰
+        - button "Todos" [ref=f7e45] [cursor=pointer]
+      - generic [ref=f7e46]:
+        - button "Todos los estilos" [ref=f7e47] [cursor=pointer]
+        - button "🥬 Vegetariano" [ref=f7e48] [cursor=pointer]
+        - button "🌱 Vegano" [ref=f7e49] [cursor=pointer]
+        - button "🌾 Sin TACC" [ref=f7e50] [cursor=pointer]
+        - button "🥛 Sin Lactosa" [ref=f7e51] [cursor=pointer]
+        - button "🌶️ Picante" [ref=f7e52] [cursor=pointer]
+    - generic [ref=f7e53]:
+      - generic [ref=f7e54]: 👁️ Menú adaptado para lectores de pantalla y accesibilidad visual
+      - button "🔊 Escuchar categoría" [ref=f7e55] [cursor=pointer]
+  - button "🔔" [ref=f7e76] [cursor=pointer]

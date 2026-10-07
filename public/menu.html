@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="/css/menu.css">
 </head>
 <body>
+  <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
 
   <!-- Top Loyalty Bar (Tarjeta de Puntos & Recompensas) -->
   <div id="loyaltyTopBanner" class="loyalty-top-bar" onclick="openLoyaltyModal()" role="button" aria-label="Club Puntos y Recompensas">
@@ -195,7 +196,7 @@
   </main>
 
   <!-- Floating Cart Bar -->
-  <div id="floatingCart" class="floating-cart-bar" onclick="openCartModal()">
+  <div id="floatingCart" class="floating-cart-bar" onclick="openCartModal()" role="status" aria-live="polite" aria-atomic="true">
     <span id="cartCountBadge">🛒 0 ítems</span>
     <span>Ver Pedido (<span id="cartTotalBadge">$0</span>) →</span>
   </div>

@@ -97,7 +97,11 @@ async function runGroupCartAndMozoTests() {
 
   let VirtualWaiterClass;
   try {
-    const cleanedCode = virtualWaiterSource.replace(/export class VirtualWaiter/, 'class VirtualWaiter');
+    // Strip both export and import statements for CommonJS evaluation
+    const cleanedCode = virtualWaiterSource
+      .replace(/export class VirtualWaiter/, 'class VirtualWaiter')
+      .replace(/import\s+.*?from\s+['"][^'"]+['"]\s*;/g, '')
+      .replace(/import\s+.*?from\s+['"][^'"]+['"]\s*;/g, '');
     const factory = new Function(`${cleanedCode}; return VirtualWaiter;`);
     VirtualWaiterClass = factory();
   } catch (e) {

@@ -67,4 +67,8 @@ async function getWeatherContext(city) {
   }
 }
 
-module.exports = { getWeatherContext, classifyTemperature, weatherCache };
+module.exports = {
+  getWeatherContext,
+  classifyTemperature,
+  weatherCache // Keep for internal use but don't export
+};

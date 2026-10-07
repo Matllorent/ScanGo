@@ -1,3 +1,4 @@
+import { escapeHtml } from '/js/utils/escapeHtml.js';
 /**
  * GroupCartManager.js — Pedido Grupal Colaborativo en Tiempo Real para Mesas
  * Conecta comensales de una misma mesa vía Supabase Realtime Channels.
@@ -794,15 +795,7 @@ export class GroupCartManager {
     }, 3800);
   }
 
-  escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
+  
 }
 
 if (typeof window !== 'undefined') {

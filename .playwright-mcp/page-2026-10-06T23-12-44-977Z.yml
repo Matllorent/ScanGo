@@ -1,0 +1,21 @@
+- generic [ref=f4e2]:
+  - img "ScanGo" [ref=f4e3]
+  - generic [ref=f4e4]: 403 • ACCESO RESTRINGIDO
+  - heading "Acceso Maestro ScanGo" [level=2] [ref=f4e6]
+  - paragraph [ref=f4e7]: Ingresá la clave maestra configurada en el servidor (ADMIN_KEY) para acceder al panel de administración.
+  - generic [ref=f4e8]:
+    - generic [ref=f4e9]:
+      - generic [ref=f4e10]: Clave de Administración
+      - generic [ref=f4e11]:
+        - textbox "Clave de Administración" [active] [ref=f4e12]:
+          - /placeholder: ••••••••••••••••
+        - button "Alternar visibilidad de contraseña" [ref=f4e13] [cursor=pointer]: 👁️
+    - generic [ref=f4e14]:
+      - generic [ref=f4e15]:
+        - generic [ref=f4e16]: Código 2FA (Google Auth)
+        - generic [ref=f4e17]: (Obligatorio)
+      - textbox "Código 2FA (Google Auth) (Obligatorio)" [ref=f4e19]:
+        - /placeholder: "Ej: 123456"
+    - button "Ingresar al Panel" [ref=f4e20] [cursor=pointer]
+  - link "← Volver al sitio principal" [ref=f4e23] [cursor=pointer]:
+    - /url: /

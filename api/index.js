@@ -1195,7 +1195,10 @@ app.get('/m/:slug', (req, res) => {
         name: `Menú de ${restaurantName}`,
         inLanguage: 'es',
         hasMenuSection: menuSections
-      }
+      },
+      ...(restaurant.openingHours ? { openingHours: restaurant.openingHours } : {}),
+      ...(restaurant.priceRange ? { priceRange: restaurant.priceRange } : {}),
+      ...(restaurant.servesCuisine ? { servesCuisine: restaurant.servesCuisine } : (restaurant.categories && restaurant.categories.length > 0 ? { servesCuisine: restaurant.categories.map(c => c.name) } : {}))
     };
     const safeJsonLd = JSON.stringify(structuredData).replace(/[<>&\u2028\u2029]/g, character => ({
       '<': '\\u003c',

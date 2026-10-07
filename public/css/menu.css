@@ -16,7 +16,66 @@
       --font-mono: 'IBM Plex Mono', monospace;
     }
 
-    /* 7 AUTHENTIC GASTRONOMIC THEMES + 7 NEW SPECIAL THEMES */
+    /* ============================================================
+       ACCESSIBILITY & FOCUS VISIBLE (WCAG 2.1 AA)
+       ============================================================ */
+    *:focus-visible {
+      outline: 3px solid var(--chalk-gold);
+      outline-offset: 2px;
+    }
+    button:focus-visible,
+    a:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    [role="button"]:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 3px solid var(--chalk-gold);
+      outline-offset: 2px;
+    }
+    /* Skip link for keyboard navigation */
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--chalk-gold);
+      color: #0E1412;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 700;
+      z-index: 9999;
+      text-decoration: none;
+      transition: top 0.2s;
+    }
+    .skip-link:focus {
+      top: 10px;
+    }
+    /* Ensure focus styles don't show on mouse click (only keyboard) */
+    :focus:not(:focus-visible) {
+      outline: none;
+    }
+    /* High contrast mode support */
+    @media (prefers-contrast: high) {
+      :root {
+        --chalk-gold: #FFD700;
+        --chalk-white: #FFFFFF;
+        --border-chalk: rgba(255, 255, 255, 0.5);
+      }
+    }
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    /* ============================================================
+       7 AUTHENTIC GASTRONOMIC THEMES + 7 NEW SPECIAL THEMES
+       ============================================================ */
     body.theme-classic {
       --bg-chalkboard: #121514;
       --surface-card: #181C1B;

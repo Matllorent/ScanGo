@@ -1,3 +1,4 @@
+import { escapeHtml } from '/js/utils/escapeHtml.js';
 /**
  * LoyaltyRewardsModal.js
  * Tarjeta y modal interactivo de fidelización de clientes ("Club Puntos & Recompensas ScanGo").
@@ -9,15 +10,7 @@
  * - Canjear recompensas directamente vía WhatsApp al restaurante
  */
 
-function escapeHtml(str) {
-  if (str === null || str === undefined) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
+
 
 export class LoyaltyRewardsModal {
   constructor(options = {}) {

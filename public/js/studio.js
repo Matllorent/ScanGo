@@ -212,15 +212,7 @@ let selectedReviewPhotoOption = 'logo';
 let uploadedReviewPhotoUrl = null;
 
 // Strict XSS Sanitizer Helper
-export function escapeHtml(str) {
-  if (str === null || str === undefined) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
+export 
 
 export function normalizeBusinessType(value) {
   if (value === 'perfumeria') return 'perfumery';
