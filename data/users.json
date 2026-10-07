@@ -798,5 +798,11 @@
     "createdAt": "2026-10-07T05:13:44.187Z",
     "email": "test-default-type-1791350024185@example.com",
     "password": "test_password"
+  },
+  {
+    "id": "usr_1791350995879_d9mrsr",
+    "createdAt": "2026-10-07T05:29:55.879Z",
+    "email": "schema-bistro-1791350995873@example.com",
+    "password": "test_password"
   }
 ]

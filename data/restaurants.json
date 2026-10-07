@@ -328,7 +328,7 @@
   },
   {
     "id": "rest_1791329391441_v58q0t",
-    "slug": "schema-bistro-1791331718517",
+    "slug": "schema-bistro-1791350995873",
     "subscription": {
       "status": "trialing",
       "plan": "pro_monthly",
@@ -338,76 +338,33 @@
       "gracePeriodDaysRemaining": 7
     },
     "createdAt": "2026-10-06T23:29:51.442Z",
-    "name": "La Parrilla QA",
-    "bizName": "La Parrilla QA",
-    "slogan": "Especialidad, masas artesanales y cocina de autor",
-    "currency": "$",
-    "phone": "59899123456",
+    "name": "Schema Bistro",
+    "bizName": "Schema Bistro",
+    "slogan": "Cocina & pastas",
+    "currency": "UYU",
+    "phone": "+59899123456",
     "city": "Montevideo",
     "bannerUrl": "https://example.com/schema-bistro.jpg",
     "categories": [
       {
-        "id": "cat_hamburguesas",
-        "name": "Burgers Artesanales"
-      },
-      {
-        "id": "cat_milanesas",
-        "name": "Milanesas de la Casa"
-      },
-      {
-        "id": "cat_postres",
-        "name": "Postres Rioplatenses"
-      },
-      {
-        "id": "cat_bebidas",
-        "name": "Bebidas & Cafetería"
+        "id": "cat-main",
+        "name": "Platos principales"
       }
     ],
     "dishes": [
       {
-        "id": "d_1",
-        "categoryId": "cat_hamburguesas",
-        "name": "Burger Criolla de Entraña",
-        "price": 490,
-        "description": "Pan brioche, provoleta fundida y chimichurri",
-        "tags": [
-          "star"
-        ]
-      },
-      {
-        "id": "d_2",
-        "categoryId": "cat_milanesas",
-        "name": "Milanesa Napolitana Clásica",
-        "price": 540,
-        "description": "Lomo empanado, salsa casera, jamón y muzzarella",
-        "tags": []
-      },
-      {
-        "id": "d_3",
-        "categoryId": "cat_postres",
-        "name": "Flan Casero con Dulce de Leche",
-        "price": 260,
-        "description": "Receta tradicional con crema batida",
-        "tags": [
-          "star"
-        ]
-      },
-      {
-        "id": "d_4",
-        "categoryId": "cat_bebidas",
-        "name": "Flat White Cremoso",
-        "price": 190,
-        "description": "Café de especialidad con leche texturizada",
-        "tags": [
-          "veggie"
-        ]
+        "id": "dish-pasta",
+        "categoryId": "cat-main",
+        "name": "Pasta fresca",
+        "description": "Salsa casera </script><script>alert(\"x\")</script>",
+        "price": 420
       }
     ],
     "smartWeatherEnabled": false,
     "allowIceCreamWizard": false,
     "allowPerfumery": false,
     "businessType": "restaurant",
-    "updatedAt": "2026-10-07T04:29:34.619Z",
+    "updatedAt": "2026-10-07T05:29:55.888Z",
     "theme": "emerald",
     "wifi": {
       "ssid": "Restaurante_Clientes",
@@ -1373,11 +1330,11 @@
     "smartWeatherEnabled": false,
     "allowIceCreamWizard": false,
     "analytics": {
-      "visits": 3,
-      "orders": 0,
+      "visits": 11,
+      "orders": 1,
       "reservations": 0,
       "waiterCalls": 0,
-      "lastUpdated": "2026-10-07T05:08:22.005Z"
+      "lastUpdated": "2026-10-07T05:38:21.673Z"
     },
     "allowLoyaltyPoints": false,
     "instagram": "",
