@@ -1,6 +1,8 @@
 const express = require('express');
 const { z } = require('zod');
 const notificationsService = require('../services/notifications');
+const db = require('../../src/db/db');
+const AppError = require('../utils/AppError');
 const { successResponse } = require('../utils/response');
 const { validateBody } = require('../middleware/validation');
 const { authMiddleware } = require('../middleware/auth');
@@ -26,6 +28,64 @@ const sendNotificationSchema = z.object({
   url: z.string().optional(),
   restaurantId: z.string().optional(),
   targetUserId: z.string().optional()
+});
+
+const waiterAlertSchema = z.object({
+  slug: z.string().min(1, { message: 'Slug del restaurante requerido' }).max(80),
+  table: z.string().min(1).max(60).default('No especificada'),
+  type: z.enum(['mozo', 'cuenta_efectivo', 'cuenta_tarjeta']).default('mozo')
+});
+
+/**
+ * GET /api/notifications/vapid-public-key
+ * Clave pública VAPID para que el navegador del dueño arme la suscripción.
+ */
+router.get('/vapid-public-key', (req, res) => {
+  const config = notificationsService.getVapidConfig();
+  if (!config) {
+    return res.status(503).json({ success: false, error: 'Push no configurado en el servidor', code: 'PUSH_NOT_CONFIGURED' });
+  }
+  return successResponse(res, { publicKey: config.publicKey, subject: config.subject }, 'Clave pública VAPID');
+});
+
+/**
+ * POST /api/notifications/waiter-alert
+ * Público (lo llama el menú de la mesa): avisa al dueño que una mesa llama
+ * al mozo o pide la cuenta, además del flujo de WhatsApp existente.
+ * Sin VAPID no rompe el flujo del comensal: responde 200 con configured:false.
+ */
+router.post('/waiter-alert', notificationLimiter, validateBody(waiterAlertSchema), async (req, res, next) => {
+  try {
+    const { slug, table, type } = req.body;
+    const restaurant = db.findRestaurantBySlug(slug);
+    if (!restaurant) {
+      return res.status(404).json({ success: false, error: 'Restaurante no encontrado' });
+    }
+    const labels = {
+      mozo: 'Quiere al mozo',
+      cuenta_efectivo: 'Pide la cuenta (efectivo)',
+      cuenta_tarjeta: 'Pide la cuenta (tarjeta)'
+    };
+    const now = new Date().toLocaleTimeString();
+    try {
+      const result = await notificationsService.sendPromotionalNotification({
+        title: `🔔 ${labels[type] || 'Aviso de mesa'}`,
+        body: `📍 Mesa: ${table} · ${now}`,
+        icon: '/icon-192.png',
+        url: '/studio',
+        restaurantId: restaurant.id
+      });
+      return successResponse(res, result, 'Aviso enviado al dueño');
+    } catch (err) {
+      if (err instanceof AppError && err.code === 'PUSH_NOT_CONFIGURED') {
+        // Degradación honesta: el aviso de mozo sigue existiendo por WhatsApp
+        return successResponse(res, { configured: false, delivered: 0, checked: 0 }, 'Push no configurado; el aviso sigue por WhatsApp');
+      }
+      throw err;
+    }
+  } catch (err) {
+    next(err);
+  }
 });
 
 /**

@@ -8,10 +8,11 @@ SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. 
 ```bash
 npm run dev          # Desarrollo con nodemon (puerto 3000)
 npm start            # Producción (node api/index.js)
-npm test             # Suite completa (21 tests en secuencia)
+npm test             # Suite completa (22 tests en secuencia)
 npm run test:billing # Test individual de pasarelas de pago
 npm run test:analytics # Test individual de analytics de negocio (ticket promedio, CSV, top platos)
 npm run test:admin   # Test individual del panel /admin (login 2FA, plata/mes, renovaciones)
+npm run test:push    # Test individual de push notifications (VAPID, aviso de mozo)
 npm run db:check     # Inventario real de tablas Supabase (service role, read-only)
 npm run db:smoke     # Smoke test de persistencia cloud de group_carts (round-trip real)
 npm run mobile:sync  # npx cap sync (sincroniza Capacitor)
@@ -87,12 +88,12 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** — crean restaurantes/usuarios reales en el store local. **No son aislados**.
-- Suite completa (`npm test`) ejecuta 21 tests en secuencia — **todos deben pasar (21/21)**
+- Suite completa (`npm test`) ejecuta 22 tests en secuencia — **todos deben pasar (22/22)**
 - **3 tests existen pero NO están en `npm test`**: `test-e2e.js`, `test-db-write.js`, `test-escape-html.js` (ejecutarlos a mano si tocas esas áreas)
 - **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 3 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell` (usan credenciales reales).
 - Para debug rápido: `node tests/test-billing.js` (o el test específico, o `npm run test:<alias>`)
 
-### Tests incluidos en `npm test` (21 suites)
+### Tests incluidos en `npm test` (22 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
@@ -117,6 +118,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-db-await-integrity.js` | Integridad `await` en llamadas a métodos async de `db` (regresión 47ea3f7) |
 | `test-frontend-esm-syntax.js` | Todos los JS de `public/js/` parsean como ES Module (regresión codemod quick-wins) |
 | `test-frontend-structure.js` | `<div>` balanceados, modales a nivel body en 3 HTML + orden close→assign→open del import IA |
+| `test-push-notifications.js` | Push Web real (VAPID): suscripción cloud, 503 PUSH_NOT_CONFIGURED sin llaves, aviso de mozo desde la mesa con entrega intentada |
 
 ## Configuración (`.env`)
 
@@ -132,6 +134,7 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 | `MERCADOPAGO_*` | Access token, webhook secret, `MERCADOPAGO_CURRENCY` (default USD; no-USD exige `MERCADOPAGO_FX_<CUR>`) |
 | `DEFAULT_BILLING_PROVIDER` | Proveedor para países fuera de UY/AR (default `lemonsqueezy`) |
 | `RESEND_API_KEY` + `EMAIL_FROM` | Emails transaccionales |
+| `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` (+ `VAPID_SUBJECT`) | Push Web para avisar al dueño cuando una mesa llama al mozo. Generar par con `node -e "const w=require('web-push');console.log(w.generateVAPIDKeys())"`. Sin ellas, `/api/notifications/send` responde 503 `PUSH_NOT_CONFIGURED` y el aviso de mozo degrada sin romper WhatsApp |
 | `GEMINI_API_KEY` | Importación de cartas físicas con Google Gemini Flash |
 | `SENTRY_DSN` | Monitoreo errores (opcional) |
 | `GOOGLE_CLIENT_ID` | OAuth 2.0 para login social |
@@ -215,4 +218,4 @@ Estéticas (definiciones CSS en `public/css/menu.css`): wedding = marfil + serif
 | `public/js/menu/eventGuestMode.js` | Resolución de tema de evento, contexto de invitado, reservas WhatsApp |
 | `public/js/utils/` | Utilidades frontend (usan `escapeHtmlBrowser.js`, ver trampas) |
 | `public/js/components/` | 14 componentes ES Module reutilizables |
-| `tests/` | 23 suites; 21 corren en `npm test` (ver sección Testing) |
+| `tests/` | 24 suites; 22 corren en `npm test` (ver sección Testing) |

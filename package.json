@@ -6,13 +6,14 @@
   "scripts": {
     "start": "node api/index.js",
     "dev": "nodemon",
-    "test": "node tests/test-db-await-integrity.js && node tests/test-frontend-esm-syntax.js && node tests/test-frontend-structure.js && node tests/test-billing.js && node tests/test-fixes.js && node tests/test-new-features.js && node tests/test-resilience-security.js && node tests/test-banner-and-layouts.js && node tests/test-mp-upsell-reviews.js && node tests/test-geo-killswitch-upsell.js && node tests/test-weather.js && node tests/test-landing-conversion.js && node tests/test-group-cart-mozo.js && node tests/test-email-notifications.js && node tests/test-ai-menu-import.js && node tests/test-menu-componentization.js && node tests/test-menu-seo.js && node tests/test-google-auth.js && node tests/test-security-endpoints.js && node tests/test-analytics-business.js && node tests/test-admin-panel.js",
+    "test": "node tests/test-db-await-integrity.js && node tests/test-frontend-esm-syntax.js && node tests/test-frontend-structure.js && node tests/test-billing.js && node tests/test-fixes.js && node tests/test-new-features.js && node tests/test-resilience-security.js && node tests/test-banner-and-layouts.js && node tests/test-mp-upsell-reviews.js && node tests/test-geo-killswitch-upsell.js && node tests/test-weather.js && node tests/test-landing-conversion.js && node tests/test-group-cart-mozo.js && node tests/test-email-notifications.js && node tests/test-ai-menu-import.js && node tests/test-menu-componentization.js && node tests/test-menu-seo.js && node tests/test-google-auth.js && node tests/test-security-endpoints.js && node tests/test-analytics-business.js && node tests/test-admin-panel.js && node tests/test-push-notifications.js",
     "test:await": "node tests/test-db-await-integrity.js",
     "test:frontend-syntax": "node tests/test-frontend-esm-syntax.js",
     "test:frontend-structure": "node tests/test-frontend-structure.js",
     "test:security-endpoints": "node tests/test-security-endpoints.js",
- "test:analytics": "node tests/test-analytics-business.js",
+    "test:analytics": "node tests/test-analytics-business.js",
     "test:admin": "node tests/test-admin-panel.js",
+    "test:push": "node tests/test-push-notifications.js",
     "test:google-auth": "node tests/test-google-auth.js",
     "test:menu-seo": "node tests/test-menu-seo.js",
     "test:menu-comp": "node tests/test-menu-componentization.js",
@@ -26,8 +27,8 @@
     "test:mp-upsell": "node tests/test-mp-upsell-reviews.js",
     "test:geo": "node tests/test-geo-killswitch-upsell.js",
     "test:group-cart": "node tests/test-group-cart-mozo.js",
- "db:check": "node scripts/check-supabase-schema.js",
- "db:smoke": "node tests/test-supabase-group-cart-persistence.js",
+    "db:check": "node scripts/check-supabase-schema.js",
+    "db:smoke": "node tests/test-supabase-group-cart-persistence.js",
     "mobile:sync": "npx cap sync",
     "mobile:build": "npx cap copy android"
   },
@@ -57,6 +58,7 @@
     "google-auth-library": "^11.1.0",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
+    "web-push": "^3.6.7",
     "zod": "^4.6.5"
   },
   "devDependencies": {

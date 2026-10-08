@@ -1,4 +1,4 @@
-// ScanGo Service Worker — Offline Resilience & PWA Caching
+// ScanGo Service Worker — Offline Resilience & PWA Caching + Push Notifications
 const CACHE_NAME = 'scango-cache-v5';
 const STATIC_ASSETS = [
   '/',
@@ -100,5 +100,43 @@ self.addEventListener('fetch', (event) => {
         }
         return Response.error();
       })
+  );
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// Push Notifications (Web Push / VAPID): el dueño recibe el aviso de mesa
+// aunque no esté mirando el Studio en ese momento.
+// ────────────────────────────────────────────────────────────────────────────
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    // payload no JSON: se muestra un aviso genérico
+  }
+  const options = {
+    body: data.body || '',
+    icon: data.icon || '/icon-192.png',
+    badge: data.icon || '/icon-192.png',
+    data: { url: data.url || '/studio' },
+    vibrate: [200, 100, 200],
+    tag: data.tag || 'menu-pizarron-push'
+  };
+  event.waitUntil(self.registration.showNotification(data.title || 'Menú Pizarrón', options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/studio';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) {
+          if ('navigate' in client) client.navigate(url);
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(url);
+    })
   );
 });

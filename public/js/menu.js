@@ -82,6 +82,12 @@ Object.defineProperties(window, {
       }
       // Track analytics (fire-and-forget, canal unificado)
       trackPublicEvent('waiter');
+      // Aviso push al dueño (fire-and-forget: si el push está apagado, no molesta)
+      fetch('/api/notifications/waiter-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: getSlug(), table: mesa, type })
+      }).catch(() => {});
       window.open(`https://wa.me/${restaurantData.phone}?text=${msg}`, '_blank');
       closeWaiterModal();
     }

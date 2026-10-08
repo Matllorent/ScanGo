@@ -16,6 +16,7 @@ import { PLANS } from './studio/data/plans.js';
 import { PRESETS } from './studio/data/presetsData.js';
 import { ICE_CREAM_PRESETS_DATA } from './studio/data/iceCreamPresets.js';
 import { PERFUMERY_PRESETS_STUDIO } from './studio/data/perfumeryPresets.js';
+import { setupPushNotifications, solicitarPushPermiso } from './studio/notifications.js';
 
 import {
   normalizeSubscription,
@@ -1029,6 +1030,7 @@ const globalExports = {
   renderModifierGroupOptions, updateModifierGroupEditor, handleModifierGroupModeChange, addModifierGroupOption, removeModifierGroupOption,
   saveModifierGroup, cancelModifierGroupEdit, deleteModifierGroup, toggleDishModifierGroup,
   sendOrderStateWA, setReviewPhotoOption, handleReviewPhotoFile, check30DaysMilestone, openMilestone30DaysModal, closeMilestone30DaysModal, openReviewFromMilestone, submitOwnerReview,
+  solicitarPushPermiso,
   openAiMenuImportModal, closeAiMenuImportModal, handleAiMenuFilesInput, moveAiMenuPage, removeAiMenuPage, runAiMenuAnalysis, closeAiMenuPreviewModal, confirmAiMenuImportAction, removeDetectedAiDish
 };
 
@@ -1043,4 +1045,7 @@ window.addEventListener('online', () => {
 });
 
 // Run
-window.addEventListener('DOMContentLoaded', initStudio);
+window.addEventListener('DOMContentLoaded', () => {
+  initStudio();
+  setupPushNotifications();
+});

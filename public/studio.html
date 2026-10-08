@@ -828,6 +828,18 @@
                 </div>
               </button>
             </div>
+
+            <div style="border-top:1px solid var(--border); margin-top:18px; padding-top:16px;">
+              <div class="section-title" style="margin-bottom:8px;">🔔 Avisos de la mesa en tu navegador</div>
+              <p style="font-size:11px; color:var(--text-dim); margin-bottom:12px;">
+                Cuando un comensal llama al mozo o pide la cuenta, te llega una notificación acá mismo
+                (Chrome o Edge, necesita HTTPS), aunque no estés mirando el panel. El pedido por WhatsApp sigue igual.
+              </p>
+              <button class="btn-nav" id="pushActivateBtn" onclick="solicitarPushPermiso()" style="width:auto; padding:10px 16px; border-color:#63B3ED; color:#63B3ED; margin-bottom:10px;">
+                🔔 Activar notificaciones
+              </button>
+              <div id="pushStatus" style="font-size:11px; color:var(--text-dim);">Revisando si tu navegador soporta avisos…</div>
+            </div>
           </div>
         </div>
 
