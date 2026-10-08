@@ -778,6 +778,7 @@ app.get('/api/admin/overview', adminMiddleware, async (req, res) => {
             dishes: r.dishes || [],
             modifierGroups: r.modifier_groups || [],
             deliveryZones: r.delivery_zones || [],
+            branches: r.branches || [],
             subscription: r.subscription || {},
             analytics: r.analytics || { visits: 0, orders: 0, reservations: 0, waiterCalls: 0 },
             createdAt: r.created_at,
@@ -826,6 +827,74 @@ app.get('/api/admin/overview', adminMiddleware, async (req, res) => {
       return Boolean(s && s.status === 'trialing' && s.trialEndsAt && new Date(s.trialEndsAt) < now);
     };
 
+    // ── Métricas en español llano (sin jerga de negocio) ──
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+    const KNOWN_PLANS = ['starter_monthly', 'starter_annual', 'pro_monthly', 'pro_annual'];
+    const PLAN_NAMES = {
+      starter_monthly: 'Starter Mensual',
+      starter_annual: 'Starter Anual',
+      pro_monthly: 'Pro Mensual',
+      pro_annual: 'Pro Anual'
+    };
+    // Cuánta plata entra al mes por un restaurante que paga (el plan anual se
+    // reparte entre 12; el descuento multi-sucursal es el real del orquestador).
+    const monthlyEquivalent = (r) => {
+      const s = r.subscription || {};
+      if (s.status !== 'active' || !KNOWN_PLANS.includes(s.plan)) return 0;
+      const pricing = billingOrchestrator.getPlanPricing(r, s.plan);
+      return round2(String(s.plan).endsWith('_annual') ? pricing.totalPrice / 12 : pricing.totalPrice);
+    };
+
+    const fromSevenDays = new Date(now.getTime() - 7 * DAY_MS);
+    const inSevenDays = new Date(now.getTime() + 7 * DAY_MS);
+
+    const payingNow = restaurants.filter(r => (r.subscription || {}).status === 'active');
+    const monthlyIncomeEstimate = round2(payingNow.reduce((sum, r) => sum + monthlyEquivalent(r), 0));
+
+    // Renovaciones: clientes que pagan y se les renueva el pago dentro de 7 días
+    const renewalsList = payingNow
+      .filter(r => {
+        const end = r.subscription.currentPeriodEnd && new Date(r.subscription.currentPeriodEnd);
+        return Boolean(end && end > now && end <= inSevenDays);
+      })
+      .map(r => ({
+        id: r.id,
+        name: r.name || r.bizName || 'Sin nombre',
+        slug: r.slug,
+        plan: r.subscription.plan,
+        planName: PLAN_NAMES[r.subscription.plan] || r.subscription.plan,
+        renewsAt: r.subscription.currentPeriodEnd,
+        amountMonthly: monthlyEquivalent(r)
+      }))
+      .sort((a, b) => new Date(a.renewsAt) - new Date(b.renewsAt));
+
+    // Pruebas que terminan dentro de 7 días (les queda poco de prueba gratis)
+    const trialsEndingList = restaurants
+      .filter(r => {
+        const s = r.subscription || {};
+        const end = s.status === 'trialing' && s.trialEndsAt && new Date(s.trialEndsAt);
+        return Boolean(end && end > now && end <= inSevenDays);
+      })
+      .map(r => ({
+        id: r.id,
+        name: r.name || r.bizName || 'Sin nombre',
+        slug: r.slug,
+        trialEndsAt: r.subscription.trialEndsAt
+      }))
+      .sort((a, b) => new Date(a.trialEndsAt) - new Date(b.trialEndsAt));
+
+    // Conversión de la prueba, en criollo: de los que ya terminaron su prueba
+    // gratis, ¿cuántos siguen pagando hoy?
+    const trialFinished = restaurants.filter(r => {
+      const t = r.subscription && r.subscription.trialEndsAt;
+      return Boolean(t && new Date(t) < now);
+    });
+    const trialBecamePaying = trialFinished.filter(r => (r.subscription || {}).status === 'active').length;
+    const trialConversionPercent = trialFinished.length
+      ? Math.round((trialBecamePaying / trialFinished.length) * 100)
+      : 0;
+
     const totalRestaurants = restaurants.length;
     const activeSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'active').length;
     const trialingSubs = restaurants.filter(r => r.subscription && r.subscription.status === 'trialing' && !isTrialEnded(r)).length;
@@ -834,7 +903,7 @@ app.get('/api/admin/overview', adminMiddleware, async (req, res) => {
       const s = r.subscription || {};
       return s.status === 'expired' || s.status === 'canceled' || isTrialEnded(r);
     }).length;
-    const mrrEst = activeSubs * 9; // Estimado base USD
+    const mrrEst = monthlyIncomeEstimate; // alias legacy: misma plata, nombre claro en la UI
 
     res.json({
       metrics: {
@@ -844,7 +913,17 @@ app.get('/api/admin/overview', adminMiddleware, async (req, res) => {
         trialingSubs,
         pastDueSubs,
         expiredSubs,
-        mrrEst
+        mrrEst,
+        // Números en criollo (lo que el panel muestra con palabras simples)
+        monthlyIncomeEstimate,
+        newThisWeek: restaurants.filter(r => r.createdAt && new Date(r.createdAt) >= fromSevenDays).length,
+        renewalsCount: renewalsList.length,
+        renewalsList,
+        trialsEndingCount: trialsEndingList.length,
+        trialsEndingList,
+        trialFinished: trialFinished.length,
+        trialBecamePaying,
+        trialConversionPercent
       },
       restaurants,
       users

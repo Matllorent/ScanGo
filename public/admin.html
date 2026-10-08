@@ -282,34 +282,58 @@
       <!-- Top Metrics -->
       <div class="metrics-grid">
         <div class="metric-card">
-          <div class="metric-title"><i class="fa-solid fa-utensils"></i> Total Restaurantes</div>
+          <div class="metric-title"><i class="fa-solid fa-utensils"></i> Restaurantes registrados</div>
           <div class="metric-value" id="m-total-rest">0</div>
-          <div class="metric-badge" style="background: rgba(255,255,255,0.06); color: #fff;">Negocios a bordo</div>
+          <div class="metric-badge" style="background: rgba(255,255,255,0.06); color: #fff;">Todos los restaurantes</div>
         </div>
         <div class="metric-card">
-          <div class="metric-title"><i class="fa-solid fa-circle-check"></i> Suscripciones Activas</div>
+          <div class="metric-title"><i class="fa-solid fa-circle-check"></i> Clientes que están pagando</div>
           <div class="metric-value" id="m-active" style="color: var(--accent);">0</div>
-          <div class="metric-badge" style="background: rgba(34,197,94,0.15); color: #4ade80;">Facturando</div>
+          <div class="metric-badge" style="background: rgba(34,197,94,0.15); color: #4ade80;">Pagan hoy</div>
         </div>
         <div class="metric-card">
-          <div class="metric-title"><i class="fa-solid fa-clock"></i> En Prueba Gratuita</div>
+          <div class="metric-title"><i class="fa-solid fa-clock"></i> En prueba gratis</div>
           <div class="metric-value" id="m-trialing" style="color: var(--info);">0</div>
-          <div class="metric-badge" style="background: rgba(59,130,246,0.15); color: #60a5fa;">7 días activos</div>
+          <div class="metric-badge" style="background: rgba(59,130,246,0.15); color: #60a5fa;">Prueba de 7 días</div>
         </div>
         <div class="metric-card">
-          <div class="metric-title"><i class="fa-solid fa-triangle-exclamation"></i> En Período de Gracia</div>
+          <div class="metric-title"><i class="fa-solid fa-triangle-exclamation"></i> Con el pago atrasado</div>
           <div class="metric-value" id="m-grace" style="color: var(--warning);">0</div>
-          <div class="metric-badge" style="background: rgba(245,158,11,0.15); color: #fbbf24;">7 días de gracia</div>
+          <div class="metric-badge" style="background: rgba(245,158,11,0.15); color: #fbbf24;">Siguen online 7 días más</div>
         </div>
         <div class="metric-card">
-          <div class="metric-title"><i class="fa-solid fa-sack-dollar"></i> MRR Estimado</div>
+          <div class="metric-title"><i class="fa-solid fa-sack-dollar"></i> Plata que entra al mes</div>
           <div class="metric-value" id="m-mrr" style="color: var(--gold);">$0</div>
-          <div class="metric-badge" style="background: rgba(229,169,59,0.15); color: var(--gold);">USD / Mes recurrente</div>
+          <div class="metric-badge" style="background: rgba(229,169,59,0.15); color: var(--gold);">Aproximada, según el plan de cada uno</div>
         </div>
         <div class="metric-card">
-          <div class="metric-title"><i class="fa-solid fa-user-xmark"></i> Membresías Vencidas</div>
+          <div class="metric-title"><i class="fa-solid fa-user-xmark"></i> Clientes que dejaron de pagar</div>
           <div class="metric-value" id="m-expired" style="color: var(--danger);">0</div>
-          <div class="metric-badge" style="background: rgba(239,68,68,0.15); color: #f87171;">Sin acceso / Expiradas</div>
+          <div class="metric-badge" style="background: rgba(239,68,68,0.15); color: #f87171;">Prueba vencida o plan cancelado</div>
+        </div>
+      </div>
+
+      <!-- Top Metrics Row 2: Movimientos recientes -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-title"><i class="fa-solid fa-user-plus"></i> Clientes nuevos esta semana</div>
+          <div class="metric-value" id="m-new-week" style="color: var(--info);">0</div>
+          <div class="metric-badge" style="background: rgba(59,130,246,0.15); color: #60a5fa;">Se unieron hace menos de 7 días</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title"><i class="fa-solid fa-calendar-week"></i> Renovaciones en 7 días</div>
+          <div class="metric-value" id="m-renewals" style="color: var(--accent);">0</div>
+          <div class="metric-badge" style="background: rgba(34,197,94,0.15); color: #4ade80;">Se les renueva el pago</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title"><i class="fa-solid fa-hourglass-half"></i> Pruebas que terminan en 7 días</div>
+          <div class="metric-value" id="m-trials-ending" style="color: var(--warning);">0</div>
+          <div class="metric-badge" style="background: rgba(245,158,11,0.15); color: #fbbf24;">Les queda menos de una semana</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title"><i class="fa-solid fa-arrows-spin"></i> De los que ya terminaron la prueba, siguen pagando</div>
+          <div class="metric-value" id="m-conv-num" style="color: var(--gold);">0</div>
+          <div class="metric-badge" id="m-conv-pct" style="background: rgba(229,169,59,0.15); color: var(--gold);">0% se quedan</div>
         </div>
       </div>
 
@@ -317,7 +341,7 @@
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
         <div class="table-container" style="padding: 1.25rem;">
           <div class="table-header" style="margin-bottom: 1rem;">
-            <div class="table-title"><i class="fa-solid fa-chart-pie" style="color:var(--gold);"></i> Distribución de Suscripciones</div>
+            <div class="table-title"><i class="fa-solid fa-chart-pie" style="color:var(--gold);"></i> Estado de pago de los restaurantes</div>
           </div>
           <div style="height: 240px; position: relative;">
             <canvas id="subsChart"></canvas>
@@ -326,11 +350,34 @@
 
         <div class="table-container" style="padding: 1.25rem;">
           <div class="table-header" style="margin-bottom: 1rem;">
-            <div class="table-title"><i class="fa-solid fa-chart-line" style="color:var(--accent);"></i> Actividad Global de Clientes (Eventos)</div>
+            <div class="table-title"><i class="fa-solid fa-chart-line" style="color:var(--accent);"></i> Actividad de los menús</div>
           </div>
           <div style="height: 240px; position: relative;">
             <canvas id="eventsChart"></canvas>
           </div>
+        </div>
+      </div>
+
+      <!-- Lo que viene esta semana -->
+      <div class="table-container" style="margin-top: 2rem;">
+        <div class="table-header">
+          <div class="table-title"><i class="fa-solid fa-bell" style="color:var(--warning);"></i> Lo que viene esta semana</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted);">Renovaciones de pago y pruebas que terminan en los próximos 7 días</div>
+        </div>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Qué pasa</th>
+                <th>Restaurante</th>
+                <th>Cuándo</th>
+                <th>Plata que entra al mes</th>
+              </tr>
+            </thead>
+            <tbody id="upcoming-tbody">
+              <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 2rem;">Cargando…</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -360,12 +407,12 @@
             <thead>
               <tr>
                 <th>Restaurante</th>
-                <th>Slug / Enlace</th>
-                <th>Estado Suscripción</th>
-                <th>Plan / Pasarela</th>
+                <th>Enlace del menú</th>
+                <th>Estado del pago</th>
+                <th>Plan</th>
                 <th>Platos</th>
-                <th>Fecha Alta</th>
-                <th>Acciones de Control</th>
+                <th>Se unió</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody id="restaurants-tbody">
@@ -822,9 +869,23 @@
       document.getElementById('m-active').textContent = metrics.activeSubs;
       document.getElementById('m-trialing').textContent = metrics.trialingSubs;
       document.getElementById('m-grace').textContent = metrics.pastDueSubs;
-      document.getElementById('m-mrr').textContent = `$${metrics.mrrEst}`;
+      document.getElementById('m-mrr').textContent = `$${(metrics.monthlyIncomeEstimate ?? metrics.mrrEst ?? 0).toFixed(2)}`;
       const mExpired = document.getElementById('m-expired');
       if (mExpired) mExpired.textContent = metrics.expiredSubs || 0;
+
+      // Fila 2: movimientos (siempre en español claro)
+      const mNewWeek = document.getElementById('m-new-week');
+      if (mNewWeek) mNewWeek.textContent = metrics.newThisWeek || 0;
+      const mRenewals = document.getElementById('m-renewals');
+      if (mRenewals) mRenewals.textContent = metrics.renewalsCount || 0;
+      const mTrialsEnding = document.getElementById('m-trials-ending');
+      if (mTrialsEnding) mTrialsEnding.textContent = metrics.trialsEndingCount || 0;
+      const mConvNum = document.getElementById('m-conv-num');
+      if (mConvNum) mConvNum.textContent = `${metrics.trialBecamePaying || 0} de ${metrics.trialFinished || 0}`;
+      const mConvPct = document.getElementById('m-conv-pct');
+      if (mConvPct) mConvPct.textContent = `${metrics.trialConversionPercent || 0}% se quedan`;
+
+      renderUpcomingWeek(metrics);
 
       renderCharts(metrics, restaurants);
 
@@ -849,8 +910,18 @@
         const cleanPhone = escapeHtml(r.phone || 'Sin teléfono');
         const cleanSlug = encodeURIComponent(r.slug || '');
         const cleanId = escapeHtml(r.id || '');
-        const cleanPlan = escapeHtml(sub.plan || 'pro_monthly');
-        const cleanProvider = escapeHtml(sub.provider || 'trial');
+        const planNames = {
+          starter_monthly: 'Starter Mensual', starter_annual: 'Starter Anual',
+          pro_monthly: 'Pro Mensual', pro_annual: 'Pro Anual'
+        };
+        const providerNames = { trial: 'prueba', stripe: 'Stripe', mercadopago: 'Mercado Pago', lemonsqueezy: 'Lemon Squeezy' };
+        const cleanPlan = escapeHtml(planNames[sub.plan] || sub.plan || 'pro_monthly');
+        const cleanProvider = escapeHtml(providerNames[sub.provider] || sub.provider || 'trial');
+        const statusLabels = {
+          active: 'Pagando', trialing: 'Prueba gratis', past_due: 'Pago atrasado',
+          expired: 'Dejó de pagar', canceled: 'Cancelado', paused: 'Pausado'
+        };
+        const statusText = escapeHtml(statusLabels[status] || status);
 
         return `
           <tr>
@@ -864,7 +935,7 @@
               </a>
             </td>
             <td>
-              <span class="badge-status ${badgeClass}">${escapeHtml(status)}</span>
+              <span class="badge-status ${badgeClass}">${statusText}</span>
             </td>
             <td>
               <span style="font-weight: 600;">${cleanPlan}</span>
@@ -927,20 +998,76 @@
       }
     }
 
+    // Tabla "Lo que viene esta semana": renovaciones de pago + fin de pruebas
+    function renderUpcomingWeek(metrics) {
+      const tbody = document.getElementById('upcoming-tbody');
+      if (!tbody) return;
+
+      const renewals = metrics.renewalsList || [];
+      const endings = metrics.trialsEndingList || [];
+      if (!renewals.length && !endings.length) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 2rem;">Nada programado para esta semana. ¡Todo al día! 🌿</td></tr>';
+        return;
+      }
+
+      const rows = [];
+      renewals.forEach(r => {
+        rows.push(`
+          <tr>
+            <td>
+              <span style="color:#4ade80; font-weight:600;"><i class="fa-solid fa-rotate-right"></i> Se renueva el pago (${escapeHtml(r.planName || r.plan || '')})</span>
+              <div style="font-size:0.75rem; color:var(--text-muted);">Le toca pagar el ${new Date(r.renewsAt).toLocaleDateString('es-UY')}</div>
+            </td>
+            <td>
+              <a href="/m/${encodeURIComponent(r.slug || '')}" target="_blank" style="color:#fff; font-weight:600; text-decoration:none;">${escapeHtml(r.name || 'Sin nombre')}</a>
+            </td>
+            <td style="color:var(--text-muted);">${new Date(r.renewsAt).toLocaleDateString('es-UY')}</td>
+            <td style="color:var(--gold); font-weight:700;">$${(r.amountMonthly ?? 0).toFixed(2)} / mes</td>
+          </tr>`);
+      });
+      endings.forEach(r => {
+        rows.push(`
+          <tr>
+            <td>
+              <span style="color:#fbbf24; font-weight:600;"><i class="fa-solid fa-hourglass-half"></i> Termina la prueba gratis</span>
+              <div style="font-size:0.75rem; color:var(--text-muted);">Si no paga, su menú queda en pausa</div>
+            </td>
+            <td>
+              <a href="/m/${encodeURIComponent(r.slug || '')}" target="_blank" style="color:#fff; font-weight:600; text-decoration:none;">${escapeHtml(r.name || 'Sin nombre')}</a>
+            </td>
+            <td style="color:var(--text-muted);">${new Date(r.trialEndsAt).toLocaleDateString('es-UY')}</td>
+            <td style="color:var(--text-muted);">—</td>
+          </tr>`);
+      });
+      tbody.innerHTML = rows.join('');
+    }
+
     function exportCSV() {
       if (!currentRestaurants.length) return alert('No hay datos para exportar');
-      const headers = ['ID', 'Restaurante', 'Slug', 'Teléfono', 'Estado Suscripción', 'Plan', 'Pasarela', 'Platos', 'Fecha Alta'];
-      const rows = currentRestaurants.map(r => [
-        r.id,
-        `"${(r.name || r.bizName || '').replace(/"/g, '""')}"`,
-        r.slug,
-        r.phone || '',
-        (r.subscription && r.subscription.status) || 'trialing',
-        (r.subscription && r.subscription.plan) || 'pro_monthly',
-        (r.subscription && r.subscription.provider) || 'trial',
-        (r.dishes || []).length,
-        r.createdAt || ''
-      ]);
+      const headers = ['ID', 'Restaurante', 'Slug', 'Teléfono', 'Estado del pago', 'Plan', 'Pasarela', 'Platos', 'Se unió'];
+      const planNamesCsv = {
+        starter_monthly: 'Starter Mensual', starter_annual: 'Starter Anual',
+        pro_monthly: 'Pro Mensual', pro_annual: 'Pro Anual'
+      };
+      const providerNamesCsv = { trial: 'Prueba', stripe: 'Stripe', mercadopago: 'Mercado Pago', lemonsqueezy: 'Lemon Squeezy' };
+      const statusNamesCsv = {
+        active: 'Pagando', trialing: 'Prueba gratis', past_due: 'Pago atrasado',
+        expired: 'Dejó de pagar', canceled: 'Cancelado', paused: 'Pausado'
+      };
+      const rows = currentRestaurants.map(r => {
+        const sub = r.subscription || {};
+        return [
+          r.id,
+          `"${(r.name || r.bizName || '').replace(/"/g, '""')}"`,
+          r.slug,
+          r.phone || '',
+          statusNamesCsv[sub.status] || sub.status || 'Prueba gratis',
+          planNamesCsv[sub.plan] || sub.plan || 'Pro Mensual',
+          providerNamesCsv[sub.provider] || sub.provider || 'Prueba',
+          (r.dishes || []).length,
+          r.createdAt || ''
+        ];
+      });
 
       const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
       const encodedUri = encodeURI(csvContent);
@@ -1247,7 +1374,7 @@
         subsChartInstance = new Chart(ctxSubs, {
           type: 'doughnut',
           data: {
-            labels: ['Activas (Facturando)', 'Prueba Gratuita', 'Período de Gracia', 'Membresías Vencidas'],
+            labels: ['Clientes pagando', 'Prueba gratis', 'Pago atrasado', 'Se fueron'],
             datasets: [{
               data: [metrics.activeSubs || 0, metrics.trialingSubs || 0, metrics.pastDueSubs || 0, metrics.expiredSubs || 0],
               backgroundColor: ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444'],
