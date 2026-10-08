@@ -162,6 +162,50 @@ const pendingSupabaseWrites = new Set();
 let databaseReady = Promise.resolve({ ready: true, mode: 'json' });
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
 
+// Estado del esquema cloud (sonda real por tabla vía PostgREST, service role).
+// Se rellena durante `databaseReady` y se expone por db.getSchemaStatus() y
+// /api/healthz, para que una tabla faltante sea visible y no una degradación
+// silenciosa a memoria local. La migración vive en src/db/migrations/.
+let cloudSchemaStatus = { probedAt: null, missing: [], present: [], details: [] };
+const OPERATIONAL_CLOUD_TABLES = [
+  'group_carts',
+  'orders',
+  'reviews',
+  'customer_feedback',
+  'audit_logs',
+  'push_subscriptions',
+  'telemetry_events'
+];
+
+/**
+ * Sonda read-only (LIMIT 1) de las tablas cloud. Una relación inexistente
+ * responde PGRST205; el resto de los errores también se reportan.
+ */
+async function probeCloudSchema(client) {
+  const rows = await Promise.all(
+    OPERATIONAL_CLOUD_TABLES.map(async (table) => {
+      try {
+        const { error } = await client.from(table).select('id').limit(1);
+        if (!error) return { table, exists: true, note: '' };
+        const code = String(error.code || '');
+        return {
+          table,
+          exists: false,
+          note: code === 'PGRST205' ? 'relation missing (PGRST205)' : `${code} ${error.message || ''}`
+        };
+      } catch (e) {
+        return { table, exists: false, note: `probe error: ${e.message}` };
+      }
+    })
+  );
+  return {
+    probedAt: new Date().toISOString(),
+    missing: rows.filter(r => !r.exists).map(r => r.table),
+    present: rows.filter(r => r.exists).map(r => r.table),
+    details: rows
+  };
+}
+
 function trackSupabaseWrite(operation, context) {
   let trackedWrite;
   trackedWrite = Promise.resolve(operation)
@@ -246,7 +290,24 @@ if (process.env.SUPABASE_URL && supabaseKey) {
         if (!await writeJson(USERS_FILE, hydrated.users) || !await writeJson(RESTAURANTS_FILE, hydrated.restaurants)) {
           throw new Error('No se pudo hidratar el snapshot local desde Supabase.');
         }
-        return { ready: true, mode: 'supabase' };
+
+        // Sonda del esquema operacional (7 tablas realtime/operaciones).
+        // Grupal/Realtime, pedidos, reseñas, feedback, auditoría, push y
+        // telemetría: si alguna falta, se reporta en logs y healthz.
+        try {
+          cloudSchemaStatus = await probeCloudSchema(supabase);
+          if (cloudSchemaStatus.missing.length > 0) {
+            console.warn(`⚠️ [DB] Tablas cloud que faltan (${cloudSchemaStatus.missing.length}): ${cloudSchemaStatus.missing.join(', ')}`);
+            console.warn('   Aplicá src/db/migrations/001_realtime_operations_tables.sql en el SQL Editor de Supabase');
+            console.warn('   (o revisá el inventario con "npm run db:check").');
+          } else {
+            console.log(`✅ [DB] Esquema cloud completo (${OPERATIONAL_CLOUD_TABLES.length} tablas operacionales presentes).`);
+          }
+        } catch (probeErr) {
+          console.warn('⚠️ [DB] No se pudo sondear el esquema cloud:', probeErr.message);
+        }
+
+        return { ready: true, mode: 'supabase', schema: { missing: cloudSchemaStatus.missing, present: cloudSchemaStatus.present } };
       } catch (err) {
         console.warn('⚠️ [DB] Aviso en sincronización inicial con Supabase:', err.message);
         return {
@@ -775,6 +836,14 @@ const db = {
   },
   resolveHydrationData(cloudUsers, localUsers, cloudRestaurants, localRestaurants) {
     return resolveHydrationData(cloudUsers, localUsers, cloudRestaurants, localRestaurants);
+  },
+  /**
+   * Estado del esquema cloud (sonda real con service role, rellenada en el
+   * arranque). Devuelve { probedAt, missing, present, details } o el objeto
+   * vacío inicial si el modo es JSON local.
+   */
+  getSchemaStatus() {
+    return cloudSchemaStatus;
   }
 };
 

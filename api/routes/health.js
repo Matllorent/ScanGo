@@ -1,5 +1,6 @@
 const express = require('express');
 const { getSupabaseClient } = require('../utils/supabase');
+const db = require('../../src/db/db');
 
 const router = express.Router();
 
@@ -32,6 +33,9 @@ router.get('/healthz', async (req, res, next) => {
 
   const mem = process.memoryUsage();
 
+  // Estado del esquema cloud (sonda de arranque; tablas faltantes lista gris)
+  const schemaStatus = (db.getSchemaStatus && db.getSchemaStatus()) || {};
+
   const healthData = {
     status: dbConnected ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
@@ -41,6 +45,14 @@ router.get('/healthz', async (req, res, next) => {
       connected: dbConnected,
       provider: dbProvider,
       latencyMs: dbLatencyMs
+    },
+    schema: {
+      probedAt: schemaStatus.probedAt || null,
+      missing: schemaStatus.missing || [],
+      present: schemaStatus.present || [],
+      migrationHint: schemaStatus.missing && schemaStatus.missing.length > 0
+        ? 'Aplicá src/db/migrations/001_realtime_operations_tables.sql (SQL Editor de Supabase) para crear las tablas faltantes.'
+        : null
     },
     memory: {
       heapUsedMb: +(mem.heapUsed / (1024 * 1024)).toFixed(2),

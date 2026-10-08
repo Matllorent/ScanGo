@@ -53,10 +53,11 @@ y navegador (Playwright + browser harness).
 | **GCM arrancaba con `restaurantId` indefinido** → token HMAC firmado con `'default'` → 403 `GROUP_CART_TOKEN_INVALID`, carrito nunca persistía ni se emitía broadcast | `menu-modules.js`: espera hasta 8s por `window.restaurantData.id`, fallback slug de la URL, `restaurantId` explícito, promesa in-flight única (evita doble instancia por doble call-site) |
 
 ### Nota de infraestructura
-`public.group_carts` **no existe en Supabase** (PGRST205) → los carritos grupales viven
-en memoria del proceso (Map con TTL 24h), como ya documentado. No se crea la tabla en
-este bloque (requiere migración con RLS, fuera de scope); el código ya escribe/lee
-Supabase si la tabla aparece.
+`public.group_carts` **no existía en Supabase** (PGRST205) en el momento de este bloque →
+los carritos grupales vivían en memoria del proceso (Map con TTL 24h). **Resuelto en el
+Block 3** (`reports/block-3-supabase-cloud-tables.md`): migración idempotente con RLS en
+`src/db/migrations/001_realtime_operations_tables.sql` + sonda de esquema en arranque
+(`db.getSchemaStatus()` / `/api/healthz` → `schema.missing`) + smoke test `npm run db:smoke`.
 
 ---
 
@@ -102,7 +103,7 @@ Supabase si la tabla aparece.
 
 ## 6. Deuda técnica / observaciones
 
-- `public.group_carts` ausente en Supabase: carritos en memoria (documentado, no crear sin migración).
+- `public.group_carts` ausente en Supabase durante Block 2: carritos en memoria. **Block 3** entrega la migración con RLS (`src/db/migrations/`), el inventario `npm run db:check` y el smoke test `npm run db:smoke`.
 - `restaurants.json` trackeado + mutado por tests: mantener política de revert-diff previo a commit.
 - Dos `escapeHtml` (legacy CommonJS vs browser): intactos, sin unificar (gotcha AGENTS.md).
 - `eventThemes.js` / `menuRenderer.js`: archivos muertos no tocados (gotcha AGENTS.md).

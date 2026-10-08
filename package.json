@@ -24,6 +24,8 @@
     "test:mp-upsell": "node tests/test-mp-upsell-reviews.js",
     "test:geo": "node tests/test-geo-killswitch-upsell.js",
     "test:group-cart": "node tests/test-group-cart-mozo.js",
+ "db:check": "node scripts/check-supabase-schema.js",
+ "db:smoke": "node tests/test-supabase-group-cart-persistence.js",
     "mobile:sync": "npx cap sync",
     "mobile:build": "npx cap copy android"
   },

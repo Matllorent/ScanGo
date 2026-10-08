@@ -10,6 +10,8 @@ npm run dev          # Desarrollo con nodemon (puerto 3000)
 npm start            # Producción (node api/index.js)
 npm test             # Suite completa (19 tests en secuencia)
 npm run test:billing # Test individual de pasarelas de pago
+npm run db:check     # Inventario real de tablas Supabase (service role, read-only)
+npm run db:smoke     # Smoke test de persistencia cloud de group_carts (round-trip real)
 npm run mobile:sync  # npx cap sync (sincroniza Capacitor)
 npm run mobile:build # npx cap copy android (copia web a Android)
 ```
@@ -50,6 +52,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
   - `SUPABASE_ANON_KEY` es solo para Supabase Realtime en el navegador; el backend no la usa como clave de servicio.
 - Helpers clave en `src/db/db.js`: `getRestaurantBranches()`, `findRestaurantBranch()`, `updateBranches()`, `normalizeRestaurantBusinessType()`
 - Tablas Supabase declaradas: `users`, `restaurants`, `webhooks`, `group_carts`, `orders`, `reviews`, `customer_feedback`, `audit_logs`, `push_subscriptions`, `telemetry_events`. RLS deniega acceso directo de roles cliente; el backend usa service role.
+- **Solo `users`, `restaurants` y `webhooks` están creadas en el proyecto real** (verificado con `npm run db:check`). Las otras 7 se crean con `src/db/migrations/001_realtime_operations_tables.sql` (idempotente, RLS FORCE + grants solo service_role) — pegarlo en el SQL Editor, o vía Management API con `SUPABASE_ACCESS_TOKEN`. Hasta aplicarla, el backend degrada: carritos grupales en memoria y el estado se expone en `/api/healthz` → `schema.missing` (ya no es silencioso). Smoke test real: `npm run db:smoke`.
 
 ### Billing — Multi-Provider (`src/billing/orchestrator.js`)
 - **Resolución de proveedor** (`resolveProvider`): UY/AR + moneda `$|UYU|ARS|$U|USD` → **Mercado Pago**; resto → `DEFAULT_BILLING_PROVIDER` (`lemonsqueezy`), con fallback a la primera pasarela configurada.
