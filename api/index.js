@@ -1436,7 +1436,10 @@ app.get('/m/:slug', (req, res) => {
 
     html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`);
     html = html.replace('</head>', `${ogTags}\n</head>`);
-    return res.send(html);
+    // Falso positivo verificado: TODO dato de restaurante inyectado en `html` pasa por
+    // escapeHtml() (ogTags, title) o por safeJsonLd (JSON.stringify + escape de <>& y \u2028\u2029);
+    // la base `html` es el template estático de menu.html, sin interpolación de usuario.
+    return res.send(html); // nosemgrep: javascript.express.security.audit.xss.direct-response-write.direct-response-write
   }
 
   res.sendFile(menuHtmlPath, SEND_FILE_OPTIONS);

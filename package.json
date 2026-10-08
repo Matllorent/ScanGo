@@ -17,6 +17,7 @@
     "test:push": "node tests/test-push-notifications.js",
     "test:realtime": "node tests/test-realtime-rls-guard.js",
     "test:realtime-live": "node tests/test-realtime-live-guard.js",
+    "test:semgrep": "node tests/test-semgrep.js",
     "test:google-auth": "node tests/test-google-auth.js",
     "test:menu-seo": "node tests/test-menu-seo.js",
     "test:menu-comp": "node tests/test-menu-componentization.js",

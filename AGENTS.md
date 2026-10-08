@@ -15,6 +15,7 @@ npm run test:admin   # Test individual del panel /admin (login 2FA, plata/mes, r
 npm run test:push    # Test individual de push notifications (VAPID, aviso de mozo)
 npm run test:realtime # Test individual del guard de canales Realtime (migración 002)
 npm run test:realtime-live # Test E2E real del guard (conecta a Supabase Realtime con la anon key)
+npm run test:semgrep  # Análisis estático Semgrep (reglas comunitarias gratis; SKIP si semgrep no está instalado)
 npm run db:check     # Inventario real de tablas Supabase (service role, read-only)
 npm run db:smoke     # Smoke test de persistencia cloud de group_carts (round-trip real)
 npm run mobile:sync  # npx cap sync (sincroniza Capacitor)
@@ -91,7 +92,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** durante la corrida (flujos reales con el store local). **`npm test` ahora las aísla solo**: `scripts/test-data-guard.js` saca una foto de `data/` antes y la restaura siempre al final (pase o falle). La cadena real de tests vive en `npm run test:core`; no hay que revertir `data/` a mano para commitear.
 - Suite completa (`npm test`) ejecuta 24 tests en secuencia — **todos deben pasar (24/24)**
-- **3 tests existen pero NO están en `npm test`**: `test-e2e.js`, `test-db-write.js`, `test-escape-html.js` (ejecutarlos a mano si tocas esas áreas)
+- **4 tests existen pero NO están en `npm test`**: `test-e2e.js`, `test-db-write.js`, `test-escape-html.js` y `test-semgrep.js` (ejecutarlos a mano si tocas esas áreas; `test-semgrep` hace SKIP si `semgrep` no está instalado)
 - **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 4 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell` y `test-realtime-live-guard` (usan credenciales reales; el último hace SKIP si no hay `SUPABASE_URL`/`SUPABASE_ANON_KEY`).
 - Para debug rápido: `node tests/test-billing.js` (o el test específico, o `npm run test:<alias>`)
 
@@ -148,8 +149,9 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 | `GROUP_CART_SECRET` | Firma HMAC de QR de mesa; puede usar `JWT_SECRET` como fallback |
 
 ### Tooling OpenCode
-- `opencode.json` define 7 MCP locales: `menu-filesystem`, `memory-graph`, `playwright-testing`, `chrome-devtools`, `context7`, `supabase` (**read-only**, project-ref `olqdcudvstbawkcvsfdd`, requiere `SUPABASE_ACCESS_TOKEN` en el entorno) y `osv-scanner` (activo en la sesión).
-- **`osv-scanner` (Google OSV-Scanner v2.6.0)**: auditoría de vulnerabilidades de dependencias. El binario vive fuera del repo en `C:\Users\<usuario>\.local\bin\osv-scanner.exe` (descartado del hash oficial `SHA256SUMS`, 56 MB) y el MCP corre con el subcomando `experimental-mcp` (stdio). Tools: `scan_vulnerable_dependencies`, `get_vulnerability_details`, `ignore_vulnerability`. Se actualiza descargando el release de https://github.com/google/osv-scanner/releases y re-verificando el hash.
+- `opencode.json` define 8 MCP locales: `menu-filesystem`, `memory-graph`, `playwright-testing`, `chrome-devtools`, `context7`, `supabase` (**read-only**, project-ref `olqdcudvstbawkcvsfdd`, requiere `SUPABASE_ACCESS_TOKEN` en el entorno), `osv-scanner` y `semgrep` (ambos activos en la sesión).
+- **`osv-scanner` (Google OSV-Scanner v2.6.0)**: auditoría de vulnerabilidades de dependencias. El binario vive fuera del repo en `C:\Users\<usuario>\.local\bin\osv-scanner.exe` (verificado contra el hash oficial `SHA256SUMS`, 56 MB) y el MCP corre con el subcomando `experimental-mcp` (stdio). Tools: `scan_vulnerable_dependencies`, `get_vulnerability_details`, `ignore_vulnerability`. Se actualiza descargando el release de https://github.com/google/osv-scanner/releases y re-verificando el hash.
+- **`semgrep` (Semgrep Community Edition, gratis)**: análisis estático de código (XSS, inyección, buenas prácticas JS). MCP oficial nativo `semgrep mcp` (stdio) con el binario global `C:\Users\<usuario>\AppData\Local\Programs\Python\Python312\Scripts\semgrep.exe` (instalar: `python -m pip install --upgrade semgrep` — Windows nativo desde 2025). ⚠️ El paquete `semgrep-mcp` / `mcp.semgrep.ai` quedó **DEPRECADO**: usar siempre `semgrep mcp`. Rulesets de `npm run test:semgrep`: `p/security-audit` + `p/owasp-top-ten` + `p/javascript` sobre `api/ src/ public/js/`. En `api/index.js` hay un falso positivo documentado con `// nosemgrep` (SSR de `/m/*`: todo dato pasa por `escapeHtml()`/`safeJsonLd`, verificado).
 
 ## Convenciones y Gotchas
 

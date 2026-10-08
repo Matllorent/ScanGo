@@ -811,7 +811,7 @@ export function renderStudioUI() {
   setTimeout(() => {
     const iframe = document.getElementById('previewIframe');
     if (iframe && iframe.contentWindow) {
-      iframe.contentWindow.postMessage({ type: 'UPDATE_LIVE_PREVIEW', data: restaurant }, '*');
+      iframe.contentWindow.postMessage({ type: 'UPDATE_LIVE_PREVIEW', data: restaurant }, window.location.origin);
     }
   }, 500);
 }

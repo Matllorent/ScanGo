@@ -52,6 +52,14 @@
         "experimental-mcp"
       ],
       "enabled": true
+    },
+    "semgrep": {
+      "type": "local",
+      "command": [
+        "C:\\Users\\Flor Alcaraz\\AppData\\Local\\Programs\\Python\\Python312\\Scripts\\semgrep.exe",
+        "mcp"
+      ],
+      "enabled": true
     }
   }
 }
