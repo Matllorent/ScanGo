@@ -8,11 +8,12 @@ SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. 
 ```bash
 npm run dev          # Desarrollo con nodemon (puerto 3000)
 npm start            # Producción (node api/index.js)
-npm test             # Suite completa (22 tests en secuencia) — con snapshot/restore automático de data/
+npm test             # Suite completa (23 tests en secuencia) — con snapshot/restore automático de data/
 npm run test:billing # Test individual de pasarelas de pago
 npm run test:analytics # Test individual de analytics de negocio (ticket promedio, CSV, top platos)
 npm run test:admin   # Test individual del panel /admin (login 2FA, plata/mes, renovaciones)
 npm run test:push    # Test individual de push notifications (VAPID, aviso de mozo)
+npm run test:realtime # Test individual del guard de canales Realtime (migración 002)
 npm run db:check     # Inventario real de tablas Supabase (service role, read-only)
 npm run db:smoke     # Smoke test de persistencia cloud de group_carts (round-trip real)
 npm run mobile:sync  # npx cap sync (sincroniza Capacitor)
@@ -55,7 +56,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
   - `SUPABASE_ANON_KEY` es solo para Supabase Realtime en el navegador; el backend no la usa como clave de servicio.
 - Helpers clave en `src/db/db.js`: `getRestaurantBranches()`, `findRestaurantBranch()`, `updateBranches()`, `normalizeRestaurantBusinessType()`
 - Tablas Supabase declaradas: `users`, `restaurants`, `webhooks`, `group_carts`, `orders`, `reviews`, `customer_feedback`, `audit_logs`, `push_subscriptions`, `telemetry_events`. RLS deniega acceso directo de roles cliente; el backend usa service role.
-- **Solo `users`, `restaurants` y `webhooks` están creadas en el proyecto real** (verificado con `npm run db:check`). Las otras 7 se crean con `src/db/migrations/001_realtime_operations_tables.sql` (idempotente, RLS FORCE + grants solo service_role) — pegarlo en el SQL Editor, o vía Management API con `SUPABASE_ACCESS_TOKEN`. Hasta aplicarla, el backend degrada: carritos grupales en memoria y el estado se expone en `/api/healthz` → `schema.missing` (ya no es silencioso). Smoke test real: `npm run db:smoke`.
+- **Solo `users`, `restaurants` y `webhooks` están creadas en el proyecto real** (verificado con `npm run db:check`). Las otras 7 se crean con `src/db/migrations/001_realtime_operations_tables.sql` (idempotente, RLS FORCE + grants solo service_role) — pegarlo en el SQL Editor, o vía Management API con `SUPABASE_ACCESS_TOKEN`. Hasta aplicarla, el backend degrada: carritos grupales en memoria y el estado se expone en `/api/healthz` → `schema.missing` (ya no es silencioso). Smoke test real: `npm run db:smoke`. **`002_realtime_channel_guard.sql`** agrega autorización por topic en `realtime.messages` (anon/authenticated solo unen canales `realtime:%` de carrito grupal; el resto queda reservado al service_role). Aplicarla NO activa nada en el navegador: recién cuando esté aplicada se agrega `private: true` a los canales de GroupCartManager/orders.js (paso documentado en la cabecera del propio SQL).
 
 ### Billing — Multi-Provider (`src/billing/orchestrator.js`)
 - **Resolución de proveedor** (`resolveProvider`): UY/AR + moneda `$|UYU|ARS|$U|USD` → **Mercado Pago**; resto → `DEFAULT_BILLING_PROVIDER` (`lemonsqueezy`), con fallback a la primera pasarela configurada.
@@ -88,12 +89,12 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** durante la corrida (flujos reales con el store local). **`npm test` ahora las aísla solo**: `scripts/test-data-guard.js` saca una foto de `data/` antes y la restaura siempre al final (pase o falle). La cadena real de tests vive en `npm run test:core`; no hay que revertir `data/` a mano para commitear.
-- Suite completa (`npm test`) ejecuta 22 tests en secuencia — **todos deben pasar (22/22)**
+- Suite completa (`npm test`) ejecuta 23 tests en secuencia — **todos deben pasar (23/23)**
 - **3 tests existen pero NO están en `npm test`**: `test-e2e.js`, `test-db-write.js`, `test-escape-html.js` (ejecutarlos a mano si tocas esas áreas)
 - **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 3 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell` (usan credenciales reales).
 - Para debug rápido: `node tests/test-billing.js` (o el test específico, o `npm run test:<alias>`)
 
-### Tests incluidos en `npm test` (22 suites)
+### Tests incluidos en `npm test` (23 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
@@ -119,6 +120,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-frontend-esm-syntax.js` | Todos los JS de `public/js/` parsean como ES Module (regresión codemod quick-wins) |
 | `test-frontend-structure.js` | `<div>` balanceados, modales a nivel body en 3 HTML + orden close→assign→open del import IA |
 | `test-push-notifications.js` | Push Web real (VAPID): suscripción cloud, 503 PUSH_NOT_CONFIGURED sin llaves, aviso de mozo desde la mesa con entrega intentada |
+| `test-realtime-rls-guard.js` | Guard estático de canales Realtime: la migración 002 existe y limita topics (allowlist `realtime:%`) para anon/authenticated |
 
 ## Configuración (`.env`)
 
@@ -173,6 +175,8 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 
 ### Rate Limiting
 - Por tenant/IP (`x-tenant-id` o `x-restaurant-id` header), ventana 15 min
+- **En Vercel**: `app.set('trust proxy', 1)` (api/index.js) — sin esto, `req.ip` es la IP del proxy para todos y el rate-limit por IP se rompe. Vercel reescribe `X-Forwarded-For` en el edge.
+- El canal público de analytics se limita **por slug de menú** (`publicEventKeyGenerator` en `api/middleware/rateLimits.js`), no por IP global: un balde por restaurante, nunca uno compartido por todo el tráfico.
 - En `api/index.js`: auth=30, reviews=30, orders=60, **admin=5**
 - En `api/middleware/rateLimits.js`: email=10, notifications=20, storage=20, groupCart=90, analytics=120
 
@@ -218,4 +222,4 @@ Estéticas (definiciones CSS en `public/css/menu.css`): wedding = marfil + serif
 | `public/js/menu/eventGuestMode.js` | Resolución de tema de evento, contexto de invitado, reservas WhatsApp |
 | `public/js/utils/` | Utilidades frontend (usan `escapeHtmlBrowser.js`, ver trampas) |
 | `public/js/components/` | 14 componentes ES Module reutilizables |
-| `tests/` | 24 suites; 22 corren en `npm test` (ver sección Testing) |
+| `tests/` | 25 suites; 23 corren en `npm test` (ver sección Testing) |

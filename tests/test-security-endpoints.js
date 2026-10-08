@@ -3,6 +3,7 @@ const http = require('http');
 const jwt = require('jsonwebtoken');
 const app = require('../api/index');
 const db = require('../src/db/db');
+const { publicEventKeyGenerator } = require('../api/middleware/rateLimits');
 
 async function runTests() {
   assert.ok(db.ready && typeof db.ready.then === 'function', 'Database initialization must expose a readiness promise');
@@ -67,6 +68,22 @@ async function runTests() {
       body: JSON.stringify({ slug: restaurant.slug, event: 'visit' })
     });
     assert.strictEqual(publicTracking.status, 200, 'Public menu tracking remains available');
+
+    // Trust proxy: detrás de Vercel el req.ip real llega por X-Forwarded-For;
+    // sin esto todos los clientes comparten la IP del proxy y el rate-limit por
+    // IP se rompe (un solo balde para todo el tráfico).
+    assert.strictEqual(app.get('trust proxy'), 1, 'trust proxy configurado (1 hop, Vercel)');
+    assert.strictEqual(
+      publicEventKeyGenerator({ body: { slug: 'mi-menu' }, ip: '10.0.0.1' }),
+      'slug:mi-menu',
+      'El canal público se agrupa por slug de menú (un balde por restaurante)'
+    );
+    assert.strictEqual(
+      publicEventKeyGenerator({ body: {}, ip: '9.9.9.9' }),
+      'ip:9.9.9.9',
+      'Sin slug cae al ip real del cliente (ya resuelto por trust proxy)'
+    );
+    console.log('✓ Trust proxy y rate-limit público por menú (nunca un balde global compartido)');
 
     const disallowedBucket = await fetch(`http://localhost:${port}/api/storage/upload`, {
       method: 'POST',

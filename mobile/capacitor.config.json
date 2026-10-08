@@ -2,6 +2,7 @@
   "appId": "com.menupizarron.studio",
   "appName": "Menú Pizarrón Studio",
   "webDir": "public",
+  "loggingBehavior": "debug",
   "bundledWebRuntime": false,
   "server": {
     "androidScheme": "https",

@@ -42,6 +42,10 @@ const studioRouter = require('./routes/studio');
 const billingDunningRouter = require('./cron/billing-dunning');
 
 const app = express();
+// Detrás de Vercel (proxy) el req.ip real llega por X-Forwarded-For (Vercel lo
+// reescribe en el edge). Sin trust proxy, todo el tráfico comparte la IP del
+// proxy y el rate-limit por IP no distingue clientes (429 masivo injusto).
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_menu_pizarron_2026';
 const ADMIN_KEY = process.env.ADMIN_KEY || 'pizarron_admin_master_key_2026';
