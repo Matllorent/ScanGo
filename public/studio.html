@@ -1356,10 +1356,20 @@
         <div id="modalSubDetail" style="font-size:11px; color:var(--text-muted);"></div>
       </div>
 
+      <!-- Block para eventos: pago único one-off (plan event_once) -->
+      <div id="eventBillingBlock" style="display:none; margin-bottom:16px;">
+        <div style="background:var(--surface-3); padding:14px; border-radius:8px; border:1px solid var(--accent-gold);">
+          <div style="font-size:10px; color:var(--accent-gold); font-weight:800; text-transform:uppercase; margin-bottom:4px;">🎉 Evento Único · Por Fiesta</div>
+          <div style="font-size:18px; font-weight:700; color:#fff;">$12 <span style="font-size:10px;">USD</span></div>
+          <div style="font-size:10px; color:var(--text-dim); margin-bottom:8px;">Pago único · tu menú queda online hasta la fecha del evento. Sin renovación automática.</div>
+          <button class="btn-nav btn-nav-gold" style="width:100%;" data-js-click="startCheckout|event_once|event">💳 Pagar mi Evento</button>
+        </div>
+      </div>
+
       <!-- Tiered Pricing Visualizer -->
       <div id="billingTieredPricing"></div>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
+      <div id="billingPlansGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
         <div style="background:var(--surface-3); padding:12px; border-radius:8px; border:1px solid var(--border);">
           <div style="font-size:12px; font-weight:700;">Starter · Mensual</div>
           <div style="font-size:18px; font-weight:700; color:#fff;">$9 <span style="font-size:10px;">USD/mes</span></div>

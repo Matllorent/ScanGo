@@ -57,6 +57,13 @@ export function getValidBranches(restaurant) {
  */
 export function openBillingModal(currentUser, restaurant) {
   const sub = currentUser ? currentUser.subscription : {};
+  // Los eventos usan el modelo one-off (plan event_once): el modal ofrece el
+  // pago único por fiesta en lugar de los planes recurrentes.
+  const isEvent = Boolean(
+    (restaurant && (restaurant.businessType === 'events' || restaurant.isEvent === true))
+    || sub?.plan === 'event_once'
+    || sub?.plan === 'event'
+  );
   const planId = (sub?.plan && PLANS[sub.plan]) ? sub.plan : 'pro_monthly';
   const plan = PLANS[planId] || PLANS.pro_monthly;
   const basePrice = plan.priceUsd;
@@ -107,6 +114,14 @@ export function openBillingModal(currentUser, restaurant) {
   // Inject tiered pricing visualizer into billing modal
   const pricingContainer = document.getElementById('billingTieredPricing');
   if (pricingContainer) {
+    if (isEvent) {
+      pricingContainer.innerHTML = `
+        <div style="background:rgba(236,201,75,0.08); border:1px solid rgba(236,201,75,0.3); border-radius:8px; padding:12px; margin-bottom:16px;">
+          <div style="font-size:11px; font-weight:700; color:var(--accent-gold); text-transform:uppercase; margin-bottom:8px;">🎉 Evento Único (por fiesta)</div>
+          <div style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">Pago único de <strong style="color:#fff;">$${basePrice.toFixed(2)} USD</strong> · tu menú queda online hasta la fecha de tu evento y luego se pausa automáticamente.</div>
+        </div>
+      `;
+    } else {
     const totalPrice = calculateMultiBranchPrice(basePrice, branchCount);
     const fullPrice = basePrice * branchCount;
     const totalSavings = Math.round((fullPrice - totalPrice + Number.EPSILON) * 100) / 100;
@@ -135,7 +150,14 @@ export function openBillingModal(currentUser, restaurant) {
         ${branchCount > 1 ? `<div style="font-size:11px; color:var(--accent-green); margin-top:4px;">💰 Ahorro vs. precio sin descuento: $${totalSavings.toFixed(2)} USD (${savingsPct}%)</div>` : ''}
       </div>
     `;
+    }
   }
+
+  // Modo evento: mostrar el bloque one-off, ocultar los planes recurrentes
+  const eventBlock = document.getElementById('eventBillingBlock');
+  const plansGrid = document.getElementById('billingPlansGrid');
+  if (eventBlock) eventBlock.style.display = isEvent ? 'block' : 'none';
+  if (plansGrid) plansGrid.style.display = isEvent ? 'none' : 'grid';
 
   const modal = document.getElementById('billingModal');
   if (modal) modal.classList.add('active');

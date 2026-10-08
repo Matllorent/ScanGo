@@ -144,6 +144,15 @@ router.post('/events', authMiddleware, requireVerifiedEmail, async (req, res) =>
 
     const expiresAtDate = expiresAt ? new Date(expiresAt) : new Date(new Date(eventDate).getTime() + 24 * 3600 * 1000); // Default: 24h after event
 
+    // Modelo de pago de eventos: one-off por fiesta (`event_once`, ~USD 12).
+    // El evento nace en trial (7 días o hasta la fecha, lo que ocurra antes)
+    // para configurarlo; después el dueño paga una tarifa única que lo deja
+    // online hasta eventDate. Sin pago: trial vencido + gracia 3 días → pausa.
+    const trialEndRaw = new Date(Math.min(
+      Date.now() + 7 * 24 * 3600 * 1000,
+      expiresAtDate.getTime()
+    )).toISOString();
+
     const eventData = {
       bizName: name,
       name: name,
@@ -161,12 +170,12 @@ router.post('/events', authMiddleware, requireVerifiedEmail, async (req, res) =>
       dishes: Array.isArray(dishes) ? dishes : [],
       categories: Array.isArray(categories) ? categories : [],
       subscription: {
-        status: 'active',
-        plan: 'event',
-        provider: 'event',
-        trialEndsAt: expiresAtDate.toISOString(),
+        status: 'trialing',
+        plan: 'event_once',
+        provider: 'trial',
+        trialEndsAt: trialEndRaw,
         currentPeriodEnd: expiresAtDate.toISOString(),
-        gracePeriodDaysRemaining: 0
+        gracePeriodDaysRemaining: 7
       }
     };
 

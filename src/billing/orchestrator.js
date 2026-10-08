@@ -32,6 +32,14 @@ const PLANS = {
     name: 'Pro Anual',
     priceUsd: 159,
     features: { maxDishes: 999, themes: 9, zonesDelivery: true, waiterCall: true, wifiCard: true, analytics: true }
+  },
+  // Pago único por evento (one-off): el dueño paga una vez y el menú queda
+  // online hasta la fecha del evento. No se renueva: al vencer eventDate el
+  // menú se pausa con la infra de `expiresAt` ya existente.
+  event_once: {
+    name: 'Evento Único',
+    priceUsd: 12,
+    features: { maxDishes: 999, themes: 9, zonesDelivery: true, waiterCall: true, wifiCard: true, analytics: true }
   }
 };
 
@@ -59,7 +67,12 @@ const PLAN_ALIASES = {
   pro: 'pro_monthly',
   annual: 'pro_annual',
   anual: 'pro_annual',
-  starter: 'starter_monthly'
+  starter: 'starter_monthly',
+  // Aliases del plan de evento one-off (la UI manda 'event_once' o el token
+  // legacy 'event' de la creación de eventos)
+  evento: 'event_once',
+  fiesta: 'event_once',
+  event: 'event_once'
 };
 
 const billingOrchestrator = {
@@ -330,11 +343,23 @@ const billingOrchestrator = {
 
     // 4. Update restaurant subscription in DB
     if (parsed.restaurantId && parsed.status && parsed.status !== 'pending') {
+      // El plan de evento one-off no se renueva: la validez llega hasta la fecha
+      // del evento (expiresAt/eventDate), NO hasta el renewsAt del proveedor
+      // (MP asume +30 días como si fuera una suscripción recurrente).
+      const isEventOneOff = parsed.plan === 'event_once';
+      let periodEnd = parsed.renewsAt;
+      if (isEventOneOff) {
+        const eventRest = db.findRestaurantById(parsed.restaurantId);
+        const eventEnd = eventRest && (eventRest.expiresAt || eventRest.eventDate);
+        if (eventEnd) periodEnd = new Date(eventEnd).toISOString();
+      }
+
       const subUpdate = {
         status: parsed.status,
         provider: providerName,
-        currentPeriodEnd: parsed.renewsAt,
-        gracePeriodDaysRemaining: PAST_DUE_GRACE_DAYS,
+        currentPeriodEnd: periodEnd,
+        // Sin smart dunning en el one-off: no hay cobro recurrente que rechazar
+        gracePeriodDaysRemaining: isEventOneOff ? 0 : PAST_DUE_GRACE_DAYS,
         lastPaymentError: parsed.status === 'past_due' ? 'Falló el cobro automático de la tarjeta' : null
       };
       // Conserva el plan comprado (Lemon/Stripe lo infieren del webhook; MP del external_reference)

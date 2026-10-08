@@ -6,5 +6,6 @@ export const PLANS = {
   starter_monthly: { name: 'Starter Mensual', priceUsd: 9 },
   starter_annual: { name: 'Starter Anual', priceUsd: 79 },
   pro_monthly: { name: 'Pro Mensual', priceUsd: 19 },
-  pro_annual: { name: 'Pro Anual', priceUsd: 159 }
+  pro_annual: { name: 'Pro Anual', priceUsd: 159 },
+  event_once: { name: 'Evento Único', priceUsd: 12 }
 };

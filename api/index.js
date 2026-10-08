@@ -430,7 +430,10 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
       const restaurant = db.findRestaurantBySlug(slug);
       if (!restaurant) return null;
 
-      // Events mode: bypass subscription check, allow access if not expired
+      // Events mode: el corte duro es la fecha del evento (expiry), pero la
+      // suscripción también importa: el dueño paga un one-off (`event_once`)
+      // para que el menú esté online hasta eventDate. Sin pago tras el trial,
+      // verifyAccess pausa el evento como a cualquier restaurante.
       const isEvent = restaurant.businessType === 'events' || restaurant.isEvent === true;
       let access = null;
       if (isEvent) {
@@ -446,7 +449,15 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
             expired: true
           };
         }
-        // Event is active - allow access without subscription
+        // El evento sigue dentro de la fecha: la suscripción decide si está online
+        access = billingOrchestrator.verifyAccess(restaurant.id);
+        if (!access.allowed) {
+          return {
+            inactive: true,
+            warning: access.warning,
+            isEvent: true
+          };
+        }
       } else {
         // Regular restaurant - verify subscription
         access = billingOrchestrator.verifyAccess(restaurant.id);

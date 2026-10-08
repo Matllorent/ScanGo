@@ -136,6 +136,101 @@ async function runTests() {
   assert.strictEqual(accessSingle.pricing.hasMultiBranchDiscount, false, 'flag de descuento inactivo');
   console.log('✓ Restaurante single-branch conserva el precio base ($19 USD)');
 
+  // 6. Eventos: modelo one-off por fiesta (plan event_once, ~USD 12)
+  // 6a. El plan existe y los aliases se normalizan
+  assert.ok(billingOrchestrator.getPlanPricing(rest, 'event_once'), 'plan event_once debe existir');
+  const eventPricing = billingOrchestrator.getPlanPricing({ branches: [] }, 'event_once');
+  assert.strictEqual(eventPricing.planName, 'Evento Único', 'nombre del plan legible');
+  assert.strictEqual(eventPricing.totalPrice, 12, 'evento one-off: $12 USD pago único');
+  assert.strictEqual(eventPricing.hasMultiBranchDiscount, false, 'un evento no tiene sucursales');
+  assert.strictEqual(billingOrchestrator.normalizePlanId('event_once'), 'event_once', 'plan real se conserva');
+  assert.strictEqual(billingOrchestrator.normalizePlanId('evento'), 'event_once', 'alias evento → event_once');
+  assert.strictEqual(billingOrchestrator.normalizePlanId('fiesta'), 'event_once', 'alias fiesta → event_once');
+  assert.strictEqual(billingOrchestrator.normalizePlanId('event'), 'event_once', 'alias legacy event → event_once');
+  console.log('✓ Plan Evento Único ($12) + aliases evento/fiesta/event → event_once');
+
+  // 6b. createCheckout acepta event_once y expone el pricing one-off
+  const eventCheckout = await billingOrchestrator.createCheckout({
+    restaurantId: rest.id,
+    planId: 'event_once',
+    customerEmail: user.email
+  });
+  assert.strictEqual(eventCheckout.planId, 'event_once', 'checkout normaliza event_once');
+  assert.strictEqual(eventCheckout.pricing.totalPrice, 12, 'checkout cobra $12 por el evento');
+  assert.ok(eventCheckout.checkoutUrl === null || typeof eventCheckout.checkoutUrl === 'string', 'checkout event_once devuelve URL o configuration.missing');
+  console.log('✓ createCheckout de event_once expone pricing one-off ($12)');
+
+  // 6c. verifyAccess de un evento en trial activo (plan event_once) permite acceso
+  const nowIso = new Date().toISOString();
+  const eventRest = await db.saveRestaurant(user.id, {
+    bizName: 'Fiesta de Quince de Valentina',
+    slug: 'event-quince-valentina',
+    businessType: 'events',
+    isEvent: true,
+    eventDate: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
+    expiresAt: new Date(Date.now() + 31 * 24 * 3600 * 1000).toISOString(),
+    subscription: {
+      status: 'trialing',
+      plan: 'event_once',
+      provider: 'trial',
+      trialEndsAt: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
+      currentPeriodEnd: new Date(Date.now() + 31 * 24 * 3600 * 1000).toISOString(),
+      gracePeriodDaysRemaining: 7
+    }
+  });
+  const accessEventTrial = billingOrchestrator.verifyAccess(eventRest.id);
+  assert.strictEqual(accessEventTrial.allowed, true, 'evento en trial: acceso permitido');
+  assert.strictEqual(accessEventTrial.status, 'trialing');
+  assert.strictEqual(accessEventTrial.plan, 'event_once', 'el evento conserva el plan event_once');
+  assert.strictEqual(accessEventTrial.pricing.totalPrice, 12, 'pricing del evento: $12 one-off');
+  console.log('✓ verifyAccess de evento one-off en trial: acceso permitido con pricing $12');
+
+  // 6d. Webhook de pago exitoso del one-off → currentPeriodEnd = fecha del evento
+  //     (no el renewsAt del proveedor, que para MP asumiría +30 días)
+  const eventHookId = 'evt_event_once_' + Date.now();
+  const eventWebhookPayload = {
+    meta: {
+      event_name: 'subscription_payment_success',
+      custom_data: { restaurant_id: eventRest.id, plan_id: 'event_once', event_id: eventHookId }
+    },
+    data: {
+      id: eventHookId,
+      attributes: {
+        status: 'active',
+        user_email: user.email,
+        renews_at: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString()
+      }
+    }
+  };
+  const eventHookRes = await billingOrchestrator.processWebhook('lemonsqueezy', {}, JSON.stringify(eventWebhookPayload), eventWebhookPayload);
+  assert.strictEqual(eventHookRes.success, true);
+  assert.strictEqual(eventHookRes.status, 'active');
+  const eventRestAfter = db.findRestaurantById(eventRest.id);
+  assert.strictEqual(eventRestAfter.subscription.plan, 'event_once', 'webhook conserva el plan event_once');
+  const eventPeriodEnd = new Date(eventRestAfter.subscription.currentPeriodEnd).getTime();
+  const expectedEventEnd = new Date(Date.now() + 31 * 24 * 3600 * 1000).getTime();
+  assert.ok(
+    Math.abs(eventPeriodEnd - expectedEventEnd) < 60 * 1000,
+    'currentPeriodEnd del one-off = fecha del evento (no +30 días del proveedor)'
+  );
+  assert.strictEqual(eventRestAfter.subscription.gracePeriodDaysRemaining, 0, 'one-off no tiene smart dunning');
+  const accessEventPaid = billingOrchestrator.verifyAccess(eventRest.id);
+  assert.strictEqual(accessEventPaid.allowed, true, 'evento pagado: acceso permitido');
+  console.log('✓ Webhook event_once → active con currentPeriodEnd = eventDate (sin renovación)');
+
+  // 6e. Evento con trial vencido y sin pago → sin acceso (verifyAccess lo pausa)
+  await db.updateSubscription(eventRest.id, {
+    status: 'trialing',
+    plan: 'event_once',
+    provider: 'trial',
+    trialEndsAt: new Date(Date.now() - 20 * 24 * 3600 * 1000).toISOString(),
+    currentPeriodEnd: new Date(Date.now() - 20 * 24 * 3600 * 1000).toISOString(),
+    gracePeriodDaysRemaining: 7
+  });
+  const accessEventExpired = billingOrchestrator.verifyAccess(eventRest.id);
+  assert.strictEqual(accessEventExpired.allowed, false, 'evento sin pago tras el trial: acceso denegado');
+  console.log('✓ Evento sin pago one-off tras el trial → menú pausado');
+
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE BILLING PASARON EXITOSAMENTE AL 100%!\n');
 }
 
