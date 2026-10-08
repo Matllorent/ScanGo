@@ -7,8 +7,11 @@
  */
 
 import { getValidBranches } from './billing.js';
+import { buildDailyCsv, downloadCsv } from '../utils/csvExport.js';
+import { escapeHtml } from '../utils/escapeHtmlBrowser.js';
 
 let dailyChartInstance = null;
+let _lastDaily = [];
 
 export async function fetchAnalytics(url) {
   const token = localStorage.getItem('menu_pizarron_token');
@@ -29,13 +32,17 @@ export function updateKPIs(metrics) {
     dishClicks: document.getElementById('kpiDishClicks'),
     orders: document.getElementById('kpiOrders'),
     conversion: document.getElementById('kpiConversion'),
-    waiter: document.getElementById('kpiWaiter')
+    waiter: document.getElementById('kpiWaiter'),
+    avgTicket: document.getElementById('kpiAvgTicket'),
+    revenue: document.getElementById('kpiRevenue')
   };
   if (els.visits) els.visits.textContent = metrics?.qrScans || 0;
   if (els.dishClicks) els.dishClicks.textContent = metrics?.dishClicks || 0;
   if (els.orders) els.orders.textContent = metrics?.ordersPlaced || 0;
   if (els.conversion) els.conversion.textContent = (metrics?.conversionRatePercent || 0).toFixed(1);
   if (els.waiter) els.waiter.textContent = metrics?.waiterCalls || 0;
+  if (els.avgTicket) els.avgTicket.textContent = (metrics?.avgTicket || 0).toFixed(2);
+  if (els.revenue) els.revenue.textContent = (metrics?.revenue || 0).toFixed(2);
 }
 
 export function updateBranchFilter(restaurant) {
@@ -160,18 +167,45 @@ export function renderHeatmap(heatmapData) {
   container.innerHTML = html;
 }
 
+/**
+ * Renderiza el Top 5 de platos con nombre real (resuelto en el backend).
+ * @param {Array<{dishId: string, name?: string, clicks: number}>} topDishes
+ */
+export function renderTopDishes(topDishes) {
+  const tbody = document.getElementById('topDishesBody');
+  if (!tbody) return;
+
+  if (!topDishes || !topDishes.length) {
+    tbody.innerHTML = '<tr><td colspan="3" style="padding:20px; text-align:center; color:var(--text-dim);">Sin clicks de platos todavía. Interactuá con la carta para ver el ranking.</td></tr>';
+    return;
+  }
+
+  const medals = ['🥇', '🥈', '🥉'];
+  let html = '';
+  topDishes.slice(0, 5).forEach((d, i) => {
+    html += `
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:8px; font-size:14px; text-align:center;">${medals[i] || (i + 1)}</td>
+        <td style="padding:8px; font-weight:700; color:#fff;">${escapeHtml(d.name || d.dishId || '—')}</td>
+        <td style="padding:8px; text-align:center; color:#60a5fa; font-family:var(--font-mono); font-weight:700;">${d.clicks}</td>
+      </tr>
+    `;
+  });
+  tbody.innerHTML = html;
+}
+
 export function renderBranchMetrics(branches) {
   const tbody = document.getElementById('branchMetricsBody');
   if (!tbody) return;
 
   if (!branches || !branches.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="padding:20px; text-align:center; color:var(--text-dim);">No hay datos de sucursales</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="padding:20px; text-align:center; color:var(--text-dim);">No hay datos de sucursales</td></tr>';
     return;
   }
 
   let html = '';
   branches.forEach(b => {
-    const topDishesStr = b.topDishes?.map(d => `${d.dishId} (${d.clicks})`).join(', ') || '—';
+    const topDishesStr = b.topDishes?.map(d => `${d.name || d.dishId || d.dish_id} (${d.clicks})`).join(', ') || '—';
     html += `
       <tr style="border-bottom:1px solid var(--border);">
         <td style="padding:8px; font-weight:700; color:#fff;">${b.branchId === 'main' ? '🏠 Principal' : b.branchId}</td>
@@ -179,6 +213,8 @@ export function renderBranchMetrics(branches) {
         <td style="padding:8px; text-align:center; color:#60a5fa;">${b.dishClicks}</td>
         <td style="padding:8px; text-align:center; color:#4ade80;">${b.orders}</td>
         <td style="padding:8px; text-align:center; color:#f87171;">${b.waiterCalls}</td>
+        <td style="padding:8px; text-align:center; color:#fbbf24; font-family:var(--font-mono);">${(b.revenue ?? 0).toFixed(2)}</td>
+        <td style="padding:8px; text-align:center; color:#34d399; font-family:var(--font-mono);">${(b.avgTicket ?? 0).toFixed(2)}</td>
         <td style="padding:8px; color:var(--text-dim); font-size:9px;">${topDishesStr}</td>
       </tr>
     `;
@@ -229,14 +265,32 @@ export async function loadAnalytics(restaurant) {
       fetchAnalytics(`/api/analytics/events/${restaurant.id}`)
     ]);
 
+    // Guardar el último daily para el export CSV (filtros actuales)
+    _lastDaily = daily || [];
+
     if (weekly?.metrics) updateKPIs(weekly.metrics);
     updateBranchFilter(restaurant);
     updateEventFilter(events);
     renderDailyChart(daily);
+    renderTopDishes(weekly?.topDishes || []);
     renderHeatmap(heatmap);
     renderBranchMetrics(branches);
     renderEventMetrics(events);
   } catch (err) {
     console.warn('[Analytics] Error loading data:', err.message);
   }
+}
+
+/**
+ * Exporta a CSV las métricas diarias del rango y filtros seleccionados
+ * (BOM UTF-8 para que Excel respete acentos).
+ */
+export function exportAnalytics() {
+  if (!_lastDaily || !_lastDaily.length) {
+    alert('No hay datos diarios para exportar todavía. Cargá la pestaña Analíticas primero.');
+    return;
+  }
+  const csv = buildDailyCsv(_lastDaily);
+  const dateStamp = new Date().toISOString().split('T')[0];
+  downloadCsv(`analiticas-${dateStamp}.csv`, csv);
 }

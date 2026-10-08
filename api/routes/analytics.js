@@ -1,6 +1,7 @@
 const express = require('express');
 const { z } = require('zod');
 const telemetryService = require('../services/telemetry');
+const db = require('../../src/db/db');
 const { successResponse } = require('../utils/response');
 const { validateBody } = require('../middleware/validation');
 const { authMiddleware } = require('../middleware/auth');
@@ -8,6 +9,20 @@ const { tenantGuard } = require('../middleware/tenantGuard');
 
 const router = express.Router();
 router.use(authMiddleware);
+
+/**
+ * Resuelve {dishId, clicks} → {dishId, name, clicks} usando la carta del
+ * restaurante (los eventos solo guardan dish_id; el nombre vive en dishes[]).
+ */
+function attachDishNames(restaurantId, topDishes) {
+  if (!Array.isArray(topDishes) || topDishes.length === 0) return topDishes || [];
+  const restaurant = db.findRestaurantById(restaurantId);
+  const nameById = new Map((restaurant?.dishes || []).map(d => [d.id, d.name]));
+  return topDishes.map(d => ({
+    ...d,
+    name: nameById.get(d.dishId) || d.dishId || ''
+  }));
+}
 
 const trackEventSchema = z.object({
   restaurantId: z.string().min(1, { message: 'ID de restaurante requerido' }),
@@ -51,6 +66,7 @@ router.get('/weekly/:restaurantId', tenantGuard, async (req, res, next) => {
   try {
     const restaurantId = req.params.restaurantId;
     const weeklyData = await telemetryService.getWeeklyAggregatedMetrics(restaurantId);
+    weeklyData.topDishes = attachDishNames(restaurantId, weeklyData.topDishes);
     return successResponse(res, weeklyData, 'Métricas semanales de telemetría calculadas');
   } catch (err) {
     next(err);
@@ -103,6 +119,9 @@ router.get('/branches/:restaurantId', tenantGuard, async (req, res, next) => {
     const restaurantId = req.params.restaurantId;
     const days = Math.min(90, Math.max(1, parseInt(req.query.days) || 30));
     const branchMetrics = await telemetryService.getBranchMetrics(restaurantId, { days });
+    branchMetrics.forEach(b => {
+      b.topDishes = attachDishNames(restaurantId, b.topDishes);
+    });
     return successResponse(res, branchMetrics, 'Métricas por sucursal calculadas');
   } catch (err) {
     next(err);

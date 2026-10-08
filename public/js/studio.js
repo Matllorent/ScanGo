@@ -91,7 +91,9 @@ import {
   renderDailyChart,
   renderHeatmap,
   renderBranchMetrics,
-  renderEventMetrics
+  renderEventMetrics,
+  renderTopDishes,
+  exportAnalytics
 } from './studio/analytics.js';
 
 import {
@@ -1016,7 +1018,7 @@ const globalExports = {
   openBillingModal, closeBillingModal, startCheckout,
   renderDeliveryZones, addDeliveryZone, deleteDeliveryZone,
   renderBranchesList, addBranch, deleteBranch, editBranch, closeBranchEdit, saveBranchEdit, addBranchOverrideRow, removeBranchOverrideRow, addBranchCustomDishRow, removeBranchCustomDishRow, resetBranchForm,
-  loadAnalytics, updateKPIs, renderDailyChart, renderHeatmap, renderBranchMetrics, renderEventMetrics,
+  loadAnalytics, updateKPIs, renderDailyChart, renderHeatmap, renderBranchMetrics, renderEventMetrics, renderTopDishes, exportAnalytics,
   generateQrCode, downloadQrPng, printTableStand, downloadAllTablesPDF,
   promptNewCategoryInModal, openCategoryManagerModal, closeCategoryManagerModal, moveCategory, addCategoryFromManager, renameCategory, deleteCategory,
   populateCatFilter, renderDishesList, editDish, openNewDishModal, closeDishEditModal, saveDishFromModal, handleDishPhotoUpload, deleteDish, clearDishPhoto, toggleDishScheduleControls, toggleDishesByIngredient,

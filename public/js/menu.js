@@ -80,12 +80,8 @@ Object.defineProperties(window, {
       } else if (type === 'cuenta_tarjeta') {
         msg = `🧾 *CUENTA SOLICITADA*%0A📍 Mesa: ${mesa}%0A💳 Forma de pago: *Tarjeta*%0A🕐 ${new Date().toLocaleTimeString()}%0A%0A_Enviado desde el menú digital ScanGo_`;
       }
-      // Track analytics
-      fetch('/api/public/analytics/event', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: getSlug(), event: 'waiter' })
-      }).catch(() => {});
+      // Track analytics (fire-and-forget, canal unificado)
+      trackPublicEvent('waiter');
       window.open(`https://wa.me/${restaurantData.phone}?text=${msg}`, '_blank');
       closeWaiterModal();
     }
@@ -100,6 +96,30 @@ Object.defineProperties(window, {
         return parts[mIndex + 1];
       }
       return 'demo';
+    }
+
+    // Sucursal activa desde la URL (?branch= / ?sucursal=) para telemetría granular
+    function getActiveBranchId() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('branch') || urlParams.get('sucursal') || '';
+    }
+
+    // Analítica unificada fire-and-forget: contadores legacy + telemetría rica
+    // (dish_click / order_placed con amount) en el canal público.
+    function trackPublicEvent(event, extra = {}) {
+      const slug = getSlug();
+      if (!slug) return;
+      const body = {
+        slug,
+        event,
+        branchId: getActiveBranchId() || undefined
+      };
+      Object.assign(body, extra || {});
+      fetch('/api/public/analytics/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }).catch(() => {});
     }
 
     // Offline resilience banner
@@ -1048,6 +1068,9 @@ Object.defineProperties(window, {
         return;
       }
 
+      // Telemetría: interacción con plato → ranking de Top Platos en Studio
+      trackPublicEvent('dish_click', { dishId: dish.id });
+
       openDishNoteModal({ mode: 'add', dishId });
     }
 
@@ -1865,11 +1888,7 @@ Object.defineProperties(window, {
         const waUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`;
         if (popup) popup.location = waUrl;
         else window.location.assign(waUrl);
-        fetch('/api/public/analytics/event', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug: getSlug(), event: 'order' })
-        }).catch(() => {});
+        trackPublicEvent('order_placed', { amount: total });
       } catch (error) {
         if (popup) popup.close();
         alert(error.message || 'No se pudo preparar el pedido. Intentá nuevamente.');

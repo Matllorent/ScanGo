@@ -853,6 +853,7 @@
                 <option value="">Todos los eventos</option>
               </select>
               <button class="btn-nav" onclick="loadAnalytics()">🔄 Actualizar</button>
+              <button class="btn-nav" onclick="exportAnalytics()" style="margin-left:4px;" title="Descarga CSV de las métricas diarias del rango seleccionado">⬇️ Exportar CSV</button>
             </div>
 
             <!-- KPI Cards -->
@@ -877,12 +878,37 @@
                 <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:4px;">Llamados Mozo</div>
                 <div id="kpiWaiter" style="font-size:22px; font-weight:800; color:#f87171; font-family:var(--font-mono);">—</div>
               </div>
+              <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
+                <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:4px;">💵 Ticket Promedio (7d)</div>
+                <div id="kpiAvgTicket" style="font-size:22px; font-weight:800; color:#34d399; font-family:var(--font-mono);">—</div>
+              </div>
+              <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
+                <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:4px;">💰 Ingresos (est. 7d)</div>
+                <div id="kpiRevenue" style="font-size:22px; font-weight:800; color:#fbbf24; font-family:var(--font-mono);">—</div>
+              </div>
             </div>
 
             <!-- Daily Chart -->
             <div class="form-section" style="margin-bottom:16px;">
               <div class="section-title">📅 Evolución Diaria (Últimos 30 días)</div>
               <canvas id="dailyChart" height="200" style="width:100%; max-height:250px; background:var(--bg-base); border-radius:8px;"></canvas>
+            </div>
+
+            <!-- Top Dishes -->
+            <div class="form-section" style="margin-bottom:16px;">
+              <div class="section-title">🏆 Top Platos (más solicitados)</div>
+              <div id="topDishesTable" style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                  <thead>
+                    <tr style="background:var(--bg-base); border-bottom:2px solid var(--border);">
+                      <th style="padding:8px; width:46px; text-align:center; font-weight:700; color:var(--text-muted);">#</th>
+                      <th style="padding:8px; text-align:left; font-weight:700; color:var(--text-muted);">Plato</th>
+                      <th style="padding:8px; text-align:center; font-weight:700; color:var(--text-muted);">Clicks</th>
+                    </tr>
+                  </thead>
+                  <tbody id="topDishesBody"></tbody>
+                </table>
+              </div>
             </div>
 
             <!-- Hourly Heatmap -->
@@ -903,6 +929,8 @@
                       <th style="padding:8px; text-align:center; font-weight:700; color:var(--text-muted);">Clics</th>
                       <th style="padding:8px; text-align:center; font-weight:700; color:var(--text-muted);">Pedidos</th>
                       <th style="padding:8px; text-align:center; font-weight:700; color:var(--text-muted);">Mozo</th>
+                      <th style="padding:8px; text-align:center; font-weight:700; color:var(--text-muted);">💰 Ingresos</th>
+                      <th style="padding:8px; text-align:center; font-weight:700; color:var(--text-muted);">💵 Ticket</th>
                       <th style="padding:8px; text-align:left; font-weight:700; color:var(--text-muted);">Top Platos</th>
                     </tr>
                   </thead>

@@ -8,8 +8,9 @@ SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. 
 ```bash
 npm run dev          # Desarrollo con nodemon (puerto 3000)
 npm start            # Producción (node api/index.js)
-npm test             # Suite completa (19 tests en secuencia)
+npm test             # Suite completa (20 tests en secuencia)
 npm run test:billing # Test individual de pasarelas de pago
+npm run test:analytics # Test individual de analytics de negocio (ticket promedio, CSV, top platos)
 npm run db:check     # Inventario real de tablas Supabase (service role, read-only)
 npm run db:smoke     # Smoke test de persistencia cloud de group_carts (round-trip real)
 npm run mobile:sync  # npx cap sync (sincroniza Capacitor)
@@ -85,12 +86,12 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** — crean restaurantes/usuarios reales en el store local. **No son aislados**.
-- Suite completa (`npm test`) ejecuta 19 tests en secuencia — **todos deben pasar (19/19)**
+- Suite completa (`npm test`) ejecuta 20 tests en secuencia — **todos deben pasar (20/20)**
 - **3 tests existen pero NO están en `npm test`**: `test-e2e.js`, `test-db-write.js`, `test-escape-html.js` (ejecutarlos a mano si tocas esas áreas)
 - **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 3 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell` (usan credenciales reales).
 - Para debug rápido: `node tests/test-billing.js` (o el test específico, o `npm run test:<alias>`)
 
-### Tests incluidos en `npm test` (19 suites)
+### Tests incluidos en `npm test` (20 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
@@ -110,6 +111,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-menu-seo.js` | SSR, metadatos y JSON-LD por restaurante |
 | `test-google-auth.js` | GIS, callback OAuth y configuración backend |
 | `test-security-endpoints.js` | Auth/tenant, límites, cron/readiness y QR capability |
+| `test-analytics-business.js` | Analytics de negocio: ticket promedio, ingresos, top platos con nombres, export CSV, canal público unificado |
 | `test-db-await-integrity.js` | Integridad `await` en llamadas a métodos async de `db` (regresión 47ea3f7) |
 | `test-frontend-esm-syntax.js` | Todos los JS de `public/js/` parsean como ES Module (regresión codemod quick-wins) |
 | `test-frontend-structure.js` | `<div>` balanceados, modales a nivel body en 3 HTML + orden close→assign→open del import IA |
@@ -211,4 +213,4 @@ Estéticas (definiciones CSS en `public/css/menu.css`): wedding = marfil + serif
 | `public/js/menu/eventGuestMode.js` | Resolución de tema de evento, contexto de invitado, reservas WhatsApp |
 | `public/js/utils/` | Utilidades frontend (usan `escapeHtmlBrowser.js`, ver trampas) |
 | `public/js/components/` | 14 componentes ES Module reutilizables |
-| `tests/` | 22 suites; 19 corren en `npm test` (ver sección Testing) |
+| `tests/` | 23 suites; 20 corren en `npm test` (ver sección Testing) |

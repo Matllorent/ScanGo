@@ -10,6 +10,7 @@ const rateLimit = require('express-rate-limit');
 const db = require('../src/db/db');
 const billingOrchestrator = require('../src/billing/orchestrator');
 const emailService = require('./services/email');
+const telemetryService = require('./services/telemetry');
 const { getWeatherContext } = require('./services/weather');
 const { hashPassword, comparePassword } = require('./utils/hash');
 const { registerSchema, loginSchema, validateBody } = require('./middleware/validation');
@@ -990,15 +991,40 @@ app.post('/api/admin/invite-restaurant', adminMiddleware, async (req, res, next)
 });
 
 // ==================== ANALYTICS ROUTES ====================
+// Canal público unificado de analítica: contadores legacy (restaurant.analytics)
+// + telemetría rica (dish_click / order_placed con amount y branchId) para el
+// dashboard moderno de Studio. Fire-and-forget; sin secretos en el payload.
 app.post('/api/public/analytics/event', publicAnalyticsLimiter, async (req, res) => {
   try {
-    const { slug, event } = req.body;
+    const { slug, event, dishId, branchId, amount } = req.body || {};
     if (!slug || !event) return res.status(400).json({ error: 'slug y event requeridos' });
-    const validEvents = ['visit', 'order', 'reservation', 'waiter'];
+    const validEvents = ['visit', 'order', 'reservation', 'waiter', 'dish_click', 'order_placed'];
     if (!validEvents.includes(event)) return res.status(400).json({ error: 'Evento inválido' });
+
     const analytics = await db.recordAnalyticsEvent(slug, event);
     if (!analytics) return res.status(404).json({ error: 'Restaurante no encontrado' });
-    res.json({ success: true, analytics });
+
+    // Telemetría rica: alimenta ticket promedio, top platos y comparativa de
+    // sucursales. Los valores se sanean (cadenas cortas; amount numérico 0..1e9).
+    const restaurant = db.findRestaurantBySlug(slug);
+    const cleanAmount = Number(amount);
+    const safeAmount = Number.isFinite(cleanAmount) && cleanAmount >= 0 && cleanAmount <= 1e9
+      ? cleanAmount
+      : undefined;
+    const canonicalType = event === 'order' || event === 'order_placed'
+      ? 'order_placed'
+      : event === 'waiter'
+        ? 'waiter_call'
+        : event;
+    telemetryService.recordEvent({
+      restaurantId: restaurant?.id || slug,
+      eventType: canonicalType,
+      dishId: dishId ? String(dishId).slice(0, 80) : undefined,
+      branchId: branchId ? String(branchId).slice(0, 80) : undefined,
+      metadata: { amount: safeAmount, source: 'public_menu' }
+    });
+
+    res.json({ success: true, analytics, telemetry: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

@@ -109,6 +109,11 @@ const telemetryService = {
       dishCounts[e.dish_id] = (dishCounts[e.dish_id] || 0) + 1;
     });
 
+    // Ticket promedio e ingresos estimados (metadata_json.amount en pedidos)
+    const orderEvents = events.filter(e => e.event_type === 'order_placed' || e.event_type === 'order');
+    const revenue = orderEvents.reduce((sum, e) => sum + (Number(e.metadata_json?.amount) || 0), 0);
+    const avgTicket = ordersPlaced > 0 ? +((revenue / ordersPlaced).toFixed(2)) : 0;
+
     const topDishes = Object.entries(dishCounts)
       .map(([dishId, clicks]) => ({ dishId, clicks }))
       .sort((a, b) => b.clicks - a.clicks)
@@ -122,7 +127,9 @@ const telemetryService = {
         dishClicks,
         ordersPlaced,
         waiterCalls,
-        conversionRatePercent: qrScans > 0 ? +((ordersPlaced / qrScans) * 100).toFixed(1) : 0
+        conversionRatePercent: qrScans > 0 ? +((ordersPlaced / qrScans) * 100).toFixed(1) : 0,
+        revenue: +revenue.toFixed(2),
+        avgTicket
       },
       topDishes
     };
@@ -203,7 +210,7 @@ const telemetryService = {
     events.forEach(e => {
       const branchId = e.branch_id || 'main';
       if (!branchMap[branchId]) {
-        branchMap[branchId] = { branchId, visits: 0, dishClicks: 0, orders: 0, waiterCalls: 0, topDishes: {} };
+        branchMap[branchId] = { branchId, visits: 0, dishClicks: 0, orders: 0, waiterCalls: 0, revenue: 0, topDishes: {} };
       }
       const b = branchMap[branchId];
       if (e.event_type === 'qr_scan' || e.event_type === 'visit') b.visits++;
@@ -211,13 +218,18 @@ const telemetryService = {
         b.dishClicks++;
         b.topDishes[e.dish_id] = (b.topDishes[e.dish_id] || 0) + 1;
       }
-      if (e.event_type === 'order_placed' || e.event_type === 'order') b.orders++;
+      if (e.event_type === 'order_placed' || e.event_type === 'order') {
+        b.orders++;
+        b.revenue += Number(e.metadata_json?.amount) || 0;
+      }
       if (e.event_type === 'waiter_call' || e.event_type === 'waiter') b.waiterCalls++;
     });
 
     // Convert to array with top dishes
     return Object.values(branchMap).map(b => ({
       ...b,
+      revenue: +b.revenue.toFixed(2),
+      avgTicket: b.orders > 0 ? +((b.revenue / b.orders).toFixed(2)) : 0,
       topDishes: Object.entries(b.topDishes)
         .map(([dishId, clicks]) => ({ dishId, clicks }))
         .sort((a, b) => b.clicks - a.clicks)

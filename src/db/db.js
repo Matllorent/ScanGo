@@ -743,9 +743,9 @@ const db = {
       rest.analytics = { visits: 0, orders: 0, reservations: 0, waiterCalls: 0, lastUpdated: new Date().toISOString() };
     }
     if (eventType === 'visit') rest.analytics.visits = (rest.analytics.visits || 0) + 1;
-    else if (eventType === 'order') rest.analytics.orders = (rest.analytics.orders || 0) + 1;
+    else if (eventType === 'order' || eventType === 'order_placed') rest.analytics.orders = (rest.analytics.orders || 0) + 1;
     else if (eventType === 'reservation') rest.analytics.reservations = (rest.analytics.reservations || 0) + 1;
-    else if (eventType === 'waiter') rest.analytics.waiterCalls = (rest.analytics.waiterCalls || 0) + 1;
+    else if (eventType === 'waiter' || eventType === 'waiter_call') rest.analytics.waiterCalls = (rest.analytics.waiterCalls || 0) + 1;
     rest.analytics.lastUpdated = new Date().toISOString();
     await writeJson(RESTAURANTS_FILE, rests);
     if (supabase) {
