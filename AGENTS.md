@@ -8,12 +8,13 @@ SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. 
 ```bash
 npm run dev          # Desarrollo con nodemon (puerto 3000)
 npm start            # Producción (node api/index.js)
-npm test             # Suite completa (23 tests en secuencia) — con snapshot/restore automático de data/
+npm test             # Suite completa (24 tests en secuencia) — con snapshot/restore automático de data/
 npm run test:billing # Test individual de pasarelas de pago
 npm run test:analytics # Test individual de analytics de negocio (ticket promedio, CSV, top platos)
 npm run test:admin   # Test individual del panel /admin (login 2FA, plata/mes, renovaciones)
 npm run test:push    # Test individual de push notifications (VAPID, aviso de mozo)
 npm run test:realtime # Test individual del guard de canales Realtime (migración 002)
+npm run test:realtime-live # Test E2E real del guard (conecta a Supabase Realtime con la anon key)
 npm run db:check     # Inventario real de tablas Supabase (service role, read-only)
 npm run db:smoke     # Smoke test de persistencia cloud de group_carts (round-trip real)
 npm run mobile:sync  # npx cap sync (sincroniza Capacitor)
@@ -89,12 +90,12 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** durante la corrida (flujos reales con el store local). **`npm test` ahora las aísla solo**: `scripts/test-data-guard.js` saca una foto de `data/` antes y la restaura siempre al final (pase o falle). La cadena real de tests vive en `npm run test:core`; no hay que revertir `data/` a mano para commitear.
-- Suite completa (`npm test`) ejecuta 23 tests en secuencia — **todos deben pasar (23/23)**
+- Suite completa (`npm test`) ejecuta 24 tests en secuencia — **todos deben pasar (24/24)**
 - **3 tests existen pero NO están en `npm test`**: `test-e2e.js`, `test-db-write.js`, `test-escape-html.js` (ejecutarlos a mano si tocas esas áreas)
-- **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 3 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell` (usan credenciales reales).
+- **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 4 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell` y `test-realtime-live-guard` (usan credenciales reales; el último hace SKIP si no hay `SUPABASE_URL`/`SUPABASE_ANON_KEY`).
 - Para debug rápido: `node tests/test-billing.js` (o el test específico, o `npm run test:<alias>`)
 
-### Tests incluidos en `npm test` (23 suites)
+### Tests incluidos en `npm test` (24 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
@@ -121,6 +122,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-frontend-structure.js` | `<div>` balanceados, modales a nivel body en 3 HTML + orden close→assign→open del import IA |
 | `test-push-notifications.js` | Push Web real (VAPID): suscripción cloud, 503 PUSH_NOT_CONFIGURED sin llaves, aviso de mozo desde la mesa con entrega intentada |
 | `test-realtime-rls-guard.js` | Guard estático de canales Realtime: la 002 existe, NO tiene ALTER TABLE sobre realtime.messages (evita el 42501), políticas SELECT+INSERT `realtime:%` para anon/authenticated, y los canales del código unen con `private: true` |
+| `test-realtime-live-guard.js` | E2E real del guard contra Supabase Realtime (anon key): JOIN+broadcast en `realtime:%` OK y topics ajenos (`event_waiters_*`) rechazados — detecta si la 002 NO está aplicada |
 
 ## Configuración (`.env`)
 
@@ -222,4 +224,4 @@ Estéticas (definiciones CSS en `public/css/menu.css`): wedding = marfil + serif
 | `public/js/menu/eventGuestMode.js` | Resolución de tema de evento, contexto de invitado, reservas WhatsApp |
 | `public/js/utils/` | Utilidades frontend (usan `escapeHtmlBrowser.js`, ver trampas) |
 | `public/js/components/` | 14 componentes ES Module reutilizables |
-| `tests/` | 25 suites; 23 corren en `npm test` (ver sección Testing) |
+| `tests/` | 26 suites; 24 corren en `npm test` (ver sección Testing) |
