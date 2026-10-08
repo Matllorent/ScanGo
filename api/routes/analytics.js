@@ -39,13 +39,15 @@ const trackEventSchema = z.object({
 
 /**
  * POST /api/analytics/track
- * Non-blocking fire-and-forget event tracking for QR scans and dish clicks
- * Supports branchId and eventId for granular analytics
+ * Track de eventos (QR scans, dish clicks, variantes de eventos).
+ * Escribe en la telemetría (fuente única de verdad) y recalcula la proyección
+ * legacy (restaurant.analytics): antes /track solo escribía telemetría y los
+ * contadores legacy quedaban atrás (doble sistema con drift).
  */
-router.post('/track', tenantGuard, validateBody(trackEventSchema), (req, res) => {
+router.post('/track', tenantGuard, validateBody(trackEventSchema), async (req, res) => {
   const { restaurantId, eventType, dishId, branchId, eventId, metadata } = req.body;
 
-  telemetryService.recordEvent({
+  await telemetryService.recordEventSync({
     restaurantId,
     eventType,
     dishId,
@@ -54,7 +56,13 @@ router.post('/track', tenantGuard, validateBody(trackEventSchema), (req, res) =>
     metadata
   });
 
-  // Respond immediately with sub-30ms performance (fire-and-forget)
+  // Proyección legacy derivada de la telemetría (mismo origen que el menú público)
+  const restaurant = db.findRestaurantById(restaurantId);
+  if (restaurant) {
+    const analytics = await telemetryService.countAnalytics(restaurantId);
+    await db.setAnalyticsSnapshot(restaurant.slug, analytics);
+  }
+
   return successResponse(res, { tracked: true }, 'Evento de telemetría registrado', 202);
 });
 

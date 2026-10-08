@@ -1070,9 +1070,9 @@ app.post('/api/admin/invite-restaurant', adminMiddleware, async (req, res, next)
 });
 
 // ==================== ANALYTICS ROUTES ====================
-// Canal público unificado de analítica: contadores legacy (restaurant.analytics)
-// + telemetría rica (dish_click / order_placed con amount y branchId) para el
-// dashboard moderno de Studio. Fire-and-forget; sin secretos en el payload.
+// Canal público unificado de analítica. Fuente única de verdad: telemetría
+// (telemetry_events). Los contadores legacy (restaurant.analytics) son una
+// proyección derivada que se recalcula acá, nunca se incrementan a mano.
 app.post('/api/public/analytics/event', publicAnalyticsLimiter, async (req, res) => {
   try {
     const { slug, event, dishId, branchId, amount, items } = req.body || {};
@@ -1080,13 +1080,12 @@ app.post('/api/public/analytics/event', publicAnalyticsLimiter, async (req, res)
     const validEvents = ['visit', 'order', 'reservation', 'waiter', 'dish_click', 'order_placed'];
     if (!validEvents.includes(event)) return res.status(400).json({ error: 'Evento inválido' });
 
-    const analytics = await db.recordAnalyticsEvent(slug, event);
-    if (!analytics) return res.status(404).json({ error: 'Restaurante no encontrado' });
+    const restaurant = db.findRestaurantBySlug(slug);
+    if (!restaurant) return res.status(404).json({ error: 'Restaurante no encontrado' });
 
     // Telemetría rica: alimenta ticket promedio, top platos y comparativa de
     // sucursales. Los valores se sanean (cadenas cortas; amount numérico 0..1e9;
     // items de pedidos con dishId ≤80 y qty 1..999, máximo 100 por pedido).
-    const restaurant = db.findRestaurantBySlug(slug);
     const cleanAmount = Number(amount);
     const safeAmount = Number.isFinite(cleanAmount) && cleanAmount >= 0 && cleanAmount <= 1e9
       ? cleanAmount
@@ -1107,13 +1106,18 @@ app.post('/api/public/analytics/event', publicAnalyticsLimiter, async (req, res)
       : event === 'waiter'
         ? 'waiter_call'
         : event;
-    telemetryService.recordEvent({
-      restaurantId: restaurant?.id || slug,
+    await telemetryService.recordEventSync({
+      restaurantId: restaurant.id,
       eventType: canonicalType,
       dishId: dishId ? String(dishId).slice(0, 80) : undefined,
       branchId: branchId ? String(branchId).slice(0, 80) : undefined,
       metadata
     });
+
+    // Proyección legacy derivada de la telemetría (queda sincronizada con todo
+    // lo que pasa por /track y por el menú público).
+    const analytics = await telemetryService.countAnalytics(restaurant.id);
+    await db.setAnalyticsSnapshot(slug, analytics);
 
     res.json({ success: true, analytics, telemetry: true });
   } catch (e) {

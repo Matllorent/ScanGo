@@ -734,19 +734,20 @@ const db = {
     return rest;
   },
 
-  // Analytics tracking
-  async recordAnalyticsEvent(slug, eventType) {
+  // Snapshot de contadores legacy (restaurant.analytics). La FUENTE DE VERDAD
+  // es la telemetría (telemetry_events); esto solo escribe la proyección derivada
+  // que leen Studio y GET /api/analytics/:slug. Nunca incrementa a mano.
+  async setAnalyticsSnapshot(slug, counters) {
     const rests = readJson(RESTAURANTS_FILE, []);
     const rest = rests.find(r => r.slug === slug);
     if (!rest) return null;
-    if (!rest.analytics) {
-      rest.analytics = { visits: 0, orders: 0, reservations: 0, waiterCalls: 0, lastUpdated: new Date().toISOString() };
-    }
-    if (eventType === 'visit') rest.analytics.visits = (rest.analytics.visits || 0) + 1;
-    else if (eventType === 'order' || eventType === 'order_placed') rest.analytics.orders = (rest.analytics.orders || 0) + 1;
-    else if (eventType === 'reservation') rest.analytics.reservations = (rest.analytics.reservations || 0) + 1;
-    else if (eventType === 'waiter' || eventType === 'waiter_call') rest.analytics.waiterCalls = (rest.analytics.waiterCalls || 0) + 1;
-    rest.analytics.lastUpdated = new Date().toISOString();
+    rest.analytics = {
+      visits: 0,
+      orders: 0,
+      reservations: 0,
+      waiterCalls: 0,
+      ...(counters || {})
+    };
     await writeJson(RESTAURANTS_FILE, rests);
     if (supabase) {
       trackSupabaseWrite(supabase.from('restaurants').update({

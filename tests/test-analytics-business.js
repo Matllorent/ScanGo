@@ -171,6 +171,25 @@ async function runTests() {
     assert.strictEqual(legacy.orders, 2, 'Legacy orders = 2 (order_placed mapea a orders)');
     console.log('✓ Legacy counters sincronizados (visits=2, orders=2)');
 
+    // Unificación: /track ahora también alimenta los contadores legacy
+    // (antes escribía solo telemetría y los contadores quedaban con drift).
+    const trackRes = await fetch(`${base}/api/analytics/track`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ restaurantId: restaurant.id, eventType: 'qr_scan' })
+    });
+    assert.strictEqual(trackRes.status, 202, 'track debe aceptarse');
+    const unifiedRes = await fetch(`${base}/api/analytics/${restaurant.slug}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const unified = (await unifiedRes.json()).analytics;
+    assert.strictEqual(unified.visits, 3, 'qr_scan vía /track suma al contador legacy de visits (unificación)');
+    assert.strictEqual(unified.orders, 2, 'Los pedidos previos no se alteran con el recount');
+    console.log('✓ Unificación: /track (qr_scan) alimenta legacy → visits=3 (un solo sistema de conteo)');
+
     // ── "Lo que se vendió hoy": order_placed con ítems del carrito ──
     // (después de las aserciones de totales para no alterar los conteos previos)
     const orderC = await postEvent({

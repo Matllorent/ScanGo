@@ -12,6 +12,17 @@ const EVENT_TYPES = [
   'event_qr_scan', 'event_dish_click', 'event_order_placed'
 ];
 
+// Tipos de evento que alimentan cada contador legacy de restaurant.analytics.
+// Fuente única de verdad: telemetry_events. Estos contadores son una PROYECCIÓN
+// derivada que se recalcula al escribir (nunca se incrementan a mano), así todo
+// camino de evento (menú público, /track, QR) cuenta igual.
+const LEGACY_COUNTER_TYPES = {
+  visits: new Set(['visit', 'qr_scan', 'event_qr_scan']),
+  orders: new Set(['order', 'order_placed', 'event_order_placed']),
+  reservations: new Set(['reservation']),
+  waiterCalls: new Set(['waiter', 'waiter_call'])
+};
+
 const telemetryService = {
   /**
    * Non-blocking Fire-and-Forget telemetry recording
@@ -23,35 +34,75 @@ const telemetryService = {
    * @param {string} [options.eventId] - Event ID for event-scoped analytics
    * @param {object} [options.metadata] - Extra context (e.g. userAgent, referral)
    */
+  // Construye el registro tal como se persiste en telemetry_events (misma
+  // forma para el modo fire-and-forget y para el modo sincrónico).
+  buildEventRecord({ restaurantId, eventType, dishId, branchId, eventId, metadata }) {
+    return {
+      id: 'tel_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+      restaurant_id: restaurantId,
+      event_type: eventType,
+      dish_id: dishId || null,
+      branch_id: branchId || null,
+      event_id: eventId || null,
+      metadata_json: metadata || {},
+      created_at: new Date().toISOString()
+    };
+  },
+
+  // Persiste el evento: nube (si hay cliente) + cache local. Nunca lanza: si la
+  // nube falla transitoriamente, el evento queda al menos en local.
+  async persistEventRecord(eventRecord) {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.from('telemetry_events').insert([eventRecord]);
+      } catch (e) {
+        logger.warn('[Telemetry Service Supabase Error]', { error: e.message, eventType: eventRecord.event_type });
+      }
+    }
+    localTelemetryEvents.push(eventRecord);
+    if (localTelemetryEvents.length > 5000) localTelemetryEvents.shift();
+    return eventRecord;
+  },
+
   recordEvent({ restaurantId, eventType, dishId, branchId, eventId, metadata }) {
     // Execute asynchronously in background without blocking HTTP response
+    const eventRecord = this.buildEventRecord({ restaurantId, eventType, dishId, branchId, eventId, metadata });
     retryQueue.enqueue(async () => {
-      const utcNow = new Date().toISOString();
-      const eventRecord = {
-        id: 'tel_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
-        restaurant_id: restaurantId,
-        event_type: eventType,
-        dish_id: dishId || null,
-        branch_id: branchId || null,
-        event_id: eventId || null,
-        metadata_json: metadata || {},
-        created_at: utcNow
-      };
-
-      const supabase = getSupabaseClient();
-      if (supabase) {
-        try {
-          await supabase.from('telemetry_events').insert([eventRecord]);
-        } catch (e) {
-          logger.warn('[Telemetry Service Supabase Error]', { error: e.message, eventType });
-        }
-      }
-
-      localTelemetryEvents.push(eventRecord);
-      if (localTelemetryEvents.length > 5000) localTelemetryEvents.shift();
-
+      await this.persistEventRecord(eventRecord);
       logger.info(`[Telemetry Event] ${eventType}`, { restaurantId, branchId, eventId, dishId });
     }, { taskName: `telemetry_${eventType}` });
+  },
+
+  /**
+   * Versión sincrónica (await) de recordEvent: cuando la promesa resuelve el
+   * evento ya está persistido (nube o local), sin carrera con la cola.
+   * La usan los caminos que derivan el snapshot legacy de la telemetría.
+   */
+  async recordEventSync({ restaurantId, eventType, dishId, branchId, eventId, metadata }) {
+    const eventRecord = await this.persistEventRecord(
+      this.buildEventRecord({ restaurantId, eventType, dishId, branchId, eventId, metadata })
+    );
+    logger.info(`[Telemetry Event synced] ${eventType}`, { restaurantId, branchId, eventId, dishId });
+    return eventRecord;
+  },
+
+  /**
+   * Cuenta los contadores legacy (visits/orders/reservations/waiterCalls) a
+   * partir de los eventos de telemetría del restaurante. Proyección pura: solo
+   * lee la fuente de verdad, no incrementa nada.
+   */
+  async countAnalytics(restaurantId) {
+    const events = await this.getEvents(restaurantId);
+    const counters = { visits: 0, orders: 0, reservations: 0, waiterCalls: 0, lastUpdated: new Date().toISOString() };
+    for (const e of events) {
+      const type = e.event_type;
+      if (LEGACY_COUNTER_TYPES.visits.has(type)) counters.visits++;
+      else if (LEGACY_COUNTER_TYPES.orders.has(type)) counters.orders++;
+      else if (LEGACY_COUNTER_TYPES.reservations.has(type)) counters.reservations++;
+      else if (LEGACY_COUNTER_TYPES.waiterCalls.has(type)) counters.waiterCalls++;
+    }
+    return counters;
   },
 
   /**

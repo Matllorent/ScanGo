@@ -30,7 +30,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - **Routers modulares** (11 en `api/routes/`): auth, reviews, storage, webhooks, notifications, email, health, orders, analytics, **studio**, **ai**
 - **Cron**: `api/cron/billing-dunning.js` (montado como `/api/cron/billing-dunning`, requiere `CRON_SECRET`)
 - **Middleware**: `api/middleware/` (auth, validation, rateLimits, killSwitch, subscriptionGuard, tenantGuard, requireVerifiedEmail, idempotency, cache, errorHandler, requestId)
-- **Services**: `api/services/` (audit, email, geminiMenuParser, notifications, storage, telemetry, weather). El servicio de Mercado Pago vive en `src/services/mercadopago.js`.
+- **Services**: `api/services/` (audit, email, geminiMenuParser, notifications, storage, telemetry, weather). El servicio de Mercado Pago vive en `src/services/mercadopago.js`. **La telemetría es la fuente única de verdad de analytics**: `restaurant.analytics` es una proyección derivada (`telemetry.countAnalytics()` → `db.setAnalyticsSnapshot()`), nunca se incrementa a mano.
 - **Utils**: `api/utils/` (response, sentry, hash, menuOptions, groupCartToken, …)
 
 ### Frontend (`public/`)
