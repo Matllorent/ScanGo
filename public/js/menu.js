@@ -507,7 +507,7 @@ Object.defineProperties(window, {
         }
       }
       if (hdrFb) {
-        if (restaurantData.facebook) {
+        if (/^https?:\/\//i.test(restaurantData.facebook || '')) {
           hdrFb.href = restaurantData.facebook;
           hdrFb.style.display = 'inline-flex';
         } else {
@@ -515,11 +515,20 @@ Object.defineProperties(window, {
         }
       }
       if (hdrTk) {
-        if (restaurantData.tiktok) {
+        if (/^https?:\/\//i.test(restaurantData.tiktok || '')) {
           hdrTk.href = restaurantData.tiktok;
           hdrTk.style.display = 'inline-flex';
         } else {
           hdrTk.style.display = 'none';
+        }
+      }
+      const hdrX = document.getElementById('hdrSocialX');
+      if (hdrX) {
+        if (/^https?:\/\//i.test(restaurantData.x || '')) {
+          hdrX.href = restaurantData.x;
+          hdrX.style.display = 'inline-flex';
+        } else {
+          hdrX.style.display = 'none';
         }
       }
 

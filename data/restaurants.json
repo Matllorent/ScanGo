@@ -144,7 +144,12 @@
     },
     "bannerUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&h=400&fit=crop",
     "layout": "bento",
-    "logoUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=200&h=200&fit=crop&crop=center"
+    "logoUrl": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=200&h=200&fit=crop&crop=center",
+    "instagram": "menupizarron.demo",
+    "facebook": "https://facebook.com/menupizarron",
+    "tiktok": "https://tiktok.com/@menupizarron",
+    "x": "https://x.com/menupizarron",
+    "googleReview": ""
   },
   {
     "id": "rest_1791265471629_h71p3v",

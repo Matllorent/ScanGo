@@ -609,6 +609,9 @@ export function updateLiveState() {
   updateBusinessTypeControls();
 
   restaurant.instagram = el('inputInstagram')?.value.trim() || '';
+  restaurant.facebook = el('inputFacebook')?.value.trim() || '';
+  restaurant.tiktok = el('inputTiktok')?.value.trim() || '';
+  restaurant.x = el('inputX')?.value.trim() || '';
   restaurant.googleReview = el('inputGoogleReview')?.value.trim() || '';
 
   const layoutSelect = el('inputMenuLayout');
@@ -731,6 +734,9 @@ export function renderStudioUI() {
   }
 
   if (el('inputInstagram')) el('inputInstagram').value = restaurant.instagram || '';
+  if (el('inputFacebook')) el('inputFacebook').value = restaurant.facebook || '';
+  if (el('inputTiktok')) el('inputTiktok').value = restaurant.tiktok || '';
+  if (el('inputX')) el('inputX').value = restaurant.x || '';
   if (el('inputGoogleReview')) el('inputGoogleReview').value = restaurant.googleReview || '';
 
   const layoutSelect = el('inputMenuLayout');

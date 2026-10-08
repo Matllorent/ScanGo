@@ -30,6 +30,13 @@ function sanitizeUrl(url, maxLen = 500) {
   }
 }
 
+// Links de redes sociales: solo http(s). sanitizeUrl deja pasar esquemas como
+// `javascript:` (new URL no falla) — no queremos eso en un <a href=...>.
+function sanitizeSocialUrl(url, maxLen = 500) {
+  const s = sanitizeUrl(url, maxLen);
+  return /^https?:\/\//i.test(s) ? s : '';
+}
+
 function generateId(prefix = '') {
   return `${prefix}${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
 }
@@ -199,6 +206,9 @@ function sanitizeRestaurantPayload(data) {
   clean.theme = sanitizeString(clean.theme, 30);
   clean.themeFont = sanitizeString(clean.themeFont, 30);
   clean.instagram = sanitizeString(clean.instagram, 40).replace(/[^a-zA-Z0-9._]/g, '');
+  clean.facebook = sanitizeSocialUrl(clean.facebook, 500);
+  clean.tiktok = sanitizeSocialUrl(clean.tiktok, 500);
+  clean.x = sanitizeSocialUrl(clean.x, 500);
   clean.googleReview = sanitizeString(clean.googleReview, 300);
   clean.allowReservations = Boolean(clean.allowReservations);
   clean.allowCoupons = Boolean(clean.allowCoupons);

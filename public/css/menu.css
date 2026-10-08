@@ -1433,23 +1433,29 @@
       gap: 8px;
     }
     .social-btn-round {
-      width: 32px;
-      height: 32px;
+      width: 34px;
+      height: 34px;
       border-radius: 50%;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid var(--border-chalk);
-      color: #fff;
+      background: #fff;
+      border: 1px solid rgba(255,255,255,0.4);
+      color: #101614;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.85rem;
       text-decoration: none;
-      transition: all 0.2s;
+      line-height: 1;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.22);
+      transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .social-btn-round img {
+      width: 18px;
+      height: 18px;
+      display: block;
     }
     .social-btn-round:hover {
-      background: var(--chalk-gold);
-      color: #101614;
+      transform: translateY(-2px);
       border-color: var(--chalk-gold);
+      box-shadow: 0 5px 14px rgba(0,0,0,0.32);
     }
     .btn-info-modal {
       background: rgba(255,255,255,0.08);
