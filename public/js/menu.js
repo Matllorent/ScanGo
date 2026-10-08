@@ -1702,7 +1702,195 @@ Object.defineProperties(window, {
 
     function storeLoyaltyPhone(value) {
       const v = String(value || '').trim();
-      if (v) localStorage.setItem('scango_loyalty_phone', v);
+      if (!v) return;
+      localStorage.setItem('scango_loyalty_phone', v);
+      // Si ya tiene push activado, re-suscribir con el teléfono para que el
+      // aviso de estado de su pedido le llegue dirigido a él.
+      const mod = window.menuModalsModule;
+      if (mod && typeof mod.syncPushCustomerPhone === 'function') {
+        mod.syncPushCustomerPhone(v).catch(() => {});
+      }
+    }
+
+    // ── Seguimiento del pedido ─────────────────────────────────────────────
+    // El comensal guarda el token firmado que devuelve POST /api/orders y con
+    // él consulta el estado público (sin datos personales) hasta que el pedido
+    // se entrega o se cancela. El push de estado reabre esta misma vista.
+    const ORDER_TRACKING_KEY = 'scango_active_order';
+    const ORDER_TRACKING_POLL_MS = 15000;
+    let orderTrackingTimer = null;
+
+    function getActiveOrder() {
+      try {
+        const raw = localStorage.getItem(ORDER_TRACKING_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) { return null; }
+    }
+
+    function saveOrderTracking(entry) {
+      if (!entry || !entry.token) return;
+      try { localStorage.setItem(ORDER_TRACKING_KEY, JSON.stringify(entry)); } catch (e) {}
+    }
+
+    function clearOrderTracking() {
+      try { localStorage.removeItem(ORDER_TRACKING_KEY); } catch (e) {}
+      stopOrderTrackingPolling();
+      const fab = document.getElementById('orderTrackingFab');
+      if (fab) fab.style.display = 'none';
+    }
+
+    function showOrderTrackingFab() {
+      const fab = document.getElementById('orderTrackingFab');
+      if (fab) fab.style.display = 'flex';
+    }
+
+    function stopOrderTrackingPolling() {
+      if (orderTrackingTimer) {
+        clearInterval(orderTrackingTimer);
+        orderTrackingTimer = null;
+      }
+    }
+
+    function startOrderTrackingPolling() {
+      stopOrderTrackingPolling();
+      orderTrackingTimer = setInterval(() => {
+        const modal = document.getElementById('orderTrackingModal');
+        if (modal && modal.classList.contains('active')) refreshOrderTracking();
+      }, ORDER_TRACKING_POLL_MS);
+    }
+
+    const ORDER_TRACKING_STEPS = [
+      { key: 'pending', label: 'Pedido recibido' },
+      { key: 'confirmed', label: 'Confirmado por el local' },
+      { key: 'preparing', label: 'En preparación' },
+      { key: 'ready', label: 'Listo para retirar' },
+      { key: 'on_the_way', label: 'En camino' },
+      { key: 'delivered', label: 'Entregado' }
+    ];
+
+    function renderOrderTracking(data) {
+      const body = document.getElementById('orderTrackingBody');
+      if (!body) return;
+      const status = data.status || 'pending';
+      const subtitle = document.getElementById('orderTrackingSubtitle');
+      const metaBits = [data.restaurantName || '', data.tableNumber ? String(data.tableNumber) : ''].filter(Boolean);
+      if (subtitle) subtitle.textContent = metaBits.join(' · ') || 'Mirá en qué estado está tu pedido.';
+
+      if (status === 'cancelled') {
+        body.innerHTML = '<div style="text-align:center; padding:16px 4px; color:#FEB2B2; font-size:0.9rem;">❌ Tu pedido fue cancelado. Si fue un error, escribinos por WhatsApp.</div>';
+        return;
+      }
+
+      const currentIndex = Math.max(0, ORDER_TRACKING_STEPS.findIndex(s => s.key === status));
+      const warning = status === 'delayed'
+        ? '<div style="background:rgba(237,137,54,0.15); border:1px solid rgba(237,137,54,0.5); color:#FBD38D; font-size:0.8rem; border-radius:8px; padding:8px 10px; margin-bottom:12px;">⏳ El local avisó una demora imprevista. Tu pedido sigue en marcha.</div>'
+        : '';
+      const stepsHtml = ORDER_TRACKING_STEPS.map((step, index) => {
+        const done = index < currentIndex;
+        const active = index === currentIndex;
+        const dot = done ? '✓' : (active ? '●' : '○');
+        const color = done ? '#68D391' : (active ? '#63B3ED' : 'rgba(255,255,255,0.3)');
+        const labelColor = done ? 'var(--chalk-dim)' : (active ? '#fff' : 'rgba(255,255,255,0.4)');
+        return `<div style="display:flex; align-items:center; gap:10px; padding:5px 0;">
+          <span style="color:${color}; font-size:1.05rem; width:18px; text-align:center;">${dot}</span>
+          <span style="color:${labelColor}; font-size:0.88rem; font-weight:${active ? '700' : '400'};">${escapeHtml(step.label)}</span>
+        </div>`;
+      }).join('');
+
+      const totalLine = (data.total != null && data.currency)
+        ? `<div style="border-top:1px solid rgba(255,255,255,0.1); margin-top:12px; padding-top:10px; color:var(--chalk-gold); font-weight:700; font-size:0.9rem;">Total: ${escapeHtml(String(data.currency))} ${Number(data.total).toFixed(2)}</div>`
+        : '';
+      body.innerHTML = warning + stepsHtml + totalLine;
+    }
+
+    function renderOrderTrackingError(message) {
+      const body = document.getElementById('orderTrackingBody');
+      if (body) body.innerHTML = `<div style="color:#FEB2B2; font-size:0.85rem; padding:8px 0;">${escapeHtml(message || 'No pudimos cargar el estado.')}</div>`;
+    }
+
+    async function refreshOrderTracking() {
+      const active = getActiveOrder();
+      if (!active || !active.token) {
+        renderOrderTrackingError('No hay un pedido activo para seguir.');
+        return;
+      }
+      try {
+        const res = await fetch(`/api/orders/track/${encodeURIComponent(active.token)}`);
+        if (res.status === 404) {
+          clearOrderTracking();
+          renderOrderTrackingError('Este pedido ya no está disponible (puede haber vencido o el local lo cerró).');
+          return;
+        }
+        const payload = await res.json();
+        if (!res.ok || !payload.success) throw new Error(payload.error || 'Error');
+        renderOrderTracking(payload.data || {});
+        if (payload.data && (payload.data.status === 'delivered' || payload.data.status === 'cancelled')) {
+          stopOrderTrackingPolling();
+        }
+      } catch (e) {
+        renderOrderTrackingError('No pudimos actualizar el estado. Reintentando…');
+      }
+    }
+
+    function openOrderTracking() {
+      const active = getActiveOrder();
+      const modal = document.getElementById('orderTrackingModal');
+      if (!modal) return;
+      if (!active || !active.token) {
+        // Sin pedido guardado: no abrimos una vista vacía.
+        const fab = document.getElementById('orderTrackingFab');
+        if (fab) fab.style.display = 'none';
+        return;
+      }
+      modal.classList.add('active');
+      renderOrderTracking({ status: 'pending', restaurantName: active.restaurantName, tableNumber: active.tableNumber });
+      refreshOrderTracking();
+      startOrderTrackingPolling();
+    }
+
+    function closeOrderTracking() {
+      const modal = document.getElementById('orderTrackingModal');
+      if (modal) modal.classList.remove('active');
+      stopOrderTrackingPolling();
+    }
+
+    function forgetOrderTracking() {
+      clearOrderTracking();
+      closeOrderTracking();
+    }
+
+    function reopenOrderWhatsApp() {
+      const rawPhone = String((restaurantData && restaurantData.phone) || '').replace(/[^0-9]/g, '');
+      if (!rawPhone) return;
+      const active = getActiveOrder();
+      const local = (restaurantData && restaurantData.name) || 'el local';
+      const tableBit = active && active.tableNumber ? ` (Mesa ${active.tableNumber})` : '';
+      const msg = `¡Hola ${local}! 👋 Quería consultar por mi pedido${tableBit}.`;
+      window.open(`https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+    }
+
+    // Arranca el seguimiento si llega ?track=<token> (push del local) o si hay
+    // un pedido activo guardado de una visita anterior.
+    function initOrderTracking() {
+      let urlToken = '';
+      try {
+        urlToken = new URLSearchParams(window.location.search).get('track') || '';
+      } catch (e) { urlToken = ''; }
+
+      if (urlToken) {
+        saveOrderTracking({
+          token: urlToken,
+          slug: getSlug(),
+          restaurantName: (restaurantData && restaurantData.name) || '',
+          tableNumber: '',
+          createdAt: Date.now()
+        });
+      }
+
+      const active = getActiveOrder();
+      if (!active || !active.token) return;
+      showOrderTrackingFab();
+      if (urlToken) openOrderTracking();
     }
 
     function applyCoupon() {
@@ -1933,7 +2121,9 @@ Object.defineProperties(window, {
         if (restaurantData.paymentLink) msg += `🔗 _Link de Pago:_ ${restaurantData.paymentLink}\n`;
         msg += `\n_Enviado desde ScanGo (Menú Digital)_`;
 
-        // Registrar pedido en backend
+        // Registrar pedido en backend y guardar el token de seguimiento:
+        // con él el comensal ve el estado (pendiente → preparando → listo)
+        // aunque cierre WhatsApp, y recibe el push cuando el local lo avanza.
         fetch('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1957,7 +2147,22 @@ Object.defineProperties(window, {
               choices: item.choices || []
             }))
           })
-        }).catch(() => {});
+        })
+          .then(res => res.json())
+          .then(body => {
+            const trackingToken = body && body.data && body.data.trackingToken;
+            if (trackingToken) {
+              saveOrderTracking({
+                token: trackingToken,
+                slug: getSlug(),
+                restaurantName: restaurantData.name || '',
+                tableNumber,
+                createdAt: Date.now()
+              });
+              showOrderTrackingFab();
+            }
+          })
+          .catch(() => {});
 
         if (isGroupOrder && window.groupCartManagerInstance) {
           window.groupCartManagerInstance.clearTableCart();
@@ -2688,6 +2893,11 @@ Object.defineProperties(window, {
       shareRestaurantUrl,
       openLoyaltyModal,
       initLoyalty,
+      openOrderTracking,
+      closeOrderTracking,
+      refreshOrderTracking,
+      forgetOrderTracking,
+      reopenOrderWhatsApp,
       openWaiterModal,
       closeWaiterModal,
       sendWaiterCall,
@@ -2706,15 +2916,22 @@ Object.defineProperties(window, {
       updateTotals
     });
 
+    // Al volver a la pestaña, refrescar el estado del pedido si la vista está abierta.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      const modal = document.getElementById('orderTrackingModal');
+      if (modal && modal.classList.contains('active')) refreshOrderTracking();
+    });
+
     // Init
     if (typeof document !== 'undefined' && document.readyState === 'loading') {
       window.addEventListener('DOMContentLoaded', () => {
-        loadMenu().then(initLoyalty);
+        loadMenu().then(initLoyalty).then(initOrderTracking);
         initPushPrompt();
         initGlobalModalDismissMod();
       });
     } else {
-      loadMenu().then(initLoyalty);
+      loadMenu().then(initLoyalty).then(initOrderTracking);
       initPushPrompt();
       initGlobalModalDismissMod();
     }

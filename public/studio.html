@@ -831,6 +831,17 @@
         <!-- TAB 8: NOTIFICACIONES DE ESTADO DE PEDIDO POR WHATSAPP -->
         <div id="tab-notifications" class="tab-pane">
           <div class="form-section">
+            <div style="border-bottom:1px solid var(--border); padding-bottom:16px; margin-bottom:16px;">
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+                <div class="section-title" style="margin-bottom:0;">📦 Pedidos en vivo</div>
+                <button type="button" class="btn-nav" data-js-click="loadRecentOrders" style="margin-left:auto; width:auto; padding:5px 10px; font-size:10px;">🔄 Actualizar</button>
+              </div>
+              <p style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">
+                Los pedidos que entran desde el menú. Avanzá el estado y el comensal lo ve en su seguimiento, y le llega un aviso push a su teléfono.
+              </p>
+              <div id="recentOrdersList"><div style="font-size:11px; color:var(--text-dim);">Tocá "Actualizar" para ver los pedidos.</div></div>
+            </div>
+
             <div class="section-title">📲 Avisos de Pedido a 1 Clic por WhatsApp</div>
             <p style="font-size:11px; color:var(--text-dim); margin-bottom:14px;">
               Notifica a tus clientes sobre el estado de su pedido o carrito al instante sin redactar mensajes manualmente.

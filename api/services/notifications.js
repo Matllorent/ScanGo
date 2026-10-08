@@ -5,6 +5,28 @@ const { getSupabaseClient } = require('../utils/supabase');
 const AppError = require('../utils/AppError');
 const webpush = require('web-push');
 const db = require('../../src/db/db');
+const { signOrderToken } = require('../utils/orderTrackingToken');
+
+/**
+ * Normaliza un teléfono a dígitos (E.164 sin +) para poder cruzar la
+ * suscripción guest con el pedido que hizo. Devuelve '' si no es plausible.
+ */
+function normalizePhone(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  return digits.length >= 7 && digits.length <= 15 ? digits : '';
+}
+
+/** Mensajes de estado del pedido (título + cuerpo) para el push al comensal. */
+const ORDER_STATUS_PUSH = {
+  pending: { title: '📥 Recibimos tu pedido', body: 'Tu pedido entró a la cocina.' },
+  confirmed: { title: '✅ Pedido confirmado', body: 'Ya estamos trabajando en tu pedido.' },
+  preparing: { title: '👨‍🍳 Preparando tu pedido', body: 'Tu pedido está en marcha.' },
+  ready: { title: '🛍️ ¡Tu pedido está listo!', body: 'Pasá a retirarlo cuando quieras.' },
+  on_the_way: { title: '🛵 Tu pedido va en camino', body: 'El repartidor salió con tu pedido.' },
+  delayed: { title: '⏳ Demora en tu pedido', body: 'La cocina está a full; tu pedido saldrá en breve.' },
+  delivered: { title: '🎉 Pedido entregado', body: '¡Buen provecho! Gracias por tu pedido.' },
+  cancelled: { title: '❌ Pedido cancelado', body: 'Tu pedido fue cancelado. Cualquier duda, escribinos.' }
+};
 
 // In-memory fallback array for local dev mode push subscriptions
 const localPushSubscriptions = [];
@@ -134,7 +156,7 @@ const notificationsService = {
    * `role`: 'owner' (dueño; recibe avisos de mesa) o 'guest' (comensal que
    * hizo opt-in explícito y solo recibe promos del local, nunca avisos de mesa).
    */
-  async saveSubscription({ userId, restaurantId, endpoint, keys, role = 'owner', consentMarketing = false }) {
+  async saveSubscription({ userId, restaurantId, endpoint, keys, role = 'owner', consentMarketing = false, customerPhone = '' }) {
     if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
       throw new AppError('Endpoint y llaves (p256dh, auth) son requeridos para la suscripción push', 400, 'INVALID_SUBSCRIPTION_PAYLOAD');
     }
@@ -148,15 +170,24 @@ const notificationsService = {
       keys,
       role: normalizedRole,
       consent_marketing: normalizedRole === 'guest' ? Boolean(consentMarketing) : true,
+      // Teléfono (normalizado) que permite dirigir el aviso de estado del
+      // pedido SOLO a quien lo hizo; null en owner/guest sin teléfono.
+      customer_phone: normalizedRole === 'guest' ? (normalizePhone(customerPhone) || null) : null,
       created_at: new Date().toISOString()
     };
 
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
-        await supabase
+        const { error } = await supabase
           .from('push_subscriptions')
           .upsert([subscription], { onConflict: 'endpoint' });
+        // Degradación: si la columna customer_phone todavía no existe
+        // (migración 004 sin aplicar), guardamos sin ella en vez de perder todo.
+        if (error && /customer_phone/i.test(error.message || '')) {
+          const { customer_phone, ...legacy } = subscription;
+          await supabase.from('push_subscriptions').upsert([legacy], { onConflict: 'endpoint' });
+        }
       } catch (e) {
         console.warn('[Supabase Save Push Subscription Warning]', e.message);
       }
@@ -191,6 +222,17 @@ const notificationsService = {
       } catch (e) {
         console.warn('[Supabase Get Push Subscriptions Warning]', e.message);
       }
+    }
+
+    if (subscriptions.length > 0) {
+      // Degradación pre-migración 004: si la tabla cloud todavía no tiene
+      // `customer_phone`, lo completamos desde el cache en memoria del proceso
+      // (misma suscripción) para no perder el enrutamiento del aviso de pedido.
+      subscriptions = subscriptions.map(s => {
+        if (s.customer_phone) return s;
+        const local = localPushSubscriptions.find(l => l.endpoint === s.endpoint);
+        return local && local.customer_phone ? { ...s, customer_phone: local.customer_phone } : s;
+      });
     }
 
     if (subscriptions.length === 0) {
@@ -251,6 +293,52 @@ const notificationsService = {
     return {
       success: true,
       ...dispatch,
+      payload
+    };
+  },
+
+  /**
+   * Avisa al comensal que su pedido cambió de estado. Se dirige SOLO a las
+   * suscripciones guest de ese restaurante que dieron consentimiento y cuyo
+   * teléfono coincide con el del pedido (nunca a todos los guests). Si no hay
+   * ninguna coincidencia devuelve checked:0 sin requerir llaves VAPID.
+   */
+  async sendOrderStatusNotification({ restaurantId, customerPhone, status, orderId, slug, restaurantName }) {
+    const normalized = normalizePhone(customerPhone);
+    if (!normalized) {
+      return { success: true, checked: 0, delivered: 0, failed: 0, removed: 0, skipped: 'NO_MATCHING_SUBSCRIBERS' };
+    }
+
+    const guests = await this.listSubscriptions({ restaurantId, role: 'guest' });
+    const targets = guests.filter(s =>
+      s.consent_marketing === true && normalizePhone(s.customer_phone) === normalized
+    );
+    if (targets.length === 0) {
+      return { success: true, checked: 0, delivered: 0, failed: 0, removed: 0, skipped: 'NO_MATCHING_SUBSCRIBERS' };
+    }
+
+    const meta = ORDER_STATUS_PUSH[status] || ORDER_STATUS_PUSH.pending;
+    const token = signOrderToken(orderId);
+    const payload = {
+      title: meta.title,
+      body: meta.body,
+      icon: '/icon-192.png',
+      url: slug ? `/m/${slug}${token ? `?track=${encodeURIComponent(token)}` : ''}` : '/',
+      type: 'order_status',
+      // tag por pedido: un estado nuevo reemplaza el anterior del MISMO pedido,
+      // sin pisar avisos de otras mesas o promos.
+      tag: `order-${orderId}`,
+      renotify: true,
+      requireInteraction: false,
+      data: { orderId, status, restaurantName: restaurantName || '' },
+      timestamp: new Date().toISOString()
+    };
+
+    const dispatch = await dispatchToSubscriptions(targets, payload);
+    return {
+      success: true,
+      ...dispatch,
+      skipped: null,
       payload
     };
   },

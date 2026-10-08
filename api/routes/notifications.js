@@ -22,7 +22,10 @@ const subscribeSchema = z.object({
   // role: 'owner' (dueño; recibe avisos de mesa) | 'guest' (comensal con
   // opt-in explícito que solo recibe promos del local)
   role: z.enum(['owner', 'guest']).optional(),
-  consentMarketing: z.boolean().optional()
+  consentMarketing: z.boolean().optional(),
+  // Teléfono del comensal: permite dirigir el aviso de estado SOLO a quien
+  // hizo el pedido (se guarda normalizado y enmascarado a la vista del dueño).
+  customerPhone: z.string().max(30).optional().default('')
 });
 
 const sendNotificationSchema = z.object({
@@ -120,7 +123,7 @@ router.post('/waiter-alert', waiterAlertLimiter, validateBody(waiterAlertSchema)
  */
 router.post('/subscribe', notificationLimiter, validateBody(subscribeSchema), async (req, res, next) => {
   try {
-    const { userId, restaurantId, endpoint, keys, role, consentMarketing } = req.body;
+    const { userId, restaurantId, endpoint, keys, role, consentMarketing, customerPhone } = req.body;
 
     if (req.headers.authorization || (req.cookies && req.cookies.auth_token)) {
       // Sesión presente → el userId declarado debe ser EL de la sesión.
@@ -142,7 +145,8 @@ router.post('/subscribe', notificationLimiter, validateBody(subscribeSchema), as
       endpoint,
       keys,
       role,
-      consentMarketing
+      consentMarketing,
+      customerPhone
     });
 
     return successResponse(res, subscription, 'Suscripción a notificaciones push registrada exitosamente', 201);

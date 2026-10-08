@@ -106,8 +106,9 @@ self.addEventListener('fetch', (event) => {
 // ────────────────────────────────────────────────────────────────────────────
 // Push Notifications (Web Push / VAPID): el dueño recibe el aviso de mesa
 // aunque no esté mirando el Studio en ese momento; los comensales con opt-in
-// reciben promos. El payload incluye `type` (waiter_call | promo), `tag`,
-// `renotify` y `requireInteraction` generados por api/services/notifications.js.
+// reciben promos y el estado de SU pedido (order_status, dirigido por
+// teléfono). El payload incluye `type` (waiter_call | promo | order_status),
+// `tag`, `renotify` y `requireInteraction` generados por api/services/notifications.js.
 // ────────────────────────────────────────────────────────────────────────────
 self.addEventListener('push', (event) => {
   let data = {};

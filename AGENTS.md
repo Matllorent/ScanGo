@@ -8,12 +8,13 @@ SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. 
 ```bash
 npm run dev          # Desarrollo con nodemon (puerto 3000)
 npm start            # Producción (node api/index.js)
-npm test             # Suite completa (29 tests en secuencia) — con snapshot/restore automático de data/
+npm test             # Suite completa (30 tests en secuencia) — con snapshot/restore automático de data/
 npm run test:billing # Test individual de pasarelas de pago
 npm run test:analytics # Test individual de analytics de negocio (ticket promedio, CSV, top platos)
 npm run test:admin   # Test individual del panel /admin (login 2FA, plata/mes, renovaciones)
 npm run test:push    # Test individual de push notifications (VAPID, aviso de mozo)
 npm run test:loyalty # Test individual de fidelización dual (local + red global) y centro de notificaciones
+npm run test:order-tracking # Test individual del seguimiento del pedido (token, estado público, push dirigido)
 npm run test:realtime # Test individual del guard de canales Realtime (migración 002)
 npm run test:realtime-live # Test E2E real del guard (conecta a Supabase Realtime con la anon key)
 npm run test:csp     # Test individual del guard CSP + headers duros
@@ -97,6 +98,13 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - **Persistencia**: migración **`src/db/migrations/003_loyalty_notifications.sql`** (5 tablas + ALTER de `push_subscriptions`, RLS FORCE, idempotente — pegarla en el SQL Editor de Supabase; el backend degrada a JSON local/`/tmp` hasta aplicarla).
 - Frontend: `public/js/components/LoyaltyRewardsModal.js` (data-driven, cero demo), banner/modal en `menu.js`/`menu-modules.js`, config + validador + inbox + composer de promos en `studio.html`/`studio.js` (tab Avisos WA).
 
+### Seguimiento del Pedido (comensal)
+- **Token sin estado**: `api/utils/orderTrackingToken.js` firma `${orderId}.${HMAC-SHA256}` (secreto: `ORDER_TRACKING_SECRET` → `GROUP_CART_SECRET` → `JWT_SECRET`). No requiere columnas nuevas; el id se recupera verificando la firma (comparación en tiempo constante).
+- **Endpoints** (en `api/routes/orders.js`): `POST /api/orders` devuelve `trackingToken`; **público** `GET /api/orders/track/:token` (estado + resumen, **sin PII**: nunca teléfono/nombre/dirección; token inválido/adulterado → 404); **dueño** `PATCH /api/orders/status/:orderId` (`requireAuth` + `tenantGuard`, estados `pending|confirmed|preparing|ready|on_the_way|delayed|delivered|cancelled`; cross-tenant → 403 `ORDER_TENANT_MISMATCH`). Persiste en espejo local (`data/orders.json`) + Supabase `orders.status` y avisa por push.
+- **Push dirigido**: `notificationsService.sendOrderStatusNotification()` manda `type: 'order_status'` SOLO a las suscripciones guest del restaurante con consentimiento **cuyo `customer_phone` coincide** con el del pedido (nunca a todos). El teléfono se guarda normalizado en `push_subscriptions.customer_phone` (migración 004); sin coincidencias devuelve `checked:0` sin exigir VAPID.
+- **Frontend comensal**: el menú guarda el token en `localStorage.scango_active_order`, muestra un FAB 🧾 y un modal de seguimiento con stepper (polling 15s + `visibilitychange`); el push abre `/m/<slug>?track=<token>`. Al cargar su teléfono con push ya activo, `syncPushCustomerPhone()` re-suscribe con el teléfono para que el aviso le llegue dirigido.
+- **Frontend dueño**: pestaña **Notificaciones → "📦 Pedidos en vivo"** (`loadRecentOrders`/`setOrderStatus`) lista los pedidos y avanza el estado; el comensal lo ve y recibe el push.
+
 ### Mobile (Capacitor)
 - Config: `mobile/capacitor.config.json`
 - `webDir: "public"` — apunta directo al frontend estático
@@ -118,12 +126,12 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** durante la corrida (flujos reales con el store local). **`npm test` ahora las aísla solo**: `scripts/test-data-guard.js` saca una foto de `data/` antes y la restaura siempre al final (pase o falle). La cadena real de tests vive en `npm run test:core`; no hay que revertir `data/` a mano para commitear.
-- Suite completa (`npm test`) ejecuta 29 tests en secuencia — **todos deben pasar (29/29)**
+- Suite completa (`npm test`) ejecuta 30 tests en secuencia — **todos deben pasar (30/30)**
 - **2 tests existen pero NO están en `npm test`**: `test-e2e.js` (E2E integral real: registra en la nube, crea un checkout de Mercado Pago real y activa la suscripción por webhook — correrlo a mano; en modo cloud confirma el email del usuario recién registrado vía Admin API de Supabase, flujo real del link, sin mocks, porque `/api/studio/save` exige `requireVerifiedEmail`) y `test-supabase-group-cart-persistence.js` (es el `npm run db:smoke`, round-trip real de `group_carts` contra la nube). `test-escape-html`, `test-db-write` y `test-semgrep` solían estar fuera pero **ahora corren en el chain** (`npm test`): el guard de tests (`test-data-guard.js`) + el SKIP autónomo de semgrep los hacen seguros de correr en serie.
 - **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 4 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell` y `test-realtime-live-guard` (usan credenciales reales; el último hace SKIP si no hay `SUPABASE_URL`/`SUPABASE_ANON_KEY`).
 - Para debug rápido: `node tests/test-billing.js` (o el test específico, o `npm run test:<alias>`)
 
-### Tests incluidos en `npm test` (29 suites)
+### Tests incluidos en `npm test` (30 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
@@ -150,6 +158,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-frontend-structure.js` | `<div>` balanceados, modales a nivel body en 3 HTML + orden close→assign→open del import IA |
 | `test-push-notifications.js` | Push Web real (VAPID): suscripción cloud, 503 PUSH_NOT_CONFIGURED sin llaves, aviso de mozo desde la mesa con entrega intentada |
 | `test-loyalty-dual.js` | Fidelización DUAL (local + red global cross-restaurant): identidad E.164 enmascarada, acreditación post-pedido, niveles Bronce→Platino + insignias, canje LOY-XXXX-XXXX con validación cross-restaurant 403/doble 409, `/customers` con privacidad, borrado total (RGPD), y centro de notificaciones: aviso de mozo persistido + inbox mark-read + suscripción guest con consentimiento y separación de roles owner/guest |
+| `test-order-tracking.js` | Seguimiento del pedido end-to-end: token HMAC sin estado (`signOrderToken`/`verifyOrderToken`), `POST /api/orders` devuelve `trackingToken`, `GET /api/orders/track/:token` público SIN PII (sin teléfono/nombre), token adulterado 404, `PATCH /api/orders/status/:orderId` (401 anónimo, 400 inválido, 403 cross-tenant), y push de estado dirigido SOLO al comensal del pedido por teléfono |
 | `test-realtime-rls-guard.js` | Guard estático de canales Realtime: la 002 existe, NO tiene ALTER TABLE sobre realtime.messages (evita el 42501), políticas SELECT+INSERT `realtime:%` para anon/authenticated, y los canales del código unen con `private: true` |
 | `test-realtime-live-guard.js` | E2E real del guard contra Supabase Realtime (anon key): JOIN+broadcast en `realtime:%` OK y topics ajenos (`event_waiters_*`) rechazados — detecta si la 002 NO está aplicada |
 | `test-escape-html.js` | Escape HTML legacy (CommonJS `public/js/utils/escapeHtml.js`): entidades, falsy, números, idempotencia |
@@ -263,8 +272,9 @@ Estéticas (definiciones CSS en `public/css/menu.css`): wedding = marfil + serif
 | `mobile/capacitor.config.json` | Config Android/Capacitor |
 | `src/db/schema.sql` | Esquema PostgreSQL para Supabase |
 | `src/db/migrations/003_loyalty_notifications.sql` | Migración idempotente: 5 tablas de fidelización + ALTER `push_subscriptions` (RLS FORCE) |
+| `src/db/migrations/004_order_tracking.sql` | Migración idempotente del seguimiento del pedido: `orders.status_updated_at` + `push_subscriptions.customer_phone` (aviso dirigido por teléfono) |
 | `.cursorrules` | Reglas de desarrollo (cero mocks, sync API↔Admin) |
 | `public/js/menu/eventGuestMode.js` | Resolución de tema de evento, contexto de invitado, reservas WhatsApp |
 | `public/js/utils/` | Utilidades frontend (usan `escapeHtmlBrowser.js`, ver trampas) |
 | `public/js/components/` | 14 componentes ES Module reutilizables |
-| `tests/` | 30 archivos; 29 corren en `npm test` (ver sección Testing) |
+| `tests/` | 31 archivos; 30 corren en `npm test` (ver sección Testing) |

@@ -1008,7 +1008,7 @@ export function switchTab(tabId, btn) {
   if (tabId === 'dishes') { populateCatFilter(); renderDishesList(); }
   if (tabId === 'qr') generateQrCode();
   if (tabId === 'stats') renderStatsTab();
-  if (tabId === 'notifications') loadNotificationEvents();
+  if (tabId === 'notifications') { loadNotificationEvents(); loadRecentOrders(); }
 }
 
 export function loadAnalytics() { loadAnalyticsMod(restaurant); }
@@ -1239,6 +1239,82 @@ async function sendPromoPush() {
   }
 }
 
+// ── Pedidos en vivo: el dueño ve los pedidos que entraron desde el menú y ──
+// ── avanza su estado; el comensal lo ve en su seguimiento y recibe push. ──
+const ORDER_STATUS_LABELS = {
+  pending: 'Recibido', confirmed: 'Confirmado', preparing: 'En preparación',
+  ready: 'Listo', on_the_way: 'En camino', delayed: 'Demorado',
+  delivered: 'Entregado', cancelled: 'Cancelado'
+};
+const ORDER_ACTION_STATES = ['confirmed', 'preparing', 'ready', 'on_the_way', 'delivered'];
+
+async function loadRecentOrders() {
+  const list = document.getElementById('recentOrdersList');
+  if (!list) return;
+  const restaurantId = restaurant && restaurant.id;
+  if (!restaurantId) {
+    list.innerHTML = '<div style="font-size:11px; color:var(--text-dim);">Guardá tu local para ver los pedidos.</div>';
+    return;
+  }
+  list.innerHTML = '<div style="font-size:11px; color:var(--text-dim);">⏳ Cargando…</div>';
+  try {
+    const res = await studioApi(`/api/orders/restaurant/${encodeURIComponent(restaurantId)}`);
+    const body = await res.json();
+    if (!res.ok || !Array.isArray(body.data)) {
+      list.innerHTML = `<div style="font-size:11px; color:#F87171;">${escapeHtml(body.error || 'No se pudieron cargar los pedidos.')}</div>`;
+      return;
+    }
+    const orders = body.data.slice(0, 20);
+    if (!orders.length) {
+      list.innerHTML = '<div style="font-size:11px; color:var(--text-dim);">Sin pedidos todavía. Cuando un comensal pida desde el menú, aparece acá.</div>';
+      return;
+    }
+    list.innerHTML = orders.map(o => {
+      const status = o.status || 'pending';
+      const label = ORDER_STATUS_LABELS[status] || status;
+      const items = (o.items_snapshot || []).map(i => `${i.quantity}× ${i.name}`).join(', ');
+      const when = o.created_at ? new Date(o.created_at).toLocaleString() : '';
+      const chips = ORDER_ACTION_STATES.map(s => {
+        const active = s === status;
+        return `<button type="button" class="btn-nav" data-js-click="setOrderStatus|${escapeHtml(o.id)}|${s}" style="font-size:10px; padding:4px 8px; ${active ? 'border-color:#68D391; color:#68D391;' : ''}">${escapeHtml(ORDER_STATUS_LABELS[s])}</button>`;
+      }).join(' ');
+      return `<div style="background:var(--bg-base); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px;">
+        <div style="display:flex; justify-content:space-between; gap:8px; align-items:center;">
+          <div style="font-size:12px; font-weight:700; color:#fff;">${escapeHtml(o.customer_name || 'Cliente')}${o.table_number ? ` · Mesa ${escapeHtml(String(o.table_number))}` : ''}</div>
+          <div style="font-size:11px; color:#68D391; font-weight:700; white-space:nowrap;">${escapeHtml(label)}</div>
+        </div>
+        <div style="font-size:11px; color:var(--text-dim); margin:3px 0;">${escapeHtml(items)}</div>
+        <div style="font-size:10px; color:var(--text-dim); margin-bottom:6px;">${escapeHtml(o.currency || '$')} ${Number(o.amount || 0).toFixed(2)} · ${escapeHtml(when)}</div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">${chips}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    list.innerHTML = '<div style="font-size:11px; color:#F87171;">Error de conexión.</div>';
+  }
+}
+
+async function setOrderStatus(orderId, status) {
+  if (!orderId || !status) return;
+  try {
+    const res = await studioApi(`/api/orders/status/${encodeURIComponent(orderId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status })
+    });
+    const b = await res.json();
+    if (!res.ok || !b.success) {
+      alert(b.error || 'No se pudo actualizar el estado del pedido.');
+      return;
+    }
+    const n = b.data && b.data.notification;
+    if (n && n.skipped === 'NO_MATCHING_SUBSCRIBERS') {
+      // Sin push dirigido: igual quedó persistido para la vista de seguimiento.
+    }
+    loadRecentOrders();
+  } catch (e) {
+    alert('Error de conexión al actualizar el pedido.');
+  }
+}
+
 // Bind all functions to window for HTML inline event handlers
 const globalExports = {
   initStudio, logout, openDeleteAccountModal, closeDeleteAccountModal, confirmAccountDeletion,
@@ -1262,6 +1338,7 @@ const globalExports = {
   solicitarPushPermiso,
   addLoyaltyReward, removeLoyaltyReward, updateLoyaltyRewardField, validateLoyaltyCode, handleRedeemCodeEnter,
   loadNotificationEvents, markNotificationEventRead, sendPromoPush,
+  loadRecentOrders, setOrderStatus,
   openAiMenuImportModal, closeAiMenuImportModal, handleAiMenuFilesInput, moveAiMenuPage, removeAiMenuPage, runAiMenuAnalysis, closeAiMenuPreviewModal, confirmAiMenuImportAction, removeDetectedAiDish
 };
 

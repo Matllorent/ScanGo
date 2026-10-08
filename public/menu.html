@@ -419,6 +419,27 @@
     </div>
   </div>
 
+  <!-- Order Tracking Modal -->
+  <div id="orderTrackingModal" class="modal-overlay">
+    <div class="modal-box">
+      <button class="modal-close" data-js-click="closeOrderTracking">✕</button>
+      <h3 class="modal-title">🧾 Seguimiento del Pedido</h3>
+      <p id="orderTrackingSubtitle" style="color:var(--chalk-dim); font-size:0.85rem; margin-bottom:14px;">Mirá en qué estado está tu pedido.</p>
+      <div id="orderTrackingBody" style="min-height:64px;">
+        <div style="color:var(--chalk-dim); font-size:0.85rem;">Cargando…</div>
+      </div>
+      <button type="button" class="btn-wa-submit" style="background:#25D366; width:100%; margin-top:14px;" data-js-click="reopenOrderWhatsApp">
+        <span>💬 Escribir al local por WhatsApp</span>
+      </button>
+      <button type="button" class="btn-wa-submit" style="background:transparent; border:1px solid rgba(255,255,255,0.18); color:var(--chalk-dim); width:100%; margin-top:8px;" data-js-click="forgetOrderTracking">
+        <span>Ocultar este pedido</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Order Tracking Floating Button (aparece tras hacer un pedido) -->
+  <button id="orderTrackingFab" class="waiter-fab" data-js-click="openOrderTracking" title="Seguir mi pedido" style="display:none; bottom:146px; background:#63B3ED; box-shadow:0 6px 20px rgba(99, 179, 237, 0.5);">🧾</button>
+
   <!-- Waiter Call / Bill Request Floating Button -->
   <button class="waiter-fab" data-js-click="openWaiterModal" title="Llamar al Mozo o Pedir la Cuenta">🔔</button>
 

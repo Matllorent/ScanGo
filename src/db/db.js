@@ -14,6 +14,7 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const RESTAURANTS_FILE = path.join(DATA_DIR, 'restaurants.json');
 const WEBHOOKS_FILE = path.join(DATA_DIR, 'webhooks.json');
 const RESET_TOKENS_FILE = path.join(DATA_DIR, 'reset_tokens.json');
+const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
 
 function readJson(file, def = []) {
   if (!fs.existsSync(file)) return def;
@@ -786,6 +787,33 @@ const db = {
     rev.moderatedAt = new Date().toISOString();
     await writeJson(path.join(DATA_DIR, 'reviews.json'), reviews);
     return rev;
+  },
+
+  // Orders — espejo local para desarrollo/offline. En modo cloud la fuente de
+  // verdad sigue siendo la tabla `orders` de Supabase (escriben el router y el
+  // seguimiento); esto permite que el seguimiento funcione también sin cloud.
+  async addOrder(order) {
+    if (!order || !order.id) return null;
+    const orders = readJson(ORDERS_FILE, []);
+    orders.unshift(order);
+    await writeJson(ORDERS_FILE, orders);
+    return order;
+  },
+  getOrders() {
+    return readJson(ORDERS_FILE, []);
+  },
+  findOrderById(id) {
+    if (!id) return null;
+    return readJson(ORDERS_FILE, []).find(o => o.id === id) || null;
+  },
+  async updateOrderStatus(id, status, updatedAt) {
+    const orders = readJson(ORDERS_FILE, []);
+    const order = orders.find(o => o.id === id);
+    if (!order) return null;
+    order.status = status;
+    order.status_updated_at = updatedAt || new Date().toISOString();
+    await writeJson(ORDERS_FILE, orders);
+    return order;
   },
 
   // Global Settings (Pricing & Promotional Banner)

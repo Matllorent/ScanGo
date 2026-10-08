@@ -13,10 +13,26 @@ const sentry = require('../utils/sentry');
 const { groupCartLimiter } = require('../middleware/rateLimits');
 const { verifyGroupCartToken } = require('../utils/groupCartToken');
 const loyaltyService = require('../services/loyalty');
+const notificationsService = require('../services/notifications');
+const { signOrderToken, verifyOrderToken } = require('../utils/orderTrackingToken');
 
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_menu_pizarron_2026';
+
+// Estados del pedido que el dueño puede fijar y que el comensal ve en su
+// seguimiento. Las etiquetas viajan en español para la vista pública.
+const ORDER_STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'on_the_way', 'delayed', 'delivered', 'cancelled'];
+const ORDER_STATUS_LABELS = {
+  pending: 'Recibido',
+  confirmed: 'Confirmado',
+  preparing: 'En preparación',
+  ready: 'Listo',
+  on_the_way: 'En camino',
+  delayed: 'Demorado',
+  delivered: 'Entregado',
+  cancelled: 'Cancelado'
+};
 
 /**
  * Auth middleware inline (mirrors api/index.js) to protect order routes.
@@ -115,6 +131,23 @@ function quoteOrderItems(restaurant, items, timestamp = new Date().toISOString()
   return { itemsSnapshot, amountInCents };
 }
 
+/**
+ * Busca un pedido para seguimiento: primero el espejo local (dev/offline) y
+ * luego la tabla `orders` de Supabase (fuente de verdad cloud).
+ */
+async function findOrderForTracking(orderId) {
+  const local = db.findOrderById(orderId);
+  if (local) return local;
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.from('orders').select('*').eq('id', orderId).limit(1);
+      if (!error && Array.isArray(data) && data[0]) return data[0];
+    } catch (e) { /* seguimiento nunca rompe por un error de lectura */ }
+  }
+  return null;
+}
+
 router.post('/quote', validateBody(createOrderSchema), (req, res, next) => {
   try {
     const restaurant = db.findRestaurantById(req.body.restaurantId) || db.findRestaurantBySlug(req.body.restaurantId);
@@ -173,9 +206,12 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
       created_at: utcNow
     };
 
-    // Save to local DB memory adapter
-    const orders = db.getAllOrders ? db.getAllOrders() : [];
-    orders.push(orderRecord);
+    // Token de seguimiento SIN estado (HMAC del id): el comensal lo guarda y
+    // con él consulta el estado sin exponer datos personales.
+    orderRecord.trackingToken = signOrderToken(orderRecord.id);
+
+    // Espejo local (dev/offline). En cloud la fuente de verdad es Supabase.
+    await db.addOrder(orderRecord);
 
     // Save to Supabase Cloud PostgreSQL
     const supabase = getSupabaseClient();
@@ -235,6 +271,128 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
 });
 
 /**
+ * GET /api/orders/track/:token
+ * Público: el comensal consulta el estado de su pedido con el token firmado
+ * que recibió al pedir. Devuelve SOLO estado + resumen — nunca teléfono,
+ * nombre, dirección ni notas.
+ */
+router.get('/track/:token', async (req, res, next) => {
+  try {
+    const orderId = verifyOrderToken(req.params.token);
+    if (!orderId) {
+      return res.status(404).json({ success: false, error: 'Pedido no encontrado', code: 'ORDER_NOT_FOUND' });
+    }
+    const order = await findOrderForTracking(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Pedido no encontrado', code: 'ORDER_NOT_FOUND' });
+    }
+
+    const orderRestaurantId = order.restaurant_id || order.restaurantId;
+    const restaurant = db.findRestaurantById(orderRestaurantId);
+    const status = ORDER_STATUSES.includes(order.status) ? order.status : 'pending';
+
+    return successResponse(res, {
+      orderId: order.id,
+      status,
+      statusLabel: ORDER_STATUS_LABELS[status],
+      restaurantName: restaurant ? (restaurant.name || restaurant.bizName || '') : '',
+      tableNumber: order.table_number || order.tableNumber || '',
+      currency: order.currency || '$',
+      total: order.amount != null ? order.amount : order.total,
+      items: (order.items_snapshot || order.itemsSnapshot || []).map(line => ({
+        name: line.name,
+        quantity: line.quantity
+      })),
+      updatedAt: order.status_updated_at || order.created_at
+    }, 'Estado del pedido');
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * PATCH /api/orders/status/:orderId
+ * Dueño (tenant-guarded): avanza el estado del pedido. Persiste en el espejo
+ * local + Supabase y avisa por push SOLO al comensal que hizo el pedido (por
+ * teléfono). El push es best-effort: nunca rompe la actualización de estado.
+ */
+router.patch('/status/:orderId', requireAuth, tenantGuard, async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body || {};
+
+    if (!ORDER_STATUSES.includes(status)) {
+      return res.status(400).json({ success: false, error: 'Estado de pedido inválido', code: 'INVALID_ORDER_STATUS' });
+    }
+
+    const order = await findOrderForTracking(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Pedido no encontrado', code: 'ORDER_NOT_FOUND' });
+    }
+
+    const orderRestaurantId = order.restaurant_id || order.restaurantId;
+    const tenantId = req.tenantId || (req.user && req.user.tenantId);
+    if (tenantId && orderRestaurantId !== tenantId) {
+      return res.status(403).json({ success: false, error: 'El pedido pertenece a otro local', code: 'ORDER_TENANT_MISMATCH' });
+    }
+
+    const updatedAt = new Date().toISOString();
+
+    // 1) Espejo local
+    const localUpdated = await db.updateOrderStatus(orderId, status, updatedAt);
+    if (!localUpdated) {
+      await db.addOrder({ ...order, status, status_updated_at: updatedAt });
+    }
+
+    // 2) Supabase (fuente de verdad cloud). Degrada si falta status_updated_at.
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('orders')
+          .update({ status, status_updated_at: updatedAt })
+          .eq('id', orderId);
+        if (error && /status_updated_at/i.test(error.message || '')) {
+          await supabase.from('orders').update({ status }).eq('id', orderId);
+        }
+      } catch (e) {
+        sentry.captureException(e, {
+          source: 'orders.updateStatus',
+          level: 'warn',
+          tags: { restaurantId: orderRestaurantId },
+          extra: { orderId, status }
+        });
+      }
+    }
+
+    // 3) Aviso al comensal (best-effort; jamás rompe la actualización).
+    let notification;
+    try {
+      const restaurant = db.findRestaurantById(orderRestaurantId);
+      notification = await notificationsService.sendOrderStatusNotification({
+        restaurantId: orderRestaurantId,
+        customerPhone: order.customer_phone || order.customerPhone,
+        status,
+        orderId,
+        slug: restaurant ? restaurant.slug : '',
+        restaurantName: restaurant ? (restaurant.name || restaurant.bizName) : ''
+      });
+    } catch (e) {
+      notification = { sent: false, error: e.code || e.message };
+    }
+
+    return successResponse(res, {
+      orderId,
+      status,
+      statusLabel: ORDER_STATUS_LABELS[status],
+      updatedAt,
+      notification
+    }, 'Estado del pedido actualizado');
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * GET /api/orders/restaurant/:id
  * Retrieve orders for a restaurant (tenant-isolated, IDOR-protected)
  */
@@ -251,13 +409,17 @@ router.get('/restaurant/:id', requireAuth, tenantGuard, async (req, res, next) =
           .eq('restaurant_id', restaurantId)
           .order('created_at', { ascending: false });
 
-        if (!error && data) {
+        if (!error && data && data.length > 0) {
           return successResponse(res, data, 'Pedidos del restaurante recuperados');
         }
       } catch (e) {}
     }
 
-    return successResponse(res, [], 'Pedidos del restaurante recuperados');
+    // Sin cloud (o sin filas todavía): espejo local ordenado por fecha.
+    const localOrders = db.getOrders()
+      .filter(o => (o.restaurant_id || o.restaurantId) === restaurantId)
+      .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+    return successResponse(res, localOrders, 'Pedidos del restaurante recuperados');
   } catch (err) {
     next(err);
   }

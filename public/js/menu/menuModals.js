@@ -229,7 +229,10 @@ export async function requestPushPermission(onSuccessMsg = '¡Notificaciones act
         endpoint: subscription.endpoint,
         keys: subscription.toJSON().keys,
         role: 'guest', // comensal: nunca recibe avisos de mesa operativos
-        consentMarketing: !!consentMarketing // opt-in explícito para promos
+        consentMarketing: !!consentMarketing, // opt-in explícito para promos
+        // Teléfono (si ya lo cargó): permite dirigir el aviso de estado del
+        // pedido SOLO a él, no a todos los comensales.
+        customerPhone: (typeof localStorage !== 'undefined' && localStorage.getItem('scango_loyalty_phone')) || ''
       })
     });
 
@@ -245,6 +248,39 @@ export async function requestPushPermission(onSuccessMsg = '¡Notificaciones act
   } catch (e) {
     localStorage.setItem('scango_push_status', 'granted');
     showPushToast('No se pudieron activar las notificaciones en este momento.');
+  }
+}
+
+/**
+ * Si el comensal YA activó las notificaciones pero cargó su teléfono después,
+ * re-suscribe (upsert por endpoint) con el teléfono para que el aviso de estado
+ * de su pedido le llegue SOLO a él. No-op si no hay suscripción activa.
+ */
+export async function syncPushCustomerPhone(phone) {
+  const value = String(phone || '').trim();
+  if (!value) return false;
+  if (typeof localStorage === 'undefined' || localStorage.getItem('scango_push_subscribed') !== 'true') return false;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const subscription = await reg.pushManager.getSubscription();
+    if (!subscription) return false;
+    const rid = String((window.restaurantData && window.restaurantData.id) || '');
+    const res = await fetch('/api/notifications/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        restaurantId: rid,
+        endpoint: subscription.endpoint,
+        keys: subscription.toJSON().keys,
+        role: 'guest',
+        consentMarketing: true,
+        customerPhone: value
+      })
+    });
+    return res.ok;
+  } catch (e) {
+    return false;
   }
 }
 
