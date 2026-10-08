@@ -29,6 +29,17 @@ module.exports = {
   ),
   emailLimiter: createRateLimit(10, 'EMAIL_RATE_LIMITED', 'Límite de envíos de correo excedido.'),
   notificationLimiter: createRateLimit(20, 'NOTIFICATION_RATE_LIMITED', 'Límite de notificaciones excedido.'),
+  // El aviso de mozo lo disparan MUCHOS comensales distintos de UN mismo
+  // restaurante: se agrupa por slug (un balde por local), no por IP global,
+  // con un máximo alto para no bloquear una mesa ocupada. Mismo patrón que
+  // publicAnalyticsLimiter, pero con semántica de "alerta operativa".
+  waiterAlertLimiter: createRateLimit(
+    300,
+    'WAITER_ALERT_RATE_LIMITED',
+    'Demasiados avisos de mesa en poco tiempo.',
+    { keyGenerator: publicEventKeyGenerator, validate: { keyGeneratorIpFallback: false } }
+  ),
+  loyaltyLimiter: createRateLimit(30, 'LOYALTY_RATE_LIMITED', 'Demasiadas operaciones de fidelización en poco tiempo.'),
   storageLimiter: createRateLimit(20, 'STORAGE_RATE_LIMITED', 'Límite de cargas excedido.'),
   groupCartLimiter: createRateLimit(90, 'GROUP_CART_RATE_LIMITED', 'Límite de sincronización de mesa excedido.'),
   publicEventKeyGenerator

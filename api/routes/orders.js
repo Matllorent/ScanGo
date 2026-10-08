@@ -12,6 +12,7 @@ const AppError = require('../utils/AppError');
 const sentry = require('../utils/sentry');
 const { groupCartLimiter } = require('../middleware/rateLimits');
 const { verifyGroupCartToken } = require('../utils/groupCartToken');
+const loyaltyService = require('../services/loyalty');
 
 const router = express.Router();
 
@@ -71,7 +72,15 @@ const createOrderSchema = z.object({
   notes: z.string().max(300).optional().default(''),
   isGroupOrder: z.boolean().optional().default(false),
   participants: z.array(z.string()).optional().default([]),
-  groupSessionId: z.string().max(100).optional().default('')
+  groupSessionId: z.string().max(100).optional().default(''),
+  // Cupón aplicado en el frontend: se persiste como parte del snapshot del
+  // pedido (auditoría de descuentos concedidos).
+  coupon: z.object({
+    code: z.string().min(1).max(30),
+    type: z.string().max(20).optional().default('percent'),
+    value: z.number().nonnegative().optional().default(0),
+    label: z.string().max(60).optional().default('')
+  }).optional().nullish().transform(v => v || undefined)
 });
 
 function quoteOrderItems(restaurant, items, timestamp = new Date().toISOString()) {
@@ -160,6 +169,7 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
       isGroupOrder: Boolean(req.body.isGroupOrder),
       participants: req.body.participants || [],
       group_session_id: req.body.groupSessionId || '',
+      coupon: req.body.coupon || null,
       created_at: utcNow
     };
 
@@ -192,6 +202,25 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
           extra: { orderId: orderRecord.id }
         });
       }
+    }
+
+    // Fidelización: acreditación automática de puntos/sellos (local + global).
+    // El servicio captura sus propios errores: un problema aquí JAMÁS rompe el
+    // alta del pedido ni la respuesta al comensal.
+    const loyaltyResult = await loyaltyService.creditOrder({
+      restaurant,
+      customerPhone,
+      customerName,
+      orderId: orderRecord.id,
+      amountInCents
+    });
+    if (loyaltyResult.credited) {
+      orderRecord.loyalty = {
+        credited: true,
+        points: loyaltyResult.points,
+        stamps: loyaltyResult.stamps,
+        unlocks: loyaltyResult.unlocks
+      };
     }
 
     return successResponse(

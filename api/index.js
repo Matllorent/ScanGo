@@ -39,6 +39,8 @@ const ordersRouter = require('./routes/orders');
 const analyticsRouter = require('./routes/analytics');
 const aiRouter = require('./routes/ai');
 const studioRouter = require('./routes/studio');
+const loyaltyRouter = require('./routes/loyalty');
+const loyaltyService = require('./services/loyalty');
 const billingDunningRouter = require('./cron/billing-dunning');
 
 const app = express();
@@ -585,6 +587,8 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
         scheduleActiveHours: restaurant.scheduleActiveHours || '',
         tableCount: restaurant.tableCount || 10,
         customCoupons: restaurant.customCoupons || [],
+        allowLoyaltyPoints: restaurant.allowLoyaltyPoints === true,
+        loyaltyConfig: loyaltyService.getPublicLoyaltyConfig(restaurant),
         logoUrl: restaurant.logoUrl || null,
         bannerUrl: restaurant.bannerUrl || null,
         layout: restaurant.layout || 'classic',
@@ -1807,6 +1811,7 @@ app.use('/api/ai', aiRouter);
 app.use('/api/studio', studioRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/loyalty', loyaltyRouter);
 app.use('/api/email', emailRouter);
 app.use('/api/cron', billingDunningRouter);
 

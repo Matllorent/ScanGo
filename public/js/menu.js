@@ -1689,6 +1689,22 @@ Object.defineProperties(window, {
       updateTotals();
     }
 
+    // Club ScanGo: teléfono del comensal = identidad de fidelización.
+    // Se persiste en localStorage para que el mismo teléfono acumule puntos
+    // en este local y en toda la red cross-restaurant.
+    function getCustomerPhone() {
+      const el = document.getElementById('orderCustomerPhone');
+      const typed = (el && el.value.trim()) || '';
+      const phone = typed || localStorage.getItem('scango_loyalty_phone') || '';
+      if (typed) localStorage.setItem('scango_loyalty_phone', typed);
+      return phone;
+    }
+
+    function storeLoyaltyPhone(value) {
+      const v = String(value || '').trim();
+      if (v) localStorage.setItem('scango_loyalty_phone', v);
+    }
+
     function applyCoupon() {
       const input = document.getElementById('inputCouponCode');
       const code = (input.value || '').trim().toUpperCase();
@@ -1697,26 +1713,29 @@ Object.defineProperties(window, {
       if (!code) {
         appliedCoupon = null;
         msg.textContent = '';
+        msg.style.color = '';
         updateTotals();
         return;
       }
 
-      if (code === 'PROMO10') {
-        appliedCoupon = { code: 'PROMO10', type: 'percent', value: 10, label: '10% OFF' };
+      // Cupones configurables por el dueño (restaurant.customCoupons, sancionados
+      // en el backend). Ya no hay códigos hardcodeados en el frontend.
+      const coupons = (restaurantData && Array.isArray(restaurantData.customCoupons)) ? restaurantData.customCoupons : [];
+      const coupon = coupons.find(c => String(c.code || '').toUpperCase() === code);
+      if (coupon && (coupon.type === 'percent' || coupon.type === 'free_delivery')) {
+        const value = coupon.type === 'percent' ? Math.min(100, Number(coupon.value) || 0) : 0;
+        appliedCoupon = {
+          code: coupon.code,
+          type: coupon.type,
+          value,
+          label: coupon.label || (coupon.type === 'percent' ? `${value}% OFF` : 'Envío Gratis')
+        };
         msg.style.color = '#68D391';
-        msg.textContent = '✓ 10% Descuento aplicado';
-      } else if (code === 'PROMO15') {
-        appliedCoupon = { code: 'PROMO15', type: 'percent', value: 15, label: '15% OFF' };
-        msg.style.color = '#68D391';
-        msg.textContent = '✓ 15% Descuento aplicado';
-      } else if (code === 'ENVIOFREE') {
-        appliedCoupon = { code: 'ENVIOFREE', type: 'free_delivery', value: 0, label: 'Envío Gratis' };
-        msg.style.color = '#68D391';
-        msg.textContent = '✓ Costo de envío bonificado';
+        msg.textContent = `✓ ${appliedCoupon.label} aplicado`;
       } else {
         appliedCoupon = null;
         msg.style.color = '#FEB2B2';
-        msg.textContent = '✕ Cupón inválido';
+        msg.textContent = '✕ Cupón inválido o no disponible';
       }
       updateTotals();
     }
@@ -1816,7 +1835,7 @@ Object.defineProperties(window, {
             restaurantId: restaurantData.id,
             tableNumber,
             customerName,
-            customerPhone: '',
+            customerPhone: getCustomerPhone(),
             deliveryAddress: mode === 'DELIVERY' ? address : '',
             currency,
             notes,
@@ -1855,6 +1874,8 @@ Object.defineProperties(window, {
           ? `👥 *PEDIDO GRUPAL COLABORATIVO - ${restaurantData.name.toUpperCase()}*\n`
           : `📋 *NUEVO PEDIDO - ${restaurantData.name.toUpperCase()}*\n`;
         msg += `👤 *Cliente:* ${customerName}\n`;
+        const customerPhoneForMsg = getCustomerPhone();
+        if (customerPhoneForMsg) msg += `📱 *Teléfono:* ${customerPhoneForMsg}\n`;
         if (mode === 'LOCAL') {
           msg += `🍽️ *Modalidad:* En el local - *${tableNumber || 'Mesa no especificada'}*\n`;
           if (isGroupOrder && window.groupCartManagerInstance?.participants?.size > 0) {
@@ -1920,11 +1941,12 @@ Object.defineProperties(window, {
             restaurantId: restaurantData.id,
             tableNumber,
             customerName,
-            customerPhone: '',
+            customerPhone: getCustomerPhone(),
             deliveryAddress: mode === 'DELIVERY' ? address : '',
             currency,
             notes,
             isGroupOrder,
+            coupon: appliedCoupon,
             participants: window.groupCartManagerInstance ? Array.from(window.groupCartManagerInstance.participants) : [],
             items: items.map(item => ({
               dishId: item.dish.id,
@@ -2421,7 +2443,13 @@ Object.defineProperties(window, {
     }
 
     async function requestPushPermission() {
-      await requestPushPermissionMod();
+      // rol 'guest' + consentimiento explícito para promos; restaurantId obligatorio
+      // para que la suscripción quede ligada al local correcto.
+      await requestPushPermissionMod(
+        '¡Notificaciones activadas! Te avisaremos de promos y novedades del local 🔔',
+        restaurantData ? restaurantData.id : '',
+        true
+      );
     }
 
     function dismissPushPrompt() {
@@ -2560,9 +2588,56 @@ Object.defineProperties(window, {
       }
     }
 
-    // Loyalty Modal placeholder (opens from loyalty banner)
+    // ========== CLUB SCANGO (Fidelización Dual) ==========
+
+    // Muestra/oculta el banner y el campo de teléfono según la config del local,
+    // y precarga el saldo del comensal que ya se identificó.
+    function initLoyalty() {
+      const rest = restaurantData || null;
+      if (!rest) return;
+      const enabled = rest.allowLoyaltyPoints === true;
+
+      const banner = document.getElementById('loyaltyTopBanner');
+      if (banner) banner.style.display = enabled ? 'flex' : 'none';
+
+      const phoneGroup = document.getElementById('loyaltyPhoneGroup');
+      if (phoneGroup) phoneGroup.style.display = enabled ? 'block' : 'none';
+
+      const storedPhone = localStorage.getItem('scango_loyalty_phone');
+      if (enabled && storedPhone && rest.id) {
+        fetch('/api/loyalty/me', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: storedPhone, restaurantId: rest.id })
+        })
+          .then(r => r.json())
+          .then(body => {
+            if (body && body.data && body.data.customer && body.data.account) {
+              const titleEl = document.querySelector('#loyaltyTopBanner .loyalty-banner-title');
+              if (titleEl && document.getElementById('loyaltyTopBanner') && document.getElementById('loyaltyTopBanner').style.display !== 'none') {
+                titleEl.textContent = `⭐ ${body.data.account.points} pts · ${body.data.customer.levelId === 'frecuente' ? 'Cliente Frecuente' : 'Bronce'}`;
+              }
+            }
+          })
+          .catch(() => {});
+      }
+    }
+
     function openLoyaltyModal() {
-      alert('🌟 Funcionalidad de Club de Puntos próximamente disponible.');
+      const rest = restaurantData || {};
+      if (rest.allowLoyaltyPoints === false) return;
+      if (typeof window.LoyaltyRewardsModal !== 'function') {
+        alert('⭐ El Club Puntos no está disponible en este momento.');
+        return;
+      }
+      new window.LoyaltyRewardsModal({
+        restaurantId: rest.id || '',
+        restaurantName: rest.name || 'ScanGo',
+        restaurantPhone: rest.phone || '',
+        phone: getCustomerPhone(),
+        config: (rest.loyaltyConfig || {}),
+        allowLoyaltyPoints: rest.allowLoyaltyPoints !== false
+      }).open();
     }
 
     // Expose all interactive functions to window for HTML inline event handlers
@@ -2586,6 +2661,7 @@ Object.defineProperties(window, {
       handleOrderPaymentChange,
       updateDeliveryFee,
       applyCoupon,
+      storeLoyaltyPhone,
       updateSplitCalculation,
       submitWhatsAppOrder,
       openSmartReviewModal,
@@ -2611,6 +2687,7 @@ Object.defineProperties(window, {
       closeRestaurantInfoModal,
       shareRestaurantUrl,
       openLoyaltyModal,
+      initLoyalty,
       openWaiterModal,
       closeWaiterModal,
       sendWaiterCall,
@@ -2632,12 +2709,12 @@ Object.defineProperties(window, {
     // Init
     if (typeof document !== 'undefined' && document.readyState === 'loading') {
       window.addEventListener('DOMContentLoaded', () => {
-        loadMenu();
+        loadMenu().then(initLoyalty);
         initPushPrompt();
         initGlobalModalDismissMod();
       });
     } else {
-      loadMenu();
+      loadMenu().then(initLoyalty);
       initPushPrompt();
       initGlobalModalDismissMod();
     }

@@ -608,6 +608,25 @@ export function updateLiveState() {
     if (sliderL) sliderL.style.backgroundColor = loyaltyCheckbox.checked ? '#38A169' : '#2a3a33';
   }
 
+  // Reglas del Club Fidelización (loyaltyConfig)
+  const loyaltyPerOrder = el('inputLoyaltyPointsPerOrder');
+  const loyaltyPerCurrency = el('inputLoyaltyPointsPerCurrency');
+  const loyaltyStamps = el('inputLoyaltyStampsTarget');
+  const loyaltyVisit = el('inputLoyaltyVisitRewardTitle');
+  if (loyaltyPerOrder || loyaltyPerCurrency || loyaltyStamps || loyaltyVisit) {
+    if (!restaurant.loyaltyConfig) restaurant.loyaltyConfig = {};
+    if (loyaltyPerOrder) restaurant.loyaltyConfig.pointsPerOrder = Math.max(0, Number(loyaltyPerOrder.value) || 0);
+    if (loyaltyPerCurrency) restaurant.loyaltyConfig.pointsPerCurrency = Math.max(0, Number(loyaltyPerCurrency.value) || 0);
+    if (loyaltyStamps) restaurant.loyaltyConfig.stampsTarget = Math.max(2, Number(loyaltyStamps.value) || 6);
+    if (loyaltyVisit) {
+      restaurant.loyaltyConfig.visitReward = {
+        id: (restaurant.loyaltyConfig.visitReward && restaurant.loyaltyConfig.visitReward.id) || 'visita_completa',
+        title: String(loyaltyVisit.value).trim().slice(0, 60) || 'Café de bienvenida'
+      };
+    }
+    if (!Array.isArray(restaurant.loyaltyConfig.rewards)) restaurant.loyaltyConfig.rewards = [];
+  }
+
   const iceCreamCheckbox = el('inputAllowIceCreamWizard');
   if (iceCreamCheckbox) {
     restaurant.allowIceCreamWizard = iceCreamCheckbox.checked;
@@ -812,6 +831,17 @@ export function renderStudioUI() {
     if (sliderL) sliderL.style.backgroundColor = loyaltyCheckbox.checked ? '#38A169' : '#2a3a33';
   }
 
+  const loyaltyCfg = restaurant.loyaltyConfig || {};
+  const loyaltyPerOrder = el('inputLoyaltyPointsPerOrder');
+  if (loyaltyPerOrder) loyaltyPerOrder.value = loyaltyCfg.pointsPerOrder ?? 10;
+  const loyaltyPerCurrency = el('inputLoyaltyPointsPerCurrency');
+  if (loyaltyPerCurrency) loyaltyPerCurrency.value = loyaltyCfg.pointsPerCurrency ?? 1;
+  const loyaltyStamps = el('inputLoyaltyStampsTarget');
+  if (loyaltyStamps) loyaltyStamps.value = loyaltyCfg.stampsTarget ?? 6;
+  const loyaltyVisit = el('inputLoyaltyVisitRewardTitle');
+  if (loyaltyVisit) loyaltyVisit.value = (loyaltyCfg.visitReward && loyaltyCfg.visitReward.title) || 'Café de bienvenida';
+  renderLoyaltyRewardRows();
+
   const iceCreamCheckbox = el('inputAllowIceCreamWizard');
   if (iceCreamCheckbox) {
     iceCreamCheckbox.checked = restaurant.allowIceCreamWizard === true || (restaurant.businessType === 'heladeria' && restaurant.allowIceCreamWizard !== false);
@@ -978,6 +1008,7 @@ export function switchTab(tabId, btn) {
   if (tabId === 'dishes') { populateCatFilter(); renderDishesList(); }
   if (tabId === 'qr') generateQrCode();
   if (tabId === 'stats') renderStatsTab();
+  if (tabId === 'notifications') loadNotificationEvents();
 }
 
 export function loadAnalytics() { loadAnalyticsMod(restaurant); }
@@ -1038,6 +1069,176 @@ export async function initStudio() {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Club Fidelización + Centro de Notificaciones (Studio)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Fetch autenticado reutilizable para el panel del dueño.
+function studioApi(path, options = {}) {
+  const token = localStorage.getItem('menu_pizarron_token');
+  const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return fetch(path, Object.assign({}, options, { headers }));
+}
+
+function getLoyaltyConfigRef() {
+  if (!restaurant) return null;
+  if (!restaurant.loyaltyConfig) restaurant.loyaltyConfig = {};
+  if (!Array.isArray(restaurant.loyaltyConfig.rewards)) restaurant.loyaltyConfig.rewards = [];
+  return restaurant.loyaltyConfig;
+}
+
+function renderLoyaltyRewardRows() {
+  const container = document.getElementById('loyaltyRewardRows');
+  if (!container) return;
+  const cfg = getLoyaltyConfigRef();
+  const rewards = cfg ? cfg.rewards : [];
+  if (!rewards.length) {
+    container.innerHTML = '<div style="font-size:11px; color:var(--text-dim); padding:6px 0;">Sin beneficios configurados. Tocá "Agregar beneficio" para armar tu catálogo.</div>';
+    return;
+  }
+  container.innerHTML = rewards.map((r, i) => `
+    <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
+      <input type="text" id="loyaltyRewardTitle_${i}" class="form-input" value="${escapeHtml(String(r.title || ''))}" placeholder="Nombre del beneficio"
+             data-js-input="updateLoyaltyRewardField|${i}|title|this.value" style="flex:1; font-size:11px; padding:6px 8px;">
+      <input type="number" id="loyaltyRewardCost_${i}" class="form-input" value="${Number(r.pointsCost) || 0}" min="0" step="10"
+             data-js-input="updateLoyaltyRewardField|${i}|cost|this.value" style="width:96px; font-size:11px; padding:6px 8px;" title="Puntos requeridos">
+      <button type="button" class="btn-nav" data-js-click="removeLoyaltyReward|${i}" style="padding:4px 8px; font-size:10px; border-color:#E53E3E; color:#F87171;">✕</button>
+    </div>
+  `).join('');
+}
+
+function updateLoyaltyRewardField(index, field, value) {
+  const cfg = getLoyaltyConfigRef();
+  if (!cfg) return;
+  const reward = cfg.rewards[index];
+  if (!reward) return;
+  if (field === 'title') reward.title = String(value || '').trim().slice(0, 60);
+  else if (field === 'cost') reward.pointsCost = Math.max(0, Number(value) || 0);
+}
+
+function addLoyaltyReward() {
+  const cfg = getLoyaltyConfigRef();
+  if (!cfg) return;
+  cfg.rewards.push({ id: 'rew_' + Date.now().toString(36), title: '', pointsCost: 100 });
+  renderLoyaltyRewardRows();
+  triggerAutoSave();
+}
+
+function removeLoyaltyReward(index) {
+  const cfg = getLoyaltyConfigRef();
+  if (!cfg) return;
+  cfg.rewards.splice(index, 1);
+  renderLoyaltyRewardRows();
+  triggerAutoSave();
+}
+
+async function validateLoyaltyCode() {
+  const codeEl = document.getElementById('inputRedeemCode');
+  const resultEl = document.getElementById('loyaltyValidateResult');
+  if (!codeEl || !resultEl) return;
+  const code = codeEl.value.trim().toUpperCase();
+  if (!code) {
+    resultEl.innerHTML = '<span style="color:#F87171;">Ingresá el código de canje del comensal.</span>';
+    return;
+  }
+  resultEl.innerHTML = '<span style="color:var(--text-dim);">⏳ Validando…</span>';
+  try {
+    const res = await studioApi('/api/loyalty/validate', { method: 'POST', body: JSON.stringify({ code }) });
+    const body = await res.json();
+    if (!res.ok) {
+      resultEl.innerHTML = `<span style="color:#F87171;">✕ ${escapeHtml(body.error || 'Código no válido')}</span>`;
+      return;
+    }
+    const d = body.data || {};
+    resultEl.innerHTML = `<span style="color:#68D391;">✓ Código válido — ${escapeHtml(d.rewardTitle || 'canje')} (${escapeHtml(d.code || code)}) marcado como canjeado.</span>`;
+    codeEl.value = '';
+  } catch (e) {
+    resultEl.innerHTML = '<span style="color:#F87171;">Error de conexión. Intentá de nuevo.</span>';
+  }
+}
+
+function handleRedeemCodeEnter(event) {
+  if (event && event.key === 'Enter') validateLoyaltyCode();
+}
+
+async function loadNotificationEvents() {
+  const list = document.getElementById('notificationInboxList');
+  if (!list) return;
+  list.innerHTML = '<div style="font-size:11px; color:var(--text-dim);">⏳ Cargando…</div>';
+  try {
+    const res = await studioApi('/api/notifications/events');
+    const body = await res.json();
+    if (!res.ok || !body.data) {
+      list.innerHTML = `<div style="font-size:11px; color:#F87171;">${escapeHtml(body.error || 'No se pudo cargar el centro de notificaciones.')}</div>`;
+      return;
+    }
+    const events = body.data.events || [];
+    const unread = body.data.unread || 0;
+    const unreadEl = document.getElementById('notificationUnreadCount');
+    if (unreadEl) {
+      unreadEl.textContent = unread;
+      unreadEl.style.display = unread > 0 ? 'inline-block' : 'none';
+    }
+    if (!events.length) {
+      list.innerHTML = '<div style="font-size:11px; color:var(--text-dim);">Sin notificaciones todavía. Cuando una mesa llame al mozo o pida la cuenta, el aviso queda guardado acá.</div>';
+      return;
+    }
+    list.innerHTML = events.map(ev => `
+      <div style="background:var(--bg-base); border:1px solid ${ev.isRead ? 'var(--border)' : 'rgba(236,201,75,0.5)'}; border-radius:8px; padding:10px 12px; margin-bottom:8px;">
+        <div style="display:flex; justify-content:space-between; gap:8px;">
+          <div style="flex:1;">
+            <div style="font-size:12px; font-weight:700; color:#fff;">${escapeHtml(ev.title || '')}</div>
+            <div style="font-size:11px; color:var(--text-dim); margin:3px 0;">${escapeHtml(ev.body || '')}</div>
+            <div style="font-size:10px; color:var(--text-dim);">${escapeHtml(new Date(ev.createdAt).toLocaleString())}</div>
+          </div>
+          ${ev.isRead ? '' : `<button type="button" class="btn-nav" data-js-click="markNotificationEventRead|${escapeHtml(ev.id)}" style="font-size:10px; padding:4px 8px; white-space:nowrap; align-self:flex-start;">Marcar leído</button>`}
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    list.innerHTML = '<div style="font-size:11px; color:#F87171;">Error de conexión.</div>';
+  }
+}
+
+async function markNotificationEventRead(eventId) {
+  try {
+    const res = await studioApi(`/api/notifications/events/${encodeURIComponent(eventId)}/read`, { method: 'POST', body: '{}' });
+    if (res.ok) loadNotificationEvents();
+  } catch (e) { /* el inbox sigue mostrando el evento sin marcar */ }
+}
+
+async function sendPromoPush() {
+  const titleEl = document.getElementById('inputPromoTitle');
+  const bodyEl = document.getElementById('inputPromoBody');
+  const resultEl = document.getElementById('promoPushResult');
+  if (!titleEl || !bodyEl || !resultEl) return;
+  const title = titleEl.value.trim().slice(0, 100);
+  const body = bodyEl.value.trim().slice(0, 500);
+  if (!title || !body) {
+    resultEl.innerHTML = '<span style="color:#F87171;">Completá título y mensaje de la promo.</span>';
+    return;
+  }
+  resultEl.innerHTML = '<span style="color:var(--text-dim);">⏳ Enviando…</span>';
+  try {
+    const res = await studioApi('/api/notifications/send', {
+      method: 'POST',
+      body: JSON.stringify({ title, body, audience: 'guests', url: window.location.origin + '/' })
+    });
+    const b = await res.json();
+    if (!res.ok) {
+      resultEl.innerHTML = `<span style="color:#F87171;">✕ ${escapeHtml(b.error || 'No se pudo enviar la promo.')}</span>`;
+      return;
+    }
+    const d = b.data || {};
+    resultEl.innerHTML = `<span style="color:#68D391;">✓ Promo enviada a ${d.delivered || 0} dispositivos con opt-in.</span>`;
+    titleEl.value = '';
+    bodyEl.value = '';
+  } catch (e) {
+    resultEl.innerHTML = '<span style="color:#F87171;">Error de conexión.</span>';
+  }
+}
+
 // Bind all functions to window for HTML inline event handlers
 const globalExports = {
   initStudio, logout, openDeleteAccountModal, closeDeleteAccountModal, confirmAccountDeletion,
@@ -1059,6 +1260,8 @@ const globalExports = {
   saveModifierGroup, cancelModifierGroupEdit, deleteModifierGroup, toggleDishModifierGroup,
   sendOrderStateWA, setReviewPhotoOption, handleReviewPhotoFile, check30DaysMilestone, openMilestone30DaysModal, closeMilestone30DaysModal, openReviewFromMilestone, submitOwnerReview,
   solicitarPushPermiso,
+  addLoyaltyReward, removeLoyaltyReward, updateLoyaltyRewardField, validateLoyaltyCode, handleRedeemCodeEnter,
+  loadNotificationEvents, markNotificationEventRead, sendPromoPush,
   openAiMenuImportModal, closeAiMenuImportModal, handleAiMenuFilesInput, moveAiMenuPage, removeAiMenuPage, runAiMenuAnalysis, closeAiMenuPreviewModal, confirmAiMenuImportAction, removeDetectedAiDish
 };
 

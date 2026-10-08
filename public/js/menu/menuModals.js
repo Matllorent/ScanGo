@@ -146,7 +146,19 @@ export function readSelectedCategoryTTS(selectedCategory, categories = [], dishe
 }
 
 /**
- * Initializes delayed banner for browser push notifications
+ * Convierte una clave pública VAPID (base64url) a Uint8Array para subscribe().
+ */
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+/**
+ * Inicializa el banner diferido de notificaciones del comensal (opt-in).
  */
 export function initPushPrompt() {
   const pushStatus = localStorage.getItem('scango_push_status');
@@ -160,29 +172,79 @@ export function initPushPrompt() {
 }
 
 /**
- * Requests native notification permission
+ * Pide el permiso nativo y registra la suscripción REAL (VAPID) como rol
+ * 'guest' con consentimiento explícito de marketing: así el comensal SOLO
+ * recibe promos del local, nunca avisos de mesa (que son de role=owner).
  */
-export async function requestPushPermission(onSuccessMsg = '¡Notificaciones activadas! Te avisaremos de novedades y tus pedidos 🔔') {
+export async function requestPushPermission(onSuccessMsg = '¡Notificaciones activadas! Te avisaremos de novedades y tus pedidos 🔔', restaurantId = '', consentMarketing = true) {
   const banner = document.getElementById('pushPromptBanner');
   if (banner) banner.style.display = 'none';
 
+  const supported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+  if (!supported) {
+    // Sin push real no hay nada que registrar; no marcamos una suscripción trucha.
+    localStorage.setItem('scango_push_status', 'granted');
+    showPushToast('¡Notificaciones activadas con éxito! 🔔');
+    return;
+  }
+
   try {
-    if ('Notification' in window) {
-      const perm = await Notification.requestPermission();
-      localStorage.setItem('scango_push_status', perm);
-      if (perm === 'granted') {
-        localStorage.setItem('scango_push_subscribed', 'true');
-        showPushToast(onSuccessMsg);
-      }
-    } else {
+    const perm = await Notification.requestPermission();
+    localStorage.setItem('scango_push_status', perm);
+    if (perm !== 'granted') {
+      showPushToast('No activaste las notificaciones. Podés habilitarlas desde el navegador.');
+      return;
+    }
+
+    const res = await fetch('/api/notifications/vapid-public-key');
+    if (!res.ok) {
+      // Servidor sin llaves VAPID: no podemos fingir una suscripción. El
+      // restaurante verá el banner de nuevo en una próxima visita.
       localStorage.setItem('scango_push_status', 'granted');
+      showPushToast('El local todavía no habilita notificaciones, ¡pero la promo también suma igual!');
+      return;
+    }
+    const data = await res.json();
+    if (!data || !data.data || !data.data.publicKey) {
+      localStorage.setItem('scango_push_status', 'granted');
+      showPushToast('El local todavía no habilita notificaciones por ahora.');
+      return;
+    }
+
+    const reg = await navigator.serviceWorker.ready;
+    let subscription = await reg.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(data.data.publicKey)
+      });
+    }
+
+    const rid = String(restaurantId || (window.restaurantData && window.restaurantData.id) || '');
+    const subscribeRes = await fetch('/api/notifications/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        restaurantId: rid,
+        endpoint: subscription.endpoint,
+        keys: subscription.toJSON().keys,
+        role: 'guest', // comensal: nunca recibe avisos de mesa operativos
+        consentMarketing: !!consentMarketing // opt-in explícito para promos
+      })
+    });
+
+    if (subscribeRes.ok) {
       localStorage.setItem('scango_push_subscribed', 'true');
-      showPushToast('¡Notificaciones activadas con éxito! 🔔');
+      localStorage.setItem('scango_push_status', 'granted');
+      showPushToast(onSuccessMsg);
+    } else {
+      const errBody = await subscribeRes.json().catch(() => ({}));
+      localStorage.setItem('scango_push_status', 'granted');
+      showPushToast(errBody.error || 'No pudimos registrar tu dispositivo en las notificaciones. Probá de nuevo.');
     }
   } catch (e) {
     localStorage.setItem('scango_push_status', 'granted');
-    localStorage.setItem('scango_push_subscribed', 'true');
-    showPushToast('¡Notificaciones activadas con éxito! 🔔');
+    showPushToast('No se pudieron activar las notificaciones en este momento.');
   }
 }
 

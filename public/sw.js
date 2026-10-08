@@ -105,7 +105,9 @@ self.addEventListener('fetch', (event) => {
 
 // ────────────────────────────────────────────────────────────────────────────
 // Push Notifications (Web Push / VAPID): el dueño recibe el aviso de mesa
-// aunque no esté mirando el Studio en ese momento.
+// aunque no esté mirando el Studio en ese momento; los comensales con opt-in
+// reciben promos. El payload incluye `type` (waiter_call | promo), `tag`,
+// `renotify` y `requireInteraction` generados por api/services/notifications.js.
 // ────────────────────────────────────────────────────────────────────────────
 self.addEventListener('push', (event) => {
   let data = {};
@@ -114,29 +116,46 @@ self.addEventListener('push', (event) => {
   } catch (e) {
     // payload no JSON: se muestra un aviso genérico
   }
+  const isWaiter = data.type === 'waiter_call';
   const options = {
     body: data.body || '',
     icon: data.icon || '/icon-192.png',
     badge: data.icon || '/icon-192.png',
-    data: { url: data.url || '/studio' },
+    data: { url: data.url || '/studio', type: data.type || 'promo' },
     vibrate: [200, 100, 200],
-    tag: data.tag || 'menu-pizarron-push'
+    // tag ÚNICO: cada aviso de mesa, promo o evento reemplaza solo a su
+    // propio tipo/incidente (dos mesas distintas pueden notificar a la vez).
+    tag: isWaiter ? (data.tag || `waiter-${Date.now()}`) : (data.tag || `promo-${Date.now()}`),
+    renotify: isWaiter ? true : (data.renotify !== false),
+    // El aviso de mesa es operativo (el mozo debe atenderlo): queda visible
+    // hasta que se cierre/atienda, no se autodestruye a los pocos segundos.
+    requireInteraction: isWaiter
   };
+  if (isWaiter) {
+    options.actions = [
+      { action: 'attend', title: '👨‍🍳 Atender en Studio' },
+      { action: 'close', title: 'Cerrar' }
+    ];
+  }
   event.waitUntil(self.registration.showNotification(data.title || 'Menú Pizarrón', options));
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const action = event.action;
   const url = (event.notification.data && event.notification.data.url) || '/studio';
+  // 'close' no navega a ningún lado; 'attend' (aviso de mesa) abre el Studio.
+  const target = action === 'close' ? null : (action === 'attend' ? '/studio' : url);
+  if (!target) return;
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if ('focus' in client) {
-          if ('navigate' in client) client.navigate(url);
+          if ('navigate' in client) client.navigate(target);
           return client.focus();
         }
       }
-      return self.clients.openWindow(url);
+      return self.clients.openWindow(target);
     })
   );
 });

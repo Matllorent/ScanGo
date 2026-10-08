@@ -43,17 +43,21 @@ window.menuBundle = menuBundle;
       window.i18nManager.renderControlsBar('i18nCurrencyBarContainer');
     });
 
-    // Loyalty Rewards Modal Handler
+    // Loyalty Rewards Modal Handler — abre la tarjeta DUAL data-driven
+    // (local + global) del Club ScanGo. menu.js (que carga primero) expone su
+    // propia versión; esta es la que gana porque este módulo se carga al final.
     window.openLoyaltyModal = function() {
-      const restName = window.restaurantData ? window.restaurantData.name : 'ScanGo';
-      const phone = window.restaurantData ? window.restaurantData.phone : '';
-      if (!window.activeLoyaltyModalInstance) {
-        window.activeLoyaltyModalInstance = new LoyaltyRewardsModal({ restaurantName: restName, phone: phone });
-      } else {
-        window.activeLoyaltyModalInstance.restaurantName = restName;
-        window.activeLoyaltyModalInstance.phone = phone;
-      }
-      window.activeLoyaltyModalInstance.open();
+      const rest = window.restaurantData || {};
+      if (rest.allowLoyaltyPoints === false) return;
+      const storedPhone = localStorage.getItem('scango_loyalty_phone') || '';
+      new LoyaltyRewardsModal({
+        restaurantId: rest.id || '',
+        restaurantName: rest.name || 'ScanGo',
+        restaurantPhone: rest.phone || '',
+        phone: storedPhone,
+        config: (rest.loyaltyConfig || {}),
+        allowLoyaltyPoints: rest.allowLoyaltyPoints !== false
+      }).open();
     };
 
     // Ice Cream Wizard Handler

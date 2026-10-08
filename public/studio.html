@@ -499,6 +499,39 @@
               </label>
             </div>
 
+            <!-- Loyalty Config: Reglas del Club de Puntos -->
+            <div id="loyaltyConfigSection" style="background:var(--surface-card); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:12px;">
+              <div style="font-size:11px; font-weight:700; color:#fff; margin-bottom:4px;">⚙️ Reglas del Club</div>
+              <p style="font-size:10px; color:var(--text-dim); margin-bottom:10px;">
+                Puntos que gana cada comensal por pedido y por monto, sellos para el premio de visita y tu catálogo de canjes.
+                Los puntos se acreditan solos al registrarse un pedido.
+              </p>
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:10px;">
+                <div>
+                  <label class="form-label">Puntos por pedido</label>
+                  <input type="number" id="inputLoyaltyPointsPerOrder" class="form-input" min="0" step="1" value="10">
+                </div>
+                <div>
+                  <label class="form-label">Puntos por $1</label>
+                  <input type="number" id="inputLoyaltyPointsPerCurrency" class="form-input" min="0" step="1" value="1">
+                </div>
+                <div>
+                  <label class="form-label">Sellos para premio</label>
+                  <input type="number" id="inputLoyaltyStampsTarget" class="form-input" min="2" step="1" value="6">
+                </div>
+                <div>
+                  <label class="form-label">Premio por sellos</label>
+                  <input type="text" id="inputLoyaltyVisitRewardTitle" class="form-input" value="Café de bienvenida" maxlength="60">
+                </div>
+              </div>
+
+              <div style="font-size:11px; font-weight:700; color:#fff; margin-bottom:4px;">🎁 Catálogo de canjes (en puntos)</div>
+              <div id="loyaltyRewardRows">
+                <div style="font-size:11px; color:var(--text-dim); padding:6px 0;">Sin beneficios configurados. Tocá "Agregar beneficio" para armar tu catálogo.</div>
+              </div>
+              <button type="button" class="btn-nav" data-js-click="addLoyaltyReward" style="width:auto; padding:6px 12px; font-size:11px; border-color:#63B3ED; color:#63B3ED; margin-top:4px;">＋ Agregar beneficio</button>
+            </div>
+
             <!-- Ice Cream Wizard Toggle -->
             <div id="iceCreamControlsSection" style="display:none; align-items:center; justify-content:space-between; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border); margin-bottom:10px;">
               <div>
@@ -857,6 +890,51 @@
                 🔔 Activar notificaciones
               </button>
               <div id="pushStatus" style="font-size:11px; color:var(--text-dim);">Revisando si tu navegador soporta avisos…</div>
+            </div>
+
+            <div style="border-top:1px solid var(--border); margin-top:18px; padding-top:16px;">
+              <div class="section-title" style="margin-bottom:8px;">⭐ Canjes de Fidelización (Club de Puntos)</div>
+              <p style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">
+                Cuando un comensal canjea un beneficio (local o de la red) recibe un código como <code>LOY-XXXX-XXXX</code>.
+                Pegalo acá para validarlo y marcarlo como usado. Los códigos de otros restaurantes se rechazan solos.
+              </p>
+              <div style="display:flex; gap:8px; margin-bottom:8px;">
+                <input type="text" id="inputRedeemCode" class="form-input" placeholder="LOY-XXXX-XXXX" style="text-transform:uppercase; font-family:var(--font-mono);" data-js-keydown="handleRedeemCodeEnter|event">
+                <button type="button" class="btn-nav" data-js-click="validateLoyaltyCode" style="white-space:nowrap; padding:0 14px; font-size:11px;">Validar ✅</button>
+              </div>
+              <div id="loyaltyValidateResult" style="font-size:11px;"></div>
+            </div>
+
+            <div style="border-top:1px solid var(--border); margin-top:18px; padding-top:16px;">
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+                <div class="section-title" style="margin-bottom:0;">📥 Centro de Notificaciones</div>
+                <span id="notificationUnreadCount" style="display:none; background:#E53E3E; color:#fff; font-size:10px; font-weight:800; border-radius:20px; padding:2px 8px;"></span>
+                <button type="button" class="btn-nav" data-js-click="loadNotificationEvents" style="margin-left:auto; width:auto; padding:5px 10px; font-size:10px;">🔄 Actualizar</button>
+              </div>
+              <p style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">
+                Los avisos de mesa quedan guardados acá por más que el push del sistema operativo ya se haya cerrado.
+              </p>
+              <div id="notificationInboxList" style="margin-top:6px;">
+                <div style="font-size:11px; color:var(--text-dim);">Tocá "Actualizar" para ver tus avisos.</div>
+              </div>
+            </div>
+
+            <div style="border-top:1px solid var(--border); margin-top:18px; padding-top:16px;">
+              <div class="section-title" style="margin-bottom:4px;">📣 Promos por Push a tus comensales</div>
+              <p style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">
+                Enviá una notificación a los comensales que <strong>aceptaron notificaciones con consentimiento explícito</strong>
+                (rol guest + opt-in). Nunca se envían promos a quien no dio su permiso.
+              </p>
+              <div class="form-group">
+                <label class="form-label">Título</label>
+                <input type="text" id="inputPromoTitle" class="form-input" maxlength="100" placeholder="🍕 2x1 en pizzas este finde">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Mensaje</label>
+                <textarea id="inputPromoBody" class="form-textarea" rows="2" maxlength="500" placeholder="Mostrando el código PROMO10 al ordenar..."></textarea>
+              </div>
+              <button type="button" class="btn-nav btn-nav-gold" data-js-click="sendPromoPush" style="width:100%; justify-content:center; padding:8px; font-weight:700; font-size:12px;">📣 Enviar promo</button>
+              <div id="promoPushResult" style="font-size:11px; margin-top:8px;"></div>
             </div>
           </div>
         </div>
