@@ -148,7 +148,8 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 | `GROUP_CART_SECRET` | Firma HMAC de QR de mesa; puede usar `JWT_SECRET` como fallback |
 
 ### Tooling OpenCode
-- `opencode.json` define 6 MCP locales: `menu-filesystem`, `memory-graph`, `playwright-testing`, `chrome-devtools`, `context7` y `supabase` (**read-only**, project-ref `olqdcudvstbawkcvsfdd`, requiere `SUPABASE_ACCESS_TOKEN` en el entorno).
+- `opencode.json` define 7 MCP locales: `menu-filesystem`, `memory-graph`, `playwright-testing`, `chrome-devtools`, `context7`, `supabase` (**read-only**, project-ref `olqdcudvstbawkcvsfdd`, requiere `SUPABASE_ACCESS_TOKEN` en el entorno) y `osv-scanner` (activo en la sesión).
+- **`osv-scanner` (Google OSV-Scanner v2.6.0)**: auditoría de vulnerabilidades de dependencias. El binario vive fuera del repo en `C:\Users\<usuario>\.local\bin\osv-scanner.exe` (descartado del hash oficial `SHA256SUMS`, 56 MB) y el MCP corre con el subcomando `experimental-mcp` (stdio). Tools: `scan_vulnerable_dependencies`, `get_vulnerability_details`, `ignore_vulnerability`. Se actualiza descargando el release de https://github.com/google/osv-scanner/releases y re-verificando el hash.
 
 ## Convenciones y Gotchas
 

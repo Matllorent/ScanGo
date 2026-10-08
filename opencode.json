@@ -44,6 +44,14 @@
         "SUPABASE_ACCESS_TOKEN": "{env:SUPABASE_ACCESS_TOKEN}"
       },
       "enabled": true
+    },
+    "osv-scanner": {
+      "type": "local",
+      "command": [
+        "C:\\Users\\Flor Alcaraz\\.local\\bin\\osv-scanner.exe",
+        "experimental-mcp"
+      ],
+      "enabled": true
     }
   }
 }
