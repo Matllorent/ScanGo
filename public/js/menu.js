@@ -32,7 +32,8 @@ import {
   initGlobalModalDismiss as initGlobalModalDismissMod,
   openReservationModal as openReservationModalMod,
   closeReservationModal as closeReservationModalMod,
-  submitReservation as submitReservationMod
+  submitReservation as submitReservationMod,
+  computeTipAmount as computeTipAmountMod
 } from './menu/index.js';
 
 // State
@@ -43,6 +44,8 @@ let pendingDishNoteAction = null;
 let deliveryFee = 0;
 let appliedCoupon = null; // { code: 'PROMO10', type: 'percent', value: 10 }
 let discountAmount = 0;
+let tipPercent = 0;   // propina sugerida seleccionada (0 = sin propina)
+let tipCustom = null; // monto de propina fijo (tiene prioridad)
 
 // Puente window ↔ estado del módulo: menu-modules.js y componentes (wizards, GroupCartManager)
 // leen/escriben window.restaurantData y window.cart, pero el estado real vive en este módulo.
@@ -1964,9 +1967,52 @@ Object.defineProperties(window, {
         deliveryRow.style.display = 'none';
       }
 
-      const total = Math.max(0, subtotal + currentDelivery - discountAmount);
+      // Propina opcional: 100% decisión del comensal. Base = subtotal de platos.
+      const tipAmount = computeTipAmountMod(subtotal, tipPercent, tipCustom);
+      const tipRow = document.getElementById('summaryTipRow');
+      if (tipRow) {
+        if (tipAmount > 0) {
+          tipRow.style.display = 'flex';
+          const tipEl = document.getElementById('summaryTip');
+          if (tipEl) tipEl.textContent = formatP(tipAmount);
+        } else {
+          tipRow.style.display = 'none';
+        }
+      }
+      const tipDisplay = document.getElementById('tipAmountDisplay');
+      if (tipDisplay) tipDisplay.textContent = formatP(tipAmount);
+      highlightTipPills();
+
+      const total = Math.max(0, subtotal + currentDelivery - discountAmount) + tipAmount;
       document.getElementById('summaryTotal').textContent = formatP(total);
       updateSplitCalculation();
+    }
+
+    function highlightTipPills() {
+      document.querySelectorAll('[data-tip-pill]').forEach(pill => {
+        const isActive = tipCustom === null && String(pill.getAttribute('data-tip-pill')) === String(tipPercent);
+        pill.style.background = isActive ? 'var(--chalk-gold, #D4A853)' : 'var(--surface-card)';
+        pill.style.color = isActive ? '#101614' : '#fff';
+        pill.style.borderColor = isActive ? 'var(--chalk-gold, #D4A853)' : 'var(--border-chalk)';
+      });
+    }
+
+    function setTipPercent(percent) {
+      tipPercent = Number(percent) || 0;
+      tipCustom = null;
+      const customInput = document.getElementById('tipCustomInput');
+      if (customInput) customInput.value = '';
+      updateTotals();
+    }
+
+    function setTipCustom(value) {
+      if (value === '' || value === null || value === undefined) {
+        tipCustom = null;
+      } else {
+        tipCustom = Number(value);
+        tipPercent = 0;
+      }
+      updateTotals();
     }
 
     function updateSplitCalculation() {
@@ -1979,7 +2025,8 @@ Object.defineProperties(window, {
       const subtotal = Object.values(cart).reduce((sum, item) => sum + (item.qty * getCartUnitPrice(item)), 0);
       const mode = document.getElementById('orderMode').value;
       const currentDelivery = (mode === 'DELIVERY' ? deliveryFee : 0);
-      const total = Math.max(0, subtotal + currentDelivery - discountAmount);
+      // La propina también se reparte entre los comensales.
+      const total = Math.max(0, subtotal + currentDelivery - discountAmount) + computeTipAmountMod(subtotal, tipPercent, tipCustom);
 
       const perPerson = Math.ceil(total / Math.max(1, count));
       const display = document.getElementById('splitPerPersonDisplay');
@@ -2057,6 +2104,9 @@ Object.defineProperties(window, {
           ? Math.round(subtotal * (appliedCoupon.value / 100) * 100) / 100
           : (appliedCoupon?.type === 'free_delivery' && mode === 'DELIVERY' ? currentDelivery : 0);
         const total = Math.max(0, subtotal + currentDelivery - currentDiscount);
+        // Propina opcional elegida por el comensal (base = subtotal de platos).
+        const tipAmount = computeTipAmountMod(subtotal, tipPercent, tipCustom);
+        const grandTotal = total + tipAmount;
 
         let msg = isGroupOrder
           ? `👥 *PEDIDO GRUPAL COLABORATIVO - ${restaurantData.name.toUpperCase()}*\n`
@@ -2115,7 +2165,8 @@ Object.defineProperties(window, {
         msg += `\n💵 *Subtotal:* ${currency} ${subtotal.toFixed(2)}\n`;
         if (appliedCoupon && currentDiscount > 0) msg += `🎟️ *Descuento Cupón (${appliedCoupon.code}):* -${currency} ${currentDiscount.toFixed(2)}\n`;
         if (mode === 'DELIVERY' && deliveryFee > 0) msg += `🛵 *Envío:* ${currency} ${deliveryFee}\n`;
-        msg += `💰 *TOTAL A PAGAR:* ${currency} ${total.toFixed(2)}\n`;
+        if (tipAmount > 0) msg += `🙌 *Propina:* ${currency} ${tipAmount.toFixed(2)}\n`;
+        msg += `💰 *TOTAL A PAGAR:* ${currency} ${grandTotal.toFixed(2)}\n`;
         msg += `💳 *Método de Pago Seleccionado:* [${payment.toUpperCase()}]\n`;
         if (payment.includes('Transferencia')) msg += `ℹ️ _Se adjuntará el comprobante de transferencia por este chat._\n`;
         if (restaurantData.paymentLink) msg += `🔗 _Link de Pago:_ ${restaurantData.paymentLink}\n`;
@@ -2137,6 +2188,7 @@ Object.defineProperties(window, {
             notes,
             isGroupOrder,
             coupon: appliedCoupon,
+            tipAmount,
             participants: window.groupCartManagerInstance ? Array.from(window.groupCartManagerInstance.participants) : [],
             items: items.map(item => ({
               dishId: item.dish.id,
@@ -2173,7 +2225,7 @@ Object.defineProperties(window, {
         if (popup) popup.location = waUrl;
         else window.location.assign(waUrl);
         trackPublicEvent('order_placed', {
-          amount: total,
+          amount: grandTotal,
           items: items.map(item => ({ dishId: item.dish.id, qty: item.qty })).slice(0, 100)
         });
       } catch (error) {
@@ -2930,6 +2982,8 @@ Object.defineProperties(window, {
       startOnlinePayment,
       updateDeliveryFee,
       applyCoupon,
+      setTipPercent,
+      setTipCustom,
       storeLoyaltyPhone,
       updateSplitCalculation,
       submitWhatsAppOrder,

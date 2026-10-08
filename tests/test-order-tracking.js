@@ -94,6 +94,7 @@ async function runTests() {
       customerName: 'Alice',
       customerPhone: testPhone,
       currency: 'USD',
+      tipAmount: 1.5,
       items: [{ dishId: 'dish1', quantity: 2 }]
     });
     assert.strictEqual(orderRes.status, 201, 'Pedido creado');
@@ -101,6 +102,7 @@ async function runTests() {
     assert.ok(order.id && order.trackingToken, 'El pedido expone id + trackingToken');
     assert.strictEqual(verifyOrderToken(order.trackingToken), order.id, 'El token corresponde al pedido');
     assert.strictEqual(order.status, 'pending', 'Estado inicial pendiente');
+    assert.strictEqual(order.tipAmount, 1.5, 'La propina declarada se persiste en el pedido');
     console.log('✓ POST /api/orders devuelve un trackingToken firmado del pedido');
 
     // ── 3) Vista pública por token, sin PII ─────────────────────────────────
@@ -114,6 +116,7 @@ async function runTests() {
     assert.ok(Array.isArray(track.items) && track.items.length === 1, 'Resumen de ítems presente');
     assert.strictEqual(track.items[0].name, 'Milanesa');
     assert.strictEqual(track.items[0].quantity, 2);
+    assert.strictEqual(track.tip, 1.5, 'La propina se expone en el seguimiento público');
     // Privacidad: el token no debe exponer teléfono ni nombre del cliente.
     assert.ok(!('customer_phone' in track) && !('customerPhone' in track), 'Sin teléfono en la respuesta pública');
     assert.ok(!('customer_name' in track) && !('customerName' in track), 'Sin nombre del cliente en la respuesta pública');

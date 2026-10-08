@@ -318,6 +318,21 @@
         </div>
       </div>
 
+      <!-- Tip (Propina opcional, 100% decisión del comensal) -->
+      <div id="tipSectionBox" class="form-group" style="background: rgba(104, 211, 145, 0.06); padding: 10px; border-radius: 8px; border: 1px dashed #68D391;">
+        <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>🙌 ¿Sumar propina? <span style="font-weight:400; opacity:.7;">(opcional, para el personal)</span></span>
+          <span id="tipAmountDisplay" style="font-size:11px; font-weight:700; color:#68D391;">$0</span>
+        </label>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+          <button type="button" data-js-click="setTipPercent|0" data-tip-pill="0" style="padding:6px 10px; border-radius:8px; border:1px solid var(--border-chalk); background:var(--surface-card, #16201b); color:#fff; cursor:pointer; font-weight:700; font-size:0.78rem;">Sin propina</button>
+          <button type="button" data-js-click="setTipPercent|5" data-tip-pill="5" style="padding:6px 10px; border-radius:8px; border:1px solid var(--border-chalk); background:var(--surface-card, #16201b); color:#fff; cursor:pointer; font-weight:700; font-size:0.78rem;">5%</button>
+          <button type="button" data-js-click="setTipPercent|10" data-tip-pill="10" style="padding:6px 10px; border-radius:8px; border:1px solid var(--border-chalk); background:var(--surface-card, #16201b); color:#fff; cursor:pointer; font-weight:700; font-size:0.78rem;">10%</button>
+          <button type="button" data-js-click="setTipPercent|15" data-tip-pill="15" style="padding:6px 10px; border-radius:8px; border:1px solid var(--border-chalk); background:var(--surface-card, #16201b); color:#fff; cursor:pointer; font-weight:700; font-size:0.78rem;">15%</button>
+          <input type="number" id="tipCustomInput" class="form-input" min="0" step="1" placeholder="Otro $" data-js-input="setTipCustom|this.value" style="width:84px; margin:0;">
+        </div>
+      </div>
+
       <!-- Total summary -->
       <div class="total-summary">
         <div class="summary-row">
@@ -331,6 +346,10 @@
         <div id="summaryDeliveryRow" class="summary-row" style="display:none;">
           <span>Costo de envío:</span>
           <span id="summaryDeliveryFee">$0</span>
+        </div>
+        <div id="summaryTipRow" class="summary-row" style="display:none; color:#68D391;">
+          <span>Propina:</span>
+          <span id="summaryTip">$0</span>
         </div>
         <div class="summary-row total-row">
           <span>Total a Pagar:</span>

@@ -52,7 +52,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - `public/js/components/` — 14 componentes ES Module (DishCard, GroupCartManager, IceCreamWizard, etc.)
 - `public/js/menu-modules.js` — ES Module que importa componentes y expone en `window.`
 - `public/js/menu.js` — script inline principal (módulo raíz)
-- `public/js/menu/` — módulos ES internos (eventGuestMode, menuState, menuViewModel, menuModals, menuLoader, cartOperations, orderCheckout, smartReviews, virtualWaiterHeuristics, **iceCreamHeuristics** y **perfumeryHeuristics**)
+- `public/js/menu/` — módulos ES internos (eventGuestMode, menuState, menuViewModel, menuModals, menuLoader, cartOperations, orderCheckout, smartReviews, virtualWaiterHeuristics, **iceCreamHeuristics**, **perfumeryHeuristics** y **tipCalculator**)
 - **Catálogos data-driven (cero demo)**: `iceCreamHeuristics.js` (`buildCustomFlavors`) y `perfumeryHeuristics.js` (`buildPerfumeryCatalog`) derivan sabores/fragancias de la **carta real** del local. El wizard/vista ya no caen a catálogos inventados: una heladería sin pistas por nombre/categoría usa toda su carta; una perfumería usa el **id real** de cada plato (así el pedido cotiza bien, antes el `id` sintético `perfume_...` rompía con `DISH_NOT_FOUND`). Regresión cubierta en `tests/test-menu-componentization.js` (§11/§12).
 - `public/js/pwa.js` — Service Worker + CTA de instalación flotante (`pwa-install-ready` → `window.triggerPWAInstall()`; antes el trigger quedaba huérfano). Descartable (localStorage `scango_pwa_install_dismissed`); usa `addEventListener`, sin `on*=`. Guard en `tests/test-frontend-structure.js` (§D).
 - `public/js/dom-bindings.js` — binder de eventos delegados para atributos `data-js-*` (todas las páginas: menú, Studio, Admin, Landing; requisito de la CSP `script-src-attr 'none'`, ver sección "Seguridad — CSP")
@@ -114,6 +114,12 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - Studio: toggle **"💳 Ofrecer Pago Online al Comensal"** (`inputAllowOnlinePayment`) junto al link propio.
 - `invalidateMenuCache()` limpia también la capa single-flight de 5s del SSR (`api/middleware/cache.js`), así el dueño ve el cambio al instante.
 
+### Propina del Comensal (checkout)
+- **100% opcional y decisión del comensal** (nunca obligatoria): el checkout parte de "Sin propina" y ofrece 5% / 10% / 15% o un monto fijo. Módulo puro `public/js/menu/tipCalculator.js` (`computeTipAmount(subtotal, tipPercent, customAmount)`, `TIP_PERCENT_PRESETS`); la base es el subtotal de platos (sin envío). El monto fijo tiene prioridad; nunca devuelve negativos.
+- **Viaja aparte del monto de los platos**: la propina se suma al `TOTAL A PAGAR` del mensaje de WhatsApp y se envía como `tipAmount` a `POST /api/orders`. El backend la persiste en `orders.tip_amount` (migración **005**, idempotente) y en el espejo local; `GET /api/orders/track/:token` la expone como `tip`. **No** se suma a `orders.amount` (no distorsiona el ticket promedio de analytics). Si la 005 no está aplicada, el INSERT en cloud reintenta sin `tip_amount` (el pedido no se pierde).
+- UI: `public/menu.html` (`#tipSectionBox` con pills `data-js-click="setTipPercent|N"` + `#tipCustomInput` con `data-js-input="setTipCustom|this.value"`) y resumen `#summaryTipRow`. Los handlers `setTipPercent`/`setTipCustom` se exponen en `window` (binder `data-js-*`).
+- Regresión: unit en `tests/test-menu-componentization.js` (§13) + propina real de punta a punta en `tests/test-order-tracking.js`.
+
 ### Mobile (Capacitor)
 - Config: `mobile/capacitor.config.json`
 - `webDir: "public"` — apunta directo al frontend estático
@@ -156,7 +162,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-group-cart-mozo.js` | GroupCartManager, Mozo Virtual, permisos por comensal, Realtime |
 | `test-email-notifications.js` | Los 7 métodos de email (Resend/SMTP): bienvenida, recibo, fallido, dunning, warning trial, trial vencido, menú pausado |
 | `test-ai-menu-import.js` | Gemini Flash multimodal, JSON schema, carga multi-página, límites 25mb, descarte por plato |
-| `test-menu-componentization.js` | Módulos ES de menu (smartReviews, virtualWaiterHeuristics, orderCheckout) |
+| `test-menu-componentization.js` | Módulos ES de menu (smartReviews, virtualWaiterHeuristics, orderCheckout), catálogos data-driven de heladería/perfumería (§11/§12) y propina del comensal (§13, `computeTipAmount`) |
 | `test-menu-seo.js` | SSR, metadatos y JSON-LD por restaurante |
 | `test-google-auth.js` | GIS, callback OAuth y configuración backend |
 | `test-security-endpoints.js` | Auth/tenant, límites, cron/readiness y QR capability |
@@ -167,7 +173,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-frontend-structure.js` | `<div>` balanceados, modales a nivel body en 3 HTML + orden close→assign→open del import IA |
 | `test-push-notifications.js` | Push Web real (VAPID): suscripción cloud, 503 PUSH_NOT_CONFIGURED sin llaves, aviso de mozo desde la mesa con entrega intentada |
 | `test-loyalty-dual.js` | Fidelización DUAL (local + red global cross-restaurant): identidad E.164 enmascarada, acreditación post-pedido, niveles Bronce→Platino + insignias, canje LOY-XXXX-XXXX con validación cross-restaurant 403/doble 409, `/customers` con privacidad, borrado total (RGPD), y centro de notificaciones: aviso de mozo persistido + inbox mark-read + suscripción guest con consentimiento y separación de roles owner/guest |
-| `test-order-tracking.js` | Seguimiento del pedido end-to-end: token HMAC sin estado (`signOrderToken`/`verifyOrderToken`), `POST /api/orders` devuelve `trackingToken`, `GET /api/orders/track/:token` público SIN PII (sin teléfono/nombre), token adulterado 404, `PATCH /api/orders/status/:orderId` (401 anónimo, 400 inválido, 403 cross-tenant), y push de estado dirigido SOLO al comensal del pedido por teléfono |
+| `test-order-tracking.js` | Seguimiento del pedido end-to-end: token HMAC sin estado (`signOrderToken`/`verifyOrderToken`), `POST /api/orders` devuelve `trackingToken` y persiste la propina (`tipAmount`), `GET /api/orders/track/:token` público SIN PII (sin teléfono/nombre) y con `tip`, token adulterado 404, `PATCH /api/orders/status/:orderId` (401 anónimo, 400 inválido, 403 cross-tenant), y push de estado dirigido SOLO al comensal del pedido por teléfono |
 | `test-online-payment.js` | Pago online del comensal: default OFF no aparece en `/api/menu/:slug` y `POST /api/orders/mercadopago/preference` → 403 `ONLINE_PAYMENT_DISABLED`; con `allowOnlinePayment=true` el menú lo expone (+`onlinePaymentReady`) y el gate se abre (200 con MP real, 5xx `MP_NOT_CONFIGURED` honesto sin credenciales); restaurante inexistente → 404; el flag persiste |
 | `test-realtime-rls-guard.js` | Guard estático de canales Realtime: la 002 existe, NO tiene ALTER TABLE sobre realtime.messages (evita el 42501), políticas SELECT+INSERT `realtime:%` para anon/authenticated, y los canales del código unen con `private: true` |
 | `test-realtime-live-guard.js` | E2E real del guard contra Supabase Realtime (anon key): JOIN+broadcast en `realtime:%` OK y topics ajenos (`event_waiters_*`) rechazados — detecta si la 002 NO está aplicada |
@@ -283,6 +289,7 @@ Estéticas (definiciones CSS en `public/css/menu.css`): wedding = marfil + serif
 | `src/db/schema.sql` | Esquema PostgreSQL para Supabase |
 | `src/db/migrations/003_loyalty_notifications.sql` | Migración idempotente: 5 tablas de fidelización + ALTER `push_subscriptions` (RLS FORCE) |
 | `src/db/migrations/004_order_tracking.sql` | Migración idempotente del seguimiento del pedido: `orders.status_updated_at` + `push_subscriptions.customer_phone` (aviso dirigido por teléfono) |
+| `src/db/migrations/005_order_tips.sql` | Migración idempotente de la propina del comensal: `orders.tip_amount` (NUMERIC, no negativo; aparte del ticket promedio) |
 | `.cursorrules` | Reglas de desarrollo (cero mocks, sync API↔Admin) |
 | `public/js/menu/eventGuestMode.js` | Resolución de tema de evento, contexto de invitado, reservas WhatsApp |
 | `public/js/utils/` | Utilidades frontend (usan `escapeHtmlBrowser.js`, ver trampas) |

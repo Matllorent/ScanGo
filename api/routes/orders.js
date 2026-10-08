@@ -96,7 +96,10 @@ const createOrderSchema = z.object({
     type: z.string().max(20).optional().default('percent'),
     value: z.number().nonnegative().optional().default(0),
     label: z.string().max(60).optional().default('')
-  }).optional().nullish().transform(v => v || undefined)
+  }).optional().nullish().transform(v => v || undefined),
+  // Propina opcional del comensal (nunca obligatoria). Viaja aparte del monto
+  // de los platos para no distorsionar el ticket promedio de analytics.
+  tipAmount: z.number().nonnegative().max(1000000).optional().default(0)
 });
 
 function quoteOrderItems(restaurant, items, timestamp = new Date().toISOString()) {
@@ -169,7 +172,7 @@ router.post('/quote', validateBody(createOrderSchema), (req, res, next) => {
  */
 router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (req, res, next) => {
   try {
-    const { restaurantId, tableNumber, items, currency, customerName, customerPhone, deliveryAddress, notes } = req.body;
+    const { restaurantId, tableNumber, items, currency, customerName, customerPhone, deliveryAddress, notes, tipAmount } = req.body;
 
     const restaurant = db.findRestaurantById(restaurantId) || db.findRestaurantBySlug(restaurantId);
     if (!restaurant) {
@@ -203,6 +206,8 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
       participants: req.body.participants || [],
       group_session_id: req.body.groupSessionId || '',
       coupon: req.body.coupon || null,
+      tip_amount: Number(tipAmount) || 0,
+      tipAmount: Number(tipAmount) || 0,
       created_at: utcNow
     };
 
@@ -216,20 +221,28 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
     // Save to Supabase Cloud PostgreSQL
     const supabase = getSupabaseClient();
     if (supabase) {
+      const cloudOrder = {
+        id: orderRecord.id,
+        restaurant_id: orderRecord.restaurant_id,
+        table_number: orderRecord.table_number,
+        items_snapshot: orderRecord.items_snapshot,
+        amount: orderRecord.amount,
+        amount_in_cents: orderRecord.amount_in_cents,
+        currency: orderRecord.currency,
+        status: orderRecord.status,
+        customer_name: orderRecord.customer_name,
+        customer_phone: orderRecord.customer_phone,
+        created_at: orderRecord.created_at
+      };
       try {
-        await supabase.from('orders').insert([{
-          id: orderRecord.id,
-          restaurant_id: orderRecord.restaurant_id,
-          table_number: orderRecord.table_number,
-          items_snapshot: orderRecord.items_snapshot,
-          amount: orderRecord.amount,
-          amount_in_cents: orderRecord.amount_in_cents,
-          currency: orderRecord.currency,
-          status: orderRecord.status,
-          customer_name: orderRecord.customer_name,
-          customer_phone: orderRecord.customer_phone,
-          created_at: orderRecord.created_at
-        }]);
+        // `tip_amount` vive en la migración 005. Si la columna todavía no está
+        // aplicada en cloud, se reintenta SIN ella para no perder el pedido: la
+        // propina igual queda en el espejo local y en el mensaje de WhatsApp.
+        let { error } = await supabase.from('orders').insert([{ ...cloudOrder, tip_amount: orderRecord.tip_amount }]);
+        if (error) {
+          ({ error } = await supabase.from('orders').insert([cloudOrder]));
+        }
+        if (error) throw error;
       } catch (e) {
         sentry.captureException(e, {
           source: 'orders.insert',
@@ -299,6 +312,8 @@ router.get('/track/:token', async (req, res, next) => {
       tableNumber: order.table_number || order.tableNumber || '',
       currency: order.currency || '$',
       total: order.amount != null ? order.amount : order.total,
+      // Propina opcional declarada por el comensal (0 si no dejó).
+      tip: Number(order.tip_amount != null ? order.tip_amount : (order.tipAmount || 0)) || 0,
       items: (order.items_snapshot || order.itemsSnapshot || []).map(line => ({
         name: line.name,
         quantity: line.quantity

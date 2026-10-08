@@ -179,6 +179,7 @@ async function runMenuComponentizationTests() {
   assert.ok(typeof menuIndexModule.resolveEventTheme === 'function', 'index.js debe re-exportar resolveEventTheme');
   assert.ok(typeof menuIndexModule.buildCustomFlavors === 'function', 'index.js debe re-exportar buildCustomFlavors (sabores de heladería)');
   assert.ok(typeof menuIndexModule.buildPerfumeryCatalog === 'function', 'index.js debe re-exportar buildPerfumeryCatalog (catálogo de perfumería)');
+  assert.ok(typeof menuIndexModule.computeTipAmount === 'function', 'index.js debe re-exportar computeTipAmount (propina del comensal)');
   console.log('✓ Barrel export public/js/menu/index.js verificado y unificado');
 
   // 8. Test menu-modules.js integration
@@ -335,6 +336,22 @@ async function runMenuComponentizationTests() {
   assert.strictEqual(perfModule.resolvePerfumeConcentration('Eau de Parfum Intense'), 'EDP');
   assert.strictEqual(perfModule.resolvePerfumeConcentration('Aqua Fresca'), '');
   console.log('✓ Catálogo de perfumería data-driven: id real de carta, familia/concentración mapeadas, cero demo');
+
+  // 13. tipCalculator: propina opcional (porcentaje / monto fijo, sin negativos)
+  const tipModule = await import('../public/js/menu/tipCalculator.js');
+  assert.strictEqual(typeof tipModule.computeTipAmount, 'function', 'computeTipAmount debe existir');
+  assert.deepStrictEqual(tipModule.TIP_PERCENT_PRESETS, [0, 5, 10, 15], 'Presets de propina 0/5/10/15');
+  assert.strictEqual(tipModule.computeTipAmount(1000, 10), 100, '10% de 1000 = 100');
+  assert.strictEqual(tipModule.computeTipAmount(1000, 15), 150, '15% de 1000 = 150');
+  assert.strictEqual(tipModule.computeTipAmount(333, 10), 33.3, 'Redondea a 2 decimales');
+  assert.strictEqual(tipModule.computeTipAmount(1000, 0), 0, 'Sin propina = 0');
+  assert.strictEqual(tipModule.computeTipAmount(0, 10), 0, 'Sin base no hay propina');
+  assert.strictEqual(tipModule.computeTipAmount(1000, 10, 250), 250, 'El monto fijo tiene prioridad sobre el porcentaje');
+  assert.strictEqual(tipModule.computeTipAmount(1000, 10, '0'), 0, 'Monto fijo explícito en 0 => sin propina');
+  assert.strictEqual(tipModule.computeTipAmount(1000, -5), 0, 'Porcentaje negativo => 0 (nunca propina negativa)');
+  assert.strictEqual(tipModule.computeTipAmount(1000, 0, -50), 0, 'Monto fijo negativo => 0');
+  assert.strictEqual(tipModule.computeTipAmount(null, 10), 0, 'Base inválida => 0');
+  console.log('✓ Propina opcional: porcentaje/monto fijo, nunca negativa, base = subtotal');
 
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE COMPONENTIZACIÓN DE MENU PASARON AL 100%!');
 }
