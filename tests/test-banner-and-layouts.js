@@ -72,7 +72,20 @@ async function runTests() {
   assert.ok(menuCss.includes('body.layout-sticker'), 'menu.css debe definir body.layout-sticker');
   assert.ok(menuCss.includes('counter-increment: board'), 'billboard debe numerar los platos con CSS counters');
   assert.ok(menuCss.includes('scroll-snap-type: x mandatory'), 'El carrusel superior debe ser táctil con scroll-snap para móviles');
+  // 3b3. Overlay sticker por clase condicional dish-has-photo (sin :has(), robusto en WebViews)
+  assert.ok(menuCss.includes('.dish-card.dish-has-photo .dish-body'), 'El overlay del sticker debe usar la clase condicional dish-has-photo');
+  assert.ok(!menuCss.includes('.dish-card:has('), 'Fase E no debe depender de :has() — se usa la clase dish-has-photo (compat Capacitor/WebViews)');
+  // 3b4. Temas de evento × morfologías: acentos derivados de las variables del tema
+  assert.ok(menuCss.includes('background: var(--surface-card, rgba(22, 33, 28, 0.8)) !important;'), 'billboard debe adaptar su fondo a la variable del tema (--surface-card)');
+  assert.ok(menuCss.includes('background: var(--chalk-gold, #ECC94B);'), 'El contador de billboard debe usar el dorado del tema activo');
+  assert.ok(menuCss.includes('color: var(--chalk-gold, #ECC94B);'), 'Precios de las morfologías deben usar var(--chalk-gold)');
+  assert.ok(menuCss.includes('background: var(--chalk-gold, #ECC94B) !important;'), 'El botón + de sticker debe usar var(--chalk-gold)');
+  // 3b5. Sold-out legible en las morfologías + impresión/PDF de la carta
+  assert.ok(menuCss.includes('body.layout-sticker .dish-card.dish-sold .dish-price'), 'El estado Agotado debe mantener contraste sobre el sticker dorado');
+  assert.ok(menuCss.includes('@media print'), 'menu.css debe incluir estilos de impresión/PDF para la carta');
+  assert.ok(menuCss.includes('break-inside: avoid'), 'Las tarjetas no deben cortarse entre páginas impresas');
   console.log('✓ Morfologías Billboard QSR, Ticker Tipográfico y Sticker Artesanal presentes en menu.css');
+  console.log('✓ Overlay por clase dish-has-photo (sin :has), acentos por variable de tema, sold-out y print verificados');
 
   // 3c. Integridad de los 14 temas clásicos
   const classicThemes = [
@@ -134,7 +147,18 @@ async function runTests() {
   assert.ok(menuJs.includes("'ticker'"), 'menu.js debe contemplar ticker en validLayouts');
   assert.ok(menuJs.includes("'sticker'"), 'menu.js debe contemplar sticker en validLayouts');
   assert.ok(menuJs.includes('Los Mejores Platos de la Casa'), 'El carrusel superior debe mostrar Los Mejores Platos en las morfologías board');
+  // Fase E pulido: overlay por clase condicional y títulos del carrusel traducibles
+  assert.ok(menuJs.includes("dish-has-photo"), 'menu.js debe marcar los cards con foto con la clase dish-has-photo');
+  assert.ok(menuJs.includes("t('topDishesCarousel', 'Los Mejores Platos de la Casa')"), 'El título del carrusel debe salir de i18n con fallback en español');
   console.log('✓ Inyección reactiva de banner y clases morfológicas comprobada en el menú público');
+
+  // 5b. i18n de los títulos del carrusel Fase E en los 3 idiomas
+  const i18nFile = fs.readFileSync(path.join(__dirname, '../public/js/components/I18nCurrencyManager.js'), 'utf8');
+  for (const key of ['topDishesCarousel', 'favoritesBadge', 'chefAndFavoritesLabel', 'favoriteRibbon', 'recommendationLabel', 'chefSpecialBadge', 'chefTitleDefault']) {
+    const occurrences = (i18nFile.match(new RegExp(key + ':', 'g')) || []).length;
+    assert.strictEqual(occurrences, 3, `La key i18n ${key} debe existir en es, en y pt (encontradas: ${occurrences})`);
+  }
+  console.log('✓ Las 7 keys i18n nuevas del carrusel existen en los 3 idiomas (es/en/pt)');
 
   console.log('\n🎉 ¡TODAS LAS VERIFICACIONES DE BANNER Y MORFOLOGÍAS PASARON AL 100%!');
 }

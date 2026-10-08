@@ -2743,8 +2743,8 @@
       padding: 0 !important;
       overflow: hidden;
       border-radius: 16px !important;
-      background: rgba(22, 33, 28, 0.8) !important;
-      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      background: var(--surface-card, rgba(22, 33, 28, 0.8)) !important;
+      border: 1px solid var(--border-chalk, rgba(255, 255, 255, 0.12)) !important;
       box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
       transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
       counter-increment: board;
@@ -2759,7 +2759,7 @@
       top: 10px;
       left: 10px;
       z-index: 2;
-      background: #ECC94B;
+      background: var(--chalk-gold, #ECC94B);
       color: #101614;
       font-family: var(--font-mono, monospace);
       font-weight: 800;
@@ -2775,7 +2775,7 @@
       aspect-ratio: 4 / 3;
       border-radius: 0 !important;
       border: none !important;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      border-bottom: 1px solid var(--border-chalk, rgba(255, 255, 255, 0.08));
       flex-shrink: 0;
     }
     body.layout-billboard .dish-body {
@@ -2794,7 +2794,7 @@
     body.layout-billboard .dish-price {
       font-size: 1.4rem !important;
       font-weight: 900 !important;
-      color: #ECC94B;
+      color: var(--chalk-gold, #ECC94B);
       margin-top: 6px;
       line-height: 1.1;
     }
@@ -2813,7 +2813,7 @@
       padding: 2px 7px !important;
     }
     body.layout-billboard .category-title {
-      border-bottom: 2px solid rgba(236, 201, 75, 0.35);
+      border-bottom: 2px solid var(--border-gold, rgba(236, 201, 75, 0.35));
       padding-bottom: 8px;
     }
 
@@ -2828,7 +2828,7 @@
       text-transform: uppercase;
       letter-spacing: 2px;
       font-size: 0.92rem;
-      border-bottom: 1px solid rgba(212, 175, 55, 0.35);
+      border-bottom: 1px solid var(--border-gold, rgba(212, 175, 55, 0.35));
       padding-bottom: 8px;
       margin-bottom: 14px;
     }
@@ -2836,7 +2836,7 @@
       display: flex !important;
       background: transparent !important;
       border: none !important;
-      border-bottom: 1px dashed rgba(255, 255, 255, 0.12) !important;
+      border-bottom: 1px dashed var(--border-chalk, rgba(255, 255, 255, 0.12)) !important;
       border-radius: 0 !important;
       box-shadow: none !important;
       padding: 12px 2px !important;
@@ -2869,7 +2869,7 @@
       flex: 1;
       min-width: 24px;
       margin: 0 6px;
-      border-bottom: 2px dotted rgba(236, 201, 75, 0.55);
+      border-bottom: 2px dotted var(--chalk-gold, rgba(236, 201, 75, 0.55));
       transform: translateY(-4px);
     }
     body.layout-ticker .dish-name {
@@ -2883,7 +2883,7 @@
       white-space: nowrap;
       font-weight: 800;
       font-size: 1.02rem !important;
-      color: #ECC94B;
+      color: var(--chalk-gold, #ECC94B);
     }
     body.layout-ticker .dish-desc {
       grid-area: desc;
@@ -2925,8 +2925,8 @@
       padding: 0 !important;
       border-radius: 18px !important;
       overflow: hidden;
-      background: rgba(255, 255, 255, 0.05) !important;
-      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      background: var(--surface-card, rgba(255, 255, 255, 0.05)) !important;
+      border: 1px solid var(--border-chalk, rgba(255, 255, 255, 0.12)) !important;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
     }
     body.layout-sticker .dish-thumb {
@@ -2947,7 +2947,7 @@
       width: 40px !important;
       height: 40px !important;
       border-radius: 50% !important;
-      background: #ECC94B !important;
+      background: var(--chalk-gold, #ECC94B) !important;
       color: #101614 !important;
       font-size: 1.2rem !important;
       border: none !important;
@@ -2958,8 +2958,8 @@
       top: -6px;
       right: -6px;
       background: #101614;
-      border: 1px solid rgba(236, 201, 75, 0.6);
-      color: #ECC94B;
+      border: 1px solid var(--chalk-gold, rgba(236, 201, 75, 0.6));
+      color: var(--chalk-gold, #ECC94B);
       border-radius: 999px;
       font-size: 0.68rem;
       font-weight: 700;
@@ -2969,7 +2969,7 @@
     }
     body.layout-sticker .dish-price {
       display: inline-block;
-      background: #ECC94B;
+      background: var(--chalk-gold, #ECC94B);
       color: #101614;
       font-weight: 900;
       border-radius: 999px;
@@ -2979,41 +2979,40 @@
       box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
       white-space: nowrap;
     }
-    /* Overlay del nombre sobre la foto (solo cuando hay imagen): se degrada a
-       tarjeta apilada (foto arriba, texto abajo) si el navegador no soporta :has() */
-    @supports selector(:has(*)) {
-      body.layout-sticker .dish-card:has(.dish-thumb) .dish-body {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 3;
-        padding: 46px 14px 14px;
-        background: linear-gradient(to top, rgba(0, 0, 0, 0.88) 40%, transparent);
-      }
-      body.layout-sticker .dish-card:has(.dish-thumb) .dish-name {
-        color: #ffffff !important;
-        font-weight: 800;
-        text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
-      }
-      body.layout-sticker .dish-card:has(.dish-thumb) .dish-desc {
-        color: rgba(255, 255, 255, 0.85) !important;
-      }
-      body.layout-sticker .dish-card:has(.dish-thumb) .dish-title-line {
-        margin-bottom: 4px;
-      }
-      body.layout-sticker .dish-card:has(.dish-thumb) .dish-price {
-        position: absolute;
-        right: 12px;
-        bottom: 12px;
-        margin: 0;
-      }
-      body.layout-sticker .dish-card:has(.dish-thumb) .dish-body {
-        padding-right: 120px;
-      }
-      body.layout-sticker .dish-card:not(:has(.dish-thumb)) {
-        padding: 16px 14px !important;
-      }
+    /* Overlay del nombre sobre la foto (solo cuando hay imagen): el JS agrega la
+       clase condicional dish-has-photo (equivalente a dish-sold), sin :has() —
+       funciona en cualquier WebView. Sin foto, degrada a tarjeta apilada. */
+    body.layout-sticker .dish-card.dish-has-photo .dish-body {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 3;
+      padding: 46px 14px 14px;
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.88) 40%, transparent);
+    }
+    body.layout-sticker .dish-card.dish-has-photo .dish-name {
+      color: #ffffff !important;
+      font-weight: 800;
+      text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
+    }
+    body.layout-sticker .dish-card.dish-has-photo .dish-desc {
+      color: rgba(255, 255, 255, 0.85) !important;
+    }
+    body.layout-sticker .dish-card.dish-has-photo .dish-title-line {
+      margin-bottom: 4px;
+    }
+    body.layout-sticker .dish-card.dish-has-photo .dish-price {
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      margin: 0;
+    }
+    body.layout-sticker .dish-card.dish-has-photo .dish-body {
+      padding-right: 120px;
+    }
+    body.layout-sticker .dish-card:not(.dish-has-photo) {
+      padding: 16px 14px !important;
     }
     body.layout-sticker .dish-card:not(.no-support) .dish-name {
       font-size: 1.05rem !important;
@@ -3054,4 +3053,106 @@
       body.layout-billboard .dish-price {
         font-size: 1.15rem !important;
       }
+    }
+
+    /* --------------------------------------------------------------------------
+       IMPRESIÓN / PDF — Carta del pizarrón limpia para imprimir o exportar.
+       Oculta controles interactivos y fuerza la estructura de cada morfología.
+       -------------------------------------------------------------------------- */
+    @media print {
+      body {
+        background: #fff !important;
+      }
+      #i18nCurrencyBarContainer,
+      #searchFilter,
+      #btnClearSearch,
+      .category-nav-wrapper,
+      #dietaryFilterPills,
+      .a11y-bar,
+      #btnOpenIceCreamWizard,
+      #btnTogglePerfumeryMode,
+      .btn-nav,
+      .floating-cart-bar,
+      .waiter-fab,
+      .modal-overlay,
+      #cardModals,
+      .dish-action,
+      .qty-counter,
+      .chef-special-footer .btn-add {
+        display: none !important;
+      }
+      .dishes-grid,
+      .chef-specials-carousel {
+        overflow: visible !important;
+      }
+      .chef-specials-carousel {
+        display: block !important;
+      }
+      .chef-special-card {
+        display: inline-block !important;
+        width: 220px;
+        margin-right: 12px;
+        vertical-align: top;
+      }
+      body.layout-billboard .dishes-grid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
+      }
+      body.layout-sticker .dishes-grid {
+        columns: 2 !important;
+      }
+      .dish-card,
+      .category-section,
+      .chef-special-card {
+        break-inside: avoid !important;
+        -webkit-column-break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+      body.layout-sticker .dish-card.dish-has-photo .dish-body {
+        position: static !important;
+        padding: 12px 14px !important;
+        background: none !important;
+      }
+      body.layout-sticker .dish-card.dish-has-photo .dish-name {
+        color: #101614 !important;
+        text-shadow: none !important;
+      }
+      body.layout-sticker .dish-card.dish-has-photo .dish-desc {
+        color: #555 !important;
+      }
+      body.layout-sticker .dish-card.dish-has-photo .dish-price {
+        position: static !important;
+        right: auto !important;
+        bottom: auto !important;
+        margin-top: 8px !important;
+      }
+      body.layout-sticker .dish-thumb {
+        display: none !important;
+      }
+      body.layout-ticker .dish-card {
+        page-break-inside: avoid !important;
+      }
+      body.layout-billboard .dish-card::before,
+      body.layout-billboard .dish-price,
+      .chef-special-price {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
+    /* --------------------------------------------------------------------------
+       SOLD-OUT & CONTADOR en las morfologias Fase E — el badge rojo Agotado
+       debe mantener contraste sobre el sticker dorado del precio.
+       -------------------------------------------------------------------------- */
+    body.layout-sticker .dish-card.dish-sold .dish-price {
+      background: rgba(229, 62, 62, 0.16) !important;
+      color: #E53E3E !important;
+      border: 1px solid rgba(229, 62, 62, 0.5) !important;
+    }
+    body.layout-billboard .dish-card.dish-sold .dish-price,
+    body.layout-ticker .dish-card.dish-sold .dish-price {
+      color: #E53E3E !important;
+    }
+    body.layout-billboard .qty-counter {
+      display: block;
+      text-align: center;
+      font-size: 0.72rem !important;
     }

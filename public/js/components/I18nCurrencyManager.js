@@ -64,7 +64,14 @@ export const TRANSLATIONS = {
     loyaltyChip: '⭐ Club Puntos',
     iceCreamWizardBtn: '🍧 Armá tu Helado Artesanal',
     perfumeryCatalogBtn: '✨ Catálogo de Perfumería',
-    allDishesLoaded: 'No hay platos cargados aún.'
+    allDishesLoaded: 'No hay platos cargados aún.',
+    topDishesCarousel: 'Los Mejores Platos de la Casa',
+    favoritesBadge: '⭐ Los Favoritos',
+    chefAndFavoritesLabel: 'Sugerencia del Chef & Los Favoritos',
+    favoriteRibbon: '⭐ Favorito',
+    recommendationLabel: 'Recomendación',
+    chefSpecialBadge: '⭐ Especial del Día',
+    chefTitleDefault: 'Sugerencia del Chef & Menú del Día'
   },
   en: {
     searchPlaceholder: '🔍 Search dish, ingredient...',
@@ -123,7 +130,14 @@ export const TRANSLATIONS = {
     loyaltyChip: '⭐ Rewards Club',
     iceCreamWizardBtn: '🍧 Build Your Ice Cream',
     perfumeryCatalogBtn: '✨ Perfumery Catalog',
-    allDishesLoaded: 'No dishes available yet.'
+    allDishesLoaded: 'No dishes available yet.',
+    topDishesCarousel: "The House's Best Dishes",
+    favoritesBadge: '⭐ Favorites',
+    chefAndFavoritesLabel: "Chef's Pick & Favorites",
+    favoriteRibbon: '⭐ Favorite',
+    recommendationLabel: "Chef's Pick",
+    chefSpecialBadge: "⭐ Chef's Special",
+    chefTitleDefault: "Chef's Pick & Today's Menu"
   },
   pt: {
     searchPlaceholder: '🔍 Buscar prato, ingrediente...',
@@ -182,7 +196,14 @@ export const TRANSLATIONS = {
     loyaltyChip: '⭐ Clube Pontos',
     iceCreamWizardBtn: '🍧 Monte seu Sorvete',
     perfumeryCatalogBtn: '✨ Catálogo de Perfumaria',
-    allDishesLoaded: 'Nenhum prato disponível ainda.'
+    allDishesLoaded: 'Nenhum prato disponível ainda.',
+    topDishesCarousel: 'Os Melhores Pratos da Casa',
+    favoritesBadge: '⭐ Os Favoritos',
+    chefAndFavoritesLabel: 'Sugestão do Chef & Os Favoritos',
+    favoriteRibbon: '⭐ Favorito',
+    recommendationLabel: 'Recomendação',
+    chefSpecialBadge: '⭐ Especial do Dia',
+    chefTitleDefault: 'Sugestão do Chef & Menu do Dia'
   }
 };
 

@@ -789,13 +789,19 @@ Object.defineProperties(window, {
       }
 
       // Título dinámico: si no hay recomendaciones del chef pero sí favoritos
+      const i18n = window.i18nManager;
+      const t = (key, fallback) => (i18n && typeof i18n.t === 'function') ? i18n.t(key) : fallback;
       const titleEl = section.querySelector('.chef-specials-title');
       const badgeEl = section.querySelector('.chef-badge-gold');
       if (!chefDishes.length && starDishes.length && titleEl) {
-        titleEl.innerHTML = '<span>🔥</span> Los Mejores Platos de la Casa';
-        if (badgeEl) badgeEl.textContent = '⭐ Los Favoritos';
+        titleEl.innerHTML = `<span>🔥</span> ${t('topDishesCarousel', 'Los Mejores Platos de la Casa')}`;
+        if (badgeEl) badgeEl.textContent = t('favoritesBadge', '⭐ Los Favoritos');
       } else if (chefDishes.length && starDishes.length && titleEl) {
-        titleEl.innerHTML = '<span>👨‍🍳</span> Sugerencia del Chef & Los Favoritos';
+        titleEl.innerHTML = `<span>👨‍🍳</span> ${t('chefAndFavoritesLabel', 'Sugerencia del Chef & Los Favoritos')}`;
+      } else if (titleEl) {
+        // Restaura el título por defecto (puede haber sido re-traducido por applyDOMTranslations)
+        titleEl.innerHTML = `<span>👨‍🍳</span> ${t('chefTitleDefault', 'Sugerencia del Chef & Menú del Día')}`;
+        if (badgeEl) badgeEl.textContent = t('chefSpecialBadge', '⭐ Especial del Día');
       }
 
       const currency = restaurantData.currency || '$';
@@ -808,7 +814,7 @@ Object.defineProperties(window, {
           ? window.i18nManager.formatPrice(effectivePrice) 
           : `${currency} ${effectivePrice}`;
         const isStar = !d.isChefSpecial && (!d.tags || !d.tags.includes('chef_special')) && d.tags && d.tags.includes('star');
-        const ribbonLabel = isStar ? '⭐ Favorito' : (sched.isAvailable ? 'Recomendación' : sched.reason);
+        const ribbonLabel = isStar ? t('favoriteRibbon', '⭐ Favorito') : (sched.isAvailable ? t('recommendationLabel', 'Recomendación') : sched.reason);
         const ribbonIcon = isStar ? '🔥' : '👨‍🍳';
         
         // For Happy Hours: show original price as strikethrough
@@ -850,7 +856,7 @@ Object.defineProperties(window, {
                 : `<button class="btn-add" disabled style="width:34px; height:34px; font-size:0.9rem; background:#4A5568; cursor:not-allowed; opacity:0.6;" title="${sched.reason}">⏰</button>`
               }
             </div>
-            ${inCart > 0 ? `<div style="font-size:0.7rem; color:var(--chalk-gold); font-weight:700; margin-top:4px; text-align:right;">${inCart} en carrito</div>` : ''}
+            ${inCart > 0 ? `<div style="font-size:0.7rem; color:var(--chalk-gold); font-weight:700; margin-top:4px; text-align:right;">${inCart} ${t('inCart', 'en carrito')}</div>` : ''}
           </div>
         `;
       });
@@ -1066,7 +1072,7 @@ Object.defineProperties(window, {
       }
 
       return `
-        <div class="dish-card ${isUnavailable ? 'dish-sold' : ''}" id="dish_card_${d.id}" style="${isUnavailable ? 'opacity:0.6; filter:grayscale(0.5);' : ''}">
+        <div class="dish-card ${isUnavailable ? 'dish-sold' : ''} ${d.photoUrl ? 'dish-has-photo' : ''}" id="dish_card_${d.id}" style="${isUnavailable ? 'opacity:0.6; filter:grayscale(0.5);' : ''}">
           ${photoHtml}
           <div class="dish-body">
             <div class="dish-title-line">
