@@ -420,7 +420,7 @@ async function broadcastToTableChannel(supabase, channelName, event, payload) {
     let entry = serverBroadcastChannels.get(channelName);
     if (!entry) {
       try {
-        const channel = supabase.channel(channelName);
+        const channel = supabase.channel(channelName, { config: { private: true } });
         entry = { channel, lastUsedAt: Date.now() };
         serverBroadcastChannels.set(channelName, entry);
       } catch (e) {

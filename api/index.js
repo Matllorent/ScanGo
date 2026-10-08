@@ -379,7 +379,7 @@ app.post('/api/events/:slug/waiter-call', async (req, res, next) => {
     if (supabase) {
       let channel;
       try {
-        channel = supabase.channel(`event_waiters_${slug}`);
+        channel = supabase.channel(`event_waiters_${slug}`, { config: { private: true } });
         await channel.send({ type: 'broadcast', event: 'waiter_call', payload: callData });
       } catch (e) {
         console.warn('[Event Waiter Push]', e.message);

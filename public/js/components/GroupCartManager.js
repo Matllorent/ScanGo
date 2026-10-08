@@ -253,6 +253,7 @@ export class GroupCartManager {
 
         this.channel = this.supabaseClient.channel(this.channelName, {
           config: {
+            private: true,
             broadcast: { self: false }
           }
         });
