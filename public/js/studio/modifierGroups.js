@@ -95,7 +95,7 @@ export function renderDishModifierAssignments(restaurant, assignedIds = [], esca
     : assigned;
   container.innerHTML = groups.map(group => `
     <label class="dish-assigned-group">
-      <input type="checkbox" data-modifier-group-id="${safeEscape(group.id)}" data-group-kind="${safeEscape(group.kind)}" onchange="toggleDishModifierGroup(this)" ${visibleAssigned.has(group.id) ? 'checked' : ''}>
+      <input type="checkbox" data-modifier-group-id="${safeEscape(group.id)}" data-group-kind="${safeEscape(group.kind)}" data-js-change="toggleDishModifierGroup|this" ${visibleAssigned.has(group.id) ? 'checked' : ''}>
       <span><strong>${safeEscape(group.name)}</strong><small>${safeEscape(group.kind)} · ${(group.options || []).length} opciones${group.required ? ' · obligatorio' : ''}</small></span>
     </label>
   `).join('');
@@ -136,8 +136,8 @@ export function renderModifierGroupList(restaurant, escapeHtml) {
     <div class="modifier-group-list-item">
       <div><strong>${safeEscape(group.name)}</strong><small>${safeEscape(group.kind)} · ${(group.options || []).length} opciones</small></div>
       <div class="modifier-group-list-actions">
-        <button type="button" class="btn-icon" onclick="editModifierGroup('${safeEscape(group.id)}')" aria-label="Editar ${safeEscape(group.name)}">✎</button>
-        <button type="button" class="btn-icon btn-icon-danger" onclick="deleteModifierGroup('${safeEscape(group.id)}')" aria-label="Eliminar ${safeEscape(group.name)}">×</button>
+        <button type="button" class="btn-icon" data-js-click="editModifierGroup|${safeEscape(group.id)}" aria-label="Editar ${safeEscape(group.name)}">✎</button>
+        <button type="button" class="btn-icon btn-icon-danger" data-js-click="deleteModifierGroup|${safeEscape(group.id)}" aria-label="Eliminar ${safeEscape(group.name)}">×</button>
       </div>
     </div>
   `).join('') : '<p class="modifier-empty-state">Creá grupos reutilizables para personalizar los platos.</p>';
@@ -256,7 +256,7 @@ export function renderModifierGroupOptions(options, escapeHtml) {
       <input type="number" class="form-input" data-option-price min="0" step="0.01" value="${option.priceValue !== undefined ? Number(option.priceValue) : (isPresentation ? (Number(option.priceCents) || 0) / 100 : (Number(option.priceDeltaCents) || 0) / 100)}" aria-label="${isPresentation ? 'Precio total' : 'Adicional de precio'}">
       <input type="number" class="form-input modifier-option-units" data-option-units min="1" max="100" step="1" value="${option.unitsIncluded || 1}" style="${isPresentation ? '' : 'display:none;'}" aria-label="Unidades incluidas">
       <input type="number" class="form-input modifier-option-max" data-option-max min="1" max="100" step="1" value="${option.maxQuantity || 3}" style="${hasQuantities && !isPresentation ? '' : 'display:none;'}" aria-label="Cantidad máxima">
-      <button type="button" class="dish-option-remove" onclick="removeModifierGroupOption(${index})" aria-label="Quitar opción">×</button>
+      <button type="button" class="dish-option-remove" data-js-click="removeModifierGroupOption|${index}" aria-label="Quitar opción">×</button>
     </div>
   `).join('');
 }

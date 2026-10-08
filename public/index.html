@@ -163,8 +163,8 @@
       </nav>
 
       <div class="nav-actions">
-        <button class="btn btn-outline btn-sm" onclick="openAuthModal('login')">Iniciar Sesión</button>
-        <button class="btn btn-gold btn-sm" onclick="openAuthModal('register')">Probar 7 Días Gratis</button>
+        <button class="btn btn-outline btn-sm" data-js-click="openAuthModal|login">Iniciar Sesión</button>
+        <button class="btn btn-gold btn-sm" data-js-click="openAuthModal|register">Probar 7 Días Gratis</button>
       </div>
     </div>
   </header>
@@ -185,8 +185,8 @@
           </p>
 
           <div class="hero-actions">
-            <button class="btn btn-gold" onclick="openAuthModal('register')">Comenzar Prueba Gratis (7 Días) →</button>
-            <button type="button" class="btn btn-google" onclick="startGoogleSignup()"><span class="google-mark" aria-hidden="true">G</span> Probar 7 días gratis con Google</button>
+            <button class="btn btn-gold" data-js-click="openAuthModal|register">Comenzar Prueba Gratis (7 Días) →</button>
+            <button type="button" class="btn btn-google" data-js-click="startGoogleSignup"><span class="google-mark" aria-hidden="true">G</span> Probar 7 días gratis con Google</button>
           </div>
 
           <div class="hero-guarantee">
@@ -235,7 +235,7 @@
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
                 <span class="sim-dish-price">$490</span>
-                <button class="sim-btn-add" onclick="simAddDish('Burger Criolla', 490)">+</button>
+                <button class="sim-btn-add" data-js-click="simAddDish|Burger Criolla|490">+</button>
               </div>
             </div>
 
@@ -246,7 +246,7 @@
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
                 <span class="sim-dish-price">$540</span>
-                <button class="sim-btn-add" onclick="simAddDish('Milanesa Napolitana', 540)">+</button>
+                <button class="sim-btn-add" data-js-click="simAddDish|Milanesa Napolitana|540">+</button>
               </div>
             </div>
 
@@ -257,7 +257,7 @@
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
                 <span class="sim-dish-price">$260</span>
-                <button class="sim-btn-add" onclick="simAddDish('Flan Casero', 260)">+</button>
+                <button class="sim-btn-add" data-js-click="simAddDish|Flan Casero|260">+</button>
               </div>
             </div>
 
@@ -268,18 +268,18 @@
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
                 <span class="sim-dish-price">$380</span>
-                <button class="sim-btn-add" onclick="simAddDish('Arepa Reina Pepiada', 380)">+</button>
+                <button class="sim-btn-add" data-js-click="simAddDish|Arepa Reina Pepiada|380">+</button>
               </div>
             </div>
 
             <!-- Simulator Cart Bar -->
-            <div class="sim-cart-bar" id="simCartBar" style="cursor:pointer;" onclick="simOrderWhatsApp()">
+            <div class="sim-cart-bar" id="simCartBar" style="cursor:pointer;" data-js-click="simOrderWhatsApp">
               <span id="simCartCount">🛒 0 ítems en el carrito</span>
               <span id="simCartTotal">Pedir por WhatsApp ($0) →</span>
             </div>
 
             <div style="margin-top:10px; text-align:center;">
-              <button onclick="simResetCart()" style="background:transparent; border:none; color:var(--text-dim); font-size:11px; cursor:pointer; text-decoration:underline;">
+              <button data-js-click="simResetCart" style="background:transparent; border:none; color:var(--text-dim); font-size:11px; cursor:pointer; text-decoration:underline;">
                 🔄 Vaciar carrito de prueba
               </button>
             </div>
@@ -306,7 +306,7 @@
         <div class="savings-result-row"><span>En apps de delivery con 20% de comisión pagás</span><strong id="deliveryCommissionValue">$20.000/mes</strong></div>
         <div class="savings-result-row"><span>Con ScanGo pagás solo</span><strong>$9/mes</strong></div>
         <div class="savings-total"><span>Te ahorrás</span><strong id="monthlySavingsValue">$19.991/mes</strong></div>
-        <button type="button" class="btn btn-gold" onclick="openAuthModal('register')">Quiero dejar de pagar comisiones →</button>
+        <button type="button" class="btn btn-gold" data-js-click="openAuthModal|register">Quiero dejar de pagar comisiones →</button>
       </div>
     </div>
   </section>
@@ -413,7 +413,7 @@
             </ul>
           </div>
 
-          <button class="btn btn-outline" onclick="openAuthModal('register')">Comenzar 7 Días Gratis</button>
+          <button class="btn btn-outline" data-js-click="openAuthModal|register">Comenzar 7 Días Gratis</button>
         </div>
 
         <!-- Annual Plan (Featured) -->
@@ -435,7 +435,7 @@
             </ul>
           </div>
 
-          <button class="btn btn-gold" onclick="openAuthModal('register')">Activar Plan Anual Pro</button>
+          <button class="btn btn-gold" data-js-click="openAuthModal|register">Activar Plan Anual Pro</button>
         </div>
 
         <!-- Local Latam Plan -->
@@ -455,7 +455,7 @@
             </ul>
           </div>
 
-          <button class="btn btn-outline" onclick="openAuthModal('register')">Elegir Mercado Pago</button>
+          <button class="btn btn-outline" data-js-click="openAuthModal|register">Elegir Mercado Pago</button>
         </div>
       </div>
     </div>
@@ -490,7 +490,7 @@
 
       <div class="faq-container">
         <div class="faq-item active">
-          <div class="faq-question" onclick="toggleFaq(this)">
+          <div class="faq-question" data-js-click="toggleFaq|this">
             <span>¿Cobran comisiones sobre los pedidos o ventas que recibo?</span>
             <span class="faq-icon">+</span>
           </div>
@@ -500,7 +500,7 @@
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFaq(this)">
+          <div class="faq-question" data-js-click="toggleFaq|this">
             <span>¿Mis clientes necesitan descargar alguna aplicación en su teléfono?</span>
             <span class="faq-icon">+</span>
           </div>
@@ -510,7 +510,7 @@
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFaq(this)">
+          <div class="faq-question" data-js-click="toggleFaq|this">
             <span>¿Cómo funciona la prueba gratuita de 7 días?</span>
             <span class="faq-icon">+</span>
           </div>
@@ -520,7 +520,7 @@
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFaq(this)">
+          <div class="faq-question" data-js-click="toggleFaq|this">
             <span>¿Qué es la semana de gracia (Smart Dunning)?</span>
             <span class="faq-icon">+</span>
           </div>
@@ -530,7 +530,7 @@
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFaq(this)">
+          <div class="faq-question" data-js-click="toggleFaq|this">
             <span>¿Cómo llegan los pedidos a mi restaurante?</span>
             <span class="faq-icon">+</span>
           </div>
@@ -540,7 +540,7 @@
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFaq(this)">
+          <div class="faq-question" data-js-click="toggleFaq|this">
             <span>¿Puedo cambiar precios o platos desde mi celular sobre la marcha?</span>
             <span class="faq-icon">+</span>
           </div>
@@ -612,8 +612,8 @@
         <div>
           <div class="footer-heading">Acceso Clientes & Legal</div>
           <ul class="footer-links">
-            <li><a href="javascript:void(0)" onclick="openAuthModal('login')">Ingresar al Studio</a></li>
-            <li><a href="javascript:void(0)" onclick="openAuthModal('register')">Registrar Restaurante (7 Días Gratis)</a></li>
+            <li><a href="#" data-js-click="openAuthModal|login">Ingresar al Studio</a></li>
+            <li><a href="#" data-js-click="openAuthModal|register">Registrar Restaurante (7 Días Gratis)</a></li>
             <li><a href="/terminos">Términos del Servicio</a></li>
             <li><a href="/privacidad">Política de Privacidad</a></li>
           </ul>
@@ -629,18 +629,18 @@
   <!-- Auth Modal (Login / Register) -->
   <div id="authModal" class="modal-overlay">
     <div class="modal-card">
-      <button class="modal-close" onclick="closeAuthModal()">✕</button>
+      <button class="modal-close" data-js-click="closeAuthModal">✕</button>
 
       <div class="modal-tabs">
-        <button id="tabRegisterBtn" class="modal-tab-btn active" onclick="switchAuthTab('register')">Crear Cuenta Gratis</button>
-        <button id="tabLoginBtn" class="modal-tab-btn" onclick="switchAuthTab('login')">Iniciar Sesión</button>
+        <button id="tabRegisterBtn" class="modal-tab-btn active" data-js-click="switchAuthTab|register">Crear Cuenta Gratis</button>
+        <button id="tabLoginBtn" class="modal-tab-btn" data-js-click="switchAuthTab|login">Iniciar Sesión</button>
       </div>
 
       <div id="authError" class="form-error"></div>
 
       <!-- Register Form -->
-      <form id="registerForm" onsubmit="handleRegister(event)">
-        <button type="button" class="btn btn-google google-modal-button" onclick="startGoogleSignup()"><span class="google-mark" aria-hidden="true">G</span> Probar 7 días gratis con Google</button>
+      <form id="registerForm" data-js-submit="handleRegister|event">
+        <button type="button" class="btn btn-google google-modal-button" data-js-click="startGoogleSignup"><span class="google-mark" aria-hidden="true">G</span> Probar 7 días gratis con Google</button>
         <div class="auth-divider"><span>o registrate con tu correo</span></div>
         <div class="form-group">
           <label class="form-label">Nombre del Responsable</label>
@@ -670,7 +670,7 @@
           <label class="form-label">Contraseña</label>
           <div class="password-input-wrapper">
             <input type="password" id="regPassword" class="form-input" placeholder="Mínimo 6 caracteres" minlength="6" required autocomplete="new-password">
-            <button type="button" class="toggle-pass-btn" onclick="togglePasswordVisibility('regPassword', this)" aria-label="Mostrar u ocultar contraseña" title="Mostrar/ocultar contraseña">👁️</button>
+            <button type="button" class="toggle-pass-btn" data-js-click="togglePasswordVisibility|regPassword|this" aria-label="Mostrar u ocultar contraseña" title="Mostrar/ocultar contraseña">👁️</button>
           </div>
         </div>
 
@@ -680,7 +680,7 @@
       </form>
 
       <!-- Login Form -->
-      <form id="loginForm" style="display: none;" onsubmit="handleLogin(event)">
+      <form id="loginForm" style="display: none;" data-js-submit="handleLogin|event">
         <div class="form-group">
           <label class="form-label">Correo Electrónico</label>
           <input type="email" id="loginEmail" class="form-input" placeholder="tu@restaurante.com" required>
@@ -690,7 +690,7 @@
           <label class="form-label">Contraseña</label>
           <div class="password-input-wrapper">
             <input type="password" id="loginPassword" class="form-input" placeholder="Ingresa tu contraseña" required autocomplete="current-password">
-            <button type="button" class="toggle-pass-btn" onclick="togglePasswordVisibility('loginPassword', this)" aria-label="Mostrar u ocultar contraseña" title="Mostrar/ocultar contraseña">👁️</button>
+            <button type="button" class="toggle-pass-btn" data-js-click="togglePasswordVisibility|loginPassword|this" aria-label="Mostrar u ocultar contraseña" title="Mostrar/ocultar contraseña">👁️</button>
           </div>
         </div>
 
@@ -699,7 +699,7 @@
         </button>
 
         <div style="text-align:center; margin-top:12px;">
-          <button type="button" class="forgot-pass-link" onclick="openForgotPasswordModal()">
+          <button type="button" class="forgot-pass-link" data-js-click="openForgotPasswordModal">
             ¿Olvidaste tu contraseña?
           </button>
         </div>
@@ -710,7 +710,7 @@
   <!-- Password Recovery Modal (Dual Option: Automated Email & Direct WhatsApp) -->
   <div id="forgotPasswordModal" class="modal-overlay">
     <div class="modal-card">
-      <button class="modal-close" onclick="closeForgotPasswordModal()">✕</button>
+      <button class="modal-close" data-js-click="closeForgotPasswordModal">✕</button>
       <h3 style="font-size:1.3rem; margin-bottom:6px; color:#fff; display:flex; align-items:center; gap:8px;">
         🔑 Recuperar Acceso a ScanGo
       </h3>
@@ -725,7 +725,7 @@
         <div class="recovery-option-card">
           <div class="recovery-option-title" style="font-weight:700; font-size:0.95rem; margin-bottom:6px; color:#fff; display:flex; align-items:center; gap:8px;">📧 1. Enlace Automático por Correo</div>
           <p>Te enviaremos un link seguro a tu casilla de correo para crear una nueva clave.</p>
-          <form id="forgotPassForm" onsubmit="handleForgotPassword(event)">
+          <form id="forgotPassForm" data-js-submit="handleForgotPassword|event">
             <div class="form-group" style="margin-bottom:10px;">
               <input type="email" id="forgotEmail" class="form-input" placeholder="Ingresá tu correo registrado" required>
             </div>
@@ -782,5 +782,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/js/pwa.js"></script>
   <script src="/js/index.js"></script>
+
+  <script src="/js/dom-bindings.js"></script>
 </body>
 </html>

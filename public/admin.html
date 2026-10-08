@@ -243,7 +243,7 @@
     <div class="header-actions">
       <a href="/studio" class="btn btn-outline"><i class="fa-solid fa-sliders"></i> Abrir Studio</a>
       <a href="/" class="btn btn-outline" target="_blank"><i class="fa-solid fa-globe"></i> Ver Web</a>
-      <button id="btn-logout" class="btn btn-outline" style="display:none;" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Salir</button>
+      <button id="btn-logout" class="btn btn-outline" style="display:none;" data-js-click="logout"><i class="fa-solid fa-right-from-bracket"></i> Salir</button>
     </div>
   </header>
 
@@ -253,12 +253,12 @@
       <img src="/logo-scango.png" alt="ScanGo Logo" style="height: 60px; width: auto; margin-bottom: 1rem; border-radius: 8px;">
       <h2>Acceso Maestro ScanGo</h2>
       <p>Ingresá la clave maestra del dueño del emprendimiento y tu código 2FA obligatorio para administrar clientes e ingresos.</p>
-      <form id="admin-form" onsubmit="handleLogin(event)">
+      <form id="admin-form" data-js-submit="handleLogin|event">
         <div class="form-group">
           <label>Clave Maestra (ADMIN_KEY)</label>
           <div class="password-input-group">
             <input type="password" id="admin-key" class="form-control" placeholder="••••••••••••••••" required autofocus>
-            <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('admin-key', this)" aria-label="Mostrar u ocultar contraseña" title="Mostrar/ocultar contraseña">
+            <button type="button" class="toggle-password-btn" data-js-click="togglePasswordVisibility|admin-key|this" aria-label="Mostrar u ocultar contraseña" title="Mostrar/ocultar contraseña">
               <i class="fa-solid fa-eye"></i>
             </button>
           </div>
@@ -386,9 +386,9 @@
         <div class="table-header">
           <div class="table-title"><i class="fa-solid fa-shop"></i> Directorio de Restaurantes y Clientes</div>
           <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-            <button class="btn btn-gold btn-xs" onclick="openInviteModal()"><i class="fa-solid fa-paper-plane"></i> + Invitar Restaurante</button>
-            <button class="btn btn-outline btn-xs" onclick="loadOverview()"><i class="fa-solid fa-rotate-right"></i> Actualizar</button>
-            <button class="btn btn-outline btn-xs" onclick="exportCSV()"><i class="fa-solid fa-file-csv"></i> Descargar CSV</button>
+            <button class="btn btn-gold btn-xs" data-js-click="openInviteModal"><i class="fa-solid fa-paper-plane"></i> + Invitar Restaurante</button>
+            <button class="btn btn-outline btn-xs" data-js-click="loadOverview"><i class="fa-solid fa-rotate-right"></i> Actualizar</button>
+            <button class="btn btn-outline btn-xs" data-js-click="exportCSV"><i class="fa-solid fa-file-csv"></i> Descargar CSV</button>
           </div>
         </div>
         <div id="empty-state-container" style="display: none; text-align: center; padding: 3rem 1.5rem; background: var(--card-bg); border: 1px dashed var(--card-border); border-radius: 12px; margin: 1rem 0;">
@@ -398,7 +398,7 @@
             La base de datos de Supabase no contiene restaurantes registrados actualmente. Podés invitar a un nuevo cliente con un enlace oficial o crear un nuevo restaurante directamente desde Studio.
           </p>
           <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
-            <button class="btn btn-gold" onclick="openInviteModal()"><i class="fa-solid fa-paper-plane"></i> Invitar Restaurante Real</button>
+            <button class="btn btn-gold" data-js-click="openInviteModal"><i class="fa-solid fa-paper-plane"></i> Invitar Restaurante Real</button>
             <a href="/studio" class="btn btn-outline"><i class="fa-solid fa-sliders"></i> Crear en Studio</a>
           </div>
         </div>
@@ -426,7 +426,7 @@
       <div class="table-container" style="margin-top: 2rem;">
         <div class="table-header">
           <div class="table-title"><i class="fa-solid fa-star" style="color:var(--gold);"></i> Moderación de Reseñas de Clientes</div>
-          <button class="btn btn-outline btn-xs" onclick="loadReviews()"><i class="fa-solid fa-rotate-right"></i> Actualizar Reseñas</button>
+          <button class="btn btn-outline btn-xs" data-js-click="loadReviews"><i class="fa-solid fa-rotate-right"></i> Actualizar Reseñas</button>
         </div>
         <div style="overflow-x: auto;">
           <table>
@@ -457,7 +457,7 @@
           <span style="font-size:0.8rem; color:var(--text-muted);">Configuración Global en Vivo para Landing</span>
         </div>
         <div style="padding: 1.5rem;">
-          <form id="pricing-settings-form" onsubmit="savePricingSettingsAdmin(event)">
+          <form id="pricing-settings-form" data-js-submit="savePricingSettingsAdmin|event">
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem;">
               <div class="form-group" style="margin-bottom:0;">
                 <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:6px;">Precio Plan Mensual (USD/mes)</label>
@@ -525,7 +525,7 @@
             </p>
           </div>
           <div>
-            <button type="button" id="btn-toggle-killswitch" onclick="toggleKillSwitchAdmin()" class="btn" style="background:#ef4444; color:#fff; font-weight:700; padding:0.6rem 1.2rem; border-radius:8px; border:none; cursor:pointer;">
+            <button type="button" id="btn-toggle-killswitch" data-js-click="toggleKillSwitchAdmin" class="btn" style="background:#ef4444; color:#fff; font-weight:700; padding:0.6rem 1.2rem; border-radius:8px; border:none; cursor:pointer;">
               <i class="fa-solid fa-pause"></i> Pausar Nuevas Suscripciones
             </button>
           </div>
@@ -540,14 +540,14 @@
           <h3 style="color:var(--gold); font-size:1.25rem; font-weight:700; display:flex; align-items:center; gap:0.5rem;">
             <i class="fa-solid fa-paper-plane"></i> Invitar Restaurante Real
           </h3>
-          <button onclick="closeInviteModal()" style="background:transparent; border:none; color:var(--text-muted); font-size:1.25rem; cursor:pointer; padding:0.25rem;">
+          <button data-js-click="closeInviteModal" style="background:transparent; border:none; color:var(--text-muted); font-size:1.25rem; cursor:pointer; padding:0.25rem;">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
         <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.5rem; line-height:1.4;">
           El sistema creará o vinculará la cuenta en Supabase y enviará un correo con el enlace directo para configurar su menú digital.
         </p>
-        <form id="inviteForm" onsubmit="handleInviteRestaurant(event)">
+        <form id="inviteForm" data-js-submit="handleInviteRestaurant|event">
           <div class="form-group">
             <label>Email del Dueño / Negocio *</label>
             <input type="email" id="invite-email" class="form-control" placeholder="dueño@restaurante.com" required>
@@ -562,7 +562,7 @@
           </div>
           <div id="invite-alert" style="display:none; padding:0.75rem 1rem; border-radius:8px; font-size:0.85rem; margin-bottom:1.25rem;"></div>
           <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
-            <button type="button" class="btn btn-outline" onclick="closeInviteModal()">Cancelar</button>
+            <button type="button" class="btn btn-outline" data-js-click="closeInviteModal">Cancelar</button>
             <button type="submit" id="btn-submit-invite" class="btn btn-gold">
               <i class="fa-solid fa-paper-plane"></i> Enviar Invitación
             </button>
@@ -946,11 +946,11 @@
             <td>
               <div class="actions-cell">
                 ${status === 'active' 
-                  ? `<button class="btn btn-danger btn-xs" onclick="updateStatus('${cleanId}', 'paused')"><i class="fa-solid fa-pause"></i> Pausar</button>`
+                  ? `<button class="btn btn-danger btn-xs" data-js-click="updateStatus|${cleanId}|paused"><i class="fa-solid fa-pause"></i> Pausar</button>`
                   : (status === 'trialing'
-                      ? `<button class="btn btn-success btn-xs" onclick="updateStatus('${cleanId}', 'active')"><i class="fa-solid fa-check"></i> Activar PRO</button>
-                         <button class="btn btn-danger btn-xs" onclick="removeTrial('${cleanId}')"><i class="fa-solid fa-ban"></i> Quitar Trial</button>`
-                      : `<button class="btn btn-success btn-xs" onclick="updateStatus('${cleanId}', 'active')"><i class="fa-solid fa-check"></i> Activar PRO</button>`
+                      ? `<button class="btn btn-success btn-xs" data-js-click="updateStatus|${cleanId}|active"><i class="fa-solid fa-check"></i> Activar PRO</button>
+                         <button class="btn btn-danger btn-xs" data-js-click="removeTrial|${cleanId}"><i class="fa-solid fa-ban"></i> Quitar Trial</button>`
+                      : `<button class="btn btn-success btn-xs" data-js-click="updateStatus|${cleanId}|active"><i class="fa-solid fa-check"></i> Activar PRO</button>`
                     )
                 }
                 <a href="/m/${cleanSlug}" target="_blank" class="btn btn-outline btn-xs"><i class="fa-solid fa-eye"></i> Ver</a>
@@ -1148,8 +1148,8 @@
               <td style="font-size: 0.75rem; color: var(--text-muted);">${new Date(rev.createdAt).toLocaleDateString()}</td>
               <td>
                 <div style="display:flex; gap:6px;">
-                  ${rev.status !== 'approved' ? `<button class="btn btn-success btn-xs" onclick="moderateReview('${cleanRevId}', 'approved')"><i class="fa-solid fa-check"></i> Aprobar</button>` : ''}
-                  ${rev.status !== 'rejected' ? `<button class="btn btn-warning btn-xs" onclick="moderateReview('${cleanRevId}', 'rejected')"><i class="fa-solid fa-xmark"></i> Rechazar</button>` : ''}
+                  ${rev.status !== 'approved' ? `<button class="btn btn-success btn-xs" data-js-click="moderateReview|${cleanRevId}|approved"><i class="fa-solid fa-check"></i> Aprobar</button>` : ''}
+                  ${rev.status !== 'rejected' ? `<button class="btn btn-warning btn-xs" data-js-click="moderateReview|${cleanRevId}|rejected"><i class="fa-solid fa-xmark"></i> Rechazar</button>` : ''}
                 </div>
               </td>
             </tr>
@@ -1436,5 +1436,7 @@
       }
     }
   </script>
+
+  <script src="/js/dom-bindings.js"></script>
 </body>
 </html>

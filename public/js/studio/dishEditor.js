@@ -63,8 +63,8 @@ export function renderDishesList(restaurant, escapeHtml) {
         <div style="font-size:13px; font-weight:700; color:#fff; margin-bottom:4px;">No hay platos en esta sección</div>
         <div style="font-size:11px; color:var(--text-dim); max-width:280px; margin:0 auto 12px;">Comienza sumando platos recomendados desde nuestro catálogo o crea uno nuevo personalizado.</div>
         <div style="display:flex; justify-content:center; gap:8px;">
-          <button class="btn-nav btn-nav-gold" style="font-size:11px; padding:5px 12px;" onclick="openPresetsModal()">✨ Agregar Platos Frecuentes</button>
-          <button class="btn-nav" style="font-size:11px; padding:5px 12px;" onclick="openNewDishModal()">+ Crear Plato</button>
+          <button class="btn-nav btn-nav-gold" style="font-size:11px; padding:5px 12px;" data-js-click="openPresetsModal">✨ Agregar Platos Frecuentes</button>
+          <button class="btn-nav" style="font-size:11px; padding:5px 12px;" data-js-click="openNewDishModal">+ Crear Plato</button>
         </div>
       </div>
     `;
@@ -102,8 +102,8 @@ export function renderDishesList(restaurant, escapeHtml) {
             ${cleanCatName} • ${priceDisplay} ${tags}
           </div>
         </div>
-        <button class="btn-icon" onclick="editDish('${cleanDishId}')" title="Editar">✏️</button>
-        <button class="btn-icon btn-icon-danger" onclick="deleteDish('${cleanDishId}')" title="Eliminar">🗑️</button>
+        <button class="btn-icon" data-js-click="editDish|${cleanDishId}" title="Editar">✏️</button>
+        <button class="btn-icon btn-icon-danger" data-js-click="deleteDish|${cleanDishId}" title="Eliminar">🗑️</button>
       </div>
     `;
   });

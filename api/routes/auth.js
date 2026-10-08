@@ -188,53 +188,7 @@ router.get('/google/callback', async (req, res, next) => {
     <div class="spinner"></div>
     <div class="msg">Completando acceso con Google...</div>
   </div>
-  <script>
-    (function() {
-      // Extract ID token from URL fragment (Google returns it in #id_token=...)
-      const fragment = window.location.hash.substring(1);
-      const params = new URLSearchParams(fragment);
-      const idToken = params.get('id_token');
-      
-      if (!idToken) {
-        // Fallback: check query params (some configurations)
-        const searchParams = new URLSearchParams(window.location.search);
-        const queryToken = searchParams.get('id_token') || searchParams.get('credential');
-        if (queryToken) {
-          return completeAuth(queryToken);
-        }
-        document.body.innerHTML = '<div class="container"><div style="color:#FC8181;">Error: No se recibió token de Google.</div></div>';
-        return;
-      }
-      
-      completeAuth(idToken);
-      
-      async function completeAuth(token) {
-        try {
-          const res = await fetch('/api/auth/google', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              credential: token,
-              restaurantName: '',
-              businessType: 'restaurant'
-            })
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || 'Error en autenticación');
-          
-          // Store session and redirect to Studio
-          localStorage.setItem('menu_pizarron_token', data.token);
-          localStorage.setItem('menu_pizarron_user', JSON.stringify(data.user));
-          localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(data.restaurant));
-          window.opener?.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', data }, '*');
-          window.close();
-          window.location.href = '/studio.html';
-        } catch (e) {
-          document.body.innerHTML = '<div class="container"><div style="color:#FC8181;">Error: ' + e.message + '</div></div>';
-        }
-      }
-    })();
-  </script>
+  <script src="/js/google-auth-callback.js"></script>
 </body>
 </html>
     `;

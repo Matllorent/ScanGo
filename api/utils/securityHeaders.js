@@ -12,12 +12,12 @@
  *
  * CSP por capas:
  *  - strictMenu (menú público /m/*): renderiza contenido del restaurante → es el
- *    mayor blanco XSS. script-src-attr 'none' y NINGÚN 'unsafe-inline' en script-src.
- *    Exige que todo handler inline use atributos data-js-* (public/js/dom-bindings.js).
+ *    mayor blanco XSS. script-src solo 'self' + supabase-js (jsdelivr).
  *  - transitional (resto de páginas): script-src-elem estricto ('self' + CDNs de
- *    confianza + SHA-256 de los scripts inline estáticos) + script-src-attr
- *    'unsafe-inline' para los handlers onclick/onchange legacy de studio/admin/index.
- *    La Etapa 2 del CSP (migración data-js-*) eliminará ese 'unsafe-inline'.
+ *    confianza + SHA-256 de los scripts inline estáticos).
+ *  - Ambas variantes usan script-src-attr 'none' (Etapa 2 completa): NO existe
+ *    ningún atributo on* en todo public/ — todo handler pasa por data-js-*
+ *    (public/js/dom-bindings.js). tests/test-csp.js lo verifica con scan estático.
  *
  * TODO lo que el frontend necesita cargar (fonts, CDNs, supabase realtime) está
  * explícitamente permitido; cualquier host nuevo debe agregarse acá Y en vercel.json.
@@ -32,6 +32,9 @@ const PUBLIC_DIR = path.resolve(__dirname, '..', '..', 'public');
 // Hashes SHA-256 de los bloques <script> inline (sin src) de las páginas estáticas.
 // Se calculan una sola vez (cache) y se incluyen en la CSP transitional.
 // Se SKIP: JSON-LD/JSON (inertes) y scripts dentro de comentarios HTML (no ejecutan).
+// OJO: el browser NORMALIZA los line-endings (CRLF→LF) del cuerpo del script antes
+// de hashear (CSP spec) — si el archivo es CRLF y se hashea crudo, el hash no
+// coincide y el script inline queda BLOQUEADO (bug latente con admin.html).
 // ---------------------------------------------------------------------------
 let cachedHashes = null;
 function computeInlineScriptHashes() {
@@ -48,7 +51,8 @@ function computeInlineScriptHashes() {
       const before = raw.slice(0, m.index);
       const commentDepth = (before.match(/<!--/g) || []).length - (before.match(/-->/g) || []).length;
       if (commentDepth > 0) continue; // dentro de un comentario HTML → no ejecuta
-      const hash = crypto.createHash('sha256').update(m[2]).digest('base64');
+      const body = m[2].replace(/\r\n/g, '\n').replace(/\r/g, '\n'); // como hace el browser
+      const hash = crypto.createHash('sha256').update(body, 'utf8').digest('base64');
       hashes.push(`'sha256-${hash}'`);
     }
   }
@@ -70,8 +74,8 @@ const SCRIPT_EXTERNALS = [
 function buildCspDirectives({ strictMenu = false } = {}) {
   const common = {
     'default-src': ["'self'"],
-    'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-    'font-src': ["'self'", 'data:', 'https://fonts.gstatic.com'],
+    'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'], // cdnjs: Font Awesome (admin)
+    'font-src': ["'self'", 'data:', 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'], // cdnjs: webfonts FA
     'img-src': ["'self'", 'data:', 'blob:', 'https:'],
     'connect-src': ["'self'", 'https://*.supabase.co', 'wss://*.supabase.co'],
     'frame-ancestors': ["'self'"],
@@ -90,7 +94,7 @@ function buildCspDirectives({ strictMenu = false } = {}) {
   return {
     ...common,
     'script-src': ["'self'", ...SCRIPT_EXTERNALS, ...computeInlineScriptHashes()],
-    'script-src-attr': ["'unsafe-inline'"],
+    'script-src-attr': ["'none'"], // Etapa 2 completa: cero handlers inline en TODO public/
     'frame-src': ["'self'", 'https://accounts.google.com']
   };
 }

@@ -11,7 +11,9 @@ export function switchTab(tabId, btn) {
   if (pane) pane.classList.add('active');
   if (btn) btn.classList.add('active');
   else {
-    const fallbackBtn = document.querySelector(`.tab-btn[onclick*="${tabId}"]`);
+    // Fallback: el botón se identifica por su spec data-js-* (los atributos onclick
+    // fueron eliminados por la migración CSP — ver scripts/codemod-csp-events.js).
+    const fallbackBtn = document.querySelector(`.tab-btn[data-js-click="switchTab|${tabId}"]`);
     if (fallbackBtn) fallbackBtn.classList.add('active');
   }
 

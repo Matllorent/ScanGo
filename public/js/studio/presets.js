@@ -83,7 +83,7 @@ export function browsePresetCategory(key, escapeHtml) {
           <div style="font-size:10px; color:var(--text-dim); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${safeEscape(d.desc)}</div>
           <div style="font-size:11px; color:var(--accent-gold); font-family:var(--font-mono); margin-top:2px;">$ ${d.price}</div>
         </div>
-        <button class="btn-nav btn-nav-gold" style="font-size:11px; padding:4px 10px; flex-shrink:0; margin-left:8px;" onclick="addSinglePresetDish('${key}', ${idx})">
+        <button class="btn-nav btn-nav-gold" style="font-size:11px; padding:4px 10px; flex-shrink:0; margin-left:8px;" data-js-click="addSinglePresetDish|${key}|${idx}">
           + Sumar
         </button>
       </div>
@@ -291,7 +291,7 @@ export function renderIceCreamPresetsList() {
     html += `
       <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-base); padding:8px 12px; border-radius:8px; margin-bottom:6px; border:1px solid ${isChecked ? 'var(--accent-gold)' : 'var(--border)'};">
         <label style="display:flex; align-items:center; gap:10px; flex:1; cursor:pointer; min-width:0;">
-          <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleIceCreamFlavorItem('${f.id}', this.checked)" style="width:18px; height:18px; accent-color:var(--accent-gold); cursor:pointer;">
+          <input type="checkbox" ${isChecked ? 'checked' : ''} data-js-change="toggleIceCreamFlavorItem|${f.id}|this.checked" style="width:18px; height:18px; accent-color:var(--accent-gold); cursor:pointer;">
           <div style="min-width:0;">
             <div style="font-size:12px; font-weight:700; color:#fff; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
               <span>${f.name}</span>

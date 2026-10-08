@@ -86,7 +86,7 @@ async function runAiImportTests() {
   const studioHtmlSrc = fs.readFileSync(path.join(__dirname, '../public/studio.html'), 'utf8');
   assert.ok(studioHtmlSrc.includes('aiMenuImportModal'), 'studio.html debe contener el modal #aiMenuImportModal');
   assert.ok(studioHtmlSrc.includes('aiMenuPreviewModal'), 'studio.html debe contener el modal #aiMenuPreviewModal');
-  assert.ok(studioHtmlSrc.includes('openAiMenuImportModal()'), 'studio.html debe contener botón para invocar openAiMenuImportModal');
+  assert.ok(studioHtmlSrc.includes('data-js-click="openAiMenuImportModal"'), 'studio.html debe contener botón (data-js-click) para invocar openAiMenuImportModal');
   console.log('✓ Modales de carga multi-página y previsualización interactiva presentes en studio.html');
 
   // 7. Verify Studio ES Module and globalExports

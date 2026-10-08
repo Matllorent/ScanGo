@@ -197,18 +197,18 @@ export function renderAiMenuPages() {
         <span style="position:absolute; top:6px; left:6px; background:rgba(0,0,0,0.75); color:var(--accent-gold); font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; border:1px solid rgba(236,201,75,0.4);">
           ${page.isPdf ? 'PDF' : `Pág. ${index + 1}`}
         </span>
-        <button type="button" onclick="window.removeAiMenuPage(${index})" title="Eliminar página" style="position:absolute; top:6px; right:6px; background:#e53e3e; color:#fff; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; font-size:11px; display:flex; align-items:center; justify-content:center;">
+        <button type="button" data-js-click="removeAiMenuPage|${index}" title="Eliminar página" style="position:absolute; top:6px; right:6px; background:#e53e3e; color:#fff; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; font-size:11px; display:flex; align-items:center; justify-content:center;">
           ✕
         </button>
       </div>
       <div style="padding:6px; display:flex; justify-content:space-between; align-items:center; background:var(--bg-base);">
-        <button type="button" class="btn-nav" style="padding:2px 6px; font-size:10px;" onclick="window.moveAiMenuPage(${index}, -1)" ${index === 0 ? 'disabled' : ''} title="Mover a la izquierda">
+        <button type="button" class="btn-nav" style="padding:2px 6px; font-size:10px;" data-js-click="moveAiMenuPage|${index}|-1" ${index === 0 ? 'disabled' : ''} title="Mover a la izquierda">
           ◀
         </button>
         <span style="font-size:9px; color:var(--text-dim); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:60px;" title="${page.name}">
           ${page.name}
         </span>
-        <button type="button" class="btn-nav" style="padding:2px 6px; font-size:10px;" onclick="window.moveAiMenuPage(${index}, 1)" ${index === selectedPages.length - 1 ? 'disabled' : ''} title="Mover a la derecha">
+        <button type="button" class="btn-nav" style="padding:2px 6px; font-size:10px;" data-js-click="moveAiMenuPage|${index}|1" ${index === selectedPages.length - 1 ? 'disabled' : ''} title="Mover a la derecha">
           ▶
         </button>
       </div>
@@ -381,7 +381,7 @@ export function openAiMenuPreviewModal(result) {
                 <span style="color:#68D391; font-weight:700; font-family:var(--font-mono); white-space:nowrap;">
                   $ ${item.price.toFixed(2)}
                 </span>
-                <button type="button" onclick="window.removeDetectedAiDish(${cIdx}, ${itemIdx})" style="background:transparent; border:none; color:#E53E3E; cursor:pointer; font-size:12px; padding:2px 4px;" title="Descartar este plato">
+                <button type="button" data-js-click="removeDetectedAiDish|${cIdx}|${itemIdx}" style="background:transparent; border:none; color:#E53E3E; cursor:pointer; font-size:12px; padding:2px 4px;" title="Descartar este plato">
                   ✕
                 </button>
               </div>

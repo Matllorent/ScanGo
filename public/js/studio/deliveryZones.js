@@ -33,7 +33,7 @@ export function renderDeliveryZones(restaurant, escapeHtml) {
         <span style="font-size:12px;">${escapeHtml(z.name)}</span>
         <div style="display:flex; align-items:center; gap:6px;">
           <span style="font-family:var(--font-mono); color:var(--accent-gold); font-size:11px;">${currency} ${z.fee}</span>
-          <button class="btn-icon btn-icon-danger" onclick="deleteDeliveryZone(${idx})">🗑️</button>
+          <button class="btn-icon btn-icon-danger" data-js-click="deleteDeliveryZone|${idx}">🗑️</button>
         </div>
       </div>
     `;

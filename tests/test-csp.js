@@ -6,18 +6,21 @@
  * esa configuración por una fuente única de verdad (api/utils/securityHeaders.js)
  * aplicada en Express (dev/API/SSR) Y en vercel.json (estáticos en producción,
  * donde Express no participa). El menú público /m/* recibe una CSP ESTRICTA
- * (script-src-attr 'none', sin 'unsafe-inline') que exige que TODO handler inline
- * use atributos data-js-* resueltos por public/js/dom-bindings.js.
+ * (script-src solo 'self' + supabase-js); desde la Etapa 2, TODAS las variantes
+ * usan script-src-attr 'none' → todo handler debe ser un atributo data-js-*
+ * resuelto por public/js/dom-bindings.js.
  *
  * Este test verifica:
- *  1. El menú (superficie estricta) NO tiene ningún atributo on*= remanente
- *     (si alguien escribe onclick= en el menú, la CSP estricta lo rompería).
- *  2. Las hashes SHA-256 de los scripts inline están en la CSP transitional
- *     (drift => falla si editan admin.html/index.html/reset-password sin actualizar).
+ *  1. NINGÚN archivo de public/ tiene atributos on*= remanentes (la CSP de
+ *     AMBAS variantes usa script-src-attr 'none' desde la Etapa 2: si alguien
+ *     escribe un onclick= nuevo, la CSP lo rompe en producción).
+ *  2. Las hashes SHA-256 de los scripts inline (normalizadas CRLF→LF como el
+ *     browser) están en la CSP transitional.
  *  3. vercel.json (estáticos de producción) replica EXACTAMENTE los headers del módulo.
- *  4. En runtime: /m/:slug responde con CSP estricta; el resto con transitional;
- *     los headers duros (Referrer-Policy, Permissions-Policy, CORP, COOP, nosniff,
- *     X-Frame-Options, HSTS) están presentes en toda respuesta.
+ *  4. En runtime: /m/:slug responde con CSP estricta; el resto con transitional
+ *     (ambas con script-src-attr 'none'); los headers duros (Referrer-Policy,
+ *     Permissions-Policy, CORP, COOP, nosniff, X-Frame-Options, HSTS) están
+ *     presentes en toda respuesta.
  *
  * Está en `npm test` (nº 25).
  */
@@ -33,32 +36,25 @@ const securityHeaders = require('../api/utils/securityHeaders');
 const ROOT = path.join(__dirname, '..');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 
-// Atributos de handler inline que la CSP estricta bloquea (y que la Etapa 2
-// eliminará también de studio/admin/index). `\son` evita falsos positivos
-// con `content=` (los metas no empiezan con "on").
-const INLINE_EVENT_RE = /\son(?:click|change|input|submit|focus|blur|keydown|keyup|paste|error|load|dblclick|mouseover|mouseout|mousedown|mouseup|touchstart|touchend|contextmenu|wheel|scroll)="[^"]*"/g;
+// Atributos de handler inline: prohibidos en TODA la superficie (CSP con
+// script-src-attr 'none' en ambas variantes desde la Etapa 2). `\son` evita
+// falsos positivos con `content=` (los metas no empiezan con "on").
+const INLINE_EVENT_RE = /\son[a-z]+="[^"]*"/g;
 
-// Superficie con CSP ESTRICTA (menú público + módulos que renderiza).
-const STRICT_SURFACE_FILES = [
-  'public/menu.html',
-  'public/js/menu.js',
-  'public/js/menu-modules.js',
-  'public/js/menu/eventGuestMode.js',
-  'public/js/menu/menuState.js',
-  'public/js/menu/menuViewModel.js',
-  'public/js/menu/menuModals.js',
-  'public/js/menu/menuLoader.js',
-  'public/js/menu/cartOperations.js',
-  'public/js/menu/orderCheckout.js',
-  'public/js/menu/smartReviews.js',
-  'public/js/menu/virtualWaiterHeuristics.js',
-  'public/js/components/DishCard.js',
-  'public/js/components/GroupCartManager.js',
-  'public/js/components/IceCreamWizard.js',
-  'public/js/components/I18nCurrencyManager.js',
-  'public/js/components/LoyaltyRewardsModal.js',
-  'public/js/components/PerfumeryView.js'
-];
+// dom-bindings.js se excluye: su doc-comment enseña la conversión
+// onclick="fn('a')" → data-js-click="fn|a" con ejemplos literales.
+const SCAN_EXCLUDE = new Set(['dom-bindings.js']);
+
+function walkPublic(dir, out = []) {
+  for (const entry of fs.readdirSync(dir)) {
+    const p = path.join(dir, entry);
+    if (fs.statSync(p).isDirectory()) { walkPublic(p, out); continue; }
+    if (!/\.(js|html)$/.test(entry)) continue;
+    if (SCAN_EXCLUDE.has(entry)) continue;
+    out.push(p);
+  }
+  return out;
+}
 
 function collectInlineScriptHashes() {
   const hashes = [];
@@ -72,7 +68,9 @@ function collectInlineScriptHashes() {
       const before = raw.slice(0, m.index);
       const commentDepth = (before.match(/<!--/g) || []).length - (before.match(/-->/g) || []).length;
       if (commentDepth > 0) continue;
-      hashes.push(`'sha256-${crypto.createHash('sha256').update(m[2]).digest('base64')}'`);
+      // Normaliza line-endings como el browser antes de hashear (CSP spec)
+      const body = m[2].replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      hashes.push(`'sha256-${crypto.createHash('sha256').update(body).digest('base64')}'`);
     }
   }
   return hashes;
@@ -88,16 +86,17 @@ async function runTests() {
   console.log('🔐 Verificando CSP real + headers duros (menú estricto / resto transicional)...');
 
   // ---------------------------------------------------------------- estático 1
-  // Cero handlers inline remanentes en la superficie estricta del menú.
-  for (const rel of STRICT_SURFACE_FILES) {
-    const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+  // Cero handlers inline remanentes en TODO public/ (HTML y JS).
+  for (const abs of walkPublic(PUBLIC_DIR)) {
+    const rel = path.relative(ROOT, abs);
+    const src = fs.readFileSync(abs, 'utf8');
     const found = src.match(INLINE_EVENT_RE) || [];
     assert.strictEqual(
       found.length, 0,
-      `${rel} tiene ${found.length} atributo(s) on*= → CSP estricta los bloquearía. Usar data-js-* (dom-bindings.js).`
+      `${rel} tiene ${found.length} atributo(s) on*= → la CSP (script-src-attr 'none') los bloquearía. Usar data-js-* (dom-bindings.js).`
     );
   }
-  console.log('✓ Superficie del menú sin atributos on*= (CSP estricta segura)');
+  console.log('✓ Todo public/ sin atributos on*= (CSP script-src-attr none segura)');
 
   // ---------------------------------------------------------------- estático 2
   // Hashes de scripts inline: módulo === recomputación independiente === CSP.
@@ -114,7 +113,7 @@ async function runTests() {
   }
   const scriptSrcElem = (transitionalCsp.match(/script-src 'self'[^;]*/) || [''])[0];
   assert.ok(!scriptSrcElem.includes("'unsafe-inline'"), 'CSP transitional: script-src (elem) debe ser estricto, sin unsafe-inline');
-  assert.ok(transitionalCsp.includes("script-src-attr 'unsafe-inline'"), 'CSP transitional: script-src-attr unsafe-inline (Etapa 2 lo elimina)');
+  assert.ok(transitionalCsp.includes("script-src-attr 'none'"), 'CSP transitional: script-src-attr none (Etapa 2 completa: cero handlers on*= en public/)');
   console.log('✓ Hashes de scripts inline presentes en la CSP transitional');
 
   // ---------------------------------------------------------------- estático 3
@@ -184,14 +183,14 @@ async function runTests() {
 
     // `/` (index.html estático servido por Express en dev) → CSP transitional
     const indexRes = await fetch(`${base}/`);
-    assert.ok(indexRes.headers.get('Content-Security-Policy').includes("script-src-attr 'unsafe-inline'"), 'index: CSP transitional (handlers legacy permitidos)');
+    assert.ok(indexRes.headers.get('Content-Security-Policy').includes("script-src-attr 'none'"), 'index: CSP transitional con script-src-attr none (Etapa 2)');
     assertHeader(indexRes, 'Permissions-Policy', 'geolocation=()', 'index');
-    console.log('✓ / responde con CSP transitional');
+    console.log('✓ / responde con CSP transitional (script-src-attr none)');
 
     // /studio sin sesión → redirect 302, pero headers presentes (middleware va antes que el guard)
     const studioRes = await fetch(`${base}/studio`, { redirect: 'manual' });
     assert.strictEqual(studioRes.status, 302, '/studio sin sesión debe redirigir');
-    assertHeader(studioRes, 'Content-Security-Policy', "script-src-attr 'unsafe-inline'", '/studio (redirect)');
+    assertHeader(studioRes, 'Content-Security-Policy', "script-src-attr 'none'", '/studio (redirect)');
     console.log('✓ /studio (redirect) conserva los headers de seguridad');
 
     // API JSON también recibe los headers (middleware global)

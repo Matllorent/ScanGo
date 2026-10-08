@@ -16,7 +16,7 @@
  *                                                →  <div data-js-click-backdrop="closeX">
  *   <button onclick="document.getElementById('f').click()">
  *                                                →  <button data-js-click="fireClick|f">
- *   <button onclick="this.style.color='#EF4444'"> →  <button data-js-style-color="#EF4444">
+ *   <button onclick="this.style.color='#EF4444'"> →  <button data-js-click-style-color="#EF4444">
  *
  * ARGS (separados por |):
  *   event        → el objeto Event
@@ -43,7 +43,9 @@
     keydown: 'data-js-keydown',
     focus: 'data-js-focus',
     blur: 'data-js-blur',
-    paste: 'data-js-paste'
+    paste: 'data-js-paste',
+    mouseover: 'data-js-mouseover',
+    mouseout: 'data-js-mouseout'
   };
 
   function resolvePath(root, path) {
@@ -80,7 +82,15 @@
     var args = [];
     for (var i = 1; i < parts.length; i++) args.push(getArg(el, ev, parts[i]));
     if (el.tagName === 'A') ev.preventDefault();
-    fn.apply(el, args);
+    // Paths punteados (i18nManager.setLanguage) son llamadas de MÉTODO: el receiver
+    // debe ser el objeto dueño (como el handler inline original), no el elemento.
+    var receiver = el;
+    var dot = fnPath.lastIndexOf('.');
+    if (dot > 0) {
+      var owner = resolvePath(window, fnPath.slice(0, dot));
+      if (owner != null) receiver = owner;
+    }
+    fn.apply(receiver, args);
   }
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -106,24 +116,35 @@
     });
 
     // onerror="this.style.display='none'" → data-js-error-style-display="none"
+    // onerror="fn(this)"                  → data-js-error-fn="fn" (fn recibe el elemento como `this`)
     // El evento error de recursos NO burbujea → listener en fase capture sobre document.
     document.addEventListener('error', function (e) {
       var t = e.target;
       if (!t || !t.closest) return;
-      var el = t.closest('[data-js-error-style-display]');
-      if (!el) return;
-      el.style.display = el.getAttribute('data-js-error-style-display');
+      var styleEl = t.closest('[data-js-error-style-display]');
+      if (styleEl) styleEl.style.display = styleEl.getAttribute('data-js-error-style-display');
+      var fnEl = t.closest('[data-js-error-fn]');
+      if (fnEl) {
+        var fn = resolvePath(window, fnEl.getAttribute('data-js-error-fn'));
+        if (typeof fn === 'function') fn.call(fnEl, e);
+      }
     }, true);
 
-    // data-js-style-<prop>: <button data-js-style-color="#EF4444"> → btn.style.color = valor
+    // data-js-<tipo>-style-<prop>: se aplica el.style[prop]=valor EN ese evento.
+    //   onclick="this.style.color='X'"     → data-js-click-style-color="X"
+    //   onmouseover="this.style.color='X'" → data-js-mouseover-style-color="X"
+    //   (onerror va al listener de capture de arriba: data-js-error-style-display)
     var STYLE_PROPS = ['color', 'display'];
-    STYLE_PROPS.forEach(function (prop) {
-      document.addEventListener('click', function (e) {
-        var t = e.target;
-        if (!t || !t.closest) return;
-        var el = t.closest('[data-js-style-' + prop + ']');
-        if (!el) return;
-        el.style[prop] = el.getAttribute('data-js-style-' + prop);
+    ['click', 'mouseover', 'mouseout'].forEach(function (type) {
+      STYLE_PROPS.forEach(function (prop) {
+        var attr = 'data-js-' + type + '-style-' + prop;
+        document.addEventListener(type, function (e) {
+          var t = e.target;
+          if (!t || !t.closest) return;
+          var el = t.closest('[' + attr + ']');
+          if (!el) return;
+          el.style[prop] = el.getAttribute(attr);
+        });
       });
     });
   });

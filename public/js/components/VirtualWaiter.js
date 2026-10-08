@@ -342,7 +342,7 @@ export class VirtualWaiter {
     let cardsHtml = '';
     candidates.forEach(dish => {
       const thumbHtml = dish.photoUrl
-        ? `<img class="mozo-item-thumb" src="${escapeHtml(dish.photoUrl)}" alt="${escapeHtml(dish.name)}" loading="lazy" onerror="this.style.display='none'">`
+        ? `<img class="mozo-item-thumb" src="${escapeHtml(dish.photoUrl)}" alt="${escapeHtml(dish.name)}" loading="lazy" data-js-error-style-display="none">`
         : `<div class="mozo-item-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🍽️</div>`;
 
       const discountTagHtml = discount

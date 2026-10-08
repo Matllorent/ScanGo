@@ -77,10 +77,10 @@ export function renderCategoryManagerList(restaurant, escapeHtml) {
     <div style="display:flex; justify-content:space-between; align-items:center; background:var(--surface-2); padding:8px 12px; border-radius:6px; border:1px solid var(--border);">
       <span style="font-size:12px; font-weight:600; color:#fff;">${safeEscape(c.name)}</span>
       <div style="display:flex; gap:6px;">
-        <button class="btn-icon" onclick="moveCategory('${safeEscape(c.id)}', -1)" title="Mover arriba" aria-label="Mover ${safeEscape(c.name)} arriba" ${index === 0 ? 'disabled' : ''}>↑</button>
-        <button class="btn-icon" onclick="moveCategory('${safeEscape(c.id)}', 1)" title="Mover abajo" aria-label="Mover ${safeEscape(c.name)} abajo" ${index === cats.length - 1 ? 'disabled' : ''}>↓</button>
-        <button class="btn-icon" onclick="renameCategory('${safeEscape(c.id)}')" title="Renombrar">✏️</button>
-        <button class="btn-icon btn-icon-danger" onclick="deleteCategory('${safeEscape(c.id)}')" title="Eliminar">🗑️</button>
+        <button class="btn-icon" data-js-click="moveCategory|${safeEscape(c.id)}|-1" title="Mover arriba" aria-label="Mover ${safeEscape(c.name)} arriba" ${index === 0 ? 'disabled' : ''}>↑</button>
+        <button class="btn-icon" data-js-click="moveCategory|${safeEscape(c.id)}|1" title="Mover abajo" aria-label="Mover ${safeEscape(c.name)} abajo" ${index === cats.length - 1 ? 'disabled' : ''}>↓</button>
+        <button class="btn-icon" data-js-click="renameCategory|${safeEscape(c.id)}" title="Renombrar">✏️</button>
+        <button class="btn-icon btn-icon-danger" data-js-click="deleteCategory|${safeEscape(c.id)}" title="Eliminar">🗑️</button>
       </div>
     </div>
   `).join('');

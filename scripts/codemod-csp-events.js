@@ -108,9 +108,9 @@ function transform(src) {
       out += m[0];
     } else if (parsed.styleProp) {
       report.styled.push(`${parsed.styleProp}:${parsed.styleValue}`);
-      // onerror="this.style.x='v'" → data-js-error-style-x (el binder lo ata al evento error, no al click)
-      const attrPrefix = type === 'error' ? 'error-style-' : 'style-';
-      out += `data-js-${attrPrefix}${parsed.styleProp}="${parsed.styleValue}"`;
+      // Estilos por evento: onerror="this.style.x='v'" → data-js-error-style-x (evento error),
+      // onmouseover="this.style.color='v'" → data-js-mouseover-style-color, onclick → data-js-click-style-color
+      out += `data-js-${type}-style-${parsed.styleProp}="${parsed.styleValue}"`;
     } else {
       report.handled++;
       const specs = [parsed.fn, ...parsed.args].map(s => s.replace(/"/g, '&quot;'));

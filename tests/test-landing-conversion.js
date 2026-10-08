@@ -24,7 +24,7 @@ assert.ok(client.includes('sales * 0.2'));
 assert.ok(client.includes('deliveryCommission - 9'));
 
 assert.ok(html.includes('id="demo-interactiva"'));
-assert.ok(html.includes("simAddDish('Burger Criolla', 490)"));
+assert.ok(html.includes('data-js-click="simAddDish|Burger Criolla|490"')); // handler migrado a data-js-* (CSP script-src-attr none)
 assert.ok(css.includes('.savings-layout'));
 assert.ok(css.includes('@media (max-width: 600px)'));
 

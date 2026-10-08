@@ -69,9 +69,9 @@ export function renderBranchesList(currentUser, restaurant, escapeHtml) {
         <div style="min-width:100px; flex:1; font-size:10px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${address}</div>
         <div style="min-width:80px; font-size:11px; font-weight:700; font-family:var(--font-mono); color:var(--accent-gold);">$${effectivePrice.toFixed(2)} ${discountLabel}</div>
         <div style="display:flex; gap:6px; flex-shrink:0;">
-          <button class="btn-icon" onclick="editBranch('${branchId}')" title="Editar sucursal — precios personalizados y platillos exclusivos" style="padding:6px 8px;">⚙️</button>
+          <button class="btn-icon" data-js-click="editBranch|${branchId}" title="Editar sucursal — precios personalizados y platillos exclusivos" style="padding:6px 8px;">⚙️</button>
           ${position > 1 ? `
-            <button class="btn-icon btn-icon-danger" onclick="deleteBranch('${branchId}')" title="Eliminar sucursal" style="padding:6px 8px;">🗑️</button>
+            <button class="btn-icon btn-icon-danger" data-js-click="deleteBranch|${branchId}" title="Eliminar sucursal" style="padding:6px 8px;">🗑️</button>
           ` : `
             <span style="font-size:10px; color:var(--text-dim); padding:6px 8px;">🔒 Principal</span>
           `}
@@ -394,7 +394,7 @@ export function addBranchOverrideRow(dishId = '', price = '', restaurant, safeEs
       ${options}
     </select>
     <input type="number" min="0" step="0.01" class="form-input" data-role="price" value="${numberOrEmpty(price)}" placeholder="Precio" style="flex:0.8; min-width:0;">
-    <button type="button" class="btn-icon btn-icon-danger" onclick="removeBranchOverrideRow(${idx})" title="Quitar" style="padding:6px 8px;">✕</button>
+    <button type="button" class="btn-icon btn-icon-danger" data-js-click="removeBranchOverrideRow|${idx}" title="Quitar" style="padding:6px 8px;">✕</button>
   `;
   rows.appendChild(row);
 }
@@ -430,7 +430,7 @@ export function addBranchCustomDishRow(dish = null, restaurant, safeEscape) {
       <input type="number" min="0" step="0.01" class="form-input" data-role="price" value="${numberOrEmpty(d.price)}" placeholder="Precio">
       <input type="text" class="form-input" data-role="description" value="${esc(d.description || '')}" placeholder="Descripción (opcional)" maxlength="200">
     </div>
-    <button type="button" class="btn-icon btn-icon-danger" onclick="removeBranchCustomDishRow(${idx})" title="Quitar" style="padding:6px 8px; flex-shrink:0;">✕</button>
+    <button type="button" class="btn-icon btn-icon-danger" data-js-click="removeBranchCustomDishRow|${idx}" title="Quitar" style="padding:6px 8px; flex-shrink:0;">✕</button>
   `;
   rows.appendChild(row);
 }

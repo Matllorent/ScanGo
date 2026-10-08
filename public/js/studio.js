@@ -263,7 +263,7 @@ export function renderBannerPreviewUI() {
   const btnRemove = document.getElementById('btnRemoveBanner');
   if (!box || !restaurant) return;
   if (restaurant.bannerUrl) {
-    box.innerHTML = `<img src="${restaurant.bannerUrl}" style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.parentElement.innerHTML='<span style=\\'font-size:11px; color:#f87171;\\'>⚠️ Error cargando imagen</span>'">`;
+    box.innerHTML = `<img src="${restaurant.bannerUrl}" style="width:100%; height:100%; object-fit:cover; display:block;" data-js-error-fn="handleBannerImageError">`;
     if (btnRemove) btnRemove.style.display = 'inline-block';
   } else {
     box.innerHTML = `
@@ -272,6 +272,13 @@ export function renderBannerPreviewUI() {
       </span>
     `;
     if (btnRemove) btnRemove.style.display = 'none';
+  }
+}
+
+// Fallback si la imagen de portada no carga (onerror → data-js-error-fn, CSP estricta)
+export function handleBannerImageError(img) {
+  if (img && img.parentElement) {
+    img.parentElement.innerHTML = '<span style="font-size:11px; color:#f87171;">⚠️ Error cargando imagen</span>';
   }
 }
 
@@ -1015,7 +1022,7 @@ const globalExports = {
   initStudio, logout, openDeleteAccountModal, closeDeleteAccountModal, confirmAccountDeletion,
   renderStudioUI, updateLiveState, saveStudioChanges, triggerAutoSave, reloadPreviewIframe, syncLivePreviewIframe, setPreviewView,
   switchTab, showConfirmDialog, closeConfirmDialog, showSaveFeedback,
-  handleLogoUpload, removeLogo, handleBannerUpload, handleBannerUrlInput, removeBanner, renderBannerPreviewUI,
+  handleLogoUpload, removeLogo, handleBannerUpload, handleBannerUrlInput, removeBanner, renderBannerPreviewUI, handleBannerImageError,
   openBillingModal, closeBillingModal, startCheckout,
   renderDeliveryZones, addDeliveryZone, deleteDeliveryZone,
   renderBranchesList, addBranch, deleteBranch, editBranch, closeBranchEdit, saveBranchEdit, addBranchOverrideRow, removeBranchOverrideRow, addBranchCustomDishRow, removeBranchCustomDishRow, resetBranchForm,
