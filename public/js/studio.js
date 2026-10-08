@@ -241,11 +241,26 @@ export function updateBusinessTypeControls() {
   const bizType = normalizeBusinessType(restaurant?.businessType);
   const perfumerySection = document.getElementById('perfumeryControlsSection');
   if (perfumerySection) {
-    perfumerySection.style.display = (bizType === 'perfumery') ? 'block' : 'none';
+    perfumerySection.style.display = (bizType === 'perfumery') ? 'flex' : 'none';
+    const perfCheckbox = el('inputAllowPerfumery');
+    const sliderP = el('sliderPerfumery');
+    if (bizType === 'perfumery' && perfCheckbox) {
+      // Auto-activar el catálogo de perfumería al elegir el tipo (backend solo
+      // defaultea true si el flag está undefined; un false explícito lo mata).
+      perfCheckbox.checked = true;
+      if (sliderP) sliderP.style.backgroundColor = '#38A169';
+    }
   }
   const iceCreamSection = document.getElementById('iceCreamControlsSection');
   if (iceCreamSection) {
-    iceCreamSection.style.display = (bizType === 'heladeria') ? 'block' : 'none';
+    iceCreamSection.style.display = (bizType === 'heladeria') ? 'flex' : 'none';
+    const iceCreamCheckbox = el('inputAllowIceCreamWizard');
+    const sliderI = el('sliderIceCreamWizard');
+    if (bizType === 'heladeria' && iceCreamCheckbox) {
+      // Idem: una heladería nueva debe nacer con el asistente activo.
+      iceCreamCheckbox.checked = true;
+      if (sliderI) sliderI.style.backgroundColor = '#38A169';
+    }
   }
 }
 

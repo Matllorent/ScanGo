@@ -577,6 +577,11 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
         logoUrl: restaurant.logoUrl || null,
         bannerUrl: restaurant.bannerUrl || null,
         layout: restaurant.layout || 'classic',
+        // Verticales de negocio (no sensibles): el frontend las usa para el gating
+        // de heladería/perfumería y la resolución de temas de eventos.
+        businessType: restaurant.businessType || 'restaurant',
+        allowIceCreamWizard: restaurant.allowIceCreamWizard === true,
+        allowPerfumery: restaurant.allowPerfumery === true,
         wifi: restaurant.wifi || { ssid: '', password: '' },
         categories: publicCategories,
         modifierGroups: restaurant.modifierGroups || [],
@@ -1335,7 +1340,9 @@ app.get('/m/:slug', (req, res) => {
     const menuUrl = `${appUrl}/m/${encodeURIComponent(restaurant.slug || slug)}${branchQuery}`;
     const normalized = normalizeBranchCustomDishes(restaurant.categories, restaurant.dishes, activeBranch?.customDishes || null);
     const categories = normalized.categories;
-    let dishes = normalized.dishes;
+    // Defensa para verticales sin carta cargada (eventos/heladerías frescas):
+    // normalizeBranchCustomDishes puede devolver dishes: undefined.
+    let dishes = Array.isArray(normalized.dishes) ? normalized.dishes : [];
 
     if (activeBranch?.overridePrices && typeof activeBranch.overridePrices === 'object') {
       dishes = dishes.map(dish => ({

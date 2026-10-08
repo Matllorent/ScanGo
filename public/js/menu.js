@@ -455,7 +455,9 @@ Object.defineProperties(window, {
 
       // Vertical / Special Features Visibility Control (Heladería & Perfumería)
       // Strictly modular by businessType: restaurants and events do not have ice cream or perfumery enabled
-      const isHeladeria = restaurantData.businessType === 'heladeria' && restaurantData.allowIceCreamWizard !== false;
+      // isHeladeria: el backend normaliza businessType 'heladeria' -> 'restaurant' y deja
+      // allowIceCreamWizard=true (normalizeRestaurantBusinessType). El flag es la señal real.
+      const isHeladeria = restaurantData.allowIceCreamWizard === true;
       const isPerfumeria = ['perfumery', 'perfumeria'].includes(restaurantData.businessType) && restaurantData.allowPerfumery !== false;
 
       const btnIceCream = document.getElementById('btnOpenIceCreamWizard');
