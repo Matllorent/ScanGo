@@ -74,6 +74,24 @@ router.get('/weekly/:restaurantId', tenantGuard, async (req, res, next) => {
 });
 
 /**
+ * GET /api/analytics/today/:restaurantId
+ * "Lo que se vendió hoy" (día local del dueño) + comparación con ayer +
+ * platos vendidos y más vistos hoy. Query: ?utcOffsetMinutes=180 (UY)
+ */
+router.get('/today/:restaurantId', tenantGuard, async (req, res, next) => {
+  try {
+    const restaurantId = req.params.restaurantId;
+    const utcOffsetMinutes = parseInt(req.query.utcOffsetMinutes) || 0;
+    const summary = await telemetryService.getTodaySummary(restaurantId, { utcOffsetMinutes });
+    summary.topDishesSold = attachDishNames(restaurantId, summary.topDishesSold);
+    summary.topViewed = attachDishNames(restaurantId, summary.topViewed.map(d => ({ dishId: d.dishId, views: d.views })));
+    return successResponse(res, summary, 'Resumen del día calculado');
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * GET /api/analytics/daily/:restaurantId
  * Returns daily metrics for the last 30 days (for charts)
  * Query params: ?days=30&branchId=xxx&eventId=xxx

@@ -45,6 +45,75 @@ export function updateKPIs(metrics) {
   if (els.revenue) els.revenue.textContent = (metrics?.revenue || 0).toFixed(2);
 }
 
+/**
+ * Renderiza "Lo que se vendió hoy": pedidos, plata, ticket, unidades, vs ayer,
+ * platos vendidos/más vistos y desglose por sucursal. Todo en español claro.
+ * @param {object} summary - Respuesta de /api/analytics/today/:id
+ */
+export function renderTodaySummary(summary) {
+  const setText = (id, v) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = v;
+  };
+  if (!summary) {
+    setText('todayOrders', '—');
+    setText('todayRevenue', '—');
+    setText('todayTicket', '—');
+    setText('todayUnits', '—');
+    return;
+  }
+
+  const m = summary.metrics || {};
+  setText('todayOrders', m.orders || 0);
+  setText('todayRevenue', `$${(m.revenue ?? 0).toFixed(2)}`);
+  setText('todayTicket', `$${(m.avgTicket ?? 0).toFixed(2)}`);
+  setText('todayUnits', m.unitsSold || 0);
+
+  // Comparación con ayer, en criollo
+  const y = summary.yesterday || {};
+  const pct = (cur, prev) => (prev > 0 ? Math.round(((cur - prev) / prev) * 100) : cur > 0 ? 100 : 0);
+  const ordersPct = pct(m.orders || 0, y.orders || 0);
+  const revPct = pct(m.revenue || 0, y.revenue || 0);
+  const arrow = (p) => (p > 0 ? '▲' : p < 0 ? '▼' : '＝');
+  const col = (p) => (p > 0 ? '#4ade80' : p < 0 ? '#f87171' : 'var(--text-dim)');
+  const vs = document.getElementById('todayVsYesterday');
+  if (vs) {
+    vs.innerHTML = `vs ayer: <b style="color:${col(ordersPct)}">${arrow(ordersPct)} pedidos ${ordersPct > 0 ? '+' : ''}${ordersPct}%</b> · <b style="color:${col(revPct)}">${arrow(revPct)} plata ${revPct > 0 ? '+' : ''}${revPct}%</b>`;
+  }
+
+  const br = document.getElementById('todayByBranch');
+  if (br) {
+    const branches = summary.byBranch || [];
+    br.innerHTML = branches.length > 1
+      ? branches.map(b => `<b>${b.branchId === 'main' ? 'Principal' : escapeHtml(b.branchId)}</b>: ${b.orders} pedidos · $${(b.revenue ?? 0).toFixed(2)}`).join(' &nbsp;|&nbsp; ')
+      : branches.length === 1
+        ? `Todos los pedidos en ${branches[0].branchId === 'main' ? 'la sucursal principal' : escapeHtml(branches[0].branchId)}`
+        : 'Todavía no hay pedidos hoy. El primer pedido de la mesa va a aparecer acá. 🍽️';
+  }
+
+  const sold = document.getElementById('todaySoldBody');
+  if (sold) {
+    const top = summary.topDishesSold || [];
+    sold.innerHTML = top.length
+      ? top.map(d => `<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:8px; font-weight:700; color:#fff;">${escapeHtml(d.name || d.dishId || '—')}</td>
+          <td style="padding:8px; text-align:center; color:#60a5fa; font-family:var(--font-mono); font-weight:700;">×${d.qty}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="2" style="padding:16px; text-align:center; color:var(--text-dim);">Aún no se vendieron platos hoy. 🍳</td></tr>';
+  }
+
+  const viewed = document.getElementById('todayViewedBody');
+  if (viewed) {
+    const topV = summary.topViewed || [];
+    viewed.innerHTML = topV.length
+      ? topV.map(d => `<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:8px; font-weight:700; color:#fff;">${escapeHtml(d.name || d.dishId || '—')}</td>
+          <td style="padding:8px; text-align:center; color:#fbbf24; font-family:var(--font-mono); font-weight:700;">${d.views}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="2" style="padding:16px; text-align:center; color:var(--text-dim);">Nadie miró la carta todavía hoy. 📱</td></tr>';
+  }
+}
+
 export function updateBranchFilter(restaurant) {
   const select = document.getElementById('analyticsBranchFilter');
   if (!select) return;
@@ -255,14 +324,17 @@ export async function loadAnalytics(restaurant) {
   const days = parseInt(document.getElementById('analyticsTimeRange')?.value) || 30;
   const branchId = document.getElementById('analyticsBranchFilter')?.value || undefined;
   const eventId = document.getElementById('analyticsEventFilter')?.value || undefined;
+  // Offset del navegador del dueño para que "hoy" respete su horario local
+  const utcOffset = -new Date().getTimezoneOffset();
 
   try {
-    const [weekly, daily, heatmap, branches, events] = await Promise.all([
+    const [weekly, daily, heatmap, branches, events, today] = await Promise.all([
       fetchAnalytics(`/api/analytics/weekly/${restaurant.id}`),
       fetchAnalytics(`/api/analytics/daily/${restaurant.id}?days=${days}${branchId ? '&branchId=' + branchId : ''}${eventId ? '&eventId=' + eventId : ''}`),
       fetchAnalytics(`/api/analytics/heatmap/${restaurant.id}?days=7${branchId ? '&branchId=' + branchId : ''}${eventId ? '&eventId=' + eventId : ''}`),
       fetchAnalytics(`/api/analytics/branches/${restaurant.id}?days=${days}`),
-      fetchAnalytics(`/api/analytics/events/${restaurant.id}`)
+      fetchAnalytics(`/api/analytics/events/${restaurant.id}`),
+      fetchAnalytics(`/api/analytics/today/${restaurant.id}?utcOffsetMinutes=${utcOffset}`)
     ]);
 
     // Guardar el último daily para el export CSV (filtros actuales)
@@ -276,6 +348,7 @@ export async function loadAnalytics(restaurant) {
     renderHeatmap(heatmap);
     renderBranchMetrics(branches);
     renderEventMetrics(events);
+    renderTodaySummary(today);
   } catch (err) {
     console.warn('[Analytics] Error loading data:', err.message);
   }

@@ -1075,7 +1075,7 @@ app.post('/api/admin/invite-restaurant', adminMiddleware, async (req, res, next)
 // dashboard moderno de Studio. Fire-and-forget; sin secretos en el payload.
 app.post('/api/public/analytics/event', publicAnalyticsLimiter, async (req, res) => {
   try {
-    const { slug, event, dishId, branchId, amount } = req.body || {};
+    const { slug, event, dishId, branchId, amount, items } = req.body || {};
     if (!slug || !event) return res.status(400).json({ error: 'slug y event requeridos' });
     const validEvents = ['visit', 'order', 'reservation', 'waiter', 'dish_click', 'order_placed'];
     if (!validEvents.includes(event)) return res.status(400).json({ error: 'Evento inválido' });
@@ -1084,12 +1084,24 @@ app.post('/api/public/analytics/event', publicAnalyticsLimiter, async (req, res)
     if (!analytics) return res.status(404).json({ error: 'Restaurante no encontrado' });
 
     // Telemetría rica: alimenta ticket promedio, top platos y comparativa de
-    // sucursales. Los valores se sanean (cadenas cortas; amount numérico 0..1e9).
+    // sucursales. Los valores se sanean (cadenas cortas; amount numérico 0..1e9;
+    // items de pedidos con dishId ≤80 y qty 1..999, máximo 100 por pedido).
     const restaurant = db.findRestaurantBySlug(slug);
     const cleanAmount = Number(amount);
     const safeAmount = Number.isFinite(cleanAmount) && cleanAmount >= 0 && cleanAmount <= 1e9
       ? cleanAmount
       : undefined;
+    const metadata = { amount: safeAmount, source: 'public_menu' };
+    if (event === 'order_placed' && Array.isArray(items)) {
+      const safeItems = items
+        .slice(0, 100)
+        .map(it => ({
+          dishId: it && it.dishId ? String(it.dishId).slice(0, 80) : undefined,
+          qty: it && Number.isFinite(Number(it.qty)) ? Math.max(1, Math.min(999, Math.floor(Number(it.qty)))) : 1
+        }))
+        .filter(it => it.dishId);
+      if (safeItems.length) metadata.items = safeItems;
+    }
     const canonicalType = event === 'order' || event === 'order_placed'
       ? 'order_placed'
       : event === 'waiter'
@@ -1100,7 +1112,7 @@ app.post('/api/public/analytics/event', publicAnalyticsLimiter, async (req, res)
       eventType: canonicalType,
       dishId: dishId ? String(dishId).slice(0, 80) : undefined,
       branchId: branchId ? String(branchId).slice(0, 80) : undefined,
-      metadata: { amount: safeAmount, source: 'public_menu' }
+      metadata
     });
 
     res.json({ success: true, analytics, telemetry: true });

@@ -1888,7 +1888,10 @@ Object.defineProperties(window, {
         const waUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`;
         if (popup) popup.location = waUrl;
         else window.location.assign(waUrl);
-        trackPublicEvent('order_placed', { amount: total });
+        trackPublicEvent('order_placed', {
+          amount: total,
+          items: items.map(item => ({ dishId: item.dish.id, qty: item.qty })).slice(0, 100)
+        });
       } catch (error) {
         if (popup) popup.close();
         alert(error.message || 'No se pudo preparar el pedido. Intentá nuevamente.');

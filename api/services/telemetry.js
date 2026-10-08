@@ -167,6 +167,113 @@ const telemetryService = {
   },
 
   /**
+   * Resumen de HOY para el dueño: pedidos, plata, ticket promedio, unidades
+   * vendidas y platos vendidos (desde los ítems del carrito) — comparados con
+   * ayer. El "hoy" se calcula en el día local del dueño usando el offset del
+   * navegador (utcOffsetMinutes), para que las 21 hs locales no caigan en
+   * "ayer" por la diferencia horaria.
+   * @param {string} restaurantId
+   * @param {object} [opts] - { utcOffsetMinutes }
+   * @returns {Promise<object>} Resumen del día
+   */
+  async getTodaySummary(restaurantId, { utcOffsetMinutes = 0 } = {}) {
+    const offsetMs = (Number(utcOffsetMinutes) || 0) * 60 * 1000;
+    const localNow = new Date(Date.now() + offsetMs);
+    const localTodayKey = localNow.toISOString().slice(0, 10);
+    // Ventana [hoy 00:00, mañana 00:00) en hora del dueño, expresada en UTC
+    const dayStartUtc = new Date(Date.parse(`${localTodayKey}T00:00:00.000Z`) - offsetMs);
+    const nextDayUtc = new Date(dayStartUtc.getTime() + 24 * 3600 * 1000);
+
+    const todayAll = await this.getEvents(restaurantId, { since: dayStartUtc.toISOString() });
+    const todayEvents = todayAll.filter(e => {
+      const t = new Date(e.created_at);
+      return t >= dayStartUtc && t < nextDayUtc;
+    });
+
+    const yesterStart = new Date(dayStartUtc.getTime() - 24 * 3600 * 1000);
+    const yesterAll = await this.getEvents(restaurantId, { since: yesterStart.toISOString() });
+    const yesterEvents = yesterAll.filter(e => {
+      const t = new Date(e.created_at);
+      return t >= yesterStart && t < dayStartUtc;
+    });
+
+    const summarize = (evs) => {
+      const orderEvs = evs.filter(e => e.event_type === 'order_placed' || e.event_type === 'order');
+      const orders = orderEvs.length;
+      const revenue = +orderEvs.reduce((s, e) => s + (Number(e.metadata_json?.amount) || 0), 0).toFixed(2);
+      // Unidades vendidas por plato: los pedidos ahora llevan items [{dishId, qty}]
+      const dishCounts = {};
+      orderEvs.forEach(e => {
+        const items = Array.isArray(e.metadata_json?.items) ? e.metadata_json.items : [];
+        items.forEach(it => {
+          if (!it || !it.dishId) return;
+          const id = String(it.dishId).slice(0, 80);
+          const qty = Math.max(1, Math.min(999, Math.floor(Number(it.qty) || 1)));
+          dishCounts[id] = (dishCounts[id] || 0) + qty;
+        });
+      });
+      return {
+        orders,
+        revenue,
+        avgTicket: orders > 0 ? +((revenue / orders).toFixed(2)) : 0,
+        unitsSold: Object.values(dishCounts).reduce((s, q) => s + q, 0),
+        dishCounts
+      };
+    };
+
+    const today = summarize(todayEvents);
+    const yesterday = summarize(yesterEvents);
+
+    const topDishesSold = Object.entries(today.dishCounts)
+      .map(([dishId, qty]) => ({ dishId, qty }))
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 10);
+
+    // Platos más vistos HOY: lo que están mirando los comensales ahora
+    const viewCounts = {};
+    todayEvents.filter(e => e.event_type === 'dish_click' && e.dish_id).forEach(e => {
+      viewCounts[e.dish_id] = (viewCounts[e.dish_id] || 0) + 1;
+    });
+    const topViewed = Object.entries(viewCounts)
+      .map(([dishId, views]) => ({ dishId, views }))
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 5);
+
+    // Hoy por sucursal
+    const branchMap = {};
+    todayEvents.forEach(e => {
+      if (!(e.event_type === 'order_placed' || e.event_type === 'order')) return;
+      const bid = e.branch_id || 'main';
+      if (!branchMap[bid]) branchMap[bid] = { branchId: bid, orders: 0, revenue: 0 };
+      branchMap[bid].orders++;
+      branchMap[bid].revenue += Number(e.metadata_json?.amount) || 0;
+    });
+    const byBranch = Object.values(branchMap).map(b => ({
+      ...b,
+      revenue: +b.revenue.toFixed(2),
+      avgTicket: b.orders > 0 ? +((b.revenue / b.orders).toFixed(2)) : 0
+    }));
+
+    return {
+      date: localTodayKey,
+      metrics: {
+        orders: today.orders,
+        revenue: today.revenue,
+        avgTicket: today.avgTicket,
+        unitsSold: today.unitsSold
+      },
+      yesterday: {
+        orders: yesterday.orders,
+        revenue: yesterday.revenue,
+        avgTicket: yesterday.avgTicket
+      },
+      topDishesSold,
+      topViewed,
+      byBranch
+    };
+  },
+
+  /**
    * Hourly heatmap for peak hours analysis
    * @param {string} restaurantId
    * @returns {Promise<object>} Hourly breakdown

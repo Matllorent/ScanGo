@@ -43,7 +43,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - `public/js/menu-modules.js` — ES Module que importa componentes y expone en `window.`
 - `public/js/menu.js` — script inline principal (módulo raíz)
 - `public/js/menu/` — módulos ES internos (eventGuestMode, menuState, menuViewModel, menuModals, menuLoader, cartOperations, orderCheckout, smartReviews, virtualWaiterHeuristics)
-- `public/js/utils/` — utilitarios ES: **`escapeHtmlBrowser.js`** (el que usa todo el frontend), `dishPriceFormatter.js`, `categoryFilter.js`, `eventThemes.js` (ver gotcha abajo)
+- `public/js/utils/` — utilitarios ES: **`escapeHtmlBrowser.js`** (el que usa todo el frontend), `dishPriceFormatter.js`, `categoryFilter.js` (ver gotcha abajo)
 
 ### Base de Datos — Dual Mode
 - **Default**: archivos JSON en `data/` (`users.json`, `restaurants.json`, `webhooks.json`, `reset_tokens.json`, `reviews.json`, `feedback.json`, `settings.json`)
@@ -160,8 +160,8 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 ### Trampas conocidas del codebase
 - **`data/*.json` está en `.gitignore` pero `restaurants.json`, `users.json` y `webhooks.json` están trackeados** (fueron `git add -f`). Los tests los mutan: revisar el diff antes de commitear y no borrar los tracks sin pensarlo.
 - **Dos escapeHtml**: `public/js/utils/escapeHtml.js` es CommonJS legacy usado solo por `tests/test-escape-html.js`; el frontend importa `escapeHtmlBrowser.js`. No "unificar" a ciegas.
-- **Archivos muertos** (sin imports en todo el repo, no "arreglar" ni referenciar): `public/js/utils/eventThemes.js`, `src/menuRenderer.js`. Los comentarios de `public/js/menu/menuState.js` mencionan `menuRenderer.js` pero ese archivo no se importa.
-- **`test-frontend-esm-syntax.js` solo valida *sintaxis*** (copia cada `public/js/**` a `.mjs` y corre `node --check`). Un `require()`/`module.exports` en tiempo de ejecución NO lo rompe: `eventThemes.js` pasa el test pero fallaría en el navegador. No asumir "pasó el test ⇒ es usable".
+- **Los archivos muertos se eliminaron (Block 6)**: `public/js/utils/eventThemes.js` y `src/menuRenderer.js` fueron removidos del repo (nadie los importaba). No buscarlos. La lógica real de temas en vivo vive en `public/js/menu/eventGuestMode.js`.
+- **`test-frontend-esm-syntax.js` solo valida *sintaxis*** (copia cada `public/js/**` a `.mjs` y corre `node --check`). Un `require()`/`module.exports` en tiempo de ejecución NO lo rompe. No asumir "pasó el test ⇒ es usable".
 
 ### Estructura de Datos Clave
 - **Restaurant** incluye: `subscription` (status, plan, provider, trialEndsAt, currentPeriodEnd, gracePeriodDaysRemaining), `branches[]`, `categories[]`, `dishes[]`, `modifierGroups[]`, `deliveryZones[]`, `businessType` (`restaurant|perfumery|events`), `layout` (`classic|modern|minimal`), `theme`, `city`, `smartWeatherEnabled`
@@ -179,7 +179,7 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 - `api/middleware/cache.js`: `menuCacheMiddleware`, `invalidateMenuCache()` — cache menú público
 - `api/utils/sentry.js`: `captureMessage()`, `captureException()` — no-op si no hay DSN
 
-> **Ojo**: `src/` solo contiene `db/`, `billing/`, `services/mercadopago.js`, `email/` y `menuRenderer.js`. Todo el código del runtime HTTP (helpers, middleware, utils) vive en **`api/utils/`** y **`api/middleware/`**.
+> **Ojo**: `src/` solo contiene `db/`, `billing/`, `services/mercadopago.js` y `email/`. Todo el código del runtime HTTP (helpers, middleware, utils) vive en **`api/utils/`** y **`api/middleware/`**.
 
 ### Módulos de Utilidades (`public/js/utils/`)
 
@@ -188,11 +188,11 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 | `escapeHtmlBrowser.js` | Sanitizador XSS — **el que importa todo el frontend** (`menu.js`, `studio.js`, componentes) |
 | `dishPriceFormatter.js` | Formateo de precios, Happy Hour, strike |
 | `categoryFilter.js` | Filtros dietéticos, orden por clima |
-| `eventThemes.js` | **Legacy/CommonJS y sin imports** — no usar (ver gotcha) |
+| *(removido en Block 6)* | `eventThemes.js` (legacy CommonJS sin imports) fue borrado — no usar |
 
 ## Temas Visuales para Eventos
 
-Lógica real: **`resolveEventTheme()` en `public/js/menu/eventGuestMode.js`** (llamado desde `menu.js`). `public/js/utils/eventThemes.js` es código CommonJS legacy **que nadie importa** — ignorarlo.
+Lógica real: **`resolveEventTheme()` en `public/js/menu/eventGuestMode.js`** (llamado desde `menu.js`). `public/js/utils/eventThemes.js` era código CommonJS legacy que nadie importaba y fue **eliminado en Block 6**.
 
 - Se activa si `businessType==='events'` **o** `?event=` ∈ `true|wedding|cumple_15|birthday|catering`
 - Sin parámetro y `businessType='events'` → `theme-wedding`

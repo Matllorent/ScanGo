@@ -34,6 +34,20 @@ async function waitForMetrics(port, token, restaurantId, minOrders, tries = 30) 
   throw new Error('La telemetría no alcanzó el mínimo de pedidos esperado (timeout)');
 }
 
+async function waitForToday(port, token, restaurantId, minOrders, tries = 30) {
+  for (let i = 0; i < tries; i++) {
+    const res = await fetch(`http://localhost:${port}/api/analytics/today/${restaurantId}?utcOffsetMinutes=0`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (res.status === 200) {
+      const body = await res.json();
+      if ((body?.data?.metrics?.orders || 0) >= minOrders) return body.data;
+    }
+    await sleep(250);
+  }
+  throw new Error('El resumen del día no alcanzó el mínimo de pedidos esperado (timeout)');
+}
+
 async function runTests() {
   console.log('🧪 Iniciando verificación de Analytics de Negocio (ticket promedio, CSV, top platos)...');
 
@@ -156,6 +170,39 @@ async function runTests() {
     assert.strictEqual(legacy.visits, 2, 'Legacy visits = 2');
     assert.strictEqual(legacy.orders, 2, 'Legacy orders = 2 (order_placed mapea a orders)');
     console.log('✓ Legacy counters sincronizados (visits=2, orders=2)');
+
+    // ── "Lo que se vendió hoy": order_placed con ítems del carrito ──
+    // (después de las aserciones de totales para no alterar los conteos previos)
+    const orderC = await postEvent({
+      slug: restaurant.slug,
+      event: 'order_placed',
+      amount: 200,
+      branchId: 'br_2_norte',
+      items: [
+        { dishId: 'd_1', qty: 2 },
+        { dishId: 'd_2', qty: 'pepe' }, // qty no numérica → 1
+        { dishId: '', qty: 5 },         // sin id → se descarta
+        { dishId: 'd_2', qty: 3 },
+        { dishId: 'd_1', qty: 0 }       // qty 0 → 1
+      ]
+    });
+    assert.strictEqual(orderC.status, 200, 'order_placed con items se registra');
+
+    const todayData = await waitForToday(port, token, restaurant.id, 3);
+    assert.strictEqual(todayData.metrics.orders, 3, 'Pedidos de hoy: 2 previos + 1 con ítems');
+    assert.strictEqual(todayData.metrics.revenue, 880, 'Plata de hoy = 490 + 190 + 200');
+    assert.strictEqual(todayData.metrics.unitsSold, 7, 'Unidades vendidas hoy = d_1×3 + d_2×4');
+    assert.strictEqual(todayData.yesterday.orders, 0, 'Ayer sin pedidos (restaurante recién creado)');
+    const soldD1 = todayData.topDishesSold.find(d => d.dishId === 'd_1');
+    const soldD2 = todayData.topDishesSold.find(d => d.dishId === 'd_2');
+    assert.ok(soldD1 && soldD2, 'Ambos platos del pedido deben estar en el ranking');
+    assert.strictEqual(soldD1.qty, 3, 'd_1 = 2 + 1 (qty inválida "pepe" → 1)');
+    assert.strictEqual(soldD1.name, 'Burger QA', 'Nombre del plato resuelto desde la carta');
+    assert.strictEqual(soldD2.qty, 4, 'd_2 = 1 + 3');
+    assert.strictEqual(soldD2.name, 'Milanesa QA');
+    assert.ok(!todayData.topDishesSold.some(d => !d.dishId), 'Ítems sin id se descartan (saneamiento)');
+    assert.strictEqual(todayData.byBranch.find(b => b.branchId === 'br_2_norte')?.orders, 1, 'Pedido de hoy agrupado por sucursal');
+    console.log('✓ Hoy: pedidos=3, plata=880, unidades=7, platos vendidos con nombre y saneados');
 
     // IDOR: un owner no lee métricas de otro tenant
     const idor = await fetch(`${base}/api/analytics/weekly/other-tenant-id`, {

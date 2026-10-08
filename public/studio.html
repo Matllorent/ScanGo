@@ -888,6 +888,58 @@
               </div>
             </div>
 
+            <!-- Lo que se vendió HOY (día del dueño) -->
+            <div class="form-section" style="margin-bottom:16px;">
+              <div class="section-title">☀️ Lo que se vendió hoy</div>
+              <p style="font-size:11px; color:var(--text-dim); margin-bottom:12px;">Tu día en un vistazo, con la compara con ayer. El "hoy" respeta tu horario local.</p>
+              <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin-bottom:14px;">
+                <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
+                  <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:4px;">🧾 Pedidos hoy</div>
+                  <div id="todayOrders" style="font-size:22px; font-weight:800; color:#4ade80; font-family:var(--font-mono);">—</div>
+                </div>
+                <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
+                  <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:4px;">💰 Plata hoy</div>
+                  <div id="todayRevenue" style="font-size:22px; font-weight:800; color:#fbbf24; font-family:var(--font-mono);">—</div>
+                </div>
+                <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
+                  <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:4px;">💵 Ticket promedio</div>
+                  <div id="todayTicket" style="font-size:22px; font-weight:800; color:#34d399; font-family:var(--font-mono);">—</div>
+                </div>
+                <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
+                  <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:4px;">🍽️ Platos vendidos</div>
+                  <div id="todayUnits" style="font-size:22px; font-weight:800; color:#60a5fa; font-family:var(--font-mono);">—</div>
+                </div>
+              </div>
+              <div id="todayVsYesterday" style="font-size:11px; color:var(--text-dim); margin-bottom:14px;">—</div>
+              <div id="todayByBranch" style="font-size:11px; color:var(--text-dim); margin-bottom:14px;">—</div>
+              <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:14px;">
+                <div>
+                  <div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:8px;">🏆 Platos vendidos hoy</div>
+                  <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                    <thead>
+                      <tr style="background:var(--bg-base); border-bottom:2px solid var(--border);">
+                        <th style="padding:8px; text-align:left; font-weight:700; color:var(--text-muted);">Plato</th>
+                        <th style="padding:8px; text-align:center; font-weight:700; color:var(--text-muted);">Cantidad</th>
+                      </tr>
+                    </thead>
+                    <tbody id="todaySoldBody"></tbody>
+                  </table>
+                </div>
+                <div>
+                  <div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:8px;">👀 Platos más vistos hoy</div>
+                  <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                    <thead>
+                      <tr style="background:var(--bg-base); border-bottom:2px solid var(--border);">
+                        <th style="padding:8px; text-align:left; font-weight:700; color:var(--text-muted);">Plato</th>
+                        <th style="padding:8px; text-align:center; font-weight:700; color:var(--text-muted);">Vistas</th>
+                      </tr>
+                    </thead>
+                    <tbody id="todayViewedBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
             <!-- Daily Chart -->
             <div class="form-section" style="margin-bottom:16px;">
               <div class="section-title">📅 Evolución Diaria (Últimos 30 días)</div>
