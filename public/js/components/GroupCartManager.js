@@ -167,7 +167,7 @@ export class GroupCartManager {
             <p style="color: var(--chalk-muted, #A0AEC0); font-size: 0.88rem; margin-bottom: 18px; line-height: 1.4;">
               Estás en el <strong>Pedido Grupal en Tiempo Real</strong>. ¿Cuál es tu nombre para sumarte al pedido de la mesa?
             </p>
-            <form id="groupUserNameForm" onsubmit="event.preventDefault();">
+            <form id="groupUserNameForm" data-js-submit="preventDefault">
               <div class="form-group" style="margin-bottom: 16px;">
                 <input type="text" id="inputComensalName" class="form-input" placeholder="Ej: Juan, Sofía, Martín..." required autofocus maxlength="40" style="text-align: center; font-size: 1.05rem; font-weight: 600;">
               </div>
@@ -924,7 +924,7 @@ export class GroupCartManager {
         <span class="group-table-title">Mesa ${escapeHtml(this.tableNumber)} • 👥 Pedido Grupal</span>
         <span class="group-user-tag" title="Tu nombre en la mesa">👤 <strong>${escapeHtml(this.userName || 'Comensal')}</strong></span>
         <span class="group-counter-tag">🛒 ${totalCount} ítems</span>
-        <button type="button" class="btn-group-name-edit" onclick="window.groupCartManagerInstance?.promptUserNameModal()" title="Cambiar mi nombre">✏️</button>
+        <button type="button" class="btn-group-name-edit" data-js-click="groupCartManagerInstance?.promptUserNameModal" title="Cambiar mi nombre">✏️</button>
       </div>
     `;
     bar.style.display = 'block';

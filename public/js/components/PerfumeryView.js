@@ -213,7 +213,7 @@ export class PerfumeryView {
           <div class="category-pills" style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;">
             ${families.map(f => `
               <button class="cat-pill ${this.activeFamily === f.id ? 'active' : ''}" 
-                      onclick="window.activePerfumeryView.setFamilyFilter('${f.id}', '${targetElementId}')">
+                      data-js-click="activePerfumeryView.setFamilyFilter|${f.id}|${targetElementId}">
                 ${f.label}
               </button>
             `).join('')}
@@ -229,7 +229,7 @@ export class PerfumeryView {
             ${concentrations.map(c => `
               <button class="cat-pill ${this.activeConcentration === c.id ? 'active' : ''}" 
                       style="font-size: 0.76rem; padding: 4px 10px;"
-                      onclick="window.activePerfumeryView.setConcentrationFilter('${c.id}', '${targetElementId}')">
+                      data-js-click="activePerfumeryView.setConcentrationFilter|${c.id}|${targetElementId}">
                 ${c.label}
               </button>
             `).join('')}
@@ -286,7 +286,7 @@ export class PerfumeryView {
               <button type="button" 
                       class="btn-vol-pill ${selectedVol === vol ? 'active' : ''}" 
                       style="background: ${selectedVol === vol ? 'var(--chalk-gold)' : 'var(--surface-card)'}; color: ${selectedVol === vol ? '#101614' : '#fff'}; border: 1px solid ${selectedVol === vol ? 'var(--chalk-gold)' : 'var(--border-chalk)'}; border-radius: 14px; padding: 2px 10px; font-size: 0.75rem; font-weight: 700; cursor: pointer;"
-                      onclick="window.activePerfumeryView.selectVolume('${p.id}', '${vol}')">
+                      data-js-click="activePerfumeryView.selectVolume|${p.id}|${vol}">
                 ${vol}
               </button>
             `).join('')}
@@ -329,7 +329,7 @@ export class PerfumeryView {
 
           <button class="btn-wa-submit" 
                   style="width: auto; padding: 8px 16px; font-size: 0.88rem; background: var(--chalk-green); color: #0E1412; gap: 6px;"
-                  onclick="window.activePerfumeryView.addToCart('${p.id}')">
+                  data-js-click="activePerfumeryView.addToCart|${p.id}">
             <span>+ Agregar Frasco</span>
           </button>
         </div>

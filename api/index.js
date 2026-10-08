@@ -5,7 +5,6 @@ const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const bcrypt = require('bcryptjs');
-const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const db = require('../src/db/db');
 const billingOrchestrator = require('../src/billing/orchestrator');
@@ -28,6 +27,7 @@ const { authMiddleware, adminMiddleware } = require('./middleware/auth');
 const { publicAnalyticsLimiter, emailLimiter } = require('./middleware/rateLimits');
 const { createGroupCartToken } = require('./utils/groupCartToken');
 const sentry = require('./utils/sentry');
+const securityHeaders = require('./utils/securityHeaders');
 const authRouter = require('./routes/auth');
 const reviewsRouter = require('./routes/reviews');
 const storageRouter = require('./routes/storage');
@@ -66,8 +66,10 @@ if (!fs.existsSync(PUBLIC_DIR)) {
 // Tracing Middleware (X-Request-ID)
 app.use(requestIdMiddleware);
 
-// Security headers with Helmet (disabling CSP to allow external CDNs like Google Fonts, FontAwesome, etc.)
-app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+// Security headers: ver api/utils/securityHeaders.js (única fuente de verdad;
+// en producción Vercel aplica los mismos a los estáticos vía vercel.json).
+app.disable('x-powered-by');
+app.use(securityHeaders.securityHeadersMiddleware);
 
 // CORS setup
 app.use(cors({ origin: true, credentials: true }));
@@ -1439,6 +1441,13 @@ app.get('/m/:slug', (req, res) => {
     // Falso positivo verificado: TODO dato de restaurante inyectado en `html` pasa por
     // escapeHtml() (ogTags, title) o por safeJsonLd (JSON.stringify + escape de <>& y \u2028\u2029);
     // la base `html` es el template estático de menu.html, sin interpolación de usuario.
+    // CSP estricto del menú público (/m/*): sin 'unsafe-inline' en script-src ni
+    // script-src-attr (todo handler vía data-js-* + dom-bindings.js). El resto de
+    // headers ya vienen del middleware securityHeaders.
+    res.setHeader(
+      'Content-Security-Policy',
+      securityHeaders.getSecurityHeaders({ strictMenu: true })['Content-Security-Policy']
+    );
     return res.send(html); // nosemgrep: javascript.express.security.audit.xss.direct-response-write.direct-response-write
   }
 

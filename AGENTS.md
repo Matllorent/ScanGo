@@ -8,13 +8,14 @@ SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. 
 ```bash
 npm run dev          # Desarrollo con nodemon (puerto 3000)
 npm start            # Producción (node api/index.js)
-npm test             # Suite completa (24 tests en secuencia) — con snapshot/restore automático de data/
+npm test             # Suite completa (25 tests en secuencia) — con snapshot/restore automático de data/
 npm run test:billing # Test individual de pasarelas de pago
 npm run test:analytics # Test individual de analytics de negocio (ticket promedio, CSV, top platos)
 npm run test:admin   # Test individual del panel /admin (login 2FA, plata/mes, renovaciones)
 npm run test:push    # Test individual de push notifications (VAPID, aviso de mozo)
 npm run test:realtime # Test individual del guard de canales Realtime (migración 002)
 npm run test:realtime-live # Test E2E real del guard (conecta a Supabase Realtime con la anon key)
+npm run test:csp     # Test individual del guard CSP + headers duros
 npm run test:semgrep  # Análisis estático Semgrep (reglas comunitarias gratis; SKIP si semgrep no está instalado)
 npm run db:check     # Inventario real de tablas Supabase (service role, read-only)
 npm run db:smoke     # Smoke test de persistencia cloud de group_carts (round-trip real)
@@ -47,7 +48,19 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - `public/js/menu-modules.js` — ES Module que importa componentes y expone en `window.`
 - `public/js/menu.js` — script inline principal (módulo raíz)
 - `public/js/menu/` — módulos ES internos (eventGuestMode, menuState, menuViewModel, menuModals, menuLoader, cartOperations, orderCheckout, smartReviews, virtualWaiterHeuristics)
+- `public/js/dom-bindings.js` — binder de eventos delegados para atributos `data-js-*` (requisito de la CSP estricta del menú; ver sección "Seguridad — CSP")
 - `public/js/utils/` — utilitarios ES: **`escapeHtmlBrowser.js`** (el que usa todo el frontend), `dishPriceFormatter.js`, `categoryFilter.js` (ver gotcha abajo)
+
+### Seguridad — CSP real + headers duros
+- **Fuente única de verdad**: `api/utils/securityHeaders.js` genera TODOS los headers de seguridad. Se aplica en los dos caminos de producción idénticamente (verificado por `tests/test-csp.js`):
+  1. **Express** (`api/index.js`): `securityHeadersMiddleware` global en todas las respuestas (dev, APIs y SSR), después de `app.disable('x-powered-by')`. Reemplazó a helmet (que estaba con `contentSecurityPolicy:false`).
+  2. **Vercel** (`vercel.json` → bloque `headers`): mismos valores para los estáticos (`/studio`, `/admin`, `/terminos`, `/privacidad`, `/(.*)`), que NO pasan por Express en producción. La regla usa regex con negative lookahead `^/(?!m/|api/).*` para no pisar la CSP que genera la API en `/m/*` y `/api/*`.
+- **CSP por capas**:
+  - **Estricta (menú público `/m/*`)**: `script-src 'self'` + `cdn.jsdelivr.net` (supabase-js), `script-src-attr 'none'`, **ningún `'unsafe-inline'` en directivas de script** → todo handler inline DEBE usar atributos `data-js-*` (resueltos por `public/js/dom-bindings.js`, servido desde 'self'). La setea el handler SSR de `/m/:slug` a nivel `res.setHeader` (el middleware ya puso el resto).
+  - **Transicional (Studio/Admin/Landing/Legales)**: `script-src` = 'self' + CDNs de confianza (`cdn.jsdelivr.net`, `cdnjs.cloudflare.com`, `accounts.google.com`) + **SHA-256 de los scripts inline** de las páginas estáticas (admin.html, index.html, reset-password.html; se skip JSON-LD y scripts dentro de comentarios HTML) + `script-src-attr 'unsafe-inline'` para los handlers legacy. **Etapa 2 pendiente (explícita)**: refactorizar esos ~190 handlers a `data-js-*` con el codemod y quitar `script-src-attr 'unsafe-inline'`.
+- **Cambio de un script inline en admin/index/reset-password → cambia su hash** → hay que regenerar la CSP (lo hace el módulo automáticamente en runtime; para Vercel actualizar la string en `vercel.json`). `tests/test-csp.js` detecta el drift en la próxima corrida.
+- Directivas comunes: `default-src 'self'`, `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`, `font-src gstatic`, `img-src 'self' data: blob: https:`, `connect-src 'self' https://*.supabase.co wss://*.supabase.co`, `frame-ancestors 'self'`, `frame-src` ('self' [+ accounts.google.com en transicional]), `object-src 'none'`, `base-uri 'self'`, `form-action 'self' + stripe/mercadopago`. Headers duros: `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (camera/geolocation/mic/payment/usb/serial/gyro/…), `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Strict-Transport-Security` (15552000). **Regla de oro: cualquier host externo nuevo que cargue el frontend debe agregarse ACA y en `vercel.json`.**
+- `scripts/codemod-csp-events.js` es el codemod REUTILIZABLE que convierte `onclick="fn('a')"` → `data-js-click="fn|a"` (arg parse: `event`→ev, `this`→el, `this.ruta`→prop, números→Number, `event.preventDefault()` → `data-js-submit="preventDefault"`, `document.getElementById('x').click()` → `fireClick|x`, `if(event.target===this)FN()` → `data-js-click-backdrop="FN"`, `this.style.prop='v'` → `data-js-style-prop`, y para `onerror` → `data-js-error-style-prop`). Modos: dry-run (default) y `--apply`. Úsalo para la Etapa 2.
 
 ### Base de Datos — Dual Mode
 - **Default**: archivos JSON en `data/` (`users.json`, `restaurants.json`, `webhooks.json`, `reset_tokens.json`, `reviews.json`, `feedback.json`, `settings.json`)
@@ -85,18 +98,19 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
   - `/admin` → `public/admin.html`
   - `/terminos`, `/privacidad` → páginas legales
   - `/(.*)` → `public/$1` (static)
+  - **`headers`**: CSP transicional + headers duros en los estáticos (ver "Seguridad — CSP"), excluyendo `/m/*` y `/api/*`
 - Cron: `/api/cron/billing-dunning` cada día a las 02:00 UTC
 
 ## Testing
 
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** durante la corrida (flujos reales con el store local). **`npm test` ahora las aísla solo**: `scripts/test-data-guard.js` saca una foto de `data/` antes y la restaura siempre al final (pase o falle). La cadena real de tests vive en `npm run test:core`; no hay que revertir `data/` a mano para commitear.
-- Suite completa (`npm test`) ejecuta 24 tests en secuencia — **todos deben pasar (24/24)**
+- Suite completa (`npm test`) ejecuta 25 tests en secuencia — **todos deben pasar (25/25)**
 - **4 tests existen pero NO están en `npm test`**: `test-e2e.js`, `test-db-write.js`, `test-escape-html.js` y `test-semgrep.js` (ejecutarlos a mano si tocas esas áreas; `test-semgrep` hace SKIP si `semgrep` no está instalado)
 - **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 4 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell` y `test-realtime-live-guard` (usan credenciales reales; el último hace SKIP si no hay `SUPABASE_URL`/`SUPABASE_ANON_KEY`).
 - Para debug rápido: `node tests/test-billing.js` (o el test específico, o `npm run test:<alias>`)
 
-### Tests incluidos en `npm test` (24 suites)
+### Tests incluidos en `npm test` (25 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
@@ -124,6 +138,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-push-notifications.js` | Push Web real (VAPID): suscripción cloud, 503 PUSH_NOT_CONFIGURED sin llaves, aviso de mozo desde la mesa con entrega intentada |
 | `test-realtime-rls-guard.js` | Guard estático de canales Realtime: la 002 existe, NO tiene ALTER TABLE sobre realtime.messages (evita el 42501), políticas SELECT+INSERT `realtime:%` para anon/authenticated, y los canales del código unen con `private: true` |
 | `test-realtime-live-guard.js` | E2E real del guard contra Supabase Realtime (anon key): JOIN+broadcast en `realtime:%` OK y topics ajenos (`event_waiters_*`) rechazados — detecta si la 002 NO está aplicada |
+| `test-csp.js` | Guard CSP real + headers duros: cero `on*= ` en la superficie estricta del menú (si alguien agrega un onclick al menú, la CSP estricta lo rompe), hashes SHA-256 de scripts inline presentes en la CSP transitional, paridad exacta vercel.json ↔ api/utils/securityHeaders.js, y en runtime `/m/:slug` responde con CSP estricta (`script-src-attr 'none'`) mientras el resto usa transitional |
 
 ## Configuración (`.env`)
 
@@ -174,6 +189,7 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 - **Dos escapeHtml**: `public/js/utils/escapeHtml.js` es CommonJS legacy usado solo por `tests/test-escape-html.js`; el frontend importa `escapeHtmlBrowser.js`. No "unificar" a ciegas.
 - **Los archivos muertos se eliminaron (Block 6)**: `public/js/utils/eventThemes.js` y `src/menuRenderer.js` fueron removidos del repo (nadie los importaba). No buscarlos. La lógica real de temas en vivo vive en `public/js/menu/eventGuestMode.js`.
 - **`test-frontend-esm-syntax.js` solo valida *sintaxis*** (copia cada `public/js/**` a `.mjs` y corre `node --check`). Un `require()`/`module.exports` en tiempo de ejecución NO lo rompe. No asumir "pasó el test ⇒ es usable".
+- **Prohibido `on*=` en la superficie del menú público** (menu.html, menu.js, js/menu/*, DishCard, GroupCartManager, IceCreamWizard, I18nCurrencyManager, LoyaltyRewardsModal, PerfumeryView): la CSP estricta de `/m/*` tiene `script-src-attr 'none'` y un `onclick=`/`onchange=`/etc. nuevo se rompe en producción (y `tests/test-csp.js` falla). Usar `data-js-*` + `public/js/dom-bindings.js`. En Studio/Admin/Landing los handlers inline aún están permitidos (transicional) hasta la Etapa 2.
 
 ### Estructura de Datos Clave
 - **Restaurant** incluye: `subscription` (status, plan, provider, trialEndsAt, currentPeriodEnd, gracePeriodDaysRemaining), `branches[]`, `categories[]`, `dishes[]`, `modifierGroups[]`, `deliveryZones[]`, `businessType` (`restaurant|perfumery|events`), `layout` (`classic|modern|minimal`), `theme`, `city`, `smartWeatherEnabled`
@@ -222,11 +238,14 @@ Estéticas (definiciones CSS en `public/css/menu.css`): wedding = marfil + serif
 | `api/index.js` | Entry point, middleware stack, router mounting |
 | `src/db/db.js` | Dual-mode DB adapter (JSON + Supabase) |
 | `src/billing/orchestrator.js` | Lógica de facturación multi-provider |
-| `vercel.json` | Routing + cron config para Vercel |
+| `vercel.json` | Routing + headers CSP/duros + cron config para Vercel |
+| `api/utils/securityHeaders.js` | Única fuente de verdad de CSP + headers duros (Express y Vercel) |
+| `public/js/dom-bindings.js` | Binder de eventos delegados `data-js-*` (requisito CSP estricta del menú) |
+| `scripts/codemod-csp-events.js` | Codemod `onclick=""` → `data-js-*` reutilizable (Etapa 2 de CSP) |
 | `mobile/capacitor.config.json` | Config Android/Capacitor |
 | `src/db/schema.sql` | Esquema PostgreSQL para Supabase |
 | `.cursorrules` | Reglas de desarrollo (cero mocks, sync API↔Admin) |
 | `public/js/menu/eventGuestMode.js` | Resolución de tema de evento, contexto de invitado, reservas WhatsApp |
 | `public/js/utils/` | Utilidades frontend (usan `escapeHtmlBrowser.js`, ver trampas) |
 | `public/js/components/` | 14 componentes ES Module reutilizables |
-| `tests/` | 26 suites; 24 corren en `npm test` (ver sección Testing) |
+| `tests/` | 27 suites; 25 corren en `npm test` (ver sección Testing) |

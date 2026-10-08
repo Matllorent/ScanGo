@@ -178,7 +178,7 @@ export function renderUpsellSuggestions(params = {}) {
             ${currency} ${dish.price}
           </div>
         </div>
-        <button type="button" class="btn-nav btn-quick-add-upsell" style="margin-top:6px; padding:3px 6px; font-size:10px; border-color:var(--chalk-gold); color:var(--chalk-gold); width:100%; justify-content:center;" onclick="window.quickAddUpsellItem('${dish.id}', this)">
+        <button type="button" class="btn-nav btn-quick-add-upsell" style="margin-top:6px; padding:3px 6px; font-size:10px; border-color:var(--chalk-gold); color:var(--chalk-gold); width:100%; justify-content:center;" data-js-click="quickAddUpsellItem|${dish.id}|this">
           + Agregar
         </button>
       </div>
@@ -257,7 +257,7 @@ export function renderCrossSellSection(cartItems = [], restaurantData = {}, call
       <div style="font-size:11px; font-weight:700; color:var(--chalk-gold); margin-bottom:4px;">✨ Combiná tu plato con:</div>
       <div style="display:flex; gap:6px;">
         ${items.map(it => `
-          <button type="button" class="btn-nav" style="flex:1; padding:4px 6px; font-size:10px; justify-content:space-between;" onclick="window.quickAddUpsellItem('${it.id}', this)">
+          <button type="button" class="btn-nav" style="flex:1; padding:4px 6px; font-size:10px; justify-content:space-between;" data-js-click="quickAddUpsellItem|${it.id}|this">
             <span>${it.name}</span>
             <strong style="color:var(--chalk-gold);">${curr} ${it.price}</strong>
           </button>

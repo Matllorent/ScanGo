@@ -91,7 +91,7 @@ assert.ok(menuJs.includes('mozo-reason-banner'), 'menu.js y css deben incluir ba
 
 const menuHtml = fs.readFileSync(path.join(__dirname, '../public/menu.html'), 'utf8');
 assert.ok(menuHtml.includes('id="toggleMozoVirtual"'), 'menu.html debe tener checkbox #toggleMozoVirtual');
-assert.ok(menuHtml.includes('handleMozoVirtualToggle(this.checked)'), 'menu.html debe vincular evento onchange al toggle');
+assert.ok(menuHtml.includes('data-js-change="handleMozoVirtualToggle|this.checked"'), 'menu.html debe vincular data-js-change al toggle (CSP estricto: usa dom-bindings)');
 
 assert.ok(menuCss.includes('.mozo-toggle-container'), 'menu.css debe tener estilos para .mozo-toggle-container');
 assert.ok(menuCss.includes('.switch-ui'), 'menu.css debe tener estilos para .switch-ui');

@@ -25,7 +25,7 @@
   <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
 
   <!-- Top Loyalty Bar (Tarjeta de Puntos & Recompensas) -->
-  <div id="loyaltyTopBanner" class="loyalty-top-bar" onclick="openLoyaltyModal()" role="button" aria-label="Club Puntos y Recompensas">
+  <div id="loyaltyTopBanner" class="loyalty-top-bar" data-js-click="openLoyaltyModal" role="button" aria-label="Club Puntos y Recompensas">
     <div class="loyalty-top-content">
       <span class="loyalty-star-icon">⭐</span>
       <span class="loyalty-banner-title">¡Gana puntos y recompensas!</span>
@@ -49,12 +49,12 @@
     <!-- Header Social & Info Top Bar -->
     <div class="header-top-row">
       <div id="headerSocialLinks" class="header-social-actions">
-        <a id="hdrSocialWa" href="javascript:void(0)" onclick="openWhatsAppChat()" class="social-btn-round" title="WhatsApp" aria-label="WhatsApp">💬</a>
-        <a id="hdrSocialIg" href="javascript:void(0)" target="_blank" class="social-btn-round" title="Instagram" aria-label="Instagram">📸</a>
-        <a id="hdrSocialFb" href="javascript:void(0)" target="_blank" class="social-btn-round" title="Facebook" aria-label="Facebook">👥</a>
-        <a id="hdrSocialTk" href="javascript:void(0)" target="_blank" class="social-btn-round" title="TikTok" aria-label="TikTok">🎵</a>
+        <a id="hdrSocialWa" href="#" data-js-click="openWhatsAppChat" class="social-btn-round" title="WhatsApp" aria-label="WhatsApp">💬</a>
+        <a id="hdrSocialIg" href="#" target="_blank" class="social-btn-round" title="Instagram" aria-label="Instagram">📸</a>
+        <a id="hdrSocialFb" href="#" target="_blank" class="social-btn-round" title="Facebook" aria-label="Facebook">👥</a>
+        <a id="hdrSocialTk" href="#" target="_blank" class="social-btn-round" title="TikTok" aria-label="TikTok">🎵</a>
       </div>
-      <button type="button" class="btn-info-modal" onclick="openRestaurantInfoModal()" aria-label="Información del restaurante">
+      <button type="button" class="btn-info-modal" data-js-click="openRestaurantInfoModal" aria-label="Información del restaurante">
         <span>ℹ️</span> Información
       </button>
     </div>
@@ -76,7 +76,7 @@
 
     <!-- Quick Meta Information (Uruguay Address, Delivery Time & Minimum Order) -->
     <div class="restaurant-meta-bar">
-      <span id="addressChip" class="meta-chip" onclick="openRestaurantInfoModal()" style="cursor:pointer;">
+      <span id="addressChip" class="meta-chip" data-js-click="openRestaurantInfoModal" style="cursor:pointer;">
         📍 <span id="addressText">Uruguay</span>
       </span>
       <span id="deliveryTimeChip" class="meta-chip">
@@ -85,13 +85,13 @@
       <span id="minOrderChip" class="meta-chip" style="display:none;">
         🛒 Pedido mínimo <strong id="minOrderText">$U 300</strong>
       </span>
-      <span id="reservationChip" class="meta-chip" onclick="openReservationModal()" style="display:none; background: rgba(56, 161, 105, 0.2); border-color: rgba(56, 161, 105, 0.5); color: #68D391; font-weight: 700;">
+      <span id="reservationChip" class="meta-chip" data-js-click="openReservationModal" style="display:none; background: rgba(56, 161, 105, 0.2); border-color: rgba(56, 161, 105, 0.5); color: #68D391; font-weight: 700;">
         📅 Reservar Mesa
       </span>
-      <span id="wifiChip" class="meta-chip" onclick="openWifiModal()" style="display:none;">
+      <span id="wifiChip" class="meta-chip" data-js-click="openWifiModal" style="display:none;">
         📶 Conectar a Wi-Fi
       </span>
-      <button type="button" id="googleReviewChip" class="meta-chip meta-chip-btn" onclick="openSmartReviewModal()" style="display:none; color:var(--chalk-gold); border-color:rgba(236, 201, 75, 0.4); background:rgba(236,201,75,0.08); cursor:pointer;">
+      <button type="button" id="googleReviewChip" class="meta-chip meta-chip-btn" data-js-click="openSmartReviewModal" style="display:none; color:var(--chalk-gold); border-color:rgba(236, 201, 75, 0.4); background:rgba(236,201,75,0.08); cursor:pointer;">
         ⭐ Calificar Experiencia
       </button>
       <span id="phoneChip" class="meta-chip" style="display:none;">
@@ -108,16 +108,16 @@
 
       <!-- Buscador con botón de limpiar -->
       <div style="position: relative; margin-bottom: 10px;">
-        <input type="text" id="searchFilter" class="search-box" style="margin-bottom:0; padding-right:32px;" placeholder="🔍 Buscar plato, ingrediente..." oninput="filterDishes()">
-        <button type="button" id="btnClearSearch" onclick="clearSearchFilter()" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--chalk-dim); font-size:16px; cursor:pointer; display:none;">✕</button>
+        <input type="text" id="searchFilter" class="search-box" style="margin-bottom:0; padding-right:32px;" placeholder="🔍 Buscar plato, ingrediente..." data-js-input="filterDishes">
+        <button type="button" id="btnClearSearch" data-js-click="clearSearchFilter" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--chalk-dim); font-size:16px; cursor:pointer; display:none;">✕</button>
       </div>
 
       <!-- Accesos Directos a Vistas Especiales (Heladería & Perfumería) -->
       <div id="specialActionsBar" class="special-actions-bar" style="display: none; gap: 8px; margin-bottom: 10px; overflow-x: auto; scrollbar-width: none;">
-        <button type="button" id="btnOpenIceCreamWizard" class="btn-nav" style="display: none; border-color: #68D391; color: #68D391; font-size: 11px; white-space: nowrap; padding: 4px 10px;" onclick="openIceCreamWizard()">
+        <button type="button" id="btnOpenIceCreamWizard" class="btn-nav" style="display: none; border-color: #68D391; color: #68D391; font-size: 11px; white-space: nowrap; padding: 4px 10px;" data-js-click="openIceCreamWizard">
           🍧 Armá tu Helado Artesanal
         </button>
-        <button type="button" id="btnTogglePerfumeryMode" class="btn-nav" style="display: none; border-color: #B794F4; color: #B794F4; font-size: 11px; white-space: nowrap; padding: 4px 10px;" onclick="togglePerfumeryMode()">
+        <button type="button" id="btnTogglePerfumeryMode" class="btn-nav" style="display: none; border-color: #B794F4; color: #B794F4; font-size: 11px; white-space: nowrap; padding: 4px 10px;" data-js-click="togglePerfumeryMode">
           ✨ Colección Perfumería
         </button>
       </div>
@@ -137,28 +137,28 @@
 
       <!-- Filtro de Categorías con Acceso Rápido a Búsqueda y Lista -->
       <div class="category-nav-wrapper">
-        <button type="button" class="cat-nav-icon-btn" onclick="focusSearchInput()" aria-label="Buscar en la carta" title="Buscar plato">🔍</button>
-        <button type="button" class="cat-nav-icon-btn" onclick="openCategoriesMenuModal()" aria-label="Ver todas las categorías" title="Categorías">☰</button>
+        <button type="button" class="cat-nav-icon-btn" data-js-click="focusSearchInput" aria-label="Buscar en la carta" title="Buscar plato">🔍</button>
+        <button type="button" class="cat-nav-icon-btn" data-js-click="openCategoriesMenuModal" aria-label="Ver todas las categorías" title="Categorías">☰</button>
         <div id="categoryPills" class="category-pills">
-          <button class="cat-pill active" onclick="selectCategory('ALL')">Todos</button>
+          <button class="cat-pill active" data-js-click="selectCategory|ALL">Todos</button>
         </div>
       </div>
 
       <!-- Filtros Dietéticos Rápidos -->
       <div id="dietaryFilterPills" style="display: flex; gap: 6px; overflow-x: auto; padding-top: 6px; scrollbar-width: none;">
-        <button class="cat-pill active" style="font-size: 0.72rem; padding: 3px 8px;" onclick="selectDietFilter('ALL')">Todos los estilos</button>
-        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" onclick="selectDietFilter('veggie')">🥬 Vegetariano</button>
-        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" onclick="selectDietFilter('vegan')">🌱 Vegano</button>
-        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" onclick="selectDietFilter('celiac')">🌾 Sin TACC</button>
-        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" onclick="selectDietFilter('sinlactosa')">🥛 Sin Lactosa</button>
-        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" onclick="selectDietFilter('picante')">🌶️ Picante</button>
+        <button class="cat-pill active" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|ALL">Todos los estilos</button>
+        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|veggie">🥬 Vegetariano</button>
+        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|vegan">🌱 Vegano</button>
+        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|celiac">🌾 Sin TACC</button>
+        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|sinlactosa">🥛 Sin Lactosa</button>
+        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|picante">🌶️ Picante</button>
       </div>
     </div>
 
     <!-- Accessibility Audio Assistance -->
     <div class="a11y-bar">
       <span>👁️ Menú adaptado para lectores de pantalla y accesibilidad visual</span>
-      <button class="btn-a11y-tts" onclick="readSelectedCategoryTTS()">🔊 Escuchar categoría</button>
+      <button class="btn-a11y-tts" data-js-click="readSelectedCategoryTTS">🔊 Escuchar categoría</button>
     </div>
 
     <!-- Contenedor Alternativo para Perfumería -->
@@ -196,14 +196,14 @@
   </main>
 
   <!-- Floating Cart Bar -->
-  <div id="floatingCart" class="floating-cart-bar" onclick="openCartModal()" role="status" aria-live="polite" aria-atomic="true">
+  <div id="floatingCart" class="floating-cart-bar" data-js-click="openCartModal" role="status" aria-live="polite" aria-atomic="true">
     <span id="cartCountBadge">🛒 0 ítems</span>
     <span>Ver Pedido (<span id="cartTotalBadge">$0</span>) →</span>
   </div>
 
-  <div id="dishNoteModal" class="modal-overlay" aria-hidden="true" onclick="if(event.target===this)closeDishNoteModal()" role="dialog" aria-modal="true" aria-labelledby="dishNoteTitle">
+  <div id="dishNoteModal" class="modal-overlay" aria-hidden="true" data-js-click-backdrop="closeDishNoteModal" role="dialog" aria-modal="true" aria-labelledby="dishNoteTitle">
     <section class="modal-box dish-note-modal">
-      <button type="button" class="modal-close" onclick="closeDishNoteModal()" aria-label="Cerrar">✕</button>
+      <button type="button" class="modal-close" data-js-click="closeDishNoteModal" aria-label="Cerrar">✕</button>
       <h3 id="dishNoteTitle" class="modal-title">Personalizar el plato</h3>
       <p id="dishNoteDishName" class="dish-note-dish-name"></p>
       <div id="dishChoiceContainer" aria-live="polite" aria-atomic="true"></div>
@@ -213,8 +213,8 @@
       <label for="dishNoteInput" class="form-label">Nota para cocina (opcional)</label>
       <textarea id="dishNoteInput" class="form-textarea" maxlength="250" rows="3" placeholder="Ej: sin cebolla, aderezo aparte..."></textarea>
       <div class="dish-note-actions">
-        <button type="button" class="dish-note-cancel" onclick="closeDishNoteModal()">Cancelar</button>
-        <button type="button" id="dishNoteConfirm" class="dish-note-confirm" onclick="confirmDishNote()">Agregar al carrito</button>
+        <button type="button" class="dish-note-cancel" data-js-click="closeDishNoteModal">Cancelar</button>
+        <button type="button" id="dishNoteConfirm" class="dish-note-confirm" data-js-click="confirmDishNote">Agregar al carrito</button>
       </div>
     </section>
   </div>
@@ -222,13 +222,13 @@
   <!-- Cart & Order Modal -->
   <div id="cartModal" class="modal-overlay">
     <div class="modal-box">
-      <button class="modal-close" onclick="closeCartModal()">✕</button>
+      <button class="modal-close" data-js-click="closeCartModal">✕</button>
       <h3 class="modal-title">Tu Carrito WhatsApp</h3>
 
       <div id="cartItemsList"></div>
 
       <!-- Pedido Grupal: Botón y contenedor para Ver Consolidado por Comensal y Cocina -->
-      <button type="button" id="btnToggleGroupConsolidated" class="btn-group-consolidate" style="display:none;" onclick="toggleGroupConsolidatedView()">
+      <button type="button" id="btnToggleGroupConsolidated" class="btn-group-consolidate" style="display:none;" data-js-click="toggleGroupConsolidatedView">
         <span>👥 Ver Consolidado por Comensal y Cocina</span>
       </button>
       <div id="groupConsolidatedContainer" style="display:none; margin-bottom: 12px; background: rgba(43, 108, 176, 0.1); border: 1px solid rgba(66, 153, 225, 0.3); border-radius: 8px; padding: 12px;"></div>
@@ -243,7 +243,7 @@
           </div>
         </label>
         <label class="switch-ui" title="Activar o desactivar sugerencias del Mozo Virtual">
-          <input type="checkbox" id="toggleMozoVirtual" onchange="handleMozoVirtualToggle(this.checked)" checked>
+          <input type="checkbox" id="toggleMozoVirtual" data-js-change="handleMozoVirtualToggle|this.checked" checked>
           <span class="slider-round"></span>
         </label>
       </div>
@@ -257,7 +257,7 @@
       <!-- Mode Selector -->
       <div class="form-section">
         <label class="form-label">Modalidad del Pedido</label>
-        <select id="orderMode" class="form-select" onchange="handleOrderModeChange()">
+        <select id="orderMode" class="form-select" data-js-change="handleOrderModeChange">
           <option value="LOCAL">🍽️ Comer en el local</option>
           <option value="TAKEAWAY">🛍️ Retiro en el local / Take Away</option>
           <option value="DELIVERY">🛵 Envío a domicilio (Delivery)</option>
@@ -273,7 +273,7 @@
       <!-- Delivery zones (if delivery) -->
       <div id="deliveryZoneField" style="display: none;">
         <label class="form-label">Zona de Envío</label>
-        <select id="deliveryZoneSelect" class="form-select" onchange="updateDeliveryFee()">
+        <select id="deliveryZoneSelect" class="form-select" data-js-change="updateDeliveryFee">
           <option value="0" data-fee="0">Selecciona tu zona...</option>
         </select>
 
@@ -293,7 +293,7 @@
 
       <div class="form-group">
         <label class="form-label">Forma de Pago</label>
-        <select id="orderPayment" class="form-select" onchange="handleOrderPaymentChange()">
+        <select id="orderPayment" class="form-select" data-js-change="handleOrderPaymentChange">
           <option value="Efectivo">💵 Efectivo al recibir</option>
           <option value="Transferencia Bancaria">🏦 Transferencia Bancaria</option>
           <option value="Mercado Pago / Tarjeta">💳 Mercado Pago / Tarjeta</option>
@@ -308,7 +308,7 @@
         </label>
         <div style="display:flex; gap:6px;">
           <input type="text" id="inputCouponCode" class="form-input" placeholder="Ej: PROMO10, ENVIOFREE" style="text-transform:uppercase; font-family:var(--font-mono); font-weight:700;">
-          <button type="button" class="btn-a11y-tts" onclick="applyCoupon()" style="padding: 0 12px; font-weight:700;">Aplicar</button>
+          <button type="button" class="btn-a11y-tts" data-js-click="applyCoupon" style="padding: 0 12px; font-weight:700;">Aplicar</button>
         </div>
       </div>
 
@@ -338,7 +338,7 @@
           <span style="font-weight:700; color:var(--chalk-gold);">🧮 Dividir la Cuenta</span>
           <div style="display:flex; align-items:center; gap:6px;">
             <label style="font-size:11px; color:var(--chalk-dim);">Entre:</label>
-            <input type="number" id="splitCountInput" min="1" max="50" value="2" oninput="updateSplitCalculation()" style="width:52px; background:#0E1412; border:1px solid var(--border-chalk); color:#fff; border-radius:6px; padding:2px 6px; text-align:center; font-weight:700;">
+            <input type="number" id="splitCountInput" min="1" max="50" value="2" data-js-input="updateSplitCalculation" style="width:52px; background:#0E1412; border:1px solid var(--border-chalk); color:#fff; border-radius:6px; padding:2px 6px; text-align:center; font-weight:700;">
             <span style="font-size:11px; color:var(--chalk-dim);">personas</span>
           </div>
         </div>
@@ -356,7 +356,7 @@
         <div style="font-size:10px; color:var(--chalk-dim); text-align:center;">Luego de pagar, envía el pedido por WhatsApp adjuntando el comprobante.</div>
       </div>
 
-      <button id="btnSubmitOrderWA" class="btn-wa-submit" onclick="submitWhatsAppOrder()">
+      <button id="btnSubmitOrderWA" class="btn-wa-submit" data-js-click="submitWhatsAppOrder">
         <span>📲 Enviar Pedido por WhatsApp</span>
       </button>
     </div>
@@ -365,11 +365,11 @@
   <!-- Table Reservation Modal -->
   <div id="reservationModal" class="modal-overlay">
     <div class="modal-box">
-      <button class="modal-close" onclick="closeReservationModal()">✕</button>
+      <button class="modal-close" data-js-click="closeReservationModal">✕</button>
       <h3 class="modal-title">📅 Reservar Mesa</h3>
       <p style="color:var(--chalk-dim); font-size:0.85rem; margin-bottom:14px;">Envía tu solicitud de reserva directamente al WhatsApp del local.</p>
 
-      <form onsubmit="submitReservation(event)">
+      <form data-js-submit="submitReservation|event">
         <div class="form-group">
           <label class="form-label">Nombre del Titular</label>
           <input type="text" id="resName" class="form-input" placeholder="Ej: Marcela González" required>
@@ -414,12 +414,12 @@
   </div>
 
   <!-- Waiter Call / Bill Request Floating Button -->
-  <button class="waiter-fab" onclick="openWaiterModal()" title="Llamar al Mozo o Pedir la Cuenta">🔔</button>
+  <button class="waiter-fab" data-js-click="openWaiterModal" title="Llamar al Mozo o Pedir la Cuenta">🔔</button>
 
   <!-- Waiter Call Modal -->
   <div id="waiterModal" class="modal-overlay">
     <div class="modal-box">
-      <button class="modal-close" onclick="closeWaiterModal()">✕</button>
+      <button class="modal-close" data-js-click="closeWaiterModal">✕</button>
       <h3 class="modal-title">🔔 Servicio de Mesa</h3>
       <p style="color:var(--chalk-dim); font-size:0.85rem; margin-bottom:14px;">Envía una notificación rápida al personal del restaurante por WhatsApp.</p>
 
@@ -429,13 +429,13 @@
       </div>
 
       <div style="display:flex; flex-direction:column; gap:10px; margin-top:12px;">
-        <button class="btn-wa-submit" style="background:#F6AD55; color:#0E1412;" onclick="sendWaiterCall('mozo')">
+        <button class="btn-wa-submit" style="background:#F6AD55; color:#0E1412;" data-js-click="sendWaiterCall|mozo">
           <span>🙋 Llamar al Mozo</span>
         </button>
-        <button class="btn-wa-submit" style="background:#63B3ED; color:#0E1412;" onclick="sendWaiterCall('cuenta_efectivo')">
+        <button class="btn-wa-submit" style="background:#63B3ED; color:#0E1412;" data-js-click="sendWaiterCall|cuenta_efectivo">
           <span>🧾 Pedir la Cuenta (Efectivo)</span>
         </button>
-        <button class="btn-wa-submit" style="background:#B794F4; color:#0E1412;" onclick="sendWaiterCall('cuenta_tarjeta')">
+        <button class="btn-wa-submit" style="background:#B794F4; color:#0E1412;" data-js-click="sendWaiterCall|cuenta_tarjeta">
           <span>💳 Pedir la Cuenta (Tarjeta)</span>
         </button>
       </div>
@@ -443,9 +443,9 @@
   </div>
 
   <!-- Smart Google Reviews & Feedback Filter Modal -->
-  <div id="smartReviewModal" class="modal-overlay" aria-hidden="true" onclick="if(event.target===this)closeSmartReviewModal()">
+  <div id="smartReviewModal" class="modal-overlay" aria-hidden="true" data-js-click-backdrop="closeSmartReviewModal">
     <div class="modal-box smart-review-modal-box" role="dialog" aria-modal="true" aria-labelledby="smartReviewTitle">
-      <button type="button" class="modal-close" onclick="closeSmartReviewModal()" aria-label="Cerrar">✕</button>
+      <button type="button" class="modal-close" data-js-click="closeSmartReviewModal" aria-label="Cerrar">✕</button>
       
       <div class="smart-review-header">
         <span class="smart-review-icon">⭐</span>
@@ -455,11 +455,11 @@
 
       <!-- Star Rating Interactive Selector -->
       <div class="stars-selector-wrap" id="starsSelectorWrap" role="radiogroup" aria-label="Calificación en estrellas">
-        <button type="button" class="star-btn" data-star="1" onclick="handleStarSelect(1)" title="1 estrella">★</button>
-        <button type="button" class="star-btn" data-star="2" onclick="handleStarSelect(2)" title="2 estrellas">★</button>
-        <button type="button" class="star-btn" data-star="3" onclick="handleStarSelect(3)" title="3 estrellas">★</button>
-        <button type="button" class="star-btn" data-star="4" onclick="handleStarSelect(4)" title="4 estrellas">★</button>
-        <button type="button" class="star-btn" data-star="5" onclick="handleStarSelect(5)" title="5 estrellas">★</button>
+        <button type="button" class="star-btn" data-star="1" data-js-click="handleStarSelect|1" title="1 estrella">★</button>
+        <button type="button" class="star-btn" data-star="2" data-js-click="handleStarSelect|2" title="2 estrellas">★</button>
+        <button type="button" class="star-btn" data-star="3" data-js-click="handleStarSelect|3" title="3 estrellas">★</button>
+        <button type="button" class="star-btn" data-star="4" data-js-click="handleStarSelect|4" title="4 estrellas">★</button>
+        <button type="button" class="star-btn" data-star="5" data-js-click="handleStarSelect|5" title="5 estrellas">★</button>
       </div>
       <div id="starHintText" class="star-hint-text">Tocá las estrellas para calificar</div>
 
@@ -470,10 +470,10 @@
           <h4 style="font-size:1.15rem; color:var(--chalk-gold); margin:0 0 6px 0;">¡Nos alegra un montón que te haya encantado!</h4>
           <p style="font-size:0.88rem; color:var(--chalk-muted); margin:0 0 16px 0; line-height:1.4;">¿Nos regalarías 10 segundos de tu tiempo para dejar tu reseña en Google Maps? Tu calificación de 5 estrellas nos impulsa enormemente.</p>
         </div>
-        <a id="btnGoogleReviewRedirect" href="#" target="_blank" rel="noopener noreferrer" class="btn-google-review-cta" onclick="handleGoogleReviewClick()">
+        <a id="btnGoogleReviewRedirect" href="#" target="_blank" rel="noopener noreferrer" class="btn-google-review-cta" data-js-click="handleGoogleReviewClick">
           <span>⭐ Publicar Reseña en Google Maps (5★) ➔</span>
         </a>
-        <button type="button" class="btn-feedback-dismiss" onclick="closeSmartReviewModal()">Listo, ¡muchas gracias!</button>
+        <button type="button" class="btn-feedback-dismiss" data-js-click="closeSmartReviewModal">Listo, ¡muchas gracias!</button>
       </div>
 
       <!-- Branch B: 1-4 Stars -> Private Constructive Feedback Form for Owner -->
@@ -483,7 +483,7 @@
           <h4 style="font-size:1.05rem; color:#F6AD55; margin:0 0 6px 0;">Queremos escucharte y mejorar</h4>
           <p style="font-size:0.86rem; color:var(--chalk-muted); margin:0 0 14px 0; line-height:1.4;">Lamentamos no haber alcanzado la perfección. Tu mensaje llegará de forma directa y privada a la administración:</p>
         </div>
-        <form id="privateFeedbackForm" onsubmit="submitPrivateFeedback(event)">
+        <form id="privateFeedbackForm" data-js-submit="submitPrivateFeedback|event">
           <div class="form-group" style="margin-bottom:10px;">
             <label for="feedbackCommentInput" class="form-label">¿En qué podemos mejorar o qué sucedió?</label>
             <textarea id="feedbackCommentInput" class="form-textarea" rows="3" placeholder="Contanos tu experiencia (atención, tiempos, sabor, presentación...)" required style="font-size:0.9rem;"></textarea>
@@ -518,15 +518,15 @@
       <div class="push-prompt-desc">Recibí ofertas exclusivas, el plato del día y avisos de tus pedidos.</div>
     </div>
     <div class="push-prompt-actions">
-      <button type="button" class="btn-push-accept" onclick="requestPushPermission()">Activar</button>
-      <button type="button" class="btn-push-dismiss" onclick="dismissPushPrompt()">Ahora no</button>
+      <button type="button" class="btn-push-accept" data-js-click="requestPushPermission">Activar</button>
+      <button type="button" class="btn-push-dismiss" data-js-click="dismissPushPrompt">Ahora no</button>
     </div>
   </div>
 
   <!-- Wi-Fi Modal -->
   <div id="wifiModal" class="modal-overlay">
     <div class="modal-box" style="text-align: center;">
-      <button class="modal-close" onclick="closeWifiModal()">✕</button>
+      <button class="modal-close" data-js-click="closeWifiModal">✕</button>
       <h3 class="modal-title">Red Wi-Fi del Local</h3>
       <p style="color:var(--chalk-dim); font-size:0.88rem; margin-bottom:16px;">Conéctate gratis durante tu estadía.</p>
       
@@ -537,7 +537,7 @@
         <div style="font-size:0.8rem; color:var(--chalk-dim);">Contraseña:</div>
         <div id="wifiPassDisplay" style="font-family:var(--font-mono); font-size:1.2rem; font-weight:700; color:var(--chalk-gold); margin-bottom:12px;"></div>
 
-        <button class="meta-chip" onclick="copyWifiPassword()" style="margin:0 auto; padding:6px 14px; font-weight:bold;">
+        <button class="meta-chip" data-js-click="copyWifiPassword" style="margin:0 auto; padding:6px 14px; font-weight:bold;">
           📋 Copiar Contraseña
         </button>
       </div>
@@ -550,11 +550,11 @@
         <div class="info-header-left">
           <h3 class="info-modal-title">Información</h3>
           <div class="info-header-actions">
-            <button type="button" class="info-action-btn" onclick="openWhatsAppChat()" title="WhatsApp" aria-label="WhatsApp">💬</button>
-            <button type="button" class="info-action-btn" onclick="shareRestaurantUrl()" title="Compartir enlace" aria-label="Compartir">🔗</button>
+            <button type="button" class="info-action-btn" data-js-click="openWhatsAppChat" title="WhatsApp" aria-label="WhatsApp">💬</button>
+            <button type="button" class="info-action-btn" data-js-click="shareRestaurantUrl" title="Compartir enlace" aria-label="Compartir">🔗</button>
           </div>
         </div>
-        <button type="button" class="modal-close" onclick="closeRestaurantInfoModal()" aria-label="Cerrar">✕</button>
+        <button type="button" class="modal-close" data-js-click="closeRestaurantInfoModal" aria-label="Cerrar">✕</button>
       </div>
 
       <div class="info-modal-body">
@@ -633,7 +633,7 @@
     <div class="modal-box" style="max-width: 420px; padding: 20px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
         <h3 class="modal-title" style="margin:0;">Categorías de la Carta</h3>
-        <button type="button" class="modal-close" onclick="closeCategoriesMenuModal()">✕</button>
+        <button type="button" class="modal-close" data-js-click="closeCategoriesMenuModal">✕</button>
       </div>
       <div id="categoriesModalList" style="display:flex; flex-direction:column; gap:8px; max-height:60vh; overflow-y:auto;">
         <!-- Populated dynamically -->
@@ -647,5 +647,7 @@
 
   <!-- ES6 Specialty Components & i18n Integration -->
   <script type="module" src="/js/menu-modules.js"></script>
+
+  <script src="/js/dom-bindings.js"></script>
 </body>
 </html>

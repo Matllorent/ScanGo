@@ -40,6 +40,45 @@
       "dest": "/public/$1"
     }
   ],
+  "headers": [
+    {
+      "source": "^/(?!m/|api/).*",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com https://www.mercadopago.com; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com 'sha256-ThXl/pVS9sNJbKzdp67ht9uoltJuXSG8HsuC38bKdSA=' 'sha256-5OrHp69xB6jZgZ5vw4aBO7AaCndiMpYYqu7mv9/YGWY=' 'sha256-B2JfjHS0efn7vRf83uZXkLg0RfNq6xQDs2me9WXS3Qs='; script-src-attr 'unsafe-inline'; frame-src 'self' https://accounts.google.com"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), geolocation=(), microphone=(), payment=(), usb=(), serial=(), magnetometer=(), gyroscope=(), ambient-light-sensor=()"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "Cross-Origin-Resource-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=15552000; includeSubDomains"
+        }
+      ]
+    }
+  ],
   "crons": [
     {
       "path": "/api/cron/billing-dunning",

@@ -241,13 +241,13 @@ export class I18nCurrencyManager {
           <div style="display: flex; gap: 4px;">
             <button type="button" class="btn-i18n-pill ${this.currentLang === 'es' ? 'active' : ''}" 
                     style="background: ${this.currentLang === 'es' ? 'var(--chalk-gold)' : 'transparent'}; color: ${this.currentLang === 'es' ? '#101614' : 'var(--chalk-muted)'}; border: none; border-radius: 12px; padding: 2px 7px; font-size: 0.72rem; font-weight: 700; cursor: pointer;"
-                    onclick="window.i18nManager.setLanguage('es')">ES</button>
+                    data-js-click="i18nManager.setLanguage|es">ES</button>
             <button type="button" class="btn-i18n-pill ${this.currentLang === 'en' ? 'active' : ''}" 
                     style="background: ${this.currentLang === 'en' ? 'var(--chalk-gold)' : 'transparent'}; color: ${this.currentLang === 'en' ? '#101614' : 'var(--chalk-muted)'}; border: none; border-radius: 12px; padding: 2px 7px; font-size: 0.72rem; font-weight: 700; cursor: pointer;"
-                    onclick="window.i18nManager.setLanguage('en')">EN</button>
+                    data-js-click="i18nManager.setLanguage|en">EN</button>
             <button type="button" class="btn-i18n-pill ${this.currentLang === 'pt' ? 'active' : ''}" 
                     style="background: ${this.currentLang === 'pt' ? 'var(--chalk-gold)' : 'transparent'}; color: ${this.currentLang === 'pt' ? '#101614' : 'var(--chalk-muted)'}; border: none; border-radius: 12px; padding: 2px 7px; font-size: 0.72rem; font-weight: 700; cursor: pointer;"
-                    onclick="window.i18nManager.setLanguage('pt')">PT</button>
+                    data-js-click="i18nManager.setLanguage|pt">PT</button>
           </div>
         </div>
 
@@ -256,7 +256,7 @@ export class I18nCurrencyManager {
           <span style="color: var(--chalk-dim);">💵</span>
           <select id="selectCurrencySwitcher" 
                   style="background: transparent; color: var(--chalk-gold); border: 1px solid var(--border-gold); border-radius: 10px; font-size: 0.72rem; font-weight: 700; padding: 2px 6px; outline: none; cursor: pointer;"
-                  onchange="window.i18nManager.setCurrency(this.value)">
+                  data-js-change="i18nManager.setCurrency|this.value">
             <option value="$UYU" ${this.currentCurrency === '$UYU' ? 'selected' : ''} style="background:#151D1A; color:#fff;">$ UYU</option>
             <option value="$USD" ${this.currentCurrency === '$USD' ? 'selected' : ''} style="background:#151D1A; color:#fff;">US$ USD</option>
             <option value="$ARS" ${this.currentCurrency === '$ARS' ? 'selected' : ''} style="background:#151D1A; color:#fff;">$ ARS</option>

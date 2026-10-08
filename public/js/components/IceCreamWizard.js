@@ -352,9 +352,9 @@ export class IceCreamWizard {
             ${isOut ? `
               <span style="font-size: 0.75rem; color: #E53E3E; font-weight: 700;">No disponible</span>
             ` : `
-              <button type="button" class="btn-qty" onclick="window.activeIceCreamWizard.decreaseFlavor('${flavor.id}')" ${chosenQty <= 0 ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : ''}>-</button>
+              <button type="button" class="btn-qty" data-js-click="activeIceCreamWizard.decreaseFlavor|${flavor.id}" ${chosenQty <= 0 ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : ''}>-</button>
               <span style="font-family: var(--font-mono); font-size: 0.9rem; font-weight: 700; color: ${chosenQty > 0 ? 'var(--chalk-gold)' : 'var(--chalk-dim)'}; min-width: 18px; text-align: center;">${chosenQty}</span>
-              <button type="button" class="btn-qty" onclick="window.activeIceCreamWizard.increaseFlavor('${flavor.id}')" ${isLimitReached ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : ''}>+</button>
+              <button type="button" class="btn-qty" data-js-click="activeIceCreamWizard.increaseFlavor|${flavor.id}" ${isLimitReached ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : ''}>+</button>
             `}
           </div>
         </div>

@@ -122,7 +122,7 @@ export class LoyaltyRewardsModal {
                               class="btn-nav btn-nav-gold" 
                               style="font-size: 11px; padding: 4px 10px;"
                               data-reward-id="${escapeHtml(r.id)}"
-                              onclick="window.activeLoyaltyModal.redeemReward(this.dataset.rewardId)">
+                              data-js-click="activeLoyaltyModal.redeemReward|this.dataset.rewardId">
                         Canjear 🎁
                       </button>
                     ` : `

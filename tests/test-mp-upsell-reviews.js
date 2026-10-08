@@ -91,7 +91,7 @@ async function runTests() {
 
   // 11. Payment method handler
   assert.ok(menuJs.includes('handleOrderPaymentChange'), 'menu.js debe definir handleOrderPaymentChange()');
-  assert.ok(menuHtml.includes("onchange=\"handleOrderPaymentChange()\""), 'menu.html debe vincular onchange a handleOrderPaymentChange');
+  assert.ok(menuHtml.includes('data-js-change="handleOrderPaymentChange"'), 'menu.html debe vincular data-js-change a handleOrderPaymentChange (CSP estricto: usa dom-bindings)');
   console.log('✓ Handler de método de pago con soporte MP Checkout Pro verificado');
 
   // 12. WhatsApp message formatting still intact

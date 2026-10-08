@@ -585,13 +585,13 @@ Object.defineProperties(window, {
       const cats = sortWeatherCategories(restaurantData.categories || [], restaurantData.dishes || []);
       const hasFeatured = (restaurantData.dishes || []).some(d => d.tags && d.tags.includes('star'));
 
-      let html = `<button class="cat-pill ${selectedCategory === 'ALL' ? 'active' : ''}" onclick="selectCategory('ALL')">Todos</button>`;
+      let html = `<button class="cat-pill ${selectedCategory === 'ALL' ? 'active' : ''}" data-js-click="selectCategory|ALL">Todos</button>`;
       if (hasFeatured) {
-        html += `<button class="cat-pill ${selectedCategory === 'POPULAR' ? 'active' : ''}" onclick="selectCategory('POPULAR')" style="color:var(--chalk-gold); border-color:rgba(236,201,75,0.4);">⭐ Populares</button>`;
+        html += `<button class="cat-pill ${selectedCategory === 'POPULAR' ? 'active' : ''}" data-js-click="selectCategory|POPULAR" style="color:var(--chalk-gold); border-color:rgba(236,201,75,0.4);">⭐ Populares</button>`;
       }
 
       cats.forEach(c => {
-        html += `<button class="cat-pill ${selectedCategory === c.id ? 'active' : ''}" data-cat-id="${escapeHtml(c.id)}" onclick="selectCategory(this.dataset.catId)">${escapeHtml(c.name)}</button>`;
+        html += `<button class="cat-pill ${selectedCategory === c.id ? 'active' : ''}" data-cat-id="${escapeHtml(c.id)}" data-js-click="selectCategory|this.dataset.catId">${escapeHtml(c.name)}</button>`;
       });
       pillsContainer.innerHTML = html;
     }
@@ -801,7 +801,7 @@ Object.defineProperties(window, {
                 ${originalPriceHtml}${formattedPrice}
               </div>
               ${sched.isAvailable 
-                ? `<button class="btn-add" data-dish-id="${escapeHtml(d.id)}" onclick="addToCart(this.dataset.dishId)" aria-label="Agregar ${escapeHtml(d.name)}" style="width:34px; height:34px; font-size:1.1rem;">+</button>`
+                ? `<button class="btn-add" data-dish-id="${escapeHtml(d.id)}" data-js-click="addToCart|this.dataset.dishId" aria-label="Agregar ${escapeHtml(d.name)}" style="width:34px; height:34px; font-size:1.1rem;">+</button>`
                 : `<button class="btn-add" disabled style="width:34px; height:34px; font-size:0.9rem; background:#4A5568; cursor:not-allowed; opacity:0.6;" title="${sched.reason}">⏰</button>`
               }
             </div>
@@ -942,7 +942,7 @@ Object.defineProperties(window, {
               <span class="empty-state-icon">🔍</span>
               <div class="empty-state-title">Sin resultados para "${escapeHtml(searchTerm)}"</div>
               <div class="empty-state-desc">Probá con otro nombre o término más general para encontrar lo que buscas.</div>
-              <button type="button" class="empty-state-btn" onclick="clearSearchFilter()">✕ Limpiar búsqueda</button>
+              <button type="button" class="empty-state-btn" data-js-click="clearSearchFilter">✕ Limpiar búsqueda</button>
             </div>
           `;
         } else if (selectedCategory !== 'ALL') {
@@ -953,7 +953,7 @@ Object.defineProperties(window, {
               <span class="empty-state-icon">🍽️</span>
               <div class="empty-state-title">Sección sin platos disponibles</div>
               <div class="empty-state-desc">No hay platos activos en "${escapeHtml(catName)}" en este momento.</div>
-              <button type="button" class="empty-state-btn" onclick="selectCategory('ALL')">Ver todos los platos</button>
+              <button type="button" class="empty-state-btn" data-js-click="selectCategory|ALL">Ver todos los platos</button>
             </div>
           `;
         } else {
@@ -962,7 +962,7 @@ Object.defineProperties(window, {
               <span class="empty-state-icon">🥗</span>
               <div class="empty-state-title">Sin platos con los filtros seleccionados</div>
               <div class="empty-state-desc">Probá cambiando los filtros dietéticos para explorar la carta completa.</div>
-              <button type="button" class="empty-state-btn" onclick="selectDietFilter('ALL')">Restablecer filtros</button>
+              <button type="button" class="empty-state-btn" data-js-click="selectDietFilter|ALL">Restablecer filtros</button>
             </div>
           `;
         }
@@ -1036,7 +1036,7 @@ Object.defineProperties(window, {
               ? '<button class="btn-add" disabled style="background:#4A5568; cursor:not-allowed; opacity:0.6;">✕</button>' 
               : (!sched.isAvailable 
                   ? `<button class="btn-add" disabled style="background:#4A5568; cursor:not-allowed; opacity:0.6;" title="${sched.reason}">⏰</button>`
-                  : `<button class="btn-add" data-dish-id="${escapeHtml(d.id)}" onclick="addToCart(this.dataset.dishId)" aria-label="Agregar ${escapeHtml(d.name)}">+</button>`
+                  : `<button class="btn-add" data-dish-id="${escapeHtml(d.id)}" data-js-click="addToCart|this.dataset.dishId" aria-label="Agregar ${escapeHtml(d.name)}">+</button>`
                 )
             }
             ${inCart > 0 ? `<span class="qty-counter">${inCart} en carrito</span>` : ''}
@@ -1238,7 +1238,7 @@ Object.defineProperties(window, {
             const price = packageLabel ? option.priceCents : option.priceDeltaCents;
             const priceLabel = Number(price) > 0 ? (packageLabel ? formatOptionPrice(price) : `+${formatOptionPrice(price)}`) : '';
             const detail = packageLabel && option.unitsIncluded ? `${option.unitsIncluded} unidades` : '';
-            return `<label class="dish-choice-option"><input type="radio" class="dish-choice-input" name="group_${escapeHtml(group.id)}" data-group-id="${escapeHtml(group.id)}" data-option-id="${escapeHtml(option.id)}" data-selection-mode="single" value="${escapeHtml(option.id)}" ${saved ? 'checked' : ''} onchange="updateModifierSplitTotals()"><span>${escapeHtml(option.name)}${detail ? ` · ${detail}` : ''}</span>${priceLabel ? `<span class="dish-choice-price">${priceLabel}</span>` : ''}</label>`;
+            return `<label class="dish-choice-option"><input type="radio" class="dish-choice-input" name="group_${escapeHtml(group.id)}" data-group-id="${escapeHtml(group.id)}" data-option-id="${escapeHtml(option.id)}" data-selection-mode="single" value="${escapeHtml(option.id)}" ${saved ? 'checked' : ''} data-js-change="updateModifierSplitTotals"><span>${escapeHtml(option.name)}${detail ? ` · ${detail}` : ''}</span>${priceLabel ? `<span class="dish-choice-price">${priceLabel}</span>` : ''}</label>`;
           }).join('');
         } else if (group.selectionMode === 'multiple') {
           html += options.map(option => {
@@ -1258,7 +1258,7 @@ Object.defineProperties(window, {
             const maxQuantity = isSplit ? target : (option.maxQuantity || 10);
             const priceLabel = Number(option.priceDeltaCents) > 0 ? `+${formatOptionPrice(option.priceDeltaCents)}${isSplit ? ' c/u' : ''}` : '';
             const inputId = `qty_${group.id}_${option.id}`;
-            return `<div class="dish-choice-option dish-choice-quantity"><span>${escapeHtml(option.name)}${priceLabel ? `<small class="dish-choice-price">${priceLabel}</small>` : ''}</span><div class="dish-choice-stepper"><button type="button" class="dish-choice-step" onclick="adjustChoiceQuantity('${escapeHtml(group.id)}','${escapeHtml(option.id)}',-1)" aria-label="Quitar ${escapeHtml(option.name)}">−</button><input id="${escapeHtml(inputId)}" type="number" class="dish-choice-input dish-choice-quantity-input ${isSplit ? 'dish-variant-count' : ''}" min="0" max="${maxQuantity}" step="1" value="${saved?.quantity || 0}" data-group-id="${escapeHtml(group.id)}" data-option-id="${escapeHtml(option.id)}" data-selection-mode="${escapeHtml(group.selectionMode)}" ${waitingForPresentation ? 'disabled' : ''} oninput="updateModifierSplitTotals()" aria-label="Cantidad de ${escapeHtml(option.name)}"><button type="button" class="dish-choice-step" onclick="adjustChoiceQuantity('${escapeHtml(group.id)}','${escapeHtml(option.id)}',1)" aria-label="Agregar ${escapeHtml(option.name)}" ${waitingForPresentation ? 'disabled' : ''}>+</button></div></div>`;
+            return `<div class="dish-choice-option dish-choice-quantity"><span>${escapeHtml(option.name)}${priceLabel ? `<small class="dish-choice-price">${priceLabel}</small>` : ''}</span><div class="dish-choice-stepper"><button type="button" class="dish-choice-step" data-js-click="adjustChoiceQuantity|${escapeHtml(group.id)}|${escapeHtml(option.id)}|-1" aria-label="Quitar ${escapeHtml(option.name)}">−</button><input id="${escapeHtml(inputId)}" type="number" class="dish-choice-input dish-choice-quantity-input ${isSplit ? 'dish-variant-count' : ''}" min="0" max="${maxQuantity}" step="1" value="${saved?.quantity || 0}" data-group-id="${escapeHtml(group.id)}" data-option-id="${escapeHtml(option.id)}" data-selection-mode="${escapeHtml(group.selectionMode)}" ${waitingForPresentation ? 'disabled' : ''} data-js-input="updateModifierSplitTotals" aria-label="Cantidad de ${escapeHtml(option.name)}"><button type="button" class="dish-choice-step" data-js-click="adjustChoiceQuantity|${escapeHtml(group.id)}|${escapeHtml(option.id)}|1" aria-label="Agregar ${escapeHtml(option.name)}" ${waitingForPresentation ? 'disabled' : ''}>+</button></div></div>`;
           }).join('');
           if (isSplit) html += `<output class="dish-variant-total" data-split-group="${escapeHtml(group.id)}" data-required="${target}"></output>`;
         }
@@ -1565,7 +1565,7 @@ Object.defineProperties(window, {
         const formattedLineTotal = formatMenuPrice(unitPrice * item.qty);
 
         const editNoteBtn = canEdit ? `
-          <button type="button" class="cart-note-edit" data-cart-id="${escapeHtml(cartItemId)}" onclick="editCartItemNote(this.dataset.cartId)">${item.note ? 'Editar nota' : 'Agregar nota'}</button>
+          <button type="button" class="cart-note-edit" data-cart-id="${escapeHtml(cartItemId)}" data-js-click="editCartItemNote|this.dataset.cartId">${item.note ? 'Editar nota' : 'Agregar nota'}</button>
         ` : `<span style="font-size:0.72rem; color:var(--chalk-dim); font-style:italic;">🔒 Pedido por ${escapeHtml(orderedBy || 'otro comensal')}</span>`;
 
         const disabledAttr = canEdit ? '' : `disabled title="Solo ${escapeHtml(orderedBy || 'quien lo pidió')} puede modificar este plato"`;
@@ -1582,9 +1582,9 @@ Object.defineProperties(window, {
               ${editNoteBtn}
             </div>
             <div class="cart-qty-ctrl">
-              <button class="btn-qty" ${disabledAttr} data-cart-id="${escapeHtml(cartItemId)}" onclick="changeCartQty(this.dataset.cartId, -1)" aria-label="Quitar una unidad">-</button>
+              <button class="btn-qty" ${disabledAttr} data-cart-id="${escapeHtml(cartItemId)}" data-js-click="changeCartQty|this.dataset.cartId|-1" aria-label="Quitar una unidad">-</button>
               <span style="font-family:var(--font-mono);">${item.qty}</span>
-              <button class="btn-qty" ${disabledAttr} data-cart-id="${escapeHtml(cartItemId)}" onclick="changeCartQty(this.dataset.cartId, 1)" aria-label="Agregar una unidad">+</button>
+              <button class="btn-qty" ${disabledAttr} data-cart-id="${escapeHtml(cartItemId)}" data-js-click="changeCartQty|this.dataset.cartId|1" aria-label="Agregar una unidad">+</button>
             </div>
           </div>
         `;
@@ -2115,7 +2115,7 @@ Object.defineProperties(window, {
       let cardsHtml = '';
       candidates.forEach(dish => {
         const thumbHtml = dish.photoUrl
-          ? `<img class="mozo-item-thumb" src="${escapeHtml(dish.photoUrl)}" alt="${escapeHtml(dish.name)}" loading="lazy" onerror="this.style.display='none'">`
+          ? `<img class="mozo-item-thumb" src="${escapeHtml(dish.photoUrl)}" alt="${escapeHtml(dish.name)}" loading="lazy" data-js-error-style-display="none">`
           : `<div class="mozo-item-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🍽️</div>`;
         cardsHtml += `
           <div class="mozo-item-card">
@@ -2125,7 +2125,7 @@ Object.defineProperties(window, {
               <div class="mozo-item-title">${escapeHtml(dish.name)}</div>
               <div class="mozo-item-price">${currency} ${(dish.price || 0).toFixed(0)}</div>
             </div>
-            <button type="button" class="btn-mozo-quick-add" data-dish-id="${escapeHtml(dish.id)}" onclick="quickAddUpsellItem('${escapeHtml(dish.id)}', this)">
+            <button type="button" class="btn-mozo-quick-add" data-dish-id="${escapeHtml(dish.id)}" data-js-click="quickAddUpsellItem|${escapeHtml(dish.id)}|this">
               + Agregar
             </button>
           </div>`;
@@ -2249,7 +2249,7 @@ Object.defineProperties(window, {
               <div style="font-weight:600; font-size:0.88rem; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(topPick.name)}</div>
               <div style="font-size:0.78rem; color:var(--chalk-dim);">${currency} ${formatMenuPrice(topPick.price)}</div>
             </div>
-            <button type="button" class="btn-mozo-quick-add" data-dish-id="${escapeHtml(topPick.id)}" onclick="quickAddUpsellItem('${escapeHtml(topPick.id)}', this)" aria-label="Agregar ${escapeHtml(topPick.name)} al carrito">+ Agregar</button>
+            <button type="button" class="btn-mozo-quick-add" data-dish-id="${escapeHtml(topPick.id)}" data-js-click="quickAddUpsellItem|${escapeHtml(topPick.id)}|this" aria-label="Agregar ${escapeHtml(topPick.name)} al carrito">+ Agregar</button>
           </div>
         `;
       });
@@ -2425,7 +2425,7 @@ Object.defineProperties(window, {
       const listEl = document.getElementById('categoriesModalList');
       if (!listEl || !restaurantData) return;
       const cats = restaurantData.categories || [];
-      let html = `<button type="button" onclick="selectCategoryFromModal('ALL')" style="
+      let html = `<button type="button" data-js-click="selectCategoryFromModal|ALL" style="
         display:flex; align-items:center; gap:10px; padding:12px 16px; border-radius:10px;
         border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.04);
         color:#fff; font-size:0.95rem; font-weight:600; cursor:pointer; text-align:left;
@@ -2434,7 +2434,7 @@ Object.defineProperties(window, {
       cats.forEach(c => {
         const icon = c.icon || '🍽️';
         const dishCount = (restaurantData.dishes || []).filter(d => d.categoryId === c.id).length;
-        html += `<button type="button" onclick="selectCategoryFromModal('${escapeHtml(c.id)}')" style="
+        html += `<button type="button" data-js-click="selectCategoryFromModal|${escapeHtml(c.id)}" style="
           display:flex; align-items:center; justify-content:space-between; gap:10px;
           padding:12px 16px; border-radius:10px;
           border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.04);
