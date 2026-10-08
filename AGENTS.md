@@ -8,7 +8,7 @@ SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. 
 ```bash
 npm run dev          # Desarrollo con nodemon (puerto 3000)
 npm start            # Producción (node api/index.js)
-npm test             # Suite completa (25 tests en secuencia) — con snapshot/restore automático de data/
+npm test             # Suite completa (28 tests en secuencia) — con snapshot/restore automático de data/
 npm run test:billing # Test individual de pasarelas de pago
 npm run test:analytics # Test individual de analytics de negocio (ticket promedio, CSV, top platos)
 npm run test:admin   # Test individual del panel /admin (login 2FA, plata/mes, renovaciones)
@@ -17,6 +17,8 @@ npm run test:realtime # Test individual del guard de canales Realtime (migració
 npm run test:realtime-live # Test E2E real del guard (conecta a Supabase Realtime con la anon key)
 npm run test:csp     # Test individual del guard CSP + headers duros
 npm run test:semgrep  # Análisis estático Semgrep (reglas comunitarias gratis; SKIP si semgrep no está instalado)
+npm run test:escape-html # Test individual del escape HTML legacy (CommonJS)
+npm run test:db-write # Test individual de la primitiva atómica writeJson (temp-file + rename)
 npm run db:check     # Inventario real de tablas Supabase (service role, read-only)
 npm run db:smoke     # Smoke test de persistencia cloud de group_carts (round-trip real)
 npm run mobile:sync  # npx cap sync (sincroniza Capacitor)
@@ -107,12 +109,12 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** durante la corrida (flujos reales con el store local). **`npm test` ahora las aísla solo**: `scripts/test-data-guard.js` saca una foto de `data/` antes y la restaura siempre al final (pase o falle). La cadena real de tests vive en `npm run test:core`; no hay que revertir `data/` a mano para commitear.
-- Suite completa (`npm test`) ejecuta 25 tests en secuencia — **todos deben pasar (25/25)**
-- **4 tests existen pero NO están en `npm test`**: `test-e2e.js`, `test-db-write.js`, `test-escape-html.js` y `test-semgrep.js` (ejecutarlos a mano si tocas esas áreas; `test-semgrep` hace SKIP si `semgrep` no está instalado; `test-e2e` en modo cloud confirma el email del usuario recién registrado vía Admin API de Supabase — flujo real del link, sin mocks — porque `/api/studio/save` exige `requireVerifiedEmail`; `test-db-write` ejercita `db.writeJson`, la primitiva atómica temp-file+rename expuesta en el export del módulo)
+- Suite completa (`npm test`) ejecuta 28 tests en secuencia — **todos deben pasar (28/28)**
+- **2 tests existen pero NO están en `npm test`**: `test-e2e.js` (E2E integral real: registra en la nube, crea un checkout de Mercado Pago real y activa la suscripción por webhook — correrlo a mano; en modo cloud confirma el email del usuario recién registrado vía Admin API de Supabase, flujo real del link, sin mocks, porque `/api/studio/save` exige `requireVerifiedEmail`) y `test-supabase-group-cart-persistence.js` (es el `npm run db:smoke`, round-trip real de `group_carts` contra la nube). `test-escape-html`, `test-db-write` y `test-semgrep` solían estar fuera pero **ahora corren en el chain** (`npm test`): el guard de tests (`test-data-guard.js`) + el SKIP autónomo de semgrep los hacen seguros de correr en serie.
 - **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 4 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell` y `test-realtime-live-guard` (usan credenciales reales; el último hace SKIP si no hay `SUPABASE_URL`/`SUPABASE_ANON_KEY`).
 - Para debug rápido: `node tests/test-billing.js` (o el test específico, o `npm run test:<alias>`)
 
-### Tests incluidos en `npm test` (25 suites)
+### Tests incluidos en `npm test` (28 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
@@ -140,6 +142,9 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-push-notifications.js` | Push Web real (VAPID): suscripción cloud, 503 PUSH_NOT_CONFIGURED sin llaves, aviso de mozo desde la mesa con entrega intentada |
 | `test-realtime-rls-guard.js` | Guard estático de canales Realtime: la 002 existe, NO tiene ALTER TABLE sobre realtime.messages (evita el 42501), políticas SELECT+INSERT `realtime:%` para anon/authenticated, y los canales del código unen con `private: true` |
 | `test-realtime-live-guard.js` | E2E real del guard contra Supabase Realtime (anon key): JOIN+broadcast en `realtime:%` OK y topics ajenos (`event_waiters_*`) rechazados — detecta si la 002 NO está aplicada |
+| `test-escape-html.js` | Escape HTML legacy (CommonJS `public/js/utils/escapeHtml.js`): entidades, falsy, números, idempotencia |
+| `test-db-write.js` | Primitiva atómica `db.writeJson` (temp-file + rename, retries con backoff no-bloqueante): write básico, arrays y 5 escrituras concurrentes sin busy-wait |
+| `test-semgrep.js` | Análisis estático Semgrep (`p/security-audit` + `p/owasp-top-ten` + `p/javascript` sobre `api/ src/ public/js/`); hace SKIP con exit 0 si `semgrep` no está instalado |
 | `test-csp.js` | Guard CSP real + headers duros: **cero `on*=` en TODO `public/`** (scan de todos los JS+HTML; si alguien agrega un onclick, la CSP con `script-src-attr 'none'` lo rompe y el guard falla), hashes SHA-256 de scripts inline (normalizados CRLF→LF como el browser) presentes en la CSP transitional, paridad exacta vercel.json ↔ api/utils/securityHeaders.js, y en runtime `/m/:slug` responde con CSP estricta y el resto con transitional (ambas `script-src-attr 'none'`) |
 
 ## Configuración (`.env`)
@@ -251,4 +256,4 @@ Estéticas (definiciones CSS en `public/css/menu.css`): wedding = marfil + serif
 | `public/js/menu/eventGuestMode.js` | Resolución de tema de evento, contexto de invitado, reservas WhatsApp |
 | `public/js/utils/` | Utilidades frontend (usan `escapeHtmlBrowser.js`, ver trampas) |
 | `public/js/components/` | 14 componentes ES Module reutilizables |
-| `tests/` | 27 suites; 25 corren en `npm test` (ver sección Testing) |
+| `tests/` | 30 archivos; 28 corren en `npm test` (ver sección Testing) |

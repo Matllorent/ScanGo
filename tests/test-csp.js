@@ -22,7 +22,7 @@
  *     Permissions-Policy, CORP, COOP, nosniff, X-Frame-Options, HSTS) están
  *     presentes en toda respuesta.
  *
- * Está en `npm test` (nº 25).
+ * Está en `npm test` (nº 28).
  */
 const assert = require('assert');
 const crypto = require('crypto');
@@ -207,6 +207,6 @@ module.exports = { runTests };
 
 if (require.main === module) {
   runTests()
-    .then(() => { console.log('\n✅ test-csp: CSP real + headers duros OK (25/25)'); process.exit(0); })
+    .then(() => { console.log('\n✅ test-csp: CSP real + headers duros OK (28/28)'); process.exit(0); })
     .catch(err => { console.error('\n❌ test-csp falló:', err.message); process.exit(1); });
 }
