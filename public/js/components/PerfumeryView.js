@@ -148,20 +148,24 @@ export class PerfumeryView {
   constructor(options = {}) {
     this.currency = options.currency || '$';
     this.onAddToCart = options.onAddToCart || (() => {});
+    // Catálogo data-driven: si el local trae sus fragancias REALES las usamos.
+    // Si se pasa un array vacío, se respeta (estado vacío honesto, sin demo).
+    // Sólo si NO se pasa `catalog` se cae al catálogo preset (demo).
+    this.catalog = Array.isArray(options.catalog) ? options.catalog : PERFUMERY_PRESETS;
     
     // Filtros activos
-    this.activeFamily = 'ALL'; // ALL, Cítrico, Floral, Amaderado, Oriental, Gourmand, Aromático
+    this.activeFamily = 'ALL'; // ALL, Cítrico, Floral, Amaderado, Oriental, Gourmand, Aromático, Autor
     this.activeConcentration = 'ALL'; // ALL, EDP, EDT, Body Splash
     this.selectedVolumes = {}; // { [perfumeId]: '50ml' }
     
     // Inicializar volúmenes por defecto
-    PERFUMERY_PRESETS.forEach(p => {
+    this.catalog.forEach(p => {
       this.selectedVolumes[p.id] = p.defaultVolume || '50ml';
     });
   }
 
   getFilteredList() {
-    return PERFUMERY_PRESETS.filter(p => {
+    return this.catalog.filter(p => {
       const matchFamily = (this.activeFamily === 'ALL' || p.family === this.activeFamily);
       const matchConc = (this.activeConcentration === 'ALL' || p.concentration === this.activeConcentration);
       return matchFamily && matchConc;
@@ -181,7 +185,8 @@ export class PerfumeryView {
       { id: 'Amaderado', label: '🌲 Amaderado' },
       { id: 'Oriental', label: '🏺 Oriental / Ámbar' },
       { id: 'Gourmand', label: '🍫 Gourmand' },
-      { id: 'Aromático', label: '🌿 Aromático' }
+      { id: 'Aromático', label: '🌿 Aromático' },
+      { id: 'Autor', label: '🖋️ Autor / Otras' }
     ];
 
     const concentrations = [
@@ -238,7 +243,9 @@ export class PerfumeryView {
 
         <!-- Grilla de Perfumes -->
         <div class="perfumes-grid" style="display: grid; grid-template-columns: 1fr; gap: 14px;">
-          ${list.map(p => this.renderPerfumeCard(p)).join('')}
+          ${list.length > 0
+            ? list.map(p => this.renderPerfumeCard(p)).join('')
+            : '<div style="text-align:center; padding:28px 16px; color: var(--chalk-dim); font-size:0.9rem;">🧴 Este local todavía no cargó fragancias en su carta.</div>'}
         </div>
 
       </div>
@@ -248,8 +255,11 @@ export class PerfumeryView {
   }
 
   renderPerfumeCard(p) {
-    const selectedVol = this.selectedVolumes[p.id] || p.defaultVolume || '50ml';
-    const currentPrice = p.prices[selectedVol] || p.prices['50ml'];
+    const volumes = Object.keys(p.prices || {});
+    const selectedVol = this.selectedVolumes[p.id] || p.defaultVolume || volumes[0] || 'Único';
+    const currentPrice = (p.prices && p.prices[selectedVol] != null)
+      ? p.prices[selectedVol]
+      : (p.prices ? p.prices[volumes[0]] : 0);
 
     return `
       <div class="dish-card perfume-product-card" id="perfume_card_${p.id}" 
@@ -257,14 +267,15 @@ export class PerfumeryView {
         
         <div style="display: flex; gap: 14px; align-items: flex-start;">
           <!-- Foto o Frasco -->
-          <img src="${p.photoUrl}" alt="${p.name}" 
-               style="width: 88px; height: 88px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border-gold); background: #16201b; flex-shrink: 0;">
+          ${p.photoUrl
+            ? `<img src="${p.photoUrl}" alt="${p.name}" style="width: 88px; height: 88px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border-gold); background: #16201b; flex-shrink: 0;">`
+            : `<div style="width: 88px; height: 88px; border-radius: 10px; border: 1px solid var(--border-gold); background: #16201b; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 2rem;">🧴</div>`}
 
           <!-- Info Principal -->
           <div style="flex: 1;">
             <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px;">
               <span style="font-size: 0.72rem; color: var(--chalk-gold); font-family: var(--font-mono); text-transform: uppercase; font-weight: 700;">${p.brand}</span>
-              <span class="dish-badge" style="background: rgba(99, 179, 237, 0.2); color: #90CDF4; border: 1px solid rgba(99, 179, 237, 0.4);">${p.concentration}</span>
+              ${p.concentration ? `<span class="dish-badge" style="background: rgba(99, 179, 237, 0.2); color: #90CDF4; border: 1px solid rgba(99, 179, 237, 0.4);">${p.concentration}</span>` : ''}
               <span class="dish-badge" style="background: rgba(236, 201, 75, 0.15); color: var(--chalk-gold);">${p.family}</span>
             </div>
             
@@ -294,7 +305,8 @@ export class PerfumeryView {
         </div>
 
         <!-- Acordeón / Visualizador de Pirámide Olfativa -->
-        <div class="scent-pyramid-box" style="background: rgba(236, 201, 75, 0.05); border: 1px dashed var(--border-gold); border-radius: 10px; padding: 10px 12px;">
+        ${p.pyramid && p.pyramid.top
+          ? `<div class="scent-pyramid-box" style="background: rgba(236, 201, 75, 0.05); border: 1px dashed var(--border-gold); border-radius: 10px; padding: 10px 12px;">
           <div style="font-size: 0.78rem; font-weight: 700; color: var(--chalk-gold); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
             <span>🔺 Pirámide Olfativa Detallada</span>
           </div>
@@ -303,25 +315,26 @@ export class PerfumeryView {
             <!-- Salida -->
             <div style="display: flex; align-items: baseline; gap: 8px;">
               <span style="color: #68D391; font-weight: 700; font-size: 0.75rem; min-width: 60px;">🍋 Salida:</span>
-              <span style="color: var(--chalk-white); font-size: 0.78rem;">${p.pyramid.top.join(' • ')}</span>
+              <span style="color: var(--chalk-white); font-size: 0.78rem;">${(p.pyramid.top || []).join(' • ')}</span>
             </div>
             <!-- Corazón -->
             <div style="display: flex; align-items: baseline; gap: 8px;">
               <span style="color: #F6AD55; font-weight: 700; font-size: 0.75rem; min-width: 60px;">🌸 Corazón:</span>
-              <span style="color: var(--chalk-white); font-size: 0.78rem;">${p.pyramid.heart.join(' • ')}</span>
+              <span style="color: var(--chalk-white); font-size: 0.78rem;">${(p.pyramid.heart || []).join(' • ')}</span>
             </div>
             <!-- Fondo -->
             <div style="display: flex; align-items: baseline; gap: 8px;">
               <span style="color: #B794F4; font-weight: 700; font-size: 0.75rem; min-width: 60px;">🪵 Fondo:</span>
-              <span style="color: var(--chalk-white); font-size: 0.78rem;">${p.pyramid.base.join(' • ')}</span>
+              <span style="color: var(--chalk-white); font-size: 0.78rem;">${(p.pyramid.base || []).join(' • ')}</span>
             </div>
           </div>
-        </div>
+        </div>`
+          : ''}
 
         <!-- Precio y Botón Agregar -->
         <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-chalk); padding-top: 10px; margin-top: 2px;">
           <div>
-            <div style="font-size: 0.72rem; color: var(--chalk-dim);">Precio (${selectedVol}):</div>
+            <div style="font-size: 0.72rem; color: var(--chalk-dim);">Precio${volumes.length > 1 ? ` (${selectedVol})` : ''}:</div>
             <div class="dish-price" style="font-family: var(--font-mono); font-size: 1.25rem; font-weight: 700; color: var(--chalk-gold);">
               ${this.currency} ${currentPrice}
             </div>
@@ -343,7 +356,7 @@ export class PerfumeryView {
     // Volver a renderizar la tarjeta o actualizar precio
     const card = document.getElementById(`perfume_card_${perfumeId}`);
     if (card) {
-      const p = PERFUMERY_PRESETS.find(item => item.id === perfumeId);
+      const p = this.catalog.find(item => item.id === perfumeId);
       if (p) {
         card.outerHTML = this.renderPerfumeCard(p);
       }
@@ -361,20 +374,47 @@ export class PerfumeryView {
   }
 
   addToCart(perfumeId) {
-    const p = PERFUMERY_PRESETS.find(item => item.id === perfumeId);
+    const p = this.catalog.find(item => item.id === perfumeId);
     if (!p) return;
 
-    const vol = this.selectedVolumes[perfumeId] || p.defaultVolume || '50ml';
-    const price = p.prices[vol] || p.prices['50ml'];
+    const volumes = Object.keys(p.prices || {});
+    const vol = this.selectedVolumes[perfumeId] || p.defaultVolume || volumes[0] || 'Único';
+    const price = (p.prices && p.prices[vol] != null)
+      ? p.prices[vol]
+      : (p.prices ? p.prices[volumes[0]] : 0);
+
+    // `cartDishId` es el id REAL de la carta cuando el catálogo viene del local:
+    // así el pedido cotiza contra el plato existente (antes se generaba un id
+    // sintético `perfume_...` que NO estaba en la carta y el pedido fallaba con
+    // DISH_NOT_FOUND). Los presets conservan su id sintético legacy.
+    const isReal = Boolean(p.cartDishId);
+    const cartId = p.cartDishId || `perfume_${p.id}_${vol}`;
+
+    let dishName;
+    if (isReal) {
+      dishName = p.name;
+    } else {
+      const parts = [p.name];
+      if (p.concentration) parts.push(`(${p.concentration})`);
+      parts.push(`[${vol}]`);
+      dishName = parts.join(' ');
+    }
+
+    let description = `Familia: ${p.family}`;
+    if (p.pyramid && p.pyramid.top) {
+      description += ` • Salida: ${p.pyramid.top.slice(0, 2).join(', ')} • Corazón: ${(p.pyramid.heart || []).slice(0, 2).join(', ')}`;
+    } else if (p.description) {
+      description = p.description;
+    }
 
     const dishItem = {
-      id: `perfume_${p.id}_${vol}`,
+      id: cartId,
       categoryId: p.categoryId,
-      name: `${p.name} (${p.concentration}) [${vol}]`,
+      name: dishName,
       price: price,
-      description: `Familia: ${p.family} • Salida: ${p.pyramid.top.slice(0,2).join(', ')} • Corazón: ${p.pyramid.heart.slice(0,2).join(', ')}`,
+      description: description,
       photoUrl: p.photoUrl,
-      tags: ['star']
+      tags: (isReal && Array.isArray(p.tags) && p.tags.length) ? p.tags : ['star']
     };
 
     this.onAddToCart(dishItem);

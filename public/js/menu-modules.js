@@ -10,6 +10,8 @@ import * as orderCheckout from '/js/menu/orderCheckout.js';
 import * as cartOperations from '/js/menu/cartOperations.js';
 import * as menuModals from '/js/menu/menuModals.js';
 import * as eventGuestMode from '/js/menu/eventGuestMode.js';
+import { buildCustomFlavors } from '/js/menu/iceCreamHeuristics.js';
+import { buildPerfumeryCatalog } from '/js/menu/perfumeryHeuristics.js';
 import * as menuBundle from '/js/menu/index.js';
 
 // Expose classes and modules on window
@@ -63,28 +65,11 @@ window.menuBundle = menuBundle;
     // Ice Cream Wizard Handler
     window.openIceCreamWizard = function() {
       const curr = window.i18nManager ? window.i18nManager.getCurrencySymbol() : (window.restaurantData ? window.restaurantData.currency : '$');
-      
-      // Chequear si el restaurante tiene sabores de heladería propios cargados
-      let customFlavors = null;
-      if (window.restaurantData && window.restaurantData.dishes) {
-        const iceDishes = window.restaurantData.dishes.filter(d => {
-          const cat = (window.restaurantData.categories || []).find(c => c.id === d.categoryId);
-          const catName = cat ? cat.name.toLowerCase() : '';
-          return catName.includes('helad') || d.name.toLowerCase().includes('helad') || d.name.toLowerCase().includes('sabor');
-        });
-        if (iceDishes.length > 0) {
-          customFlavors = iceDishes.map(d => ({
-            id: d.id,
-            categoryId: d.categoryId,
-            categoryName: 'Carta de la Casa',
-            name: d.name,
-            price: d.price,
-            description: d.description || '',
-            tags: d.tags || [],
-            outOfStock: Boolean(d.outOfStock)
-          }));
-        }
-      }
+
+      // Sabores REALES del local (nunca demo para un local real). La heurística
+      // vive en public/js/menu/iceCreamHeuristics.js (pura y testeada).
+      const flavors = buildCustomFlavors(window.restaurantData || {});
+      const customFlavors = flavors.length > 0 ? flavors : null;
 
       window.iceCreamWizardInstance = new IceCreamWizard({
         currency: curr,
@@ -121,9 +106,14 @@ window.menuBundle = menuBundle;
         btnToggle.textContent = '🍽️ Volver a la Carta Gastronómica';
 
         const curr = window.i18nManager ? window.i18nManager.getCurrencySymbol() : (window.restaurantData ? window.restaurantData.currency : '$');
+
+        // Catálogo REAL del local (nunca demo): cada fragancia usa el id real de
+        // la carta para que el pedido cotice bien y muestre el precio del dueño.
+        const perfCatalog = buildPerfumeryCatalog(window.restaurantData || {});
         if (!window.perfumeryViewInstance) {
           window.perfumeryViewInstance = new PerfumeryView({
             currency: curr,
+            catalog: perfCatalog,
             onAddToCart: (perfumeDish) => {
               if (!window.cart) window.cart = {};
               if (!window.cart[perfumeDish.id]) {
@@ -137,8 +127,13 @@ window.menuBundle = menuBundle;
             }
           });
         }
-        window.perfumeryViewInstance.currency = curr;
-        window.perfumeryViewInstance.renderToContainer('perfumeryContainer');
+        const perfView = window.perfumeryViewInstance;
+        perfView.currency = curr;
+        perfView.catalog = perfCatalog;
+        perfCatalog.forEach(p => {
+          if (!perfView.selectedVolumes[p.id]) perfView.selectedVolumes[p.id] = p.defaultVolume || 'Único';
+        });
+        perfView.renderToContainer('perfumeryContainer');
       } else {
         perfContainer.style.display = 'none';
         dishesContainer.style.display = 'block';

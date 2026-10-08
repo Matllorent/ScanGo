@@ -52,7 +52,9 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - `public/js/components/` — 14 componentes ES Module (DishCard, GroupCartManager, IceCreamWizard, etc.)
 - `public/js/menu-modules.js` — ES Module que importa componentes y expone en `window.`
 - `public/js/menu.js` — script inline principal (módulo raíz)
-- `public/js/menu/` — módulos ES internos (eventGuestMode, menuState, menuViewModel, menuModals, menuLoader, cartOperations, orderCheckout, smartReviews, virtualWaiterHeuristics)
+- `public/js/menu/` — módulos ES internos (eventGuestMode, menuState, menuViewModel, menuModals, menuLoader, cartOperations, orderCheckout, smartReviews, virtualWaiterHeuristics, **iceCreamHeuristics** y **perfumeryHeuristics**)
+- **Catálogos data-driven (cero demo)**: `iceCreamHeuristics.js` (`buildCustomFlavors`) y `perfumeryHeuristics.js` (`buildPerfumeryCatalog`) derivan sabores/fragancias de la **carta real** del local. El wizard/vista ya no caen a catálogos inventados: una heladería sin pistas por nombre/categoría usa toda su carta; una perfumería usa el **id real** de cada plato (así el pedido cotiza bien, antes el `id` sintético `perfume_...` rompía con `DISH_NOT_FOUND`). Regresión cubierta en `tests/test-menu-componentization.js` (§11/§12).
+- `public/js/pwa.js` — Service Worker + CTA de instalación flotante (`pwa-install-ready` → `window.triggerPWAInstall()`; antes el trigger quedaba huérfano). Descartable (localStorage `scango_pwa_install_dismissed`); usa `addEventListener`, sin `on*=`. Guard en `tests/test-frontend-structure.js` (§D).
 - `public/js/dom-bindings.js` — binder de eventos delegados para atributos `data-js-*` (todas las páginas: menú, Studio, Admin, Landing; requisito de la CSP `script-src-attr 'none'`, ver sección "Seguridad — CSP")
 - `public/js/utils/` — utilitarios ES: **`escapeHtmlBrowser.js`** (el que usa todo el frontend), `dishPriceFormatter.js`, `categoryFilter.js` (ver gotcha abajo)
 

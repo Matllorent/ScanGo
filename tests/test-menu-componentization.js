@@ -177,6 +177,8 @@ async function runMenuComponentizationTests() {
   assert.ok(typeof menuIndexModule.getCartUnitPrice === 'function', 'index.js debe re-exportar getCartUnitPrice');
   assert.ok(typeof menuIndexModule.openWifiModal === 'function', 'index.js debe re-exportar openWifiModal');
   assert.ok(typeof menuIndexModule.resolveEventTheme === 'function', 'index.js debe re-exportar resolveEventTheme');
+  assert.ok(typeof menuIndexModule.buildCustomFlavors === 'function', 'index.js debe re-exportar buildCustomFlavors (sabores de heladería)');
+  assert.ok(typeof menuIndexModule.buildPerfumeryCatalog === 'function', 'index.js debe re-exportar buildPerfumeryCatalog (catálogo de perfumería)');
   console.log('✓ Barrel export public/js/menu/index.js verificado y unificado');
 
   // 8. Test menu-modules.js integration
@@ -188,6 +190,8 @@ async function runMenuComponentizationTests() {
   assert.ok(menuModulesSrc.includes('/js/menu/cartOperations.js'), 'menu-modules.js debe importar cartOperations.js');
   assert.ok(menuModulesSrc.includes('/js/menu/menuModals.js'), 'menu-modules.js debe importar menuModals.js');
   assert.ok(menuModulesSrc.includes('/js/menu/eventGuestMode.js'), 'menu-modules.js debe importar eventGuestMode.js');
+  assert.ok(menuModulesSrc.includes('/js/menu/iceCreamHeuristics.js'), 'menu-modules.js debe importar iceCreamHeuristics.js (sabores reales, no demo)');
+  assert.ok(menuModulesSrc.includes('/js/menu/perfumeryHeuristics.js'), 'menu-modules.js debe importar perfumeryHeuristics.js (catálogo real, no demo)');
   assert.ok(menuModulesSrc.includes('/js/menu/index.js'), 'menu-modules.js debe importar index.js');
   assert.ok(menuModulesSrc.includes('window.togglePerfumeryMode = function()'), 'menu-modules.js debe registrar el interruptor de perfumería en window');
   assert.ok(menuModulesSrc.includes('window.toggleGroupConsolidatedView = function()'), 'menu-modules.js debe registrar la vista consolidada grupal en window');
@@ -234,6 +238,103 @@ async function runMenuComponentizationTests() {
   assert.ok(/cart:\s*\{\s*get:[\s\S]*?set:/.test(menuMainSrc),
     'menu.js debe exponer window.cart con getter y setter (los wizards escriben en el carrito real)');
   console.log('✓ Puente window.restaurantData / window.cart definido en menu.js');
+
+  // 11. iceCreamHeuristics: sabores REALES de la carta (cero demo)
+  const iceModule = await import('../public/js/menu/iceCreamHeuristics.js');
+  assert.strictEqual(typeof iceModule.buildCustomFlavors, 'function', 'buildCustomFlavors debe existir');
+  assert.strictEqual(typeof iceModule.detectFlavorDishes, 'function', 'detectFlavorDishes debe existir');
+  assert.strictEqual(typeof iceModule.resolveFlavorCategoryName, 'function', 'resolveFlavorCategoryName debe existir');
+
+  // Heladería con categorías típicas (sin la palabra "helad"): usa TODA la carta real
+  const heladeria = {
+    allowIceCreamWizard: true,
+    categories: [
+      { id: 'c1', name: 'Cremas' },
+      { id: 'c2', name: 'Chocolates' },
+      { id: 'c3', name: 'Frutales' }
+    ],
+    dishes: [
+      { id: 'f1', name: 'Vainilla Americana', price: 120, categoryId: 'c1' },
+      { id: 'f2', name: 'Chocolate Amargo', price: 140, categoryId: 'c2', tags: ['star'] },
+      { id: 'f3', name: 'Frutilla a la Crema', price: 130, categoryId: 'c3', outOfStock: true }
+    ]
+  };
+  const flavors = iceModule.buildCustomFlavors(heladeria);
+  assert.strictEqual(flavors.length, 3, 'Heladería con categorías típicas usa su carta real (no el demo)');
+  assert.strictEqual(flavors.find(f => f.id === 'f1').categoryName, 'Cremas', '"Cremas" mapea al balde Cremas');
+  assert.strictEqual(flavors.find(f => f.id === 'f2').categoryName, 'Chocolates');
+  assert.strictEqual(flavors.find(f => f.id === 'f3').categoryName, 'Frutales');
+  assert.strictEqual(flavors.find(f => f.id === 'f3').outOfStock, true, 'outOfStock se propaga al wizard');
+  assert.deepStrictEqual(flavors.find(f => f.id === 'f2').tags, ['star'], 'Los tags se propagan');
+
+  // Restaurante común SIN pistas: no inventa sabores (evita el catálogo demo)
+  assert.deepStrictEqual(
+    iceModule.buildCustomFlavors({
+      categories: [{ id: 'x', name: 'Principales' }],
+      dishes: [{ id: 'd', name: 'Milanesa Napolitana', price: 300, categoryId: 'x' }]
+    }),
+    [],
+    'Un restaurante común no debe exponer sabores de heladería'
+  );
+
+  // Restaurante común con categoría "Helados": detecta SOLO esos platos
+  const detected = iceModule.detectFlavorDishes({
+    categories: [{ id: 'p', name: 'Principales' }, { id: 'h', name: 'Helados Artesanales' }],
+    dishes: [
+      { id: 'm', name: 'Milanesa', categoryId: 'p' },
+      { id: 'h1', name: 'Dulce de Leche Granizado', categoryId: 'h' }
+    ]
+  });
+  assert.deepStrictEqual(detected.map(d => d.id), ['h1'], 'Sólo los platos de la categoría de helados');
+
+  assert.strictEqual(iceModule.resolveFlavorCategoryName('Dulce de Leche Clásico'), 'Dulces de Leche');
+  assert.strictEqual(iceModule.resolveFlavorCategoryName('Especiales de Autor'), 'Especiales');
+  assert.strictEqual(iceModule.resolveFlavorCategoryName(''), 'Carta de la Casa');
+  console.log('✓ Heurística de sabores de heladería: carta real, categorías mapeadas, cero demo');
+
+  // 12. perfumeryHeuristics: catálogo data-driven (id real → cotiza bien, sin demo)
+  const perfModule = await import('../public/js/menu/perfumeryHeuristics.js');
+  assert.strictEqual(typeof perfModule.buildPerfumeryCatalog, 'function', 'buildPerfumeryCatalog debe existir');
+  assert.strictEqual(typeof perfModule.resolvePerfumeFamily, 'function', 'resolvePerfumeFamily debe existir');
+  assert.strictEqual(typeof perfModule.resolvePerfumeConcentration, 'function', 'resolvePerfumeConcentration debe existir');
+
+  const perfumeria = {
+    businessType: 'perfumery',
+    categories: [
+      { id: 'pc1', name: 'Fragancias Cítricas' },
+      { id: 'pc2', name: 'Gourmand & Brumas' }
+    ],
+    dishes: [
+      { id: 'd_perf_1', name: 'Aqua Riviera (EDT)', price: 1750, categoryId: 'pc1', description: 'Fresca', tags: ['star'] },
+      { id: 'd_perf_2', name: 'Vanille Noire (Body Splash)', price: 1250, categoryId: 'pc2' }
+    ]
+  };
+  const catalog = perfModule.buildPerfumeryCatalog(perfumeria);
+  assert.strictEqual(catalog.length, 2, 'El catálogo usa los platos reales de la perfumería');
+  const first = catalog.find(p => p.id === 'd_perf_1');
+  assert.strictEqual(first.cartDishId, 'd_perf_1', 'El id del carrito es el id REAL de la carta (cotiza bien)');
+  assert.strictEqual(first.family, 'Cítrico', 'La categoría "Cítricas" mapea a familia Cítrico');
+  assert.strictEqual(first.concentration, 'EDT', 'Detecta EDT desde el nombre');
+  assert.strictEqual(first.prices['Único'], 1750, 'El precio es el del dueño (no el demo)');
+  assert.strictEqual(first.pyramid, null, 'Sin pirámide demo; la vista la oculta');
+  const second = catalog.find(p => p.id === 'd_perf_2');
+  assert.strictEqual(second.family, 'Gourmand');
+  assert.strictEqual(second.concentration, 'Body Splash');
+
+  // Perfumería sin carta cargada: catálogo vacío (estado honesto, sin demo)
+  assert.deepStrictEqual(perfModule.buildPerfumeryCatalog({ dishes: [] }), [], 'Sin carta no inventa fragancias');
+  assert.deepStrictEqual(
+    perfModule.buildPerfumeryCatalog({ dishes: [{ id: 'x', name: 'Sin precio', categoryId: 'c' }] }),
+    [],
+    'Un plato sin precio se descarta del catálogo'
+  );
+
+  assert.strictEqual(perfModule.resolvePerfumeFamily('Fragancias Amaderadas'), 'Amaderado');
+  assert.strictEqual(perfModule.resolvePerfumeFamily('Perfumes de Nicho'), 'Oriental');
+  assert.strictEqual(perfModule.resolvePerfumeFamily('Categoría rara'), 'Autor');
+  assert.strictEqual(perfModule.resolvePerfumeConcentration('Eau de Parfum Intense'), 'EDP');
+  assert.strictEqual(perfModule.resolvePerfumeConcentration('Aqua Fresca'), '');
+  console.log('✓ Catálogo de perfumería data-driven: id real de carta, familia/concentración mapeadas, cero demo');
 
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE COMPONENTIZACIÓN DE MENU PASARON AL 100%!');
 }

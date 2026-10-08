@@ -125,6 +125,26 @@ function runFrontendStructureTests() {
   );
   console.log('✓ aiMenuImport.js: orden close → assign → open correcto (parsedResult no se anula)');
 
+  // ---------- D: CTA de instalación PWA cableado ----------
+  // El evento beforeinstallprompt se capturaba pero nadie mostraba un CTA y
+  // window.triggerPWAInstall quedaba huérfano (nunca invocado). Este guard evita
+  // que vuelva a pasar: debe existir un consumidor de pwa-install-ready que
+  // llame a triggerPWAInstall, y sin atributos inline on* (CSP script-src-attr none).
+  const pwa = read('public/js/pwa.js');
+  assert.ok(
+    /addEventListener\(\s*['"]pwa-install-ready['"]/.test(pwa),
+    'pwa.js debe escuchar el evento pwa-install-ready para mostrar el CTA de instalación'
+  );
+  assert.ok(
+    /window\.triggerPWAInstall\s*\(/.test(pwa),
+    'REGRESIÓN: triggerPWAInstall existe pero nadie lo invoca — el CTA de instalación quedó huérfano'
+  );
+  assert.ok(
+    !/\son[a-z]+\s*=/i.test(pwa),
+    'pwa.js no debe declarar atributos inline on* (CSP script-src-attr none)'
+  );
+  console.log('✓ pwa.js: CTA de instalación cableado (pwa-install-ready → triggerPWAInstall), sin on*=');
+
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE ESTRUCTURA FRONTEND PASARON AL 100%!');
 }
 

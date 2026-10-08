@@ -8,6 +8,8 @@
  * - cartOperations: Modifier groups resolution, deltas & cart calculations
  * - menuModals: Wi-Fi modal, accessibility TTS, push notifications & sharing
  * - eventGuestMode: Event visual themes & table reservations
+ * - iceCreamHeuristics: detección de sabores reales de heladería (sin demo)
+ * - perfumeryHeuristics: catálogo de perfumería data-driven (sin demo)
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -17,3 +19,5 @@ export * from './orderCheckout.js';
 export * from './cartOperations.js';
 export * from './menuModals.js';
 export * from './eventGuestMode.js';
+export * from './iceCreamHeuristics.js';
+export * from './perfumeryHeuristics.js';
