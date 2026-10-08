@@ -50,6 +50,48 @@ class LRUCache {
 
 const memoryCache = new LRUCache(1000, 60000); // 1000 items, 60s TTL
 
+// In-Memory Cache with Mutex / Single-Flight to prevent Cache Stampede. Capa
+// interna del SSR de /api/menu/:slug (TTL 5s, stale-while-revalidate). Vive acá
+// para que invalidateMenuCache() la limpie junto con el LRU y el dueño no vea
+// datos viejos por 5s tras guardar (p.ej. el toggle de pago online).
+const menuCache = new Map(); // slug -> { data, expiresAt, fetchingPromise }
+function getCachedMenu(slug, fetcherFn) {
+  const now = Date.now();
+  const entry = menuCache.get(slug);
+
+  // Cache hit and still fresh (5 seconds TTL)
+  if (entry && entry.expiresAt > now && entry.data) {
+    return Promise.resolve(entry.data);
+  }
+
+  // Mutex: If a fetch is already in progress for this slug, join the existing promise (Prevents Cache Stampede!)
+  if (entry && entry.fetchingPromise) {
+    return entry.fetchingPromise;
+  }
+
+  // Stale-While-Revalidate: If stale data is available, return immediately while refreshing in background
+  if (entry && entry.data) {
+    const refreshPromise = Promise.resolve().then(fetcherFn).then(freshData => {
+      menuCache.set(slug, { data: freshData, expiresAt: Date.now() + 5000, fetchingPromise: null });
+      return freshData;
+    }).catch(() => {});
+    entry.fetchingPromise = refreshPromise;
+    return Promise.resolve(entry.data);
+  }
+
+  // Cold cache: First request fetches and sets promise
+  const fetchingPromise = Promise.resolve().then(fetcherFn).then(freshData => {
+    menuCache.set(slug, { data: freshData, expiresAt: Date.now() + 5000, fetchingPromise: null });
+    return freshData;
+  }).catch(err => {
+    menuCache.delete(slug);
+    throw err;
+  });
+
+  menuCache.set(slug, { data: null, expiresAt: 0, fetchingPromise });
+  return fetchingPromise;
+}
+
 /**
  * Instant Cache Invalidation for a restaurant slug
  * @param {string} slug
@@ -61,6 +103,11 @@ async function invalidateMenuCache(slug) {
   memoryCache.delete(cleanSlug);
   for (const key of memoryCache.cache.keys()) {
     if (key.startsWith(`${cleanSlug}:`)) memoryCache.delete(key);
+  }
+
+  // Capa single-flight del SSR: claves `${slug}:branch:${branch}`.
+  for (const key of menuCache.keys()) {
+    if (key === cleanSlug || key.startsWith(`${cleanSlug}:`)) menuCache.delete(key);
   }
 
   // Upstash Redis invalidation support if credentials configured
@@ -119,5 +166,6 @@ function menuCacheMiddleware(req, res, next) {
 module.exports = {
   menuCacheMiddleware,
   invalidateMenuCache,
+  getCachedMenu,
   memoryCache
 };

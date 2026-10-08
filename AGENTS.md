@@ -8,13 +8,14 @@ SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. 
 ```bash
 npm run dev          # Desarrollo con nodemon (puerto 3000)
 npm start            # Producción (node api/index.js)
-npm test             # Suite completa (30 tests en secuencia) — con snapshot/restore automático de data/
+npm test             # Suite completa (31 tests en secuencia) — con snapshot/restore automático de data/
 npm run test:billing # Test individual de pasarelas de pago
 npm run test:analytics # Test individual de analytics de negocio (ticket promedio, CSV, top platos)
 npm run test:admin   # Test individual del panel /admin (login 2FA, plata/mes, renovaciones)
 npm run test:push    # Test individual de push notifications (VAPID, aviso de mozo)
 npm run test:loyalty # Test individual de fidelización dual (local + red global) y centro de notificaciones
 npm run test:order-tracking # Test individual del seguimiento del pedido (token, estado público, push dirigido)
+npm run test:online-payment # Test individual del pago online del comensal (toggle del dueño, gate 403, preferencia MP real)
 npm run test:realtime # Test individual del guard de canales Realtime (migración 002)
 npm run test:realtime-live # Test E2E real del guard (conecta a Supabase Realtime con la anon key)
 npm run test:csp     # Test individual del guard CSP + headers duros
@@ -105,6 +106,12 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - **Frontend comensal**: el menú guarda el token en `localStorage.scango_active_order`, muestra un FAB 🧾 y un modal de seguimiento con stepper (polling 15s + `visibilitychange`); el push abre `/m/<slug>?track=<token>`. Al cargar su teléfono con push ya activo, `syncPushCustomerPhone()` re-suscribe con el teléfono para que el aviso le llegue dirigido.
 - **Frontend dueño**: pestaña **Notificaciones → "📦 Pedidos en vivo"** (`loadRecentOrders`/`setOrderStatus`) lista los pedidos y avanza el estado; el comensal lo ve y recibe el push.
 
+### Pago Online del Comensal (opcional, lo habilita el dueño)
+- **Es SOLO una posibilidad**: `restaurant.allowOnlinePayment` (default `false`). Con el interruptor apagado, la opción "Mercado Pago / Tarjeta" NO aparece en el menú y `POST /api/orders/mercadopago/preference` responde **403 `ONLINE_PAYMENT_DISABLED`**.
+- Con el interruptor prendido, `/api/menu/:slug` expone `allowOnlinePayment` + `onlinePaymentReady` (hay con qué cobrar: link propio `paymentLink` y/o Checkout Pro configurado en el server). El menú ofrece el pago; si hay `paymentLink` lo usa, y si no, genera una preferencia MP real por pedido (`handleExternalPayClick`/`startOnlinePayment` en `public/js/menu.js`, cerrando el endpoint que estaba huérfano).
+- Studio: toggle **"💳 Ofrecer Pago Online al Comensal"** (`inputAllowOnlinePayment`) junto al link propio.
+- `invalidateMenuCache()` limpia también la capa single-flight de 5s del SSR (`api/middleware/cache.js`), así el dueño ve el cambio al instante.
+
 ### Mobile (Capacitor)
 - Config: `mobile/capacitor.config.json`
 - `webDir: "public"` — apunta directo al frontend estático
@@ -126,12 +133,12 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** durante la corrida (flujos reales con el store local). **`npm test` ahora las aísla solo**: `scripts/test-data-guard.js` saca una foto de `data/` antes y la restaura siempre al final (pase o falle). La cadena real de tests vive en `npm run test:core`; no hay que revertir `data/` a mano para commitear.
-- Suite completa (`npm test`) ejecuta 30 tests en secuencia — **todos deben pasar (30/30)**
+- Suite completa (`npm test`) ejecuta 31 tests en secuencia — **todos deben pasar (31/31)**
 - **2 tests existen pero NO están en `npm test`**: `test-e2e.js` (E2E integral real: registra en la nube, crea un checkout de Mercado Pago real y activa la suscripción por webhook — correrlo a mano; en modo cloud confirma el email del usuario recién registrado vía Admin API de Supabase, flujo real del link, sin mocks, porque `/api/studio/save` exige `requireVerifiedEmail`) y `test-supabase-group-cart-persistence.js` (es el `npm run db:smoke`, round-trip real de `group_carts` contra la nube). `test-escape-html`, `test-db-write` y `test-semgrep` solían estar fuera pero **ahora corren en el chain** (`npm test`): el guard de tests (`test-data-guard.js`) + el SKIP autónomo de semgrep los hacen seguros de correr en serie.
 - **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 4 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell` y `test-realtime-live-guard` (usan credenciales reales; el último hace SKIP si no hay `SUPABASE_URL`/`SUPABASE_ANON_KEY`).
 - Para debug rápido: `node tests/test-billing.js` (o el test específico, o `npm run test:<alias>`)
 
-### Tests incluidos en `npm test` (30 suites)
+### Tests incluidos en `npm test` (31 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
@@ -159,6 +166,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-push-notifications.js` | Push Web real (VAPID): suscripción cloud, 503 PUSH_NOT_CONFIGURED sin llaves, aviso de mozo desde la mesa con entrega intentada |
 | `test-loyalty-dual.js` | Fidelización DUAL (local + red global cross-restaurant): identidad E.164 enmascarada, acreditación post-pedido, niveles Bronce→Platino + insignias, canje LOY-XXXX-XXXX con validación cross-restaurant 403/doble 409, `/customers` con privacidad, borrado total (RGPD), y centro de notificaciones: aviso de mozo persistido + inbox mark-read + suscripción guest con consentimiento y separación de roles owner/guest |
 | `test-order-tracking.js` | Seguimiento del pedido end-to-end: token HMAC sin estado (`signOrderToken`/`verifyOrderToken`), `POST /api/orders` devuelve `trackingToken`, `GET /api/orders/track/:token` público SIN PII (sin teléfono/nombre), token adulterado 404, `PATCH /api/orders/status/:orderId` (401 anónimo, 400 inválido, 403 cross-tenant), y push de estado dirigido SOLO al comensal del pedido por teléfono |
+| `test-online-payment.js` | Pago online del comensal: default OFF no aparece en `/api/menu/:slug` y `POST /api/orders/mercadopago/preference` → 403 `ONLINE_PAYMENT_DISABLED`; con `allowOnlinePayment=true` el menú lo expone (+`onlinePaymentReady`) y el gate se abre (200 con MP real, 5xx `MP_NOT_CONFIGURED` honesto sin credenciales); restaurante inexistente → 404; el flag persiste |
 | `test-realtime-rls-guard.js` | Guard estático de canales Realtime: la 002 existe, NO tiene ALTER TABLE sobre realtime.messages (evita el 42501), políticas SELECT+INSERT `realtime:%` para anon/authenticated, y los canales del código unen con `private: true` |
 | `test-realtime-live-guard.js` | E2E real del guard contra Supabase Realtime (anon key): JOIN+broadcast en `realtime:%` OK y topics ajenos (`event_waiters_*`) rechazados — detecta si la 002 NO está aplicada |
 | `test-escape-html.js` | Escape HTML legacy (CommonJS `public/js/utils/escapeHtml.js`): entidades, falsy, números, idempotencia |
@@ -277,4 +285,4 @@ Estéticas (definiciones CSS en `public/css/menu.css`): wedding = marfil + serif
 | `public/js/menu/eventGuestMode.js` | Resolución de tema de evento, contexto de invitado, reservas WhatsApp |
 | `public/js/utils/` | Utilidades frontend (usan `escapeHtmlBrowser.js`, ver trampas) |
 | `public/js/components/` | 14 componentes ES Module reutilizables |
-| `tests/` | 31 archivos; 30 corren en `npm test` (ver sección Testing) |
+| `tests/` | 32 archivos; 31 corren en `npm test` (ver sección Testing) |

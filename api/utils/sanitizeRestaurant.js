@@ -215,6 +215,9 @@ function sanitizeRestaurantPayload(data) {
   clean.allowBillSplitter = Boolean(clean.allowBillSplitter);
   clean.announcement = sanitizeString(clean.announcement, 300);
   clean.paymentLink = sanitizeUrl(clean.paymentLink, 500);
+  // Pago online del comensal: SOLO una posibilidad que el dueño habilita
+  // explícitamente. Default false → la opción no aparece en el menú.
+  clean.allowOnlinePayment = Boolean(clean.allowOnlinePayment);
   clean.scheduleEnabled = Boolean(clean.scheduleEnabled);
 
   // Layout

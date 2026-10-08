@@ -439,6 +439,12 @@ router.post('/mercadopago/preference', validateBody(createOrderSchema), async (r
       throw new AppError('Restaurante no encontrado para el pago', 404, 'RESTAURANT_NOT_FOUND');
     }
 
+    // El cobro online es SOLO una posibilidad que el dueño habilita. Sin el
+    // interruptor, el endpoint no genera ninguna preferencia.
+    if (restaurant.allowOnlinePayment !== true) {
+      throw new AppError('El local no tiene habilitado el pago online', 403, 'ONLINE_PAYMENT_DISABLED');
+    }
+
     if (!mpService.isConfigured()) {
       throw new AppError('Mercado Pago no está configurado en el servidor', 500, 'MP_NOT_CONFIGURED');
     }

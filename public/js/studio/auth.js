@@ -106,6 +106,7 @@ export async function initStudio(state, renderStudioUI, normalizeBusinessType) {
         allowBillSplitter: false,
         announcement: '',
         paymentLink: '',
+        allowOnlinePayment: false,
         scheduleEnabled: false,
         scheduleActiveHours: '12:00-23:30',
         tableCount: 1,

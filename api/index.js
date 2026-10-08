@@ -8,6 +8,7 @@ const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
 const db = require('../src/db/db');
 const billingOrchestrator = require('../src/billing/orchestrator');
+const mpService = require('../src/services/mercadopago');
 const emailService = require('./services/email');
 const telemetryService = require('./services/telemetry');
 const { getWeatherContext } = require('./services/weather');
@@ -22,7 +23,7 @@ const errorHandler = require('./middleware/errorHandler');
 const { successResponse, errorResponse } = require('./utils/response');
 const requireVerifiedEmail = require('./middleware/requireVerifiedEmail');
 const requestIdMiddleware = require('./middleware/requestId');
-const { menuCacheMiddleware, invalidateMenuCache } = require('./middleware/cache');
+const { menuCacheMiddleware, invalidateMenuCache, getCachedMenu } = require('./middleware/cache');
 const { authMiddleware, adminMiddleware } = require('./middleware/auth');
 const { publicAnalyticsLimiter, emailLimiter } = require('./middleware/rateLimits');
 const { createGroupCartToken } = require('./utils/groupCartToken');
@@ -157,45 +158,6 @@ const COOKIE_OPTIONS = {
 };
 
 const ADMIN_SESSION_IDLE_TIMEOUT_SECONDS = 15 * 60;
-
-// In-Memory Cache with Mutex / Single-Flight to prevent Cache Stampede
-const menuCache = new Map(); // slug -> { data, expiresAt, fetchingPromise }
-function getCachedMenu(slug, fetcherFn) {
-  const now = Date.now();
-  const entry = menuCache.get(slug);
-
-  // Cache hit and still fresh (5 seconds TTL)
-  if (entry && entry.expiresAt > now && entry.data) {
-    return Promise.resolve(entry.data);
-  }
-
-  // Mutex: If a fetch is already in progress for this slug, join the existing promise (Prevents Cache Stampede!)
-  if (entry && entry.fetchingPromise) {
-    return entry.fetchingPromise;
-  }
-
-  // Stale-While-Revalidate: If stale data is available, return immediately while refreshing in background
-  if (entry && entry.data) {
-    const refreshPromise = Promise.resolve().then(fetcherFn).then(freshData => {
-      menuCache.set(slug, { data: freshData, expiresAt: Date.now() + 5000, fetchingPromise: null });
-      return freshData;
-    }).catch(() => {});
-    entry.fetchingPromise = refreshPromise;
-    return Promise.resolve(entry.data);
-  }
-
-  // Cold cache: First request fetches and sets promise
-  const fetchingPromise = Promise.resolve().then(fetcherFn).then(freshData => {
-    menuCache.set(slug, { data: freshData, expiresAt: Date.now() + 5000, fetchingPromise: null });
-    return freshData;
-  }).catch(err => {
-    menuCache.delete(slug);
-    throw err;
-  });
-
-  menuCache.set(slug, { data: null, expiresAt: 0, fetchingPromise });
-  return fetchingPromise;
-}
 
 /**
  * Coerce a per-branch override price value to a finite number.
@@ -583,6 +545,14 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
         allowBillSplitter: restaurant.allowBillSplitter !== false,
         announcement: restaurant.announcement || '',
         paymentLink: restaurant.paymentLink || '',
+        // Pago online: el dueño decide si la opción aparece. `allowOnlinePayment`
+        // es el interruptor; `onlinePaymentReady` indica si hay con qué cobrar
+        // (link propio y/o Checkout Pro configurado en el servidor).
+        allowOnlinePayment: restaurant.allowOnlinePayment === true,
+        onlinePaymentReady: Boolean(
+          (restaurant.paymentLink && String(restaurant.paymentLink).trim()) ||
+          mpService.isConfigured()
+        ),
         scheduleEnabled: Boolean(restaurant.scheduleEnabled),
         scheduleActiveHours: restaurant.scheduleActiveHours || '',
         tableCount: restaurant.tableCount || 10,

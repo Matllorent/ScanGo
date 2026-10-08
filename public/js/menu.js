@@ -374,17 +374,17 @@ Object.defineProperties(window, {
         }
       }
 
-      // External Payment Link Setup
-      const payBox = document.getElementById('externalPaymentBox');
-      const btnPay = document.getElementById('btnExternalPay');
-      if (payBox && btnPay) {
-        if (restaurantData.paymentLink && restaurantData.paymentLink.trim()) {
-          payBox.style.display = 'block';
-          btnPay.href = restaurantData.paymentLink.trim();
-        } else {
-          payBox.style.display = 'none';
-        }
+      // Pago online del comensal (SOLO si el dueño lo habilitó).
+      // Si el interruptor está apagado, la opción de pago online se elimina
+      // del select y nunca se muestra el box de cobro.
+      const onlinePayOpt = document.getElementById('payOptionOnline');
+      if (onlinePayOpt && restaurantData.allowOnlinePayment !== true) {
+        onlinePayOpt.remove();
+        const paySelect = document.getElementById('orderPayment');
+        if (paySelect && String(paySelect.value).includes('Mercado Pago')) paySelect.value = 'Efectivo';
       }
+      const payBox = document.getElementById('externalPaymentBox');
+      if (payBox) payBox.style.display = 'none';
 
       // Bill Splitter Feature Check
       const billSplitterSection = document.getElementById('billSplitterSection');
@@ -2550,17 +2550,79 @@ Object.defineProperties(window, {
     // =========================================================================
 
     function handleOrderPaymentChange() {
-      const payment = document.getElementById('orderPayment').value;
+      const select = document.getElementById('orderPayment');
+      const payment = select ? select.value : '';
       const externalBox = document.getElementById('externalPaymentBox');
       const btnExternal = document.getElementById('btnExternalPay');
 
-      if (payment.includes('Mercado Pago') && restaurantData.paymentLink) {
-        if (externalBox) {
-          externalBox.style.display = 'block';
-          if (btnExternal) btnExternal.href = restaurantData.paymentLink;
+      // El cobro online es SOLO una posibilidad: requiere el permiso del dueño
+      // y que exista con qué cobrar (link propio o Checkout Pro configurado).
+      const wantsOnline = payment.includes('Mercado Pago');
+      const hasOwnLink = Boolean(restaurantData.paymentLink && restaurantData.paymentLink.trim());
+      const canPayOnline = restaurantData.allowOnlinePayment === true &&
+        (hasOwnLink || restaurantData.onlinePaymentReady === true);
+
+      if (wantsOnline && canPayOnline) {
+        if (externalBox) externalBox.style.display = 'block';
+        if (btnExternal) {
+          const label = btnExternal.querySelector('span');
+          if (label) label.textContent = hasOwnLink ? '💳 Pagar Ahora Online (Link de Pago)' : '💳 Generar Link de Pago Online';
         }
-      } else {
-        if (externalBox) externalBox.style.display = 'none';
+      } else if (externalBox) {
+        externalBox.style.display = 'none';
+      }
+    }
+
+    /**
+     * Botón del box de pago online. Si el local cargó un link propio, lo abre;
+     * si no, genera una preferencia de Checkout Pro real por este pedido (el
+     * endpoint está gateado por el permiso del dueño).
+     */
+    function handleExternalPayClick(ev) {
+      if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+      if (restaurantData.paymentLink && restaurantData.paymentLink.trim()) {
+        window.open(restaurantData.paymentLink.trim(), '_blank', 'noopener');
+        return;
+      }
+      startOnlinePayment();
+    }
+
+    async function startOnlinePayment() {
+      const items = Object.values(cart);
+      if (!items.length) return;
+      const btn = document.getElementById('btnExternalPay');
+      if (btn) btn.style.pointerEvents = 'none';
+      try {
+        const res = await fetch('/api/orders/mercadopago/preference', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            restaurantId: restaurantData.id,
+            currency: restaurantData.currency || '$',
+            customerName: (document.getElementById('orderCustomerName') || {}).value || 'Cliente',
+            items: items.map(item => ({
+              dishId: item.dish.id,
+              quantity: item.qty,
+              choices: (item.choices || []).map(choice => ({
+                groupId: choice.groupId,
+                selections: (choice.selections || []).map(selection => ({
+                  optionId: selection.optionId,
+                  quantity: selection.quantity
+                }))
+              }))
+            }))
+          })
+        });
+        const body = await res.json();
+        if (!res.ok || !body.data || !body.data.initPoint) {
+          alert((body && body.error) || 'No se pudo generar el link de pago. Podés pagar al recibir el pedido.');
+          return;
+        }
+        window.open(body.data.initPoint, '_blank', 'noopener');
+      } catch (e) {
+        alert('No se pudo generar el link de pago. Podés pagar al recibir el pedido.');
+      } finally {
+        if (btn) btn.style.pointerEvents = '';
       }
     }
 
@@ -2864,6 +2926,8 @@ Object.defineProperties(window, {
       closeCartModal,
       handleOrderModeChange,
       handleOrderPaymentChange,
+      handleExternalPayClick,
+      startOnlinePayment,
       updateDeliveryFee,
       applyCoupon,
       storeLoyaltyPhone,

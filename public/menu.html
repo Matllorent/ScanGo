@@ -302,7 +302,7 @@
         <select id="orderPayment" class="form-select" data-js-change="handleOrderPaymentChange">
           <option value="Efectivo">💵 Efectivo al recibir</option>
           <option value="Transferencia Bancaria">🏦 Transferencia Bancaria</option>
-          <option value="Mercado Pago / Tarjeta">💳 Mercado Pago / Tarjeta</option>
+          <option id="payOptionOnline" value="Mercado Pago / Tarjeta">💳 Mercado Pago / Tarjeta</option>
         </select>
       </div>
 
@@ -356,7 +356,7 @@
 
       <!-- External Payment Link Button (if configured) -->
       <div id="externalPaymentBox" style="display:none; margin-bottom:12px;">
-        <a id="btnExternalPay" href="#" target="_blank" class="btn-wa-submit" style="background:#009EE3; color:#fff; text-decoration:none; margin-bottom:6px;">
+        <a id="btnExternalPay" href="#" target="_blank" data-js-click="handleExternalPayClick|event" class="btn-wa-submit" style="background:#009EE3; color:#fff; text-decoration:none; margin-bottom:6px;">
           <span>💳 Pagar Ahora Online (Link de Pago)</span>
         </a>
         <div style="font-size:10px; color:var(--chalk-dim); text-align:center;">Luego de pagar, envía el pedido por WhatsApp adjuntando el comprobante.</div>

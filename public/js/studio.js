@@ -687,6 +687,12 @@ export function updateLiveState() {
   if (annInput) restaurant.announcement = annInput.value.trim();
   const payInput = el('inputPaymentLink');
   if (payInput) restaurant.paymentLink = payInput.value.trim();
+  const onlinePayCheckbox = el('inputAllowOnlinePayment');
+  if (onlinePayCheckbox) {
+    restaurant.allowOnlinePayment = onlinePayCheckbox.checked;
+    const sliderOP = el('sliderOnlinePayment');
+    if (sliderOP) sliderOP.style.backgroundColor = onlinePayCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
 
   const schedCheck = el('inputScheduleEnabled');
   if (schedCheck) {
@@ -794,6 +800,13 @@ export function renderStudioUI() {
 
   if (el('inputAnnouncement')) el('inputAnnouncement').value = restaurant.announcement || '';
   if (el('inputPaymentLink')) el('inputPaymentLink').value = restaurant.paymentLink || '';
+
+  const onlinePayCheckbox = el('inputAllowOnlinePayment');
+  if (onlinePayCheckbox) {
+    onlinePayCheckbox.checked = restaurant.allowOnlinePayment === true;
+    const sliderOP = el('sliderOnlinePayment');
+    if (sliderOP) sliderOP.style.backgroundColor = onlinePayCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
 
   const schedCheck = el('inputScheduleEnabled');
   if (schedCheck) {
