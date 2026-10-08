@@ -44,7 +44,7 @@ async function runTests() {
   // 2. Verificación de layouts permitidos e integridad en api/index.js
   const apiFile = fs.readFileSync(path.join(__dirname, '../api/index.js'), 'utf8');
   const sanitizeFile = fs.readFileSync(path.join(__dirname, '../api/utils/sanitizeRestaurant.js'), 'utf8');
-  assert.ok(sanitizeFile.includes("ALLOWED_LAYOUTS = ['classic', 'bento', 'minimalist', 'neon']"), 'allowedLayouts debe incluir classic, bento, minimalist y neon');
+  assert.ok(sanitizeFile.includes("ALLOWED_LAYOUTS = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker']"), 'allowedLayouts debe incluir classic, bento, minimalist, neon, billboard, ticker y sticker');
   assert.ok(apiFile.includes('bannerUrl:'), 'api/index.js debe sanitizar y devolver bannerUrl');
   console.log('✓ Saneamiento y lista blanca de layouts en el backend verificados');
 
@@ -65,6 +65,14 @@ async function runTests() {
   assert.ok(menuCss.includes('body.layout-minimalist'), 'menu.css debe definir body.layout-minimalist');
   assert.ok(menuCss.includes('body.layout-neon'), 'menu.css debe definir body.layout-neon');
   console.log('✓ Morfologías Bento Grid, Minimalist Luxury y Neon Nightbar presentes en menu.css');
+
+  // 3b2. Morfologías Fase E (Billboard, Ticker, Sticker)
+  assert.ok(menuCss.includes('body.layout-billboard'), 'menu.css debe definir body.layout-billboard');
+  assert.ok(menuCss.includes('body.layout-ticker'), 'menu.css debe definir body.layout-ticker');
+  assert.ok(menuCss.includes('body.layout-sticker'), 'menu.css debe definir body.layout-sticker');
+  assert.ok(menuCss.includes('counter-increment: board'), 'billboard debe numerar los platos con CSS counters');
+  assert.ok(menuCss.includes('scroll-snap-type: x mandatory'), 'El carrusel superior debe ser táctil con scroll-snap para móviles');
+  console.log('✓ Morfologías Billboard QSR, Ticker Tipográfico y Sticker Artesanal presentes en menu.css');
 
   // 3c. Integridad de los 14 temas clásicos
   const classicThemes = [
@@ -122,6 +130,10 @@ async function runTests() {
   assert.ok(menuJs.includes("'bento'"), 'menu.js debe contemplar bento en validLayouts');
   assert.ok(menuJs.includes("'minimalist'"), 'menu.js debe contemplar minimalist en validLayouts');
   assert.ok(menuJs.includes("'neon'"), 'menu.js debe contemplar neon en validLayouts');
+  assert.ok(menuJs.includes("'billboard'"), 'menu.js debe contemplar billboard en validLayouts');
+  assert.ok(menuJs.includes("'ticker'"), 'menu.js debe contemplar ticker en validLayouts');
+  assert.ok(menuJs.includes("'sticker'"), 'menu.js debe contemplar sticker en validLayouts');
+  assert.ok(menuJs.includes('Los Mejores Platos de la Casa'), 'El carrusel superior debe mostrar Los Mejores Platos en las morfologías board');
   console.log('✓ Inyección reactiva de banner y clases morfológicas comprobada en el menú público');
 
   console.log('\n🎉 ¡TODAS LAS VERIFICACIONES DE BANNER Y MORFOLOGÍAS PASARON AL 100%!');

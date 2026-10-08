@@ -254,7 +254,7 @@ Object.defineProperties(window, {
       document.getElementById('restaurantSlogan').textContent = restaurantData.slogan || 'Carta Gastronómica';
 
       // Apply Layout Morphology & 14 Authentic Classic Themes & Fonts to body
-      const validLayouts = ['classic', 'bento', 'minimalist', 'neon'];
+      const validLayouts = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker'];
       const morphParam = new URLSearchParams(window.location.search).get('morph');
       let layout = restaurantData.layout;
       if (morphParam && validLayouts.includes(morphParam)) {
@@ -754,6 +754,10 @@ Object.defineProperties(window, {
       if (!section || !carousel) return;
 
       const dishes = restaurantData.dishes || [];
+      const layout = (document.body.className.match(/layout-(\S+)/) || [])[1] || restaurantData.layout || 'classic';
+      const isBoardMorph = ['billboard', 'ticker', 'sticker'].includes(layout);
+
+      // Chef Specials & Menú del Día (siempre, como hasta ahora)
       const chefDishes = dishes.filter(d => {
         if (d.outOfStock) return false;
         if (!d.isChefSpecial && (!d.tags || !d.tags.includes('chef_special'))) return false;
@@ -761,21 +765,51 @@ Object.defineProperties(window, {
         return sched.shouldDisplay;
       });
 
-      if (!chefDishes.length) {
+      // En las morfologías board (billboard/ticker/sticker), los platos destacados
+      // (tag "star") también entran al carrusel superior: "Los Mejores Platos".
+      let starDishes = [];
+      if (isBoardMorph) {
+        starDishes = dishes.filter(d => {
+          if (d.outOfStock) return false;
+          if (!d.tags || !d.tags.includes('star')) return false;
+          const sched = getDishScheduleStatus(d);
+          return sched.shouldDisplay;
+        });
+      }
+
+      const featured = [...chefDishes];
+      starDishes.forEach(sd => {
+        if (!featured.some(f => f.id === sd.id)) featured.push(sd);
+      });
+
+      if (!featured.length) {
         section.style.display = 'none';
         carousel.innerHTML = '';
         return;
       }
 
+      // Título dinámico: si no hay recomendaciones del chef pero sí favoritos
+      const titleEl = section.querySelector('.chef-specials-title');
+      const badgeEl = section.querySelector('.chef-badge-gold');
+      if (!chefDishes.length && starDishes.length && titleEl) {
+        titleEl.innerHTML = '<span>🔥</span> Los Mejores Platos de la Casa';
+        if (badgeEl) badgeEl.textContent = '⭐ Los Favoritos';
+      } else if (chefDishes.length && starDishes.length && titleEl) {
+        titleEl.innerHTML = '<span>👨‍🍳</span> Sugerencia del Chef & Los Favoritos';
+      }
+
       const currency = restaurantData.currency || '$';
       let html = '';
-      chefDishes.forEach(d => {
+      featured.forEach(d => {
         const inCart = getDishCartQuantity(d.id);
         const sched = getDishScheduleStatus(d);
         const effectivePrice = sched.effectivePrice !== undefined ? sched.effectivePrice : d.price;
         const formattedPrice = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
           ? window.i18nManager.formatPrice(effectivePrice) 
           : `${currency} ${effectivePrice}`;
+        const isStar = !d.isChefSpecial && (!d.tags || !d.tags.includes('chef_special')) && d.tags && d.tags.includes('star');
+        const ribbonLabel = isStar ? '⭐ Favorito' : (sched.isAvailable ? 'Recomendación' : sched.reason);
+        const ribbonIcon = isStar ? '🔥' : '👨‍🍳';
         
         // For Happy Hours: show original price as strikethrough
         let originalPriceHtml = '';
@@ -801,7 +835,7 @@ Object.defineProperties(window, {
 
         html += `
           <div class="chef-special-card" style="${!sched.isAvailable ? 'opacity:0.6;' : ''}">
-            <span class="chef-special-tag-ribbon">👨‍🍳 ${sched.isAvailable ? 'Recomendación' : sched.reason}</span>
+            <span class="chef-special-tag-ribbon">${ribbonIcon} ${ribbonLabel}</span>
             ${photoHtml}
             <div>
               <div class="chef-special-name">${escapeHtml(d.name)}</div>

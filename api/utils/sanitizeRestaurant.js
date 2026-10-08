@@ -4,7 +4,7 @@
  */
 const { sanitizeModifierGroups, sanitizeDishOptionConfig } = require('./menuOptions');
 
-const ALLOWED_LAYOUTS = ['classic', 'bento', 'minimalist', 'neon'];
+const ALLOWED_LAYOUTS = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker'];
 const ALLOWED_WEATHER_TAGS = ['muy_frio', 'frio', 'templado', 'caluroso', 'muy_caluroso'];
 const ALLOWED_TEAM_ROLES = ['admin', 'waiter', 'kitchen'];
 const COUPON_TYPES = ['percent', 'free_delivery'];

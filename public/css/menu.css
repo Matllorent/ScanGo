@@ -1916,7 +1916,7 @@
        MORFOLOGÍA 1: BENTO GRID (MODERNA & MODULAR)
        Ideal para Cafeterías de especialidad, Brunch & Fast-Good
        ========================================================================== */
-    body.layout-bento .dishes-list {
+    body.layout-bento .dishes-grid {
       display: grid !important;
       grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
       gap: 16px;
@@ -2715,4 +2715,343 @@
     }
     .btn-group-consolidate:hover {
       background: rgba(43, 108, 176, 0.35);
+    }
+    /* ==========================================================================
+       MORFOLOGÍAS FASE E (Bloque 16): BILLBOARD · TICKER · STICKER
+       Inspiradas en cadenas reales: menú board QSR (McDonald's), lista
+       tipográfica (Five Guys / Starbucks) y board artesanal (In-N-Out).
+       Son 100% CSS sobre el DOM compartido de .dish-card ─ no tocan HTML.
+       ========================================================================== */
+
+    /* --------------------------------------------------------------------------
+       MORFOLOGÍA BILLBOARD — Menú Board estilo McDonald's / Shake Shack (QSR)
+       Índices #1 #2 por categoría (CSS counters), foto arriba, precio display.
+       -------------------------------------------------------------------------- */
+    body.layout-billboard .dishes-grid {
+      display: grid !important;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 14px;
+    }
+    body.layout-billboard .category-section {
+      counter-reset: board;
+    }
+    body.layout-billboard .dish-card {
+      position: relative;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      justify-content: flex-start !important;
+      padding: 0 !important;
+      overflow: hidden;
+      border-radius: 16px !important;
+      background: rgba(22, 33, 28, 0.8) !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+      counter-increment: board;
+    }
+    body.layout-billboard .dish-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+    }
+    body.layout-billboard .dish-card::before {
+      content: "#" counter(board);
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 2;
+      background: #ECC94B;
+      color: #101614;
+      font-family: var(--font-mono, monospace);
+      font-weight: 800;
+      font-size: 0.78rem;
+      letter-spacing: 0.5px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    }
+    body.layout-billboard .dish-thumb {
+      width: 100% !important;
+      height: auto !important;
+      aspect-ratio: 4 / 3;
+      border-radius: 0 !important;
+      border: none !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      flex-shrink: 0;
+    }
+    body.layout-billboard .dish-body {
+      padding: 12px 12px 8px;
+    }
+    body.layout-billboard .dish-name {
+      font-size: 1.02rem !important;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      line-height: 1.25;
+    }
+    body.layout-billboard .dish-desc {
+      font-size: 0.8rem !important;
+      opacity: 0.85;
+    }
+    body.layout-billboard .dish-price {
+      font-size: 1.4rem !important;
+      font-weight: 900 !important;
+      color: #ECC94B;
+      margin-top: 6px;
+      line-height: 1.1;
+    }
+    body.layout-billboard .dish-action {
+      margin: 4px 12px 12px;
+    }
+    body.layout-billboard .btn-add {
+      width: 100% !important;
+      height: 38px !important;
+      border-radius: 999px !important;
+      font-size: 1rem !important;
+      font-weight: 800;
+    }
+    body.layout-billboard .dish-badge {
+      font-size: 0.68rem !important;
+      padding: 2px 7px !important;
+    }
+    body.layout-billboard .category-title {
+      border-bottom: 2px solid rgba(236, 201, 75, 0.35);
+      padding-bottom: 8px;
+    }
+
+    /* --------------------------------------------------------------------------
+       MORFOLOGÍA TICKER — Carta tipográfica estilo Five Guys / Starbucks.
+       Sin tarjetas ni fotos: nombre · puntitos · precio con dot-leader.
+       -------------------------------------------------------------------------- */
+    body.layout-ticker .dishes-grid {
+      display: block !important;
+    }
+    body.layout-ticker .category-title {
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-size: 0.92rem;
+      border-bottom: 1px solid rgba(212, 175, 55, 0.35);
+      padding-bottom: 8px;
+      margin-bottom: 14px;
+    }
+    body.layout-ticker .dish-card {
+      display: flex !important;
+      background: transparent !important;
+      border: none !important;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.12) !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      padding: 12px 2px !important;
+      align-items: flex-start !important;
+      gap: 12px;
+    }
+    body.layout-ticker .dish-thumb {
+      display: none !important;
+    }
+    body.layout-ticker .dish-body {
+      display: grid !important;
+      grid-template-columns: 1fr auto;
+      grid-template-areas:
+        "title price"
+        "desc desc";
+      align-items: baseline;
+      column-gap: 10px;
+      flex: 1;
+      min-width: 0;
+    }
+    body.layout-ticker .dish-title-line {
+      grid-area: title;
+      display: flex;
+      align-items: baseline;
+      min-width: 0;
+      margin-bottom: 2px;
+    }
+    body.layout-ticker .dish-title-line::after {
+      content: "";
+      flex: 1;
+      min-width: 24px;
+      margin: 0 6px;
+      border-bottom: 2px dotted rgba(236, 201, 75, 0.55);
+      transform: translateY(-4px);
+    }
+    body.layout-ticker .dish-name {
+      font-size: 1.05rem !important;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+    }
+    body.layout-ticker .dish-price {
+      grid-area: price;
+      white-space: nowrap;
+      font-weight: 800;
+      font-size: 1.02rem !important;
+      color: #ECC94B;
+    }
+    body.layout-ticker .dish-desc {
+      grid-area: desc;
+      font-size: 0.8rem !important;
+      color: var(--chalk-dim, rgba(255,255,255,0.65));
+      margin-top: 2px;
+    }
+    body.layout-ticker .dish-action {
+      align-self: center;
+    }
+    body.layout-ticker .btn-add {
+      width: 34px !important;
+      height: 34px !important;
+      border-radius: 50% !important;
+      font-size: 1.05rem !important;
+    }
+    body.layout-ticker .qty-counter {
+      font-size: 0.72rem !important;
+    }
+
+    /* --------------------------------------------------------------------------
+       MORFOLOGÍA STICKER — Board artesanal tipo In-N-Out / tiendas de autor.
+       Masonry real (CSS columns), foto grande con degradado y nombre encima,
+       precio en sticker redondeado. Sin foto → etiqueta tipográfica elegante.
+       -------------------------------------------------------------------------- */
+    body.layout-sticker .dishes-grid {
+      display: block !important;
+      columns: 220px 2;
+      column-gap: 14px;
+    }
+    body.layout-sticker .category-section {
+      break-inside: avoid;
+    }
+    body.layout-sticker .dish-card {
+      position: relative;
+      display: block !important;
+      break-inside: avoid;
+      margin-bottom: 14px;
+      padding: 0 !important;
+      border-radius: 18px !important;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.05) !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    }
+    body.layout-sticker .dish-thumb {
+      width: 100% !important;
+      height: auto !important;
+      aspect-ratio: 4 / 5;
+      border-radius: 0 !important;
+      border: none !important;
+      display: block;
+    }
+    body.layout-sticker .dish-action {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 4;
+    }
+    body.layout-sticker .btn-add {
+      width: 40px !important;
+      height: 40px !important;
+      border-radius: 50% !important;
+      background: #ECC94B !important;
+      color: #101614 !important;
+      font-size: 1.2rem !important;
+      border: none !important;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+    }
+    body.layout-sticker .qty-counter {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      background: #101614;
+      border: 1px solid rgba(236, 201, 75, 0.6);
+      color: #ECC94B;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      white-space: nowrap;
+      display: block !important;
+    }
+    body.layout-sticker .dish-price {
+      display: inline-block;
+      background: #ECC94B;
+      color: #101614;
+      font-weight: 900;
+      border-radius: 999px;
+      padding: 5px 13px;
+      font-size: 0.95rem !important;
+      margin-top: 6px;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+      white-space: nowrap;
+    }
+    /* Overlay del nombre sobre la foto (solo cuando hay imagen): se degrada a
+       tarjeta apilada (foto arriba, texto abajo) si el navegador no soporta :has() */
+    @supports selector(:has(*)) {
+      body.layout-sticker .dish-card:has(.dish-thumb) .dish-body {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 3;
+        padding: 46px 14px 14px;
+        background: linear-gradient(to top, rgba(0, 0, 0, 0.88) 40%, transparent);
+      }
+      body.layout-sticker .dish-card:has(.dish-thumb) .dish-name {
+        color: #ffffff !important;
+        font-weight: 800;
+        text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
+      }
+      body.layout-sticker .dish-card:has(.dish-thumb) .dish-desc {
+        color: rgba(255, 255, 255, 0.85) !important;
+      }
+      body.layout-sticker .dish-card:has(.dish-thumb) .dish-title-line {
+        margin-bottom: 4px;
+      }
+      body.layout-sticker .dish-card:has(.dish-thumb) .dish-price {
+        position: absolute;
+        right: 12px;
+        bottom: 12px;
+        margin: 0;
+      }
+      body.layout-sticker .dish-card:has(.dish-thumb) .dish-body {
+        padding-right: 120px;
+      }
+      body.layout-sticker .dish-card:not(:has(.dish-thumb)) {
+        padding: 16px 14px !important;
+      }
+    }
+    body.layout-sticker .dish-card:not(.no-support) .dish-name {
+      font-size: 1.05rem !important;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      line-height: 1.25;
+    }
+
+    /* --------------------------------------------------------------------------
+       CARRUSEL TÁCTIL DE "LOS MEJORES PLATOS" — scroll-snap para móviles
+       (beneficia a todas las morfologías; se activa al inicio del menú).
+       -------------------------------------------------------------------------- */
+    .chef-specials-carousel {
+      scroll-snap-type: x mandatory;
+      scroll-padding-left: 6px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .chef-special-card {
+      scroll-snap-align: start;
+    }
+
+    /* --------------------------------------------------------------------------
+       RESPONSIVE DE LAS NUEVAS MORFOLOGÍAS
+       -------------------------------------------------------------------------- */
+    @media (max-width: 560px) {
+      body.layout-sticker .dishes-grid {
+        columns: 1;
+      }
+    }
+    @media (max-width: 480px) {
+      body.layout-billboard .dishes-grid {
+        grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+        gap: 10px;
+      }
+      body.layout-ticker .dish-card {
+        gap: 8px;
+      }
+      body.layout-billboard .dish-price {
+        font-size: 1.15rem !important;
+      }
     }
