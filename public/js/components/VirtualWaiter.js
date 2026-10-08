@@ -193,9 +193,9 @@ export class VirtualWaiter {
 
         return {
           candidates: [lemonadeOrCold, ...hotCandidates.filter(c => c.id !== lemonadeOrCold.id)].slice(0, 3),
-          reason: `🔥 ¡Hace calor! ¿Querés agregar una ${lemonadeOrCold.name} helada con 15% OFF?`,
-          badge: '🔥 Clima Caluroso • 15% OFF',
-          discount: '15% OFF',
+          reason: `🔥 ¡Hace calor! ¿Querés agregar una ${lemonadeOrCold.name} bien helada para refrescar el momento?`,
+          badge: '🔥 Clima Caluroso',
+          discount: 'Ideal para el calor',
           situationalType: 'weather_hot'
         };
       }
@@ -273,9 +273,9 @@ export class VirtualWaiter {
         drinks.sort((a, b) => (a.price || 0) - (b.price || 0));
         return {
           candidates: drinks.slice(0, 3),
-          reason: '🥤 ¡No te olvides de la bebida! Ideal para acompañar tu plato principal con -15% de descuento sugerido.',
+          reason: '🥤 ¡No te olvides de la bebida! Ideal para acompañar tu plato principal.',
           badge: '🥤 Maridaje perfecto',
-          discount: '15% OFF sugerido',
+          discount: 'Maridaje recomendado',
           situationalType: 'pairing_main_drink'
         };
       }

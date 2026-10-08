@@ -1317,6 +1317,68 @@
     </div>
   </div>
 
+  <!-- Sucursal Edit Modal: edición de sucursal con overridePrices + customDishes -->
+  <div id="branchEditModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 640px;">
+      <button class="modal-close" onclick="closeBranchEdit()">✕</button>
+      <h3 class="modal-title">⚙️ Editar Sucursal</h3>
+      <p id="branchEditStatus" style="font-size:11px; color:var(--text-dim); margin-bottom:14px;">
+        Configurá los datos de contacto, precios personalizados y platillos exclusivos de esta sucursal.
+      </p>
+      <form onsubmit="saveBranchEdit(event)">
+        <div class="field-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+          <div class="form-group">
+            <label class="form-label">Nombre</label>
+            <input type="text" id="branchEditName" class="form-input" maxlength="80">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Teléfono</label>
+            <input type="text" id="branchEditPhone" class="form-input" placeholder="Ej: 59899123456" maxlength="20">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Dirección Completa</label>
+          <textarea id="branchEditAddress" class="form-textarea" rows="2" placeholder="Ej: Av. 18 de Julio 1234, Montevideo" maxlength="200"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Slug Interno (para enlaces directos /m/:slug?sucursal=...)</label>
+          <input type="text" id="branchEditSlug" class="form-input" placeholder="Ej: centro, pocitos, shopping" maxlength="30" style="font-family:var(--font-mono); font-size:11px;">
+          <span class="input-hint">Si cambiás el slug, actualizá los QR/enlaces impresos que apunten a esta sucursal.</span>
+        </div>
+
+        <!-- Override Prices -->
+        <div style="margin-top:14px; background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:12px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+            <label class="form-label" style="margin:0;">💲 Precios Personalizados por Platillo</label>
+            <button type="button" class="btn-nav" onclick="addBranchOverrideRow()" style="padding:4px 10px; font-size:11px;">+ Agregar Precio</button>
+          </div>
+          <div id="branchOverridesRows" style="display:flex; flex-direction:column; gap:6px;"></div>
+          <p style="font-size:10px; color:var(--text-dim); margin:8px 0 0; line-height:1.5;">
+            Los precios cargados acá aplican <strong>solo cuando el comensal visita esta sucursal</strong> vía <code style="font-size:10px;">?branch=slug</code>.
+            Si dejás un platillo sin precio, hereda el precio base del menú.
+          </p>
+        </div>
+
+        <!-- Custom Dishes -->
+        <div style="margin-top:14px; background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:12px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+            <label class="form-label" style="margin:0;">🍽️ Platillos Exclusivos de la Sucursal</label>
+            <button type="button" class="btn-nav" onclick="addBranchCustomDishRow()" style="padding:4px 10px; font-size:11px;">+ Agregar Platillo</button>
+          </div>
+          <div id="branchCustomDishesRows" style="display:flex; flex-direction:column; gap:8px;"></div>
+          <p style="font-size:10px; color:var(--text-dim); margin:8px 0 0; line-height:1.5;">
+            Se muestran únicamente en esta sucursal, sumados a los platillos del menú base.
+          </p>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:16px;">
+          <button type="submit" class="btn-nav btn-nav-gold" style="flex:1; justify-content:center;">💾 Guardar Cambios</button>
+          <button type="button" class="btn-nav" onclick="closeBranchEdit()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Custom Confirmation Dialog Modal -->
   <div id="confirmActionModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 440px; text-align: center;">

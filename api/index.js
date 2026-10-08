@@ -188,6 +188,62 @@ function getCachedMenu(slug, fetcherFn) {
   return fetchingPromise;
 }
 
+/**
+ * Coerce a per-branch override price value to a finite number.
+ * overridePrices es Record<dishId, number>; datos legacy o payloads externos
+ * pueden traer { price: n } — normalizar aquí evita filtrar objetos al frontend.
+ * @returns {number|null} precio numérico o null si no hay override usable.
+ */
+function resolveBranchOverridePrice(overrides, dishId, fallbackPrice) {
+  if (!overrides || typeof overrides !== 'object' || typeof dishId !== 'string') return fallbackPrice;
+  const raw = overrides[dishId];
+  if (raw === undefined || raw === null) return fallbackPrice;
+  let num = raw;
+  if (typeof raw === 'object' && !Array.isArray(raw)) {
+    num = raw.price ?? raw.value ?? raw.precio;
+  }
+  const parsed = Number(num);
+  return Number.isFinite(parsed) ? parsed : fallbackPrice;
+}
+
+/**
+ * Normalize branch custom dishes so the SPA public menu can render them.
+ * Los customDishes de una sucursal vienen con `category` (nombre) pero sin
+ * `categoryId`; el menú público agrupa por `d.categoryId === cat.id`, así que
+ * sin normalización quedan invisibles. Garantiza que cada custom dish tenga un
+ * categoryId válido y que ese category exista en el array de categorías de la
+ * respuesta (agregando una categoría sintética si hace falta).
+ * @returns {{categories: Array, dishes: Array}} categorías con las extras + dishes normalizados
+ */
+function normalizeBranchCustomDishes(baseCategories, baseDishes, customDishes) {
+  let categories = Array.isArray(baseCategories) ? baseCategories.map(c => ({ ...c })) : [];
+  if (!Array.isArray(customDishes) || customDishes.length === 0) {
+    return { categories, dishes: baseDishes };
+  }
+  const categoriesById = new Map(categories.map(c => [c.id, c]));
+  let dishes = Array.isArray(baseDishes) ? baseDishes.map(d => ({ ...d })) : [];
+  for (const cd of customDishes) {
+    if (!cd || typeof cd !== 'object') continue;
+    const dish = { ...cd, isBranchCustom: true };
+    const catName = String(dish.category || '').trim() || 'Especiales de la sucursal';
+    const sluggedCat = catName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 40);
+    const desiredId = dish.categoryId
+      ? String(dish.categoryId)
+      : `branch_cat_${sluggedCat || 'especiales'}`;
+    const cat = categoriesById.get(desiredId);
+    if (cat) {
+      dish.categoryId = cat.id;
+    } else {
+      const newCat = { id: desiredId, name: catName };
+      categories.push(newCat);
+      categoriesById.set(newCat.id, newCat);
+      if (dish.categoryId === undefined) dish.categoryId = newCat.id;
+    }
+    dishes.push({ ...dish, categoryId: dish.categoryId || desiredId });
+  }
+  return { categories, dishes };
+}
+
 
 // Static files (allow dotfiles because workspace path contains .gemini)
 app.use(express.static(PUBLIC_DIR, { dotfiles: 'allow' }));
@@ -357,7 +413,13 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
       timeoutId = setTimeout(() => reject(new Error('DB_TIMEOUT_800MS')), 800);
     });
 
-    const fetchPromise = getCachedMenu(slug, async () => {
+    // Multi-Branch Hierarchy Support (?branch= or ?sucursal=)
+    // Resuelto ANTES del single-flight cache: la key incluye la sucursal para que
+    // ?branch=centro y el menú base no compartan entrada (5s TTL) y se contaminen.
+    const reqBranch = (req.query.branch || req.query.sucursal || '').toLowerCase().trim();
+    const activeBranchCacheKey = `${slug}:branch:${reqBranch}`;
+
+    const fetchPromise = getCachedMenu(activeBranchCacheKey, async () => {
       const restaurant = db.findRestaurantBySlug(slug);
       if (!restaurant) return null;
 
@@ -395,7 +457,6 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
       }
 
       // Multi-Branch Hierarchy Support (?branch= or ?sucursal=)
-      const reqBranch = (req.query.branch || req.query.sucursal || '').toLowerCase().trim();
       let activeBranch = null;
 
       if (reqBranch && Array.isArray(restaurant.branches)) {
@@ -406,17 +467,20 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
 
       // Base dishes inheritance & price overrides for branch
       let inheritedDishes = [...(restaurant.dishes || [])];
+      let publicCategories = Array.isArray(restaurant.categories) ? restaurant.categories.map(c => ({ ...c })) : [];
       if (activeBranch) {
         if (activeBranch.overridePrices && typeof activeBranch.overridePrices === 'object') {
           inheritedDishes = inheritedDishes.map(d => ({
             ...d,
-            price: typeof activeBranch.overridePrices[d.id] !== 'undefined' ? activeBranch.overridePrices[d.id] : d.price,
+            price: resolveBranchOverridePrice(activeBranch.overridePrices, d.id, d.price),
             previous_price: d.price
           }));
         }
-        if (Array.isArray(activeBranch.customDishes) && activeBranch.customDishes.length > 0) {
-          inheritedDishes = [...inheritedDishes, ...activeBranch.customDishes];
-        }
+        // Normalizar customDishes: sintetizar categoryId y asegurar que su
+        // categoría exista en la respuesta (si no, el menú público los ignora).
+        const normalized = normalizeBranchCustomDishes(publicCategories, inheritedDishes, activeBranch.customDishes);
+        publicCategories = normalized.categories;
+        inheritedDishes = normalized.dishes;
       }
 
       // Smart Menu Sorting & Filtering
@@ -504,7 +568,7 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
         bannerUrl: restaurant.bannerUrl || null,
         layout: restaurant.layout || 'classic',
         wifi: restaurant.wifi || { ssid: '', password: '' },
-        categories: restaurant.categories || [],
+        categories: publicCategories,
         modifierGroups: restaurant.modifierGroups || [],
         dishes: dishes,
         deliveryZones: restaurant.deliveryZones || [],
@@ -1139,18 +1203,16 @@ app.get('/m/:slug', (req, res) => {
     const ogImage = toAbsoluteUrl(restaurant.bannerUrl || restaurant.logoUrl, `${appUrl}/og-cover.png`);
     const branchQuery = activeBranch ? `?branch=${encodeURIComponent(activeBranch.slug || activeBranch.id)}` : '';
     const menuUrl = `${appUrl}/m/${encodeURIComponent(restaurant.slug || slug)}${branchQuery}`;
-    const categories = Array.isArray(restaurant.categories) ? restaurant.categories : [];
-    let dishes = Array.isArray(restaurant.dishes) ? [...restaurant.dishes] : [];
+    const normalized = normalizeBranchCustomDishes(restaurant.categories, restaurant.dishes, activeBranch?.customDishes || null);
+    const categories = normalized.categories;
+    let dishes = normalized.dishes;
 
     if (activeBranch?.overridePrices && typeof activeBranch.overridePrices === 'object') {
       dishes = dishes.map(dish => ({
         ...dish,
-        price: typeof activeBranch.overridePrices[dish.id] !== 'undefined'
-          ? activeBranch.overridePrices[dish.id]
-          : dish.price
+        price: resolveBranchOverridePrice(activeBranch.overridePrices, dish.id, dish.price)
       }));
     }
-    if (Array.isArray(activeBranch?.customDishes)) dishes.push(...activeBranch.customDishes);
 
     const currencyAliases = {
       '$U': 'UYU', U$U: 'UYU', UYU: 'UYU',

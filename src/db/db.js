@@ -461,6 +461,25 @@ const db = {
     // Initialize branches array if not present
     if (!Array.isArray(rest.branches)) rest.branches = [];
 
+    // Normalize overridePrices to Record<dishId, number>: the public menu maps
+    // `dish.price = overridePrices[dishId]`, so an object shape ({price: 6})
+    // would leak into the frontend and break price formatting. Accept only
+    // numbers (or {price: number} for backwards compat) and drop NaN.
+    const normalizeOverridePrices = (overrides) => {
+      if (!overrides || typeof overrides !== 'object' || Array.isArray(overrides)) return {};
+      const clean = {};
+      for (const [dishId, value] of Object.entries(overrides)) {
+        if (!dishId || typeof dishId !== 'string') continue;
+        let num = value;
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          num = value.price ?? value.value ?? value.precio;
+        }
+        const parsed = Number(num);
+        if (Number.isFinite(parsed)) clean[dishId] = parsed;
+      }
+      return clean;
+    };
+
     // Helper to find branch index by id or slug
     const findBranchIndex = (id, slug) => {
       return rest.branches.findIndex(b =>
@@ -498,7 +517,7 @@ const db = {
           slug: generateUniqueSlug(branch.slug || branch.name),
           phone: branch.phone ? String(branch.phone).replace(/[^0-9+]/g, '').slice(0, 20) : '',
           address: branch.address ? String(branch.address).slice(0, 200) : '',
-          overridePrices: branch.overridePrices && typeof branch.overridePrices === 'object' ? branch.overridePrices : {},
+          overridePrices: normalizeOverridePrices(branch.overridePrices),
           customDishes: Array.isArray(branch.customDishes) ? branch.customDishes.slice(0, 50) : [],
           createdAt: new Date().toISOString()
         };
@@ -513,14 +532,29 @@ const db = {
         if (idx === -1) {
           return { success: false, error: 'Sucursal no encontrada' };
         }
-        // Protect principal branch (index 0) from name/slug changes that would break hierarchy
+        // Protección real de la sucursal principal (index 0): impedir cambios
+        // de name/slug que romperían la jerarquía, QR y URLs del restaurante.
+        if (idx === 0) {
+          if (branch.name && branch.name !== rest.branches[idx].name) {
+            return {
+              success: false,
+              error: 'No se puede cambiar el nombre de la sucursal principal. Editá el nombre desde la sección Perfil del restaurante.'
+            };
+          }
+          if (branch.slug && branch.slug !== rest.branches[idx].slug) {
+            return {
+              success: false,
+              error: 'No se puede cambiar el slug de la sucursal principal (rompería sus URLs y QR).'
+            };
+          }
+        }
         const existing = rest.branches[idx];
         const updated = { ...existing };
         if (branch.name) updated.name = String(branch.name).slice(0, 80);
         if (branch.slug) updated.slug = generateUniqueSlug(branch.slug, idx);
         if (branch.phone !== undefined) updated.phone = branch.phone ? String(branch.phone).replace(/[^0-9+]/g, '').slice(0, 20) : '';
         if (branch.address !== undefined) updated.address = branch.address ? String(branch.address).slice(0, 200) : '';
-        if (branch.overridePrices && typeof branch.overridePrices === 'object') updated.overridePrices = branch.overridePrices;
+        if (branch.overridePrices && typeof branch.overridePrices === 'object') updated.overridePrices = normalizeOverridePrices(branch.overridePrices);
         if (Array.isArray(branch.customDishes)) updated.customDishes = branch.customDishes.slice(0, 50);
         updated.updatedAt = new Date().toISOString();
         rest.branches[idx] = updated;

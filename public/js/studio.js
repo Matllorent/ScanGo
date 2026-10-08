@@ -72,6 +72,13 @@ import {
   updateBranchesPricingBanner,
   addBranch as addBranchMod,
   deleteBranch as deleteBranchMod,
+  editBranch as editBranchMod,
+  closeBranchEdit as closeBranchEditMod,
+  saveBranchEdit as saveBranchEditMod,
+  addBranchOverrideRow as addBranchOverrideRowMod,
+  removeBranchOverrideRow as removeBranchOverrideRowMod,
+  addBranchCustomDishRow as addBranchCustomDishRowMod,
+  removeBranchCustomDishRow as removeBranchCustomDishRowMod,
   resetBranchForm
 } from './studio/branches.js';
 
@@ -889,6 +896,13 @@ export function deleteDeliveryZone(idx) { deleteZoneMod(restaurant, idx, trigger
 export function renderBranchesList() { renderBranchesListMod(currentUser, restaurant, escapeHtml); }
 export function addBranch(e) { addBranchMod(e, restaurant, () => { renderBranchesList(); triggerAutoSave(); }); }
 export function deleteBranch(id) { deleteBranchMod(id, restaurant, showConfirmDialog, () => { renderBranchesList(); triggerAutoSave(); }); }
+export function editBranch(id) { editBranchMod(id, restaurant, escapeHtml, () => { renderBranchesList(); triggerAutoSave(); }); }
+export function closeBranchEdit() { closeBranchEditMod(); }
+export function saveBranchEdit(e) { saveBranchEditMod(e, restaurant, () => { renderBranchesList(); triggerAutoSave(); }); }
+export function addBranchOverrideRow(dishId, price) { addBranchOverrideRowMod(dishId, price, restaurant); }
+export function removeBranchOverrideRow(idx) { removeBranchOverrideRowMod(idx); }
+export function addBranchCustomDishRow(dish) { addBranchCustomDishRowMod(dish, restaurant); }
+export function removeBranchCustomDishRow(idx) { removeBranchCustomDishRowMod(idx); }
 
 export function openBillingModal() { openBillingModalMod(currentUser, restaurant); }
 export function closeBillingModal() { closeBillingModalMod(); }
@@ -1001,7 +1015,7 @@ const globalExports = {
   handleLogoUpload, removeLogo, handleBannerUpload, handleBannerUrlInput, removeBanner, renderBannerPreviewUI,
   openBillingModal, closeBillingModal, startCheckout,
   renderDeliveryZones, addDeliveryZone, deleteDeliveryZone,
-  renderBranchesList, addBranch, deleteBranch, resetBranchForm,
+  renderBranchesList, addBranch, deleteBranch, editBranch, closeBranchEdit, saveBranchEdit, addBranchOverrideRow, removeBranchOverrideRow, addBranchCustomDishRow, removeBranchCustomDishRow, resetBranchForm,
   loadAnalytics, updateKPIs, renderDailyChart, renderHeatmap, renderBranchMetrics, renderEventMetrics,
   generateQrCode, downloadQrPng, printTableStand, downloadAllTablesPDF,
   promptNewCategoryInModal, openCategoryManagerModal, closeCategoryManagerModal, moveCategory, addCategoryFromManager, renameCategory, deleteCategory,

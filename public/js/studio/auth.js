@@ -28,7 +28,17 @@ const TOKEN_KEY = 'menu_pizarron_token';
  * @param {Function} normalizeBusinessType  — helper de normalización de businessType
  */
 export async function initStudio(state, renderStudioUI, normalizeBusinessType) {
-  const token = localStorage.getItem(TOKEN_KEY);
+  let token = localStorage.getItem(TOKEN_KEY);
+  // Deep-link de sesión: el HTML guard de dev ya valida `?token=` en la URL.
+  // Si venimos de /studio?token=..., adoptar ese token y persistirlo para que
+  // las llamadas API (/api/auth/me, /api/studio/*) funcionen en la misma sesión.
+  if (!token) {
+    const queryToken = new URLSearchParams(window.location.search).get('token');
+    if (queryToken) {
+      token = queryToken;
+      try { localStorage.setItem(TOKEN_KEY, token); } catch (e) { /* storage bloqueado */ }
+    }
+  }
   if (!token) {
     window.location.href = '/?auth=required';
     return;

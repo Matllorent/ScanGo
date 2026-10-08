@@ -145,37 +145,71 @@ window.menuBundle = menuBundle;
     };
 
     // Pedido Grupal en Tiempo Real: Inicializador global y gestor de eventos
+    // NOTA: puede invocarse desde dos call-sites (DOMContentLoaded en este
+    // módulo y menu.js tras cargar el menú). Se comparte una promesa in-flight
+    // para evitar que dos llamadas concurrentes construyan dos instancias.
+    let groupCartInitPromise = null;
     window.initGroupCartManager = async function() {
       if (!window.GroupCartManager) return null;
+      if (window.groupCartManagerInstance) {
+        return window.groupCartManagerInstance;
+      }
+      if (groupCartInitPromise) {
+        return groupCartInitPromise;
+      }
+
       const urlParams = new URLSearchParams(window.location.search);
       const mesa = urlParams.get('mesa') || urlParams.get('table');
       const groupToken = new URLSearchParams(window.location.hash.slice(1)).get('groupToken');
       if (!mesa || !groupToken) return null;
 
-      if (window.groupCartManagerInstance) {
-        return window.groupCartManagerInstance;
-      }
+      groupCartInitPromise = (async () => {
+        // Slug determinístico desde la URL (/m/<slug> o ?slug=) — disponible
+        // siempre, a diferencia de window.restaurantData que tarda en cargar.
+        const pathSlug = (window.location.pathname.split('/').filter(Boolean).slice(-1)[0] || '');
+        const urlSlug = urlParams.get('slug') || pathSlug;
 
-      const restData = window.restaurantData || {};
-      window.groupCartManagerInstance = new window.GroupCartManager({
-        restaurantData: restData,
-        restaurantSlug: restData.slug,
-        tableNumber: mesa,
-        groupToken,
-        onCartUpdate: (updatedCart, meta) => {
-          if (typeof window.syncCartFromGroupManager === 'function') {
-            window.syncCartFromGroupManager(updatedCart, meta);
-          }
+        // Esperar a que el menú termine de cargar para obtener el ID real del
+        // restaurante (hasta 8s). Crítico: el token HMAC del QR de mesa se firma
+        // con ese ID, así que con 'default' el server responde 403
+        // GROUP_CART_TOKEN_INVALID y el carrito nunca persiste ni se emite el
+        // broadcast server→client. El slug de la URL es el fallback si el menú
+        // viene de cache/offline antes de que el fetch termine.
+        let restData = window.restaurantData || {};
+        const waitStarted = Date.now();
+        while (!restData?.id && Date.now() - waitStarted < 8000) {
+          await new Promise(resolve => setTimeout(resolve, 250));
+          restData = window.restaurantData || {};
         }
-      });
 
-      await window.groupCartManagerInstance.init();
+        const restSlug = restData?.slug || urlSlug;
+        window.groupCartManagerInstance = new window.GroupCartManager({
+          restaurantData: restData,
+          restaurantSlug: restSlug,
+          restaurantId: restData?.id || restSlug,
+          tableNumber: mesa,
+          groupToken,
+          onCartUpdate: (updatedCart, meta) => {
+            if (typeof window.syncCartFromGroupManager === 'function') {
+              window.syncCartFromGroupManager(updatedCart, meta);
+            }
+          }
+        });
 
-      if (typeof window.syncCartFromGroupManager === 'function') {
-        window.syncCartFromGroupManager(window.groupCartManagerInstance.cart, { trigger: 'init' });
+        await window.groupCartManagerInstance.init();
+
+        if (typeof window.syncCartFromGroupManager === 'function') {
+          window.syncCartFromGroupManager(window.groupCartManagerInstance.cart, { trigger: 'init' });
+        }
+
+        return window.groupCartManagerInstance;
+      })();
+
+      try {
+        return await groupCartInitPromise;
+      } finally {
+        groupCartInitPromise = null;
       }
-
-      return window.groupCartManagerInstance;
     };
 
     // Alternar vista consolidada de la mesa

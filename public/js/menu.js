@@ -1980,7 +1980,7 @@ Object.defineProperties(window, {
           const candidates = relevantMatches.length ? relevantMatches : weatherMatches;
           let reason = '🌤️ Te recomendamos una opción ideal para el clima de hoy.';
           if (hotDay) {
-            reason = `🔥 ¡Hace calor! ¿Querés agregar una ${candidates[0].name} helada con 15% OFF?`;
+            reason = `🔥 ¡Hace calor! ¿Querés agregar una ${candidates[0].name} bien helada para refrescar el momento?`;
           } else if (weatherContext === 'muy_frio') {
             reason = `🥣 ¡Hoy está muy frío${Number.isFinite(temperature) ? ` (${Math.round(temperature)}°C)` : ''}! ${candidates[0].name} es ideal para entrar en calor.`;
           }
@@ -2015,7 +2015,7 @@ Object.defineProperties(window, {
           drinks.sort((a, b) => (a.price || 0) - (b.price || 0));
           return {
             candidates: drinks.slice(0, 3),
-            reason: '🥤 ¡No te olvides de la bebida! Ideal para acompañar tu plato principal con -15% de descuento sugerido.',
+            reason: '🥤 ¡No te olvides de la bebida! Ideal para acompañar tu plato principal.',
             badge: 'Maridaje perfecto'
           };
         }

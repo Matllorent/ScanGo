@@ -87,8 +87,12 @@ function menuCacheMiddleware(req, res, next) {
   const slug = (req.params.slug || req.params.restaurant_slug || '').toLowerCase().trim();
   if (!slug) return next();
 
-  // Include query params (lang, mealTime, hour, day) in cache key
-  const cacheKey = `${slug}:${req.query.lang || 'es'}:${req.query.mealTime || req.query.hour || ''}:${req.query.day || ''}`;
+  // Include query params (lang, mealTime, hour, day, branch/sucursal) in cache key
+  // branch/sucursal NO puede faltar: dos sucursales del mismo restaurante tienen
+  // precios override y platillos custom distintos, y un menú cacheado bajo el slug
+  // pelado contaminaría la vista sin ?branch= y entre sucursales (60s TTL).
+  const branchParam = req.query.branch || req.query.sucursal || '';
+  const cacheKey = `${slug}:${req.query.lang || 'es'}:${req.query.mealTime || req.query.hour || ''}:${req.query.day || ''}:${String(branchParam).toLowerCase().trim()}`;
 
   const cachedData = memoryCache.get(cacheKey);
   if (cachedData) {

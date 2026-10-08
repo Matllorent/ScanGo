@@ -5,6 +5,13 @@ import { escapeHtml } from '/js/utils/escapeHtmlBrowser.js';
  * Soporta recuperación offline/4G vía SessionStorage, atribución de platos y consolidación.
  */
 
+/**
+ * ID estable para un item (mismo alias que api/routes/orders.js getCartItemId)
+ */
+function getFallbackCartItemId(item) {
+  return item?.cartItemId || `cart_${item?.dish?.id || item?.dishId}_${item?.orderedById || 'anon'}`;
+}
+
 export class GroupCartManager {
   /**
    * @param {Object} options
@@ -32,6 +39,17 @@ export class GroupCartManager {
     this.isSubscribed = false;
     this.participants = new Set();
     this.cart = {}; // Espejo local del carrito de la mesa
+
+    // Tombstones locales: IDs de items eliminados (evitan que un merge
+    // posterior resucite platos borrados por este comensal).
+    this.deletedItemIds = new Set();
+
+    // Estado de sincronización (debounce + reintentos)
+    this._syncTimer = null;
+    this._syncInFlight = false;
+    this._syncQueued = false;
+    this._syncRetries = 0;
+    this._pendingSync = null;
 
     this.sessionStorageKey = `scango_group_session_${this.restaurantSlug}_mesa_${this.tableNumber || 'none'}`;
 
@@ -287,12 +305,22 @@ export class GroupCartManager {
         headers: { 'X-Group-Cart-Token': this.groupToken }
       });
       const payload = await res.json();
-      if (payload?.success && payload?.data?.items && payload.data.items.length > 0) {
-        this.mergeIncomingItems(payload.data.items);
-        if (payload.data.participants) {
-          payload.data.participants.forEach(p => this.participants.add(p));
+      if (payload?.success && payload?.data) {
+        // Purgar items locales que fueron eliminados en otro dispositivo
+        // (tombstones del server) para no resucitarlos en el próximo sync.
+        if (Array.isArray(payload.data.deletedItemIds)) {
+          payload.data.deletedItemIds.forEach(id => {
+            this.deletedItemIds.add(id);
+            delete this.cart[id];
+          });
         }
-        this.notifyCartChange('sync_initial');
+        if (payload.data.items && payload.data.items.length > 0) {
+          this.mergeIncomingItems(payload.data.items);
+          if (payload.data.participants) {
+            payload.data.participants.forEach(p => this.participants.add(p));
+          }
+          this.notifyCartChange('sync_initial');
+        }
       }
     } catch (e) {
       console.warn('[GroupCartManager] fetchServerTableCart:', e.message);
@@ -300,12 +328,32 @@ export class GroupCartManager {
   }
 
   /**
-   * Respalda en el servidor el estado del carrito de la mesa
+   * Respalda en el servidor el estado del carrito de la mesa.
+   * Con debounce (acumula cambios rápidos en una sola llamada) y reintento
+   * si falla (notificación visible, no catch silencioso).
    */
-  async syncToServer(action = 'update', item = null) {
+  syncToServer(action = 'update', item = null) {
+    this._pendingSync = { action: action || 'update', item };
+    if (this._syncTimer) clearTimeout(this._syncTimer);
+    this._syncTimer = setTimeout(() => {
+      this._syncTimer = null;
+      this._flushSync();
+    }, 350);
+  }
+
+  async _flushSync() {
+    if (this._syncInFlight) {
+      this._syncQueued = true;
+      return;
+    }
+    this._syncInFlight = true;
+    const pending = this._pendingSync;
+    this._pendingSync = null;
+    const action = (pending && pending.action) || 'update';
+
     try {
       const itemsList = Object.values(this.cart);
-      await fetch(`/api/orders/group/${encodeURIComponent(this.restaurantId)}/${encodeURIComponent(this.tableNumber)}/sync`, {
+      const res = await fetch(`/api/orders/group/${encodeURIComponent(this.restaurantId)}/${encodeURIComponent(this.tableNumber)}/sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -316,10 +364,48 @@ export class GroupCartManager {
           participants: Array.from(this.participants),
           action,
           fromUser: this.userName,
-          fromUserId: this.userId
+          fromUserId: this.userId,
+          restaurantSlug: this.restaurantSlug,
+          deletedCartItemIds: Array.from(this.deletedItemIds)
         })
       });
-    } catch (e) {}
+
+      if (!res.ok) throw new Error(`sync ${res.status}`);
+
+      // Respuesta exitosa: aplicar tombstones devueltos por el server y
+      // reconciliar el carrito local con el estado persistido.
+      this._syncRetries = 0;
+      try {
+        const payload = await res.json();
+        const returned = payload && payload.data;
+        if (returned && Array.isArray(returned.deletedItemIds)) {
+          returned.deletedItemIds.forEach(id => this.deletedItemIds.add(id));
+        }
+        if (returned && Array.isArray(returned.items)) {
+          // Reconciliación conservadora: conservar items locales que el server
+          // aún no conoce (debounce pendiente) y aplicar tombstones del server.
+          const serverIds = new Set(returned.items.map(it => it.cartItemId || getFallbackCartItemId(it)));
+          Object.keys(this.cart).forEach(localId => {
+            if (!serverIds.has(localId) && this.deletedItemIds.has(localId)) {
+              delete this.cart[localId];
+            }
+          });
+        }
+      } catch (e) { /* payload no legible: no crítico */ }
+    } catch (e) {
+      this._syncRetries += 1;
+      console.warn('[GroupCartManager] syncToServer error:', e.message);
+      this.onNotification(`⚠️ No se pudo sincronizar con la mesa (intento ${this._syncRetries}). Reintentando...`);
+      if (this._syncRetries < 4) {
+        this._syncTimer = setTimeout(() => this._flushSync(), 1500 * this._syncRetries);
+      }
+    } finally {
+      this._syncInFlight = false;
+      if (this._syncQueued) {
+        this._syncQueued = false;
+        this._flushSync();
+      }
+    }
   }
 
   /**
@@ -327,18 +413,40 @@ export class GroupCartManager {
    */
   async clearTableCart() {
     this.cart = {};
+    // Resetear participantes: una nueva ronda de pedido comienza limpia
+    // (evita "comensales fantasma" en la barra tras consolidar).
+    this.participants = new Set(this.userName ? [this.userName] : []);
+    this.deletedItemIds = new Set();
+
+    // Broadcast primero: aunque el sync al server falle, los otros teléfonos
+    // de la mesa deben vaciar su carrito local inmediatamente.
+    this.broadcast('cart_update', {
+      action: 'clear',
+      cart: {},
+      fullCart: {},
+      fromUser: this.userName,
+      fromUserId: this.userId,
+      tableNumber: this.tableNumber
+    });
+
     try {
       await fetch(`/api/orders/group/${encodeURIComponent(this.restaurantId)}/${encodeURIComponent(this.tableNumber)}/clear`, {
         method: 'POST',
-        headers: { 'X-Group-Cart-Token': this.groupToken }
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Group-Cart-Token': this.groupToken
+        },
+        body: JSON.stringify({
+          restaurantSlug: this.restaurantSlug,
+          fromUser: this.userName
+        })
       });
-      this.broadcast('cart_update', {
-        action: 'clear',
-        cart: {},
-        fromUser: this.userName,
-        fromUserId: this.userId
-      });
-    } catch (e) {}
+    } catch (e) {
+      console.warn('[GroupCartManager] clearTableCart error:', e.message);
+      this.onNotification('⚠️ No se confirmó el vaciado en el servidor. Reintentando...');
+      this.syncToServer('clear', null);
+    }
+    this.notifyCartChange('local_clear');
   }
 
   /**
@@ -367,35 +475,72 @@ export class GroupCartManager {
     // Si viene de este mismo dispositivo, ignorar
     if (data.fromUserId === this.userId) return;
 
+    const fromServer = data.fromServer === true;
+
     if (data.fromUser) {
       this.participants.add(data.fromUser);
     }
 
     if (data.action === 'clear') {
       this.cart = {};
-      this.onNotification(`🧹 ${data.fromUser || 'La mesa'} vació el pedido grupal.`);
+      if (!fromServer) {
+        this.onNotification(`🧹 ${data.fromUser || 'La mesa'} vació el pedido grupal.`);
+      }
       this.notifyCartChange('remote_clear');
       return;
     }
 
     if (data.fullCart && typeof data.fullCart === 'object') {
-      this.cart = data.fullCart;
+      // Reemplazo autoritativo: respeta eliminaciones realizadas por otros
+      // comensales o por el server (solo conserva items que este dispositivo
+      // sigue teniendo localmente y que no fueron tombstoneados explícitamente).
+      const nextCart = {};
+      Object.keys(data.fullCart).forEach(key => {
+        const item = data.fullCart[key];
+        if (!item) return;
+        // Conservar items locales recién agregados que el remitente aún no vio
+        // (debounce), salvo que estén tombstoneados explícitamente.
+        if (item && !this.deletedItemIds.has(key)) {
+          nextCart[key] = item;
+        }
+      });
+      Object.keys(this.cart).forEach(localKey => {
+        if (!nextCart[localKey] && !this.deletedItemIds.has(localKey) && !fromServer && data.fullCart !== null) {
+          // Item que existe localmente pero no en el fullCart del remitente:
+          // conservarlo solo si es más nuevo que el fullCart (puede ser un add
+          // aún no propagado). Sin marca de tiempo confiable, priorizamos no
+          // perder platos → se conserva; el union-merge del server lo deduplica.
+          const localItem = this.cart[localKey];
+          const isFreshLocal = localItem && (Date.now() - (localItem.addedAt || 0) < 8000);
+          if (isFreshLocal) {
+            nextCart[localKey] = localItem;
+          }
+        }
+      });
+      this.cart = nextCart;
     } else if (data.item) {
       if (data.action === 'add' || data.action === 'update_qty') {
         this.cart[data.item.cartItemId || data.cartItemId] = data.item;
       } else if (data.action === 'remove') {
-        delete this.cart[data.cartItemId];
+        this.deletedItemIds.add(data.item.cartItemId || data.cartItemId);
+        delete this.cart[data.item.cartItemId || data.cartItemId];
       }
     }
 
-    // Mostrar feedback sutil al comensal
-    const actionDesc = data.action === 'add'
-      ? `agregó ${data.item?.dish?.name || 'un plato'}`
-      : data.action === 'remove'
-      ? `quitó un plato`
-      : 'actualizó su pedido';
+    if (Array.isArray(data.participants)) {
+      data.participants.forEach(p => this.participants.add(p));
+    }
 
-    this.onNotification(`👥 ${data.fromUser || 'Alguien en la mesa'} ${actionDesc}`);
+    // No spamear toast con cada eco del server (los ecos son reconciliación)
+    if (!fromServer) {
+      const actionDesc = data.action === 'add'
+        ? `agregó ${data.item?.dish?.name || 'un plato'}`
+        : data.action === 'remove'
+        ? `quitó un plato`
+        : 'actualizó su pedido';
+
+      this.onNotification(`👥 ${data.fromUser || 'Alguien en la mesa'} ${actionDesc}`);
+    }
     this.notifyCartChange(data.action);
   }
 
@@ -412,6 +557,7 @@ export class GroupCartManager {
       this.broadcast('sync_state', {
         cart: this.cart,
         participants: Array.from(this.participants),
+        deletedItemIds: Array.from(this.deletedItemIds),
         toUserId: data.fromUserId,
         fromUser: this.userName,
         fromUserId: this.userId
@@ -427,8 +573,18 @@ export class GroupCartManager {
   handleIncomingSyncState(data) {
     if (!data || data.toUserId !== this.userId) return;
     if (data.cart && typeof data.cart === 'object') {
-      // Fusionar respetando items ya seleccionados
-      this.cart = { ...data.cart, ...this.cart };
+      // Fusionar respetando items ya seleccionados y tombstones.
+      // NO resucitar items que el remitente eliminó (tombstones remotos)
+      // ni items que este comensal eliminó localmente.
+      const remoteDeleted = new Set(Array.isArray(data.deletedItemIds) ? data.deletedItemIds : []);
+      const mergedCart = { ...data.cart };
+      Object.keys(mergedCart).forEach(k => {
+        if (remoteDeleted.has(k)) delete mergedCart[k];
+      });
+      this.cart = { ...mergedCart, ...this.cart };
+      Object.keys(this.cart).forEach(k => {
+        if (this.deletedItemIds.has(k)) delete this.cart[k];
+      });
       if (data.participants) {
         data.participants.forEach(p => this.participants.add(p));
       }
@@ -438,12 +594,13 @@ export class GroupCartManager {
   }
 
   /**
-   * Fusiona items recibidos desde el servidor
+   * Fusiona items recibidos desde el servidor, respetando tombstones locales
    */
   mergeIncomingItems(itemsArray) {
     if (!Array.isArray(itemsArray)) return;
     itemsArray.forEach(item => {
       const id = item.cartItemId || `cart_${item.dish?.id || item.dishId}_${item.orderedById || 'anon'}`;
+      if (this.deletedItemIds && this.deletedItemIds.has(id)) return;
       if (!this.cart[id]) {
         this.cart[id] = item;
       }
@@ -546,6 +703,7 @@ export class GroupCartManager {
 
     if (item.qty <= 0) {
       delete this.cart[cartItemId];
+      this.deletedItemIds.add(cartItemId);
       action = 'remove';
     }
 
@@ -577,6 +735,7 @@ export class GroupCartManager {
     }
 
     delete this.cart[cartItemId];
+    this.deletedItemIds.add(cartItemId);
 
     this.broadcast('cart_update', {
       action: 'remove',

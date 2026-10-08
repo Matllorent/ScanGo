@@ -92,8 +92,10 @@ async function runGroupCartAndMozoTests() {
   assert.ok(virtualWaiterSource.includes('class VirtualWaiter'), 'VirtualWaiter.js debe exportar la clase VirtualWaiter');
   assert.ok(virtualWaiterSource.includes('weatherContext'), 'VirtualWaiter debe analizar weatherContext');
   assert.ok(virtualWaiterSource.includes('🔥 ¡Hace calor! ¿Querés agregar una') &&
-            virtualWaiterSource.includes('15% OFF'),
+            virtualWaiterSource.includes('bien helada'),
             'VirtualWaiter debe generar sugerencias situacionales para días calurosos');
+  assert.ok(!virtualWaiterSource.includes('15% OFF'),
+            'El Mozo Virtual no debe prometer descuentos falsos (no aplica un 15% OFF real al agregar el item)');
 
   let VirtualWaiterClass;
   try {
@@ -133,10 +135,11 @@ async function runGroupCartAndMozoTests() {
 
   assert.ok(hotSuggestion.candidates.length > 0, 'Debe haber candidatos recomendados');
   assert.strictEqual(hotSuggestion.candidates[0].id, 'dish_limo', 'En día caluroso debe recomendar la limonada');
-  assert.ok(hotSuggestion.reason.includes('calor') && hotSuggestion.reason.includes('15% OFF'),
-            'La sugerencia debe contener el pitch de calor con 15% OFF: ' + hotSuggestion.reason);
+  assert.ok(hotSuggestion.reason.includes('calor') && hotSuggestion.reason.includes('bien helada'),
+            'La sugerencia debe contener el pitch de calor honesto: ' + hotSuggestion.reason);
+  assert.ok(!hotSuggestion.reason.includes('%'), 'El pitch de calor no puede prometer porcentajes de descuento falsos');
 
-  console.log('✓ "El Mozo Virtual" validado: Recomendaciones situacionales de clima (Limonada helada con 15% OFF) y maridaje');
+  console.log('✓ "El Mozo Virtual" validado: Recomendaciones situacionales de clima (Limonada helada sugerida para el calor) y maridaje');
 
   // ==========================================
   // 5. Verificación de menu.html y menu-modules.js

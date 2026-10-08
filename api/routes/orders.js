@@ -341,20 +341,129 @@ if (typeof groupCartCleanupTimer.unref === 'function') groupCartCleanupTimer.unr
 
 
 /**
- * Canal de Supabase Realtime para un mesa específica
- */
-function getGroupCartChannel(restaurantId, tableNumber) {
-  const supabase = getSupabaseClient();
-  if (!supabase) return null;
-  const channelName = `group_cart:${restaurantId}:mesa:${tableNumber}`;
-  return supabase.channel(channelName);
-}
-
-/**
  * Genera el ID único del carrito grupal
  */
 function getGroupCartId(restaurantId, tableNumber) {
   return `${restaurantId}_mesa_${tableNumber}`;
+}
+
+/**
+ * Tombstones (IDs de items eliminados) de carritos grupales en memoria.
+ * Clave: `tombstones:${getGroupCartId(restaurantId, tableNumber)}`.
+ * Sirven para que un union-merge persistente NO resucite items borrados
+ * por otro comensal. Se mantienen en memoria (TTL manual de 24h, igual que
+ * activeGroupTableCarts) y se replican en la respuesta del sync para que el
+ * cliente pueda purgar items locales fantasma.
+ */
+const activeGroupTableTombstones = new Map();
+function cleanupActiveGroupTombstones() {
+  const now = Date.now();
+  for (const [key, entry] of activeGroupTableTombstones.entries()) {
+    if (entry.expiresAt && now > entry.expiresAt) {
+      activeGroupTableTombstones.delete(key);
+    }
+  }
+}
+const tombstoneCleanupTimer = setInterval(cleanupActiveGroupTombstones, 60 * 60 * 1000);
+if (typeof tombstoneCleanupTimer.unref === 'function') tombstoneCleanupTimer.unref();
+
+/**
+ * Devuelve los tombstones actuales de un carrito (IDs de items eliminados).
+ */
+function tombstonesFor(key) {
+  const entry = activeGroupTableTombstones.get(`tombstones:${key}`);
+  return entry && Array.isArray(entry.ids) ? entry.ids : [];
+}
+
+/**
+ * Devuelve un ID estable para un item del carrito grupal (clave de merge).
+ */
+function getCartItemId(item) {
+  return item?.cartItemId || `cart_${item?.dish?.id || item?.dishId}_${item?.orderedById || 'anon'}`;
+}
+
+/**
+ * Broadcast a un canal Supabase Realtime para notificar a los clientes de la
+ * mesa. En vez de subscribe→send→unsubscribe por request (que en realtime-js
+ * 2.x dispara RangeError: Maximum call stack size exceeded al encadenar
+ * _schedulePendingDisconnect/_cancelPendingDisconnect), se mantiene un POOL de
+ * canales persistentes: cada `channelName` se suscribe UNA vez y se reutiliza
+ * para múltiples broadcasts, liberándose tras un período de inactividad.
+ * `channel.send()` sin `subscribe()` previo NO envía nada (los paquetes se
+ * encolan en un socket inexistente) — por eso el broadcast histórico del
+ * server estaba completamente muerto.
+ */
+const serverBroadcastChannels = new Map(); // channelName -> { channel, lastUsedAt }
+const BROADCAST_CHANNEL_IDLE_MS = 10 * 60 * 1000;
+
+function cleanupServerBroadcastChannels() {
+  const now = Date.now();
+  for (const [channelName, entry] of serverBroadcastChannels.entries()) {
+    if (now - entry.lastUsedAt > BROADCAST_CHANNEL_IDLE_MS) {
+      try { entry.channel.unsubscribe(); } catch (e) { /* ignore */ }
+      serverBroadcastChannels.delete(channelName);
+    }
+  }
+}
+const broadcastChannelCleanupTimer = setInterval(cleanupServerBroadcastChannels, 2 * 60 * 1000);
+if (typeof broadcastChannelCleanupTimer.unref === 'function') broadcastChannelCleanupTimer.unref();
+
+async function broadcastToTableChannel(supabase, channelName, event, payload) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (err) => {
+      if (settled) return;
+      settled = true;
+      resolve(err);
+    };
+
+    let entry = serverBroadcastChannels.get(channelName);
+    if (!entry) {
+      try {
+        const channel = supabase.channel(channelName);
+        entry = { channel, lastUsedAt: Date.now() };
+        serverBroadcastChannels.set(channelName, entry);
+      } catch (e) {
+        return done(e);
+      }
+    }
+
+    const channel = entry.channel;
+
+    if (!entry.subscribed) {
+      const timeout = setTimeout(() => {
+        serverBroadcastChannels.delete(channelName);
+        done(new Error('broadcast subscribe timeout'));
+      }, 2500);
+
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          clearTimeout(timeout);
+          entry.subscribed = true;
+          entry.lastUsedAt = Date.now();
+          channel.send({ type: 'broadcast', event, payload })
+            .then(() => done())
+            .catch((err) => {
+              serverBroadcastChannels.delete(channelName);
+              done(err);
+            });
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          clearTimeout(timeout);
+          serverBroadcastChannels.delete(channelName);
+          done(new Error(`broadcast channel status: ${status}`));
+        }
+      });
+      return;
+    }
+
+    entry.lastUsedAt = Date.now();
+    channel.send({ type: 'broadcast', event, payload })
+      .then(() => done())
+      .catch((err) => {
+        serverBroadcastChannels.delete(channelName);
+        done(err);
+      });
+  });
 }
 
 /**
@@ -384,7 +493,8 @@ router.get('/group/:restaurantId/:tableNumber', groupCartLimiter, requireGroupCa
             participants: data.participants || [],
             lastAction: data.last_action,
             lastUser: data.last_user,
-            updatedAt: data.updated_at
+            updatedAt: data.updated_at,
+            deletedItemIds: tombstonesFor(key)
           }, 'Carrito grupal de mesa recuperado');
         }
       } catch (e) {
@@ -398,7 +508,10 @@ router.get('/group/:restaurantId/:tableNumber', groupCartLimiter, requireGroupCa
 
     // Fallback a memoria local
     const localData = activeGroupTableCarts.get(key) || { items: [], participants: [], updatedAt: new Date().toISOString() };
-    return successResponse(res, localData, 'Carrito grupal de mesa recuperado');
+    return successResponse(res, {
+      ...localData,
+      deletedItemIds: tombstonesFor(key)
+    }, 'Carrito grupal de mesa recuperado');
   } catch (err) {
     next(err);
   }
@@ -407,42 +520,87 @@ router.get('/group/:restaurantId/:tableNumber', groupCartLimiter, requireGroupCa
 /**
  * POST /api/orders/group/:restaurantId/:tableNumber/sync
  * Sincroniza y consolida el estado del carrito grupal de la mesa.
- * Persiste en Supabase + emite broadcast Realtime si está disponible.
+ * Usa union-merge por cartItemId con tombstones: nunca pierde items de otros
+ * comensales que hicieron sync concurrente, y no resucita items eliminados.
+ * Persiste en Supabase + emite broadcast Realtime al MISMO canal que escuchan
+ * los clientes (`realtime:<slug>:mesa_<N>:<groupToken>`, evento `cart_update`).
  */
 router.post('/group/:restaurantId/:tableNumber/sync', groupCartLimiter, requireGroupCartCapability, async (req, res, next) => {
   try {
     const { restaurantId, tableNumber } = req.params;
-    const { items = [], participants = [], action = 'sync', fromUser = '' } = req.body;
+    const { items = [], participants = [], action = 'sync', fromUser = '', fromUserId = '', deletedCartItemIds = [], restaurantSlug = '' } = req.body;
     const key = getGroupCartId(restaurantId, tableNumber);
     const supabase = getSupabaseClient();
+    const groupToken = (req.headers['x-group-cart-token'] || '').trim();
 
-    // Obtener participantes actuales para merge
+    // Estado actual: items existentes + participantes (para merge no destructivo)
+    let existingItems = [];
     let currentParticipants = [];
     if (supabase) {
       try {
         const { data } = await supabase
           .from('group_carts')
-          .select('participants')
+          .select('items, participants')
           .eq('id', key)
           .single();
-        if (data && data.participants) currentParticipants = data.participants;
+        if (data) {
+          existingItems = Array.isArray(data.items) ? data.items : [];
+          currentParticipants = Array.isArray(data.participants) ? data.participants : [];
+        }
       } catch (e) { /* ignore */ }
     } else {
       const current = activeGroupTableCarts.get(key);
-      if (current && current.participants) currentParticipants = current.participants;
+      if (current) {
+        existingItems = Array.isArray(current.items) ? current.items : [];
+        currentParticipants = Array.isArray(current.participants) ? current.participants : [];
+      }
     }
 
+    // Tombstones del carrito (anti-resurrección de items borrados)
+    const tombKey = `tombstones:${key}`;
+    const tombstoneEntry = activeGroupTableTombstones.get(tombKey);
+    const tombstones = new Set(tombstoneEntry ? tombstoneEntry.ids : []);
+
+    // Union-merge por cartItemId: preserva items de otros comensales y respeta tombstones
+    const mergedById = new Map();
+    existingItems.forEach(item => {
+      const id = getCartItemId(item);
+      if (!tombstones.has(id)) mergedById.set(id, item);
+    });
+    (Array.isArray(items) ? items : []).forEach(item => {
+      const id = getCartItemId(item);
+      if (tombstones.has(id)) return;
+      mergedById.set(id, item);
+    });
+
+    // Procesar eliminaciones explícitas (tombstone + borrado del merge)
+    const deletedIds = new Set(
+      (Array.isArray(deletedCartItemIds) ? deletedCartItemIds : []).map(id => String(id)).filter(Boolean)
+    );
+    if (action === 'remove' && req.body.item?.cartItemId) deletedIds.add(String(req.body.item.cartItemId));
+    deletedIds.forEach(id => {
+      mergedById.delete(id);
+      tombstones.add(id);
+    });
+
+    const mergedItems = Array.from(mergedById.values());
     const mergedParticipants = Array.from(new Set([...currentParticipants, ...participants, fromUser].filter(Boolean)));
 
     const updatedState = {
       restaurantId,
       tableNumber: String(tableNumber),
-      items,
+      items: mergedItems,
       participants: mergedParticipants,
       lastAction: action,
       lastUser: fromUser,
       updatedAt: new Date().toISOString()
     };
+
+    // Conservar tombstones 24h (expiran junto con el carrito)
+    activeGroupTableTombstones.set(tombKey, {
+      ids: Array.from(tombstones).slice(-200),
+      expiresAt: Date.now() + GROUP_CART_TTL_MS
+    });
 
     if (supabase) {
       try {
@@ -451,20 +609,32 @@ router.post('/group/:restaurantId/:tableNumber/sync', groupCartLimiter, requireG
           id: key,
           restaurant_id: restaurantId,
           table_number: String(tableNumber),
-          items: items,
+          items: mergedItems,
           participants: mergedParticipants,
           last_action: action,
           last_user: fromUser,
           updated_at: updatedState.updatedAt
         }]);
 
-        // Emitir broadcast Realtime para sincronización en tiempo real
-        const channel = getGroupCartChannel(restaurantId, tableNumber);
-        if (channel) {
-          await channel.send({
-            type: 'broadcast',
-            event: 'cart_updated',
-            payload: updatedState
+        // Broadcasting al canal de los clientes (no bloquea la respuesta)
+        if (restaurantSlug && groupToken) {
+          const fullCart = {};
+          mergedItems.forEach(item => { fullCart[getCartItemId(item)] = item; });
+          const channelName = `realtime:${restaurantSlug}:mesa_${tableNumber}:${groupToken}`;
+          broadcastToTableChannel(supabase, channelName, 'cart_update', {
+            action: (action === 'remove') ? 'remove' : 'sync',
+            fullCart,
+            participants: mergedParticipants,
+            fromUser,
+            fromUserId,
+            fromServer: true,
+            tableNumber: String(tableNumber)
+          }).catch(() => {
+            sentry.captureMessage('groupCart.serverBroadcast.sync', {
+              source: 'orders.groupCart.sync',
+              level: 'warn',
+              tags: { restaurantId, tableNumber, channelName }
+            });
           });
         }
       } catch (e) {
@@ -487,27 +657,41 @@ router.post('/group/:restaurantId/:tableNumber/sync', groupCartLimiter, requireG
 /**
  * POST /api/orders/group/:restaurantId/:tableNumber/clear
  * Limpia el carrito grupal una vez enviado el pedido.
- * Elimina de Supabase + emite broadcast si está disponible.
+ * Limpia items + tombstones en Supabase + broadcast al canal de clientes.
+ * Los participantes se conservan: las personas siguen sentadas en la mesa y
+ * pueden iniciar una nueva ronda.
  */
 router.post('/group/:restaurantId/:tableNumber/clear', groupCartLimiter, requireGroupCartCapability, async (req, res, next) => {
   try {
     const { restaurantId, tableNumber } = req.params;
+    const { restaurantSlug = '', fromUser = '' } = req.body || {};
     const key = getGroupCartId(restaurantId, tableNumber);
     const supabase = getSupabaseClient();
+    const groupToken = (req.headers['x-group-cart-token'] || '').trim();
+
+    let participants = [];
 
     if (supabase) {
       try {
-        await supabase.from('group_carts').delete().eq('id', key);
+        const { data } = await supabase
+          .from('group_carts')
+          .select('participants')
+          .eq('id', key)
+          .single();
+        if (data && Array.isArray(data.participants)) participants = data.participants;
+      } catch (e) { /* ignore */ }
 
-        // Emitir broadcast de limpieza
-        const channel = getGroupCartChannel(restaurantId, tableNumber);
-        if (channel) {
-          await channel.send({
-            type: 'broadcast',
-            event: 'cart_cleared',
-            payload: { restaurantId, tableNumber: String(tableNumber), cleared: true }
-          });
-        }
+      try {
+        await supabase.from('group_carts').upsert([{
+          id: key,
+          restaurant_id: restaurantId,
+          table_number: String(tableNumber),
+          items: [],
+          participants: participants,
+          last_action: 'clear',
+          last_user: fromUser,
+          updated_at: new Date().toISOString()
+        }]);
       } catch (e) {
         sentry.captureException(e, {
           source: 'orders.groupCart.clear',
@@ -517,9 +701,41 @@ router.post('/group/:restaurantId/:tableNumber/clear', groupCartLimiter, require
       }
     }
 
-    // Siempre limpiar memoria local
-    activeGroupTableCarts.delete(key);
-    return successResponse(res, { cleared: true }, 'Carrito grupal finalizado');
+    // Limpiar tombstone + carrito en memoria local
+    activeGroupTableTombstones.delete(`tombstones:${key}`);
+    const localData = activeGroupTableCarts.get(key);
+    const nextParticipants = participants.length ? participants : (localData?.participants || []);
+    activeGroupTableCarts.set(key, {
+      restaurantId,
+      tableNumber: String(tableNumber),
+      items: [],
+      participants: nextParticipants,
+      lastAction: 'clear',
+      lastUser: fromUser,
+      updatedAt: new Date().toISOString()
+    });
+
+    // Broadcast al canal de los clientes: todos deben vaciar su carrito local
+    if (supabase && restaurantSlug && groupToken) {
+      const channelName = `realtime:${restaurantSlug}:mesa_${tableNumber}:${groupToken}`;
+      broadcastToTableChannel(supabase, channelName, 'cart_update', {
+        action: 'clear',
+        fullCart: {},
+        cart: {},
+        participants: nextParticipants,
+        fromUser,
+        fromServer: true,
+        tableNumber: String(tableNumber)
+      }).catch(() => {
+        sentry.captureMessage('groupCart.serverBroadcast.clear', {
+          source: 'orders.groupCart.clear',
+          level: 'warn',
+          tags: { restaurantId, tableNumber, channelName }
+        });
+      });
+    }
+
+    return successResponse(res, { cleared: true, participants: nextParticipants }, 'Carrito grupal finalizado');
   } catch (err) {
     next(err);
   }
