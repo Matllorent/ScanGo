@@ -37,11 +37,14 @@
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Error en autenticación');
           
-          // Store session and redirect to Studio
+          // Store session (same-origin localStorage: el opener la verá al navegar)
           localStorage.setItem('menu_pizarron_token', data.token);
           localStorage.setItem('menu_pizarron_user', JSON.stringify(data.user));
           localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(data.restaurant));
-          window.opener?.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', data }, '*');
+          // Nota: se eliminó el postMessage GOOGLE_AUTH_SUCCESS a '*' (no tenía
+          // receptor en el frontend y filtraba la sesión a cualquier opener
+          // ajeno). El flujo activo es GIS One Tap (index.js); esta página es
+          // el fallback legacy por redirect.
           window.close();
           window.location.href = '/studio.html';
         } catch (e) {

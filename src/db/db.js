@@ -839,6 +839,13 @@ const db = {
     return resolveHydrationData(cloudUsers, localUsers, cloudRestaurants, localRestaurants);
   },
   /**
+   * Primitiva atómica de escritura JSON (temp-file + rename, retries con
+   * backoff no-bloqueante). Expuesta para tests de la capa de datos.
+   */
+  writeJson(file, data, retries = 3, delay = 100) {
+    return writeJson(file, data, retries, delay);
+  },
+  /**
    * Estado del esquema cloud (sonda real con service role, rellenada en el
    * arranque). Devuelve { probedAt, missing, present, details } o el objeto
    * vacío inicial si el modo es JSON local.

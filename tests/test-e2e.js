@@ -57,6 +57,20 @@ async function runTests() {
     const slug = regRes.data.restaurant.slug;
     const restaurantId = regRes.data.restaurant.id;
 
+    // 1.5 — En modo cloud el registro exige confirmar el correo (link de Supabase;
+    // el frontend muestra "revisá tu casilla" vía requiresEmailVerification). La
+    // suite corre flujos REALES: confirmamos con la Admin API (service role),
+    // equivalente a que el usuario abrió el link. En modo local (JSON) el registro
+    // ya llega con email confirmado y este paso se salta.
+    if (regRes.data.requiresEmailVerification) {
+      const { getSupabaseClient } = require('../api/utils/supabase');
+      const supabase = getSupabaseClient();
+      assert.ok(supabase, 'requiresEmailVerification=true pero no hay cliente Supabase');
+      const { error } = await supabase.auth.admin.updateUserById(regRes.data.user.id, { email_confirm: true });
+      assert.ok(!error, `No se pudo confirmar el email vía Admin API: ${error?.message}`);
+      console.log('✓ Email confirmado vía Admin API (flujo real del link de Supabase)');
+    }
+
     // 2. Test /api/auth/me
     const meRes = await request('/api/auth/me', {
       headers: { Authorization: `Bearer ${token}` }
