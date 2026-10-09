@@ -2,11 +2,12 @@
  * IceCreamWizard.js
  * Armador de helado artesanal en una sola pantalla (ScanGo).
  *
- * ─ Una vista, cero pasos a ciegas ────────────────────────────────────────────
+ * ─ Divulgación progresiva (una vista, sin pasos a ciegas) ────────────────────
  *  1. Tamaño     → tarjetas seleccionables (de individual a familiar)
- *  2. Sabores    → tarjetas tocables con contador en vivo y chips de categoría
- *                  data-driven (sólo las categorías que EXISTEN en la carta)
- *  3. Toppings   → agrupados en toppings y salsas
+ *  2. Sabores    → recién aparece al elegir tamaño: tarjetas tocables con
+ *                  contador en vivo y chips de categoría data-driven (sólo las
+ *                  categorías que EXISTEN en la carta)
+ *  3. Toppings   → recién aparece al elegir tamaño, agrupados en toppings y salsas
  *
  * Una barra inferior fija muestra el resumen y el total en todo momento, con el
  * botón "Agregar". Antes el resumen y el precio recién aparecían en el 3er paso.
@@ -36,8 +37,10 @@ export class IceCreamWizard {
     this.onAddToCart = options.onAddToCart || (() => {});
     this.customFlavors = options.customFlavors || null; // Sabores reales cargados por el restaurante
 
-    // Estado del armador
-    this.selectedContainer = this.pickDefaultContainer();
+    // Estado del armador. Arranca SIN tamaño ni sabores: el flujo es
+    // "elegí el tamaño → recién ahí aparecen sabores y toppings" (menos ruido).
+    this.selectedContainer = null;
+    this.sizeChosen = false;
     this.selectedFlavors = {};   // { flavorId: 1 }
     this.selectedToppings = {};  // { toppingId: 1 }
     this.activeFlavorCat = 'ALL';
@@ -54,17 +57,6 @@ export class IceCreamWizard {
 
   getContainers() {
     return ICE_CREAM_CONTAINERS;
-  }
-
-  /**
-   * Tamaño por defecto: una porción individual (nunca el pote de 1 kg).
-   * Preferimos el pote de 1/4 kg y, si no existiera, el cucurucho o el primero.
-   */
-  pickDefaultContainer() {
-    const list = this.getContainers();
-    return list.find(c => c.id === 'container_quarterkg')
-      || list.find(c => c.id === 'container_cucurucho')
-      || list[0];
   }
 
   /** Baldes de categoría realmente presentes en la carta (nunca chips vacíos). */
@@ -109,9 +101,10 @@ export class IceCreamWizard {
           <section class="icw-section">
             <h3 class="icw-step"><span class="icw-step-num">1</span> Elegí el tamaño</h3>
             <div class="icw-sizes" id="iceCreamSizes"></div>
+            <p class="icw-size-pending" id="iceCreamSizeHint">Elegí un tamaño para ver los sabores 👇</p>
           </section>
 
-          <section class="icw-section">
+          <section class="icw-section" id="iceCreamFlavorsSection" hidden>
             <h3 class="icw-step">
               <span class="icw-step-num">2</span> Elegí tus sabores
               <span class="icw-counter" id="iceCreamFlavorCounter">0 / 2</span>
@@ -121,7 +114,7 @@ export class IceCreamWizard {
             <p class="icw-hint" id="iceCreamFlavorHint"></p>
           </section>
 
-          <section class="icw-section">
+          <section class="icw-section" id="iceCreamToppingsSection" hidden>
             <h3 class="icw-step">
               <span class="icw-step-num">3</span> Sumá toppings y salsas
               <span class="icw-optional">opcional</span>
@@ -186,6 +179,7 @@ export class IceCreamWizard {
     const found = this.getContainers().find(c => c.id === containerId);
     if (!found) return;
     this.selectedContainer = found;
+    this.sizeChosen = true;
 
     // Si el nuevo tamaño admite menos sabores, recortamos los que sobran.
     const ids = Object.keys(this.selectedFlavors);
@@ -196,6 +190,13 @@ export class IceCreamWizard {
     this.renderSizes();
     this.renderFlavors();
     this.renderSummary();
+    this.updateFlowVisibility();
+
+    // Al elegir el tamaño se despliegan los sabores: los acercamos a la vista.
+    const flavorsSection = document.getElementById('iceCreamFlavorsSection');
+    if (flavorsSection && flavorsSection.hidden === false && typeof flavorsSection.scrollIntoView === 'function') {
+      flavorsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   }
 
   setFlavorCategory(category) {
@@ -243,6 +244,25 @@ export class IceCreamWizard {
     this.renderFlavors();
     this.renderToppings();
     this.renderSummary();
+    this.updateFlowVisibility();
+  }
+
+  /**
+   * Divulgación progresiva: sabores y toppings sólo se muestran una vez que el
+   * comensal eligió el tamaño. Antes aparecían todos los pasos a la vez y la
+   * vista quedaba saturada.
+   */
+  updateFlowVisibility() {
+    const show = this.sizeChosen && !!this.selectedContainer;
+
+    const flavorsSection = document.getElementById('iceCreamFlavorsSection');
+    if (flavorsSection) flavorsSection.hidden = !show;
+
+    const toppingsSection = document.getElementById('iceCreamToppingsSection');
+    if (toppingsSection) toppingsSection.hidden = !show;
+
+    const hint = document.getElementById('iceCreamSizeHint');
+    if (hint) hint.hidden = show;
   }
 
   renderSizes() {
@@ -290,6 +310,12 @@ export class IceCreamWizard {
   renderFlavors() {
     const el = document.getElementById('iceCreamFlavors');
     if (!el) return;
+
+    // Sin tamaño elegido no hay límite de sabores ni nada que listar todavía.
+    if (!this.selectedContainer) {
+      el.innerHTML = '';
+      return;
+    }
 
     const all = this.getFlavorsList();
     const list = this.activeFlavorCat === 'ALL'
@@ -369,7 +395,7 @@ export class IceCreamWizard {
 
   renderSummary() {
     const count = this.getTotalSelectedFlavorsCount();
-    const max = this.selectedContainer.maxFlavors;
+    const max = this.selectedContainer ? this.selectedContainer.maxFlavors : 0;
     const total = this.calculateTotal();
 
     const counter = document.getElementById('iceCreamFlavorCounter');
@@ -380,30 +406,40 @@ export class IceCreamWizard {
 
     const line = document.getElementById('iceCreamSummaryLine');
     if (line) {
-      const parts = [this.selectedContainer.name];
-      parts.push(count === 1 ? '1 sabor' : `${count} sabores`);
-      const toppings = Object.keys(this.selectedToppings).length;
-      if (toppings) parts.push(toppings === 1 ? '1 agregado' : `${toppings} agregados`);
-      line.textContent = parts.join(' · ');
+      if (!this.selectedContainer) {
+        line.textContent = 'Elegí un tamaño para empezar';
+      } else {
+        const parts = [this.selectedContainer.name];
+        parts.push(count === 1 ? '1 sabor' : `${count} sabores`);
+        const toppings = Object.keys(this.selectedToppings).length;
+        if (toppings) parts.push(toppings === 1 ? '1 agregado' : `${toppings} agregados`);
+        line.textContent = parts.join(' · ');
+      }
     }
 
     const hint = document.getElementById('iceCreamFlavorHint');
     if (hint) {
-      if (count === 0) hint.textContent = `Elegí entre 1 y ${max} sabores`;
+      if (!this.selectedContainer) hint.textContent = '';
+      else if (count === 0) hint.textContent = `Elegí entre 1 y ${max} sabores`;
       else if (count >= max) hint.textContent = '✓ Límite de sabores alcanzado';
       else hint.textContent = `Podés sumar ${max - count} sabor${max - count === 1 ? '' : 'es'} más`;
     }
 
     const btn = document.getElementById('btnConfirmIceCreamOrder');
     if (btn) {
-      const ready = count > 0;
-      btn.disabled = !ready;
-      btn.textContent = ready ? `🛒 Agregar · ${this.currency} ${total}` : 'Elegí al menos 1 sabor';
+      if (!this.selectedContainer) {
+        btn.disabled = true;
+        btn.textContent = 'Elegí un tamaño';
+      } else {
+        const ready = count > 0;
+        btn.disabled = !ready;
+        btn.textContent = ready ? `🛒 Agregar · ${this.currency} ${total}` : 'Elegí al menos 1 sabor';
+      }
     }
   }
 
   confirmAndAddToCart() {
-    if (this.getTotalSelectedFlavorsCount() === 0) return;
+    if (!this.selectedContainer || this.getTotalSelectedFlavorsCount() === 0) return;
 
     const allFlavors = this.getFlavorsList();
     const flavorsListDesc = Object.keys(this.selectedFlavors).map(fId => {
@@ -437,6 +473,13 @@ export class IceCreamWizard {
   }
 
   open() {
+    // Cada apertura arranca un armado limpio: primero tamaño, después sabores.
+    this.selectedContainer = null;
+    this.sizeChosen = false;
+    this.selectedFlavors = {};
+    this.selectedToppings = {};
+    this.activeFlavorCat = 'ALL';
+
     this.render();
     const modal = document.getElementById('iceCreamWizardModal');
     if (modal) modal.classList.add('active');

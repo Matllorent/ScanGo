@@ -45,6 +45,13 @@ window.menuBundle = menuBundle;
       window.i18nManager.renderControlsBar('i18nCurrencyBarContainer');
     });
 
+    // La carta (y sus traducciones) puede llegar después del DOMContentLoaded:
+    // re-renderizamos la barra para que el selector de idioma aparezca sólo si
+    // hay idiomas alternativos realmente configurados.
+    window.addEventListener('scango:menu-ready', () => {
+      if (window.i18nManager) window.i18nManager.renderControlsBar('i18nCurrencyBarContainer');
+    });
+
     // Loyalty Rewards Modal Handler — abre la tarjeta DUAL data-driven
     // (local + global) del Club ScanGo. menu.js (que carga primero) expone su
     // propia versión; esta es la que gana porque este módulo se carga al final.

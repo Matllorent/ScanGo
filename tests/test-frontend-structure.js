@@ -233,6 +233,14 @@ function runFrontendStructureTests() {
     !/\.onclick\s*=\s*["']/.test(iceCreamWizardSrc) && !/\son[a-z]+\s*=\s*["']/.test(iceCreamWizardSrc),
     'IceCreamWizard.js no debe declarar atributos inline on* (CSP script-src-attr none)'
   );
+  assert.ok(
+    !/id=["']btnOpenIceCreamWizard["']/.test(menuHtml),
+    'REGRESIÓN: no debe existir el botón duplicado #btnOpenIceCreamWizard (el hero es el único acceso al armador)'
+  );
+  assert.ok(
+    /id=["']iceCreamHeroLabel["']/.test(menuHtml) && /iceCreamBuilderLabel/.test(menu),
+    'REGRESIÓN: el texto del botón del armador debe ser configurable por el dueño (iceCreamBuilderLabel)'
+  );
   console.log('✓ Heladería: CTA protagonista + armador data-driven con resumen y total en vivo');
 
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE ESTRUCTURA FRONTEND PASARON AL 100%!');

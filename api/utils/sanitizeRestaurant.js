@@ -219,6 +219,8 @@ function sanitizeRestaurantPayload(data) {
   // explícitamente. Default false → la opción no aparece en el menú.
   clean.allowOnlinePayment = Boolean(clean.allowOnlinePayment);
   clean.scheduleEnabled = Boolean(clean.scheduleEnabled);
+  // Texto configurable del botón principal del armador de helado (vacío → default del frontend).
+  clean.iceCreamBuilderLabel = sanitizeString(clean.iceCreamBuilderLabel, 60);
 
   // Layout
   const normLayout = sanitizeString(clean.layout, 20).toLowerCase().trim();

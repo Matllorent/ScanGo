@@ -213,11 +213,67 @@ export const CURRENCY_CONFIG = {
   '$ARS': { symbol: '$', label: '$ ARS', rateFromUYU: 30 } // 1 UYU = 30 ARS (1 USD = 1200 ARS)
 };
 
+/** Nombres legibles de los idiomas que soporta la UI del menú. */
+export const LANGUAGE_LABELS = {
+  es: 'Español',
+  en: 'English',
+  pt: 'Português'
+};
+
+/** Escape mínimo (sin dependencias) para no romper la importación en Node. */
+function escapeText(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Idiomas realmente disponibles para el menú: el base ('es') más cualquier idioma
+ * que tenga al menos una traducción NO vacía en los platos o categorías (o que
+ * venga en un array explícito `availableLanguages` / `enabledLanguages`).
+ *
+ * El selector de idioma sólo debe mostrarse si hay MÁS DE UNO: si el dueño no
+ * configuró traducciones, el menú queda en su idioma base y no tiene sentido
+ * ofrecer el conmutador.
+ *
+ * @param {object} restaurantData Payload público del restaurante
+ * @returns {string[]} Códigos de idioma disponibles (siempre incluye 'es')
+ */
+export function detectAvailableLanguages(restaurantData = {}) {
+  const rd = restaurantData || {};
+  const langs = new Set(['es']);
+
+  const explicit = rd.availableLanguages || rd.enabledLanguages;
+  if (Array.isArray(explicit)) {
+    explicit.forEach((code) => { if (code) langs.add(String(code).toLowerCase()); });
+  }
+
+  const addFromTranslations = (item) => {
+    const tr = item && item.translations;
+    if (!tr || typeof tr !== 'object') return;
+    Object.keys(tr).forEach((code) => {
+      const val = tr[code];
+      if (!val || typeof val !== 'object') return;
+      const hasText = Object.values(val).some((v) => typeof v === 'string' && v.trim());
+      if (hasText) langs.add(String(code).toLowerCase());
+    });
+  };
+
+  (Array.isArray(rd.dishes) ? rd.dishes : []).forEach(addFromTranslations);
+  (Array.isArray(rd.categories) ? rd.categories : []).forEach(addFromTranslations);
+
+  return Array.from(langs);
+}
+
 export class I18nCurrencyManager {
   constructor(options = {}) {
     this.currentLang = options.defaultLang || 'es';
     this.currentCurrency = options.defaultCurrency || '$UYU';
     this.onStateChange = options.onStateChange || (() => {});
+    this._langMenuBound = false;
   }
 
   t(key) {
@@ -240,6 +296,8 @@ export class I18nCurrencyManager {
     if (!TRANSLATIONS[lang]) return;
     this.currentLang = lang;
     this.applyDOMTranslations();
+    this.updateLanguageTriggerLabel();
+    this.closeLanguageMenu();
     this.onStateChange({ lang: this.currentLang, currency: this.currentCurrency });
   }
 
@@ -253,41 +311,96 @@ export class I18nCurrencyManager {
     const container = document.getElementById(targetElementId);
     if (!container) return;
 
-    container.innerHTML = `
-      <div class="i18n-currency-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; font-size: 0.8rem; background: rgba(0,0,0,0.3); border: 1px solid var(--border-chalk); border-radius: 20px; padding: 4px 12px;">
-        
-        <!-- Selector de Idioma -->
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <span style="color: var(--chalk-dim);">🌐</span>
-          <div style="display: flex; gap: 4px;">
-            <button type="button" class="btn-i18n-pill ${this.currentLang === 'es' ? 'active' : ''}" 
-                    style="background: ${this.currentLang === 'es' ? 'var(--chalk-gold)' : 'transparent'}; color: ${this.currentLang === 'es' ? '#101614' : 'var(--chalk-muted)'}; border: none; border-radius: 12px; padding: 2px 7px; font-size: 0.72rem; font-weight: 700; cursor: pointer;"
-                    data-js-click="i18nManager.setLanguage|es">ES</button>
-            <button type="button" class="btn-i18n-pill ${this.currentLang === 'en' ? 'active' : ''}" 
-                    style="background: ${this.currentLang === 'en' ? 'var(--chalk-gold)' : 'transparent'}; color: ${this.currentLang === 'en' ? '#101614' : 'var(--chalk-muted)'}; border: none; border-radius: 12px; padding: 2px 7px; font-size: 0.72rem; font-weight: 700; cursor: pointer;"
-                    data-js-click="i18nManager.setLanguage|en">EN</button>
-            <button type="button" class="btn-i18n-pill ${this.currentLang === 'pt' ? 'active' : ''}" 
-                    style="background: ${this.currentLang === 'pt' ? 'var(--chalk-gold)' : 'transparent'}; color: ${this.currentLang === 'pt' ? '#101614' : 'var(--chalk-muted)'}; border: none; border-radius: 12px; padding: 2px 7px; font-size: 0.72rem; font-weight: 700; cursor: pointer;"
-                    data-js-click="i18nManager.setLanguage|pt">PT</button>
-          </div>
-        </div>
+    const langs = detectAvailableLanguages(
+      (typeof window !== 'undefined' && window.restaurantData) || {}
+    );
+    const showLang = langs.length > 1;
+    // Si el dueño no configuró traducciones, el menú queda en su idioma base:
+    // ocultamos por completo el selector (evita ofrecer un cambio que no traduce).
+    if (!showLang) this.currentLang = 'es';
 
-        <!-- Selector de Moneda -->
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <span style="color: var(--chalk-dim);">💵</span>
-          <select id="selectCurrencySwitcher" 
-                  style="background: transparent; color: var(--chalk-gold); border: 1px solid var(--border-gold); border-radius: 10px; font-size: 0.72rem; font-weight: 700; padding: 2px 6px; outline: none; cursor: pointer;"
+    const langHTML = showLang ? `
+        <div class="i18n-lang" id="i18nLangSelector">
+          <button type="button" class="i18n-lang-trigger" id="i18nLangTrigger"
+                  data-js-click="i18nManager.toggleLanguageMenu"
+                  aria-haspopup="true" aria-expanded="false" aria-label="Cambiar idioma">
+            <span aria-hidden="true">🌐</span>
+            <span class="i18n-lang-current" id="i18nLangCurrent">${escapeText(this.currentLang.toUpperCase())}</span>
+            <span class="i18n-lang-caret" aria-hidden="true">▾</span>
+          </button>
+          <div class="i18n-lang-menu" id="i18nLangMenu" role="menu">
+            ${langs.map((code) => `
+              <button type="button" role="menuitem"
+                      class="i18n-lang-option${code === this.currentLang ? ' is-active' : ''}"
+                      data-js-click="i18nManager.setLanguage|${escapeText(code)}">
+                <span>${escapeText(LANGUAGE_LABELS[code] || code.toUpperCase())}</span>
+                <span class="i18n-lang-check">${code === this.currentLang ? '✓' : ''}</span>
+              </button>`).join('')}
+          </div>
+        </div>` : '';
+
+    container.innerHTML = `
+      <div class="i18n-currency-bar">
+        ${langHTML}
+        <div class="i18n-currency">
+          <span class="i18n-currency-icon" aria-hidden="true">💵</span>
+          <select id="selectCurrencySwitcher" class="i18n-currency-select" aria-label="Moneda"
                   data-js-change="i18nManager.setCurrency|this.value">
-            <option value="$UYU" ${this.currentCurrency === '$UYU' ? 'selected' : ''} style="background:#151D1A; color:#fff;">$ UYU</option>
-            <option value="$USD" ${this.currentCurrency === '$USD' ? 'selected' : ''} style="background:#151D1A; color:#fff;">US$ USD</option>
-            <option value="$ARS" ${this.currentCurrency === '$ARS' ? 'selected' : ''} style="background:#151D1A; color:#fff;">$ ARS</option>
+            <option value="$UYU" ${this.currentCurrency === '$UYU' ? 'selected' : ''}>$ UYU</option>
+            <option value="$USD" ${this.currentCurrency === '$USD' ? 'selected' : ''}>US$ USD</option>
+            <option value="$ARS" ${this.currentCurrency === '$ARS' ? 'selected' : ''}>$ ARS</option>
           </select>
         </div>
-
       </div>
     `;
 
     window.i18nManager = this;
+    this.bindLanguageMenu();
+  }
+
+  /** Cierra el desplegable al hacer click afuera o con Escape. */
+  bindLanguageMenu() {
+    if (this._langMenuBound || typeof document === 'undefined') return;
+    this._langMenuBound = true;
+    document.addEventListener('click', (e) => {
+      const selector = document.getElementById('i18nLangSelector');
+      if (!selector) return;
+      if (!selector.contains(e.target)) this.closeLanguageMenu();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') this.closeLanguageMenu();
+    });
+  }
+
+  toggleLanguageMenu() {
+    const menu = document.getElementById('i18nLangMenu');
+    const trigger = document.getElementById('i18nLangTrigger');
+    if (!menu) return;
+    const open = !menu.classList.contains('is-open');
+    menu.classList.toggle('is-open', open);
+    if (trigger) trigger.setAttribute('aria-expanded', String(open));
+  }
+
+  closeLanguageMenu() {
+    const menu = document.getElementById('i18nLangMenu');
+    if (menu) menu.classList.remove('is-open');
+    const trigger = document.getElementById('i18nLangTrigger');
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+  }
+
+  updateLanguageTriggerLabel() {
+    const current = document.getElementById('i18nLangCurrent');
+    if (current) current.textContent = String(this.currentLang || 'es').toUpperCase();
+    const menu = document.getElementById('i18nLangMenu');
+    if (!menu) return;
+    menu.querySelectorAll('.i18n-lang-option').forEach((btn) => {
+      const spec = btn.getAttribute('data-js-click') || '';
+      const code = spec.split('|')[1];
+      const active = code === this.currentLang;
+      btn.classList.toggle('is-active', active);
+      const check = btn.querySelector('.i18n-lang-check');
+      if (check) check.textContent = active ? '✓' : '';
+    });
   }
 
   applyDOMTranslations() {

@@ -367,6 +367,45 @@ async function runMenuComponentizationTests() {
   assert.strictEqual(tipModule.computeTipAmount(null, 10), 0, 'Base inválida => 0');
   console.log('✓ Propina opcional: porcentaje/monto fijo, nunca negativa, base = subtotal');
 
+  // 14. i18n: el selector de idioma sólo existe si hay traducciones reales
+  const i18nModule = await import('../public/js/components/I18nCurrencyManager.js');
+  assert.strictEqual(typeof i18nModule.detectAvailableLanguages, 'function', 'detectAvailableLanguages debe existir');
+  assert.deepStrictEqual(
+    i18nModule.detectAvailableLanguages({ dishes: [{ id: 'a', name: 'Milanesa' }] }),
+    ['es'],
+    'Sin traducciones sólo queda el idioma base (el selector se oculta)'
+  );
+  assert.deepStrictEqual(
+    i18nModule.detectAvailableLanguages({ dishes: [{ id: 'a', translations: { en: { name: 'Schnitzel' } } }] }),
+    ['es', 'en'],
+    'Un plato con traducción en inglés habilita el idioma'
+  );
+  assert.deepStrictEqual(
+    i18nModule.detectAvailableLanguages({ dishes: [{ id: 'a', translations: { en: { name: '   ' }, pt: { name: 'X' } } }] }),
+    ['es', 'pt'],
+    'Una traducción vacía no cuenta como idioma disponible'
+  );
+  assert.deepStrictEqual(
+    i18nModule.detectAvailableLanguages({ availableLanguages: ['es', 'pt'] }),
+    ['es', 'pt'],
+    'Un array explícito availableLanguages también habilita idiomas'
+  );
+  // El render no debe hardcodear las pastillas ES/EN/PT: usa el desplegable 🌐.
+  const i18nSrc = fs.readFileSync(path.join(__dirname, '../public/js/components/I18nCurrencyManager.js'), 'utf8');
+  assert.ok(i18nSrc.includes('detectAvailableLanguages('), 'renderControlsBar debe derivar los idiomas del restaurante');
+  assert.ok(i18nSrc.includes('data-js-click="i18nManager.toggleLanguageMenu"'), 'El ícono 🌐 debe desplegar el menú de idiomas');
+  assert.ok(i18nSrc.includes('i18n-lang-menu'), 'Debe existir el menú flotante de idiomas');
+  console.log('✓ i18n: selector 🌐 desplegable y oculto cuando no hay traducciones configuradas');
+
+  // 15. Armador de helado: divulgación progresiva (tamaño → sabores)
+  const wizardSrc = fs.readFileSync(path.join(__dirname, '../public/js/components/IceCreamWizard.js'), 'utf8');
+  assert.ok(wizardSrc.includes('id="iceCreamFlavorsSection" hidden'), 'Los sabores deben arrancar ocultos');
+  assert.ok(wizardSrc.includes('id="iceCreamToppingsSection" hidden'), 'Los toppings deben arrancar ocultos');
+  assert.ok(wizardSrc.includes('this.sizeChosen = false'), 'El armador arranca sin tamaño elegido');
+  assert.ok(wizardSrc.includes('updateFlowVisibility()'), 'updateFlowVisibility debe revelar sabores al elegir tamaño');
+  assert.ok(wizardSrc.includes("line.textContent = 'Elegí un tamaño para empezar'"), 'El resumen debe pedir el tamaño primero');
+  console.log('✓ Armador de helado: sabores y toppings recién aparecen tras elegir el tamaño');
+
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE COMPONENTIZACIÓN DE MENU PASARON AL 100%!');
 }
 

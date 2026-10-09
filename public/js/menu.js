@@ -156,6 +156,14 @@ Object.defineProperties(window, {
     window.addEventListener('offline', () => showOfflineBanner(true));
     window.addEventListener('online', () => showOfflineBanner(false));
 
+    // Avisa que la carta ya está disponible para que componentes que dependen de
+    // restaurantData (p. ej. la barra de idioma) se re-rendericen.
+    function notifyMenuReady() {
+      try {
+        window.dispatchEvent(new CustomEvent('scango:menu-ready'));
+      } catch (e) {}
+    }
+
     // Fetch Restaurant Menu with Client-Side Timeout & Branch-Aware Caching
     async function loadMenu() {
       const slug = getSlug();
@@ -172,6 +180,7 @@ Object.defineProperties(window, {
             renderHeader();
             renderCategories();
             renderDishes();
+            notifyMenuReady();
           }
         } catch (e) {}
       }
@@ -203,6 +212,7 @@ Object.defineProperties(window, {
         renderHeader();
         renderCategories();
         renderDishes();
+        notifyMenuReady();
         // Track visit analytics
         fetch('/api/public/analytics/event', {
           method: 'POST',
@@ -219,6 +229,7 @@ Object.defineProperties(window, {
               renderHeader();
               renderCategories();
               renderDishes();
+              notifyMenuReady();
               showOfflineBanner(true, 'Modo sin conexión: mostrando carta guardada');
               return;
             }
@@ -238,6 +249,7 @@ Object.defineProperties(window, {
         renderHeader();
         renderCategories();
         renderDishes();
+        notifyMenuReady();
       }
     });
 
@@ -464,16 +476,17 @@ Object.defineProperties(window, {
       const isHeladeria = restaurantData.allowIceCreamWizard === true;
       const isPerfumeria = ['perfumery', 'perfumeria'].includes(restaurantData.businessType) && restaurantData.allowPerfumery !== false;
 
-      const btnIceCream = document.getElementById('btnOpenIceCreamWizard');
-      if (btnIceCream) {
-        btnIceCream.style.display = isHeladeria ? 'inline-flex' : 'none';
-      }
-
-      // CTA protagonista de heladería (hero arriba del menú): es la entrada principal
-      // al armador; el botón del header queda como acceso secundario.
+      // CTA protagonista de heladería: ÚNICO acceso al armador (se eliminó el botón
+      // duplicado de la barra de accesos). El texto es configurable por el dueño
+      // (restaurant.iceCreamBuilderLabel); si está vacío, queda el default del HTML.
       const iceCreamHero = document.getElementById('iceCreamHeroCTA');
       if (iceCreamHero) {
         iceCreamHero.style.display = isHeladeria ? 'flex' : 'none';
+        const heroLabel = document.getElementById('iceCreamHeroLabel');
+        if (heroLabel) {
+          const customLabel = String(restaurantData.iceCreamBuilderLabel || '').trim();
+          heroLabel.textContent = customLabel || 'Armá tu helado a medida';
+        }
       }
 
       const btnPerf = document.getElementById('btnTogglePerfumeryMode');
@@ -483,7 +496,7 @@ Object.defineProperties(window, {
 
       const specialBar = document.getElementById('specialActionsBar');
       if (specialBar) {
-        specialBar.style.display = (isHeladeria || isPerfumeria) ? 'flex' : 'none';
+        specialBar.style.display = isPerfumeria ? 'flex' : 'none';
       }
 
       if (restaurantData.address) {

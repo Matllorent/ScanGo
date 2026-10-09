@@ -104,7 +104,7 @@
   <!-- Container -->
   <main class="menu-container">
     <div class="controls-wrapper">
-      <!-- Barra de Selector de Idioma (ES, EN, PT) y Moneda ($UYU, $USD, $ARS) -->
+      <!-- Barra de idioma (🌐, sólo si hay traducciones) y moneda ($UYU, $USD, $ARS) -->
       <div id="i18nCurrencyBarContainer"></div>
 
       <!-- Buscador con botón de limpiar -->
@@ -113,21 +113,18 @@
         <button type="button" id="btnClearSearch" data-js-click="clearSearchFilter" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--chalk-dim); font-size:16px; cursor:pointer; display:none;">✕</button>
       </div>
 
-      <!-- CTA protagonista: Armá tu helado (sólo heladerías) -->
+      <!-- CTA protagonista: Armá tu helado (sólo heladerías). Único acceso al armador. -->
       <button type="button" id="iceCreamHeroCTA" class="icecream-hero" style="display: none;" data-js-click="openIceCreamWizard">
         <span class="icw-hero-emoji">🍧</span>
         <span class="icw-hero-text">
-          <strong>Armá tu helado a medida</strong>
+          <strong id="iceCreamHeroLabel">Armá tu helado a medida</strong>
           <small>Elegí tamaño, sabores y toppings en 1 minuto</small>
         </span>
         <span class="icw-hero-cta">Empezar →</span>
       </button>
 
-      <!-- Accesos Directos a Vistas Especiales (Heladería & Perfumería) -->
+      <!-- Accesos Directos a Vistas Especiales (Perfumería) -->
       <div id="specialActionsBar" class="special-actions-bar" style="display: none; gap: 8px; margin-bottom: 10px; overflow-x: auto; scrollbar-width: none;">
-        <button type="button" id="btnOpenIceCreamWizard" class="btn-nav" style="display: none; font-size: 11px; white-space: nowrap; padding: 4px 10px;" data-js-click="openIceCreamWizard">
-          🍧 Armá tu Helado Artesanal
-        </button>
         <button type="button" id="btnTogglePerfumeryMode" class="btn-nav" style="display: none; border-color: #B794F4; color: #B794F4; font-size: 11px; white-space: nowrap; padding: 4px 10px;" data-js-click="togglePerfumeryMode">
           ✨ Colección Perfumería
         </button>

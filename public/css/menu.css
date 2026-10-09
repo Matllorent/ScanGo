@@ -1312,7 +1312,9 @@
       cursor: pointer;
       color: var(--chalk-white);
       font-family: inherit;
-      background: linear-gradient(120deg, rgba(236, 201, 75, 0.20), rgba(104, 211, 145, 0.14));
+      /* Superficie del TEMA (antes: gradiente dorado→verde hardcodeado, que en los
+         temas claros de heladería se veía como un recuadro verde aislado). */
+      background: linear-gradient(120deg, var(--chalk-gold-dim), var(--surface-card));
       transition: transform 0.15s, box-shadow 0.15s, border-color 0.2s;
     }
     .icecream-hero:hover {
@@ -1344,6 +1346,93 @@
       font-size: 0.85rem;
       white-space: nowrap;
     }
+
+    /* ── Barra de idioma (🌐 desplegable) y moneda: superficie del tema ──
+       Antes la barra tenía fondo negro translúcido hardcodeado (bloque aislado
+       en temas claros) y mostraba pastillas ES/EN/PT aunque el local no tuviera
+       traducciones. Ahora: fondo/borde del tema y el selector de idioma es un
+       ícono 🌐 que despliega las lenguas realmente disponibles (se oculta entero
+       si no hay idiomas alternativos). */
+    .i18n-currency-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 0.8rem;
+      background: var(--surface-card);
+      border: 1px solid var(--border-chalk);
+      border-radius: 20px;
+      padding: 4px 12px;
+    }
+    .i18n-currency { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+    .i18n-currency-icon { color: var(--chalk-dim); }
+    .i18n-currency-select {
+      background: transparent;
+      color: var(--chalk-gold-ink, var(--chalk-gold));
+      border: 1px solid var(--border-gold);
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      outline: none;
+      cursor: pointer;
+    }
+    .i18n-lang { position: relative; display: flex; align-items: center; }
+    .i18n-lang-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: 1px solid var(--border-gold);
+      color: var(--chalk-gold-ink, var(--chalk-gold));
+      border-radius: 12px;
+      padding: 3px 9px;
+      font-family: inherit;
+      font-size: 0.72rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .i18n-lang-trigger:hover { background: var(--chalk-gold-dim); }
+    .i18n-lang-caret { font-size: 0.6rem; }
+    .i18n-lang-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      z-index: 60;
+      min-width: 160px;
+      background: var(--surface-card);
+      border: 1px solid var(--border-gold);
+      border-radius: 12px;
+      padding: 4px;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.30);
+      display: none;
+    }
+    .i18n-lang-menu.is-open { display: block; }
+    .i18n-lang-option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: var(--chalk-white);
+      font-family: inherit;
+      font-size: 0.78rem;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .i18n-lang-option:hover { background: var(--chalk-gold-dim); }
+    .i18n-lang-option.is-active { color: var(--chalk-gold-ink, var(--chalk-gold)); font-weight: 700; }
+    .i18n-lang-option .i18n-lang-check { color: var(--chalk-gold-ink, var(--chalk-gold)); }
+
+    /* Armador: los pasos 2 y 3 recién aparecen tras elegir tamaño (menos ruido). */
+    .icw-section[hidden] { display: none; }
+    .icw-size-pending { margin: 10px 0 0; font-size: 0.78rem; color: var(--chalk-muted); }
 
     .ice-cream-wizard-box {
       max-width: 640px;
@@ -3488,7 +3577,6 @@
       .category-nav-wrapper,
       #dietaryFilterPills,
       .a11y-bar,
-      #btnOpenIceCreamWizard,
       #iceCreamHeroCTA,
       #btnTogglePerfumeryMode,
       .btn-nav,

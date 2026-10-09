@@ -552,15 +552,21 @@
             </div>
 
             <!-- Ice Cream Wizard Toggle -->
-            <div id="iceCreamControlsSection" style="display:none; align-items:center; justify-content:space-between; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border); margin-bottom:10px;">
-              <div>
-                <strong style="font-size:12px; color:#fff;">Asistente "Armá tu Helado Artesanal"</strong>
-                <div style="font-size:10px; color:var(--text-dim);">Selector interactivo de cucurucho/vasito, sabores con límite y toppings.</div>
+            <div id="iceCreamControlsSection" style="display:none; flex-direction:column; gap:8px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border); margin-bottom:10px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                <div>
+                  <strong style="font-size:12px; color:#fff;">Asistente "Armá tu Helado Artesanal"</strong>
+                  <div style="font-size:10px; color:var(--text-dim);">Selector interactivo de cucurucho/vasito, sabores con límite y toppings.</div>
+                </div>
+                <label style="position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0;">
+                  <input type="checkbox" id="inputAllowIceCreamWizard" data-js-change="updateLiveState" style="opacity:0; width:0; height:0;">
+                  <span id="sliderIceCreamWizard" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
+                </label>
               </div>
-              <label style="position:relative; display:inline-block; width:42px; height:24px;">
-                <input type="checkbox" id="inputAllowIceCreamWizard" data-js-change="updateLiveState" style="opacity:0; width:0; height:0;">
-                <span id="sliderIceCreamWizard" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
-              </label>
+              <div>
+                <label for="inputIceCreamBuilderLabel" style="display:block; font-size:10px; color:var(--text-dim); margin-bottom:4px;">Texto del botón principal (aparece arriba del menú)</label>
+                <input type="text" id="inputIceCreamBuilderLabel" class="form-input" maxlength="60" placeholder="Armá tu helado a medida" data-js-input="updateLiveState">
+              </div>
             </div>
 
             <!-- Perfumery Catalog Toggle -->

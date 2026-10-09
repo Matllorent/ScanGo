@@ -566,6 +566,7 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
         // de heladería/perfumería y la resolución de temas de eventos.
         businessType: restaurant.businessType || 'restaurant',
         allowIceCreamWizard: restaurant.allowIceCreamWizard === true,
+        iceCreamBuilderLabel: restaurant.iceCreamBuilderLabel || '',
         allowPerfumery: restaurant.allowPerfumery === true,
         wifi: restaurant.wifi || { ssid: '', password: '' },
         categories: publicCategories,

@@ -633,6 +633,10 @@ export function updateLiveState() {
     const sliderI = el('sliderIceCreamWizard');
     if (sliderI) sliderI.style.backgroundColor = iceCreamCheckbox.checked ? '#38A169' : '#2a3a33';
   }
+  const iceCreamLabelInput = el('inputIceCreamBuilderLabel');
+  if (iceCreamLabelInput) {
+    restaurant.iceCreamBuilderLabel = iceCreamLabelInput.value.trim().slice(0, 60);
+  }
 
   const perfumeryCheckbox = el('inputAllowPerfumery');
   if (perfumeryCheckbox) {
@@ -860,6 +864,10 @@ export function renderStudioUI() {
     iceCreamCheckbox.checked = restaurant.allowIceCreamWizard === true || (restaurant.businessType === 'heladeria' && restaurant.allowIceCreamWizard !== false);
     const sliderI = el('sliderIceCreamWizard');
     if (sliderI) sliderI.style.backgroundColor = iceCreamCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
+  const iceCreamLabelInput = el('inputIceCreamBuilderLabel');
+  if (iceCreamLabelInput) {
+    iceCreamLabelInput.value = restaurant.iceCreamBuilderLabel || '';
   }
 
   const perfumeryCheckbox = el('inputAllowPerfumery');
