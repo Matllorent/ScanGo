@@ -15,6 +15,9 @@
  *   A) Los <div> de los HTML balancean a profundidad 0 (cierre completo).
  *   B) Todo .modal-overlay es hijo directo de body (profundidad 0 al abrirse).
  *   C) En runAiMenuAnalysis: close ANTES de asignar parsedResult, y open DESPUÉS.
+ *   D) El CTA de instalación PWA está cableado (pwa-install-ready → triggerPWAInstall).
+ *   E) Menú: las pills de categoría y los filtros dietéticos son toggle (tocar el
+ *      activo vuelve a "Todos"), y ni las categorías ni los filtros sin platos se muestran.
  *
  * Son assert de fuente (estilo house: test-menu-componentization §9/§10) — sin DOM.
  */
@@ -144,6 +147,58 @@ function runFrontendStructureTests() {
     'pwa.js no debe declarar atributos inline on* (CSP script-src-attr none)'
   );
   console.log('✓ pwa.js: CTA de instalación cableado (pwa-install-ready → triggerPWAInstall), sin on*=');
+
+  // ---------- E: filtros y categorías del menú ----------
+  // E.1) Toggle de categoría: tocar la activa la deselecciona y vuelve a "Todos"
+  //      (el modal de categorías sigue usando selectCategory, siempre selecciona).
+  // E.2) Toggle de filtro dietético: tocar el activo vuelve a "Todos los estilos".
+  // E.3) Categorías sin platos no aparecen (ni en pills ni en el modal).
+  // E.4) Filtros dietéticos sin platos tampoco.
+  const menu = read('public/js/menu.js');
+  assert.ok(
+    /function\s+toggleCategory\s*\(\s*catId\s*\)/.test(menu),
+    'menu.js debe definir toggleCategory(catId) para el toggle de categorías'
+  );
+  assert.ok(
+    /data-js-click="toggleCategory\|/.test(menu),
+    'REGRESIÓN: las pills de categoría deben usar toggleCategory (no selectCategory) para poder deseleccionar'
+  );
+  assert.ok(
+    /selectedCategory\s*===\s*catId/.test(menu),
+    'REGRESIÓN: toggleCategory debe comparar la categoría tocada con selectedCategory para deseleccionar'
+  );
+  assert.ok(
+    /selectCategory\('ALL'\)/.test(menu),
+    'REGRESIÓN: toggleCategory debe volver a ALL al deseleccionar'
+  );
+  assert.ok(
+    /^\s*toggleCategory,\s*$/m.test(menu),
+    'REGRESIÓN: toggleCategory debe exponerse en window (binder data-js-* de dom-bindings)'
+  );
+  console.log('✓ menu.js: pills de categoría con toggle (tocar la activa vuelve a "Todos")');
+
+  // E.2) Toggle de filtro dietético
+  assert.ok(
+    /selectedDietFilter\s*===\s*diet/.test(menu),
+    'REGRESIÓN: selectDietFilter debe togglear (tocar el filtro activo vuelve a "Todos los estilos")'
+  );
+  console.log('✓ menu.js: filtros dietéticos con toggle (tocar el activo vuelve a "Todos los estilos")');
+
+  // E.3) Categorías sin platos no aparecen (pills + modal): deben existir al
+  // menos 2 filtros por `dishes.some(d => d.categoryId === c.id)`.
+  const catEmptyGuards = menu.match(/dishes\.some\(d => d\.categoryId === c\.id\)/g) || [];
+  assert.ok(
+    catEmptyGuards.length >= 2,
+    'REGRESIÓN: renderCategories y openCategoriesMenuModal deben ocultar categorías sin platos (dishes.some ... categoryId)'
+  );
+  console.log('✓ menu.js: categorías sin platos ocultas en pills y modal');
+
+  // E.4) Filtros dietéticos sin platos ocultos
+  assert.ok(
+    /btn\.style\.display\s*=\s*'none'/.test(menu),
+    'REGRESIÓN: renderDietaryFilters debe ocultar los filtros dietéticos sin platos'
+  );
+  console.log('✓ menu.js: filtros dietéticos sin platos ocultos');
 
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE ESTRUCTURA FRONTEND PASARON AL 100%!');
 }

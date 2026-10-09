@@ -597,16 +597,20 @@ Object.defineProperties(window, {
 
     function renderCategories() {
       const pillsContainer = document.getElementById('categoryPills');
-      const cats = sortWeatherCategories(restaurantData.categories || [], restaurantData.dishes || []);
-      const hasFeatured = (restaurantData.dishes || []).some(d => d.tags && d.tags.includes('star'));
+      const dishes = restaurantData.dishes || [];
+      // Ocultar categorías sin platos: un pill que solo lleva a "Sección sin platos"
+      // no aporta nada. (Los filtros dietéticos ya se autoocultan en renderDietaryFilters.)
+      const cats = sortWeatherCategories(restaurantData.categories || [], dishes)
+        .filter(c => dishes.some(d => d.categoryId === c.id));
+      const hasFeatured = dishes.some(d => d.tags && d.tags.includes('star'));
 
       let html = `<button class="cat-pill ${selectedCategory === 'ALL' ? 'active' : ''}" data-js-click="selectCategory|ALL">Todos</button>`;
       if (hasFeatured) {
-        html += `<button class="cat-pill ${selectedCategory === 'POPULAR' ? 'active' : ''}" data-js-click="selectCategory|POPULAR" style="color:var(--chalk-gold); border-color:rgba(236,201,75,0.4);">⭐ Populares</button>`;
+        html += `<button class="cat-pill ${selectedCategory === 'POPULAR' ? 'active' : ''}" data-js-click="toggleCategory|POPULAR" style="color:var(--chalk-gold); border-color:rgba(236,201,75,0.4);">⭐ Populares</button>`;
       }
 
       cats.forEach(c => {
-        html += `<button class="cat-pill ${selectedCategory === c.id ? 'active' : ''}" data-cat-id="${escapeHtml(c.id)}" data-js-click="selectCategory|this.dataset.catId">${escapeHtml(c.name)}</button>`;
+        html += `<button class="cat-pill ${selectedCategory === c.id ? 'active' : ''}" data-cat-id="${escapeHtml(c.id)}" data-js-click="toggleCategory|this.dataset.catId">${escapeHtml(c.name)}</button>`;
       });
       pillsContainer.innerHTML = html;
     }
@@ -620,6 +624,19 @@ Object.defineProperties(window, {
         btn.classList.toggle('active', isSelected);
       });
       renderDishes();
+    }
+
+    /**
+     * Toggle de categoría desde las pills: tocar la categoría ya activa la
+     * deselecciona y devuelve el menú a "Todos". El modal de categorías sigue
+     * usando selectCategory (siempre selecciona, nunca deselecciona).
+     */
+    function toggleCategory(catId) {
+      if (catId && catId !== 'ALL' && selectedCategory === catId) {
+        selectCategory('ALL');
+        return;
+      }
+      selectCategory(catId);
     }
 
     let selectedDietFilter = 'ALL';
@@ -672,6 +689,10 @@ Object.defineProperties(window, {
 
     function selectDietFilter(diet) {
       const available = getAvailableDietFilters();
+      // Toggle: tocar el filtro ya activo lo deselecciona y vuelve a "Todos los estilos".
+      if (diet !== 'ALL' && selectedDietFilter === diet) {
+        diet = 'ALL';
+      }
       if (!available.has(diet)) {
         selectedDietFilter = 'ALL';
       } else {
@@ -2823,7 +2844,11 @@ Object.defineProperties(window, {
     function openCategoriesMenuModal() {
       const listEl = document.getElementById('categoriesModalList');
       if (!listEl || !restaurantData) return;
-      const cats = restaurantData.categories || [];
+      const dishes = restaurantData.dishes || [];
+      // Solo categorías con platos (mismo criterio que los pills del menú).
+      const cats = (restaurantData.categories || []).filter(c =>
+        dishes.some(d => d.categoryId === c.id)
+      );
       let html = `<button type="button" data-js-click="selectCategoryFromModal|ALL" style="
         display:flex; align-items:center; gap:10px; padding:12px 16px; border-radius:10px;
         border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.04);
@@ -2964,6 +2989,7 @@ Object.defineProperties(window, {
     Object.assign(window, {
       loadMenu,
       selectCategory,
+      toggleCategory,
       selectCategoryFromModal,
       openCategoriesMenuModal,
       closeCategoriesMenuModal,
