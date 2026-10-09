@@ -269,7 +269,8 @@
       --chalk-grape: #B892F0;
       --chalk-white: #3A1E33;
       --chalk-muted: #6B4A5E;
-      --chalk-dim: #9A7CA6;
+      --chalk-dim: #7A5C6A;
+      --chalk-gold-ink: #B3204B;
       --border-chalk: rgba(58, 30, 51, 0.10);
       background-color: #FFF7FB;
     }
@@ -304,7 +305,8 @@
       --chalk-choco: #5A3A2E;
       --chalk-white: #16382C;
       --chalk-muted: #3F6B58;
-      --chalk-dim: #6E9384;
+      --chalk-dim: #4F6B60;
+      --chalk-gold-ink: #0F6B4E;
       --border-chalk: rgba(22, 56, 44, 0.10);
       background-color: #F1FBF7;
     }
@@ -338,7 +340,8 @@
       --chalk-teal: #17B8A6;
       --chalk-white: #3B2A1E;
       --chalk-muted: #6E523A;
-      --chalk-dim: #9A7B5C;
+      --chalk-dim: #7A6250;
+      --chalk-gold-ink: #B34700;
       --border-chalk: rgba(59, 42, 30, 0.10);
       background-color: #FFF8EE;
     }
@@ -373,7 +376,8 @@
       --chalk-mint: #9FEBCB;
       --chalk-white: #463A5C;
       --chalk-muted: #6B5C86;
-      --chalk-dim: #9586AC;
+      --chalk-dim: #6E647C;
+      --chalk-gold-ink: #5B3FA6;
       --border-chalk: rgba(70, 58, 92, 0.10);
       background-color: #FBF6FF;
     }
@@ -406,7 +410,8 @@
       --chalk-pistachio: #94A97A;
       --chalk-white: #3E2C23;
       --chalk-muted: #5C463A;
-      --chalk-dim: #8A7365;
+      --chalk-dim: #6F5A4C;
+      --chalk-gold-ink: #A8522F;
       --border-chalk: rgba(62, 44, 35, 0.12);
       background-color: #FBF6EE;
     }
@@ -620,6 +625,13 @@
     /* Chalkboard Frame & Header */
     .menu-header {
       background: #101614;
+      /* El header es SIEMPRE oscuro. Re-scopeamos las tintas de texto a valores
+         claros para que sus controles (Información, estado, barra de meta) sean
+         legibles incluso en los temas claros, donde --chalk-white/--chalk-dim
+         se redefinen a tinta oscura sobre fondo marfil. */
+      --chalk-white: #FAFDFB;
+      --chalk-muted: #CBD5E0;
+      --chalk-dim: #B7A99E;
       border-bottom: 2px solid var(--border-gold);
       padding: 24px 16px 20px 16px;
       text-align: center;
@@ -884,13 +896,13 @@
       border-radius: 8px;
       padding: 6px 12px;
       font-size: 0.78rem;
-      color: var(--chalk-gold);
+      color: var(--chalk-gold-ink, var(--chalk-gold));
       margin-bottom: 16px;
     }
     .btn-a11y-tts {
       background: transparent;
       border: 1px solid var(--border-gold);
-      color: var(--chalk-gold);
+      color: var(--chalk-gold-ink, var(--chalk-gold));
       padding: 2px 8px;
       border-radius: 4px;
       font-size: 0.75rem;
@@ -962,6 +974,11 @@
     .badge-veggie { background: rgba(72, 187, 120, 0.2); color: #68D391; border: 1px solid rgba(72, 187, 120, 0.4); }
     .badge-celiac { background: rgba(236, 201, 75, 0.2); color: #F6E05E; border: 1px solid rgba(236, 201, 75, 0.4); }
     .badge-star { background: rgba(229, 62, 62, 0.2); color: #FC8181; border: 1px solid rgba(229, 62, 62, 0.4); }
+    /* Los colores de insignia de arriba están pensados para fondos oscuros; en los
+       temas claros de heladería el contraste cae a ~1.8. Los oscurecemos ahí. */
+    body:is(.theme-helado-fiesta,.theme-helado-menta,.theme-helado-tropical,.theme-helado-pastel,.theme-gelateria) .dish-badge.badge-star { background: rgba(185, 28, 28, 0.12); color: #B91C1C; border-color: rgba(185, 28, 28, 0.32); }
+    body:is(.theme-helado-fiesta,.theme-helado-menta,.theme-helado-tropical,.theme-helado-pastel,.theme-gelateria) .dish-badge.badge-veggie { background: rgba(22, 101, 52, 0.12); color: #166534; border-color: rgba(22, 101, 52, 0.30); }
+    body:is(.theme-helado-fiesta,.theme-helado-menta,.theme-helado-tropical,.theme-helado-pastel,.theme-gelateria) .dish-badge.badge-celiac { background: rgba(133, 77, 14, 0.14); color: #854D0E; border-color: rgba(133, 77, 14, 0.32); }
 
     .dish-desc {
       font-size: 0.85rem;
@@ -973,7 +990,7 @@
       font-family: var(--font-mono);
       font-size: 1.15rem;
       font-weight: 700;
-      color: var(--chalk-gold);
+      color: var(--chalk-gold-ink, var(--chalk-gold));
     }
 
     /* Actions / Add button */
@@ -1378,7 +1395,7 @@
       font-weight: 800;
       flex-shrink: 0;
     }
-    .icw-counter { margin-left: auto; font-family: var(--font-mono); font-size: 0.82rem; color: var(--chalk-gold); }
+    .icw-counter { margin-left: auto; font-family: var(--font-mono); font-size: 0.82rem; color: var(--chalk-gold-ink, var(--chalk-gold)); }
     .icw-optional {
       margin-left: auto;
       font-size: 0.7rem;
@@ -1409,7 +1426,7 @@
     .icw-size-icon { font-size: 1.9rem; line-height: 1; }
     .icw-size-name { font-size: 0.85rem; font-weight: 700; text-align: center; }
     .icw-size-cap { font-size: 0.7rem; color: var(--chalk-muted); }
-    .icw-size-price { font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700; color: var(--chalk-gold); }
+    .icw-size-price { font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700; color: var(--chalk-gold-ink, var(--chalk-gold)); }
     .icw-size-badge {
       position: absolute;
       top: -8px; left: 10px;
@@ -1505,8 +1522,8 @@
     .icw-topping-ico { font-size: 1.2rem; }
     .icw-topping-text { display: flex; flex-direction: column; }
     .icw-topping-name { font-size: 0.82rem; font-weight: 600; }
-    .icw-topping-price { font-family: var(--font-mono); font-size: 0.74rem; color: var(--chalk-gold); }
-    .icw-topping-check { color: var(--chalk-gold); font-weight: 800; }
+    .icw-topping-price { font-family: var(--font-mono); font-size: 0.74rem; color: var(--chalk-gold-ink, var(--chalk-gold)); }
+    .icw-topping-check { color: var(--chalk-gold-ink, var(--chalk-gold)); font-weight: 800; }
 
     .icw-footer {
       position: sticky;
@@ -1520,7 +1537,7 @@
     .icw-footer-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .icw-total { display: flex; flex-direction: column; }
     .icw-total span { font-size: 0.72rem; color: var(--chalk-muted); }
-    .icw-total strong { font-family: var(--font-mono); font-size: 1.3rem; color: var(--chalk-gold); }
+    .icw-total strong { font-family: var(--font-mono); font-size: 1.3rem; color: var(--chalk-gold-ink, var(--chalk-gold)); }
     .icw-add { width: auto; flex: 1; max-width: 250px; }
     .icw-add:disabled { opacity: 0.5; cursor: not-allowed; }
 

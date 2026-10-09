@@ -613,7 +613,7 @@ Object.defineProperties(window, {
 
       let html = `<button class="cat-pill ${selectedCategory === 'ALL' ? 'active' : ''}" data-js-click="selectCategory|ALL">Todos</button>`;
       if (hasFeatured) {
-        html += `<button class="cat-pill ${selectedCategory === 'POPULAR' ? 'active' : ''}" data-js-click="toggleCategory|POPULAR" style="color:var(--chalk-gold); border-color:rgba(236,201,75,0.4);">⭐ Populares</button>`;
+        html += `<button class="cat-pill ${selectedCategory === 'POPULAR' ? 'active' : ''}" data-js-click="toggleCategory|POPULAR" style="color:var(--chalk-gold-ink, var(--chalk-gold)); border-color:var(--border-gold);">⭐ Populares</button>`;
       }
 
       cats.forEach(c => {
