@@ -256,7 +256,7 @@ Object.defineProperties(window, {
       document.getElementById('restaurantName').textContent = restaurantData.name;
       document.getElementById('restaurantSlogan').textContent = restaurantData.slogan || 'Carta Gastronómica';
 
-      // Apply Layout Morphology & 14 Authentic Classic Themes & Fonts to body
+      // Apply Layout Morphology & 14 Authentic Classic Themes + 6 Heladería themes & Fonts to body
       const validLayouts = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker'];
       const morphParam = new URLSearchParams(window.location.search).get('morph');
       let layout = restaurantData.layout;
@@ -264,7 +264,7 @@ Object.defineProperties(window, {
         layout = morphParam;
       }
       const layoutClass = validLayouts.includes(layout) ? `layout-${layout}` : 'layout-classic';
-      const validThemes = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football'];
+      const validThemes = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football', 'helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato'];
       const themeClass = validThemes.includes(restaurantData.theme) ? `theme-${restaurantData.theme}` : 'theme-emerald';
       document.body.className = `${themeClass} font-${restaurantData.themeFont || 'serif'} ${layoutClass}`;
 
@@ -458,8 +458,9 @@ Object.defineProperties(window, {
 
       // Vertical / Special Features Visibility Control (Heladería & Perfumería)
       // Strictly modular by businessType: restaurants and events do not have ice cream or perfumery enabled
-      // isHeladeria: el backend normaliza businessType 'heladeria' -> 'restaurant' y deja
-      // allowIceCreamWizard=true (normalizeRestaurantBusinessType). El flag es la señal real.
+      // isHeladeria: el backend normaliza 'heladeria' y define allowIceCreamWizard (true por
+      // defecto; ver normalizeRestaurantBusinessType en src/db/db.js). El flag es la señal
+      // real: un `false` explícito del dueño apaga el asistente aunque el rubro sea heladería.
       const isHeladeria = restaurantData.allowIceCreamWizard === true;
       const isPerfumeria = ['perfumery', 'perfumeria'].includes(restaurantData.businessType) && restaurantData.allowPerfumery !== false;
 

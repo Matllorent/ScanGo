@@ -96,7 +96,7 @@ router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
     }
 
     const email = googleProfile.email.trim().toLowerCase();
-    const requestedType = ['restaurant', 'perfumery', 'events'].includes(businessType)
+    const requestedType = ['restaurant', 'heladeria', 'perfumery', 'events'].includes(businessType)
       ? businessType
       : 'restaurant';
     const requestedRestaurantName = String(restaurantName || '').trim().slice(0, 80);
@@ -228,7 +228,7 @@ router.post('/supabase-callback', checkSubscriptionKillSwitch, async (req, res, 
     }
 
     const email = supabaseUser.email.trim().toLowerCase();
-    const requestedType = ['restaurant', 'perfumery', 'events'].includes(req.body?.businessType)
+    const requestedType = ['restaurant', 'heladeria', 'perfumery', 'events'].includes(req.body?.businessType)
       ? req.body.businessType
       : 'restaurant';
     const requestedRestaurantName = String(req.body?.restaurantName || '').trim().slice(0, 80);
@@ -363,6 +363,7 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
       theme: 'emerald',
       businessType,
       allowPerfumery: businessType === 'perfumery',
+      allowIceCreamWizard: businessType === 'heladeria',
       wifi: { ssid: 'Restaurante_Clientes', password: 'pizarronrico' },
       ...buildStarterMenu()
     });

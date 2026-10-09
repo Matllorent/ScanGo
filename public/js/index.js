@@ -256,7 +256,7 @@ async function handleRegister(e) {
 
     if (data.restaurant) {
       data.restaurant.businessType = businessType;
-      data.restaurant.allowIceCreamWizard = false;
+      data.restaurant.allowIceCreamWizard = (businessType === 'heladeria');
       data.restaurant.allowPerfumery = (businessType === 'perfumery');
       data.restaurant.allowLoyaltyPoints = false;
     }

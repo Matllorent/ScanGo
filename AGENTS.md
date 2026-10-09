@@ -54,6 +54,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - `public/js/menu.js` — script inline principal (módulo raíz)
 - `public/js/menu/` — módulos ES internos (eventGuestMode, menuState, menuViewModel, menuModals, menuLoader, cartOperations, orderCheckout, smartReviews, virtualWaiterHeuristics, **iceCreamHeuristics**, **perfumeryHeuristics** y **tipCalculator**)
 - **Catálogos data-driven (cero demo)**: `iceCreamHeuristics.js` (`buildCustomFlavors`) y `perfumeryHeuristics.js` (`buildPerfumeryCatalog`) derivan sabores/fragancias de la **carta real** del local. El wizard/vista ya no caen a catálogos inventados: una heladería sin pistas por nombre/categoría usa toda su carta; una perfumería usa el **id real** de cada plato (así el pedido cotiza bien, antes el `id` sintético `perfume_...` rompía con `DISH_NOT_FOUND`). Regresión cubierta en `tests/test-menu-componentization.js` (§11/§12).
+- **Heladería es un rubro de primera clase**: `businessType='heladeria'` no se colapsa a `restaurant`; el asistente se gobierna con `allowIceCreamWizard` y `normalizeRestaurantBusinessType()` (src/db/db.js) preserva la bandera explícita y promueve registros viejos. Ver "Heladería como Rubro de Primera Clase" y "Temas Visuales para Heladerías".
 - `public/js/pwa.js` — Service Worker + CTA de instalación flotante (`pwa-install-ready` → `window.triggerPWAInstall()`; antes el trigger quedaba huérfano). Descartable (localStorage `scango_pwa_install_dismissed`); usa `addEventListener`, sin `on*=`. Guard en `tests/test-frontend-structure.js` (§D).
 - `public/js/dom-bindings.js` — binder de eventos delegados para atributos `data-js-*` (todas las páginas: menú, Studio, Admin, Landing; requisito de la CSP `script-src-attr 'none'`, ver sección "Seguridad — CSP")
 - `public/js/utils/` — utilitarios ES: **`escapeHtmlBrowser.js`** (el que usa todo el frontend), `dishPriceFormatter.js`, `categoryFilter.js` (ver gotcha abajo)
@@ -154,7 +155,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-fixes.js` | 7 mejoras críticas, saneamiento, 2FA, expiración trial |
 | `test-new-features.js` | Landmarks, dimensiones de logos, contraste, jerarquía de encabezados |
 | `test-resilience-security.js` | Rate-limit, headers HTTP, seguridad JWT, prevención de reutilización de tokens |
-| `test-banner-and-layouts.js` | Banner hero, 14 temas clásicos, morfologías Bento/Minimalist/Neon |
+| `test-banner-and-layouts.js` | Banner hero, 14 temas clásicos, 6 temas de heladería (3 coloridos + 3 formales), round-trip del rubro Heladería, morfologías Bento/Minimalist/Neon |
 | `test-mp-upsell-reviews.js` | Mercado Pago Checkout Pro, upselling "El Mozo Virtual", reseñas inteligentes |
 | `test-geo-killswitch-upsell.js` | GEO (llms.txt/Schema), kill-switch HTTP 503, mozo virtual contextual |
 | `test-weather.js` | Contexto de clima, caché por ciudad, fallback rápido |
@@ -234,7 +235,7 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 - **Prohibido `on*=` en TODO `public/`** (HTML y JS): la CSP de **ambas** variantes tiene `script-src-attr 'none'` desde la Etapa 2 — un `onclick=`/`onchange=`/etc. nuevo se rompe en producción (y `tests/test-csp.js` falla, escanea todo `public/`). Usar `data-js-*` + `public/js/dom-bindings.js` (binder universal). También: `javascript:void(0)` está bloqueado → usar `href="#"` (el binder hace preventDefault en los `<A>`).
 
 ### Estructura de Datos Clave
-- **Restaurant** incluye: `subscription` (status, plan, provider, trialEndsAt, currentPeriodEnd, gracePeriodDaysRemaining), `branches[]`, `categories[]`, `dishes[]`, `modifierGroups[]`, `deliveryZones[]`, `businessType` (`restaurant|perfumery|events`), `layout` (`classic|modern|minimal`), `theme`, `city`, `smartWeatherEnabled`
+- **Restaurant** incluye: `subscription` (status, plan, provider, trialEndsAt, currentPeriodEnd, gracePeriodDaysRemaining), `branches[]`, `categories[]`, `dishes[]`, `modifierGroups[]`, `deliveryZones[]`, `businessType` (`restaurant|heladeria|perfumery|events`), `layout` (`classic|modern|minimal`), `theme`, `city`, `smartWeatherEnabled`
 - **Branch**: `id`, `name`, `slug`, `phone`, `address`, `overridePrices{}`, `customDishes[]`
 - **User**: `id`, `email`, `password` (bcrypt), `name`, `createdAt`
 
@@ -272,6 +273,30 @@ Lógica real: **`resolveEventTheme()` en `public/js/menu/eventGuestMode.js`** (l
 - **`?event=...` funciona también con `businessType='restaurant'`** (el flag solo fuerza el default wedding)
 
 Estéticas (definiciones CSS en `public/css/menu.css`): wedding = marfil + serif Playfair + dorado `#D4A853`; cumple15 = pastel rosado/champán sobre `#F9F0F5`; birthday = mint `#A8D5C7` + oro `#C9A867` sobre `#FAF8F5`; catering = neutral cálido `#C49A4A`/`#A4753C` sobre `#F7F4F0`.
+
+## Heladería como Rubro de Primera Clase
+
+`businessType='heladeria'` es un rubro propio (no se colapsa a `restaurant`), seleccionable en el registro (`public/index.html`) y en Studio (`#inputBusinessType`). El asistente de armado (tamaño → sabores → toppings) se gobierna con `restaurant.allowIceCreamWizard` (default `true` para heladería). `normalizeRestaurantBusinessType()` en `src/db/db.js`:
+- preserva un `true`/`false` explícito del dueño (nunca lo pisa al leer);
+- promueve registros antiguos guardados como `restaurant` + `allowIceCreamWizard=true` a `heladeria`;
+- sólo define el default cuando la bandera está ausente.
+
+Antes esto era un bug: `heladeria` se colapsaba a `restaurant` al guardar y la bandera se apagaba en la siguiente lectura, por lo que el asistente desaparecía al recargar. Regresión cubierta en `tests/test-banner-and-layouts.js` (round-trip de heladería + `false` explícito). El precio es **idéntico al de restaurante** (mismos planes y descuento multi-sucursal; el billing no mira `businessType`).
+
+### Temas Visuales para Heladerías
+
+6 temas en `public/css/menu.css` (`body.theme-*`), expuestos en el selector de estética de Studio (agrupados en "🍦 Heladería & Postres") y aceptados en `validThemes` de `public/js/menu.js`:
+
+| Tema | Vibe | Paleta |
+|------|------|--------|
+| `theme-helado-fiesta` | Entretenido | Confeti rosa/cyan/limón/lila sobre blanco `#FFF7FB` |
+| `theme-helado-menta` | Entretenido | Menta `#1FA97A` + chips de chocolate sobre `#F1FBF7` |
+| `theme-helado-tropical` | Colorido | Mango `#FF7A00`, coral `#FF5A5F`, turquesa `#17B8A6` sobre `#FFF8EE` |
+| `theme-helado-pastel` | Formal suave | Lavanda `#9F7AEA`, rosa y menta pastel sobre `#FBF6FF` |
+| `theme-gelateria` | Formal italiano | Marfil `#FBF6EE`, terracota `#C56B4A`, pistacho `#94A97A` |
+| `theme-cioccolato` | Formal premium | Cacao oscuro `#231410` + oro `#E0B04A` (único oscuro) |
+
+Los 5 claros sobreescriben `--chalk-white` a tinta oscura y refuerzan títulos/nombres (mismo patrón que los temas de evento); no fuerzan tipografía, así el selector de fuente del dueño sigue mandando. Guard en `tests/test-banner-and-layouts.js` (§3e).
 
 ## Archivos de Referencia Rápida
 

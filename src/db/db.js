@@ -74,14 +74,14 @@ function normalizeBusinessType(value) {
   const aliases = {
     restaurante: 'restaurant',
     perfumeria: 'perfumery',
-    heladeria: 'restaurant',
+    heladeria: 'heladeria',
     cafeteria: 'restaurant',
     evento: 'events',
     event: 'events',
     catering: 'events'
   };
   const normalized = aliases[value] || value;
-  return ['restaurant', 'perfumery', 'events'].includes(normalized) ? normalized : 'restaurant';
+  return ['restaurant', 'heladeria', 'perfumery', 'events'].includes(normalized) ? normalized : 'restaurant';
 }
 
 /**
@@ -113,15 +113,20 @@ function normalizeRestaurantBusinessType(restaurant) {
   if (!restaurant) return restaurant;
   if (restaurant.city === undefined) restaurant.city = '';
   if (restaurant.smartWeatherEnabled === undefined) restaurant.smartWeatherEnabled = false;
-  if (restaurant.businessType === 'heladeria') {
-    if (restaurant.allowIceCreamWizard === undefined) restaurant.allowIceCreamWizard = true;
-  } else {
-    restaurant.allowIceCreamWizard = false;
+
+  // Heladería es un rubro de primera clase (no se colapsa a 'restaurant').
+  // Compatibilidad: registros antiguos guardaron businessType='restaurant' junto
+  // con allowIceCreamWizard=true; esa bandera explícita promueve el rubro de vuelta.
+  if (restaurant.businessType !== 'heladeria' && restaurant.allowIceCreamWizard === true) {
+    restaurant.businessType = 'heladeria';
   }
-  if (['perfumeria', 'perfumery'].includes(restaurant.businessType)) {
-    if (restaurant.allowPerfumery === undefined) restaurant.allowPerfumery = true;
-  } else {
-    restaurant.allowPerfumery = false;
+  // Sólo se define por defecto cuando la bandera está ausente: un `false` explícito
+  // del dueño (o un `true` heredado) nunca se pisa al leer.
+  if (restaurant.allowIceCreamWizard === undefined) {
+    restaurant.allowIceCreamWizard = restaurant.businessType === 'heladeria';
+  }
+  if (restaurant.allowPerfumery === undefined) {
+    restaurant.allowPerfumery = ['perfumeria', 'perfumery'].includes(restaurant.businessType);
   }
   restaurant.businessType = normalizeBusinessType(restaurant.businessType);
   normalizeSubscription(restaurant);

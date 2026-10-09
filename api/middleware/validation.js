@@ -8,7 +8,7 @@ const registerSchema = z.object({
   name: z.string().max(80).optional(),
   restaurantName: z.string().max(80).optional(),
   bizName: z.string().max(80).optional(),
-  businessType: z.enum(['restaurant', 'perfumery', 'events']).optional().default('restaurant')
+  businessType: z.enum(['restaurant', 'heladeria', 'perfumery', 'events']).optional().default('restaurant')
 });
 
 // Schema for login payload

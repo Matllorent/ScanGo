@@ -39,7 +39,23 @@ async function runTests() {
   assert.strictEqual(fetched.businessType, 'events', 'businessType debe persistir en db');
   assert.strictEqual(fetched.layout, 'bento', 'layout debe persistir como bento en db');
   assert.strictEqual(defaultProfile.businessType, 'restaurant', 'businessType debe usar restaurant por defecto');
+
+  // Heladería: rubro de primera clase. El asistente debe sobrevivir a la lectura
+  // (antes se colapsaba a 'restaurant' y se apagaba la bandera en el siguiente read).
+  const heladeriaUser = await db.createUser({ email: `test-heladeria-${Date.now()}@example.com`, password: 'test_password' });
+  await db.saveRestaurant(heladeriaUser.id, { bizName: 'Heladería Test', businessType: 'heladeria', allowIceCreamWizard: true });
+  const heladeria = db.findRestaurantByUserId(heladeriaUser.id);
+  assert.strictEqual(heladeria.businessType, 'heladeria', 'Heladería debe conservar su rubro (no colapsar a restaurant)');
+  assert.strictEqual(heladeria.allowIceCreamWizard, true, 'El asistente de heladería debe sobrevivir a la lectura');
+
+  // Un `false` explícito del dueño nunca se pisa al leer.
+  const heladeriaOffUser = await db.createUser({ email: `test-heladeria-off-${Date.now()}@example.com`, password: 'test_password' });
+  await db.saveRestaurant(heladeriaOffUser.id, { bizName: 'Heladería Off', businessType: 'heladeria', allowIceCreamWizard: false });
+  const heladeriaOff = db.findRestaurantByUserId(heladeriaOffUser.id);
+  assert.strictEqual(heladeriaOff.businessType, 'heladeria', 'Heladería sigue siendo su rubro aunque apague el asistente');
+  assert.strictEqual(heladeriaOff.allowIceCreamWizard, false, 'Un false explícito del dueño no debe pisarse');
   console.log('✓ Persistencia en DB de bannerUrl y layout validada exitosamente');
+  console.log('✓ Rubro Heladería de primera clase + bandera del asistente sobreviven al round-trip');
 
   // 2. Verificación de layouts permitidos e integridad en api/index.js
   const apiFile = fs.readFileSync(path.join(__dirname, '../api/index.js'), 'utf8');
@@ -110,6 +126,13 @@ async function runTests() {
   }
   console.log('✓ Los 14 temas clásicos artesanales se conservan 100% intactos');
 
+  // 3e. Temas de heladería: coloridos/entretenidos + formales
+  const iceCreamThemes = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato'];
+  for (const theme of iceCreamThemes) {
+    assert.ok(menuCss.includes(`body.theme-${theme}`), `menu.css debe incluir el tema de heladería ${theme}`);
+  }
+  console.log('✓ Los 6 temas de heladería (3 coloridos + 3 formales) presentes en menu.css');
+
   // 3d. object-fit: cover y adaptaciones mobile < 360px
   assert.ok(menuCss.includes('object-fit: cover'), 'menu.css debe forzar object-fit: cover');
   assert.ok(menuCss.includes('@media (max-width: 360px)'), 'menu.css debe incluir reglas para pantallas < 360px');
@@ -130,6 +153,11 @@ async function runTests() {
   assert.ok(studioJs.includes('updateBusinessTypeControls'), 'Studio debe filtrar controles exclusivos según el rubro');
   assert.ok(studioHtml.includes('data-business-type="perfumery"'), 'Los controles exclusivos deben identificarse como perfumería');
   assert.ok(schemaSql.includes("business_type TEXT NOT NULL DEFAULT 'restaurant'"), 'Supabase debe tener business_type con restaurant por defecto');
+  assert.ok(studioHtml.includes('<option value="heladeria">'), 'studio.html debe exponer Heladería como rubro de primera clase');
+  assert.ok(studioHtml.includes('value="helado-fiesta"') && studioHtml.includes('value="cioccolato"'), 'studio.html debe ofrecer los temas de heladería en el selector de estética');
+
+  const landingHtml = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  assert.ok(landingHtml.includes('<option value="heladeria">'), 'El registro debe ofrecer Heladería como rubro de primera clase');
   console.log('✓ Controles de portada superior y switcher de layout validados en Studio');
 
   // 5. Verificación de menu.html y menu.js
@@ -146,6 +174,11 @@ async function runTests() {
   assert.ok(menuJs.includes("'billboard'"), 'menu.js debe contemplar billboard en validLayouts');
   assert.ok(menuJs.includes("'ticker'"), 'menu.js debe contemplar ticker en validLayouts');
   assert.ok(menuJs.includes("'sticker'"), 'menu.js debe contemplar sticker en validLayouts');
+  assert.ok(menuJs.includes("'helado-fiesta'") && menuJs.includes("'cioccolato'"), 'menu.js debe aceptar los temas de heladería en validThemes');
+  // El botón del asistente se ancla en el flag, no en el rubro: un `false` explícito del
+  // dueño apaga el asistente aunque businessType sea 'heladeria'.
+  assert.ok(menuJs.includes('const isHeladeria = restaurantData.allowIceCreamWizard === true;'), 'menu.js debe respetar allowIceCreamWizard=false para no mostrar el asistente apagado');
+  assert.ok(!menuJs.includes("restaurantData.businessType === 'heladeria' || restaurantData.allowIceCreamWizard"), 'menu.js no debe forzar el asistente por rubro cuando el dueño lo apagó');
   assert.ok(menuJs.includes('Los Mejores Platos de la Casa'), 'El carrusel superior debe mostrar Los Mejores Platos en las morfologías board');
   // Fase E pulido: overlay por clase condicional y títulos del carrusel traducibles
   assert.ok(menuJs.includes("dish-has-photo"), 'menu.js debe marcar los cards con foto con la clase dish-has-photo');

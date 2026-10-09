@@ -250,6 +250,215 @@
       background-size: 100% 100%, 100% 60px;
     }
 
+    /* ============================================================
+       ICE-CREAM THEMES (Heladería & Postres)
+       Paletas pensadas para heladerías: entretenidas y coloridas
+       (fiesta, menta, tropical) + formales (pastel, gelateria, cioccolato).
+       ============================================================ */
+
+    /* FIESTA DE HELADO — confeti sobre blanco: divertido, familiar y colorido */
+    body.theme-helado-fiesta {
+      --bg-chalkboard: #FFF7FB;
+      --surface-card: #FFFFFF;
+      --surface-card-hover: #FFF0F7;
+      --chalk-gold: #FF5C8A;
+      --chalk-gold-dim: rgba(255, 92, 138, 0.14);
+      --border-gold: rgba(255, 92, 138, 0.35);
+      --chalk-sky: #4CC9F0;
+      --chalk-lemon: #FFD23F;
+      --chalk-grape: #B892F0;
+      --chalk-white: #3A1E33;
+      --chalk-muted: #6B4A5E;
+      --chalk-dim: #9A7CA6;
+      --border-chalk: rgba(58, 30, 51, 0.10);
+      background-color: #FFF7FB;
+    }
+    body.theme-helado-fiesta .restaurant-title { color: #E23E6B; }
+    body.theme-helado-fiesta .dish-name { color: #3A1E33; }
+    body.theme-helado-fiesta .dish-badge { --chalk-gold: #FF5C8A; }
+    body.theme-helado-fiesta .category-title { color: #D6336C; }
+    body.theme-helado-fiesta .cat-pill { border-color: rgba(58, 30, 51, 0.12); }
+    body.theme-helado-fiesta .empty-state-card { border-color: rgba(58, 30, 51, 0.10); }
+    body.theme-helado-fiesta .empty-state-icon { color: #D6336C; }
+    body.theme-helado-fiesta .dish-card { border-radius: 18px; }
+    body.theme-helado-fiesta::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      background-image:
+        radial-gradient(circle at 12% 18%, rgba(255, 92, 138, 0.10) 0%, transparent 34%),
+        radial-gradient(circle at 86% 24%, rgba(76, 201, 240, 0.10) 0%, transparent 32%),
+        radial-gradient(circle at 22% 82%, rgba(255, 210, 63, 0.12) 0%, transparent 30%),
+        radial-gradient(circle at 80% 84%, rgba(184, 146, 240, 0.10) 0%, transparent 32%);
+    }
+
+    /* MENTA GRANIZADA — verde menta con chips de chocolate: fresco y juguetón */
+    body.theme-helado-menta {
+      --bg-chalkboard: #F1FBF7;
+      --surface-card: #FFFFFF;
+      --surface-card-hover: #E4F7EF;
+      --chalk-gold: #1FA97A;
+      --chalk-gold-dim: rgba(31, 169, 122, 0.14);
+      --border-gold: rgba(31, 169, 122, 0.35);
+      --chalk-choco: #5A3A2E;
+      --chalk-white: #16382C;
+      --chalk-muted: #3F6B58;
+      --chalk-dim: #6E9384;
+      --border-chalk: rgba(22, 56, 44, 0.10);
+      background-color: #F1FBF7;
+    }
+    body.theme-helado-menta .restaurant-title { color: #12805B; }
+    body.theme-helado-menta .dish-name { color: #16382C; }
+    body.theme-helado-menta .dish-badge { --chalk-gold: #1FA97A; }
+    body.theme-helado-menta .category-title { color: #12805B; }
+    body.theme-helado-menta .cat-pill { border-color: rgba(22, 56, 44, 0.12); }
+    body.theme-helado-menta .empty-state-card { border-color: rgba(22, 56, 44, 0.10); }
+    body.theme-helado-menta .empty-state-icon { color: #12805B; }
+    body.theme-helado-menta .dish-card { border-radius: 16px; }
+    body.theme-helado-menta::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      background-image:
+        radial-gradient(circle at 16% 22%, rgba(31, 169, 122, 0.08) 0%, transparent 36%),
+        radial-gradient(circle at 84% 78%, rgba(90, 58, 46, 0.05) 0%, transparent 34%);
+    }
+
+    /* SORBETE TROPICAL — mango, coral y turquesa: verano vibrante y luminoso */
+    body.theme-helado-tropical {
+      --bg-chalkboard: #FFF8EE;
+      --surface-card: #FFFFFF;
+      --surface-card-hover: #FFEFDB;
+      --chalk-gold: #FF7A00;
+      --chalk-gold-dim: rgba(255, 122, 0, 0.14);
+      --border-gold: rgba(255, 122, 0, 0.35);
+      --chalk-coral: #FF5A5F;
+      --chalk-teal: #17B8A6;
+      --chalk-white: #3B2A1E;
+      --chalk-muted: #6E523A;
+      --chalk-dim: #9A7B5C;
+      --border-chalk: rgba(59, 42, 30, 0.10);
+      background-color: #FFF8EE;
+    }
+    body.theme-helado-tropical .restaurant-title { color: #E8590C; }
+    body.theme-helado-tropical .dish-name { color: #3B2A1E; }
+    body.theme-helado-tropical .dish-badge { --chalk-gold: #FF7A00; }
+    body.theme-helado-tropical .category-title { color: #E8590C; }
+    body.theme-helado-tropical .cat-pill { border-color: rgba(59, 42, 30, 0.12); }
+    body.theme-helado-tropical .empty-state-card { border-color: rgba(59, 42, 30, 0.10); }
+    body.theme-helado-tropical .empty-state-icon { color: #E8590C; }
+    body.theme-helado-tropical .dish-card { border-radius: 16px; }
+    body.theme-helado-tropical::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      background-image:
+        radial-gradient(circle at 14% 20%, rgba(255, 122, 0, 0.10) 0%, transparent 34%),
+        radial-gradient(circle at 86% 30%, rgba(255, 90, 95, 0.09) 0%, transparent 32%),
+        radial-gradient(circle at 24% 84%, rgba(23, 184, 166, 0.10) 0%, transparent 32%);
+    }
+
+    /* SORBETE PASTEL — lavanda, rosa y menta suaves: dulce, tierno y elegante */
+    body.theme-helado-pastel {
+      --bg-chalkboard: #FBF6FF;
+      --surface-card: #FFFFFF;
+      --surface-card-hover: #F3ECFA;
+      --chalk-gold: #9F7AEA;
+      --chalk-gold-dim: rgba(159, 122, 234, 0.14);
+      --border-gold: rgba(159, 122, 234, 0.35);
+      --chalk-pink: #F6A5C0;
+      --chalk-mint: #9FEBCB;
+      --chalk-white: #463A5C;
+      --chalk-muted: #6B5C86;
+      --chalk-dim: #9586AC;
+      --border-chalk: rgba(70, 58, 92, 0.10);
+      background-color: #FBF6FF;
+    }
+    body.theme-helado-pastel .restaurant-title { color: #7C5CBF; }
+    body.theme-helado-pastel .dish-name { color: #463A5C; }
+    body.theme-helado-pastel .dish-badge { --chalk-gold: #9F7AEA; }
+    body.theme-helado-pastel .category-title { color: #7C5CBF; }
+    body.theme-helado-pastel .cat-pill { border-color: rgba(70, 58, 92, 0.12); }
+    body.theme-helado-pastel .empty-state-card { border-color: rgba(70, 58, 92, 0.10); }
+    body.theme-helado-pastel .empty-state-icon { color: #7C5CBF; }
+    body.theme-helado-pastel .dish-card { border-radius: 18px; }
+    body.theme-helado-pastel::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      background-image:
+        radial-gradient(circle at 18% 24%, rgba(246, 165, 192, 0.10) 0%, transparent 36%),
+        radial-gradient(circle at 82% 76%, rgba(159, 235, 203, 0.12) 0%, transparent 34%);
+    }
+
+    /* GELATERIA ITALIANA — marfil, pistacho y terracota: artesanal y formal */
+    body.theme-gelateria {
+      --bg-chalkboard: #FBF6EE;
+      --surface-card: #FFFFFF;
+      --surface-card-hover: #F4ECDF;
+      --chalk-gold: #C56B4A;
+      --chalk-gold-dim: rgba(197, 107, 74, 0.14);
+      --border-gold: rgba(197, 107, 74, 0.35);
+      --chalk-pistachio: #94A97A;
+      --chalk-white: #3E2C23;
+      --chalk-muted: #5C463A;
+      --chalk-dim: #8A7365;
+      --border-chalk: rgba(62, 44, 35, 0.12);
+      background-color: #FBF6EE;
+    }
+    body.theme-gelateria .restaurant-title { color: #A8522F; }
+    body.theme-gelateria .dish-name { color: #3E2C23; }
+    body.theme-gelateria .dish-badge { --chalk-gold: #C56B4A; }
+    body.theme-gelateria .category-title { color: #A8522F; }
+    body.theme-gelateria .cat-pill { border-color: rgba(62, 44, 35, 0.12); }
+    body.theme-gelateria .empty-state-card { border-color: rgba(62, 44, 35, 0.10); }
+    body.theme-gelateria .empty-state-icon { color: #A8522F; }
+    body.theme-gelateria::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      background-image:
+        radial-gradient(circle at 20% 26%, rgba(197, 107, 74, 0.06) 0%, transparent 42%),
+        radial-gradient(circle at 80% 74%, rgba(148, 169, 122, 0.08) 0%, transparent 42%);
+    }
+
+    /* CIOCCOLATO PREMIUM — cacao oscuro y oro: nocturno, intenso y formal */
+    body.theme-cioccolato {
+      --bg-chalkboard: #231410;
+      --surface-card: #2E1B15;
+      --surface-card-hover: #3B241B;
+      --chalk-gold: #E0B04A;
+      --chalk-gold-dim: rgba(224, 176, 74, 0.16);
+      --border-gold: rgba(224, 176, 74, 0.38);
+      --chalk-cream: #F5E6D3;
+      --chalk-white: #F5E6D3;
+      --chalk-muted: #D9C3A9;
+      --chalk-dim: #A88C74;
+      --border-chalk: rgba(245, 230, 211, 0.12);
+      background-color: #231410;
+      background-image:
+        radial-gradient(circle at 50% 0%, rgba(224, 176, 74, 0.06) 0%, transparent 55%);
+    }
+    body.theme-cioccolato .restaurant-title { color: #E0B04A; }
+    body.theme-cioccolato .dish-name { color: #F5E6D3; }
+    body.theme-cioccolato .dish-badge { --chalk-gold: #E0B04A; }
+    body.theme-cioccolato .category-title { color: #E0B04A; }
+    body.theme-cioccolato .empty-state-icon { color: #E0B04A; }
+    body.theme-cioccolato::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      background-image:
+        radial-gradient(circle at 18% 20%, rgba(224, 176, 74, 0.05) 0%, transparent 45%),
+        radial-gradient(circle at 82% 80%, rgba(224, 176, 74, 0.04) 0%, transparent 45%);
+    }
+
     /* Font Styles */
     body.font-serif { --font-heading: 'Playfair Display', Georgia, serif; }
     body.font-chalk { --font-heading: 'Caveat', cursive, sans-serif; }
@@ -430,7 +639,7 @@
     .restaurant-title {
       font-family: var(--font-heading);
       font-size: clamp(1.6rem, 5vw, 2.3rem);
-      color: #fff;
+      color: var(--chalk-white);
       margin-bottom: 4px;
       letter-spacing: -0.01em;
     }
@@ -741,7 +950,7 @@
     .dish-name {
       font-size: 1.05rem;
       font-weight: 700;
-      color: #fff;
+      color: var(--chalk-white);
     }
     .dish-badge {
       font-size: 0.7rem;
@@ -1173,7 +1382,7 @@
     .modal-title {
       font-family: var(--font-heading);
       font-size: 1.35rem;
-      color: #fff;
+      color: var(--chalk-white);
       margin-bottom: 16px;
       border-bottom: 1px solid var(--border-chalk);
       padding-bottom: 8px;
@@ -1187,7 +1396,7 @@
       border-bottom: 1px solid var(--border-chalk);
       gap: 10px;
     }
-    .cart-item-title { font-size: 0.92rem; font-weight: 600; color: #fff; }
+    .cart-item-title { font-size: 0.92rem; font-weight: 600; color: var(--chalk-white); }
     .cart-item-price { font-family: var(--font-mono); font-size: 0.88rem; color: var(--chalk-gold); }
     .cart-item-note {
       margin-top: 4px;
@@ -1281,7 +1490,7 @@
     .btn-qty {
       background: var(--bg-chalkboard);
       border: 1px solid var(--border-chalk);
-      color: #fff;
+      color: var(--chalk-white);
       width: 26px; height: 26px;
       border-radius: 6px;
       font-weight: bold;
@@ -1462,7 +1671,7 @@
       border: 1px solid rgba(255,255,255,0.22);
       border-radius: 20px;
       padding: 6px 14px;
-      color: #fff;
+      color: var(--chalk-white);
       font-size: 0.82rem;
       font-weight: 600;
       cursor: pointer;
@@ -1511,7 +1720,7 @@
       border-radius: 10px;
       background: var(--surface-card);
       border: 1px solid var(--border-chalk);
-      color: #fff;
+      color: var(--chalk-white);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1607,7 +1816,7 @@
     .destacado-price {
       font-size: 0.98rem;
       font-weight: 800;
-      color: #fff;
+      color: var(--chalk-white);
       font-family: var(--font-mono);
     }
     .destacado-name {
@@ -1961,7 +2170,7 @@
     body.layout-bento .dish-name {
       font-size: 1.05rem;
       font-weight: 700;
-      color: #fff;
+      color: var(--chalk-white);
     }
     body.layout-bento .dish-desc {
       font-size: 0.82rem;
@@ -2551,7 +2760,7 @@
     }
     .btn-feedback-dismiss:hover {
       background: rgba(255, 255, 255, 0.06);
-      color: #fff;
+      color: var(--chalk-white);
     }
     .review-constructive-banner {
       text-align: center;
