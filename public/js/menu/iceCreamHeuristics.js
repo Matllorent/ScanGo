@@ -8,7 +8,8 @@
  * típicas ("Cremas", "Chocolates", "Dulces de Leche", "Frutales", "Especiales")
  * no matcheaba y el wizard caía al catálogo DEMO de sabores inventados, incluso
  * para un local real. Acá ampliamos las pistas, mapeamos las categorías a los
- * baldes del wizard y, si es una heladería sin pistas, usamos toda la carta.
+ * baldes del wizard y, si es una heladería sin pistas, usamos toda la carta
+ * (excepto las bebidas heladas, que no son sabores).
  *
  * Módulo puro (sin DOM, sin fetch) → testeable con `node`/assert.
  */
@@ -20,6 +21,16 @@ export const FLAVOR_CATEGORY_HINTS = [
 
 /** Baldes de categoría que muestran los chips del paso 2 del wizard. */
 export const FLAVOR_BUCKETS = ['Chocolates', 'Dulces de Leche', 'Cremas', 'Frutales', 'Especiales'];
+
+/**
+ * Pistas que DESCARTAN un plato como sabor, aunque su nombre/categoría diga "helad".
+ * El caso real: "Bebidas Heladas" (milkshakes, licuados) no son sabores de helado.
+ * Sólo se aplican a la categoría (nunca a "café", que sí puede ser un sabor).
+ */
+export const FLAVOR_EXCLUDE_CATEGORY_HINTS = ['bebida', 'milkshake', 'licuado', 'batido', 'smoothie', 'trago', 'jugo'];
+
+/** Pistas que descartan por nombre de plato (una bebida puntual en cualquier categoría). */
+export const FLAVOR_EXCLUDE_DISH_HINTS = ['milkshake', 'licuado', 'batido', 'smoothie'];
 
 /**
  * Mapea el nombre de categoría real del local a uno de los baldes del wizard.
@@ -54,16 +65,28 @@ export function detectFlavorDishes(restaurantData = {}) {
   const categories = Array.isArray(rd.categories) ? rd.categories : [];
   const isHeladeria = rd.allowIceCreamWizard === true || rd.businessType === 'heladeria';
 
+  const categoryNameOf = (dish) => {
+    const cat = categories.find(c => c.id === dish.categoryId);
+    return String(cat ? cat.name : '').toLowerCase();
+  };
+  const isExcluded = (dish) => {
+    const catName = categoryNameOf(dish);
+    const dishName = String(dish.name || '').toLowerCase();
+    return FLAVOR_EXCLUDE_CATEGORY_HINTS.some(h => catName.includes(h))
+      || FLAVOR_EXCLUDE_DISH_HINTS.some(h => dishName.includes(h));
+  };
+
   const detected = dishes.filter(d => {
-    const cat = categories.find(c => c.id === d.categoryId);
-    const catName = (cat ? cat.name : '').toLowerCase();
+    if (isExcluded(d)) return false;
+    const catName = categoryNameOf(d);
     const dishName = String(d.name || '').toLowerCase();
     return FLAVOR_CATEGORY_HINTS.some(h => catName.includes(h)) ||
       dishName.includes('helad') || dishName.includes('sabor');
   });
 
   if (detected.length > 0) return detected;
-  return isHeladeria ? dishes : [];
+  // Heladería sin pistas: usa toda la carta, pero nunca las bebidas.
+  return isHeladeria ? dishes.filter(d => !isExcluded(d)) : [];
 }
 
 /**

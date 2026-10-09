@@ -1281,59 +1281,252 @@
       color: #101614;
     }
 
-    /* Wizard Steps Indicators */
-    .wizard-steps-indicator {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-    }
-    .step-pill {
+    /* ── Armador de helado: CTA protagonista + builder de una pantalla ── */
+    .icecream-hero {
+      width: 100%;
       display: flex;
       align-items: center;
-      gap: 6px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid var(--border-chalk);
-      border-radius: 20px;
-      padding: 4px 12px;
-      font-size: 0.78rem;
-      color: var(--chalk-dim);
-      font-weight: 600;
+      gap: 14px;
+      text-align: left;
+      margin-bottom: 14px;
+      padding: 15px 18px;
+      border: 1px solid var(--border-gold);
+      border-radius: 16px;
+      cursor: pointer;
+      color: var(--chalk-white);
+      font-family: inherit;
+      background: linear-gradient(120deg, rgba(236, 201, 75, 0.20), rgba(104, 211, 145, 0.14));
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.2s;
     }
-    .step-pill.active {
-      background: var(--chalk-gold-dim);
+    .icecream-hero:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
       border-color: var(--chalk-gold);
-      color: var(--chalk-gold);
-      font-weight: 700;
     }
-    .step-pill.completed {
-      border-color: var(--chalk-green);
-      color: var(--chalk-green);
+    .icecream-hero .icw-hero-emoji { font-size: 2.1rem; line-height: 1; }
+    .icecream-hero .icw-hero-text { flex: 1; min-width: 0; }
+    .icecream-hero .icw-hero-text strong {
+      display: block;
+      font-family: var(--font-heading);
+      font-size: 1.05rem;
+      line-height: 1.2;
     }
-    .step-num {
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.1);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.7rem;
+    .icecream-hero .icw-hero-text small {
+      display: block;
+      margin-top: 2px;
+      color: var(--chalk-muted);
+      font-size: 0.8rem;
     }
-    .step-pill.active .step-num {
+    .icecream-hero .icw-hero-cta {
+      flex-shrink: 0;
       background: var(--chalk-gold);
       color: #101614;
       font-weight: 800;
+      border-radius: 10px;
+      padding: 9px 14px;
+      font-size: 0.85rem;
+      white-space: nowrap;
     }
-    .step-pill.completed .step-num {
-      background: var(--chalk-green);
+
+    .ice-cream-wizard-box {
+      max-width: 640px;
+      max-height: 92dvh;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .icw-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--border-chalk);
+    }
+    .icw-title { font-family: var(--font-heading); font-size: 1.35rem; color: var(--chalk-white); margin: 0; }
+    .icw-subtitle { margin: 4px 0 0; font-size: 0.82rem; color: var(--chalk-muted); }
+    .icw-close { position: static; }
+    .icw-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    .icw-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--chalk-white);
+    }
+    .icw-step-num {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--chalk-gold);
       color: #101614;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.78rem;
       font-weight: 800;
+      flex-shrink: 0;
     }
-    .step-divider {
-      flex: 1;
-      height: 1px;
-      background: var(--border-chalk);
+    .icw-counter { margin-left: auto; font-family: var(--font-mono); font-size: 0.82rem; color: var(--chalk-gold); }
+    .icw-optional {
+      margin-left: auto;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--chalk-dim);
+    }
+
+    .icw-sizes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+    .icw-size {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 14px 10px 12px;
+      background: var(--surface-card);
+      border: 2px solid var(--border-chalk);
+      border-radius: 14px;
+      cursor: pointer;
+      color: var(--chalk-white);
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .icw-size:hover { border-color: var(--border-gold); }
+    .icw-size.is-selected { border-color: var(--chalk-gold); background: var(--chalk-gold-dim); }
+    .icw-size-icon { font-size: 1.9rem; line-height: 1; }
+    .icw-size-name { font-size: 0.85rem; font-weight: 700; text-align: center; }
+    .icw-size-cap { font-size: 0.7rem; color: var(--chalk-muted); }
+    .icw-size-price { font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700; color: var(--chalk-gold); }
+    .icw-size-badge {
+      position: absolute;
+      top: -8px; left: 10px;
+      background: var(--chalk-green);
+      color: #0E1412;
+      font-size: 0.62rem;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 10px;
+    }
+
+    .icw-chips {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+      scrollbar-width: none;
+    }
+    .icw-chips::-webkit-scrollbar { display: none; }
+
+    .icw-flavors { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+    .icw-flavor {
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      text-align: left;
+      padding: 11px 12px;
+      background: var(--surface-card);
+      border: 1.5px solid var(--border-chalk);
+      border-radius: 12px;
+      cursor: pointer;
+      color: var(--chalk-white);
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .icw-flavor:hover { border-color: var(--border-gold); }
+    .icw-flavor.is-selected { border-color: var(--chalk-gold); background: var(--chalk-gold-dim); }
+    .icw-flavor.is-disabled { opacity: 0.45; cursor: not-allowed; }
+    .icw-flavor-check {
+      flex-shrink: 0;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      border: 2px solid var(--border-chalk);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.78rem;
+      font-weight: 800;
+      color: transparent;
+    }
+    .icw-flavor.is-selected .icw-flavor-check {
+      background: var(--chalk-gold);
+      border-color: var(--chalk-gold);
+      color: #101614;
+    }
+    .icw-flavor-info { display: flex; flex-direction: column; min-width: 0; }
+    .icw-flavor-name { font-size: 0.9rem; font-weight: 700; }
+    .icw-flavor-desc { font-size: 0.76rem; color: var(--chalk-dim); margin-top: 2px; }
+    .icw-flavor-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .icw-hint { margin: 10px 0 0; font-size: 0.78rem; color: var(--chalk-muted); }
+
+    .icw-toppings-group { margin-bottom: 14px; }
+    .icw-toppings-group:last-child { margin-bottom: 0; }
+    .icw-toppings-group h4 {
+      margin: 0 0 8px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--chalk-muted);
+    }
+    .icw-toppings { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 8px; }
+    .icw-topping {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 12px;
+      background: var(--surface-card);
+      border: 1.5px solid var(--border-chalk);
+      border-radius: 10px;
+      cursor: pointer;
+      color: var(--chalk-white);
+      font-family: inherit;
+      text-align: left;
+      transition: all 0.15s;
+    }
+    .icw-topping:hover { border-color: var(--border-gold); }
+    .icw-topping.is-selected { border-color: var(--chalk-gold); background: var(--chalk-gold-dim); }
+    .icw-topping-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .icw-topping-ico { font-size: 1.2rem; }
+    .icw-topping-text { display: flex; flex-direction: column; }
+    .icw-topping-name { font-size: 0.82rem; font-weight: 600; }
+    .icw-topping-price { font-family: var(--font-mono); font-size: 0.74rem; color: var(--chalk-gold); }
+    .icw-topping-check { color: var(--chalk-gold); font-weight: 800; }
+
+    .icw-footer {
+      position: sticky;
+      bottom: 0;
+      padding: 12px 20px 16px;
+      background: var(--surface-card);
+      border-top: 1px solid var(--border-gold);
+      box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.25);
+    }
+    .icw-summary { margin-bottom: 8px; font-size: 0.78rem; color: var(--chalk-muted); }
+    .icw-footer-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .icw-total { display: flex; flex-direction: column; }
+    .icw-total span { font-size: 0.72rem; color: var(--chalk-muted); }
+    .icw-total strong { font-family: var(--font-mono); font-size: 1.3rem; color: var(--chalk-gold); }
+    .icw-add { width: auto; flex: 1; max-width: 250px; }
+    .icw-add:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    @media (max-width: 420px) {
+      .icw-sizes { grid-template-columns: repeat(2, 1fr); }
+      .icw-flavors { grid-template-columns: 1fr; }
     }
 
     /* Modals (Cart & Wi-Fi) */
@@ -3279,6 +3472,7 @@
       #dietaryFilterPills,
       .a11y-bar,
       #btnOpenIceCreamWizard,
+      #iceCreamHeroCTA,
       #btnTogglePerfumeryMode,
       .btn-nav,
       .floating-cart-bar,

@@ -291,6 +291,20 @@ async function runMenuComponentizationTests() {
   assert.strictEqual(iceModule.resolveFlavorCategoryName('Dulce de Leche Clásico'), 'Dulces de Leche');
   assert.strictEqual(iceModule.resolveFlavorCategoryName('Especiales de Autor'), 'Especiales');
   assert.strictEqual(iceModule.resolveFlavorCategoryName(''), 'Carta de la Casa');
+
+  // Una categoría "Bebidas Heladas" (milkshakes) NO es un sabor, aunque diga "helad".
+  const conBebidas = iceModule.buildCustomFlavors({
+    allowIceCreamWizard: true,
+    categories: [
+      { id: 'h', name: 'Helados Artesanales' },
+      { id: 'b', name: 'Bebidas Heladas' }
+    ],
+    dishes: [
+      { id: 'h1', name: 'Dulce de Leche Granizado', price: 120, categoryId: 'h' },
+      { id: 'b1', name: 'Milkshake de Frutilla', price: 200, categoryId: 'b' }
+    ]
+  });
+  assert.deepStrictEqual(conBebidas.map(f => f.id), ['h1'], 'Las bebidas heladas no se ofrecen como sabores de helado');
   console.log('✓ Heurística de sabores de heladería: carta real, categorías mapeadas, cero demo');
 
   // 12. perfumeryHeuristics: catálogo data-driven (id real → cotiza bien, sin demo)

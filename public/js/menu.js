@@ -469,6 +469,13 @@ Object.defineProperties(window, {
         btnIceCream.style.display = isHeladeria ? 'inline-flex' : 'none';
       }
 
+      // CTA protagonista de heladería (hero arriba del menú): es la entrada principal
+      // al armador; el botón del header queda como acceso secundario.
+      const iceCreamHero = document.getElementById('iceCreamHeroCTA');
+      if (iceCreamHero) {
+        iceCreamHero.style.display = isHeladeria ? 'flex' : 'none';
+      }
+
       const btnPerf = document.getElementById('btnTogglePerfumeryMode');
       if (btnPerf) {
         btnPerf.style.display = isPerfumeria ? 'inline-flex' : 'none';

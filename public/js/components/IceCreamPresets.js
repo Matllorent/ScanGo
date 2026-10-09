@@ -347,24 +347,26 @@ export const ICE_CREAM_PRESETS = [
   }
 ];
 
+// Ordenado de la porción más individual a la más familiar: el primer tamaño con
+// el que se encuentra el comensal es el de una sola persona (nunca el pote de 1 kg).
 export const ICE_CREAM_CONTAINERS = [
   {
-    id: 'container_1kg',
-    name: 'Pote 1 Kilogramo',
-    capacityLabel: 'Hasta 4 sabores',
-    maxFlavors: 4,
-    price: 890,
-    icon: '🍧',
-    badge: 'Familiar'
+    id: 'container_barquillo',
+    name: 'Barquillo Simple',
+    capacityLabel: '1 sabor',
+    maxFlavors: 1,
+    price: 150,
+    icon: '🧇',
+    badge: 'Al paso'
   },
   {
-    id: 'container_halfkg',
-    name: 'Pote 1/2 Kilogramo',
-    capacityLabel: 'Hasta 3 sabores',
-    maxFlavors: 3,
-    price: 520,
-    icon: '🍨',
-    badge: 'Para compartir'
+    id: 'container_cucurucho',
+    name: 'Cucurucho Artesanal Especial',
+    capacityLabel: 'Hasta 2 sabores',
+    maxFlavors: 2,
+    price: 220,
+    icon: '🍦',
+    badge: 'Crocante'
   },
   {
     id: 'container_quarterkg',
@@ -385,22 +387,22 @@ export const ICE_CREAM_CONTAINERS = [
     badge: 'Gourmet'
   },
   {
-    id: 'container_cucurucho',
-    name: 'Cucurucho Artesanal Especial',
-    capacityLabel: 'Hasta 2 sabores',
-    maxFlavors: 2,
-    price: 220,
-    icon: '🍦',
-    badge: 'Crocante'
+    id: 'container_halfkg',
+    name: 'Pote 1/2 Kilogramo',
+    capacityLabel: 'Hasta 3 sabores',
+    maxFlavors: 3,
+    price: 520,
+    icon: '🍨',
+    badge: 'Para compartir'
   },
   {
-    id: 'container_barquillo',
-    name: 'Barquillo Simple',
-    capacityLabel: '1 sabor',
-    maxFlavors: 1,
-    price: 150,
-    icon: '🧇',
-    badge: 'Al paso'
+    id: 'container_1kg',
+    name: 'Pote 1 Kilogramo',
+    capacityLabel: 'Hasta 4 sabores',
+    maxFlavors: 4,
+    price: 890,
+    icon: '🍧',
+    badge: 'Familiar'
   }
 ];
 

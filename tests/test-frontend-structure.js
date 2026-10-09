@@ -200,6 +200,41 @@ function runFrontendStructureTests() {
   );
   console.log('✓ menu.js: filtros dietéticos sin platos ocultos');
 
+  // ---------- F: armador de helado (CTA protagonista + data-driven) ----------
+  // F.1) El menú tiene un CTA protagonista de heladería cableado al armador.
+  // F.2) menu.js lo muestra sólo para heladerías.
+  // F.3) Los chips de categoría de sabores son data-driven (nunca hardcodeados:
+  //      antes mostraban categorías que llevaban a listas vacías).
+  // F.4) El resumen/total se ve en vivo (barra fija), no recién en el último paso.
+  const menuHtml = read('public/menu.html');
+  assert.ok(
+    /id=["']iceCreamHeroCTA["']/.test(menuHtml) && /data-js-click=["']openIceCreamWizard["']/.test(menuHtml),
+    'menu.html debe exponer el CTA protagonista #iceCreamHeroCTA cableado a openIceCreamWizard'
+  );
+  assert.ok(
+    /getElementById\(['"]iceCreamHeroCTA['"]\)/.test(menu),
+    'REGRESIÓN: menu.js debe mostrar el hero de heladería según el rubro (isHeladeria)'
+  );
+
+  const iceCreamWizardSrc = read('public/js/components/IceCreamWizard.js');
+  assert.ok(
+    /data-icw-cat/.test(iceCreamWizardSrc) && /getFlavorBuckets\s*\(/.test(iceCreamWizardSrc),
+    'REGRESIÓN: los chips de categorías de sabores deben derivarse de la carta (getFlavorBuckets)'
+  );
+  assert.ok(
+    !/data-flavor-cat=["']?(Chocolates|Cremas|Frutales)/.test(iceCreamWizardSrc),
+    'REGRESIÓN: los chips de sabores no pueden estar hardcodeados (llevaban a listas vacías)'
+  );
+  assert.ok(
+    /iceCreamSummaryLine/.test(iceCreamWizardSrc) && /renderSummary\s*\(/.test(iceCreamWizardSrc),
+    'REGRESIÓN: el armador debe mostrar resumen y total en vivo (barra inferior fija)'
+  );
+  assert.ok(
+    !/\.onclick\s*=\s*["']/.test(iceCreamWizardSrc) && !/\son[a-z]+\s*=\s*["']/.test(iceCreamWizardSrc),
+    'IceCreamWizard.js no debe declarar atributos inline on* (CSP script-src-attr none)'
+  );
+  console.log('✓ Heladería: CTA protagonista + armador data-driven con resumen y total en vivo');
+
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE ESTRUCTURA FRONTEND PASARON AL 100%!');
 }
 
