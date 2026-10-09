@@ -147,5 +147,19 @@
         });
       });
     });
+
+    // A11y: los elementos NO nativos con data-js-click (p. ej. <div role="button">)
+    // se activan con Enter/Space igual que un botón. Los nativos (button/a/input)
+    // ya lo hacen solos, así que no duplicamos el disparo.
+    var NATIVE_ACTIVATABLE = { BUTTON: 1, A: 1, INPUT: 1, SELECT: 1, TEXTAREA: 1, SUMMARY: 1 };
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+      var t = e.target;
+      if (!t || !t.closest) return;
+      var el = t.closest('[data-js-click]');
+      if (!el || NATIVE_ACTIVATABLE[el.tagName]) return;
+      e.preventDefault();
+      el.click();
+    });
   });
 })();

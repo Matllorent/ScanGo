@@ -87,11 +87,14 @@ export class IceCreamWizard {
     const modal = document.createElement('div');
     modal.id = 'iceCreamWizardModal';
     modal.className = 'modal-overlay';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'iceCreamWizardTitle');
     modal.innerHTML = `
       <div class="modal-box ice-cream-wizard-box">
         <header class="icw-header">
           <div>
-            <h2 class="icw-title">🍧 Armá tu helado</h2>
+            <h2 class="icw-title" id="iceCreamWizardTitle">🍧 Armá tu helado</h2>
             <p class="icw-subtitle">Elegí el tamaño, tus sabores y los toppings</p>
           </div>
           <button type="button" class="modal-close icw-close" id="closeIceCreamWizardBtn" aria-label="Cerrar">✕</button>
@@ -124,9 +127,9 @@ export class IceCreamWizard {
         </div>
 
         <footer class="icw-footer" id="iceCreamWizardFooter">
-          <div class="icw-summary" id="iceCreamSummaryLine"></div>
+          <div class="icw-summary" id="iceCreamSummaryLine" aria-live="polite" aria-atomic="true"></div>
           <div class="icw-footer-row">
-            <div class="icw-total">
+            <div class="icw-total" aria-live="polite" aria-atomic="true">
               <span>Total</span>
               <strong id="wizardTotalPriceDisplay">${this.currency} 0</strong>
             </div>
@@ -195,7 +198,9 @@ export class IceCreamWizard {
     // Al elegir el tamaño se despliegan los sabores: los acercamos a la vista.
     const flavorsSection = document.getElementById('iceCreamFlavorsSection');
     if (flavorsSection && flavorsSection.hidden === false && typeof flavorsSection.scrollIntoView === 'function') {
-      flavorsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const reduceMotion = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      flavorsSection.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' });
     }
   }
 

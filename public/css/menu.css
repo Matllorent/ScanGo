@@ -1,4 +1,5 @@
 :root {
+      color-scheme: dark;
       --bg-chalkboard: #151D1A;
       --surface-card: #1D2824;
       --surface-card-hover: #24322D;
@@ -72,6 +73,13 @@
         scroll-behavior: auto !important;
       }
     }
+
+    /* Touch: elimina el retraso de doble-tap en controles táctiles */
+    button, a, [role="button"], input, select, textarea, label {
+      touch-action: manipulation;
+    }
+    /* Anclas: deja aire bajo la barra sticky al saltar a una sección */
+    [id] { scroll-margin-top: 96px; }
 
     /* ============================================================
        7 AUTHENTIC GASTRONOMIC THEMES + 7 NEW SPECIAL THEMES
@@ -608,6 +616,11 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* Native UI (selects, scrollbars, date pickers): oscuro por defecto;
+       claro en los temas de fondo claro para que combine con la paleta. */
+    body:is(.theme-helado-fiesta, .theme-helado-menta, .theme-helado-tropical, .theme-helado-pastel, .theme-gelateria, .theme-wedding, .theme-cumple15, .theme-birthday, .theme-catering) {
+      color-scheme: light;
+    }
     body {
       background-color: var(--bg-chalkboard);
       background-image: 
@@ -679,9 +692,10 @@
       align-items: center;
       gap: 6px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: border-color 0.2s, color 0.2s, background-color 0.2s;
       text-decoration: none;
       color: inherit;
+      font: inherit;
     }
     .meta-chip:hover {
       border-color: var(--chalk-gold);
@@ -819,7 +833,7 @@
       padding: 8px 18px;
       border-radius: 8px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background-color 0.2s, color 0.2s, border-color 0.2s;
     }
     .empty-state-btn:hover {
       background: var(--chalk-gold);
@@ -877,7 +891,7 @@
       font-weight: 600;
       white-space: nowrap;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background-color 0.2s, color 0.2s, border-color 0.2s;
     }
     .cat-pill.active {
       background: var(--chalk-gold);
@@ -945,7 +959,7 @@
       justify-content: space-between;
       align-items: center;
       gap: 14px;
-      transition: all 0.2s;
+      transition: background-color 0.2s, border-color 0.2s;
     }
     .dish-card:hover {
       background: var(--surface-card-hover);
@@ -1281,7 +1295,7 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      transition: all 0.2s;
+      transition: border-color 0.2s, color 0.2s, background-color 0.2s;
     }
     .btn-nav:hover {
       border-color: var(--chalk-gold);
@@ -1508,7 +1522,7 @@
       cursor: pointer;
       color: var(--chalk-white);
       font-family: inherit;
-      transition: all 0.15s;
+      transition: border-color 0.15s, background-color 0.15s;
     }
     .icw-size:hover { border-color: var(--border-gold); }
     .icw-size.is-selected { border-color: var(--chalk-gold); background: var(--chalk-gold-dim); }
@@ -1551,7 +1565,7 @@
       cursor: pointer;
       color: var(--chalk-white);
       font-family: inherit;
-      transition: all 0.15s;
+      transition: border-color 0.15s, background-color 0.15s;
     }
     .icw-flavor:hover { border-color: var(--border-gold); }
     .icw-flavor.is-selected { border-color: var(--chalk-gold); background: var(--chalk-gold-dim); }
@@ -1603,7 +1617,7 @@
       color: var(--chalk-white);
       font-family: inherit;
       text-align: left;
-      transition: all 0.15s;
+      transition: border-color 0.15s, background-color 0.15s;
     }
     .icw-topping:hover { border-color: var(--border-gold); }
     .icw-topping.is-selected { border-color: var(--chalk-gold); background: var(--chalk-gold-dim); }
@@ -1977,7 +1991,7 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      transition: all 0.2s;
+      transition: background-color 0.2s, border-color 0.2s, color 0.2s;
     }
     .btn-info-modal:hover {
       background: rgba(255,255,255,0.18);
@@ -2026,7 +2040,7 @@
       font-size: 1rem;
       cursor: pointer;
       flex-shrink: 0;
-      transition: all 0.2s;
+      transition: border-color 0.2s, color 0.2s, background-color 0.2s;
     }
     .cat-nav-icon-btn:hover {
       border-color: var(--chalk-gold);
@@ -2234,7 +2248,7 @@
       align-items: center;
       justify-content: center;
       font-size: 0.9rem;
-      transition: all 0.2s;
+      transition: background-color 0.2s, color 0.2s;
     }
     .info-action-btn:hover {
       background: var(--chalk-gold);
@@ -2591,7 +2605,7 @@
       width: 32px !important;
       height: 32px !important;
       font-size: 1rem;
-      transition: all 0.2s ease;
+      transition: background-color 0.2s ease, color 0.2s ease;
     }
     body.layout-minimalist .btn-add:hover {
       background: #D4AF37 !important;
@@ -2629,7 +2643,7 @@
       border: 1px solid rgba(0, 245, 212, 0.22) !important;
       border-radius: 12px;
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
-      transition: all 0.2s ease;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
     }
     body.layout-neon .dish-card:hover {
       border-color: #00F5D4 !important;
@@ -2654,7 +2668,7 @@
       border: none !important;
       font-weight: 800;
       box-shadow: 0 0 12px rgba(0, 245, 212, 0.5);
-      transition: all 0.2s ease;
+      transition: background-color 0.2s ease, box-shadow 0.2s ease;
     }
     body.layout-neon .btn-add:hover {
       background: #38BDF8 !important;

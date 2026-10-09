@@ -8,7 +8,7 @@
 
 export const TRANSLATIONS = {
   es: {
-    searchPlaceholder: '🔍 Buscar plato, ingrediente...',
+    searchPlaceholder: '🔍 Buscar plato, ingrediente…',
     allCategories: 'Todos',
     popularCategory: '⭐ Populares',
     a11yNotice: '👁️ Menú adaptado para lectores de pantalla y accesibilidad visual',
@@ -36,7 +36,7 @@ export const TRANSLATIONS = {
     customerNameLabel: 'Tu Nombre:',
     customerNamePlaceholder: 'Ej: Juan Pérez',
     notesLabel: 'Aclaraciones o Notas para la Cocina:',
-    notesPlaceholder: 'Ej: Sin sal, salsa aparte, servilletas extra...',
+    notesPlaceholder: 'Ej: Sin sal, salsa aparte, servilletas extra…',
     paymentMethodLabel: 'Forma de Pago Prevista:',
     payCash: '💵 Efectivo al recibir',
     payCard: '💳 Tarjeta de Débito / Crédito',
@@ -74,7 +74,7 @@ export const TRANSLATIONS = {
     chefTitleDefault: 'Sugerencia del Chef & Menú del Día'
   },
   en: {
-    searchPlaceholder: '🔍 Search dish, ingredient...',
+    searchPlaceholder: '🔍 Search dish, ingredient…',
     allCategories: 'All',
     popularCategory: '⭐ Popular',
     a11yNotice: '👁️ Accessible menu adapted for screen readers & visual comfort',
@@ -102,7 +102,7 @@ export const TRANSLATIONS = {
     customerNameLabel: 'Your Name:',
     customerNamePlaceholder: 'e.g. John Doe',
     notesLabel: 'Kitchen Notes or Special Requests:',
-    notesPlaceholder: 'e.g. No salt, dressing on the side, extra napkins...',
+    notesPlaceholder: 'e.g. No salt, dressing on the side, extra napkins…',
     paymentMethodLabel: 'Preferred Payment Method:',
     payCash: '💵 Cash upon delivery',
     payCard: '💳 Debit / Credit Card',
@@ -140,7 +140,7 @@ export const TRANSLATIONS = {
     chefTitleDefault: "Chef's Pick & Today's Menu"
   },
   pt: {
-    searchPlaceholder: '🔍 Buscar prato, ingrediente...',
+    searchPlaceholder: '🔍 Buscar prato, ingrediente…',
     allCategories: 'Todos',
     popularCategory: '⭐ Populares',
     a11yNotice: '👁️ Cardápio acessível adaptado para leitores de tela',
@@ -168,7 +168,7 @@ export const TRANSLATIONS = {
     customerNameLabel: 'Seu Nome:',
     customerNamePlaceholder: 'Ex: João Silva',
     notesLabel: 'Observações para a Cozinha:',
-    notesPlaceholder: 'Ex: Sem sal, molho à parte, guardanapos extras...',
+    notesPlaceholder: 'Ex: Sem sal, molho à parte, guardanapos extras…',
     paymentMethodLabel: 'Forma de Pagamento:',
     payCash: '💵 Dinheiro na entrega',
     payCard: '💳 Cartão de Débito / Crédito',
@@ -295,6 +295,7 @@ export class I18nCurrencyManager {
   setLanguage(lang) {
     if (!TRANSLATIONS[lang]) return;
     this.currentLang = lang;
+    if (typeof document !== 'undefined' && document.documentElement) document.documentElement.lang = lang;
     this.applyDOMTranslations();
     this.updateLanguageTriggerLabel();
     this.closeLanguageMenu();
@@ -317,7 +318,10 @@ export class I18nCurrencyManager {
     const showLang = langs.length > 1;
     // Si el dueño no configuró traducciones, el menú queda en su idioma base:
     // ocultamos por completo el selector (evita ofrecer un cambio que no traduce).
-    if (!showLang) this.currentLang = 'es';
+    if (!showLang) {
+      this.currentLang = 'es';
+      if (typeof document !== 'undefined' && document.documentElement) document.documentElement.lang = 'es';
+    }
 
     const langHTML = showLang ? `
         <div class="i18n-lang" id="i18nLangSelector">

@@ -18,6 +18,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Montserrat:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&family=Baloo+2:wght@600;700&family=Bungee&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/menu.css">
 </head>
@@ -25,7 +26,7 @@
   <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
 
   <!-- Top Loyalty Bar (Tarjeta de Puntos & Recompensas) -->
-  <div id="loyaltyTopBanner" class="loyalty-top-bar" data-js-click="openLoyaltyModal" role="button" aria-label="Club Puntos y Recompensas">
+  <div id="loyaltyTopBanner" class="loyalty-top-bar" data-js-click="openLoyaltyModal" role="button" tabindex="0" aria-label="Club Puntos y Recompensas">
     <div class="loyalty-top-content">
       <span class="loyalty-star-icon">⭐</span>
       <span class="loyalty-banner-title">¡Gana puntos y recompensas!</span>
@@ -61,7 +62,7 @@
     </div>
 
     <div id="restaurantLogoContainer"></div>
-    <h1 id="restaurantName" class="restaurant-title">Cargando Menú...</h1>
+    <h1 id="restaurantName" class="restaurant-title">Cargando Menú…</h1>
     
     <!-- Status & Schedule Tagline -->
     <div class="status-pill-row">
@@ -77,21 +78,21 @@
 
     <!-- Quick Meta Information (Uruguay Address, Delivery Time & Minimum Order) -->
     <div class="restaurant-meta-bar">
-      <span id="addressChip" class="meta-chip" data-js-click="openRestaurantInfoModal" style="cursor:pointer;">
+      <button type="button" id="addressChip" class="meta-chip" data-js-click="openRestaurantInfoModal">
         📍 <span id="addressText">Uruguay</span>
-      </span>
+      </button>
       <span id="deliveryTimeChip" class="meta-chip">
         🕒 Entrega <strong id="deliveryTimeText">30 - 45min.</strong>
       </span>
       <span id="minOrderChip" class="meta-chip" style="display:none;">
         🛒 Pedido mínimo <strong id="minOrderText">$U 300</strong>
       </span>
-      <span id="reservationChip" class="meta-chip" data-js-click="openReservationModal" style="display:none; background: rgba(56, 161, 105, 0.2); border-color: rgba(56, 161, 105, 0.5); color: #68D391; font-weight: 700;">
+      <button type="button" id="reservationChip" class="meta-chip" data-js-click="openReservationModal" style="display:none; background: rgba(56, 161, 105, 0.2); border-color: rgba(56, 161, 105, 0.5); color: #68D391; font-weight: 700;">
         📅 Reservar Mesa
-      </span>
-      <span id="wifiChip" class="meta-chip" data-js-click="openWifiModal" style="display:none;">
+      </button>
+      <button type="button" id="wifiChip" class="meta-chip" data-js-click="openWifiModal" style="display:none;">
         📶 Conectar a Wi-Fi
-      </span>
+      </button>
       <button type="button" id="googleReviewChip" class="meta-chip meta-chip-btn" data-js-click="openSmartReviewModal" style="display:none; color:var(--chalk-gold); border-color:rgba(236, 201, 75, 0.4); background:rgba(236,201,75,0.08); cursor:pointer;">
         ⭐ Calificar Experiencia
       </button>
@@ -102,15 +103,15 @@
   </header>
 
   <!-- Container -->
-  <main class="menu-container">
+  <main id="main-content" class="menu-container" tabindex="-1">
     <div class="controls-wrapper">
       <!-- Barra de idioma (🌐, sólo si hay traducciones) y moneda ($UYU, $USD, $ARS) -->
       <div id="i18nCurrencyBarContainer"></div>
 
       <!-- Buscador con botón de limpiar -->
       <div style="position: relative; margin-bottom: 10px;">
-        <input type="text" id="searchFilter" class="search-box" style="margin-bottom:0; padding-right:32px;" placeholder="🔍 Buscar plato, ingrediente..." data-js-input="filterDishes">
-        <button type="button" id="btnClearSearch" data-js-click="clearSearchFilter" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--chalk-dim); font-size:16px; cursor:pointer; display:none;">✕</button>
+        <input type="text" id="searchFilter" name="q" class="search-box" style="margin-bottom:0; padding-right:32px;" placeholder="🔍 Buscar plato, ingrediente…" aria-label="Buscar plato o ingrediente" autocomplete="off" data-js-input="filterDishes">
+        <button type="button" id="btnClearSearch" data-js-click="clearSearchFilter" aria-label="Limpiar búsqueda" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--chalk-dim); font-size:16px; cursor:pointer; display:none;">✕</button>
       </div>
 
       <!-- CTA protagonista: Armá tu helado (sólo heladerías). Único acceso al armador. -->
@@ -228,10 +229,10 @@
   </div>
 
   <!-- Cart & Order Modal -->
-  <div id="cartModal" class="modal-overlay">
+  <div id="cartModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="cartModalTitle">
     <div class="modal-box">
-      <button class="modal-close" data-js-click="closeCartModal">✕</button>
-      <h3 class="modal-title">Tu Carrito WhatsApp</h3>
+      <button type="button" class="modal-close" data-js-click="closeCartModal" aria-label="Cerrar">✕</button>
+      <h3 id="cartModalTitle" class="modal-title">Tu Carrito WhatsApp</h3>
 
       <div id="cartItemsList"></div>
 
@@ -264,7 +265,7 @@
 
       <!-- Mode Selector -->
       <div class="form-section">
-        <label class="form-label">Modalidad del Pedido</label>
+        <label for="orderMode" class="form-label">Modalidad del Pedido</label>
         <select id="orderMode" class="form-select" data-js-change="handleOrderModeChange">
           <option value="LOCAL">🍽️ Comer en el local</option>
           <option value="TAKEAWAY">🛍️ Retiro en el local / Take Away</option>
@@ -274,39 +275,39 @@
 
       <!-- Table number (if local) -->
       <div id="tableField" class="form-group">
-        <label class="form-label">Número de Mesa</label>
-        <input type="text" id="orderTable" class="form-input" placeholder="Ej: Mesa 4">
+        <label for="orderTable" class="form-label">Número de Mesa</label>
+        <input type="text" id="orderTable" name="table" class="form-input" placeholder="Ej: Mesa 4" autocomplete="off">
       </div>
 
       <!-- Delivery zones (if delivery) -->
       <div id="deliveryZoneField" style="display: none;">
-        <label class="form-label">Zona de Envío</label>
-        <select id="deliveryZoneSelect" class="form-select" data-js-change="updateDeliveryFee">
-          <option value="0" data-fee="0">Selecciona tu zona...</option>
+        <label for="deliveryZoneSelect" class="form-label">Zona de Envío</label>
+        <select id="deliveryZoneSelect" name="zone" class="form-select" data-js-change="updateDeliveryFee">
+          <option value="0" data-fee="0">Selecciona tu zona…</option>
         </select>
 
-        <label class="form-label">Dirección de Entrega</label>
-        <input type="text" id="orderAddress" class="form-input" placeholder="Calle, número, esquina, depto...">
+        <label for="orderAddress" class="form-label">Dirección de Entrega</label>
+        <input type="text" id="orderAddress" name="address" class="form-input" placeholder="Calle, número, esquina, depto…" autocomplete="street-address">
       </div>
 
       <div class="form-group">
-        <label class="form-label">Tu Nombre</label>
-        <input type="text" id="orderCustomerName" class="form-input" placeholder="Ej: Sofía Martínez">
+        <label for="orderCustomerName" class="form-label">Tu Nombre</label>
+        <input type="text" id="orderCustomerName" name="name" class="form-input" placeholder="Ej: Sofía Martínez" autocomplete="name">
       </div>
 
       <div class="form-group" id="loyaltyPhoneGroup">
-        <label class="form-label">Tu Teléfono <span style="opacity:.6; font-weight:400;">(opcional — para sumar puntos del Club ⭐)</span></label>
-        <input type="tel" id="orderCustomerPhone" class="form-input" placeholder="Ej: +598 99 123 456" inputmode="tel" autocomplete="tel" data-js-input="storeLoyaltyPhone|this.value">
+        <label for="orderCustomerPhone" class="form-label">Tu Teléfono <span style="opacity:.6; font-weight:400;">(opcional — para sumar puntos del Club ⭐)</span></label>
+        <input type="tel" id="orderCustomerPhone" name="phone" class="form-input" placeholder="Ej: +598 99 123 456" inputmode="tel" autocomplete="tel" data-js-input="storeLoyaltyPhone|this.value">
       </div>
 
       <div class="form-group">
-        <label class="form-label">Aclaraciones especiales</label>
-        <input type="text" id="orderNotes" class="form-input" placeholder="Ej: Sin cebolla, aderezo aparte...">
+        <label for="orderNotes" class="form-label">Aclaraciones especiales</label>
+        <input type="text" id="orderNotes" name="notes" class="form-input" placeholder="Ej: Sin cebolla, aderezo aparte…" autocomplete="off">
       </div>
 
       <div class="form-group">
-        <label class="form-label">Forma de Pago</label>
-        <select id="orderPayment" class="form-select" data-js-change="handleOrderPaymentChange">
+        <label for="orderPayment" class="form-label">Forma de Pago</label>
+        <select id="orderPayment" name="payment" class="form-select" data-js-change="handleOrderPaymentChange">
           <option value="Efectivo">💵 Efectivo al recibir</option>
           <option value="Transferencia Bancaria">🏦 Transferencia Bancaria</option>
           <option id="payOptionOnline" value="Mercado Pago / Tarjeta">💳 Mercado Pago / Tarjeta</option>
@@ -315,12 +316,12 @@
 
       <!-- Coupon Code Input -->
       <div id="couponSectionBox" class="form-group" style="background: rgba(236, 201, 75, 0.06); padding: 10px; border-radius: 8px; border: 1px dashed var(--border-gold);">
-        <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
+        <label for="inputCouponCode" class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
           <span>🎟️ ¿Tenés cupón de descuento?</span>
           <span id="couponMsg" style="font-size:10px; font-weight:700;"></span>
         </label>
         <div style="display:flex; gap:6px;">
-          <input type="text" id="inputCouponCode" class="form-input" placeholder="Escribí tu código y tocá Aplicar" style="text-transform:uppercase; font-family:var(--font-mono); font-weight:700;">
+          <input type="text" id="inputCouponCode" name="coupon" class="form-input" placeholder="Escribí tu código y tocá Aplicar" autocomplete="off" spellcheck="false" style="text-transform:uppercase; font-family:var(--font-mono); font-weight:700;">
           <button type="button" class="btn-a11y-tts" data-js-click="applyCoupon" style="padding: 0 12px; font-weight:700;">Aplicar</button>
         </div>
       </div>
@@ -336,7 +337,7 @@
           <button type="button" data-js-click="setTipPercent|5" data-tip-pill="5" style="padding:6px 10px; border-radius:8px; border:1px solid var(--border-chalk); background:var(--surface-card, #16201b); color:#fff; cursor:pointer; font-weight:700; font-size:0.78rem;">5%</button>
           <button type="button" data-js-click="setTipPercent|10" data-tip-pill="10" style="padding:6px 10px; border-radius:8px; border:1px solid var(--border-chalk); background:var(--surface-card, #16201b); color:#fff; cursor:pointer; font-weight:700; font-size:0.78rem;">10%</button>
           <button type="button" data-js-click="setTipPercent|15" data-tip-pill="15" style="padding:6px 10px; border-radius:8px; border:1px solid var(--border-chalk); background:var(--surface-card, #16201b); color:#fff; cursor:pointer; font-weight:700; font-size:0.78rem;">15%</button>
-          <input type="number" id="tipCustomInput" class="form-input" min="0" step="1" placeholder="Otro $" data-js-input="setTipCustom|this.value" style="width:84px; margin:0;">
+          <input type="number" id="tipCustomInput" name="tip" class="form-input" min="0" step="1" placeholder="Otro $" aria-label="Otro monto de propina" data-js-input="setTipCustom|this.value" style="width:84px; margin:0;">
         </div>
       </div>
 
@@ -358,7 +359,7 @@
           <span>Propina:</span>
           <span id="summaryTip">$0</span>
         </div>
-        <div class="summary-row total-row">
+        <div class="summary-row total-row" aria-live="polite" aria-atomic="true">
           <span>Total a Pagar:</span>
           <span id="summaryTotal" class="total-amount">$0</span>
         </div>
@@ -369,8 +370,8 @@
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
           <span style="font-weight:700; color:var(--chalk-gold);">🧮 Dividir la Cuenta</span>
           <div style="display:flex; align-items:center; gap:6px;">
-            <label style="font-size:11px; color:var(--chalk-dim);">Entre:</label>
-            <input type="number" id="splitCountInput" min="1" max="50" value="2" data-js-input="updateSplitCalculation" style="width:52px; background:#0E1412; border:1px solid var(--border-chalk); color:#fff; border-radius:6px; padding:2px 6px; text-align:center; font-weight:700;">
+            <label for="splitCountInput" style="font-size:11px; color:var(--chalk-dim);">Entre:</label>
+            <input type="number" id="splitCountInput" name="split" min="1" max="50" value="2" aria-label="Cantidad de personas" data-js-input="updateSplitCalculation" style="width:52px; background:#0E1412; border:1px solid var(--border-chalk); color:#fff; border-radius:6px; padding:2px 6px; text-align:center; font-weight:700;">
             <span style="font-size:11px; color:var(--chalk-dim);">personas</span>
           </div>
         </div>
@@ -382,7 +383,7 @@
 
       <!-- External Payment Link Button (if configured) -->
       <div id="externalPaymentBox" style="display:none; margin-bottom:12px;">
-        <a id="btnExternalPay" href="#" target="_blank" data-js-click="handleExternalPayClick|event" class="btn-wa-submit" style="background:#009EE3; color:#fff; text-decoration:none; margin-bottom:6px;">
+        <a id="btnExternalPay" href="#" target="_blank" rel="noopener noreferrer" data-js-click="handleExternalPayClick|event" class="btn-wa-submit" style="background:#009EE3; color:#fff; text-decoration:none; margin-bottom:6px;">
           <span>💳 Pagar Ahora Online (Link de Pago)</span>
         </a>
         <div style="font-size:10px; color:var(--chalk-dim); text-align:center;">Luego de pagar, envía el pedido por WhatsApp adjuntando el comprobante.</div>
@@ -395,32 +396,32 @@
   </div>
 
   <!-- Table Reservation Modal -->
-  <div id="reservationModal" class="modal-overlay">
+  <div id="reservationModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="reservationModalTitle">
     <div class="modal-box">
-      <button class="modal-close" data-js-click="closeReservationModal">✕</button>
-      <h3 class="modal-title">📅 Reservar Mesa</h3>
+      <button type="button" class="modal-close" data-js-click="closeReservationModal" aria-label="Cerrar">✕</button>
+      <h3 id="reservationModalTitle" class="modal-title">📅 Reservar Mesa</h3>
       <p style="color:var(--chalk-dim); font-size:0.85rem; margin-bottom:14px;">Envía tu solicitud de reserva directamente al WhatsApp del local.</p>
 
       <form data-js-submit="submitReservation|event">
         <div class="form-group">
-          <label class="form-label">Nombre del Titular</label>
-          <input type="text" id="resName" class="form-input" placeholder="Ej: Marcela González" required>
+          <label for="resName" class="form-label">Nombre del Titular</label>
+          <input type="text" id="resName" name="name" class="form-input" placeholder="Ej: Marcela González" autocomplete="name" required>
         </div>
 
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
           <div class="form-group">
-            <label class="form-label">Fecha</label>
-            <input type="date" id="resDate" class="form-input" required>
+            <label for="resDate" class="form-label">Fecha</label>
+            <input type="date" id="resDate" name="date" class="form-input" required>
           </div>
           <div class="form-group">
-            <label class="form-label">Horario</label>
-            <input type="time" id="resTime" class="form-input" required>
+            <label for="resTime" class="form-label">Horario</label>
+            <input type="time" id="resTime" name="time" class="form-input" required>
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Cantidad de Personas</label>
-          <select id="resGuests" class="form-select">
+          <label for="resGuests" class="form-label">Cantidad de Personas</label>
+          <select id="resGuests" name="guests" class="form-select">
             <option value="1">1 persona</option>
             <option value="2" selected>2 personas</option>
             <option value="3">3 personas</option>
@@ -432,8 +433,8 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Preferencia / Ocasión Especial</label>
-          <input type="text" id="resNotes" class="form-input" placeholder="Ej: Cumpleaños, mesa cerca de la ventana, afuera...">
+          <label for="resNotes" class="form-label">Preferencia / Ocasión Especial</label>
+          <input type="text" id="resNotes" name="notes" class="form-input" placeholder="Ej: Cumpleaños, mesa cerca de la ventana, afuera…" autocomplete="off">
         </div>
 
         <p id="resFormMsg" role="alert" class="res-form-error" style="display:none; color:#FEB2B2; font-size:0.82rem; margin:0 0 8px; line-height:1.4;"></p>
@@ -446,10 +447,10 @@
   </div>
 
   <!-- Order Tracking Modal -->
-  <div id="orderTrackingModal" class="modal-overlay">
+  <div id="orderTrackingModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="orderTrackingModalTitle">
     <div class="modal-box">
-      <button class="modal-close" data-js-click="closeOrderTracking">✕</button>
-      <h3 class="modal-title">🧾 Seguimiento del Pedido</h3>
+      <button type="button" class="modal-close" data-js-click="closeOrderTracking" aria-label="Cerrar">✕</button>
+      <h3 id="orderTrackingModalTitle" class="modal-title">🧾 Seguimiento del Pedido</h3>
       <p id="orderTrackingSubtitle" style="color:var(--chalk-dim); font-size:0.85rem; margin-bottom:14px;">Mirá en qué estado está tu pedido.</p>
       <div id="orderTrackingBody" style="min-height:64px;">
         <div style="color:var(--chalk-dim); font-size:0.85rem;">Cargando…</div>
@@ -464,21 +465,21 @@
   </div>
 
   <!-- Order Tracking Floating Button (aparece tras hacer un pedido) -->
-  <button id="orderTrackingFab" class="waiter-fab" data-js-click="openOrderTracking" title="Seguir mi pedido" style="display:none; bottom:146px; background:#63B3ED; box-shadow:0 6px 20px rgba(99, 179, 237, 0.5);">🧾</button>
+  <button type="button" id="orderTrackingFab" class="waiter-fab" data-js-click="openOrderTracking" title="Seguir mi pedido" aria-label="Seguir mi pedido" style="display:none; bottom:146px; background:#63B3ED; box-shadow:0 6px 20px rgba(99, 179, 237, 0.5);">🧾</button>
 
   <!-- Waiter Call / Bill Request Floating Button -->
-  <button class="waiter-fab" data-js-click="openWaiterModal" title="Llamar al Mozo o Pedir la Cuenta">🔔</button>
+  <button type="button" class="waiter-fab" data-js-click="openWaiterModal" title="Llamar al Mozo o Pedir la Cuenta" aria-label="Llamar al mozo o pedir la cuenta">🔔</button>
 
   <!-- Waiter Call Modal -->
-  <div id="waiterModal" class="modal-overlay">
+  <div id="waiterModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="waiterModalTitle">
     <div class="modal-box">
-      <button class="modal-close" data-js-click="closeWaiterModal">✕</button>
-      <h3 class="modal-title">🔔 Servicio de Mesa</h3>
+      <button type="button" class="modal-close" data-js-click="closeWaiterModal" aria-label="Cerrar">✕</button>
+      <h3 id="waiterModalTitle" class="modal-title">🔔 Servicio de Mesa</h3>
       <p style="color:var(--chalk-dim); font-size:0.85rem; margin-bottom:14px;">Envía una notificación rápida al personal del restaurante por WhatsApp.</p>
 
       <div class="form-group">
-        <label class="form-label">N° de Mesa (opcional)</label>
-        <input type="text" id="waiterTableNum" class="form-input" placeholder="Ej: Mesa 4, Barra, Terraza">
+        <label for="waiterTableNum" class="form-label">N° de Mesa (opcional)</label>
+        <input type="text" id="waiterTableNum" name="table" class="form-input" placeholder="Ej: Mesa 4, Barra, Terraza" autocomplete="off">
       </div>
 
       <div style="display:flex; flex-direction:column; gap:10px; margin-top:12px;">
@@ -539,16 +540,16 @@
         <form id="privateFeedbackForm" data-js-submit="submitPrivateFeedback|event">
           <div class="form-group" style="margin-bottom:10px;">
             <label for="feedbackCommentInput" class="form-label">¿En qué podemos mejorar o qué sucedió?</label>
-            <textarea id="feedbackCommentInput" class="form-textarea" rows="3" placeholder="Contanos tu experiencia (atención, tiempos, sabor, presentación...)" required style="font-size:0.9rem;"></textarea>
+            <textarea id="feedbackCommentInput" class="form-textarea" rows="3" placeholder="Contanos tu experiencia (atención, tiempos, sabor, presentación…)" required style="font-size:0.9rem;"></textarea>
           </div>
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:12px;">
             <div class="form-group" style="margin-bottom:0;">
               <label for="feedbackNameInput" class="form-label">Tu Nombre (opcional)</label>
-              <input type="text" id="feedbackNameInput" class="form-input" placeholder="Ej: Juan">
+              <input type="text" id="feedbackNameInput" name="name" class="form-input" placeholder="Ej: Juan" autocomplete="name">
             </div>
             <div class="form-group" style="margin-bottom:0;">
               <label for="feedbackContactInput" class="form-label">WhatsApp o E-mail (opcional)</label>
-              <input type="text" id="feedbackContactInput" class="form-input" placeholder="Para contactarte...">
+              <input type="text" id="feedbackContactInput" name="contact" class="form-input" placeholder="Para contactarte…" autocomplete="off">
             </div>
           </div>
           <button type="submit" id="btnSubmitFeedback" class="btn-wa-submit" style="background:#F6AD55; color:#0E1412; font-weight:700;">
@@ -577,10 +578,10 @@
   </div>
 
   <!-- Wi-Fi Modal -->
-  <div id="wifiModal" class="modal-overlay">
+  <div id="wifiModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="wifiModalTitle">
     <div class="modal-box" style="text-align: center;">
-      <button class="modal-close" data-js-click="closeWifiModal">✕</button>
-      <h3 class="modal-title">Red Wi-Fi del Local</h3>
+      <button type="button" class="modal-close" data-js-click="closeWifiModal" aria-label="Cerrar">✕</button>
+      <h3 id="wifiModalTitle" class="modal-title">Red Wi-Fi del Local</h3>
       <p style="color:var(--chalk-dim); font-size:0.88rem; margin-bottom:16px;">Conéctate gratis durante tu estadía.</p>
       
       <div style="background:#0E1412; padding:16px; border-radius:12px; border:1px solid var(--border-chalk); margin-bottom:16px;">
@@ -590,18 +591,18 @@
         <div style="font-size:0.8rem; color:var(--chalk-dim);">Contraseña:</div>
         <div id="wifiPassDisplay" style="font-family:var(--font-mono); font-size:1.2rem; font-weight:700; color:var(--chalk-gold); margin-bottom:12px;"></div>
 
-        <button class="meta-chip" data-js-click="copyWifiPassword" style="margin:0 auto; padding:6px 14px; font-weight:bold;">
+        <button type="button" class="meta-chip" data-js-click="copyWifiPassword" style="margin:0 auto; padding:6px 14px; font-weight:bold;">
           📋 Copiar Contraseña
         </button>
       </div>
     </div>
   </div>
   <!-- Restaurant General Information Modal (Horarios, Servicios, Dirección) -->
-  <div id="restaurantInfoModal" class="modal-overlay">
+  <div id="restaurantInfoModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="restaurantInfoModalTitle">
     <div class="modal-box info-modal-box">
       <div class="info-modal-header">
         <div class="info-header-left">
-          <h3 class="info-modal-title">Información</h3>
+          <h3 id="restaurantInfoModalTitle" class="info-modal-title">Información</h3>
           <div class="info-header-actions">
             <button type="button" class="info-action-btn" data-js-click="openWhatsAppChat" title="WhatsApp" aria-label="WhatsApp">💬</button>
             <button type="button" class="info-action-btn" data-js-click="shareRestaurantUrl" title="Compartir enlace" aria-label="Compartir">🔗</button>
@@ -682,11 +683,11 @@
   </div>
 
   <!-- Categories List Modal (Acceso Rápido ☰) -->
-  <div id="categoriesListModal" class="modal-overlay">
+  <div id="categoriesListModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="categoriesMenuModalTitle">
     <div class="modal-box" style="max-width: 420px; padding: 20px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-        <h3 class="modal-title" style="margin:0;">Categorías de la Carta</h3>
-        <button type="button" class="modal-close" data-js-click="closeCategoriesMenuModal">✕</button>
+        <h3 id="categoriesMenuModalTitle" class="modal-title" style="margin:0;">Categorías de la Carta</h3>
+        <button type="button" class="modal-close" data-js-click="closeCategoriesMenuModal" aria-label="Cerrar">✕</button>
       </div>
       <div id="categoriesModalList" style="display:flex; flex-direction:column; gap:8px; max-height:60vh; overflow-y:auto;">
         <!-- Populated dynamically -->
