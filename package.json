@@ -7,7 +7,7 @@
     "start": "node api/index.js",
     "dev": "nodemon",
     "test": "node scripts/test-data-guard.js",
-    "test:core": "node tests/test-db-await-integrity.js && node tests/test-frontend-esm-syntax.js && node tests/test-frontend-structure.js && node tests/test-billing.js && node tests/test-fixes.js && node tests/test-new-features.js && node tests/test-resilience-security.js && node tests/test-banner-and-layouts.js && node tests/test-mp-upsell-reviews.js && node tests/test-geo-killswitch-upsell.js && node tests/test-weather.js && node tests/test-landing-conversion.js && node tests/test-group-cart-mozo.js && node tests/test-email-notifications.js && node tests/test-ai-menu-import.js && node tests/test-menu-componentization.js && node tests/test-menu-seo.js && node tests/test-google-auth.js && node tests/test-security-endpoints.js && node tests/test-analytics-business.js && node tests/test-admin-panel.js && node tests/test-push-notifications.js && node tests/test-loyalty-dual.js && node tests/test-order-tracking.js && node tests/test-online-payment.js && node tests/test-realtime-rls-guard.js && node tests/test-realtime-live-guard.js && node tests/test-escape-html.js && node tests/test-db-write.js && node tests/test-semgrep.js && node tests/test-csp.js",
+    "test:core": "node tests/test-db-await-integrity.js && node tests/test-frontend-esm-syntax.js && node tests/test-frontend-structure.js && node tests/test-billing.js && node tests/test-billing-properties.js && node tests/test-subscription-machine.js && node tests/test-fixes.js && node tests/test-new-features.js && node tests/test-resilience-security.js && node tests/test-banner-and-layouts.js && node tests/test-mp-upsell-reviews.js && node tests/test-geo-killswitch-upsell.js && node tests/test-weather.js && node tests/test-landing-conversion.js && node tests/test-group-cart-mozo.js && node tests/test-email-notifications.js && node tests/test-ai-menu-import.js && node tests/test-menu-componentization.js && node tests/test-menu-seo.js && node tests/test-google-auth.js && node tests/test-security-endpoints.js && node tests/test-analytics-business.js && node tests/test-admin-panel.js && node tests/test-push-notifications.js && node tests/test-loyalty-dual.js && node tests/test-loyalty-claim.js && node tests/test-order-tracking.js && node tests/test-online-payment.js && node tests/test-openapi-contract.js && node tests/test-realtime-rls-guard.js && node tests/test-realtime-live-guard.js && node tests/test-escape-html.js && node tests/test-db-write.js && node tests/test-semgrep.js && node tests/test-csp.js",
     "test:await": "node tests/test-db-await-integrity.js",
     "test:frontend-syntax": "node tests/test-frontend-esm-syntax.js",
     "test:frontend-structure": "node tests/test-frontend-structure.js",
@@ -22,6 +22,12 @@
     "test:escape-html": "node tests/test-escape-html.js",
     "test:db-write": "node tests/test-db-write.js",
     "test:loyalty": "node tests/test-loyalty-dual.js",
+    "test:claim": "node tests/test-loyalty-claim.js",
+    "test:props": "node tests/test-billing-properties.js",
+    "test:machine": "node tests/test-subscription-machine.js",
+    "test:contract": "node tests/test-openapi-contract.js",
+    "test:mutation": "npx --yes @stryker-mutator/core run",
+    "db:parity": "node scripts/verify-dual-write-parity.js",
     "test:order-tracking": "node tests/test-order-tracking.js",
     "test:online-payment": "node tests/test-online-payment.js",
     "test:google-auth": "node tests/test-google-auth.js",
@@ -40,7 +46,8 @@
     "db:check": "node scripts/check-supabase-schema.js",
     "db:smoke": "node tests/test-supabase-group-cart-persistence.js",
     "mobile:sync": "npx cap sync",
-    "mobile:build": "npx cap copy android"
+    "mobile:build": "npx cap copy android",
+    "lint": "eslint api src"
   },
   "keywords": [
     "saas",
@@ -55,6 +62,9 @@
   ],
   "author": "Menú Pizarrón Studio",
   "license": "PROPRIETARY",
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@google/genai": "^2.24.0",
     "@sentry/node": "^11.5.0",

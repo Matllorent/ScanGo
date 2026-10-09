@@ -10,13 +10,16 @@ const { successResponse, errorResponse } = require('../utils/response');
 const { validateBody } = require('../middleware/validation');
 
 const router = express.Router();
+const { authMiddleware } = require('../middleware/auth');
 
 const parseMenuSchema = z.object({
+  // Tope por imagen (~3.7MB decodificados): 10 imágenes entran en el body de
+  // 25mb sin que una sola acapare la memoria antes de llegar a Gemini.
   images: z.array(
     z.union([
-      z.string().min(10, { message: 'Imagen Base64 requerida' }),
+      z.string().min(10, { message: 'Imagen Base64 requerida' }).max(5000000, { message: 'Imagen demasiado grande' }),
       z.object({
-        data: z.string().min(10, { message: 'Datos Base64 requeridos' }),
+        data: z.string().min(10, { message: 'Datos Base64 requeridos' }).max(5000000, { message: 'Imagen demasiado grande' }),
         mimeType: z.string().optional()
       })
     ])
@@ -26,9 +29,10 @@ const parseMenuSchema = z.object({
 
 /**
  * POST /api/ai/parse-menu
- * Multimodal physical menu parser using Gemini Flash
+ * Multimodal physical menu parser using Gemini Flash.
+ * Requiere sesión: sin auth, anónimos quemarían la cuota de Gemini.
  */
-router.post('/parse-menu', validateBody(parseMenuSchema), async (req, res, next) => {
+router.post('/parse-menu', authMiddleware, validateBody(parseMenuSchema), async (req, res, next) => {
   try {
     const { images } = req.body;
     const result = await parseMenuWithGemini(images);

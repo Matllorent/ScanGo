@@ -74,7 +74,7 @@ function getCachedMenu(slug, fetcherFn) {
     const refreshPromise = Promise.resolve().then(fetcherFn).then(freshData => {
       menuCache.set(slug, { data: freshData, expiresAt: Date.now() + 5000, fetchingPromise: null });
       return freshData;
-    }).catch(() => {});
+    }).catch((e) => { logger.warn('[Menu Cache Background Refresh]', { details: e.message, slug }); });
     entry.fetchingPromise = refreshPromise;
     return Promise.resolve(entry.data);
   }

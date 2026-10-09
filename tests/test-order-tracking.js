@@ -105,6 +105,26 @@ async function runTests() {
     assert.strictEqual(order.tipAmount, 1.5, 'La propina declarada se persiste en el pedido');
     console.log('✓ POST /api/orders devuelve un trackingToken firmado del pedido');
 
+    // ── 2b) CAPTCHA exigido cuando el despliegue lo configura ─────────────
+    // (Sin secreto el flujo anterior ya probó que no se exige nada.)
+    const prevCaptchaSecret = process.env.TURNSTILE_SECRET;
+    process.env.TURNSTILE_SECRET = 'test-bogus-secret';
+    try {
+      const noCaptcha = await postJson('/api/orders', {
+        restaurantId: restA.id,
+        customerName: 'Bot',
+        customerPhone: testPhone,
+        currency: 'USD',
+        items: [{ dishId: 'dish1', quantity: 1 }]
+      });
+      assert.strictEqual(noCaptcha.status, 403, 'Sin captchaToken → 403');
+      assert.strictEqual((await noCaptcha.json()).code, 'CAPTCHA_REQUIRED');
+      console.log('✓ CAPTCHA configurado: pedido sin token → 403 CAPTCHA_REQUIRED');
+    } finally {
+      if (prevCaptchaSecret === undefined) delete process.env.TURNSTILE_SECRET;
+      else process.env.TURNSTILE_SECRET = prevCaptchaSecret;
+    }
+
     // ── 3) Vista pública por token, sin PII ─────────────────────────────────
     const trackRes = await fetch(`${base}/api/orders/track/${order.trackingToken}`);
     assert.strictEqual(trackRes.status, 200, 'Seguimiento público responde 200');

@@ -65,6 +65,22 @@ function verifyCronAuth(req, res, next) {
  */
 router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
   const startTime = Date.now();
+  const todayUtc = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  // Idempotencia diaria: Vercel Cron reintenta ante 5xx/timeouts y un doble run
+  // el mismo día duplicaría emails de dunning/trial. ?force=1 lo salta (manual).
+  try {
+    const settings = typeof db.getSettings === 'function' ? db.getSettings() : {};
+    if (settings.lastDunningRun === todayUtc && req.query?.force !== '1') {
+      return res.status(200).json({
+        success: true,
+        code: 'DUNNING_ALREADY_RAN',
+        message: `Dunning ya ejecutado hoy (${todayUtc}). Usá ?force=1 para re-ejecutar.`,
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (e) {
+    logger.warn('[Dunning Cron] No se pudo leer lastDunningRun, se ejecuta igual', { details: e.message });
+  }
   const results = {
     scanned: 0,
     downgraded: 0,
@@ -315,6 +331,14 @@ router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
       errors: results.errors.length,
       durationMs: duration
     });
+
+    // Marca diaria de idempotencia (best-effort: si falla, el próximo run
+    // re-ejecuta; las banderas por-restaurante evitan doble email igual).
+    try {
+      if (typeof db.updateSettings === 'function') await db.updateSettings({ lastDunningRun: todayUtc });
+    } catch (e) {
+      logger.warn('[Dunning Cron] No se pudo persistir lastDunningRun', { details: e.message });
+    }
 
     return res.status(200).json({
       success: true,

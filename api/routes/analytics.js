@@ -2,13 +2,46 @@ const express = require('express');
 const { z } = require('zod');
 const telemetryService = require('../services/telemetry');
 const db = require('../../src/db/db');
-const { successResponse } = require('../utils/response');
+const { successResponse, errorResponse } = require('../utils/response');
 const { validateBody } = require('../middleware/validation');
 const { authMiddleware } = require('../middleware/auth');
 const { tenantGuard } = require('../middleware/tenantGuard');
+// Gate por plan: checkSubscriptionKillSwitch no soporta param de feature
+// (solo pausa altas globales), por eso el gate de `analytics` va inline abajo.
+const { checkSubscriptionKillSwitch } = require('../middleware/killSwitch');
+const billingOrchestrator = require('../../src/billing/orchestrator');
+
+void checkSubscriptionKillSwitch;
 
 const router = express.Router();
 router.use(authMiddleware);
+
+/**
+ * Gate mínimo por plan para lectura de analíticas.
+ * Solo bloquea cuando el plan es starter Y `analytics===false` en PLANS
+ * (starter_monthly/annual). Pro/trialing/event_once pasan (next).
+ * POST /track (ingesta) queda abierto a todos los planes.
+ */
+function requireAnalyticsFeature(req, res, next) {
+  try {
+    const restaurantId = req.params.restaurantId
+      || req.body?.restaurantId
+      || req.tenantId
+      || req.user?.tenantId;
+    if (!restaurantId) return next();
+    const restaurant = db.findRestaurantById(restaurantId);
+    if (!restaurant) return next();
+    const plan = (restaurant.subscription && restaurant.subscription.plan) || '';
+    const access = billingOrchestrator.verifyAccess(restaurant.id);
+    const analyticsFlag = access && access.features && access.features.analytics;
+    if (analyticsFlag === false && String(plan).startsWith('starter')) {
+      return errorResponse(res, 'Las analíticas avanzadas requieren el plan Pro', 403, null, 'ANALYTICS_UPGRADE_REQUIRED');
+    }
+    return next();
+  } catch (e) {
+    return next(e);
+  }
+}
 
 /**
  * Resuelve {dishId, clicks} → {dishId, name, clicks} usando la carta del
@@ -70,7 +103,7 @@ router.post('/track', tenantGuard, validateBody(trackEventSchema), async (req, r
  * GET /api/analytics/weekly/:restaurantId
  * Returns weekly aggregated telemetry metrics for restaurant owners
  */
-router.get('/weekly/:restaurantId', tenantGuard, async (req, res, next) => {
+router.get('/weekly/:restaurantId', tenantGuard, requireAnalyticsFeature, async (req, res, next) => {
   try {
     const restaurantId = req.params.restaurantId;
     const weeklyData = await telemetryService.getWeeklyAggregatedMetrics(restaurantId);
@@ -86,7 +119,7 @@ router.get('/weekly/:restaurantId', tenantGuard, async (req, res, next) => {
  * "Lo que se vendió hoy" (día local del dueño) + comparación con ayer +
  * platos vendidos y más vistos hoy. Query: ?utcOffsetMinutes=180 (UY)
  */
-router.get('/today/:restaurantId', tenantGuard, async (req, res, next) => {
+router.get('/today/:restaurantId', tenantGuard, requireAnalyticsFeature, async (req, res, next) => {
   try {
     const restaurantId = req.params.restaurantId;
     const utcOffsetMinutes = parseInt(req.query.utcOffsetMinutes) || 0;
@@ -104,7 +137,7 @@ router.get('/today/:restaurantId', tenantGuard, async (req, res, next) => {
  * Returns daily metrics for the last 30 days (for charts)
  * Query params: ?days=30&branchId=xxx&eventId=xxx
  */
-router.get('/daily/:restaurantId', tenantGuard, async (req, res, next) => {
+router.get('/daily/:restaurantId', tenantGuard, requireAnalyticsFeature, async (req, res, next) => {
   try {
     const restaurantId = req.params.restaurantId;
     const days = Math.min(90, Math.max(1, parseInt(req.query.days) || 30));
@@ -122,7 +155,7 @@ router.get('/daily/:restaurantId', tenantGuard, async (req, res, next) => {
  * Returns hourly heatmap for peak hours analysis
  * Query params: ?days=7&branchId=xxx&eventId=xxx
  */
-router.get('/heatmap/:restaurantId', tenantGuard, async (req, res, next) => {
+router.get('/heatmap/:restaurantId', tenantGuard, requireAnalyticsFeature, async (req, res, next) => {
   try {
     const restaurantId = req.params.restaurantId;
     const days = Math.min(30, Math.max(1, parseInt(req.query.days) || 7));
@@ -140,7 +173,7 @@ router.get('/heatmap/:restaurantId', tenantGuard, async (req, res, next) => {
  * Returns per-branch comparison metrics
  * Query params: ?days=30
  */
-router.get('/branches/:restaurantId', tenantGuard, async (req, res, next) => {
+router.get('/branches/:restaurantId', tenantGuard, requireAnalyticsFeature, async (req, res, next) => {
   try {
     const restaurantId = req.params.restaurantId;
     const days = Math.min(90, Math.max(1, parseInt(req.query.days) || 30));
@@ -158,7 +191,7 @@ router.get('/branches/:restaurantId', tenantGuard, async (req, res, next) => {
  * GET /api/analytics/events/:restaurantId
  * Returns event-specific metrics (for events mode)
  */
-router.get('/events/:restaurantId', tenantGuard, async (req, res, next) => {
+router.get('/events/:restaurantId', tenantGuard, requireAnalyticsFeature, async (req, res, next) => {
   try {
     const restaurantId = req.params.restaurantId;
     const eventMetrics = await telemetryService.getEventMetrics(restaurantId);

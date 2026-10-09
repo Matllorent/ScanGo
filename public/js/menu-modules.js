@@ -10,6 +10,8 @@ import * as orderCheckout from '/js/menu/orderCheckout.js';
 import * as cartOperations from '/js/menu/cartOperations.js';
 import * as menuModals from '/js/menu/menuModals.js';
 import * as eventGuestMode from '/js/menu/eventGuestMode.js';
+import * as weddingItinerary from '/js/menu/weddingItinerary.js';
+import * as menuPresentation from '/js/menu/menuPresentation.js';
 import { buildCustomFlavors } from '/js/menu/iceCreamHeuristics.js';
 import { buildPerfumeryCatalog } from '/js/menu/perfumeryHeuristics.js';
 import * as menuBundle from '/js/menu/index.js';
@@ -27,6 +29,8 @@ window.orderCheckoutModule = orderCheckout;
 window.cartOperationsModule = cartOperations;
 window.menuModalsModule = menuModals;
 window.eventGuestModeModule = eventGuestMode;
+window.weddingItineraryModule = weddingItinerary;
+window.menuPresentationModule = menuPresentation;
 window.menuBundle = menuBundle;
 
     // Initialize i18n & Currency Manager

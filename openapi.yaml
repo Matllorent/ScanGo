@@ -1,0 +1,1331 @@
+openapi: 3.1.0
+info:
+  title: Menú Pizarrón SaaS
+  version: 2.0.0
+  description: |-
+    Contrato HTTP real del backend (Express 5, entrypoint `api/index.js`).
+    Solo documenta endpoints verificados en el código: cada path/método/código
+    de acá existe en su router o en `api/index.js`. El sobre de éxito es el de
+    `api/utils/response.js` (`successResponse`: `{ success: true, message?, data? }`)
+    y el de error (`errorResponse` / `AppError`: `{ success: false, error, code?, details? }`).
+servers:
+  - url: http://localhost:3000
+    description: Desarrollo local (`npm run dev`)
+  - url: https://scango.app
+    description: Producción (Vercel)
+security: []
+tags:
+  - name: auth
+    description: Registro, login y sesión (`api/routes/auth.js`)
+  - name: menu
+    description: Menú público (`GET /api/menu/:slug` en `api/index.js`)
+  - name: studio
+    description: Panel del dueño (`api/routes/studio.js`)
+  - name: orders
+    description: Pedidos del comensal + seguimiento + pago online (`api/routes/orders.js`)
+  - name: loyalty
+    description: Fidelización dual local + red global (`api/routes/loyalty.js`)
+  - name: notifications
+    description: Push Web y avisos de mesa (`api/routes/notifications.js`)
+  - name: analytics
+    description: Canal público de analítica (`POST /api/public/analytics/event` en `api/index.js`)
+  - name: admin
+    description: Panel maestro (`GET /api/admin/overview` en `api/index.js`)
+paths:
+  /api/auth/register:
+    post:
+      tags: [auth]
+      summary: Registrar dueño + restaurante
+      description: |-
+        Valida con `registerSchema` (`api/middleware/validation.js`), rechaza
+        dominios descartables (`DISPOSABLE_EMAIL_REJECTED`). Anti-enumeración:
+        con email ya registrado responde 200 genérico (sin crear nada, sin
+        JWT, con `requiresEmailVerification: true`) y avisa al titular por
+        email. Sesión 100% por cookie `auth_token` (httpOnly): el JWT NO viaja
+        en el body. Responde 200 (no 201) con `user`, `restaurant` en plano
+        (`flatData: true`).
+      operationId: authRegister
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: Registro exitoso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validación / email descartable / email ya registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: Iniciar sesión
+      description: |-
+        Valida con `loginSchema`. Credenciales mal → 401 `INVALID_CREDENTIALS`.
+        Sesión 100% por cookie `auth_token` (httpOnly): el JWT NO viaja en el
+        body. Devuelve `user` y `restaurant` en plano. App nativa: usar
+        `POST /api/auth/device` (credencial opaca revocable).
+      operationId: authLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Sesión iniciada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Body inválido (`VALIDATION_ERROR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Credenciales incorrectas (`INVALID_CREDENTIALS`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/auth/device:
+    post:
+      tags: [auth]
+      summary: Emitir credencial opaca para app nativa
+      description: |-
+        El WebView de Capacitor corre en otro origen y las cookies
+        `SameSite=Lax` no viajan: la app se autentica con esta credencial
+        opaca (Bearer) en vez del JWT. Verifica email+password (con migración
+        legacy), rate-limit de auth. El crudo se devuelve UNA vez (solo su
+        hash se almacena); re-login del mismo `deviceName` rota. Expira al
+        año; el reset la revoca. Sin JWT en la respuesta.
+      operationId: authDeviceIssue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+                deviceName:
+                  type: string
+      responses:
+        '201':
+          description: Credencial emitida (`{ deviceToken, device }`)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '401':
+          description: Credenciales incorrectas (`INVALID_CREDENTIALS`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/auth/devices:
+    get:
+      tags: [auth]
+      summary: Listar dispositivos vinculados (sesión)
+      description: Sin hashes, solo metadata.
+      operationId: authDevicesList
+      responses:
+        '200':
+          description: Lista de dispositivos
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+  /api/auth/devices/{id}:
+    delete:
+      tags: [auth]
+      summary: Revocar un dispositivo (sesión)
+      description: |-
+        Revoca la credencial indicada del propio usuario.
+      operationId: authDeviceRevoke
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Dispositivo desvinculado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+        '404':
+          description: Dispositivo no encontrado (`DEVICE_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/menu/{slug}:
+    get:
+      tags: [menu]
+      summary: Menú público por slug
+      description: |-
+        Respuesta directa SIN sobre `success/data` (`res.json(data)`): `{ restaurant, weatherContext, ... }`.
+        Expone `allowOnlinePayment` (boolean, interruptor del dueño) y `onlinePaymentReady`.
+        Slug inexistente → 404 `{ error: 'Restaurante no encontrado' }` (sin `success`/`code`).
+        Menú pausado por suscripción → 402 `MenuTemporalmenteInactivo`.
+      operationId: getPublicMenu
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+          example: mi-local
+      responses:
+        '200':
+          description: Menú público
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicMenu'
+        '402':
+          description: Menú pausado por suscripción
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Restaurante no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/studio/save:
+    post:
+      tags: [studio]
+      summary: Guardar restaurante / menú completo
+      description: |-
+        Cadena real: `authMiddleware` (401 sin sesión) → `requireVerifiedEmail`
+        (403 `EMAIL_NOT_CONFIRMED`) → `requireActiveSubscription` (402
+        `SUBSCRIPTION_REQUIRED`, 404 `RESTAURANT_NOT_FOUND`). Acepta el payload
+        en `body.data` o en la raíz. Responde `{ success: true, restaurant }`.
+      operationId: studioSave
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Payload sanitizado por `sanitizeRestaurantPayload` (máx 1MB)
+      responses:
+        '200':
+          description: Restaurante guardado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, restaurant]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  restaurant:
+                    $ref: '#/components/schemas/Restaurant'
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '402':
+          description: Suscripción inactiva (`SUBSCRIPTION_REQUIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Email sin confirmar (`EMAIL_NOT_CONFIRMED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Restaurante no encontrado (`RESTAURANT_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/orders:
+    post:
+      tags: [orders]
+      summary: Crear pedido del comensal
+      description: |-
+        Valida con `createOrderSchema` (platos por `dishId` contra la carta real:
+        inexistente → 400 `DISH_NOT_FOUND`). Responde 201 con el pedido + `trackingToken`
+        (HMAC sin estado) y `tipAmount` (propina opcional, aparte del ticket promedio).
+        Acredita fidelización en background sin romper el alta.
+      operationId: createOrder
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Clave de idempotencia (`api/middleware/idempotency.js`)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Pedido creado con trackingToken
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/Order'
+        '400':
+          description: Validación / plato inexistente / opciones inválidas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Restaurante no encontrado (`RESTAURANT_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/orders/track/{token}:
+    get:
+      tags: [orders]
+      summary: Estado público del pedido por token
+      description: |-
+        Público, sin auth. Token firmado `${orderId}.${HMAC}`: inválido o
+        inexistente → 404 `ORDER_NOT_FOUND`. Devuelve SOLO estado + resumen
+        (SIN PII: nunca teléfono, nombre, dirección ni notas) + `tip`.
+      operationId: trackOrder
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: trackingToken devuelto por POST /api/orders
+      responses:
+        '200':
+          description: Estado público del pedido
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/OrderTracking'
+        '404':
+          description: Token inválido o pedido inexistente (`ORDER_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/orders/status/{orderId}:
+    patch:
+      tags: [orders]
+      summary: Avanzar estado del pedido (dueño)
+      description: |-
+        `requireAuth` (401 anónimo) + `tenantGuard`. Estado fuera de
+        `pending|confirmed|preparing|ready|on_the_way|delayed|delivered|cancelled`
+        → 400 `INVALID_ORDER_STATUS`. Pedido de otro local → 403
+        `ORDER_TENANT_MISMATCH`. Persiste en espejo local + Supabase y avisa por
+        push SOLO al comensal del pedido (best-effort).
+      operationId: updateOrderStatus
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [pending, confirmed, preparing, ready, on_the_way, delayed, delivered, cancelled]
+      responses:
+        '200':
+          description: Estado actualizado (`{ orderId, status, statusLabel, updatedAt, notification }`)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    required: [orderId, status, statusLabel]
+                    properties:
+                      orderId:
+                        type: string
+                      status:
+                        type: string
+                      statusLabel:
+                        type: string
+                      updatedAt:
+                        type: string
+                        format: date-time
+        '400':
+          description: Estado inválido (`INVALID_ORDER_STATUS`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Pedido de otro local (`ORDER_TENANT_MISMATCH`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pedido no encontrado (`ORDER_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/loyalty/me:
+    post:
+      tags: [loyalty]
+      summary: Tarjeta de fidelización del comensal
+      description: |-
+        Pública. Identidad por teléfono normalizado E.164. Cliente nuevo →
+        200 `{ customer: null }`. Body inválido → 400 `VALIDATION_ERROR`.
+      operationId: loyaltyCard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone:
+                  type: string
+                  example: '+598 99 123 456'
+                restaurantId:
+                  type: string
+      responses:
+        '200':
+          description: Tarjeta local + estado global de la red (o `{ customer: null }`)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    nullable: true
+        '400':
+          description: Teléfono inválido (`VALIDATION_ERROR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/loyalty/redeem:
+    post:
+      tags: [loyalty]
+      summary: Canjear premio (emite código de un solo uso)
+      description: |-
+        Pública. Premios locales (por `restaurantId`) o globales (`rewardId: glob_*`).
+        Emite código `LOY-XXXX-XXXX` que el dueño valida. Sin puntos → 400
+        `INSUFFICIENT_LOCAL_POINTS` / `INSUFFICIENT_GLOBAL_POINTS`; premio
+        inexistente → 404 `REWARD_NOT_FOUND`.
+        Prueba de posesión: si el perfil tiene email registrado, el canje
+        directo responde 403 `REDEEM_OTP_REQUIRED` (usar `/redeem/confirm`
+        con el OTP) y sin email responde 422 `CUSTOMER_EMAIL_REQUIRED`
+        (registrarlo en `/email` primero).
+      operationId: loyaltyRedeem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, rewardId]
+              properties:
+                phone:
+                  type: string
+                restaurantId:
+                  type: string
+                rewardId:
+                  type: string
+      responses:
+        '200':
+          description: Canje emitido (`{ code, rewardTitle, pointsCost, restaurantName }`)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/LoyaltyCode'
+        '400':
+          description: Validación / puntos insuficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Cliente / restaurante / premio no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Perfil con email → canje directo bloqueado (`REDEEM_OTP_REQUIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Perfil sin email → registrarlo primero (`CUSTOMER_EMAIL_REQUIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/loyalty/challenge:
+    post:
+      tags: [loyalty]
+      summary: Enviar OTP al email del perfil
+      description: |-
+        Pública (rate-limit). `purpose` ∈ `redeem | erase | change-email`.
+        202 + `{ maskedEmail }`; cliente inexistente → 404 `CUSTOMER_NOT_FOUND`;
+        sin email → 422 `CUSTOMER_EMAIL_REQUIRED`. El código dura 10 minutos.
+      operationId: loyaltyChallenge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, purpose]
+              properties:
+                phone:
+                  type: string
+                purpose:
+                  type: string
+                  enum: [redeem, erase, change-email]
+      responses:
+        '202':
+          description: Código enviado (`{ maskedEmail, expiresInMinutes }`)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '400':
+          description: Validación (`VALIDATION_ERROR`, `INVALID_OTP_PURPOSE`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Cliente no encontrado (`CUSTOMER_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Sin email registrado (`CUSTOMER_EMAIL_REQUIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/loyalty/redeem/confirm:
+    post:
+      tags: [loyalty]
+      summary: Canjear premio con OTP verificado
+      description: |-
+        Misma emisión que `/redeem` pero con `otp` (propósito `redeem`) de un
+        solo uso. OTP incorrecto/vencido/reutilizado → 403 `INVALID_OTP`.
+      operationId: loyaltyRedeemConfirm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, rewardId, otp]
+              properties:
+                phone:
+                  type: string
+                restaurantId:
+                  type: string
+                rewardId:
+                  type: string
+                otp:
+                  type: string
+      responses:
+        '200':
+          description: Canje emitido (`{ code, rewardTitle, pointsCost, restaurantName }`)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/LoyaltyCode'
+        '403':
+          description: OTP inválido (`INVALID_OTP`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/loyalty/email:
+    post:
+      tags: [loyalty]
+      summary: Registrar o cambiar el email del perfil
+      description: |-
+        First-write sin fricción; cambiar un email existente exige el OTP
+        enviado al anterior (propósito `change-email`) → 403
+        `EMAIL_CHANGE_OTP_REQUIRED` sin él.
+      operationId: loyaltySetEmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, email]
+              properties:
+                phone:
+                  type: string
+                email:
+                  type: string
+                otp:
+                  type: string
+      responses:
+        '200':
+          description: Email registrado (`{ maskedEmail }`)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '400':
+          description: Email inválido (`INVALID_EMAIL`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Cambio sin OTP al anterior (`EMAIL_CHANGE_OTP_REQUIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/loyalty/validate:
+    post:
+      tags: [loyalty]
+      summary: Validar código de canje (dueño)
+      description: |-
+        `authMiddleware` (401) + `tenantGuard` (IDOR por tenant). Código de otro
+        local → 403 `CODE_OTHER_RESTAURANT`; ya canjeado → 409
+        `CODE_ALREADY_REDEEMED`; vencido → 410 `CODE_EXPIRED`; inexistente → 404
+        `CODE_NOT_FOUND`. (El param es `body.code`, no `:id`, para que el
+        tenantGuard no lo confunda con tenant.)
+      operationId: loyaltyValidate
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  example: LOY-AB12-CD34
+      responses:
+        '200':
+          description: Código validado y marcado como canjeado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '400':
+          description: Código requerido (`CODE_REQUIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Código de otro restaurante (`CODE_OTHER_RESTAURANT`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Código no encontrado (`CODE_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Doble uso (`CODE_ALREADY_REDEEMED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: Código vencido (`CODE_EXPIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/orders/mercadopago/preference:
+    post:
+      tags: [orders]
+      summary: Preferencia de pago online (Checkout Pro)
+      description: |-
+        Valida con `createOrderSchema`. Gate real: sin `restaurant.allowOnlinePayment`
+        → 403 `ONLINE_PAYMENT_DISABLED` (default `false`). Sin credenciales MP en
+        el server → 500 `MP_NOT_CONFIGURED`. Restaurante inexistente → 404.
+      operationId: createMpPreference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '200':
+          description: Preferencia generada (`{ preferenceId, initPoint, externalReference, total }`)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    required: [preferenceId, initPoint]
+                    properties:
+                      preferenceId:
+                        type: string
+                      initPoint:
+                        type: string
+                        format: uri
+                      sandboxInitPoint:
+                        type: string
+                      externalReference:
+                        type: string
+                      total:
+                        type: number
+        '400':
+          description: Body inválido (`VALIDATION_ERROR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Pago online deshabilitado (`ONLINE_PAYMENT_DISABLED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Restaurante no encontrado (`RESTAURANT_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/public/analytics/event:
+    post:
+      tags: [analytics]
+      summary: Ingesta pública de evento de analítica
+      description: |-
+        Pública con rate-limit POR SLUG (un balde por restaurante). Eventos válidos:
+        `visit|order|reservation|waiter|dish_click|order_placed`. Sin `slug`/`event`
+        → 400; evento inválido → 400; slug inexistente → 404. Escribe telemetría
+        (fuente única de verdad) y recalcula la proyección `restaurant.analytics`.
+      operationId: trackPublicEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slug, event]
+              properties:
+                slug:
+                  type: string
+                event:
+                  type: string
+                  enum: [visit, order, reservation, waiter, dish_click, order_placed]
+                dishId:
+                  type: string
+                branchId:
+                  type: string
+                amount:
+                  type: number
+                items:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: Evento registrado (`{ success, analytics, telemetry }`)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  analytics:
+                    type: object
+                  telemetry:
+                    type: boolean
+                    example: true
+        '400':
+          description: slug/event requeridos o evento inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Restaurante no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/notifications/waiter-alert:
+    post:
+      tags: [notifications]
+      summary: Aviso de mozo desde la mesa
+      description: |-
+        Pública (la llama el menú de la mesa), rate-limit por slug. Persiste el
+        aviso en el inbox del dueño y dispara Web Push SOLO a suscripciones
+        `role=owner`. Sin VAPID no rompe: 200 con `configured: false`. Slug
+        inexistente → 404.
+      operationId: waiterAlert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slug]
+              properties:
+                slug:
+                  type: string
+                table:
+                  type: string
+                  default: No especificada
+                type:
+                  type: string
+                  enum: [mozo, cuenta_efectivo, cuenta_tarjeta]
+                  default: mozo
+      responses:
+        '200':
+          description: Aviso registrado (push entregado o degradado a WhatsApp/inbox)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '400':
+          description: Slug requerido (`VALIDATION_ERROR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Restaurante no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/admin/overview:
+    get:
+      tags: [admin]
+      summary: Métricas del panel maestro
+      description: |-
+        `adminMiddleware`: sin sesión admin (cookie `admin_token`, header
+        `Authorization: Bearer`, o `x-admin-token` con JWT `role: admin_master`)
+        → 403. Responde `{ metrics, restaurants, users }` con plata mensual,
+        renovaciones a 7 días, pruebas por terminar y conversión de trial.
+      operationId: adminOverview
+      security:
+        - adminCookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Métricas + restaurantes + usuarios
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [metrics, restaurants, users]
+                properties:
+                  metrics:
+                    type: object
+                  restaurants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Restaurant'
+                  users:
+                    type: array
+                    items:
+                      type: object
+        '403':
+          description: Sin sesión administrativa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: auth_token
+      description: Sesión del dueño (JWT `7d`, también aceptado como `Authorization: Bearer`)
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Mismo JWT de `auth_token` por header `Authorization: Bearer <token>`
+    adminCookieAuth:
+      type: apiKey
+      in: cookie
+      name: admin_token
+      description: Sesión del panel maestro (JWT `role: admin_master` + 2FA TOTP al hacer login)
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 100
+        password:
+          type: string
+          minLength: 6
+          maxLength: 100
+        name:
+          type: string
+          maxLength: 80
+        restaurantName:
+          type: string
+          maxLength: 80
+        bizName:
+          type: string
+          maxLength: 80
+        businessType:
+          type: string
+          enum: [restaurant, heladeria, perfumery, events]
+          default: restaurant
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 100
+        password:
+          type: string
+    AuthResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        user:
+          type: object
+          description: Usuario sin `password`
+        restaurant:
+          $ref: '#/components/schemas/Restaurant'
+        requiresEmailVerification:
+          type: boolean
+          description: Solo en register con Supabase activo y casilla sin confirmar
+        registered:
+          type: boolean
+          description: Solo en register duplicado (anti-enumeración, siempre 200)
+    Restaurant:
+      type: object
+      required: [id, slug]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        bizName:
+          type: string
+        phone:
+          type: string
+        currency:
+          type: string
+        city:
+          type: string
+        businessType:
+          type: string
+          enum: [restaurant, heladeria, perfumery, events]
+        theme:
+          type: string
+        layout:
+          type: string
+          enum: [classic, modern, minimal]
+        allowOnlinePayment:
+          type: boolean
+          description: Interruptor del dueño para el pago online (default false)
+        onlinePaymentReady:
+          type: boolean
+          description: Solo en GET /api/menu — hay con qué cobrar (solo lectura)
+        allowIceCreamWizard:
+          type: boolean
+        categories:
+          type: array
+          items:
+            type: object
+        dishes:
+          type: array
+          items:
+            type: object
+        branches:
+          type: array
+          items:
+            type: object
+        subscription:
+          $ref: '#/components/schemas/Subscription'
+    Subscription:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [trialing, active, past_due, expired, canceled, paused]
+        plan:
+          type: string
+          enum: [starter_monthly, starter_annual, pro_monthly, pro_annual, event_once, free]
+        provider:
+          type: string
+          example: trial
+        trialEndsAt:
+          type: string
+          format: date-time
+        currentPeriodEnd:
+          type: string
+          format: date-time
+        gracePeriodDaysRemaining:
+          type: integer
+    CreateOrderRequest:
+      type: object
+      required: [restaurantId, items]
+      properties:
+        restaurantId:
+          type: string
+        tableNumber:
+          oneOf:
+            - type: string
+            - type: number
+          default: '1'
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [dishId, quantity]
+            properties:
+              dishId:
+                type: string
+              quantity:
+                type: integer
+                minimum: 1
+              note:
+                type: string
+                maxLength: 250
+              orderedBy:
+                type: string
+              orderedById:
+                type: string
+              choices:
+                type: array
+                items:
+                  type: object
+              options:
+                type: object
+        currency:
+          type: string
+          maxLength: 5
+        customerName:
+          type: string
+          maxLength: 100
+        customerPhone:
+          type: string
+          maxLength: 30
+        deliveryAddress:
+          type: string
+          maxLength: 200
+        notes:
+          type: string
+          maxLength: 300
+        isGroupOrder:
+          type: boolean
+        participants:
+          type: array
+          items:
+            type: string
+        groupSessionId:
+          type: string
+        tipAmount:
+          type: number
+          minimum: 0
+          maximum: 1000000
+          default: 0
+          description: Propina opcional del comensal, aparte del monto de los platos
+    Order:
+      type: object
+      required: [id, status]
+      properties:
+        id:
+          type: string
+        restaurantId:
+          type: string
+        tableNumber:
+          type: string
+        status:
+          type: string
+          enum: [pending, confirmed, preparing, ready, on_the_way, delayed, delivered, cancelled]
+        currency:
+          type: string
+        amount:
+          type: number
+        total:
+          type: number
+        tipAmount:
+          type: number
+          description: Propina declarada, persistida aparte del ticket
+        trackingToken:
+          type: string
+          description: Token HMAC sin estado `${orderId}.${firma}` para el seguimiento público
+        itemsSnapshot:
+          type: array
+          items:
+            type: object
+        created_at:
+          type: string
+          format: date-time
+    OrderTracking:
+      type: object
+      required: [orderId, status, statusLabel]
+      properties:
+        orderId:
+          type: string
+        status:
+          type: string
+          enum: [pending, confirmed, preparing, ready, on_the_way, delayed, delivered, cancelled]
+        statusLabel:
+          type: string
+          example: Recibido
+        restaurantName:
+          type: string
+        tableNumber:
+          type: string
+        currency:
+          type: string
+        total:
+          type: number
+        tip:
+          type: number
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              quantity:
+                type: integer
+        updatedAt:
+          type: string
+          format: date-time
+    LoyaltyCode:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          pattern: '^LOY-[A-Z0-9]{4}-[A-Z0-9]{4}$'
+          example: LOY-AB12-CD34
+        rewardTitle:
+          type: string
+        pointsCost:
+          type: integer
+        restaurantName:
+          type: string
+    Error:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: Restaurante no encontrado para el pedido
+        code:
+          type: string
+          example: RESTAURANT_NOT_FOUND
+        details:
+          description: Detalle de validación (formato Zod) u otro contexto

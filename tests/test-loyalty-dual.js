@@ -267,6 +267,81 @@ async function runTests() {
     assert.strictEqual(customersAfter.data.length, 0, 'El local ya no lista al cliente borrado');
     console.log('✓ Borrado total: perfil, cuentas, ledger y códigos eliminados');
 
+    // ── 12) OTP de posesión: canje y borrado exigen el email ───────────────
+    const otpPhone = '+598 99 777 888';
+    await loyaltyService.findOrCreateCustomer({ phone: otpPhone, name: 'OTP Tester', email: 'otp-tester@example.com' });
+    await postJson('/api/loyalty/credit', { phone: otpPhone, points: 500, reason: 'Setup OTP' }, authA);
+
+    // Canje directo con email registrado → 403 (usar /redeem/confirm)
+    const gated = await postJson('/api/loyalty/redeem', { phone: otpPhone, restaurantId: restA.id, rewardId: 'rew_coffee' });
+    assert.strictEqual(gated.status, 403, 'Canje directo con email → 403');
+    const gatedBody = await gated.json();
+    assert.strictEqual(gatedBody.code, 'REDEEM_OTP_REQUIRED');
+    assert.ok(gatedBody.details && gatedBody.details.maskedEmail.includes('@'), 'Respuesta con email enmascarado');
+
+    // Challenge → 202 + OTP white-box (el email real sale por Resend/local_mock)
+    const chall = await postJson('/api/loyalty/challenge', { phone: otpPhone, purpose: 'redeem' });
+    assert.strictEqual(chall.status, 202, 'Challenge OTP responde 202');
+    assert.ok((await chall.json()).data.maskedEmail.includes('@'), 'Challenge con email enmascarado');
+
+    // OTP incorrecto → 403; correcto → 200 con código; reuso → 403
+    const wrongOtp = await postJson('/api/loyalty/redeem/confirm', { phone: otpPhone, restaurantId: restA.id, rewardId: 'rew_coffee', otp: '000000' });
+    assert.strictEqual(wrongOtp.status, 403, 'OTP incorrecto → 403');
+    assert.strictEqual((await wrongOtp.json()).code, 'INVALID_OTP');
+    const goodOtp = loyaltyService.generateLoyaltyOtp(otpPhone, 'redeem');
+    assert.ok(/^\d{6}$/.test(goodOtp), 'OTP de 6 dígitos');
+    const confirmed = await postJson('/api/loyalty/redeem/confirm', { phone: otpPhone, restaurantId: restA.id, rewardId: 'rew_coffee', otp: goodOtp });
+    assert.strictEqual(confirmed.status, 200, 'Confirm con OTP válido canjea');
+    assert.ok(/^LOY-/.test((await confirmed.json()).data.code), 'Código LOY emitido tras OTP');
+    const replay = await postJson('/api/loyalty/redeem/confirm', { phone: otpPhone, restaurantId: restA.id, rewardId: 'rew_coffee', otp: goodOtp });
+    assert.strictEqual(replay.status, 403, 'OTP de un solo uso (replay → 403)');
+
+    // Registro de email: first-write (el formato y duplicado van a nivel servicio)
+    const freshPhone = '+598 99 777 889';
+    await loyaltyService.findOrCreateCustomer({ phone: freshPhone, name: 'Sin Email' });
+    const setEmail = await postJson('/api/loyalty/email', { phone: freshPhone, email: 'nuevo-email@example.com' });
+    assert.strictEqual(setEmail.status, 200, 'Primer email se registra');
+    assert.ok((await setEmail.json()).data.maskedEmail.includes('@'), 'Respuesta enmascarada');
+    // Cambio de email exige OTP al anterior
+    const changeNoOtp = await postJson('/api/loyalty/email', { phone: freshPhone, email: 'otro2@example.com' });
+    assert.strictEqual(changeNoOtp.status, 403, 'Cambiar email sin OTP → 403');
+    const changeOtp = loyaltyService.generateLoyaltyOtp(freshPhone, 'change-email');
+    const changeOk = await postJson('/api/loyalty/email', { phone: freshPhone, email: 'otro2@example.com', otp: changeOtp });
+    assert.strictEqual(changeOk.status, 200, 'Cambiar email con OTP del anterior → 200');
+
+    // Borrado con email: sin OTP → 403; con OTP (erase) → borrado total
+    const delNoOtp = await fetch(`${base}/api/loyalty/me`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: otpPhone })
+    });
+    assert.strictEqual(delNoOtp.status, 403, 'Borrado con email sin OTP → 403');
+    assert.strictEqual((await delNoOtp.json()).code, 'ERASE_OTP_REQUIRED');
+    const eraseOtp = loyaltyService.generateLoyaltyOtp(otpPhone, 'erase');
+    const delOtp = await fetch(`${base}/api/loyalty/me`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: otpPhone, otp: eraseOtp })
+    });
+    assert.strictEqual(delOtp.status, 200, 'Borrado con OTP válido → 200');
+    assert.strictEqual((await delOtp.json()).data.erased, true, 'Datos borrados tras OTP');
+    assert.strictEqual(await loyaltyService.findCustomerByPhone('59899777888'), null, 'Perfil eliminado');
+    // Cobertura a nivel servicio (sin gastar el balde HTTP del limiter)
+    assert.strictEqual(loyaltyService.verifyLoyaltyOtp(freshPhone, 'erase', loyaltyService.generateLoyaltyOtp(freshPhone, 'redeem')), false, 'OTP de otro propósito no autoriza');
+    await assert.rejects(
+      loyaltyService.requestLoyaltyOtp({ phone: '+598 99 000 001', purpose: 'redeem' }),
+      (e) => e && e.code === 'CUSTOMER_NOT_FOUND',
+      'Challenge a teléfono desconocido → 404'
+    );
+    await assert.rejects(
+      loyaltyService.setCustomerEmail({ phone: freshPhone, email: 'no-es-email' }),
+      (e) => e && e.code === 'INVALID_EMAIL',
+      'Email inválido → 400'
+    );
+    assert.strictEqual(loyaltyService.maskEmail('juan@gmail.com')[0], 'j', 'maskEmail conserva inicial');
+    assert.strictEqual(loyaltyService.maskEmail('juan@gmail.com'), 'j***@gmail.com', 'maskEmail enmascara local-part');
+    console.log('✓ OTP de posesión: challenge/confirm, un solo uso, por propósito; email first-write; borrado protegido');
+
     console.log('\n🎉 ¡TODAS LAS VERIFICACIONES DE FIDELIZACIÓN DUAL + CENTRO DE NOTIFICACIONES PASARON!');
   } finally {
     server.close();

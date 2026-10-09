@@ -17,8 +17,30 @@ function tenantGuard(req, res, next) {
     req.user.tenantId = userRestaurant.id;
   }
 
-  // IDOR check for target restaurant or tenant ID parameters
-  const targetTenantId = req.params.tenantId || req.params.restaurantId || req.params.id || req.body?.restaurantId || req.body?.tenant_id || req.headers['x-tenant-id'];
+  // IDOR check for target restaurant or tenant ID parameters.
+  // NOTA: a propósito NO se mira `req.params.id` genérico: en rutas de recurso
+  // (p.ej. /status/:orderId) ese `:id` es el recurso, no el tenant, y tratarlo
+  // como tenant provocaba falsos 403 (o chequeo contra el valor equivocado).
+  // Las rutas de tenant usan params explícitos (:tenantId/:restaurantId) o
+  // body/header (restaurantId/tenant_id/x-tenant-id).
+  const targetTenantId = req.params.tenantId || req.params.restaurantId || req.body?.restaurantId || req.body?.tenant_id || req.headers['x-tenant-id'];
+
+  // Cuenta autenticada SIN restaurante propio (p.ej. registro sin local) que
+  // apunta a un tenant: se deniega. Antes pasaba de largo y los handlers con
+  // `if (tenantId && ...)` también la dejaban operar sobre datos ajenos.
+  if (targetTenantId && !userRestaurant) {
+    logger.warn('[IDOR Attempt Blocked: orphan account]', {
+      userId: req.user.userId,
+      targetTenantId,
+      path: req.originalUrl
+    });
+    return res.status(403).json({
+      success: false,
+      error: 'Tu cuenta no tiene un local asociado',
+      code: 'TENANT_REQUIRED',
+      timestamp: new Date().toISOString()
+    });
+  }
 
   if (targetTenantId && userRestaurant && targetTenantId !== userRestaurant.id && targetTenantId !== userRestaurant.slug) {
     logger.warn('[IDOR Attempt Blocked]', {

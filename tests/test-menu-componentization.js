@@ -406,6 +406,245 @@ async function runMenuComponentizationTests() {
   assert.ok(wizardSrc.includes("line.textContent = 'Elegí un tamaño para empezar'"), 'El resumen debe pedir el tamaño primero');
   console.log('✓ Armador de helado: sabores y toppings recién aparecen tras elegir el tamaño');
 
+  // 16. Itinerario visual de boda: módulo puro + render data-driven con escape
+  const wedModule = await import('../public/js/menu/weddingItinerary.js');
+  assert.strictEqual(typeof wedModule.sanitizeWeddingItinerary, 'function', 'sanitizeWeddingItinerary debe existir');
+  assert.strictEqual(typeof wedModule.renderWeddingItineraryHTML, 'function', 'renderWeddingItineraryHTML debe existir');
+  // Sanitiza: capa items a 12, recorta strings, descarta vacíos, icono por defecto
+  const dirtyIt = {
+    enabled: true, title: 'T'.repeat(99), coupleNames: 'Mora & Alex', date: '5/6/2029', venue: 'Salón X',
+    items: [{ time: '18:00', title: 'Recepción', icon: '🥂' }]
+      .concat(Array.from({ length: 20 }, (_, i) => ({ time: `2${i}:00`, title: `Momento ${i}` })))
+      .concat([{ time: '', title: '' }])
+  };
+  const cleanIt = wedModule.sanitizeWeddingItinerary(dirtyIt);
+  assert.strictEqual(cleanIt.items.length, 12, 'El itinerario se capa a 12 momentos');
+  assert.ok(cleanIt.title.length <= 60, 'El título se recorta a 60');
+  assert.strictEqual(cleanIt.items[0].icon, '🥂', 'Se preserva el icono configurado');
+  assert.strictEqual(cleanIt.items[1].icon, '💛', 'Sin icono → fallback 💛');
+  assert.deepStrictEqual(wedModule.sanitizeWeddingItinerary(null).items, [], 'Basura → itinerario vacío apagado');
+  assert.strictEqual(wedModule.sanitizeWeddingItinerary(null).enabled, false, 'Basura → enabled false');
+  // Render: timeline con tiempos/títulos, escape XSS, apagado → ''
+  const wedHtml = wedModule.renderWeddingItineraryHTML({
+    enabled: true, title: 'Programa de Boda', coupleNames: 'Mora & Alex',
+    items: [{ time: '18:00', title: 'Recepción', icon: '🥂' }]
+  }, (s) => String(s).replace(/</g, '&lt;'));
+  assert.ok(wedHtml.includes('wed-it-timeline'), 'Debe renderizar la línea de tiempo');
+  assert.ok(wedHtml.includes('18:00') && wedHtml.includes('Recepción'), 'Tiempos y momentos visibles');
+  assert.ok(wedHtml.includes('Mora & Alex'), 'Nombres de la pareja visibles');
+  const xssHtml = wedModule.renderWeddingItineraryHTML({
+    enabled: true, items: [{ time: '18:00', title: '<script>alert(1)</script>' }]
+  });
+  assert.ok(!xssHtml.includes('<script>'), 'El título del momento se escapa (XSS)');
+  assert.strictEqual(wedModule.renderWeddingItineraryHTML({ enabled: false, items: [{ time: '1', title: 'X' }] }), '', 'Apagado → HTML vacío');
+  assert.strictEqual(wedModule.renderWeddingItineraryHTML({ enabled: true, items: [] }), '', 'Sin momentos → HTML vacío');
+  // Cableado: barrel + menú + sección + estilos + Studio + backend
+  const barrelSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/index.js'), 'utf8');
+  assert.ok(barrelSrc.includes("export * from './weddingItinerary.js'"), 'El barrel debe exportar weddingItinerary');
+  assert.ok(barrelSrc.includes("export * from './menuPresentation.js'"), 'El barrel debe exportar menuPresentation');
+  const menuSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu.js'), 'utf8');
+  assert.ok(menuSrc.includes('renderWeddingItineraryHTMLMod'), 'menu.js debe importar el render del itinerario');
+  assert.ok(menuSrc.includes('function renderWeddingItinerary()'), 'menu.js debe definir renderWeddingItinerary()');
+  assert.ok(menuHtmlSrc.includes('id="weddingItinerarySection"'), 'menu.html debe tener el contenedor de la sección');
+  const menuCssSrc = fs.readFileSync(path.join(__dirname, '../public/css/menu.css'), 'utf8');
+  assert.ok(menuCssSrc.includes('.wed-it-timeline'), 'menu.css debe tener los estilos del timeline');
+  assert.ok(menuCssSrc.includes('.wed-it-node'), 'menu.css debe tener los nodos del timeline');
+  const studioHtmlSrc = fs.readFileSync(path.join(__dirname, '../public/studio.html'), 'utf8');
+  assert.ok(studioHtmlSrc.includes('id="weddingItinerarySection"'), 'Studio debe tener el editor del itinerario');
+  assert.ok(studioHtmlSrc.includes('data-js-click="addWeddingItineraryItem"'), 'Studio: botón agregar momento sin on*=');
+  const studioSrc = fs.readFileSync(path.join(__dirname, '../public/js/studio.js'), 'utf8');
+  assert.ok(studioSrc.includes('function renderWeddingItineraryRows()'), 'Studio: render de filas del itinerario');
+  assert.ok(studioSrc.includes('addWeddingItineraryItem, removeWeddingItineraryItem'), 'Studio: handlers exportados a window');
+  console.log('✓ Itinerario de boda: sanitize/render puros, timeline con escape, cableado menú+Studio+CSS');
+
+  // 17. Precios $0: sin cifras en carta, carrito, sugerencias ni WhatsApp
+  const presModule = await import('../public/js/menu/menuPresentation.js');
+  assert.strictEqual(typeof presModule.isFreePrice, 'function', 'isFreePrice debe existir');
+  for (const v of [0, '0', 0.0, null, undefined, '', '  ', 'abc', NaN]) {
+    assert.strictEqual(presModule.isFreePrice(v), true, `isFreePrice(${JSON.stringify(v)}) debe ser true`);
+  }
+  for (const v of [1, 490, '25.5', 0.01, -5]) {
+    assert.strictEqual(presModule.isFreePrice(v), false, `isFreePrice(${JSON.stringify(v)}) debe ser false`);
+  }
+  // Call sites en menu.js: carta, chef, carrito, barra, totales, upsell
+  assert.ok(menuSrc.includes('isFreePriceMod(effectivePrice)'), 'Chef specials: gate de precio sin costo');
+  assert.ok(menuSrc.includes('const isFreeDish = isFreePriceMod(effectivePrice)'), 'Dish card: gate de precio sin costo');
+  assert.ok(menuSrc.includes('const itemIsFree = isFreePriceMod(unitPrice)'), 'Carrito: línea sin cifras si es gratis');
+  assert.ok(menuSrc.includes('Ver Pedido →'), 'Barra flotante: sin ($0) cuando el pedido es gratis');
+  assert.ok(menuSrc.includes('formatTotalOrFree(total)'), 'Totales: "Sin costo" en vez de $0');
+  assert.ok(menuSrc.includes('const upsellIsFree = isFreePriceMod(dish.price)'), 'Upsell del menú: sin cifra si es gratis');
+  // WhatsApp: ítems gratis sin precio + pedido gratis sin Subtotal/TOTAL $0
+  const freeMsg = checkoutModule.formatWhatsAppOrderMessage({
+    restaurantName: 'Boda Mora & Alex', customerName: 'Invitado', mode: 'LOCAL',
+    tableNumber: '5', paymentMethod: 'Efectivo', currency: '$',
+    items: [{ dish: { name: 'Focaccia de cortesía', price: 0 }, qty: 2 }],
+    subtotal: 0, deliveryFee: 0, discountAmount: 0, total: 0
+  });
+  assert.ok(freeMsg.includes('2x Focaccia de cortesía'), 'El ítem gratis aparece en el mensaje');
+  assert.ok(!freeMsg.includes('$ 0'), 'Sin "$ 0" en el mensaje del pedido gratis');
+  assert.ok(!freeMsg.includes('TOTAL:'), 'Sin línea TOTAL en el pedido gratis');
+  assert.ok(freeMsg.includes('Pedido sin costo'), 'El pedido gratis se declara sin costo');
+  const mixedMsg = checkoutModule.formatWhatsAppOrderMessage({
+    restaurantName: 'R', customerName: 'C', mode: 'LOCAL', tableNumber: '1',
+    paymentMethod: 'Efectivo', currency: '$',
+    items: [{ dish: { name: 'Agua', price: 0 }, qty: 1 }, { dish: { name: 'Pizza', price: 500 }, qty: 1 }],
+    subtotal: 500, deliveryFee: 0, discountAmount: 0, total: 500
+  });
+  assert.ok(mixedMsg.includes('▪ 1x Agua\n'), 'Ítem gratis mixto: sin guion de precio');
+  assert.ok(mixedMsg.includes('TOTAL:'), 'Pedido con cargo: TOTAL presente');
+  // Componentes: VirtualWaiter + cross-sell del modal sin $0
+  const waiterCompSrc = fs.readFileSync(path.join(__dirname, '../public/js/components/VirtualWaiter.js'), 'utf8');
+  assert.ok(waiterCompSrc.includes('dishIsFree'), 'VirtualWaiter: oculta precio $0 en sugerencias');
+  const waiterHeuSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/virtualWaiterHeuristics.js'), 'utf8');
+  assert.ok(waiterHeuSrc.includes("import { isFreePrice } from './menuPresentation.js'"), 'Cross-sell usa el helper puro');
+  console.log('✓ Precios $0: sin cifras en carta/carrito/sugerencias/WhatsApp, botón pedir intacto');
+
+  // 18. Notas por rubro: la heladería ya no sugiere "sin cebolla"
+  assert.strictEqual(typeof presModule.getDishNoteCopy, 'function', 'getDishNoteCopy debe existir');
+  const helaCopy = presModule.getDishNoteCopy({ businessType: 'heladeria', allowIceCreamWizard: true });
+  assert.ok(!helaCopy.placeholder.toLowerCase().includes('cebolla'), 'Heladería: placeholder sin "cebolla"');
+  assert.ok(!helaCopy.placeholder.toLowerCase().includes('aderezo'), 'Heladería: placeholder sin "aderezo"');
+  assert.ok(helaCopy.label.toLowerCase().includes('helado'), 'Heladería: etiqueta propia del rubro');
+  const restoCopy = presModule.getDishNoteCopy({ businessType: 'restaurant' });
+  assert.ok(restoCopy.placeholder.toLowerCase().includes('cebolla'), 'Restaurante: conserva el ejemplo de cocina');
+  const perfCopy = presModule.getDishNoteCopy({ businessType: 'perfumery' });
+  assert.ok(!perfCopy.placeholder.toLowerCase().includes('cebolla'), 'Perfumería: sin ejemplo de cocina');
+  const eventsCopy = presModule.getDishNoteCopy({ businessType: 'events' });
+  assert.ok(eventsCopy.label.length > 0 && eventsCopy.placeholder.length > 0, 'Eventos: copy de notas no vacío');
+  assert.ok(menuSrc.includes('getDishNoteCopyMod(restaurantData'), 'openDishNoteModal aplica el copy por rubro');
+  assert.ok(menuHtmlSrc.includes('sin cebolla, aderezo aparte'), 'El default estático del HTML sigue siendo el de restaurante');
+  console.log('✓ Notas por rubro: heladería/perfumería/eventos con placeholder propio, restaurante intacto');
+
+  // 19. Itinerario en vivo: progreso por hora real (pasado/ahora/siguiente)
+  assert.strictEqual(typeof wedModule.parseItineraryTime, 'function', 'parseItineraryTime debe existir');
+  assert.strictEqual(typeof wedModule.resolveItineraryProgress, 'function', 'resolveItineraryProgress debe existir');
+  assert.strictEqual(wedModule.parseItineraryTime('18:00'), 1080, 'HH:MM → minutos');
+  assert.strictEqual(wedModule.parseItineraryTime('00:15'), 15, 'Medianoche válida');
+  assert.strictEqual(wedModule.parseItineraryTime('9.30'), 570, 'Acepta punto como separador');
+  assert.strictEqual(wedModule.parseItineraryTime('18h00'), 1080, 'Acepta h como separador');
+  assert.strictEqual(wedModule.parseItineraryTime('abc'), null, 'Texto → null');
+  assert.strictEqual(wedModule.parseItineraryTime(''), null, 'Vacío → null');
+  assert.strictEqual(wedModule.parseItineraryTime('25:00'), null, 'Hora imposible → null');
+  assert.strictEqual(wedModule.parseItineraryTime('18:99'), null, 'Minutos imposibles → null');
+  const liveItems = [
+    { time: '18:00', title: 'Recepción', icon: '🥂' },
+    { time: '19:30', title: 'Cena', icon: '🍽️' },
+    { time: '00:15', title: 'Fin', icon: '🌙' }
+  ];
+  const at = (iso) => new Date(iso);
+  // En curso a las 20:00 del día del evento (acarreo nocturno del 00:15)
+  let st = wedModule.resolveItineraryProgress(liveItems, at('2029-06-05T20:00:00'), '2029-06-05');
+  assert.strictEqual(st.mode, 'live', '20:00 del eventDay → live');
+  assert.strictEqual(st.currentIndex, 1, 'Momento actual = Cena');
+  assert.strictEqual(st.nextIndex, 2, 'Siguiente = Fin');
+  assert.ok(st.progressPct > 0 && st.progressPct < 100, 'Avance parcial 0-100');
+  // Madrugada siguiente: sigue en vivo por el acarreo (00:15 + gracia)
+  st = wedModule.resolveItineraryProgress(liveItems, at('2029-06-06T00:30:00'), '2029-06-05');
+  assert.strictEqual(st.mode, 'live', '00:30 del día siguiente → live por acarreo nocturno');
+  assert.strictEqual(st.currentIndex, 2, 'Momento actual = Fin');
+  // Temprano el mismo día: upcoming con siguiente
+  st = wedModule.resolveItineraryProgress(liveItems, at('2029-06-05T10:00:00'), '2029-06-05');
+  assert.strictEqual(st.mode, 'upcoming', '10:00 → upcoming');
+  assert.strictEqual(st.nextIndex, 0, 'Siguiente = primer momento');
+  // Al día siguiente a la mañana: finished
+  st = wedModule.resolveItineraryProgress(liveItems, at('2029-06-06T08:00:00'), '2029-06-05');
+  assert.strictEqual(st.mode, 'finished', 'Día siguiente de mañana → finished');
+  assert.strictEqual(st.progressPct, 100, 'Avance 100 al terminar');
+  // Días antes: countdown; días después: finished
+  st = wedModule.resolveItineraryProgress(liveItems, at('2029-06-02T12:00:00'), '2029-06-05');
+  assert.strictEqual(st.mode, 'countdown', '3 días antes → countdown');
+  assert.strictEqual(st.daysLeft, 3, 'daysLeft = 3');
+  st = wedModule.resolveItineraryProgress(liveItems, at('2029-06-10T12:00:00'), '2029-06-05');
+  assert.strictEqual(st.mode, 'finished', 'Días después → finished');
+  // Sin fecha: heurística del día (misma lógica con hoy)
+  st = wedModule.resolveItineraryProgress(
+    [{ time: '00:00', title: 'A', icon: 'x' }, { time: '23:59', title: 'B', icon: 'y' }],
+    at('2029-06-05T12:00:00'), ''
+  );
+  assert.strictEqual(st.mode, 'live', 'Sin eventDay usa el día actual');
+  assert.strictEqual(st.currentIndex, 0, 'Al mediodía el actual es el primero');
+  // Sin horas válidas: static
+  st = wedModule.resolveItineraryProgress([{ time: '', title: 'X' }, { time: 'abc', title: 'Y' }], at('2029-06-05T20:00:00'), '2029-06-05');
+  assert.strictEqual(st.mode, 'static', 'Sin horas parseables → static');
+  // Render en vivo: badge AHORA + aria-current + píldora + barra
+  const liveHtml = wedModule.renderWeddingItineraryHTML({
+    enabled: true, title: 'Programa', coupleNames: 'M&E', eventDay: '2029-06-05',
+    items: liveItems
+  }, (s) => String(s), at('2029-06-05T20:00:00'));
+  assert.ok(liveHtml.includes('is-now'), 'El momento actual lleva is-now');
+  assert.ok(liveHtml.includes('AHORA'), 'Badge AHORA visible');
+  assert.ok(liveHtml.includes('aria-current="true"'), 'aria-current en el momento actual');
+  assert.ok(liveHtml.includes('En vivo'), 'Píldora En vivo en el header');
+  assert.ok(liveHtml.includes('role="progressbar"'), 'Barra de avance con rol');
+  assert.ok(liveHtml.includes('is-past'), 'Momentos pasados atenuados');
+  assert.ok(liveHtml.includes('Siguiente'), 'Tag Siguiente en el próximo');
+  // Render countdown: píldora sin timeline alterado
+  const cdHtml = wedModule.renderWeddingItineraryHTML({
+    enabled: true, title: 'Programa', eventDay: '2029-06-05', items: liveItems
+  }, (s) => String(s), at('2029-06-02T12:00:00'));
+  assert.ok(cdHtml.includes('Faltan 3 días'), 'Cuenta regresiva en el header');
+  assert.ok(!cdHtml.includes('is-now'), 'Sin momento actual antes del evento');
+  // Cableado del refresh: menu.js re-renderiza cada 30s + Studio pide el día + CSS de estados
+  assert.ok(menuSrc.includes('weddingItineraryTimer'), 'menu.js gestiona el intervalo de re-render');
+  assert.ok(menuSrc.includes('setInterval(renderWeddingItinerary, 30000)'), 'Refresh cada 30s');
+  assert.ok(studioHtmlSrc.includes('id="inputWeddingDay"'), 'Studio: input de fecha del evento');
+  assert.ok(menuCssSrc.includes('.wed-it-status'), 'CSS: píldora de estado');
+  assert.ok(menuCssSrc.includes('.wed-it-progress'), 'CSS: barra de avance');
+  assert.ok(menuCssSrc.includes('.wed-it-now-badge'), 'CSS: badge AHORA');
+  assert.ok(menuCssSrc.includes('prefers-reduced-motion'), 'CSS: respeta reduced-motion');
+  console.log('✓ Itinerario en vivo: pasado/ahora/siguiente, countdown, acarreo nocturno, refresh 30s');
+
+  // 20. Marco floral del timeline: esquinas botánicas + divisor, todo inline
+  const frameHtml = wedModule.renderWeddingItineraryHTML({
+    enabled: true, title: 'Programa', items: [{ time: '18:00', title: 'X' }]
+  }, (s) => String(s), at('2029-06-05T10:00:00'));
+  for (const corner of ['is-tl', 'is-tr', 'is-bl', 'is-br']) {
+    assert.ok(frameHtml.includes(`wed-it-corner ${corner}`), `Esquina floral ${corner} presente`);
+  }
+  assert.ok(frameHtml.includes('wed-it-divider'), 'Divisor floral entre header y timeline');
+  assert.ok(menuCssSrc.includes('.wed-it-corner'), 'CSS: esquinas botánicas');
+  assert.ok(menuCssSrc.includes('.wed-it-divider'), 'CSS: divisor floral');
+  assert.ok(menuCssSrc.includes('data:image/svg+xml'), 'Marco 100% inline (SVG data-URI, sin imágenes externas)');
+  assert.ok(menuCssSrc.includes('pointer-events: none'), 'Esquinas sin interacción (decorativas)');
+  console.log('✓ Marco floral: 4 esquinas + divisor + doble marco, todo inline sin assets externos');
+
+  // 21. Neón multi-acentos: 6 colores elegibles para el layout Neon Nightbar
+  assert.deepStrictEqual(Object.keys(presModule.NEON_ACCENTS), ['mint', 'cyan', 'magenta', 'amber', 'lime', 'violet'], '6 acentos neón');
+  for (const [key, cfg] of Object.entries(presModule.NEON_ACCENTS)) {
+    assert.ok(/^#[0-9A-Fa-f]{6}$/.test(cfg.hex), `Acento ${key}: hex válido`);
+    assert.ok(/^\d{1,3}, \d{1,3}, \d{1,3}$/.test(cfg.rgb), `Acento ${key}: rgb válido`);
+    assert.ok(cfg.label.length > 0, `Acento ${key}: con etiqueta`);
+  }
+  assert.strictEqual(presModule.resolveNeonAccent('magenta'), 'magenta', 'Clave válida pasa');
+  assert.strictEqual(presModule.resolveNeonAccent('CYAN'), 'cyan', 'Case-insensitive');
+  assert.strictEqual(presModule.resolveNeonAccent('turquesa'), 'mint', 'Basura → mint');
+  assert.strictEqual(presModule.resolveNeonAccent(''), 'mint', 'Vacío → mint');
+  assert.strictEqual(presModule.resolveNeonAccent(null), 'mint', 'Null → mint');
+  // CSS: una clase por acento con su --neon, bloque con variables
+  const neonCss = menuCssSrc;
+  for (const [key, cfg] of Object.entries(presModule.NEON_ACCENTS)) {
+    assert.ok(neonCss.includes(`body.layout-neon.neon-${key}`), `CSS: clase neon-${key}`);
+    assert.ok(neonCss.includes(`--neon: ${cfg.hex}`), `CSS: neon-${key} fija su ${cfg.hex}`);
+  }
+  assert.ok(neonCss.includes('--neon-rgb'), 'CSS: canal rgb para glows con alfa');
+  assert.ok(neonCss.includes('rgba(var(--neon-rgb)'), 'CSS: glows consumen la variable');
+  assert.ok(!neonCss.includes('rgba(0, 245, 212'), 'CSS: sin menta hardcodeado fuera del default');
+  // menu.js: clase neon-<x> solo con layout neon (+ preview ?neon=)
+  assert.ok(menuSrc.includes('resolveNeonAccentMod'), 'menu.js importa el resolver de acento');
+  assert.ok(menuSrc.includes("layoutClass === 'layout-neon'"), 'Acento solo con layout neon');
+  assert.ok(menuSrc.includes('neon-${resolveNeonAccentMod('), 'Clase neon-<acento> dinámica');
+  // Studio: selector visible solo en neon + save/load + backend allowlist
+  assert.ok(studioHtmlSrc.includes('id="inputNeonAccent"'), 'Studio: selector de acento');
+  assert.ok(studioHtmlSrc.includes('value="magenta"') && studioHtmlSrc.includes('value="violet"'), 'Studio: las 6 opciones');
+  assert.ok(studioSrc.includes("restaurant.neonAccent = neonSelect.value || 'mint'"), 'Studio: guarda el acento');
+  assert.ok(studioSrc.includes("el('inputNeonAccent').value = restaurant.neonAccent"), 'Studio: pobla el acento');
+  assert.ok(studioSrc.includes("layoutSelect.value === 'neon'"), 'Studio: fila visible solo en neon');
+  const sanitizeBe = require('../api/utils/sanitizeRestaurant.js');
+  assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({ name: 'T', neonAccent: 'amber' }).neonAccent, 'amber', 'Backend: ámbar pasa');
+  assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({ name: 'T', neonAccent: 'fucsia' }).neonAccent, 'mint', 'Backend: inválido → mint');
+  assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({ name: 'T' }).neonAccent, 'mint', 'Backend: ausente → mint');
+  console.log('✓ Neón multi-acentos: 6 colores con variables CSS, selector en Studio, allowlist backend');
+
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE COMPONENTIZACIÓN DE MENU PASARON AL 100%!');
 }
 

@@ -21,6 +21,26 @@ function readJson(file, def = []) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { return def; }
 }
 
+// Cache L1 en memoria para restaurantes (el JSON se parseaba entero + .find()
+// lineal en CADA request: tenantGuard, SSR /m/*, analytics...). Se revalida por
+// mtime+size del archivo, así que escrituras directas, snapshot/restore de tests
+// y writes del propio proceso siempre se ven. Toda escritura vía writeJson al
+// archivo de restaurantes invalida explícitamente (cubre mismo-ms-mismo-size).
+let _restCache = { key: '', rows: null };
+function _restCacheKey() {
+  try {
+    const st = fs.statSync(RESTAURANTS_FILE);
+    return `${st.mtimeMs}:${st.size}`;
+  } catch (e) { return `missing:${Date.now()}`; }
+}
+function readRestaurants() {
+  const key = _restCacheKey();
+  if (_restCache.rows && _restCache.key === key) return _restCache.rows;
+  const rows = readJson(RESTAURANTS_FILE, []);
+  _restCache = { key, rows };
+  return rows;
+}
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -32,6 +52,7 @@ async function writeJson(file, data, retries = 3, delay = 100) {
     try {
       fs.writeFileSync(temporaryFile, JSON.stringify(data, null, 2), 'utf8');
       fs.renameSync(temporaryFile, file);
+      if (file === RESTAURANTS_FILE) _restCache = { key: '', rows: null };
       return true;
     } catch (e) {
       console.error(`Error writing to ${file} (attempt ${attempt}/${retries}):`, e.message);
@@ -436,15 +457,15 @@ const db = {
 
   // Restaurants & Menus
   findRestaurantBySlug(slug) {
-    const rests = readJson(RESTAURANTS_FILE, []);
+    const rests = readRestaurants();
     return normalizeRestaurantBusinessType(rests.find(r => (r.slug || '').toLowerCase() === (slug || '').toLowerCase()) || null);
   },
   findRestaurantByUserId(userId) {
-    const rests = readJson(RESTAURANTS_FILE, []);
+    const rests = readRestaurants();
     return normalizeRestaurantBusinessType(rests.find(r => r.userId === userId) || null);
   },
   findRestaurantById(id) {
-    const rests = readJson(RESTAURANTS_FILE, []);
+    const rests = readRestaurants();
     return normalizeRestaurantBusinessType(rests.find(r => r.id === id) || null);
   },
   async saveRestaurant(userId, data) {
@@ -537,6 +558,8 @@ const db = {
       const clean = {};
       for (const [dishId, value] of Object.entries(overrides)) {
         if (!dishId || typeof dishId !== 'string') continue;
+        // Llaves de prototipo: Object.assign posterior usaría [[Set]].
+        if (dishId === '__proto__' || dishId === 'constructor' || dishId === 'prototype') continue;
         let num = value;
         if (value && typeof value === 'object' && !Array.isArray(value)) {
           num = value.price ?? value.value ?? value.precio;
@@ -715,7 +738,7 @@ const db = {
 
   // Admin & Monitoring
   getAllRestaurants() {
-    return readJson(RESTAURANTS_FILE, []);
+    return readRestaurants();
   },
   getAllUsers() {
     const users = readJson(USERS_FILE, []);

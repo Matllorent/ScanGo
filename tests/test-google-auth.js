@@ -40,7 +40,6 @@ async function runTests() {
       return {
         ok: true,
         json: async () => ({
-          token: 'session-token',
           user: { email: 'owner@example.com' },
           restaurant: { id: 'rest-test', name: 'La Cocina de Prueba' }
         })
@@ -101,7 +100,7 @@ async function runTests() {
     restaurantName: 'La Cocina de Prueba',
     businessType: 'restaurant'
   });
-  assert.strictEqual(localStorage.get('menu_pizarron_token'), 'session-token');
+  assert.ok(localStorage.get('menu_pizarron_token') == null, 'Sin JWT en localStorage (sesión solo-cookie)');
   assert.strictEqual(context.window.location.href, '/studio.html');
   assert.strictEqual(elements.authError.textContent, '');
 

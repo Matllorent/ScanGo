@@ -349,12 +349,13 @@ export class VirtualWaiter {
         ? `<span style="font-size:10px; background:rgba(239,68,68,0.2); color:#F87171; border:1px solid rgba(239,68,68,0.3); border-radius:4px; padding:1px 5px; font-weight:700; margin-left:4px;">${escapeHtml(discount)}</span>`
         : '';
 
+      const dishIsFree = dish.price === null || dish.price === undefined || dish.price === '' || Number(dish.price) === 0;
       cardsHtml += `
         <div class="mozo-item-card" data-dish-id="${escapeHtml(dish.id)}">
           ${thumbHtml}
           <div class="mozo-item-info">
             <div class="mozo-item-title">${escapeHtml(dish.name)} ${discountTagHtml}</div>
-            <div class="mozo-item-price">${this.formatPrice(dish.price)}</div>
+            ${dishIsFree ? '' : `<div class="mozo-item-price">${this.formatPrice(dish.price)}</div>`}
           </div>
           <button type="button" class="btn-mozo-quick-add" data-dish-id="${escapeHtml(dish.id)}" aria-label="Agregar ${escapeHtml(dish.name)} al pedido">
             + Agregar

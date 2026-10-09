@@ -74,6 +74,7 @@
     banner.id = 'pwaInstallBanner';
     banner.setAttribute('role', 'dialog');
     banner.setAttribute('aria-label', 'Instalar la aplicación');
+    banner.setAttribute('aria-live', 'polite');
     banner.style.cssText = 'position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:99999;'
       + ' display:flex; align-items:center; gap:10px; max-width:min(92vw, 420px); padding:10px 14px;'
       + ' background:#101614; color:#fff; border:1px solid var(--border-gold, #D4A853); border-radius:14px;'
@@ -84,7 +85,7 @@
       + '<span style="font-size:0.72rem; opacity:0.75;">Accedé más rápido desde tu pantalla de inicio</span>'
       + '</div>'
       + '<button type="button" id="pwaInstallAccept" style="margin-left:auto; background:var(--chalk-gold, #D4A853); color:#101614; border:none; border-radius:10px; padding:8px 12px; font-weight:800; cursor:pointer; font-size:0.78rem; white-space:nowrap;">Instalar</button>'
-      + '<button type="button" id="pwaInstallDismiss" aria-label="Cerrar" style="background:transparent; color:#fff; border:none; font-size:1.05rem; cursor:pointer; opacity:0.6; padding:0 4px;">✕</button>';
+      + '<button type="button" id="pwaInstallDismiss" aria-label="Cerrar aviso de instalación" style="background:transparent; color:#fff; border:none; font-size:1.05rem; cursor:pointer; opacity:0.6; padding:0 4px;">✕</button>';
 
     document.body.appendChild(banner);
 

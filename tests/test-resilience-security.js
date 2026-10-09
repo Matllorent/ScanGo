@@ -127,6 +127,36 @@ async function runTests() {
   assert.strictEqual(updatedUser.password, 'new_secure_hashed_password', 'La contraseña debe actualizarse en la DB');
   console.log('✓ Actualización de contraseña persistida exitosamente');
 
+  // ==========================================
+  // 4. CAPTCHA invisible (Turnstile) en alta de pedidos
+  // ==========================================
+  const { isCaptchaEnforced, verifyTurnstile } = require('../api/utils/captcha');
+  // Sin secreto: skip honesto (flujo actual intacto, cero red).
+  delete process.env.TURNSTILE_SECRET;
+  assert.strictEqual(isCaptchaEnforced(), false, 'Sin secreto no se exige captcha');
+  assert.deepStrictEqual(
+    await verifyTurnstile('', '127.0.0.1'),
+    { ok: true, skipped: true },
+    'Sin secreto el verify hace skip sin red'
+  );
+  // Con secreto: token ausente → 403 sin llamar a la red.
+  process.env.TURNSTILE_SECRET = 'test-bogus-secret';
+  try {
+    assert.strictEqual(isCaptchaEnforced(), true, 'Con secreto se exige captcha');
+    const missing = await verifyTurnstile('', '127.0.0.1');
+    assert.deepStrictEqual(missing, { ok: false, reason: 'CAPTCHA_REQUIRED' }, 'Token ausente → CAPTCHA_REQUIRED');
+    const oversized = await verifyTurnstile('x'.repeat(2001), '127.0.0.1');
+    assert.deepStrictEqual(oversized, { ok: false, reason: 'CAPTCHA_INVALID' }, 'Token gigante → CAPTCHA_INVALID');
+    // El menú expone la sitekey pública y el checkout adjunta el token.
+    const menuSrc = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'menu.js'), 'utf8');
+    assert.ok(menuSrc.includes('captchaToken'), 'El checkout envía captchaToken');
+    assert.ok(menuSrc.includes('/api/public/captcha-config'), 'El menú lee la sitekey pública');
+    assert.ok(menuSrc.includes('challenges.cloudflare.com/turnstile'), 'Turnstile explícito invisible');
+    console.log('✓ CAPTCHA: skip sin secreto, 403 sin red ante token ausente/sobredimensión, front cableado');
+  } finally {
+    delete process.env.TURNSTILE_SECRET;
+  }
+
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE RESILIENCIA, CABECERAS HTTP Y SEGURIDAD PASARON AL 100%!');
 }
 

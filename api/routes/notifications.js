@@ -130,7 +130,7 @@ router.post('/subscribe', notificationLimiter, validateBody(subscribeSchema), as
       const jwt = require('jsonwebtoken');
       const token = (req.headers.authorization && req.headers.authorization.split(' ')[1]) || req.cookies.auth_token;
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret_menu_pizarron_2026');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret_menu_pizarron_2026', { algorithms: ['HS256'] });
         if (userId && decoded.userId !== userId) {
           return res.status(403).json({ success: false, error: 'No podés suscribir dispositivos a nombre de otro usuario', code: 'SUBSCRIPTION_USER_MISMATCH' });
         }

@@ -46,6 +46,14 @@ export class LoyaltyRewardsModal {
     this.infoMsg = '';
     this.lastRedeem = null; // { code, rewardTitle, pointsCost, restaurantName }
     this.redeemingId = null;
+    // Flujo OTP (prueba de posesión del email antes de canjear/borrar)
+    this.otpMode = null;      // 'redeem' | 'erase' | null
+    this.pendingPurpose = null; // propósito pendiente cuando falta el email
+    this.otpInput = '';
+    this.otpRewardId = null;
+    this.emailMode = false;   // pide email cuando el perfil no tiene
+    this.emailInput = '';
+    this.maskedEmail = '';
 
     // Contrato con dom-bindings: el binder resuelve `activeLoyaltyModal.<método>`
     // contra window y llama con receiver = esta instancia.
@@ -141,7 +149,18 @@ export class LoyaltyRewardsModal {
       });
       const body = await res.json();
       if (!res.ok) {
-        this.errorMsg = body.error || 'No se pudo canjear el beneficio.';
+        if (body.code === 'REDEEM_OTP_REQUIRED' || body.code === 'CUSTOMER_EMAIL_REQUIRED') {
+          // El perfil tiene email (o debe registrarlo): inicia el flujo OTP.
+          this.otpRewardId = rewardId;
+          this.pendingPurpose = 'redeem';
+          this.emailMode = body.code === 'CUSTOMER_EMAIL_REQUIRED';
+          this.otpMode = null;
+          this.maskedEmail = (body.details && body.details.maskedEmail) || '';
+          if (!this.emailMode) await this.requestOtp('redeem');
+          else this.render();
+        } else {
+          this.errorMsg = body.error || 'No se pudo canjear el beneficio.';
+        }
       } else {
         this.lastRedeem = body.data;
         this.infoMsg = '';
@@ -153,6 +172,115 @@ export class LoyaltyRewardsModal {
       this.errorMsg = 'No se pudo canjear. Revisá tu conexión.';
     }
     this.redeemingId = null;
+    this.render();
+  }
+
+  // Pide el código al email del perfil (canje o borrado).
+  async requestOtp(purpose) {
+    this.errorMsg = '';
+    try {
+      const res = await fetch('/api/loyalty/challenge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: this.phone, purpose })
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        if (body.code === 'CUSTOMER_EMAIL_REQUIRED') {
+          this.emailMode = true;
+          this.otpMode = null;
+        } else {
+          this.errorMsg = body.error || 'No pudimos enviarte el código.';
+        }
+      } else {
+        this.emailMode = false;
+        this.otpMode = purpose;
+        this.maskedEmail = (body.data && body.data.maskedEmail) || '';
+        this.infoMsg = `Te enviamos un código de 6 dígitos a ${this.maskedEmail}. Vence en 10 minutos.`;
+      }
+    } catch (e) {
+      this.errorMsg = 'No pudimos enviarte el código. Revisá tu conexión.';
+    }
+    this.render();
+  }
+
+  storeOtpInput(value) {
+    this.otpInput = String(value || '').replace(/\D/g, '').slice(0, 6);
+  }
+
+  cancelOtp() {
+    this.otpMode = null;
+    this.otpInput = '';
+    this.otpRewardId = null;
+    this.render();
+  }
+
+  async confirmOtpRedeem() {
+    if (!this.otpInput || this.otpInput.length !== 6 || !this.otpRewardId) {
+      this.errorMsg = 'Ingresá el código de 6 dígitos que te enviamos por email.';
+      this.render();
+      return;
+    }
+    if (this.redeemingId) return;
+    this.redeemingId = this.otpRewardId;
+    this.errorMsg = '';
+    this.render();
+    try {
+      const res = await fetch('/api/loyalty/redeem/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: this.phone, restaurantId: this.restaurantId, rewardId: this.otpRewardId, otp: this.otpInput })
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        this.errorMsg = body.error || 'Código incorrecto o vencido.';
+      } else {
+        this.lastRedeem = body.data;
+        this.otpMode = null;
+        this.otpInput = '';
+        this.otpRewardId = null;
+        this.infoMsg = '';
+        await this.loadCard();
+        this.render();
+      }
+    } catch (e) {
+      this.errorMsg = 'No se pudo confirmar. Revisá tu conexión.';
+    }
+    this.redeemingId = null;
+    this.render();
+  }
+
+  storeEmailInput(value) {
+    this.emailInput = String(value || '').trim();
+  }
+
+  async submitEmail() {
+    if (!this.emailInput || !this.emailInput.includes('@')) {
+      this.errorMsg = 'Ingresá un email válido para recibir el código.';
+      this.render();
+      return;
+    }
+    this.errorMsg = '';
+    this.render();
+    try {
+      const res = await fetch('/api/loyalty/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: this.phone, email: this.emailInput })
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        this.errorMsg = body.error || 'No pudimos registrar tu email.';
+      } else {
+        this.emailMode = false;
+        this.emailInput = '';
+        const purpose = this.pendingPurpose === 'erase' ? 'erase' : 'redeem';
+        this.pendingPurpose = null;
+        await this.requestOtp(purpose);
+      }
+    } catch (e) {
+      this.errorMsg = 'No pudimos registrar tu email. Revisá tu conexión.';
+    }
     this.render();
   }
 
@@ -177,17 +305,32 @@ export class LoyaltyRewardsModal {
   async eraseMyData() {
     if (!this.phone) return;
     if (!window.confirm('Esto borra TODOS tus datos del Club ScanGo (puntos, sellos, premios e historial). ¿Continuar?')) return;
+    this.pendingPurpose = 'erase';
+    // Con email registrado, el borrado exige OTP (evita borrado remoto por terceros).
+    await this.requestOtp('erase');
+  }
+
+  async confirmErase() {
+    if (!this.otpInput || this.otpInput.length !== 6) {
+      this.errorMsg = 'Ingresá el código de 6 dígitos que te enviamos por email.';
+      this.render();
+      return;
+    }
+    this.errorMsg = '';
+    this.render();
     try {
       const res = await fetch('/api/loyalty/me', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: this.phone })
+        body: JSON.stringify({ phone: this.phone, otp: this.otpInput })
       });
       const body = await res.json();
       localStorage.removeItem('scango_loyalty_phone');
       this.phone = '';
       this.card = null;
       this.lastRedeem = null;
+      this.otpMode = null;
+      this.otpInput = '';
       this.errorMsg = '';
       this.infoMsg = body && body.message ? body.message : 'Tus datos fueron eliminados por completo.';
       this.render();
@@ -240,6 +383,8 @@ export class LoyaltyRewardsModal {
     if (this.infoMsg && !this.card) {
       parts.push(`<div style="background: rgba(236,201,75,0.1); border: 1px solid rgba(236,201,75,0.35); color: var(--chalk-gold); border-radius: 8px; padding: 10px 12px; font-size: 0.82rem; margin-top: 10px;">${escapeHtml(this.infoMsg)}</div>`);
     }
+    if (this.emailMode) parts.push(this.buildEmailBox());
+    if (this.otpMode) parts.push(this.buildOtpBox());
     if (this.lastRedeem) parts.push(this.buildRedeemSuccess());
 
     if (this.card && this.card.customer) {
@@ -263,6 +408,43 @@ export class LoyaltyRewardsModal {
                data-js-input="activeLoyaltyModal.storePhoneInput|this.value">
         <button type="button" class="btn-nav btn-nav-gold" data-js-click="activeLoyaltyModal.submitPhone"
                 style="white-space: nowrap; font-size: 12px; padding: 0 14px;">Ver tarjeta</button>
+      </div>
+    `;
+  }
+
+  buildEmailBox() {
+    return `
+      <div style="background: rgba(99,179,237,0.08); border: 1px solid rgba(99,179,237,0.35); border-radius: 10px; padding: 12px 14px; margin-top: 12px;">
+        <div style="font-weight:800; font-size:0.86rem; color:#fff; margin-bottom:4px;">📧 Registrá tu email</div>
+        <div style="font-size:0.78rem; color:var(--chalk-dim); margin-bottom:8px;">Para proteger tus puntos, el código de confirmación llega a tu email.</div>
+        <div style="display:flex; gap:8px;">
+          <input type="email" class="form-input" autocomplete="email" placeholder="tu@email.com"
+                 value="${escapeHtml(this.emailInput || '')}"
+                 data-js-input="activeLoyaltyModal.storeEmailInput|this.value" style="flex:1;">
+          <button type="button" class="btn-nav btn-nav-gold" data-js-click="activeLoyaltyModal.submitEmail"
+                  style="white-space:nowrap; font-size:12px; padding:0 14px;">Enviar código</button>
+        </div>
+      </div>
+    `;
+  }
+
+  buildOtpBox() {
+    const isErase = this.otpMode === 'erase';
+    const confirmAction = isErase ? 'activeLoyaltyModal.confirmErase' : 'activeLoyaltyModal.confirmOtpRedeem';
+    return `
+      <div style="background: rgba(72,187,120,0.08); border: 1px solid rgba(72,187,120,0.4); border-radius: 10px; padding: 12px 14px; margin-top: 12px;">
+        <div style="font-weight:800; font-size:0.86rem; color:#fff; margin-bottom:4px;">🔐 Código de confirmación</div>
+        <div style="font-size:0.78rem; color:var(--chalk-dim); margin-bottom:8px;">Te lo enviamos a ${escapeHtml(this.maskedEmail || 'tu email')}. Vence en 10 minutos.</div>
+        <div style="display:flex; gap:8px;">
+          <input type="text" class="form-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456"
+                 value="${escapeHtml(this.otpInput || '')}"
+                 data-js-input="activeLoyaltyModal.storeOtpInput|this.value"
+                 style="flex:1; font-family:var(--font-mono); letter-spacing:4px; text-align:center; font-size:1rem;">
+          <button type="button" class="btn-nav btn-nav-gold" data-js-click="${confirmAction}"
+                  style="white-space:nowrap; font-size:12px; padding:0 14px;">Confirmar</button>
+        </div>
+        <button type="button" data-js-click="activeLoyaltyModal.cancelOtp"
+                style="background:none; border:none; color:var(--chalk-dim); font-size:11px; cursor:pointer; margin-top:6px; text-decoration:underline;">Cancelar</button>
       </div>
     `;
   }

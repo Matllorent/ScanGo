@@ -6,6 +6,7 @@ const { successResponse, errorResponse } = require('../utils/response');
 const { validateBody, validateQuery } = require('../middleware/validation');
 const requireVerifiedEmail = require('../middleware/requireVerifiedEmail');
 const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
 const { adminMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
@@ -96,7 +97,7 @@ router.post('/', requireVerifiedEmail, validateBody(createReviewSchema), require
           created_at: newReview.created_at
         }]);
       } catch (err) {
-        console.warn('[Supabase Insert Review Warning]', err.message);
+        logger.warn('[Supabase Insert Review Warning]', { details: err.message });
       }
     }
 
@@ -138,7 +139,7 @@ router.get('/public', validateQuery(paginationQuerySchema), async (req, res, nex
           });
         }
       } catch (e) {
-        console.warn('[Supabase Get Public Reviews]', e.message);
+        logger.warn('[Supabase Get Public Reviews]', { details: e.message });
       }
     }
 
@@ -180,7 +181,7 @@ router.get('/admin', adminMiddleware, async (req, res, next) => {
           return successResponse(res, data, 'Todas las reseñas recuperadas para administración');
         }
       } catch (e) {
-        console.warn('[Supabase Get Admin Reviews]', e.message);
+        logger.warn('[Supabase Get Admin Reviews]', { details: e.message });
       }
     }
 
@@ -208,7 +209,7 @@ router.patch('/admin/:id/approve', adminMiddleware, async (req, res, next) => {
           .update({ status: 'approved' })
           .eq('id', reviewId);
       } catch (e) {
-        console.warn('[Supabase Approve Review]', e.message);
+        logger.warn('[Supabase Approve Review]', { details: e.message, reviewId });
       }
     }
 
@@ -266,7 +267,9 @@ router.post('/feedback', validateBody(feedbackSchema), async (req, res, next) =>
           customer_contact: saved.customerContact,
           created_at: saved.createdAt
         }]);
-      } catch (e) {}
+      } catch (e) {
+        logger.warn('[Supabase Insert Customer Feedback]', { details: e.message, restaurantId });
+      }
     }
 
     return successResponse(res, saved, 'Comentario privado recibido exitosamente por la administración', 201);

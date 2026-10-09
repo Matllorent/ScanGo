@@ -5,7 +5,7 @@
  * Extraído de studio.js: triggerAutoSave, saveStudioChanges, reloadPreviewIframe, setPreviewView.
  */
 
-const TOKEN_KEY = 'menu_pizarron_token';
+const TOKEN_KEY = 'menu_pizarron_token'; // legacy: ya no se emite ni se usa
 
 /**
  * Dispara el guardado automático con debounce de 1200ms.
@@ -38,8 +38,6 @@ export async function saveStudioChanges(restaurant, showSaveFeedback, reloadPrev
   if (btnText) btnText.textContent = '⏳ Guardando...';
   showSaveFeedback('saving');
 
-  const token = localStorage.getItem(TOKEN_KEY);
-
   // Always persist locally first (works offline)
   try {
     localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(restaurant));
@@ -57,18 +55,15 @@ export async function saveStudioChanges(restaurant, showSaveFeedback, reloadPrev
     }, 1800);
   };
 
-  if (!token) {
-    setTimeout(() => finishSave('✓ Guardado', 'saved'), 350);
-    return;
-  }
-
+  // Sesión por cookie httpOnly (web) o dispositivo (nativo): el backend
+  // responde 401 si expiró; el catch degrada a guardado local igual que antes.
   try {
+    const headers = window.AuthClient
+      ? window.AuthClient.getAuthHeaders({ 'Content-Type': 'application/json' })
+      : { 'Content-Type': 'application/json' };
     const res = await fetch('/api/studio/save', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
+      headers,
       body: JSON.stringify({ restaurantId: restaurant.id, data: restaurant })
     });
     if (!res.ok) throw new Error('Error al guardar');

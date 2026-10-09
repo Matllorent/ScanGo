@@ -37,8 +37,8 @@
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Error en autenticación');
           
-          // Store session (same-origin localStorage: el opener la verá al navegar)
-          localStorage.setItem('menu_pizarron_token', data.token);
+          // Sesión por cookie httpOnly (la fija el backend). Sin token en JS.
+          // (Se conservan los cachés de display user/restaurant, no credenciales.)
           localStorage.setItem('menu_pizarron_user', JSON.stringify(data.user));
           localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(data.restaurant));
           // Nota: se eliminó el postMessage GOOGLE_AUTH_SUCCESS a '*' (no tenía

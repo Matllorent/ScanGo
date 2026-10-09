@@ -5,11 +5,12 @@ const { OAuth2Client } = require('google-auth-library');
 const db = require('../../src/db/db');
 const emailService = require('../services/email');
 const { hashPassword, comparePassword } = require('../utils/hash');
-const { registerSchema, loginSchema, validateBody } = require('../middleware/validation');
+const { registerSchema, loginSchema, deviceLoginSchema, validateBody } = require('../middleware/validation');
 const { getSupabaseClient } = require('../utils/supabase');
 const { successResponse, errorResponse } = require('../utils/response');
 const AppError = require('../utils/AppError');
 const { checkSubscriptionKillSwitch } = require('../middleware/killSwitch');
+const { authMiddleware, authenticateRequest } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -23,8 +24,81 @@ const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'lax',
-  maxAge: 30 * 24 * 3600 * 1000
+  maxAge: 7 * 24 * 3600 * 1000 // 7 días: acompaña a expiresIn '7d' del JWT
 };
+
+const { revokeJti, checkSessionFreshness } = require('../utils/tokenRevocation');
+const { issueDeviceToken, listDeviceTokens, revokeDeviceToken, revokeAllUserDevices, verifyDeviceToken } = require('../utils/deviceTokens');
+
+/**
+ * Emite un JWT de sesión revocable: jti (logout puntual) + pwdTs
+ * (toda la sesión muere si la clave cambia, en todas las instancias).
+ */
+function mintSessionToken(user) {
+  return jwt.sign(
+    {
+      userId: user.id,
+      email: user.email,
+      jti: crypto.randomUUID(),
+      pwdTs: user.updatedAt || user.createdAt || null
+    },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+}
+
+// Mutex en proceso por jti de reset: serializa el check-then-set de
+// isResetTokenValid/invalidateResetToken (dos POST concurrentes con el mismo
+// enlace no pueden pasar ambos la verificación).
+const resetLocks = new Map();
+async function withResetLock(jti, fn) {
+  const prev = resetLocks.get(jti) || Promise.resolve();
+  let release;
+  const current = new Promise((resolve) => { release = resolve; });
+  resetLocks.set(jti, current);
+  await prev.catch(() => {});
+  try {
+    return await fn();
+  } finally {
+    release();
+    if (resetLocks.get(jti) === current) resetLocks.delete(jti);
+  }
+}
+
+/**
+ * Verifica email+password y devuelve el usuario fresco (migra legacy a
+ * bcrypt en el camino, sin cambiar la clave). Lanza INVALID_CREDENTIALS.
+ * Compartido por /login y /device para no duplicar la lógica.
+ */
+async function verifyUserCredentials(email, password) {
+  const user = db.findUserByEmail(email);
+  if (!user || typeof user.password !== 'string') {
+    throw new AppError('Credenciales incorrectas', 401, 'INVALID_CREDENTIALS');
+  }
+  // Legacy sin hashear: comparación en tiempo constante y migración
+  // transparente a bcrypt en el mismo login (la clave NO cambia).
+  let isMatch;
+  let legacyUpgraded = false;
+  if (user.password.startsWith('$2')) {
+    isMatch = await comparePassword(password, user.password);
+  } else {
+    const a = crypto.createHash('sha256').update(String(password)).digest();
+    const b = crypto.createHash('sha256').update(String(user.password)).digest();
+    isMatch = crypto.timingSafeEqual(a, b);
+    if (isMatch) {
+      await db.updateUserPassword(user.id, await hashPassword(password));
+      legacyUpgraded = true;
+    }
+  }
+  if (!isMatch) {
+    throw new AppError('Credenciales incorrectas', 401, 'INVALID_CREDENTIALS');
+  }
+  if (legacyUpgraded) {
+    const refreshed = db.findUserById(user.id);
+    if (refreshed) return refreshed;
+  }
+  return user;
+}
 
 /**
  * Middleware to normalize email in request body before validation
@@ -131,7 +205,7 @@ router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
       });
     }
 
-    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+    const token = mintSessionToken(user);
     res.cookie('auth_token', token, COOKIE_OPTIONS);
 
     // Welcome email for new Google Auth users (same template as register)
@@ -146,7 +220,7 @@ router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
     }
 
     const { password: _, ...safeUser } = user;
-    return successResponse(res, { user: safeUser, restaurant, token }, 'Acceso con Google exitoso', 200, { flatData: true });
+    return successResponse(res, { user: safeUser, restaurant }, 'Acceso con Google exitoso. Sesión guardada en cookie segura.', 200, { flatData: true });
   } catch (err) {
     next(err);
   }
@@ -261,10 +335,10 @@ router.post('/supabase-callback', checkSubscriptionKillSwitch, async (req, res, 
       });
     }
 
-    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+    const token = mintSessionToken(user);
     res.cookie('auth_token', token, COOKIE_OPTIONS);
     const { password: _, ...safeUser } = user;
-    return successResponse(res, { user: safeUser, restaurant, token }, 'Google sign-in successful', 200, { flatData: true });
+    return successResponse(res, { user: safeUser, restaurant }, 'Google sign-in successful. Session stored in secure cookie.', 200, { flatData: true });
   } catch (err) {
     next(err);
   }
@@ -309,7 +383,22 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
 
     const existing = db.findUserByEmail(email);
     if (existing) {
-      throw new AppError('El email ya está registrado', 400, 'EMAIL_ALREADY_EXISTS');
+      // Anti-enumeración: la respuesta es idéntica haya o no cuenta (200
+      // genérico), así un atacante no puede probar qué emails existen. Se
+      // avisa al titular real por email y el frontend muestra la pantalla
+      // "revisá tu correo" (requiresEmailVerification) en ambos casos.
+      emailService.sendEmail({
+        to: email,
+        subject: 'Alguien intentó registrarse con tu email - ScanGo',
+        text: 'Hola: detectamos un intento de registro con esta casilla, que ya tiene una cuenta. Si fuiste vos, iniciá sesión o recuperá tu contraseña. Si no fuiste vos, ignorá este mensaje.'
+      }).catch(() => {});
+      return successResponse(
+        res,
+        { registered: false, requiresEmailVerification: true },
+        'Si el email es válido, te enviamos las instrucciones a tu casilla. Revisá tu correo.',
+        200,
+        { flatData: true }
+      );
     }
 
     // Supabase Auth SignUp with email confirmation redirect URL
@@ -333,8 +422,8 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
         } else if (authError) {
           // Casos reales: dominio rechazado ("invalid email") o cuota de envíos
           // ("email rate limit exceeded"). Se degrada a cuenta local sin
-          // verificación, pero tiene que quedar visible en los logs.
-          console.warn('[Supabase Auth SignUp Error]', authError.message, '| email:', email);
+          // verificación, pero tiene que quedar visible en los logs (sin PII).
+          console.warn('[Supabase Auth SignUp Error]', authError.message);
         }
       } catch (err) {
         console.warn('[Supabase Auth SignUp Warning]', err.message);
@@ -368,7 +457,7 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
       ...buildStarterMenu()
     });
 
-    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+    const token = mintSessionToken(user);
     res.cookie('auth_token', token, COOKIE_OPTIONS);
 
     // Send welcome email
@@ -389,7 +478,7 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
     const requiresEmailVerification = Boolean(sbUser && !sbUser.email_confirmed_at);
     return successResponse(
       res,
-      { user: safeUser, restaurant, token, requiresEmailVerification },
+      { user: safeUser, restaurant, requiresEmailVerification },
       requiresEmailVerification
         ? 'Registro exitoso. Te enviamos un correo para confirmar tu casilla: abrí el enlace para empezar a editar tu menú.'
         : 'Registro exitoso. Tu cuenta está lista: ya podés editar y publicar tu menú.',
@@ -407,26 +496,14 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
 router.post('/login', normalizeEmailInput, validateBody(loginSchema), async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    const user = db.findUserByEmail(email);
-
-    if (!user) {
-      throw new AppError('Credenciales incorrectas', 401, 'INVALID_CREDENTIALS');
-    }
-
-    const isMatch = user.password.startsWith('$2')
-      ? await comparePassword(password, user.password)
-      : user.password === password;
-
-    if (!isMatch) {
-      throw new AppError('Credenciales incorrectas', 401, 'INVALID_CREDENTIALS');
-    }
+    const user = await verifyUserCredentials(email, password);
 
     const restaurant = db.findRestaurantByUserId(user.id);
-    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+    const token = mintSessionToken(user);
     res.cookie('auth_token', token, COOKIE_OPTIONS);
 
     const { password: _, ...safeUser } = user;
-    return successResponse(res, { user: safeUser, restaurant, token }, 'Inicio de sesión exitoso', 200, { flatData: true });
+    return successResponse(res, { user: safeUser, restaurant }, 'Inicio de sesión exitoso. Sesión guardada en cookie segura.', 200, { flatData: true });
   } catch (err) {
     next(err);
   }
@@ -437,11 +514,7 @@ router.post('/login', normalizeEmailInput, validateBody(loginSchema), async (req
  */
 router.get('/me', (req, res, next) => {
   try {
-    const token = req.cookies.auth_token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
-    if (!token) {
-      throw new AppError('No autorizado', 401, 'UNAUTHORIZED');
-    }
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = authenticateRequest(req);
     const user = db.findUserById(decoded.userId);
     const restaurant = db.findRestaurantByUserId(decoded.userId);
 
@@ -461,10 +534,64 @@ router.get('/me', (req, res, next) => {
 
 /**
  * POST /api/auth/logout
+ * Revoca el jti server-side (la sesión muere aunque conserven el token)
+ * y borra la cookie con los mismos flags con que se seteó.
  */
 router.post('/logout', (req, res) => {
-  res.clearCookie('auth_token');
+  try {
+    const raw = req.cookies?.auth_token
+      || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
+    if (raw) {
+      const decoded = jwt.verify(raw, JWT_SECRET, { algorithms: ['HS256'] });
+      if (decoded && decoded.jti) revokeJti(decoded.jti, decoded.exp);
+    }
+  } catch { /* best-effort: el logout siempre responde 200 */ }
+  res.clearCookie('auth_token', COOKIE_OPTIONS);
   return successResponse(res, null, 'Cierre de sesión exitoso');
+});
+
+/**
+ * POST /api/auth/device
+ * Emite una credencial opaca para la app nativa (Capacitor corre en otro
+ * origen y las cookies SameSite=Lax no viajan). El crudo se devuelve UNA vez
+ * (nunca se almacena: solo su hash). Re-login del mismo deviceName rota.
+ * Rate-limit de auth aplicado (mismo que /login).
+ */
+router.post('/device', normalizeEmailInput, validateBody(deviceLoginSchema), async (req, res, next) => {
+  try {
+    const { email, password, deviceName } = req.body;
+    const user = await verifyUserCredentials(email, password);
+    const { raw, record } = issueDeviceToken(user.id, deviceName);
+    return successResponse(res, { deviceToken: raw, device: record }, 'Dispositivo vinculado. Guardá el token: no se muestra de nuevo.', 201);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/auth/devices — lista dispositivos vinculados (sin hashes).
+ */
+router.get('/devices', authMiddleware, async (req, res, next) => {
+  try {
+    return successResponse(res, { devices: listDeviceTokens(req.user.userId) }, 'Dispositivos vinculados');
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * DELETE /api/auth/devices/:id — revoca un dispositivo.
+ */
+router.delete('/devices/:id', authMiddleware, async (req, res, next) => {
+  try {
+    const revoked = revokeDeviceToken(req.user.userId, req.params.id);
+    if (!revoked) {
+      throw new AppError('Dispositivo no encontrado', 404, 'DEVICE_NOT_FOUND');
+    }
+    return successResponse(res, null, 'Dispositivo desvinculado');
+  } catch (err) {
+    next(err);
+  }
 });
 
 /**
@@ -529,7 +656,7 @@ router.get('/verify-reset-token', (req, res, next) => {
 
     let decoded;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     } catch (jwtErr) {
       if (jwtErr.name === 'TokenExpiredError') {
         throw new AppError('El enlace de recuperación ha expirado (límite de 15 minutos). Por favor solicita uno nuevo.', 401, 'TOKEN_EXPIRED');
@@ -570,7 +697,7 @@ router.post('/reset-password', async (req, res, next) => {
 
     let decoded;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     } catch (jwtErr) {
       if (jwtErr.name === 'TokenExpiredError') {
         throw new AppError('El enlace de recuperación ha expirado (límite de 15 minutos). Por favor solicita uno nuevo.', 401, 'TOKEN_EXPIRED');
@@ -582,25 +709,33 @@ router.post('/reset-password', async (req, res, next) => {
       throw new AppError('Token no válido para restablecimiento de contraseña', 400, 'INVALID_TOKEN_PURPOSE');
     }
 
-    // Verify JTI has not been consumed yet
-    const isValid = db.isResetTokenValid(decoded.userId, decoded.jti);
-    if (!isValid) {
-      throw new AppError('Este enlace de recuperación ya fue utilizado previamente o ha expirado.', 400, 'TOKEN_ALREADY_USED');
-    }
+    // Claim atómico del enlace (mutex por jti): dos POST concurrentes con el
+    // mismo token se serializan; el segundo ve el jti consumido → 400.
+    // updateUserPassword pisa updatedAt → todas las sesiones previas mueren
+    // por pwdTs en checkSessionFreshness (la robada no sobrevive al reset).
+    return await withResetLock(decoded.jti, async () => {
+      // Verify JTI has not been consumed yet
+      const isValid = db.isResetTokenValid(decoded.userId, decoded.jti);
+      if (!isValid) {
+        throw new AppError('Este enlace de recuperación ya fue utilizado previamente o ha expirado.', 400, 'TOKEN_ALREADY_USED');
+      }
 
-    const user = db.findUserById(decoded.userId);
-    if (!user) {
-      throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
-    }
+      const user = db.findUserById(decoded.userId);
+      if (!user) {
+        throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
+      }
 
-    // Immediately revoke/invalidate the JTI to prevent reuse
-    await db.invalidateResetToken(decoded.jti);
+      // Immediately revoke/invalidate the JTI to prevent reuse
+      await db.invalidateResetToken(decoded.jti);
 
-    // Hash new password and update in database
-    const hashedPassword = await hashPassword(finalPassword);
-    await db.updateUserPassword(user.id, hashedPassword);
+      // Hash new password and update in database
+      const hashedPassword = await hashPassword(finalPassword);
+      await db.updateUserPassword(user.id, hashedPassword);
+      // Un reset mata TODO: sesiones JWT (pwdTs) y dispositivos vinculados.
+      revokeAllUserDevices(user.id);
 
-    return successResponse(res, null, 'Contraseña restablecida exitosamente. Ya podés iniciar sesión.');
+      return successResponse(res, null, 'Contraseña restablecida exitosamente. Ya podés iniciar sesión.');
+    });
   } catch (err) {
     next(err);
   }

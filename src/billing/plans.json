@@ -1,0 +1,8 @@
+{
+  "starter_monthly": { "price": 9, "period": "monthly" },
+  "starter_annual": { "price": 79, "period": "annual" },
+  "pro_monthly": { "price": 19, "period": "monthly" },
+  "pro_annual": { "price": 159, "period": "annual" },
+  "event_once": { "price": 12, "period": "once" },
+  "TRIAL_DAYS": 7
+}

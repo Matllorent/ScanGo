@@ -26,7 +26,7 @@
   <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
 
   <!-- Top Loyalty Bar (Tarjeta de Puntos & Recompensas) -->
-  <div id="loyaltyTopBanner" class="loyalty-top-bar" data-js-click="openLoyaltyModal" role="button" tabindex="0" aria-label="Club Puntos y Recompensas">
+  <div id="loyaltyTopBanner" class="loyalty-top-bar" data-js-click="openLoyaltyModal" role="button" tabindex="0" aria-label="Club Puntos y Recompensas" aria-expanded="false">
     <div class="loyalty-top-content">
       <span class="loyalty-star-icon">⭐</span>
       <span class="loyalty-banner-title">¡Gana puntos y recompensas!</span>
@@ -144,6 +144,9 @@
         </div>
       </section>
 
+      <!-- Itinerario visual de boda/evento (sólo businessType events + configurado) -->
+      <section id="weddingItinerarySection" class="wed-it-section" style="display:none;" aria-label="Programa del evento"></section>
+
       <!-- Filtro de Categorías con Acceso Rápido a Búsqueda y Lista -->
       <div class="category-nav-wrapper">
         <button type="button" class="cat-nav-icon-btn" data-js-click="focusSearchInput" aria-label="Buscar en la carta" title="Buscar plato">🔍</button>
@@ -234,7 +237,7 @@
       <button type="button" class="modal-close" data-js-click="closeCartModal" aria-label="Cerrar">✕</button>
       <h3 id="cartModalTitle" class="modal-title">Tu Carrito WhatsApp</h3>
 
-      <div id="cartItemsList"></div>
+      <div id="cartItemsList" role="status" aria-live="polite" aria-atomic="true"></div>
 
       <!-- Pedido Grupal: Botón y contenedor para Ver Consolidado por Comensal y Cocina -->
       <button type="button" id="btnToggleGroupConsolidated" class="btn-group-consolidate" style="display:none;" data-js-click="toggleGroupConsolidatedView">
@@ -318,10 +321,10 @@
       <div id="couponSectionBox" class="form-group" style="background: rgba(236, 201, 75, 0.06); padding: 10px; border-radius: 8px; border: 1px dashed var(--border-gold);">
         <label for="inputCouponCode" class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
           <span>🎟️ ¿Tenés cupón de descuento?</span>
-          <span id="couponMsg" style="font-size:10px; font-weight:700;"></span>
+          <span id="couponMsg" aria-live="polite" aria-atomic="true" style="font-size:10px; font-weight:700;"></span>
         </label>
         <div style="display:flex; gap:6px;">
-          <input type="text" id="inputCouponCode" name="coupon" class="form-input" placeholder="Escribí tu código y tocá Aplicar" autocomplete="off" spellcheck="false" style="text-transform:uppercase; font-family:var(--font-mono); font-weight:700;">
+          <input type="text" id="inputCouponCode" name="coupon" class="form-input" placeholder="Escribí tu código y tocá Aplicar" autocomplete="off" spellcheck="false" aria-describedby="couponMsg" style="text-transform:uppercase; font-family:var(--font-mono); font-weight:700;">
           <button type="button" class="btn-a11y-tts" data-js-click="applyCoupon" style="padding: 0 12px; font-weight:700;">Aplicar</button>
         </div>
       </div>
@@ -330,7 +333,7 @@
       <div id="tipSectionBox" class="form-group" style="background: rgba(104, 211, 145, 0.06); padding: 10px; border-radius: 8px; border: 1px dashed #68D391;">
         <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
           <span>🙌 ¿Sumar propina? <span style="font-weight:400; opacity:.7;">(opcional, para el personal)</span></span>
-          <span id="tipAmountDisplay" style="font-size:11px; font-weight:700; color:#68D391;">$0</span>
+          <span id="tipAmountDisplay" aria-live="polite" aria-atomic="true" style="font-size:11px; font-weight:700; color:#68D391;">$0</span>
         </label>
         <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
           <button type="button" data-js-click="setTipPercent|0" data-tip-pill="0" style="padding:6px 10px; border-radius:8px; border:1px solid var(--border-chalk); background:var(--surface-card, #16201b); color:#fff; cursor:pointer; font-weight:700; font-size:0.78rem;">Sin propina</button>
@@ -696,7 +699,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/js/pwa.js"></script>
+  <script src="/js/pwa.js" defer></script>
   <script type="module" src="/js/menu.js"></script>
 
   <!-- ES6 Specialty Components & i18n Integration -->

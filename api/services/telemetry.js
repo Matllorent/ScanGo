@@ -125,7 +125,9 @@ const telemetryService = {
         
         const { data, error } = await query;
         if (!error && data) events = data;
-      } catch (e) {}
+      } catch (e) {
+        logger.warn('[Telemetry Service Get Events Warning]', { details: e.message, restaurantId });
+      }
     }
 
     if (events.length === 0) {

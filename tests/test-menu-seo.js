@@ -65,6 +65,19 @@ async function runTests() {
     assert.strictEqual(menuItem.offers.priceCurrency, 'UYU');
     assert.strictEqual(menuItem.description, 'Salsa casera </script><script>alert("x")</script>');
 
+    // §ETag — revalidación barata del SSR público (crawlers/CDN).
+    const etagRes = await fetch(`http://localhost:${port}/m/${slug}`);
+    assert.strictEqual(etagRes.status, 200);
+    const etag = etagRes.headers.get('etag');
+    assert.ok(etag && etag.startsWith('W/"m-'), `ETag débil esperado, recibido: ${etag}`);
+    assert.ok((etagRes.headers.get('cache-control') || '').includes('s-maxage=60'), 'Cache-Control CDN esperado');
+    await etagRes.text();
+    const notModified = await fetch(`http://localhost:${port}/m/${slug}`, {
+      headers: { 'If-None-Match': etag }
+    });
+    assert.strictEqual(notModified.status, 304, 'If-None-Match idéntico debe responder 304');
+    assert.strictEqual(await notModified.text(), '', '304 sin body');
+
     const vercelConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '../vercel.json'), 'utf8'));
     const menuRoute = vercelConfig.routes.find(route => route.src === '/m/(.*)');
     assert.strictEqual(menuRoute.dest, '/api/index.js', 'Vercel routes public menus through Express');

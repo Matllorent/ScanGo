@@ -121,7 +121,8 @@ async function handleGoogleCredential(credentialResponse) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'No se pudo validar tu cuenta de Google.');
     
-    localStorage.setItem('menu_pizarron_token', data.token);
+    // Sesión por cookie httpOnly (la fija el backend). Sin token en JS.
+    // En app nativa se usa credencial de dispositivo (ver loginAppDevice).
     localStorage.setItem('menu_pizarron_user', JSON.stringify(data.user));
     localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(data.restaurant));
     localStorage.setItem('scango_demo_restaurant', JSON.stringify(data.restaurant));
@@ -261,7 +262,6 @@ async function handleRegister(e) {
       data.restaurant.allowLoyaltyPoints = false;
     }
 
-    localStorage.setItem('menu_pizarron_token', data.token);
     localStorage.setItem('menu_pizarron_user', JSON.stringify(data.user));
     localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(data.restaurant));
     localStorage.setItem('scango_demo_restaurant', JSON.stringify(data.restaurant));
@@ -332,6 +332,29 @@ async function handleLogin(e) {
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
 
+  // App nativa: las cookies no viajan (otro origen) → credencial de
+  // dispositivo opaca y revocable. Si te registraste con Google, primero
+  // creá una clave con "¿Olvidaste tu contraseña?".
+  if (window.AuthClient && window.AuthClient.isNativeApp()) {
+    try {
+      const devRes = await fetch('/api/auth/device', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, deviceName: 'app-android' })
+      });
+      const devData = await devRes.json();
+      if (!devRes.ok) throw new Error(devData.error || 'Credenciales inválidas');
+      window.AuthClient.setDeviceToken(devData.data.deviceToken);
+      window.location.href = '/studio.html';
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Ingresar al Studio →';
+    }
+    return;
+  }
+
   try {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
@@ -341,7 +364,7 @@ async function handleLogin(e) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Credenciales inválidas');
 
-    localStorage.setItem('menu_pizarron_token', data.token);
+    // Sesión por cookie httpOnly (la fija el backend). Sin token en JS.
     localStorage.setItem('menu_pizarron_user', JSON.stringify(data.user));
     localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(data.restaurant));
 
@@ -651,17 +674,21 @@ async function loadPublicTestimonials() {
   container.innerHTML = html;
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   loadPublicTestimonials();
   loadPricingSettings();
   initMagneticWhatsApp();
   initSavingsCalculator();
   
-  const token = localStorage.getItem('menu_pizarron_token');
-  if (token) {
-    const navActions = document.querySelector('.nav-actions');
-    if (navActions) {
-      navActions.innerHTML = '<a href="/studio.html" class="btn btn-gold btn-sm">Ir a Mi Studio 🚀</a>';
+  // Si hay sesión (cookie httpOnly), mostrar acceso directo al Studio.
+  // Sin token en JS: se pregunta al backend en vez de leer localStorage.
+  try {
+    const meRes = await fetch('/api/auth/me');
+    if (meRes.ok) {
+      const navActions = document.querySelector('.nav-actions');
+      if (navActions) {
+        navActions.innerHTML = '<a href="/studio.html" class="btn btn-gold btn-sm">Ir a Mi Studio 🚀</a>';
+      }
     }
-  }
+  } catch (e) { /* sin sesión: se deja el CTA por defecto */ }
 });

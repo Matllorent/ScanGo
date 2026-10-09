@@ -1,15 +1,17 @@
 const express = require('express');
-const { z } = require('zod');
 const jwt = require('jsonwebtoken');
 const db = require('../../src/db/db');
 const { getSupabaseClient } = require('../utils/supabase');
 const { successResponse, errorResponse } = require('../utils/response');
-const { validateBody } = require('../middleware/validation');
+const { validateBody, createOrderSchema } = require('../middleware/validation');
 const idempotencyMiddleware = require('../middleware/idempotency');
 const { tenantGuard } = require('../middleware/tenantGuard');
+const { authenticateRequest } = require('../middleware/auth');
 const { validateAndPriceOrderLine } = require('../utils/menuOptions');
+const { isCaptchaEnforced, verifyTurnstile } = require('../utils/captcha');
 const AppError = require('../utils/AppError');
 const sentry = require('../utils/sentry');
+const logger = require('../utils/logger');
 const { groupCartLimiter } = require('../middleware/rateLimits');
 const { verifyGroupCartToken } = require('../utils/groupCartToken');
 const loyaltyService = require('../services/loyalty');
@@ -39,16 +41,12 @@ const ORDER_STATUS_LABELS = {
  * Verifies JWT from cookie or Authorization header and attaches req.user.
  */
 function requireAuth(req, res, next) {
-  const token = req.cookies?.auth_token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
-  if (!token) {
-    return res.status(401).json({ success: false, error: 'No autorizado', code: 'UNAUTHORIZED' });
-  }
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
+    req.user = authenticateRequest(req);
     next();
   } catch (e) {
-    return res.status(401).json({ success: false, error: 'Token inválido o expirado', code: 'INVALID_TOKEN' });
+    const status = (e && typeof e.statusCode === 'number') ? e.statusCode : 401;
+    return res.status(status).json({ success: false, error: (e && e.message) || 'Token inválido o expirado', code: (e && e.code) || 'INVALID_TOKEN' });
   }
 }
 
@@ -60,47 +58,6 @@ function requireGroupCartCapability(req, res, next) {
   }
   next();
 }
-
-const orderItemSchema = z.object({
-  dishId: z.string().min(1, { message: 'ID de platillo requerido' }),
-  quantity: z.number().int().positive({ message: 'La cantidad debe ser mayor a 0' }),
-  note: z.string().trim().max(250).optional().default(''),
-  orderedBy: z.string().max(100).optional().default(''),
-  orderedById: z.string().max(100).optional().default(''),
-  choices: z.array(z.object({
-    groupId: z.string().min(1).max(80),
-    selections: z.array(z.object({
-      optionId: z.string().min(1).max(80),
-      quantity: z.number().int().positive().optional()
-    })).max(100)
-  })).max(50).optional().default([]),
-  options: z.record(z.any()).optional().default({})
-});
-
-const createOrderSchema = z.object({
-  restaurantId: z.string().min(1, { message: 'ID de restaurante requerido' }),
-  tableNumber: z.union([z.string(), z.number()]).optional().default('1'),
-  items: z.array(orderItemSchema).min(1, { message: 'El pedido debe contener al menos un producto' }),
-  currency: z.string().max(5).optional().default('$'),
-  customerName: z.string().max(100).optional().default('Cliente'),
-  customerPhone: z.string().max(30).optional().default(''),
-  deliveryAddress: z.string().max(200).optional().default(''),
-  notes: z.string().max(300).optional().default(''),
-  isGroupOrder: z.boolean().optional().default(false),
-  participants: z.array(z.string()).optional().default([]),
-  groupSessionId: z.string().max(100).optional().default(''),
-  // Cupón aplicado en el frontend: se persiste como parte del snapshot del
-  // pedido (auditoría de descuentos concedidos).
-  coupon: z.object({
-    code: z.string().min(1).max(30),
-    type: z.string().max(20).optional().default('percent'),
-    value: z.number().nonnegative().optional().default(0),
-    label: z.string().max(60).optional().default('')
-  }).optional().nullish().transform(v => v || undefined),
-  // Propina opcional del comensal (nunca obligatoria). Viaja aparte del monto
-  // de los platos para no distorsionar el ticket promedio de analytics.
-  tipAmount: z.number().nonnegative().max(1000000).optional().default(0)
-});
 
 function quoteOrderItems(restaurant, items, timestamp = new Date().toISOString()) {
   let amountInCents = 0;
@@ -172,7 +129,22 @@ router.post('/quote', validateBody(createOrderSchema), (req, res, next) => {
  */
 router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (req, res, next) => {
   try {
-    const { restaurantId, tableNumber, items, currency, customerName, customerPhone, deliveryAddress, notes, tipAmount } = req.body;
+    const { restaurantId, tableNumber, items, currency, customerName, customerPhone, deliveryAddress, notes, tipAmount, captchaToken } = req.body;
+
+    // Anti-spam/farming (Turnstile invisible): solo cuando el despliegue lo
+    // configuró. Sin secreto no se exige nada (flujo actual intacto).
+    if (isCaptchaEnforced()) {
+      const captcha = await verifyTurnstile(captchaToken, req.ip);
+      if (!captcha.ok) {
+        return res.status(403).json({
+          success: false,
+          error: captcha.reason === 'CAPTCHA_REQUIRED'
+            ? 'Verificá que no sos un robot para enviar el pedido'
+            : 'Verificación de seguridad fallida. Reintentá el pedido.',
+          code: captcha.reason || 'CAPTCHA_INVALID'
+        });
+      }
+    }
 
     const restaurant = db.findRestaurantById(restaurantId) || db.findRestaurantBySlug(restaurantId);
     if (!restaurant) {
@@ -347,7 +319,12 @@ router.patch('/status/:orderId', requireAuth, tenantGuard, async (req, res, next
 
     const orderRestaurantId = order.restaurant_id || order.restaurantId;
     const tenantId = req.tenantId || (req.user && req.user.tenantId);
-    if (tenantId && orderRestaurantId !== tenantId) {
+    // Sin tenant propio no se puede operar (cierra el bypass de cuenta huérfana:
+    // antes, tenantId falsy saltaba el chequeo y cualquiera mutaba el pedido).
+    if (!tenantId) {
+      return res.status(403).json({ success: false, error: 'Tu cuenta no tiene un local asociado', code: 'TENANT_REQUIRED' });
+    }
+    if (orderRestaurantId !== tenantId) {
       return res.status(403).json({ success: false, error: 'El pedido pertenece a otro local', code: 'ORDER_TENANT_MISMATCH' });
     }
 
@@ -408,12 +385,20 @@ router.patch('/status/:orderId', requireAuth, tenantGuard, async (req, res, next
 });
 
 /**
- * GET /api/orders/restaurant/:id
- * Retrieve orders for a restaurant (tenant-isolated, IDOR-protected)
+ * GET /api/orders/restaurant/:restaurantId
+ * Retrieve orders for a restaurant (tenant-isolated, IDOR-protected).
+ * El param es explícito (:restaurantId) porque tenantGuard ya no interpreta
+ * el `:id` genérico como tenant (evita falsos 403 en rutas de recurso).
  */
-router.get('/restaurant/:id', requireAuth, tenantGuard, async (req, res, next) => {
+router.get('/restaurant/:restaurantId', requireAuth, tenantGuard, async (req, res, next) => {
   try {
-    const restaurantId = req.params.id;
+    const restaurantId = req.params.restaurantId;
+    // Aislamiento explícito a nivel handler (defensa en profundidad junto al
+    // guard): solo el dueño del local (por id o slug) lista sus pedidos.
+    const ownRestaurant = db.findRestaurantByUserId(req.user.userId);
+    if (!ownRestaurant || (restaurantId !== ownRestaurant.id && restaurantId !== ownRestaurant.slug)) {
+      return res.status(403).json({ success: false, error: 'El pedido pertenece a otro local', code: 'ORDER_TENANT_MISMATCH' });
+    }
     const supabase = getSupabaseClient();
 
     if (supabase) {
@@ -427,7 +412,9 @@ router.get('/restaurant/:id', requireAuth, tenantGuard, async (req, res, next) =
         if (!error && data && data.length > 0) {
           return successResponse(res, data, 'Pedidos del restaurante recuperados');
         }
-      } catch (e) {}
+      } catch (e) {
+        logger.warn('[Supabase Get Restaurant Orders]', { details: e.message, restaurantId });
+      }
     }
 
     // Sin cloud (o sin filas todavía): espejo local ordenado por fecha.
@@ -541,7 +528,7 @@ function cleanupActiveGroupCarts() {
   for (const [key, cart] of activeGroupTableCarts.entries()) {
     if (cart.lastActivity && (now - cart.lastActivity > GROUP_CART_TTL_MS)) {
       activeGroupTableCarts.delete(key);
-      console.log('[GroupCart] Cleaned up expired cart:', key);
+      logger.info('[GroupCart] Cleaned up expired cart', { key });
     }
   }
 }
@@ -612,7 +599,7 @@ function cleanupServerBroadcastChannels() {
   const now = Date.now();
   for (const [channelName, entry] of serverBroadcastChannels.entries()) {
     if (now - entry.lastUsedAt > BROADCAST_CHANNEL_IDLE_MS) {
-      try { entry.channel.unsubscribe(); } catch (e) { /* ignore */ }
+      try { entry.channel.unsubscribe(); } catch (e) { logger.warn('[GroupCart] Broadcast channel unsubscribe failed', { details: e.message, channelName }); }
       serverBroadcastChannels.delete(channelName);
     }
   }
@@ -759,7 +746,7 @@ router.post('/group/:restaurantId/:tableNumber/sync', groupCartLimiter, requireG
           existingItems = Array.isArray(data.items) ? data.items : [];
           currentParticipants = Array.isArray(data.participants) ? data.participants : [];
         }
-      } catch (e) { /* ignore */ }
+      } catch (e) { logger.warn('[Supabase Get Group Cart]', { details: e.message, restaurantId, tableNumber }); }
     } else {
       const current = activeGroupTableCarts.get(key);
       if (current) {
@@ -891,7 +878,7 @@ router.post('/group/:restaurantId/:tableNumber/clear', groupCartLimiter, require
           .eq('id', key)
           .single();
         if (data && Array.isArray(data.participants)) participants = data.participants;
-      } catch (e) { /* ignore */ }
+      } catch (e) { logger.warn('[Supabase Get Group Cart Participants]', { details: e.message, restaurantId, tableNumber }); }
 
       try {
         await supabase.from('group_carts').upsert([{

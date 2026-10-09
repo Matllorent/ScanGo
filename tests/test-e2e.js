@@ -49,11 +49,13 @@ async function runTests() {
     });
 
     assert.strictEqual(regRes.status, 200, 'Registro falló');
-    assert.ok(regRes.data.token, 'Token JWT no retornado');
+    assert.ok(!('token' in (regRes.data || {})), 'Sin JWT en el body (solo-cookie)');
     assert.ok(regRes.data.restaurant.slug, 'Slug de restaurante no generado');
     console.log(`✓ Usuario y Restaurante registrados: Slug = ${regRes.data.restaurant.slug}`);
 
-    const token = regRes.data.token;
+    // Cookie-only: se reenvía la cookie de sesión como el navegador.
+    const sessionCookie = (regRes.headers.get('set-cookie') || '').split(';')[0];
+    assert.ok(sessionCookie.startsWith('auth_token='), 'Cookie auth_token seteada');
     const slug = regRes.data.restaurant.slug;
     const restaurantId = regRes.data.restaurant.id;
 
@@ -73,7 +75,7 @@ async function runTests() {
 
     // 2. Test /api/auth/me
     const meRes = await request('/api/auth/me', {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Cookie: sessionCookie }
     });
     assert.strictEqual(meRes.status, 200);
     assert.strictEqual(meRes.data.user.email, testEmail);
@@ -92,7 +94,7 @@ async function runTests() {
     };
     const saveRes = await request('/api/studio/save', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Cookie: sessionCookie },
       body: { restaurantId, data: updatedData }
     });
     assert.strictEqual(saveRes.status, 200);
@@ -111,7 +113,7 @@ async function runTests() {
     // 5. Test Billing Checkout
     const checkoutRes = await request('/api/billing/checkout', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Cookie: sessionCookie },
       body: { planId: 'pro_monthly', countryCode: 'UY' }
     });
     assert.strictEqual(checkoutRes.status, 200);

@@ -248,7 +248,9 @@ export async function startCheckout(plan, eventRef, restaurant) {
     btn.innerHTML = '<span><i class="fa-solid fa-spinner fa-spin"></i> Conectando con pasarela...</span>';
   }
 
-  const token = localStorage.getItem('menu_pizarron_token');
+  const authHeaders = window.AuthClient
+    ? window.AuthClient.getAuthHeaders({ 'Content-Type': 'application/json' })
+    : { 'Content-Type': 'application/json' };
   try {
     // El navegador sólo nos da país confiable si la clave es UY/AR; si no,
     // el server decide (cabecera de Vercel / UY por defecto).
@@ -257,10 +259,7 @@ export async function startCheckout(plan, eventRef, restaurant) {
 
     const res = await fetch('/api/billing/checkout', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
+      headers: authHeaders,
       body: JSON.stringify({
         planId: plan,
         plan,

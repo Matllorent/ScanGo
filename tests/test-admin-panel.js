@@ -85,9 +85,13 @@ async function runTests() {
     });
     assert.strictEqual(loginRes.status, 200, 'Login admin con TOTP real debe responder 200');
     const loginBody = await loginRes.json();
-    const token = loginBody?.data?.token || loginBody?.token;
-    assert.ok(token, 'El login debe devolver un token de sesión admin');
-    console.log('✓ Login admin con 2FA TOTP real (RFC 6238)');
+    // Cookie-only: el JWT ya no viaja en el body (anti-XSS). El test reenvía
+    // la cookie como lo haría el navegador.
+    assert.ok(!('token' in (loginBody?.data || loginBody || {})), 'El login NO expone el token en el body');
+    const setCookie = loginRes.headers.get('set-cookie') || '';
+    const adminCookie = setCookie.split(';')[0];
+    assert.ok(adminCookie.startsWith('admin_token='), 'El login setea la cookie admin_token');
+    console.log('✓ Login admin con 2FA TOTP real (RFC 6238), sesión solo-cookie');
 
     // Sin sesión → 403
     const noAuth = await fetch(`${base}/api/admin/overview`);
@@ -95,7 +99,7 @@ async function runTests() {
     console.log('✓ Overview sin sesión rechazado (403)');
 
     const authOverview = await fetch(`${base}/api/admin/overview`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Cookie: adminCookie }
     });
     assert.strictEqual(authOverview.status, 200);
     const { metrics } = await authOverview.json();

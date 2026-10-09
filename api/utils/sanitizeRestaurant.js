@@ -8,6 +8,7 @@ const ALLOWED_LAYOUTS = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 
 const ALLOWED_WEATHER_TAGS = ['muy_frio', 'frio', 'templado', 'caluroso', 'muy_caluroso'];
 const ALLOWED_TEAM_ROLES = ['admin', 'waiter', 'kitchen'];
 const COUPON_TYPES = ['percent', 'free_delivery'];
+const WEDDING_ITINERARY_MAX_ITEMS = 12;
 
 function sanitizeString(str, maxLen) {
   if (typeof str !== 'string') return '';
@@ -21,12 +22,18 @@ function sanitizePhone(phone) {
 
 function sanitizeUrl(url, maxLen = 500) {
   if (!url) return '';
-  const clean = String(url).slice(0, maxLen);
+  const clean = String(url).trim().slice(0, maxLen);
+  if (!clean) return '';
+  // Solo http/https (case-insensitive). Rechaza javascript:, data:,
+  // vbscript:, file: y protocol-relative (//host/...) sin esquema válido.
+  if (!/^https?:\/\//i.test(clean)) return '';
   try {
-    new URL(clean);
+    const parsed = new URL(clean);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+    if (!parsed.hostname) return '';
     return clean;
   } catch {
-    return clean.startsWith('http') ? clean : '';
+    return '';
   }
 }
 
@@ -165,6 +172,28 @@ function sanitizeEventConfigGuests(guests) {
   }));
 }
 
+// Itinerario visual de boda/evento: programa cronológico configurable.
+// Espejo server-side del módulo frontend weddingItinerary.js (misma semántica).
+function sanitizeWeddingItinerary(raw) {
+  const empty = { enabled: false, title: 'Programa de Boda', coupleNames: '', date: '', venue: '', items: [] };
+  if (!raw || typeof raw !== 'object') return empty;
+  const items = Array.isArray(raw.items) ? raw.items : [];
+  const rawDay = sanitizeString(raw.eventDay, 10);
+  return {
+    enabled: raw.enabled === true,
+    title: sanitizeString(raw.title, 60) || 'Programa de Boda',
+    coupleNames: sanitizeString(raw.coupleNames || raw.couple, 80),
+    date: sanitizeString(raw.date, 60),
+    eventDay: /^\d{4}-\d{2}-\d{2}$/.test(rawDay) ? rawDay : '',
+    venue: sanitizeString(raw.venue, 120),
+    items: items.slice(0, WEDDING_ITINERARY_MAX_ITEMS).map(it => ({
+      time: sanitizeString(it && it.time, 12),
+      title: sanitizeString(it && it.title, 80),
+      icon: sanitizeString(it && it.icon, 8) || '💛'
+    })).filter(it => it.time || it.title)
+  };
+}
+
 function sanitizeCustomCoupons(coupons) {
   if (!Array.isArray(coupons)) return [];
   return coupons.slice(0, 20).map(cp => ({
@@ -209,7 +238,7 @@ function sanitizeRestaurantPayload(data) {
   clean.facebook = sanitizeSocialUrl(clean.facebook, 500);
   clean.tiktok = sanitizeSocialUrl(clean.tiktok, 500);
   clean.x = sanitizeSocialUrl(clean.x, 500);
-  clean.googleReview = sanitizeString(clean.googleReview, 300);
+  clean.googleReview = sanitizeSocialUrl(clean.googleReview, 300);
   clean.allowReservations = Boolean(clean.allowReservations);
   clean.allowCoupons = Boolean(clean.allowCoupons);
   clean.allowBillSplitter = Boolean(clean.allowBillSplitter);
@@ -225,6 +254,10 @@ function sanitizeRestaurantPayload(data) {
   // Layout
   const normLayout = sanitizeString(clean.layout, 20).toLowerCase().trim();
   clean.layout = ALLOWED_LAYOUTS.includes(normLayout) ? normLayout : 'classic';
+  // Acento neón del layout Neon Nightbar (allowlist, default mint)
+  const NEON_ACCENT_KEYS = ['mint', 'cyan', 'magenta', 'amber', 'lime', 'violet'];
+  const normNeon = sanitizeString(clean.neonAccent, 20).toLowerCase().trim();
+  clean.neonAccent = NEON_ACCENT_KEYS.includes(normNeon) ? normNeon : 'mint';
 
   // Eventos
   clean.businessType = sanitizeString(clean.businessType, 20);
@@ -267,6 +300,9 @@ function sanitizeRestaurantPayload(data) {
     clean.eventConfig.menuSections = sanitizeEventConfigMenuSections(clean.eventConfig.menuSections);
     clean.eventConfig.guests = sanitizeEventConfigGuests(clean.eventConfig.guests);
   }
+
+  // Itinerario visual de boda/evento (programa configurable por el dueño)
+  clean.weddingItinerary = sanitizeWeddingItinerary(clean.weddingItinerary);
 
   // Coupons & Team
   clean.customCoupons = sanitizeCustomCoupons(clean.customCoupons);

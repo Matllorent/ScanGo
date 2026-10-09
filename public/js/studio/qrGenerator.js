@@ -261,13 +261,12 @@ export async function downloadAllTablesPDF(restaurant) {
     return;
   }
 
-  const token = localStorage.getItem('menu_pizarron_token');
+  const authHeaders = window.AuthClient
+    ? window.AuthClient.getAuthHeaders({ 'Content-Type': 'application/json' })
+    : { 'Content-Type': 'application/json' };
   const tokenResponse = await fetch('/api/studio/group-cart-tokens', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token || ''}`
-    },
+    headers: authHeaders,
     body: JSON.stringify({ tableCount })
   });
   const tokenPayload = await tokenResponse.json().catch(() => ({}));

@@ -19,41 +19,25 @@ import {
 } from './subscription.js';
 import { handleBillingReturn } from './billing.js';
 
-const TOKEN_KEY = 'menu_pizarron_token';
+const TOKEN_KEY = 'menu_pizarron_token'; // legacy: ya no se emite ni se usa (solo limpieza)
 
 /**
- * Inicializa el Studio: verifica token, carga user+restaurant desde /api/auth/me.
- * @param {object} state  — objeto mutable compartido { currentUser, restaurant }
- * @param {Function} renderStudioUI  — callback para renderizar la UI una vez validado
- * @param {Function} normalizeBusinessType  — helper de normalización de businessType
+ * Inicializa el Studio: verifica la sesión contra /api/auth/me.
+ * Web: cookie httpOnly (viaja sola). App nativa: Bearer de dispositivo
+ * (AuthClient lo inyecta). Sin sesión válida → landing.
  */
 export async function initStudio(state, renderStudioUI, normalizeBusinessType) {
-  let token = localStorage.getItem(TOKEN_KEY);
-  // Deep-link de sesión: el HTML guard de dev ya valida `?token=` en la URL.
-  // Si venimos de /studio?token=..., adoptar ese token y persistirlo para que
-  // las llamadas API (/api/auth/me, /api/studio/*) funcionen en la misma sesión.
-  if (!token) {
-    const queryToken = new URLSearchParams(window.location.search).get('token');
-    if (queryToken) {
-      token = queryToken;
-      try { localStorage.setItem(TOKEN_KEY, token); } catch (e) { /* storage bloqueado */ }
-    }
-  }
-  if (!token) {
-    window.location.href = '/?auth=required';
-    return;
-  }
+  // Limpieza única de tokens legacy (pre migración solo-cookie).
+  try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* storage bloqueado */ }
 
   try {
     // Retorno de una pasarela (?billing=success|canceled): avisa y limpia la URL
     handleBillingReturn();
 
-    const res = await fetch('/api/auth/me', {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const headers = (window.AuthClient ? window.AuthClient.getAuthHeaders() : {});
+    const res = await fetch('/api/auth/me', { headers });
 
     if (!res.ok) {
-      localStorage.removeItem(TOKEN_KEY);
       window.location.href = '/?auth=expired';
       return;
     }
@@ -161,18 +145,25 @@ export async function initStudio(state, renderStudioUI, normalizeBusinessType) {
     renderStudioUI();
   } catch (err) {
     console.warn('Error al verificar sesión en Studio:', err.message);
-    localStorage.removeItem(TOKEN_KEY);
     window.location.href = '/?auth=expired';
   }
 }
 
 /**
- * Cierra la sesión del usuario, limpia localStorage y redirige al inicio.
+ * Cierra la sesión: revoca server-side (cookie httpOnly solo la borra el
+ * backend; el token de dispositivo se elimina local) y redirige al inicio.
  */
-export function logout() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem('menu_pizarron_user');
-  localStorage.removeItem('menu_pizarron_restaurant');
+export async function logout() {
+  try {
+    const headers = (window.AuthClient ? window.AuthClient.getAuthHeaders({ 'Content-Type': 'application/json' }) : { 'Content-Type': 'application/json' });
+    await fetch('/api/auth/logout', { method: 'POST', headers });
+  } catch (e) { /* best-effort: igual se sale */ }
+  if (window.AuthClient) window.AuthClient.clearDeviceToken();
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem('menu_pizarron_user');
+    localStorage.removeItem('menu_pizarron_restaurant');
+  } catch (e) { /* storage bloqueado */ }
   window.location.href = '/index.html';
 }
 

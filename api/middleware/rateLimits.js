@@ -16,7 +16,10 @@ function createRateLimit(max, code, message, extra = {}) {
 // todos los visitantes de todos los restaurantes compartirían UN balde de 120
 // eventos y el menú público empezaría a devolver 429 con poco tráfico.
 function publicEventKeyGenerator(req) {
-  const slug = req?.body?.slug;
+  const raw = req?.params?.slug ?? req?.query?.slug ?? req?.body?.slug ?? req?.body?.restaurantSlug;
+  const slug = typeof raw === 'string'
+    ? raw.trim().toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 80)
+    : '';
   return slug ? `slug:${slug}` : `ip:${req?.ip || 'unknown'}`;
 }
 

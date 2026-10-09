@@ -14,11 +14,9 @@ let dailyChartInstance = null;
 let _lastDaily = [];
 
 export async function fetchAnalytics(url) {
-  const token = localStorage.getItem('menu_pizarron_token');
+  const headers = window.AuthClient ? window.AuthClient.getAuthHeaders() : {};
   try {
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const res = await fetch(url, { headers });
     const data = await res.json();
     return res.ok ? data.data : null;
   } catch (e) {
@@ -318,8 +316,7 @@ export function renderEventMetrics(events) {
 }
 
 export async function loadAnalytics(restaurant) {
-  const token = localStorage.getItem('menu_pizarron_token');
-  if (!token || !restaurant?.id) return;
+  if (!restaurant?.id) return;
 
   const days = parseInt(document.getElementById('analyticsTimeRange')?.value) || 30;
   const branchId = document.getElementById('analyticsBranchFilter')?.value || undefined;

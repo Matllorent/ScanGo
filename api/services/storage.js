@@ -67,6 +67,10 @@ const storageService = {
     const cleanFileName = fileName
       ? fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
       : `img_${Date.now()}_${Math.random().toString(36).substr(2, 6)}.${extension}`;
+    // Nombres solo-puntos ("..", "...") escaparían del directorio (path traversal).
+    if (/^[.]+$/.test(cleanFileName)) {
+      throw new AppError('Nombre de archivo inválido.', 400, 'INVALID_FILE_NAME');
+    }
 
     const cleanTenantId = tenantId ? String(tenantId).replace(/[^a-zA-Z0-9_-]/g, '_') : '';
     const storagePath = [cleanTenantId ? `tenants/${cleanTenantId}` : '', cleanFolder, cleanFileName]

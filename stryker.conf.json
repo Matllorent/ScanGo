@@ -1,0 +1,10 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Mutation testing acotado (solo informa, no rompe). Requiere: npm i -D @stryker-mutator/core @stryker-mutator/command-runner (no instalado a proposito). Uso: npx stryker run",
+  "mutate": ["src/billing/orchestrator.js", "api/utils/sanitizeRestaurant.js"],
+  "testRunner": "command",
+  "commandRunner": { "command": "node tests/test-billing.js" },
+  "coverageAnalysis": "off",
+  "reporters": ["clear-text", "html"],
+  "thresholds": { "high": 80, "low": 60, "break": null }
+}

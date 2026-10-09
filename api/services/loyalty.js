@@ -31,6 +31,7 @@ const db = require('../../src/db/db');
 const { getSupabaseClient } = require('../utils/supabase');
 const AppError = require('../utils/AppError');
 const sentry = require('../utils/sentry');
+const logger = require('../utils/logger');
 
 const IS_VERCEL = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
 const DATA_DIR = IS_VERCEL
@@ -112,9 +113,9 @@ function replicateUpsert(key, rows) {
   if (!supabase) return;
   try {
     supabase.from(COLLECTIONS[key].table).upsert(rows.map(r => toCloudRow(key, r)), { onConflict: 'id' })
-      .then(() => {}, (e) => console.warn(`[Supabase ${COLLECTIONS[key].table} Upsert Warning]`, e.message));
+      .then(() => {}, (e) => logger.warn(`[Supabase ${COLLECTIONS[key].table} Upsert Warning]`, { details: e.message }));
   } catch (e) {
-    console.warn(`[Supabase ${COLLECTIONS[key].table} Upsert Warning]`, e.message);
+    logger.warn(`[Supabase ${COLLECTIONS[key].table} Upsert Warning]`, { details: e.message });
   }
 }
 
@@ -123,9 +124,9 @@ function replicateDelete(key, column, value) {
   if (!supabase) return;
   try {
     supabase.from(COLLECTIONS[key].table).delete().eq(column, value)
-      .then(() => {}, (e) => console.warn(`[Supabase ${COLLECTIONS[key].table} Delete Warning]`, e.message));
+      .then(() => {}, (e) => logger.warn(`[Supabase ${COLLECTIONS[key].table} Delete Warning]`, { details: e.message, column }));
   } catch (e) {
-    console.warn(`[Supabase ${COLLECTIONS[key].table} Delete Warning]`, e.message);
+    logger.warn(`[Supabase ${COLLECTIONS[key].table} Delete Warning]`, { details: e.message, column });
   }
 }
 
@@ -158,6 +159,131 @@ function hashPhone(phone) {
   const normalized = normalizePhone(phone);
   if (!normalized) return '';
   return crypto.createHash('sha256').update(normalized).digest('hex');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OTP de posesión del canal email (canjes y borrado).
+// El teléfono solo es un identificador (cualquiera lo conoce); las acciones
+// destructivas (gastar puntos, borrar datos) exigen probar el email del perfil
+// con un código de 6 dígitos, ventana de 10 minutos, stateless (HMAC por
+// ventana, sin tabla nueva, seguro entre instancias) + caché de un solo uso.
+// ─────────────────────────────────────────────────────────────────────────────
+const LOYALTY_OTP_WINDOW_MS = 10 * 60 * 1000;
+const LOYALTY_OTP_PURPOSES = ['redeem', 'erase', 'change-email'];
+const usedLoyaltyOtps = new Map(); // `${phone}|${purpose}|${code}` -> expiraAt
+
+function getLoyaltyOtpSecret() {
+  return process.env.ORDER_TRACKING_SECRET
+    || process.env.GROUP_CART_SECRET
+    || process.env.JWT_SECRET
+    || 'dev_secret_menu_pizarron_2026';
+}
+
+function loyaltyOtpWindow(at = Date.now()) {
+  return Math.floor(at / LOYALTY_OTP_WINDOW_MS);
+}
+
+function computeLoyaltyOtp(phone, purpose, window) {
+  const hmac = crypto.createHmac('sha256', getLoyaltyOtpSecret());
+  hmac.update(`loyalty-otp|${phone}|${purpose}|${window}`);
+  const code = parseInt(hmac.digest('hex').slice(0, 8), 16) % 1000000;
+  return String(code).padStart(6, '0');
+}
+
+/** Genera el OTP vigente (exportado para tests white-box; al comensal le llega por email). */
+function generateLoyaltyOtp(phone, purpose) {
+  const normalized = normalizePhone(phone);
+  if (!normalized) return null;
+  return computeLoyaltyOtp(normalized, purpose, loyaltyOtpWindow());
+}
+
+function verifyLoyaltyOtp(phone, purpose, otp) {
+  const normalized = normalizePhone(phone);
+  const clean = String(otp || '').replace(/\D/g, '');
+  if (!normalized || clean.length !== 6 || !LOYALTY_OTP_PURPOSES.includes(purpose)) return false;
+  const current = loyaltyOtpWindow();
+  for (const window of [current, current - 1]) {
+    const expected = computeLoyaltyOtp(normalized, purpose, window);
+    if (expected.length === clean.length
+      && crypto.timingSafeEqual(Buffer.from(expected, 'utf8'), Buffer.from(clean, 'utf8'))) {
+      const key = `${normalized}|${purpose}|${expected}`;
+      if (usedLoyaltyOtps.has(key)) return false;
+      usedLoyaltyOtps.set(key, Date.now() + 15 * 60 * 1000);
+      if (usedLoyaltyOtps.size > 3000) {
+        const now = Date.now();
+        for (const [k, exp] of usedLoyaltyOtps) {
+          if (exp < now) usedLoyaltyOtps.delete(k);
+          if (usedLoyaltyOtps.size < 2000) break;
+        }
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+function maskEmail(email) {
+  const clean = String(email || '').trim();
+  const at = clean.indexOf('@');
+  if (at <= 0) return '***';
+  const local = clean.slice(0, at);
+  return (local[0] || '*') + '***@' + clean.slice(at + 1);
+}
+
+/**
+ * Emite un desafío OTP al email del perfil (canje o borrado).
+ * Sin cliente o sin email → 422 (primero hay que registrar el email).
+ */
+async function requestLoyaltyOtp({ phone, purpose }) {
+  const normalized = normalizePhone(phone);
+  if (!normalized) throw new AppError('Teléfono inválido', 400, 'INVALID_PHONE');
+  if (!LOYALTY_OTP_PURPOSES.includes(purpose)) throw new AppError('Propósito inválido', 400, 'INVALID_OTP_PURPOSE');
+  const customer = await findCustomerByPhone(normalized);
+  if (!customer) throw new AppError('Cliente no encontrado para este teléfono', 404, 'CUSTOMER_NOT_FOUND');
+  if (!customer.email) {
+    throw new AppError('Registrá tu email para recibir el código de confirmación', 422, 'CUSTOMER_EMAIL_REQUIRED');
+  }
+  const otp = generateLoyaltyOtp(normalized, purpose);
+  const emailService = require('../services/email');
+  const subject = purpose === 'erase'
+    ? 'Código para borrar tus datos de Club ScanGo'
+    : 'Tu código de canje de Club ScanGo';
+  const result = await emailService.sendEmail({
+    to: customer.email,
+    subject,
+    text: `Tu código de confirmación es ${otp}. Vence en 10 minutos. Si no lo pediste, ignorá este mensaje.`
+  });
+  if (result && result.provider === 'local_mock' && process.env.NODE_ENV === 'production') {
+    throw new AppError('Envío de email no configurado', 503, 'EMAIL_NOT_CONFIGURED');
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    logger.warn('[Loyalty OTP dev] desafío emitido (solo desarrollo)', { purpose, maskedEmail: maskEmail(customer.email) });
+  }
+  return { maskedEmail: maskEmail(customer.email), expiresInMinutes: 10 };
+}
+
+/**
+ * Registra el email del perfil (solo si aún no tiene: first-write).
+ * Cambiar un email existente exige desafío al anterior (anti-takeover).
+ */
+async function setCustomerEmail({ phone, email, otp }) {
+  const normalized = normalizePhone(phone);
+  if (!normalized) throw new AppError('Teléfono inválido', 400, 'INVALID_PHONE');
+  const clean = String(email || '').trim().toLowerCase().slice(0, 100);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(clean)) {
+    throw new AppError('Email inválido', 400, 'INVALID_EMAIL');
+  }
+  const customer = await findCustomerByPhone(normalized);
+  if (!customer) throw new AppError('Cliente no encontrado para este teléfono', 404, 'CUSTOMER_NOT_FOUND');
+  if (customer.email) {
+    if (!verifyLoyaltyOtp(normalized, 'change-email', otp)) {
+      throw new AppError('Para cambiar el email confirmá el código enviado al anterior', 403, 'EMAIL_CHANGE_OTP_REQUIRED');
+    }
+  }
+  customer.email = clean;
+  customer.updatedAt = new Date().toISOString();
+  await persistCustomer(customer);
+  return { maskedEmail: maskEmail(clean) };
 }
 
 const GLOBAL_LEVELS = [
@@ -559,8 +685,130 @@ async function redeemReward({ phone, restaurantId, rewardId }) {
 async function validateRedemptionCode({ code, ownerRestaurantId }) {
   const normalized = String(code || '').trim().toUpperCase();
   if (!normalized) throw new AppError('Código requerido', 400, 'CODE_REQUIRED');
+
+  // 1) RPC atómico primero (si hay cliente Supabase): el
+  //    `UPDATE ... WHERE status='issued'` de claim_loyalty_redemption (006) es
+  //    una sola sentencia → dos validates concurrentes (misma o distintas
+  //    instancias) no pueden canjear doble.
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.rpc('claim_loyalty_redemption', {
+        p_code: normalized,
+        p_restaurant_id: ownerRestaurantId || null
+      });
+      if (!error && data && typeof data === 'object') {
+        if (data.ok === true) {
+          // Veto anti split-brain: si ESTA instancia ya lo marcó redeemed
+          // (claim local durante un lag de replicación), el ok del RPC viene
+          // de un estado cloud desactualizado → 409, no doble éxito.
+          try {
+            const prior = readCollection('redemptions')
+              .find(r => String(r.code || '').toUpperCase() === normalized);
+            if (prior && prior.status === 'redeemed') {
+              logger.warn('[loyalty] claim RPC ok pero espejo local ya redeemed (lag), veto 409');
+              throw new AppError('Este código ya fue canjeado', 409, 'CODE_ALREADY_REDEEMED');
+            }
+          } catch (vetoErr) {
+            if (vetoErr && typeof vetoErr.statusCode === 'number') throw vetoErr;
+            logger.warn('[loyalty] veto local falló (best-effort), sigue claim RPC', { details: vetoErr && vetoErr.message });
+          }
+          // Sincroniza el espejo local best-effort (nunca rompe el canje).
+          try {
+            const redemptions = readCollection('redemptions');
+            const idx = redemptions.findIndex(r => String(r.code || '').toUpperCase() === normalized);
+            if (idx >= 0) {
+              redemptions[idx].status = 'redeemed';
+              redemptions[idx].redeemedAt = data.redeemed_at || new Date().toISOString();
+              if (ownerRestaurantId) redemptions[idx].redeemedByRestaurantId = ownerRestaurantId;
+              await writeCollection('redemptions', redemptions);
+            }
+          } catch (mirrorErr) {
+            logger.warn('[loyalty] espejo local post-claim falló (best-effort)', { details: mirrorErr.message });
+          }
+          return {
+            code: data.code,
+            rewardTitle: data.reward_title,
+            pointsCost: data.points_cost,
+            restaurantId: data.restaurant_id,
+            redeemedAt: data.redeemed_at
+          };
+        }
+        if (data.ok === false) {
+          // NOT_FOUND con espejo local pero cloud rezagado (el upsert de
+          // emisión es fire-and-forget): manda el local, que distingue
+          // 404/409/410/403 (incluido cross-restaurant), como antes de 006.
+          if (data.reason === 'NOT_FOUND') {
+            const local = readCollection('redemptions')
+              .find(r => String(r.code || '').toUpperCase() === normalized);
+            if (local) {
+              logger.warn('[loyalty] claim RPC NOT_FOUND pero espejo local presente (cloud rezagado), path local');
+              return _withClaimLock(normalized, () => _validateLocally(normalized, ownerRestaurantId));
+            }
+          }
+          throw _claimReasonToError(data.reason);
+        }
+        logger.warn('[loyalty] claim RPC respuesta inesperada, fallback local');
+      } else if (error) {
+        if (_isMissingClaimFunction(error)) {
+          logger.warn('[loyalty] claim_loyalty_redemption ausente (006 no aplicada), fallback local', { details: error.message });
+        } else {
+          logger.warn('[loyalty] claim RPC falló, fallback local', { details: error.message });
+        }
+      } else {
+        logger.warn('[loyalty] claim RPC sin data, fallback local');
+      }
+    } catch (rpcErr) {
+      // Los AppError de mapeo (CODE_*) ya son la respuesta final: no caer al local.
+      if (rpcErr && typeof rpcErr.statusCode === 'number' && String(rpcErr.code || '').startsWith('CODE_')) throw rpcErr;
+      logger.warn('[loyalty] claim RPC excepción, fallback local', { details: rpcErr && rpcErr.message });
+    }
+  }
+
+  // 2) Path local, serializado por código dentro de la instancia.
+  return _withClaimLock(normalized, () => _validateLocally(normalized, ownerRestaurantId));
+}
+
+// Mutex en proceso por código: serializa dos validates concurrentes de la
+// misma instancia (el check-then-set local no es atómico entre awaits). La
+// atomicidad cross-instancia la da el RPC 006 cuando hay Supabase.
+const _claimChains = new Map();
+
+function _withClaimLock(normalizedCode, fn) {
+  const prev = _claimChains.get(normalizedCode) || Promise.resolve();
+  const current = prev.catch(() => {}).then(() => fn());
+  const tracked = current.catch(() => {});
+  _claimChains.set(normalizedCode, tracked);
+  tracked.finally(() => {
+    if (_claimChains.get(normalizedCode) === tracked) _claimChains.delete(normalizedCode);
+  });
+  return current;
+}
+
+function _isMissingClaimFunction(err) {
+  if (!err) return false;
+  if (err.code === 'PGRST202') return true;
+  const msg = String(err.message || '');
+  return /could not find the function/i.test(msg) && /claim_loyalty_redemption/i.test(msg);
+}
+
+function _claimReasonToError(reason) {
+  switch (reason) {
+    case 'ALREADY':
+      return new AppError('Este código ya fue canjeado', 409, 'CODE_ALREADY_REDEEMED');
+    case 'EXPIRED':
+      return new AppError('Este código está vencido', 410, 'CODE_EXPIRED');
+    case 'OTHER':
+      return new AppError('Este código pertenece a otro restaurante', 403, 'CODE_OTHER_RESTAURANT');
+    case 'NOT_FOUND':
+    default:
+      return new AppError('Código no encontrado', 404, 'CODE_NOT_FOUND');
+  }
+}
+
+async function _validateLocally(normalized, ownerRestaurantId) {
   const redemptions = readCollection('redemptions');
-  const redemption = redemptions.find(r => r.code.toUpperCase() === normalized);
+  const redemption = redemptions.find(r => String(r.code || '').toUpperCase() === normalized);
   if (!redemption) throw new AppError('Código no encontrado', 404, 'CODE_NOT_FOUND');
   if (redemption.status === 'redeemed') {
     throw new AppError('Este código ya fue canjeado', 409, 'CODE_ALREADY_REDEEMED');
@@ -727,5 +975,11 @@ module.exports = {
   validateRedemptionCode,
   getCustomerCard,
   listRestaurantCustomers,
-  eraseCustomerData
+  eraseCustomerData,
+  // prueba de posesión por email (OTP anti-drenaje)
+  generateLoyaltyOtp,
+  verifyLoyaltyOtp,
+  maskEmail,
+  requestLoyaltyOtp,
+  setCustomerEmail
 };

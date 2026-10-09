@@ -33,7 +33,11 @@ import {
   openReservationModal as openReservationModalMod,
   closeReservationModal as closeReservationModalMod,
   submitReservation as submitReservationMod,
-  computeTipAmount as computeTipAmountMod
+  computeTipAmount as computeTipAmountMod,
+  renderWeddingItineraryHTML as renderWeddingItineraryHTMLMod,
+  isFreePrice as isFreePriceMod,
+  getDishNoteCopy as getDishNoteCopyMod,
+  resolveNeonAccent as resolveNeonAccentMod
 } from './menu/index.js';
 
 // State
@@ -46,6 +50,7 @@ let appliedCoupon = null; // { code: 'PROMO10', type: 'percent', value: 10 }
 let discountAmount = 0;
 let tipPercent = 0;   // propina sugerida seleccionada (0 = sin propina)
 let tipCustom = null; // monto de propina fijo (tiene prioridad)
+let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
 
 // Puente window ↔ estado del módulo: menu-modules.js y componentes (wizards, GroupCartManager)
 // leen/escriben window.restaurantData y window.cart, pero el estado real vive en este módulo.
@@ -137,6 +142,7 @@ Object.defineProperties(window, {
       if (!banner) {
         banner = document.createElement('div');
         banner.id = 'offlineNoticeBanner';
+        banner.setAttribute('role', 'alert');
         banner.style.cssText = 'position:fixed; bottom:16px; left:50%; transform:translateX(-50%); z-index:9999; background:rgba(229,62,62,0.92); color:#fff; font-size:12px; font-weight:600; padding:8px 16px; border-radius:20px; box-shadow:0 4px 12px rgba(0,0,0,0.4); display:flex; align-items:center; gap:8px; backdrop-filter:blur(4px); transition:opacity .3s ease;';
         document.body.appendChild(banner);
       }
@@ -280,11 +286,20 @@ Object.defineProperties(window, {
       const themeClass = validThemes.includes(restaurantData.theme) ? `theme-${restaurantData.theme}` : 'theme-emerald';
       document.body.className = `${themeClass} font-${restaurantData.themeFont || 'serif'} ${layoutClass}`;
 
+      // === NEON ACCENT: color elegible del layout Neon Nightbar (?neon= para previsualizar)
+      if (layoutClass === 'layout-neon') {
+        const neonParam = new URLSearchParams(window.location.search).get('neon');
+        document.body.classList.add(`neon-${resolveNeonAccentMod(neonParam || restaurantData.neonAccent)}`);
+      }
+
       // === EVENT VISUAL THEMES: Aplicar tema visual cuando businessType='events' o ?event= parámetro
       const eventThemeClass = resolveEventTheme(restaurantData, window.location.search);
       if (eventThemeClass) {
         document.body.classList.add(eventThemeClass);
       }
+
+      // === WEDDING ITINERARY: sección data-driven (dueño la configura en Studio)
+      renderWeddingItinerary();
 
       // Render the hero image and temporarily move the existing brand/status nodes into it.
       const bannerEl = document.getElementById('menuBannerHero');
@@ -302,7 +317,7 @@ Object.defineProperties(window, {
           bannerEl.style.display = 'block';
           bannerEl.innerHTML = `
             <div class="menu-banner-media">
-              <img src="${bannerSrc}" alt="Portada de ${escapeHtml(restaurantData.name)}" class="menu-banner-img" loading="eager">
+              <img src="${bannerSrc}" alt="Portada de ${escapeHtml(restaurantData.name)}" class="menu-banner-img" loading="eager" decoding="async" fetchpriority="high" style="aspect-ratio:16/9">
               <div class="menu-banner-overlay" aria-hidden="true"></div>
             </div>
             <div class="menu-banner-status-slot"></div>
@@ -326,7 +341,7 @@ Object.defineProperties(window, {
 
       if (restaurantData.logoUrl) {
         logoContainer.innerHTML = `
-          <img src="${restaurantData.logoUrl}" alt="Logo" class="restaurant-logo">
+          <img src="${escapeHtml(restaurantData.logoUrl)}" alt="Logo" class="restaurant-logo">
         `;
       } else {
         logoContainer.innerHTML = '';
@@ -855,21 +870,25 @@ Object.defineProperties(window, {
         const inCart = getDishCartQuantity(d.id);
         const sched = getDishScheduleStatus(d);
         const effectivePrice = sched.effectivePrice !== undefined ? sched.effectivePrice : d.price;
-        const formattedPrice = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
-          ? window.i18nManager.formatPrice(effectivePrice) 
-          : `${currency} ${effectivePrice}`;
+        // Sin costo ($0 o sin precio): NO se muestra ninguna cifra, solo el botón pedir.
+        const isFree = isFreePriceMod(effectivePrice);
+        const formattedPrice = isFree
+          ? ''
+          : ((window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
+            ? window.i18nManager.formatPrice(effectivePrice) 
+            : `${currency} ${effectivePrice}`);
         const isStar = !d.isChefSpecial && (!d.tags || !d.tags.includes('chef_special')) && d.tags && d.tags.includes('star');
         const ribbonLabel = isStar ? t('favoriteRibbon', '⭐ Favorito') : (sched.isAvailable ? t('recommendationLabel', 'Recomendación') : sched.reason);
         const ribbonIcon = isStar ? '🔥' : '👨‍🍳';
         
-        // For Happy Hours: show original price as strikethrough
+        // For Happy Hours: show original price as strikethrough (nunca si es sin costo)
         let originalPriceHtml = '';
-        if (sched.isHappyHour && sched.originalPrice !== null && sched.originalPrice !== undefined && Number(sched.originalPrice) > Number(effectivePrice)) {
+        if (!isFree && sched.isHappyHour && sched.originalPrice !== null && sched.originalPrice !== undefined && Number(sched.originalPrice) > Number(effectivePrice)) {
           const formattedOrig = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
             ? window.i18nManager.formatPrice(sched.originalPrice) 
             : `${currency} ${sched.originalPrice}`;
           originalPriceHtml = `<span style="text-decoration:line-through; opacity:0.6; font-size:0.8em; margin-right:4px; color:var(--chalk-dim); font-weight:normal;">${formattedOrig}</span>`;
-        } else {
+        } else if (!isFree) {
           // Fallback to dish-level originalPrice
           const origPrice = (d.originalPrice !== undefined && d.originalPrice !== null) ? d.originalPrice : (d.previous_price || d.previousPrice);
           if (origPrice && Number(origPrice) > Number(effectivePrice)) {
@@ -881,7 +900,7 @@ Object.defineProperties(window, {
         }
 
         const photoHtml = d.photoUrl 
-          ? `<img src="${d.photoUrl}" alt="${escapeHtml(d.name)}" class="chef-special-thumb" loading="lazy">` 
+          ? `<img src="${escapeHtml(d.photoUrl)}" alt="${escapeHtml(d.name)}" class="chef-special-thumb" loading="lazy" decoding="async" style="aspect-ratio:16/9">` 
           : `<div style="height:90px; display:flex; align-items:center; justify-content:center; font-size:2.4rem; background:rgba(236,201,75,0.06); border-radius:8px; margin-bottom:8px;">👨‍🍳</div>`;
 
         html += `
@@ -908,6 +927,32 @@ Object.defineProperties(window, {
 
       carousel.innerHTML = html;
       section.style.display = 'block';
+    }
+
+    /**
+     * Renderiza la sección del itinerario de boda/evento.
+     * Visible solo con tema de evento activo (businessType='events' o ?event=)
+     * Y con itinerario habilitado + al menos un momento configurado.
+     */
+    function renderWeddingItinerary() {
+      const section = document.getElementById('weddingItinerarySection');
+      if (!section || !restaurantData) return;
+      // Un solo intervalo vivo: se limpia en cada re-render.
+      if (weddingItineraryTimer) {
+        clearInterval(weddingItineraryTimer);
+        weddingItineraryTimer = null;
+      }
+      const themeActive = Boolean(resolveEventTheme(restaurantData, window.location.search))
+        || restaurantData.businessType === 'events';
+      const html = themeActive
+        ? renderWeddingItineraryHTMLMod(restaurantData.weddingItinerary, escapeHtml, new Date())
+        : '';
+      section.innerHTML = html;
+      section.style.display = html ? 'block' : 'none';
+      // El estado (AHORA / avance / cuenta regresiva) se actualiza solo.
+      if (html) {
+        weddingItineraryTimer = setInterval(renderWeddingItinerary, 30000);
+      }
     }
 
     function renderDishes() {
@@ -1088,19 +1133,25 @@ Object.defineProperties(window, {
       if (sched.isHappyHour) badgeHtml += '<span class="dish-badge" style="background:rgba(72,187,120,0.2); color:#48BB78; border:1px solid rgba(72,187,120,0.4);">🕐 Happy Hour</span> ';
 
       const photoHtml = d.photoUrl 
-        ? `<img src="${d.photoUrl}" alt="${escapeHtml(d.name)}" class="dish-thumb" loading="lazy">` 
+        ? `<img src="${escapeHtml(d.photoUrl)}" alt="${escapeHtml(d.name)}" class="dish-thumb" loading="lazy" decoding="async" style="aspect-ratio:16/9">` 
         : '';
 
-      const formattedPrice = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
-        ? window.i18nManager.formatPrice(effectivePrice) 
-        : `${currency} ${effectivePrice}`;
-      const displayPrice = getDishModifierGroups(d).some(group => group.kind === 'presentation')
-        ? `Desde ${formattedPrice}`
-        : formattedPrice;
+      // Sin costo ($0 o sin precio): NO se muestra ninguna cifra, solo el botón pedir.
+      const isFreeDish = isFreePriceMod(effectivePrice);
+      const formattedPrice = isFreeDish
+        ? ''
+        : ((window.i18nManager && typeof window.i18nManager.formatPrice === 'function')
+          ? window.i18nManager.formatPrice(effectivePrice)
+          : `${currency} ${effectivePrice}`);
+      const displayPrice = isFreeDish
+        ? ''
+        : (getDishModifierGroups(d).some(group => group.kind === 'presentation')
+          ? `Desde ${formattedPrice}`
+          : formattedPrice);
 
       const origPrice = (d.originalPrice !== undefined && d.originalPrice !== null) ? d.originalPrice : (d.previous_price || d.previousPrice);
       let priceDisplay = isSold ? '<span style="color:#E53E3E; font-size:0.85rem;">Agotado</span>' : displayPrice;
-      if (!isSold) {
+      if (!isSold && !isFreeDish) {
         // Happy Hour: show schedule override price with original as strikethrough
         if (sched.isHappyHour && sched.originalPrice !== null && sched.originalPrice !== undefined && Number(sched.originalPrice) > Number(effectivePrice)) {
           const formattedOriginal = (window.i18nManager && typeof window.i18nManager.formatPrice === 'function') 
@@ -1145,6 +1196,103 @@ Object.defineProperties(window, {
       renderDishes();
     }
 
+    // Turnstile invisible (Cloudflare): anti-spam del alta de pedidos sin
+    // fricción para el comensal (sin checkbox). Solo se carga si el
+    // despliegue expone sitekey en /api/public/captcha-config.
+    let turnstileSitekeyPromise = null;
+    let turnstileWidgetId = null;
+    let pendingCaptchaResolve = null;
+    function getTurnstileSitekey() {
+      if (!turnstileSitekeyPromise) {
+        turnstileSitekeyPromise = fetch('/api/public/captcha-config')
+          .then((res) => res.json())
+          .then((body) => (body && body.sitekey) || '')
+          .catch(() => '');
+      }
+      return turnstileSitekeyPromise;
+    }
+    function ensureTurnstileWidget(sitekey) {
+      if (turnstileWidgetId !== null) return Promise.resolve(turnstileWidgetId);
+      return new Promise((resolve) => {
+        try {
+          let box = document.getElementById('turnstileBox');
+          if (!box) {
+            box = document.createElement('div');
+            box.id = 'turnstileBox';
+            box.style.display = 'none';
+            document.body.appendChild(box);
+          }
+          const renderNow = () => {
+            try {
+              turnstileWidgetId = window.turnstile.render(box, {
+                sitekey,
+                size: 'invisible',
+                callback: (token) => {
+                  if (pendingCaptchaResolve) {
+                    pendingCaptchaResolve(typeof token === 'string' ? token : '');
+                    pendingCaptchaResolve = null;
+                  }
+                },
+                'expired-callback': () => {
+                  if (pendingCaptchaResolve) {
+                    pendingCaptchaResolve('');
+                    pendingCaptchaResolve = null;
+                  }
+                }
+              });
+              resolve(turnstileWidgetId);
+            } catch (e) {
+              resolve(null);
+            }
+          };
+          if (window.turnstile && typeof window.turnstile.render === 'function') {
+            renderNow();
+            return;
+          }
+          const script = document.createElement('script');
+          script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+          script.async = true;
+          script.defer = true;
+          script.onload = renderNow;
+          script.onerror = () => resolve(null);
+          document.head.appendChild(script);
+          setTimeout(() => resolve(turnstileWidgetId), 8000);
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    }
+    async function getCaptchaToken() {
+      try {
+        const sitekey = await getTurnstileSitekey();
+        if (!sitekey) return '';
+        const widgetId = await ensureTurnstileWidget(sitekey);
+        if (widgetId === null || !window.turnstile) return '';
+        return await new Promise((resolve) => {
+          let done = false;
+          const finish = (t) => {
+            if (done) return;
+            done = true;
+            pendingCaptchaResolve = null;
+            resolve(typeof t === 'string' ? t : '');
+          };
+          pendingCaptchaResolve = finish;
+          try {
+            if (typeof window.turnstile.executeAsync === 'function') {
+              window.turnstile.executeAsync(widgetId).then(finish, () => finish(''));
+            } else {
+              window.turnstile.execute(widgetId);
+            }
+          } catch (e) {
+            finish('');
+          }
+          setTimeout(() => finish(''), 8000);
+        });
+      } catch (e) {
+        return '';
+      }
+    }
+
     // Toast notification helper
     function showToast(message, type = 'success') {
       let toast = document.getElementById('scangoToast');
@@ -1187,6 +1335,12 @@ Object.defineProperties(window, {
         ? 'Editar nota del plato'
         : 'Personalizar el plato';
       document.getElementById('dishNoteDishName').textContent = dish.name;
+      // Copy del campo de notas según rubro: en heladería el ejemplo de
+      // cocina ("sin cebolla") no tiene sentido → se adapta al producto.
+      const noteCopy = getDishNoteCopyMod(restaurantData || {});
+      const noteLabel = document.querySelector('#dishNoteModal label[for="dishNoteInput"]');
+      if (noteLabel) noteLabel.textContent = noteCopy.label;
+      document.getElementById('dishNoteInput').placeholder = noteCopy.placeholder;
       document.getElementById('dishNoteInput').value = action.mode === 'edit'
         ? (cart[action.cartItemId].note || '')
         : '';
@@ -1392,6 +1546,12 @@ Object.defineProperties(window, {
         : `${currency} ${price}`;
     }
 
+    // Totales del carrito: un pedido 100% sin costo muestra "Sin costo"
+    // en vez de una cifra $0 que confunde estéticamente.
+    function formatTotalOrFree(amount) {
+      return isFreePriceMod(amount) ? 'Sin costo' : formatMenuPrice(amount);
+    }
+
     function getSelectedPresentationUnits(groups, selections) {
       const presentationGroup = groups.find(group => group.kind === 'presentation');
       if (!presentationGroup) return null;
@@ -1595,12 +1755,20 @@ Object.defineProperties(window, {
       const subtotal = Object.values(cart).reduce((sum, item) => sum + (item.qty * getCartUnitPrice(item)), 0);
       const currency = restaurantData.currency || '$';
       const formattedSubtotal = formatMenuPrice(subtotal);
+      // Pedido sin costo: la barra muestra solo "Ver Pedido →", sin ($0).
+      const barIsFree = isFreePriceMod(subtotal);
 
       const bar = document.getElementById('floatingCart');
       if (totalCount > 0) {
         bar.classList.add('active');
         document.getElementById('cartCountBadge').textContent = `🛒 ${totalCount} ítems`;
-        document.getElementById('cartTotalBadge').textContent = `${formattedSubtotal}`;
+        const badge = document.getElementById('cartTotalBadge');
+        if (barIsFree) {
+          badge.textContent = '';
+          badge.parentElement.innerHTML = 'Ver Pedido →';
+        } else {
+          badge.parentElement.innerHTML = `Ver Pedido (<span id="cartTotalBadge">${formattedSubtotal}</span>) →`;
+        }
       } else {
         bar.classList.remove('active');
       }
@@ -1657,8 +1825,13 @@ Object.defineProperties(window, {
         const optionSummary = getCartOptionSummary(item);
         const itemOptions = optionSummary ? `<div class="cart-item-options">${escapeHtml(optionSummary)}</div>` : '';
         const unitPrice = getCartUnitPrice(item);
-        const formattedPrice = formatMenuPrice(unitPrice);
-        const formattedLineTotal = formatMenuPrice(unitPrice * item.qty);
+        // Ítem sin costo: se muestra cantidad sin cifras (ni unitario ni total).
+        const itemIsFree = isFreePriceMod(unitPrice);
+        const formattedPrice = itemIsFree ? '' : formatMenuPrice(unitPrice);
+        const formattedLineTotal = itemIsFree ? '' : formatMenuPrice(unitPrice * item.qty);
+        const priceLineHtml = itemIsFree
+          ? `<div class="cart-item-price">x ${item.qty}</div>`
+          : `<div class="cart-item-price">${formattedPrice} x ${item.qty} = ${formattedLineTotal}</div>`;
 
         const editNoteBtn = canEdit ? `
           <button type="button" class="cart-note-edit" data-cart-id="${escapeHtml(cartItemId)}" data-js-click="editCartItemNote|this.dataset.cartId">${item.note ? 'Editar nota' : 'Agregar nota'}</button>
@@ -1674,7 +1847,7 @@ Object.defineProperties(window, {
               ${itemDesc}
               ${itemOptions}
               ${itemNote}
-              <div class="cart-item-price">${formattedPrice} x ${item.qty} = ${formattedLineTotal}</div>
+              ${priceLineHtml}
               ${editNoteBtn}
             </div>
             <div class="cart-qty-ctrl">
@@ -1980,7 +2153,7 @@ Object.defineProperties(window, {
 
       const formatP = formatMenuPrice;
 
-      document.getElementById('summarySubtotal').textContent = formatP(subtotal);
+      document.getElementById('summarySubtotal').textContent = formatTotalOrFree(subtotal);
       const deliveryRow = document.getElementById('summaryDeliveryRow');
       const discountRow = document.getElementById('summaryDiscountRow');
 
@@ -2026,7 +2199,7 @@ Object.defineProperties(window, {
       highlightTipPills();
 
       const total = Math.max(0, subtotal + currentDelivery - discountAmount) + tipAmount;
-      document.getElementById('summaryTotal').textContent = formatP(total);
+      document.getElementById('summaryTotal').textContent = formatTotalOrFree(total);
       updateSplitCalculation();
     }
 
@@ -2217,7 +2390,9 @@ Object.defineProperties(window, {
         // Registrar pedido en backend y guardar el token de seguimiento:
         // con él el comensal ve el estado (pendiente → preparando → listo)
         // aunque cierre WhatsApp, y recibe el push cuando el local lo avanza.
-        fetch('/api/orders', {
+        // Turnstile invisible (solo si el despliegue lo configuró): el token
+        // viaja como captchaToken; sin sitekey se envía sin nada.
+        getCaptchaToken().then((captchaToken) => fetch('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2231,6 +2406,7 @@ Object.defineProperties(window, {
             isGroupOrder,
             coupon: appliedCoupon,
             tipAmount,
+            captchaToken: captchaToken || undefined,
             participants: window.groupCartManagerInstance ? Array.from(window.groupCartManagerInstance.participants) : [],
             items: items.map(item => ({
               dishId: item.dish.id,
@@ -2256,7 +2432,8 @@ Object.defineProperties(window, {
               showOrderTrackingFab();
             }
           })
-          .catch(() => {});
+          .catch(() => {}));
+        // Fin del registro en backend (el pedido real viaja por WhatsApp).
 
         if (isGroupOrder && window.groupCartManagerInstance) {
           window.groupCartManagerInstance.clearTableCart();
@@ -2487,15 +2664,17 @@ Object.defineProperties(window, {
       let cardsHtml = '';
       candidates.forEach(dish => {
         const thumbHtml = dish.photoUrl
-          ? `<img class="mozo-item-thumb" src="${escapeHtml(dish.photoUrl)}" alt="${escapeHtml(dish.name)}" loading="lazy" data-js-error-style-display="none">`
+          ? `<img class="mozo-item-thumb" src="${escapeHtml(dish.photoUrl)}" alt="${escapeHtml(dish.name)}" loading="lazy" decoding="async" data-js-error-style-display="none">`
           : `<div class="mozo-item-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🍽️</div>`;
+        // Sugerencia sin costo: sin cifra, solo el botón agregar.
+        const upsellIsFree = isFreePriceMod(dish.price);
         cardsHtml += `
           <div class="mozo-item-card">
             ${thumbHtml}
             <div class="mozo-item-info">
               <span class="mozo-badge-tag">${escapeHtml(analysis.badge || 'Sugerido')}</span>
               <div class="mozo-item-title">${escapeHtml(dish.name)}</div>
-              <div class="mozo-item-price">${currency} ${(dish.price || 0).toFixed(0)}</div>
+              ${upsellIsFree ? '' : `<div class="mozo-item-price">${currency} ${(dish.price || 0).toFixed(0)}</div>`}
             </div>
             <button type="button" class="btn-mozo-quick-add" data-dish-id="${escapeHtml(dish.id)}" data-js-click="quickAddUpsellItem|${escapeHtml(dish.id)}|this">
               + Agregar
@@ -2610,7 +2789,7 @@ Object.defineProperties(window, {
 
         const topPick = matches[0];
         const thumbHtml = topPick.photoUrl
-          ? `<img src="${escapeHtml(topPick.photoUrl)}" alt="${escapeHtml(topPick.name)}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;" loading="lazy">`
+          ? `<img src="${escapeHtml(topPick.photoUrl)}" alt="${escapeHtml(topPick.name)}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;" loading="lazy" decoding="async">`
           : `<div style="width:48px;height:48px;border-radius:8px;background:rgba(236,201,75,0.1);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">${opp.type === 'postre' ? '🍰' : '🥤'}</div>`;
 
         html += `

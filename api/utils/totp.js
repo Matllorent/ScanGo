@@ -43,7 +43,8 @@ function sanitizeToken(token) {
  * @returns {boolean} - true si el token es válido
  */
 function verifyTotpToken(token, secret) {
-  if (!secret) return true; // Si no hay secreto configurado, permite acceso (backward compat)
+  // Fail-closed: sin secreto NO hay bypass (antes devolvía true).
+  if (!secret) return false;
   if (!token) return false;
 
   const cleanSecret = sanitizeSecret(secret);
@@ -71,13 +72,44 @@ function verifyTotpToken(token, secret) {
         (digest[hmacOffset + 1] & 0xff) << 16 |
         (digest[hmacOffset + 2] & 0xff) << 8 |
         (digest[hmacOffset + 3] & 0xff)) % 1000000;
-      if (code.toString().padStart(6, '0') === cleanToken) {
+      const candidate = code.toString().padStart(6, '0');
+      // Comparación en tiempo constante + un solo uso por código.
+      if (candidate.length === cleanToken.length
+        && crypto.timingSafeEqual(Buffer.from(candidate, 'utf8'), Buffer.from(cleanToken, 'utf8'))) {
+        if (wasTotpUsed(cleanSecret, step)) return false;
+        markTotpUsed(cleanSecret, step);
         return true;
       }
     }
   } catch (e) {
     // Silent fail - invalid secret format or crypto error
   }
+  return false;
+}
+
+// Caché anti-replay: un código TOTP vale una sola vez dentro de su ventana.
+// Memoria en proceso con TTL (suficiente contra reintentos automatizados).
+const usedTotpCodes = new Map(); // key `${secretHash}:${step}` -> expiresAt
+function markTotpUsed(secret, step) {
+  try {
+    const key = crypto.createHash('sha256').update(String(secret)).digest('hex') + ':' + step;
+    usedTotpCodes.set(key, Date.now() + (TOTP_STEP_SECONDS * 1000 * (TOTP_TOLERANCE_STEPS + 1)));
+    if (usedTotpCodes.size > 5000) {
+      const now = Date.now();
+      for (const [k, exp] of usedTotpCodes) {
+        if (exp < now) usedTotpCodes.delete(k);
+        if (usedTotpCodes.size < 4000) break;
+      }
+    }
+  } catch { /* best-effort */ }
+}
+function wasTotpUsed(secret, step) {
+  try {
+    const key = crypto.createHash('sha256').update(String(secret)).digest('hex') + ':' + step;
+    const exp = usedTotpCodes.get(key);
+    if (exp && exp > Date.now()) return true;
+    if (exp) usedTotpCodes.delete(key);
+  } catch { /* best-effort */ }
   return false;
 }
 

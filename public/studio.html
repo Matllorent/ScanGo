@@ -110,6 +110,10 @@
           <span class="tab-icon">📈</span>
           <span>Analíticas</span>
         </button>
+        <button class="tab-btn" data-js-click="switchTab|coupons" title="Promos — Cupones y descuentos">
+          <span class="tab-icon">🎟️</span>
+          <span>Promos</span>
+        </button>
       </nav>
 
       <div class="tab-content-scroll">
@@ -393,6 +397,19 @@
               <div class="input-hint" style="margin-top:6px;">
                 "Classic Artisanal" conserva al 100% las 14 paletas auténticas. Las nuevas morfologías aplican un diseño estructural exclusivo de vanguardia.
               </div>
+              <!-- Acento Neón (sólo layout Neon Nightbar): 6 colores de glow -->
+              <div id="neonAccentRow" style="display:none; margin-top:10px;">
+                <label class="form-label" for="inputNeonAccent">🎨 Color Neón del Nightbar</label>
+                <select id="inputNeonAccent" class="form-select" data-js-change="updateLiveState">
+                  <option value="mint">🩵 Menta Eléctrica (default)</option>
+                  <option value="cyan">💧 Cian Cyber</option>
+                  <option value="magenta">💖 Magenta Party</option>
+                  <option value="amber">🥃 Ámbar Whisky</option>
+                  <option value="lime">🍋 Lima Sour</option>
+                  <option value="violet">🍇 Violeta Uva</option>
+                </select>
+                <div class="input-hint" style="margin-top:4px;">Tiñe precios, títulos, bordes y botones del modo neón.</div>
+              </div>
             </div>
 
             <div class="form-group">
@@ -579,6 +596,45 @@
                 <input type="checkbox" id="inputAllowPerfumery" data-js-change="updateLiveState" style="opacity:0; width:0; height:0;">
                 <span id="sliderPerfumery" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
               </label>
+            </div>
+
+            <!-- Wedding Itinerary (sólo rubro Eventos): programa visual de la boda -->
+            <div id="weddingItinerarySection" style="display:none; flex-direction:column; gap:8px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border); margin-top:10px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                <div>
+                  <strong style="font-size:12px; color:#fff;">💒 Programa Visual de Boda</strong>
+                  <div style="font-size:10px; color:var(--text-dim);">Línea de tiempo elegante con los momentos de la fiesta (recepción, ceremonia, cena…).</div>
+                </div>
+                <label style="position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0;">
+                  <input type="checkbox" id="inputWeddingItineraryEnabled" data-js-change="updateLiveState" style="opacity:0; width:0; height:0;">
+                  <span id="sliderWeddingItinerary" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
+                </label>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <div>
+                  <label for="inputWeddingTitle" style="display:block; font-size:10px; color:var(--text-dim); margin-bottom:4px;">Título de la sección</label>
+                  <input type="text" id="inputWeddingTitle" class="form-input" maxlength="60" placeholder="Programa de Boda" data-js-input="updateLiveState" style="font-size:11px; padding:6px 8px;">
+                </div>
+                <div>
+                  <label for="inputWeddingCouple" style="display:block; font-size:10px; color:var(--text-dim); margin-bottom:4px;">Pareja / Anfitriones</label>
+                  <input type="text" id="inputWeddingCouple" class="form-input" maxlength="80" placeholder="Mora & Alex" data-js-input="updateLiveState" style="font-size:11px; padding:6px 8px;">
+                </div>
+                <div>
+                  <label for="inputWeddingDate" style="display:block; font-size:10px; color:var(--text-dim); margin-bottom:4px;">Fecha (texto libre)</label>
+                  <input type="text" id="inputWeddingDate" class="form-input" maxlength="60" placeholder="5 de Junio de 2029" data-js-input="updateLiveState" style="font-size:11px; padding:6px 8px;">
+                </div>
+                <div>
+                  <label for="inputWeddingDay" style="display:block; font-size:10px; color:var(--text-dim); margin-bottom:4px;">Día del evento (marca el EN VIVO)</label>
+                  <input type="date" id="inputWeddingDay" class="form-input" data-js-change="updateLiveState" style="font-size:11px; padding:6px 8px;">
+                </div>
+                <div>
+                  <label for="inputWeddingVenue" style="display:block; font-size:10px; color:var(--text-dim); margin-bottom:4px;">Lugar</label>
+                  <input type="text" id="inputWeddingVenue" class="form-input" maxlength="120" placeholder="Salón Ensigna · Calle Cualquiera 123" data-js-input="updateLiveState" style="font-size:11px; padding:6px 8px;">
+                </div>
+              </div>
+              <div style="font-size:11px; font-weight:700; color:#fff; margin-top:2px;">🕒 Momentos del evento (hora + título + icono)</div>
+              <div id="weddingItineraryRows"></div>
+              <button type="button" class="btn-nav" data-js-click="addWeddingItineraryItem" style="width:auto; padding:6px 12px; font-size:11px; border-color:#D4A853; color:#D4A853; margin-top:2px;">＋ Agregar momento</button>
             </div>
           </div>
 
@@ -1087,7 +1143,7 @@
             <!-- Daily Chart -->
             <div class="form-section" style="margin-bottom:16px;">
               <div class="section-title">📅 Evolución Diaria (Últimos 30 días)</div>
-              <canvas id="dailyChart" height="200" style="width:100%; max-height:250px; background:var(--bg-base); border-radius:8px;"></canvas>
+              <canvas id="dailyChart" height="200" role="img" aria-label="Gráfico de ingresos diarios de los últimos 30 días" style="width:100%; max-height:250px; background:var(--bg-base); border-radius:8px;"></canvas>
             </div>
 
             <!-- Top Dishes -->
@@ -1153,6 +1209,33 @@
                 </table>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div id="tab-coupons" class="tab-pane">
+          <div class="form-section">
+            <section id="couponsSection">
+              <div class="section-title">🎟️ Promos y Cupones</div>
+              <p style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">
+                Cupones personalizados del local (backend: customCoupons). El listado se completa al guardar.
+              </p>
+              <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                  <thead>
+                    <tr style="background:var(--bg-base); border-bottom:2px solid var(--border);">
+                      <th style="padding:8px; text-align:left; font-weight:700; color:var(--text-muted);">Código</th>
+                      <th style="padding:8px; text-align:center; font-weight:700; color:var(--text-muted);">Tipo</th>
+                      <th style="padding:8px; text-align:center; font-weight:700; color:var(--text-muted);">Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody id="couponsBody"></tbody>
+                </table>
+              </div>
+              <div style="margin-top:10px;">
+                <button type="button" class="btn-nav btn-nav-gold" style="width:auto; padding:6px 12px; font-size:11px;" data-js-click="onCouponNew" data-coupon-event="scango:coupon-new">＋ Nuevo cupón</button>
+              </div>
+              <!-- handler real: dispatchEvent(new CustomEvent('scango:coupon-new')) vendrá después -->
+            </section>
           </div>
         </div>
 
@@ -1849,6 +1932,7 @@
     </div>
   </div>
 
+  <script src="/js/authClient.js"></script>
   <script src="/js/pwa.js"></script>
   <script type="module" src="/js/studio.js"></script>
 

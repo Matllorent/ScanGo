@@ -17,6 +17,13 @@ const loginSchema = z.object({
   password: z.string().min(1, { message: 'Contraseña requerida' })
 });
 
+// Schema for native-app device credential (login + deviceName opcional)
+const deviceLoginSchema = z.object({
+  email: z.string().email({ message: 'Email inválido' }).max(100),
+  password: z.string().min(1, { message: 'Contraseña requerida' }).max(500),
+  deviceName: z.string().max(60).optional().default('dispositivo')
+});
+
 // Schema for individual dishes with smart menu attributes
 const dishSchema = z.object({
   id: z.string().optional(),
@@ -65,6 +72,53 @@ const webhookSchema = z.object({
   event: z.string().min(1, { message: 'Tipo de evento requerido' }),
   payload: z.record(z.any()),
   signature: z.string().optional()
+});
+
+// Schema de alta de pedido del comensal (reglas idénticas a las que usaba
+// api/routes/orders.js: copiado verbatim, solo cambia el nombre del schema de
+// ítem para no colisionar con el orderItemSchema legacy de arriba).
+const createOrderItemSchema = z.object({
+  dishId: z.string().min(1, { message: 'ID de platillo requerido' }),
+  quantity: z.number().int().positive({ message: 'La cantidad debe ser mayor a 0' }),
+  note: z.string().trim().max(250).optional().default(''),
+  orderedBy: z.string().max(100).optional().default(''),
+  orderedById: z.string().max(100).optional().default(''),
+  choices: z.array(z.object({
+    groupId: z.string().min(1).max(80),
+    selections: z.array(z.object({
+      optionId: z.string().min(1).max(80),
+      quantity: z.number().int().positive().optional()
+    })).max(100)
+  })).max(50).optional().default([]),
+  options: z.record(z.any()).optional().default({})
+});
+
+const createOrderSchema = z.object({
+  restaurantId: z.string().min(1, { message: 'ID de restaurante requerido' }),
+  tableNumber: z.union([z.string(), z.number()]).optional().default('1'),
+  items: z.array(createOrderItemSchema).min(1, { message: 'El pedido debe contener al menos un producto' }),
+  currency: z.string().max(5).optional().default('$'),
+  customerName: z.string().max(100).optional().default('Cliente'),
+  customerPhone: z.string().max(30).optional().default(''),
+  deliveryAddress: z.string().max(200).optional().default(''),
+  notes: z.string().max(300).optional().default(''),
+  isGroupOrder: z.boolean().optional().default(false),
+  participants: z.array(z.string()).optional().default([]),
+  groupSessionId: z.string().max(100).optional().default(''),
+  // Cupón aplicado en el frontend: se persiste como parte del snapshot del
+  // pedido (auditoría de descuentos concedidos).
+  coupon: z.object({
+    code: z.string().min(1).max(30),
+    type: z.string().max(20).optional().default('percent'),
+    value: z.number().nonnegative().optional().default(0),
+    label: z.string().max(60).optional().default('')
+  }).optional().nullish().transform(v => v || undefined),
+  // Propina opcional del comensal (nunca obligatoria). Viaja aparte del monto
+  // de los platos para no distorsionar el ticket promedio de analytics.
+  tipAmount: z.number().nonnegative().max(1000000).optional().default(0),
+  // Token Turnstile invisible (anti-spam/farming). Opcional en el contrato:
+  // solo se exige si el despliegue configuró TURNSTILE_SECRET.
+  captchaToken: z.string().max(2000).optional().default('')
 });
 
 // Zod 4: compilar el schema una vez por middleware. SafeParse mantiene el mismo
@@ -157,8 +211,11 @@ function validateRequest(schemas) {
 module.exports = {
   registerSchema,
   loginSchema,
+  deviceLoginSchema,
   dishSchema,
   orderSchema,
+  createOrderItemSchema,
+  createOrderSchema,
   webhookSchema,
   validate,
   validateBody,

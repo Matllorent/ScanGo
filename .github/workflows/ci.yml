@@ -1,0 +1,58 @@
+# CI de Menú Pizarrón SaaS
+# Corre la suite real (sin mocks) en Node 22 y 24 + auditoría de dependencias.
+name: CI
+
+# Se ejecuta en cada push y pull request.
+on: [push, pull_request]
+
+# Permiso mínimo para subir el reporte SARIF de OSV a la pestaña Security.
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # La suite completa (31 tests en secuencia) tarda varios minutos.
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22.x, 24.x]
+    steps:
+      # Descarga el código del repo.
+      - uses: actions/checkout@v4
+
+      # Instala Node según la matriz y cachea npm.
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      # Instalación limpia y reproducible desde package-lock.json.
+      - run: npm ci
+
+      # Suite completa: flujos reales con el store local + guard que
+      # restaura data/ al final (sin mocks de DB ni de pasarelas).
+      - run: npm test
+
+      # Análisis estático Semgrep (hace SKIP solo si semgrep no está instalado).
+      - run: npm run test:semgrep
+
+      # Auditoría de vulnerabilidades sobre el lockfile.
+      # fail-on-vuln false: informa sin bloquear (riesgo aceptado
+      # braces/CHOKIDAR documentado en AGENTS.md).
+      - name: Auditoría OSV-Scanner
+        uses: google/osv-scanner-action@v2
+        with:
+          scan-args: |-
+            -L package-lock.json --format sarif --output osv-results.sarif
+          fail-on-vuln: false
+
+      # Sube el SARIF si el escaneo lo generó (nunca rompe el build).
+      - name: Subir SARIF de OSV
+        if: always() && hashFiles('osv-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: osv-results.sarif

@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const crypto = require('crypto');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
@@ -50,6 +51,17 @@ const app = express();
 // proxy y el rate-limit por IP no distingue clientes (429 masivo injusto).
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
+// Fail-closed en producción: sin secretos no se arranca (en dev se mantiene el
+// fallback actual para no romper el flujo local ni la suite de tests).
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  throw new Error('Falta JWT_SECRET en producción (fail-closed: sin secreto no se arranca).');
+}
+if (process.env.NODE_ENV === 'production' && !process.env.ADMIN_KEY) {
+  throw new Error('Falta ADMIN_KEY en producción (fail-closed: sin clave maestra no se arranca).');
+}
+if (process.env.NODE_ENV === 'production' && !process.env.ADMIN_TOTP_SECRET) {
+  throw new Error('Falta ADMIN_TOTP_SECRET en producción (fail-closed: sin secreto 2FA no se arranca).');
+}
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_menu_pizarron_2026';
 const ADMIN_KEY = process.env.ADMIN_KEY || 'pizarron_admin_master_key_2026';
 
@@ -74,11 +86,46 @@ app.use(requestIdMiddleware);
 app.disable('x-powered-by');
 app.use(securityHeaders.securityHeadersMiddleware);
 
-// CORS setup
-app.use(cors({ origin: true, credentials: true }));
+// CORS con allowlist explícita (fail-closed en producción): APP_URL,
+// PUBLIC_URL, ADMIN_URL y LANDING_URL (aceptan listas separadas por coma) +
+// localhost solo en dev. Sin header Origin (curl, health checks, server-to-
+// server) se permite; con Origin fuera de la lista se deniega (sin header
+// ACAO) pero sin romper la respuesta (health y APIs siguen 200).
+const CORS_ALLOWLIST = [process.env.APP_URL, process.env.PUBLIC_URL, process.env.ADMIN_URL, process.env.LANDING_URL]
+  .flatMap(v => String(v || '').split(','))
+  .map(s => s.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+function corsOrigin(origin, callback) {
+  if (!origin) return callback(null, true);
+  const clean = String(origin).trim().replace(/\/+$/, '');
+  if (CORS_ALLOWLIST.includes(clean)) return callback(null, true);
+  if (process.env.NODE_ENV !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(clean)) {
+    return callback(null, true);
+  }
+  return callback(null, false);
+}
+app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(cookieParser());
-app.use(express.json({ limit: '25mb' }));
-app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+// Anti-CSRF en profundidad: mutaciones con cookie de sesión exigen Origin
+// propio cuando el browser lo envía (ver api/middleware/originCheck.js).
+app.use(require('./middleware/originCheck'));
+// Límite global chico (1mb). Los payloads grandes (fotos base64 del import con
+// IA) usan el parser de 25mb solo en /api/studio/ai-import y /api/ai/* — ver
+// el dispatcher de abajo y los mounts explícitos antes de cada router.
+const jsonStandardLimit = express.json({ limit: '1mb' });
+const jsonLargeLimit = express.json({ limit: '25mb' });
+function isLargePayloadPath(pathname) {
+  return pathname === '/api/studio/ai-import'
+    || pathname === '/api/ai'
+    || pathname.startsWith('/api/ai/');
+}
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD' && isLargePayloadPath(req.path || '')) {
+    return jsonLargeLimit(req, res, next);
+  }
+  return jsonStandardLimit(req, res, next);
+});
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 app.use(async (req, res, next) => {
   if ((!req.path.startsWith('/api/') && !req.path.startsWith('/m/')) ||
@@ -107,10 +154,15 @@ const tenantKeyGenerator = (req) => {
   return req.headers['x-tenant-id'] || req.headers['x-restaurant-id'] || req.user?.userId || req.ip;
 };
 
+// Auth usa SIEMPRE la IP real (trust proxy): la key por header es spoofeable
+// (rotar x-tenant-id daba baldes frescos). Detrás de un NAT se comparte el
+// balde de login, aceptable para 20 intentos/15min.
+const authIpKeyGenerator = (req) => req.ip;
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 30,
-  keyGenerator: tenantKeyGenerator,
+  max: 20,
+  keyGenerator: authIpKeyGenerator,
   validate: { keyGeneratorIpFallback: false },
   message: { success: false, error: 'Demasiados intentos de acceso. Por favor intentá nuevamente en 15 minutos.', code: 'RATE_LIMIT_EXCEEDED' },
   standardHeaders: true,
@@ -687,6 +739,11 @@ app.post('/api/billing/webhook/:provider', async (req, res) => {
     if (provider === 'mercadopago' && expectedSecret && req.query.secret !== expectedSecret) {
       return res.status(401).json({ error: 'Webhook secret inválido', code: 'WEBHOOK_SECRET_INVALID' });
     }
+    // Fail-closed en prod: sin secreto configurado no se acepta nada de MP.
+    // (En dev/tests se mantiene abierto para no romper el flujo local.)
+    if (provider === 'mercadopago' && !expectedSecret && process.env.NODE_ENV === 'production') {
+      return res.status(503).json({ error: 'Webhook de Mercado Pago sin configurar', code: 'MP_WEBHOOK_NOT_CONFIGURED' });
+    }
 
     // IPN legado manda topic/id por query y el body viene vacío
     const payload = { ...(req.query || {}), ...(req.body || {}) };
@@ -715,13 +772,21 @@ app.get('/api/billing/status', authMiddleware, (req, res) => {
   });
 });
 
+// Comparación de secretos en tiempo constante (evita oráculo de timing).
+// timingSafeEqual exige igual longitud: se hashea con SHA-256 primero.
+function timingSafeEqualHex(a, b) {
+  const ha = crypto.createHash('sha256').update(String(a)).digest();
+  const hb = crypto.createHash('sha256').update(String(b)).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+
 // ==================== OWNER ADMIN ROUTES ====================
 app.post('/api/admin/login', adminLimiter, (req, res) => {
   const { key, adminKey, totp } = req.body || {};
   const providedKey = key || adminKey || req.headers['x-admin-key'];
   const adminTotpSecret = process.env.ADMIN_TOTP_SECRET || 'JBSWY3DPEHPK3PXP';
 
-  if (providedKey === ADMIN_KEY) {
+  if (timingSafeEqualHex(providedKey, ADMIN_KEY)) {
     const cleanTotp = (totp ? String(totp) : '').trim();
     if (!cleanTotp) {
       return res.status(401).json({ error: 'El código 2FA de Google Authenticator es obligatorio para ingresar al panel de administración' });
@@ -734,11 +799,9 @@ app.post('/api/admin/login', adminLimiter, (req, res) => {
       JWT_SECRET,
       { expiresIn: ADMIN_SESSION_IDLE_TIMEOUT_SECONDS }
     );
-    res.cookie('admin_key', providedKey, COOKIE_OPTIONS);
     res.cookie('admin_token', adminToken, COOKIE_OPTIONS);
     return res.json({
       success: true,
-      token: adminToken,
       message: 'Acceso autorizado como administrador maestro'
     });
   }
@@ -1070,6 +1133,13 @@ app.post('/api/admin/invite-restaurant', adminMiddleware, async (req, res, next)
 });
 
 // ==================== ANALYTICS ROUTES ====================
+// Sitekey pública de Turnstile (invisible). Vacía = captcha desactivado en
+// este despliegue y el menú no lo carga. La sitekey es pública por diseño.
+app.get('/api/public/captcha-config', (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.json({ sitekey: process.env.TURNSTILE_SITEKEY || '' });
+});
+
 // Canal público unificado de analítica. Fuente única de verdad: telemetría
 // (telemetry_events). Los contadores legacy (restaurant.analytics) son una
 // proyección derivada que se recalcula acá, nunca se incrementan a mano.
@@ -1444,6 +1514,15 @@ app.get('/m/:slug', (req, res) => {
       'Content-Security-Policy',
       securityHeaders.getSecurityHeaders({ strictMenu: true })['Content-Security-Policy']
     );
+    // ETag + CDN cache del SSR público: revalidación barata para crawlers/CDN
+    // sin cambiar contenido ni CSP. La clave incluye updatedAt/createdAt para
+    // invalidar al editar la carta.
+    const menuEtag = 'W/"m-' + restaurant.slug + '-' + (restaurant.updatedAt || restaurant.createdAt || '') + '-' + html.length + '"';
+    res.setHeader('ETag', menuEtag);
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
+    if (req.headers['if-none-match'] === menuEtag) {
+      return res.status(304).end();
+    }
     return res.send(html); // nosemgrep: javascript.express.security.audit.xss.direct-response-write.direct-response-write
   }
 
@@ -1452,13 +1531,15 @@ app.get('/m/:slug', (req, res) => {
 
 // Server-side Auth Guard for Studio HTML View
 function studioHtmlAuthMiddleware(req, res, next) {
-  const token = req.cookies?.auth_token || (req.headers.authorization && req.headers.authorization.split(' ')[1]) || req.query.token;
+  // Solo cookie httpOnly o Bearer en memoria. El token por ?query= quedaba en
+  // logs de Vercel/proxy, historial y Referer: se elimina esa vía.
+  const token = req.cookies?.auth_token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
 
   if (!token) {
     return res.redirect('/?auth=required');
   }
   try {
-    jwt.verify(token, JWT_SECRET);
+    jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     next();
   } catch (e) {
     res.clearCookie('auth_token');
@@ -1472,7 +1553,7 @@ function adminHtmlAuthMiddleware(req, res, next) {
 
   if (token) {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET);
+      const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
       if (decoded?.role !== 'admin_master') throw new Error('Invalid admin session');
       const renewedToken = jwt.sign(
         { role: 'admin_master', timestamp: decoded.timestamp || Date.now() },
@@ -1775,10 +1856,18 @@ app.post('/api/logs', (req, res) => {
 app.use('/api/auth', authLimiter, authRouter);
 app.use('/api/reviews', reviewsLimiter, reviewsRouter);
 app.use('/api/storage', storageRouter);
+// Parser amplio (25mb) solo para las rutas de IA con fotos base64. El
+// dispatcher global ya eligió el límite por path (single-parse: este segundo
+// json() salta vía req._body); el mount explícito deja la excepción visible
+// junto al router que la necesita.
+app.use('/api/ai', express.json({ limit: '25mb' }));
 app.use('/api/ai', aiRouter);
 // Nota: las rutas de studio exigen `requireVerifiedEmail` + `authMiddleware`
 // (el guard de suscripción vive en la UI del Studio y en los gates que pausan
 // el menú público, no en este mount).
+// Mismo parser amplio que /api/ai: POST /ai-import recibe páginas
+// escaneadas en base64 (ver dispatcher global de límites).
+app.use('/api/studio/ai-import', express.json({ limit: '25mb' }));
 app.use('/api/studio', studioRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/notifications', notificationsRouter);

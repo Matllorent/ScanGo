@@ -11,8 +11,14 @@
   <meta property="og:title" content="ScanGo — Menú Digital con QR y Pedidos por WhatsApp">
   <meta property="og:description" content="Creá tu menú digital profesional en minutos. Pedidos directos por WhatsApp, sin comisiones. 7 días gratis.">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="/logo-scango.png">
+  <meta property="og:url" content="https://scango.uy/">
+  <meta property="og:image" content="https://scango.uy/logo-scango.png">
+  <meta property="og:locale" content="es_UY">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="ScanGo — Menú Digital con QR y Pedidos por WhatsApp">
+  <meta name="twitter:description" content="Creá tu menú digital profesional en minutos. Pedidos directos por WhatsApp, sin comisiones. 7 días gratis.">
+  <meta name="twitter:image" content="https://scango.uy/logo-scango.png">
+  <link rel="canonical" href="https://scango.uy/">
 
   <!-- Schema.org Structured Data (GEO / SEO: SoftwareApplication & FAQPage) -->
   <script type="application/ld+json">
@@ -130,10 +136,12 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://images.unsplash.com">
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,900;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <!-- Fuentes auto-hospedadas (mismos archivos woff2 de Google, servidos localmente):
+       elimina el CSS render-blocking de terceros sin cambiar el renderizado -->
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/nuFiD-vYSZviVYUb_rj3ij__anPXDTzYgA.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/nuFRD-vYSZviVYUb_rj3ij__anPXDTnCjmHKM4nYO7KN_qiTXtHA-Q.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2">
+  <link rel="stylesheet" href="/fonts/fonts.css">
   <link rel="stylesheet" href="/css/index.css">
 </head>
 <body>
@@ -150,7 +158,7 @@
   <header class="site-header">
     <div class="header-container">
       <a href="#" class="brand-link">
-        <img src="/logo-scango.png" alt="ScanGo Logo" width="45" height="44" style="height: 44px; width: auto; object-fit: contain;">
+        <img src="/logo-scango.png" alt="ScanGo Logo" width="45" height="44" fetchpriority="high" decoding="async" style="height: 44px; width: auto; object-fit: contain;">
         <div class="brand-name">Scan<span>Go</span></div>
       </a>
 
@@ -235,7 +243,7 @@
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
                 <span class="sim-dish-price">$490</span>
-                <button class="sim-btn-add" data-js-click="simAddDish|Burger Criolla|490">+</button>
+                <button class="sim-btn-add" data-js-click="simAddDish|Burger Criolla|490" aria-label="Agregar Burger Criolla al carrito">+</button>
               </div>
             </div>
 
@@ -246,7 +254,7 @@
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
                 <span class="sim-dish-price">$540</span>
-                <button class="sim-btn-add" data-js-click="simAddDish|Milanesa Napolitana|540">+</button>
+                <button class="sim-btn-add" data-js-click="simAddDish|Milanesa Napolitana|540" aria-label="Agregar Milanesa Napolitana al carrito">+</button>
               </div>
             </div>
 
@@ -257,7 +265,7 @@
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
                 <span class="sim-dish-price">$260</span>
-                <button class="sim-btn-add" data-js-click="simAddDish|Flan Casero|260">+</button>
+                <button class="sim-btn-add" data-js-click="simAddDish|Flan Casero|260" aria-label="Agregar Flan Casero al carrito">+</button>
               </div>
             </div>
 
@@ -268,7 +276,7 @@
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
                 <span class="sim-dish-price">$380</span>
-                <button class="sim-btn-add" data-js-click="simAddDish|Arepa Reina Pepiada|380">+</button>
+                <button class="sim-btn-add" data-js-click="simAddDish|Arepa Reina Pepiada|380" aria-label="Agregar Arepa Reina Pepiada al carrito">+</button>
               </div>
             </div>
 
@@ -361,7 +369,7 @@
         <div class="step-card">
           <div class="step-badge">1</div>
           <h3>Crea tu Cuenta</h3>
-          <p>Regístrate en segundos con el nombre de tu local y activa tus 14 días de prueba con acceso total.</p>
+          <p>Regístrate en segundos con el nombre de tu local y activa tus 7 días de prueba con acceso total.</p>
         </div>
 
         <div class="step-card">
@@ -398,7 +406,7 @@
         <!-- Monthly Plan -->
         <div class="pricing-card">
           <div>
-            <h3 class="plan-name">Plan Mensual</h3>
+            <h3 class="plan-name">Plan Mensual Pro</h3>
             <p class="plan-desc">Flexibilidad mes a mes para restaurantes que están comenzando.</p>
             <div class="plan-price" id="planMonthlyPrice">$9 <span>USD / mes</span></div>
             <div class="plan-billing-note">Cobro mensual recurrente</div>
@@ -492,7 +500,7 @@
         <div class="faq-item active">
           <div class="faq-question" data-js-click="toggleFaq|this">
             <span>¿Cobran comisiones sobre los pedidos o ventas que recibo?</span>
-            <span class="faq-icon">+</span>
+            <span class="faq-icon" aria-hidden="true">+</span>
           </div>
           <div class="faq-answer">
             <strong>0% comisiones.</strong> En ScanGo pagas únicamente tu suscripción fija mensual o anual. Todo el dinero de las ventas y pedidos de tus clientes va 100% directo a tu negocio.
@@ -502,7 +510,7 @@
         <div class="faq-item">
           <div class="faq-question" data-js-click="toggleFaq|this">
             <span>¿Mis clientes necesitan descargar alguna aplicación en su teléfono?</span>
-            <span class="faq-icon">+</span>
+            <span class="faq-icon" aria-hidden="true">+</span>
           </div>
           <div class="faq-answer">
             <strong>No, ninguna.</strong> Tus clientes solo apuntan la cámara de su celular al código QR y la carta abre al instante en su navegador web en menos de 1 segundo.
@@ -512,7 +520,7 @@
         <div class="faq-item">
           <div class="faq-question" data-js-click="toggleFaq|this">
             <span>¿Cómo funciona la prueba gratuita de 7 días?</span>
-            <span class="faq-icon">+</span>
+            <span class="faq-icon" aria-hidden="true">+</span>
           </div>
           <div class="faq-answer">
             Te registras con el nombre de tu local y tu correo electrónico. Tienes 7 días de acceso ilimitado a todas las funciones profesionales sin ingresar ninguna tarjeta de crédito. Si decides no continuar, tu cuenta simplemente expira sin cargos sorpresa.
@@ -522,7 +530,7 @@
         <div class="faq-item">
           <div class="faq-question" data-js-click="toggleFaq|this">
             <span>¿Qué es la semana de gracia (Smart Dunning)?</span>
-            <span class="faq-icon">+</span>
+            <span class="faq-icon" aria-hidden="true">+</span>
           </div>
           <div class="faq-answer">
             Si un mes tu tarjeta de crédito vence, no tiene saldo temporalmente o el banco rechaza el cobro automático, tu menú <strong>NO se apaga de inmediato</strong>. Te otorgamos 7 días de gracia para que puedas actualizar el pago con tranquilidad sin perder ventas un fin de semana.
@@ -532,7 +540,7 @@
         <div class="faq-item">
           <div class="faq-question" data-js-click="toggleFaq|this">
             <span>¿Cómo llegan los pedidos a mi restaurante?</span>
-            <span class="faq-icon">+</span>
+            <span class="faq-icon" aria-hidden="true">+</span>
           </div>
           <div class="faq-answer">
             Llegan organizados, legibles y numerados al WhatsApp oficial de tu restaurante: mesa o dirección de delivery, platos seleccionados, aclaraciones del cliente, método de pago y monto total exacto.
@@ -542,7 +550,7 @@
         <div class="faq-item">
           <div class="faq-question" data-js-click="toggleFaq|this">
             <span>¿Puedo cambiar precios o platos desde mi celular sobre la marcha?</span>
-            <span class="faq-icon">+</span>
+            <span class="faq-icon" aria-hidden="true">+</span>
           </div>
           <div class="faq-answer">
             Sí. Ingresas al Studio de ScanGo desde tu smartphone o computadora, editas el precio o el plato en 10 segundos y el cambio se refleja inmediatamente en el menú que ven los comensales.
@@ -590,7 +598,7 @@
       <div class="footer-grid">
         <div>
           <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-            <img src="/logo-scango.png" alt="ScanGo" width="39" height="38" style="height:38px; width:auto; object-fit:contain;">
+            <img src="/logo-scango.png" alt="ScanGo" width="39" height="38" loading="lazy" decoding="async" style="height:38px; width:auto; object-fit:contain;">
             <div class="footer-brand-title" style="margin:0; font-size:1.25rem; font-weight:800;">Scan<span style="color:var(--accent-gold);">Go</span></div>
           </div>
           <p class="footer-desc">
@@ -628,8 +636,8 @@
 
   <!-- Auth Modal (Login / Register) -->
   <div id="authModal" class="modal-overlay">
-    <div class="modal-card">
-      <button class="modal-close" data-js-click="closeAuthModal">✕</button>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Autenticación ScanGo">
+      <button class="modal-close" data-js-click="closeAuthModal" aria-label="Cerrar ventana de autenticación">✕</button>
 
       <div class="modal-tabs">
         <button id="tabRegisterBtn" class="modal-tab-btn active" data-js-click="switchAuthTab|register">Crear Cuenta Gratis</button>
@@ -643,17 +651,17 @@
         <button type="button" class="btn btn-google google-modal-button" data-js-click="startGoogleSignup"><span class="google-mark" aria-hidden="true">G</span> Probar 7 días gratis con Google</button>
         <div class="auth-divider"><span>o registrate con tu correo</span></div>
         <div class="form-group">
-          <label class="form-label">Nombre del Responsable</label>
+          <label class="form-label" for="regName">Nombre del Responsable</label>
           <input type="text" id="regName" class="form-input" placeholder="Ej: Marcelo Bianchi" required>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Nombre del Negocio / Marca</label>
+          <label class="form-label" for="regRestaurant">Nombre del Negocio / Marca</label>
           <input type="text" id="regRestaurant" class="form-input" placeholder="Ej: La Trattoria del Puerto" required>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Tipo de Emprendimiento / Rubro</label>
+          <label class="form-label" for="regBusinessType">Tipo de Emprendimiento / Rubro</label>
           <select id="regBusinessType" class="form-input" style="background:var(--bg-dark); color:#fff; border:1px solid var(--border-subtle); cursor:pointer;">
             <option value="restaurant">🍽️ Restaurante, Bar & Gastronomía</option>
             <option value="heladeria">🍦 Heladería & Postres</option>
@@ -663,12 +671,12 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Correo Electrónico</label>
+          <label class="form-label" for="regEmail">Correo Electrónico</label>
           <input type="email" id="regEmail" class="form-input" placeholder="tu@restaurante.com" required>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Contraseña</label>
+          <label class="form-label" for="regPassword">Contraseña</label>
           <div class="password-input-wrapper">
             <input type="password" id="regPassword" class="form-input" placeholder="Mínimo 6 caracteres" minlength="6" required autocomplete="new-password">
             <button type="button" class="toggle-pass-btn" data-js-click="togglePasswordVisibility|regPassword|this" aria-label="Mostrar u ocultar contraseña" title="Mostrar/ocultar contraseña">👁️</button>
@@ -683,12 +691,12 @@
       <!-- Login Form -->
       <form id="loginForm" style="display: none;" data-js-submit="handleLogin|event">
         <div class="form-group">
-          <label class="form-label">Correo Electrónico</label>
+          <label class="form-label" for="loginEmail">Correo Electrónico</label>
           <input type="email" id="loginEmail" class="form-input" placeholder="tu@restaurante.com" required>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Contraseña</label>
+          <label class="form-label" for="loginPassword">Contraseña</label>
           <div class="password-input-wrapper">
             <input type="password" id="loginPassword" class="form-input" placeholder="Ingresa tu contraseña" required autocomplete="current-password">
             <button type="button" class="toggle-pass-btn" data-js-click="togglePasswordVisibility|loginPassword|this" aria-label="Mostrar u ocultar contraseña" title="Mostrar/ocultar contraseña">👁️</button>
@@ -710,8 +718,8 @@
 
   <!-- Password Recovery Modal (Dual Option: Automated Email & Direct WhatsApp) -->
   <div id="forgotPasswordModal" class="modal-overlay">
-    <div class="modal-card">
-      <button class="modal-close" data-js-click="closeForgotPasswordModal">✕</button>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Recuperar acceso a ScanGo">
+      <button class="modal-close" data-js-click="closeForgotPasswordModal" aria-label="Cerrar recuperación de contraseña">✕</button>
       <h3 style="font-size:1.3rem; margin-bottom:6px; color:#fff; display:flex; align-items:center; gap:8px;">
         🔑 Recuperar Acceso a ScanGo
       </h3>
@@ -728,7 +736,7 @@
           <p>Te enviaremos un link seguro a tu casilla de correo para crear una nueva clave.</p>
           <form id="forgotPassForm" data-js-submit="handleForgotPassword|event">
             <div class="form-group" style="margin-bottom:10px;">
-              <input type="email" id="forgotEmail" class="form-input" placeholder="Ingresá tu correo registrado" required>
+              <input type="email" id="forgotEmail" class="form-input" placeholder="Ingresá tu correo registrado" aria-label="Correo electrónico registrado" required>
             </div>
             <button type="submit" id="btnSubmitForgot" class="btn btn-gold btn-sm" style="width:100%;">
               Enviar Enlace de Recuperación
@@ -780,10 +788,11 @@
       return window.googleIdentityServicesPromise;
     };
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/js/pwa.js"></script>
-  <script src="/js/index.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0"></script>
+  <script defer src="/js/authClient.js"></script>
+  <script defer src="/js/pwa.js"></script>
+  <script defer src="/js/index.js"></script>
 
-  <script src="/js/dom-bindings.js"></script>
+  <script defer src="/js/dom-bindings.js"></script>
 </body>
 </html>

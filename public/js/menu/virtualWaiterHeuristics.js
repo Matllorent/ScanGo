@@ -7,6 +7,8 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
+import { isFreePrice } from './menuPresentation.js';
+
 export const DEFAULT_UPSELL_KEYWORDS = {
   triggers: ['hamburguesa', 'burger', 'milanesa', 'plato', 'principal', 'carne', 'pollo', 'pizza', 'sandwich', 'wrap', 'taco', 'burrito', 'empanada', 'combo', 'chivito', 'lomo'],
   complements: ['papas', 'bebida', 'gaseosa', 'jugo', 'agua', 'postre', 'helado', 'ensalada', 'guarnición', 'acompañamiento', 'salsa', 'extra', 'cerveza', 'vino', 'aros', 'nugget']
@@ -256,12 +258,17 @@ export function renderCrossSellSection(cartItems = [], restaurantData = {}, call
     <div style="background:rgba(0,0,0,0.25); border-radius:6px; padding:8px 10px; margin-top:10px;">
       <div style="font-size:11px; font-weight:700; color:var(--chalk-gold); margin-bottom:4px;">✨ Combiná tu plato con:</div>
       <div style="display:flex; gap:6px;">
-        ${items.map(it => `
+        ${items.map(it => {
+          // Sugerencia sin costo: sin cifra, solo nombre + botón agregar.
+          const freeTag = isFreePrice(it.price)
+            ? ''
+            : `<strong style="color:var(--chalk-gold);">${curr} ${it.price}</strong>`;
+          return `
           <button type="button" class="btn-nav" style="flex:1; padding:4px 6px; font-size:10px; justify-content:space-between;" data-js-click="quickAddUpsellItem|${it.id}|this">
             <span>${it.name}</span>
-            <strong style="color:var(--chalk-gold);">${curr} ${it.price}</strong>
-          </button>
-        `).join('')}
+            ${freeTag}
+          </button>`;
+        }).join('')}
       </div>
     </div>
   `;

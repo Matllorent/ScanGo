@@ -20,10 +20,20 @@ const aiRouter = require('./ai');
  * con el trial vencido y sin plan, el menú está pausado y no debería editar se
  * como si nada. Los gates de gracia post-trial viven en verifyAccess().
  */
-router.post('/save', authMiddleware, requireVerifiedEmail, requireActiveSubscription, async (req, res) => {
+router.post('/save', authMiddleware, requireVerifiedEmail, requireActiveSubscription, async (req, res, next) => {
   try {
     const payload = req.body.data || req.body;
+    if (JSON.stringify(payload).length > 1_000_000) {
+      return res.status(413).json({ error: 'El menú excede el tamaño máximo permitido (1MB)' });
+    }
     const cleanPayload = sanitizeRestaurantPayload(payload);
+    // Anti mass-assignment: el dueño NUNCA fija estos campos por /save.
+    // La suscripción solo la mutan webhooks de pago, el cron y el admin
+    // (vías server-side directas a db); el resto es identidad/proyección.
+    // __proto__/constructor/prototype: cierra prototype pollution vía merge.
+    for (const privileged of ['subscription', 'userId', 'id', 'analytics', 'createdAt', 'updatedAt', '__proto__', 'constructor', 'prototype']) {
+      delete cleanPayload[privileged];
+    }
     const restaurant = await db.saveRestaurant(req.user.userId, cleanPayload);
     if (restaurant && restaurant.slug) {
       memoryCache.delete(restaurant.slug);
@@ -31,7 +41,7 @@ router.post('/save', authMiddleware, requireVerifiedEmail, requireActiveSubscrip
     }
     return res.json({ success: true, restaurant });
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    return next(e);
   }
 });
 
@@ -61,7 +71,7 @@ router.post('/group-cart-tokens', authMiddleware, requireVerifiedEmail, (req, re
  * POST /api/studio/ai-import - Importar carta física con Gemini Flash
  * Delega al router de IA
  */
-router.post('/ai-import', authMiddleware, (req, res, next) => {
+router.post('/ai-import', authMiddleware, requireActiveSubscription, (req, res, next) => {
   req.url = '/parse-menu';
   aiRouter(req, res, next);
 });
@@ -71,7 +81,7 @@ router.post('/ai-import', authMiddleware, (req, res, next) => {
  * Body: { operation: 'add' | 'update' | 'delete', branch: {...}, branchId?: string, branchSlug?: string }
  */
 const processedBranchOperations = new Map(); // idempotencyKey -> response
-router.patch('/branches', authMiddleware, requireVerifiedEmail, async (req, res) => {
+router.patch('/branches', authMiddleware, requireVerifiedEmail, requireActiveSubscription, async (req, res, next) => {
   try {
     const idempotencyKey = req.headers['x-idempotency-key'] || req.headers['idempotency-key'];
     if (idempotencyKey && processedBranchOperations.has(idempotencyKey)) {
@@ -123,14 +133,14 @@ router.patch('/branches', authMiddleware, requireVerifiedEmail, async (req, res)
 
     return res.json(responsePayload);
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    return next(e);
   }
 });
 
 /**
  * POST /api/studio/events - Crear un nuevo evento (restaurante temporal con expiración)
  */
-router.post('/events', authMiddleware, requireVerifiedEmail, async (req, res) => {
+router.post('/events', authMiddleware, requireVerifiedEmail, requireActiveSubscription, async (req, res, next) => {
   try {
     const { name, slug, eventDate, eventType, expiresAt, description, phone, currency, theme, layout, dishes, categories } = req.body || {};
 
@@ -197,14 +207,14 @@ router.post('/events', authMiddleware, requireVerifiedEmail, async (req, res) =>
       message: 'Evento creado exitosamente. El menú expirará automáticamente.'
     });
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    return next(e);
   }
 });
 
 /**
  * GET /api/studio/events - Listar eventos del usuario
  */
-router.get('/events', authMiddleware, requireVerifiedEmail, async (req, res) => {
+router.get('/events', authMiddleware, requireVerifiedEmail, async (req, res, next) => {
   try {
     const userId = req.user.userId;
     const rests = db.getAllRestaurants ? db.getAllRestaurants() : [];
@@ -217,14 +227,14 @@ router.get('/events', authMiddleware, requireVerifiedEmail, async (req, res) => 
 
     return res.json({ success: true, active, expired, total: userEvents.length });
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    return next(e);
   }
 });
 
 /**
  * DELETE /api/studio/events/:id - Eliminar/finalizar un evento
  */
-router.delete('/events/:id', authMiddleware, requireVerifiedEmail, async (req, res) => {
+router.delete('/events/:id', authMiddleware, requireVerifiedEmail, async (req, res, next) => {
   try {
     const eventId = req.params.id;
     const userId = req.user.userId;
@@ -253,7 +263,7 @@ router.delete('/events/:id', authMiddleware, requireVerifiedEmail, async (req, r
 
     return res.json({ success: true, message: 'Evento finalizado' });
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    return next(e);
   }
 });
 

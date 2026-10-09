@@ -12,25 +12,38 @@ const PROVIDERS = {
   mercadopago: mpProvider
 };
 
+// Fuente única de precios/trial: src/billing/plans.json (fallback a literales si falta).
+let _plansConfig = {};
+try {
+  _plansConfig = require('./plans.json');
+} catch (e) {
+  _plansConfig = {};
+}
+function _planPrice(key, fallback) {
+  const raw = _plansConfig && _plansConfig[key] && _plansConfig[key].price;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
 const PLANS = {
   starter_monthly: {
     name: 'Starter Mensual',
-    priceUsd: 9,
+    priceUsd: _planPrice('starter_monthly', 9),
     features: { maxDishes: 30, themes: 3, zonesDelivery: true, waiterCall: false, analytics: false }
   },
   starter_annual: {
     name: 'Starter Anual',
-    priceUsd: 79,
+    priceUsd: _planPrice('starter_annual', 79),
     features: { maxDishes: 30, themes: 3, zonesDelivery: true, waiterCall: false, analytics: false }
   },
   pro_monthly: {
     name: 'Pro Mensual',
-    priceUsd: 19,
+    priceUsd: _planPrice('pro_monthly', 19),
     features: { maxDishes: 999, themes: 9, zonesDelivery: true, waiterCall: true, wifiCard: true, analytics: true }
   },
   pro_annual: {
     name: 'Pro Anual',
-    priceUsd: 159,
+    priceUsd: _planPrice('pro_annual', 159),
     features: { maxDishes: 999, themes: 9, zonesDelivery: true, waiterCall: true, wifiCard: true, analytics: true }
   },
   // Pago único por evento (one-off): el dueño paga una vez y el menú queda
@@ -38,7 +51,7 @@ const PLANS = {
   // menú se pausa con la infra de `expiresAt` ya existente.
   event_once: {
     name: 'Evento Único',
-    priceUsd: 12,
+    priceUsd: _planPrice('event_once', 12),
     features: { maxDishes: 999, themes: 9, zonesDelivery: true, waiterCall: true, wifiCard: true, analytics: true }
   }
 };
@@ -51,7 +64,7 @@ function round2(value) {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const TRIAL_DAYS = 7;
+const TRIAL_DAYS = Number.isFinite(Number(_plansConfig.TRIAL_DAYS)) ? Number(_plansConfig.TRIAL_DAYS) : 7;
 // Días extra en los que el menú público sigue online después de vencer el trial
 // (el Studio muestra el paywall desde el día 8, pero el local no pierde visitas).
 const TRIAL_GRACE_DAYS = 3;

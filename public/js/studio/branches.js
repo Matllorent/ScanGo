@@ -134,11 +134,9 @@ export async function addBranch(e, restaurant, onUpdated) {
     return;
   }
 
-  const token = localStorage.getItem('menu_pizarron_token');
-  if (!token) {
-    alert('Sesión expirada. Por favor recargá la página.');
-    return;
-  }
+  const authHeaders = window.AuthClient
+    ? window.AuthClient.getAuthHeaders({ 'Content-Type': 'application/json' })
+    : { 'Content-Type': 'application/json' };
 
   if (!restaurant.branches) restaurant.branches = [];
   const branches = getValidBranches(restaurant);
@@ -164,8 +162,7 @@ export async function addBranch(e, restaurant, onUpdated) {
     const res = await fetch('/api/studio/branches', {
       method: 'PATCH',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        ...authHeaders,
         'X-Idempotency-Key': idempotencyKey
       },
       body: JSON.stringify({
@@ -208,19 +205,16 @@ export async function deleteBranch(branchId, restaurant, showConfirmDialogFn, on
   }
 
   const executeDelete = async () => {
-    const token = localStorage.getItem('menu_pizarron_token');
-    if (!token) {
-      alert('Sesión expirada. Por favor recargá la página.');
-      return;
-    }
+    const authHeaders = window.AuthClient
+      ? window.AuthClient.getAuthHeaders({ 'Content-Type': 'application/json' })
+      : { 'Content-Type': 'application/json' };
 
     const idempotencyKey = `branch_del_${branchId}_${Date.now()}`;
     try {
       const res = await fetch('/api/studio/branches', {
         method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          ...authHeaders,
           'X-Idempotency-Key': idempotencyKey
         },
         body: JSON.stringify({ operation: 'delete', branchId })
@@ -458,11 +452,9 @@ export async function saveBranchEdit(e, restaurant, onUpdated) {
     return;
   }
 
-  const token = localStorage.getItem('menu_pizarron_token');
-  if (!token) {
-    alert('Sesión expirada. Por favor recargá la página.');
-    return;
-  }
+  const authHeaders = window.AuthClient
+    ? window.AuthClient.getAuthHeaders({ 'Content-Type': 'application/json' })
+    : { 'Content-Type': 'application/json' };
 
   // Recolectar precios personalizados (vacío = hereda precio base)
   const overridePrices = {};
@@ -505,8 +497,7 @@ export async function saveBranchEdit(e, restaurant, onUpdated) {
     const res = await fetch('/api/studio/branches', {
       method: 'PATCH',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        ...authHeaders,
         'X-Idempotency-Key': idempotencyKey
       },
       body: JSON.stringify({

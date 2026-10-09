@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://scango.uy/sitemap.xml

@@ -262,6 +262,10 @@ export function updateBusinessTypeControls() {
       if (sliderI) sliderI.style.backgroundColor = '#38A169';
     }
   }
+  const weddingSection = document.getElementById('weddingItinerarySection');
+  if (weddingSection) {
+    weddingSection.style.display = (bizType === 'events') ? 'flex' : 'none';
+  }
 }
 
 export function updateWeatherToggleStyle() {
@@ -278,7 +282,7 @@ export function renderBannerPreviewUI() {
   const btnRemove = document.getElementById('btnRemoveBanner');
   if (!box || !restaurant) return;
   if (restaurant.bannerUrl) {
-    box.innerHTML = `<img src="${restaurant.bannerUrl}" style="width:100%; height:100%; object-fit:cover; display:block;" data-js-error-fn="handleBannerImageError">`;
+    box.innerHTML = `<img src="${escapeHtml(restaurant.bannerUrl)}" style="width:100%; height:100%; object-fit:cover; display:block;" data-js-error-fn="handleBannerImageError">`;
     if (btnRemove) btnRemove.style.display = 'inline-block';
   } else {
     box.innerHTML = `
@@ -346,7 +350,7 @@ export async function handleLogoUpload(e) {
   try {
     const compressed = await compressImageFile(file);
     restaurant.logoUrl = compressed.dataUrl;
-    document.getElementById('logoPreviewBox').innerHTML = `<img src="${restaurant.logoUrl}" style="width:100%; height:100%; object-fit:cover;">`;
+    document.getElementById('logoPreviewBox').innerHTML = `<img src="${escapeHtml(restaurant.logoUrl)}" style="width:100%; height:100%; object-fit:cover;">`;
     document.getElementById('btnRemoveLogo').style.display = 'inline';
     generateQrCode();
     triggerAutoSave();
@@ -406,7 +410,7 @@ export function setReviewPhotoOption(opt) {
     if (btnUpload) btnUpload.style.display = 'none';
     if (restaurant && restaurant.logoUrl) {
       if (statusText) statusText.textContent = 'Usando el logo oficial de tu restaurante.';
-      if (thumb) thumb.innerHTML = `<img src="${restaurant.logoUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+      if (thumb) thumb.innerHTML = `<img src="${escapeHtml(restaurant.logoUrl)}" style="width:100%;height:100%;object-fit:cover;">`;
     } else {
       if (statusText) statusText.textContent = 'Logo no configurado aún (se usará ícono de local).';
       if (thumb) thumb.innerHTML = `<span style="font-size:22px;">🍽️</span>`;
@@ -490,7 +494,9 @@ export async function submitOwnerReview(e) {
     const rating = document.getElementById('reviewRating')?.value || 5;
     const authorRole = document.getElementById('reviewAuthorRole')?.value.trim() || 'Dueño / Responsable';
     const comment = document.getElementById('reviewComment')?.value.trim() || '';
-    const token = localStorage.getItem('menu_pizarron_token');
+    const authHeaders = window.AuthClient
+      ? window.AuthClient.getAuthHeaders({ 'Content-Type': 'application/json' })
+      : { 'Content-Type': 'application/json' };
 
     let finalPhotoUrl = (selectedReviewPhotoOption === 'logo') ? restaurant?.logoUrl || null : uploadedReviewPhotoUrl || null;
 
@@ -509,13 +515,14 @@ export async function submitOwnerReview(e) {
       createdAt: new Date().toISOString()
     };
 
-    if (token) {
+    // Con sesión (cookie o dispositivo) se publica; si no, queda local.
+    try {
       await fetch('/api/reviews', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: authHeaders,
         body: JSON.stringify(reviewObj)
       }).catch(() => {});
-    }
+    } catch (e) {}
 
     const alertEl = document.getElementById('reviewSubmittedAlert');
     if (alertEl) alertEl.style.display = 'block';
@@ -569,15 +576,15 @@ export async function confirmAccountDeletion() {
     btn.disabled = true;
     btn.textContent = 'Procesando baja...';
   }
-  const token = localStorage.getItem('menu_pizarron_token');
+  const authHeaders = window.AuthClient
+    ? window.AuthClient.getAuthHeaders({ 'Content-Type': 'application/json' })
+    : { 'Content-Type': 'application/json' };
   try {
-    if (token) {
-      await fetch('/api/account/delete-request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ reason })
-      }).catch(() => {});
-    }
+    await fetch('/api/account/delete-request', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ reason })
+    }).catch(() => {});
   } catch (e) {}
 
   alert('Tu solicitud de eliminación de cuenta y purga de datos personales ha sido registrada correctamente.');
@@ -644,6 +651,25 @@ export function updateLiveState() {
     const sliderP = el('sliderPerfumery');
     if (sliderP) sliderP.style.backgroundColor = perfumeryCheckbox.checked ? '#38A169' : '#2a3a33';
   }
+
+  // Itinerario visual de boda (sólo rubro Eventos; las filas viven en el array)
+  const weddingEnabled = el('inputWeddingItineraryEnabled');
+  if (weddingEnabled || el('inputWeddingTitle') || el('inputWeddingCouple') || el('inputWeddingDate') || el('inputWeddingVenue') || restaurant.weddingItinerary) {
+    const it = getWeddingItineraryRef() || (restaurant.weddingItinerary = { enabled: false, title: '', coupleNames: '', date: '', venue: '', items: [] });
+    if (weddingEnabled) {
+      it.enabled = weddingEnabled.checked;
+      const sliderW = el('sliderWeddingItinerary');
+      if (sliderW) sliderW.style.backgroundColor = weddingEnabled.checked ? '#38A169' : '#2a3a33';
+    }
+    if (el('inputWeddingTitle')) it.title = el('inputWeddingTitle').value.trim().slice(0, 60);
+    if (el('inputWeddingCouple')) it.coupleNames = el('inputWeddingCouple').value.trim().slice(0, 80);
+    if (el('inputWeddingDate')) it.date = el('inputWeddingDate').value.trim().slice(0, 60);
+    if (el('inputWeddingDay')) {
+      const dayVal = el('inputWeddingDay').value.trim();
+      it.eventDay = /^\d{4}-\d{2}-\d{2}$/.test(dayVal) ? dayVal : '';
+    }
+    if (el('inputWeddingVenue')) it.venue = el('inputWeddingVenue').value.trim().slice(0, 120);
+  }
   updateBusinessTypeControls();
 
   restaurant.instagram = el('inputInstagram')?.value.trim() || '';
@@ -656,6 +682,11 @@ export function updateLiveState() {
   if (layoutSelect) restaurant.layout = layoutSelect.value || 'classic';
   if (el('inputThemeBg')) restaurant.theme = el('inputThemeBg').value;
   if (el('inputThemeFont')) restaurant.themeFont = el('inputThemeFont').value;
+  // Acento neón (sólo layout neon; el backend valida el allowlist)
+  const neonSelect = el('inputNeonAccent');
+  if (neonSelect) restaurant.neonAccent = neonSelect.value || 'mint';
+  const neonRow = document.getElementById('neonAccentRow');
+  if (neonRow) neonRow.style.display = (layoutSelect && layoutSelect.value === 'neon') ? 'block' : 'none';
 
   const bannerInput = el('inputBannerUrl');
   if (bannerInput && bannerInput.value.trim() && !restaurant.bannerUrl?.startsWith('data:')) {
@@ -787,6 +818,9 @@ export function renderStudioUI() {
   if (layoutSelect) layoutSelect.value = restaurant.layout || 'classic';
   if (el('inputThemeBg')) el('inputThemeBg').value = restaurant.theme || 'emerald';
   if (el('inputThemeFont')) el('inputThemeFont').value = restaurant.themeFont || 'serif';
+  if (el('inputNeonAccent')) el('inputNeonAccent').value = restaurant.neonAccent || 'mint';
+  const neonRowLoad = document.getElementById('neonAccentRow');
+  if (neonRowLoad) neonRowLoad.style.display = ((restaurant.layout || 'classic') === 'neon') ? 'block' : 'none';
 
   const couponsCheckbox = el('inputAllowCoupons');
   if (couponsCheckbox) {
@@ -822,7 +856,7 @@ export function renderStudioUI() {
   if (el('inputTableCount')) el('inputTableCount').value = restaurant.tableCount || 10;
 
   if (restaurant.logoUrl) {
-    if (el('logoPreviewBox')) el('logoPreviewBox').innerHTML = `<img src="${restaurant.logoUrl}" style="width:100%; height:100%; object-fit:cover;">`;
+    if (el('logoPreviewBox')) el('logoPreviewBox').innerHTML = `<img src="${escapeHtml(restaurant.logoUrl)}" style="width:100%; height:100%; object-fit:cover;">`;
     if (el('btnRemoveLogo')) el('btnRemoveLogo').style.display = 'inline';
   } else {
     if (el('logoPreviewBox')) el('logoPreviewBox').innerHTML = `<span id="logoPreviewIcon" style="font-size:22px;">🍽️</span>`;
@@ -876,6 +910,21 @@ export function renderStudioUI() {
     const sliderP = el('sliderPerfumery');
     if (sliderP) sliderP.style.backgroundColor = perfumeryCheckbox.checked ? '#38A169' : '#2a3a33';
   }
+
+  // Itinerario visual de boda: poblar editor + filas
+  const wedIt = restaurant.weddingItinerary || {};
+  const weddingEnabledInput = el('inputWeddingItineraryEnabled');
+  if (weddingEnabledInput) {
+    weddingEnabledInput.checked = wedIt.enabled === true;
+    const sliderW = el('sliderWeddingItinerary');
+    if (sliderW) sliderW.style.backgroundColor = weddingEnabledInput.checked ? '#38A169' : '#2a3a33';
+  }
+  if (el('inputWeddingTitle')) el('inputWeddingTitle').value = wedIt.title || '';
+  if (el('inputWeddingCouple')) el('inputWeddingCouple').value = wedIt.coupleNames || '';
+  if (el('inputWeddingDate')) el('inputWeddingDate').value = wedIt.date || '';
+  if (el('inputWeddingDay')) el('inputWeddingDay').value = wedIt.eventDay || '';
+  if (el('inputWeddingVenue')) el('inputWeddingVenue').value = wedIt.venue || '';
+  renderWeddingItineraryRows();
   updateBusinessTypeControls();
 
   setReviewPhotoOption('logo');
@@ -1095,10 +1144,12 @@ export async function initStudio() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Fetch autenticado reutilizable para el panel del dueño.
+// Web: cookie httpOnly (viaja sola). Nativo: Bearer opaco (AuthClient).
 function studioApi(path, options = {}) {
-  const token = localStorage.getItem('menu_pizarron_token');
-  const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const headers = window.AuthClient
+    ? window.AuthClient.getAuthHeaders({ 'Content-Type': 'application/json' })
+    : { 'Content-Type': 'application/json' };
+  Object.assign(headers, options.headers || {});
   return fetch(path, Object.assign({}, options, { headers }));
 }
 
@@ -1151,6 +1202,70 @@ function removeLoyaltyReward(index) {
   if (!cfg) return;
   cfg.rewards.splice(index, 1);
   renderLoyaltyRewardRows();
+  triggerAutoSave();
+}
+
+// ── Itinerario visual de boda (restaurant.weddingItinerary) ──
+const WEDDING_ITINERARY_ICONS = ['💒', '🤵', '👰', '💍', '🥂', '🍸', '🍽️', '🎂', '📸', '🎶', '💃', '🕺', '🌙', '✨', '🔔', '💐', '💛'];
+
+function getWeddingItineraryRef() {
+  if (!restaurant) return null;
+  if (!restaurant.weddingItinerary || typeof restaurant.weddingItinerary !== 'object') {
+    restaurant.weddingItinerary = { enabled: false, title: '', coupleNames: '', date: '', venue: '', items: [] };
+  }
+  if (!Array.isArray(restaurant.weddingItinerary.items)) restaurant.weddingItinerary.items = [];
+  return restaurant.weddingItinerary;
+}
+
+function renderWeddingItineraryRows() {
+  const container = document.getElementById('weddingItineraryRows');
+  if (!container) return;
+  const it = getWeddingItineraryRef();
+  const items = it ? it.items : [];
+  if (!items.length) {
+    container.innerHTML = '<div style="font-size:11px; color:var(--text-dim); padding:6px 0;">Sin momentos. Tocá "Agregar momento" para armar el programa (recepción, ceremonia, cena, fiesta…).</div>';
+    return;
+  }
+  const iconOptions = (current) => WEDDING_ITINERARY_ICONS.map(ic =>
+    `<option value="${ic}"${ic === current ? ' selected' : ''}>${ic}</option>`).join('');
+  container.innerHTML = items.map((stop, i) => `
+    <div style="display:flex; gap:6px; align-items:center; margin-bottom:6px;">
+      <input type="text" class="form-input" value="${escapeHtml(String(stop.time || ''))}" maxlength="12" placeholder="18:00"
+             data-js-input="updateWeddingItineraryField|${i}|time|this.value" style="width:76px; flex-shrink:0; font-size:11px; padding:6px 8px;" title="Hora del momento">
+      <input type="text" class="form-input" value="${escapeHtml(String(stop.title || ''))}" maxlength="80" placeholder="Recepción de invitados"
+             data-js-input="updateWeddingItineraryField|${i}|title|this.value" style="flex:1; font-size:11px; padding:6px 8px;" title="Momento">
+      <select class="form-input" data-js-change="updateWeddingItineraryField|${i}|icon|this.value" style="width:64px; flex-shrink:0; font-size:14px; padding:6px 4px;" title="Icono">
+        ${iconOptions(stop.icon || '💛')}
+      </select>
+      <button type="button" class="btn-nav" data-js-click="removeWeddingItineraryItem|${i}" style="padding:4px 8px; font-size:10px; border-color:#E53E3E; color:#F87171;">✕</button>
+    </div>
+  `).join('');
+}
+
+function updateWeddingItineraryField(index, field, value) {
+  const it = getWeddingItineraryRef();
+  if (!it) return;
+  const stop = it.items[index];
+  if (!stop) return;
+  if (field === 'time') stop.time = String(value || '').trim().slice(0, 12);
+  else if (field === 'title') stop.title = String(value || '').trim().slice(0, 80);
+  else if (field === 'icon') stop.icon = String(value || '💛').slice(0, 8);
+}
+
+function addWeddingItineraryItem() {
+  const it = getWeddingItineraryRef();
+  if (!it) return;
+  if (it.items.length >= 12) return;
+  it.items.push({ time: '', title: '', icon: '💛' });
+  renderWeddingItineraryRows();
+  triggerAutoSave();
+}
+
+function removeWeddingItineraryItem(index) {
+  const it = getWeddingItineraryRef();
+  if (!it) return;
+  it.items.splice(index, 1);
+  renderWeddingItineraryRows();
   triggerAutoSave();
 }
 
@@ -1358,6 +1473,7 @@ const globalExports = {
   sendOrderStateWA, setReviewPhotoOption, handleReviewPhotoFile, check30DaysMilestone, openMilestone30DaysModal, closeMilestone30DaysModal, openReviewFromMilestone, submitOwnerReview,
   solicitarPushPermiso,
   addLoyaltyReward, removeLoyaltyReward, updateLoyaltyRewardField, validateLoyaltyCode, handleRedeemCodeEnter,
+  addWeddingItineraryItem, removeWeddingItineraryItem, updateWeddingItineraryField, renderWeddingItineraryRows,
   loadNotificationEvents, markNotificationEventRead, sendPromoPush,
   loadRecentOrders, setOrderStatus,
   openAiMenuImportModal, closeAiMenuImportModal, handleAiMenuFilesInput, moveAiMenuPage, removeAiMenuPage, runAiMenuAnalysis, closeAiMenuPreviewModal, confirmAiMenuImportAction, removeDetectedAiDish

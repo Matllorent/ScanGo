@@ -269,9 +269,9 @@ export async function runAiMenuAnalysis() {
       }))
     };
 
-    const token = localStorage.getItem('menu_pizarron_token') || localStorage.getItem('scango_token');
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const headers = window.AuthClient
+      ? window.AuthClient.getAuthHeaders({ 'Content-Type': 'application/json' })
+      : { 'Content-Type': 'application/json' };
 
     updateStatus('Gemini Flash está analizando platos, categorías y precios...');
 

@@ -2,8 +2,25 @@ const db = require('../../src/db/db');
 const { getSupabaseClient } = require('../utils/supabase');
 const logger = require('../utils/logger');
 
-// Cache store for processed idempotency keys
+// Cache store for processed idempotency keys (cap + evicción LRU simple:
+// máximo 1000 entradas; al insertar se borran primero las expiradas y luego
+// las más viejas — Map preserva el orden de inserción).
+const IDEMPOTENCY_MAX_ENTRIES = 1000;
 const idempotencyStore = new Map(); // key -> { statusCode, body, expiresAt }
+
+function evictIdempotencyEntries() {
+  if (idempotencyStore.size < IDEMPOTENCY_MAX_ENTRIES) return;
+  const now = Date.now();
+  for (const [key, entry] of idempotencyStore) {
+    if (!entry || entry.expiresAt <= now) idempotencyStore.delete(key);
+    if (idempotencyStore.size < IDEMPOTENCY_MAX_ENTRIES) return;
+  }
+  while (idempotencyStore.size >= IDEMPOTENCY_MAX_ENTRIES) {
+    const oldest = idempotencyStore.keys().next().value;
+    if (oldest === undefined) break;
+    idempotencyStore.delete(oldest);
+  }
+}
 
 /**
  * Enhanced Webhook & Order Idempotency Middleware
@@ -61,6 +78,7 @@ async function idempotencyMiddleware(req, res, next) {
   const originalJson = res.json.bind(res);
   res.json = function (body) {
     if (res.statusCode >= 200 && res.statusCode < 300) {
+      evictIdempotencyEntries();
       idempotencyStore.set(cleanKey, {
         statusCode: res.statusCode,
         body,
@@ -71,7 +89,7 @@ async function idempotencyMiddleware(req, res, next) {
       // síncrono, así que solo se puede lanzar en background con catch explícito
       // (un rejection sin catch tumbaría el proceso durante un webhook de pago).
       db.markWebhookProcessed(provider, cleanKey, 'idempotent_operation', req.body)
-        .catch((e) => console.warn('[Idempotency] markWebhookProcessed failed:', e.message));
+        .catch((e) => logger.warn('[Idempotency] markWebhookProcessed failed', { details: e.message }));
     }
     return originalJson(body);
   };

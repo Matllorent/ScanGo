@@ -12,7 +12,8 @@
  *
  * CSP por capas:
  *  - strictMenu (menú público /m/*): renderiza contenido del restaurante → es el
- *    mayor blanco XSS. script-src solo 'self' + supabase-js (jsdelivr).
+ *    mayor blanco XSS. script-src solo 'self' + supabase-js (jsdelivr) +
+ *    Turnstile invisible (challenges.cloudflare.com, anti-spam del checkout).
  *  - transitional (resto de páginas): script-src-elem estricto ('self' + CDNs de
  *    confianza + SHA-256 de los scripts inline estáticos).
  *  - Ambas variantes usan script-src-attr 'none' (Etapa 2 completa): NO existe
@@ -86,9 +87,11 @@ function buildCspDirectives({ strictMenu = false } = {}) {
   if (strictMenu) {
     return {
       ...common,
-      'script-src': ["'self'", 'https://cdn.jsdelivr.net'],
+      // Turnstile invisible (anti-spam en el checkout del comensal).
+      'script-src': ["'self'", 'https://cdn.jsdelivr.net', 'https://challenges.cloudflare.com'],
       'script-src-attr': ["'none'"],
-      'frame-src': ["'self'"]
+      'connect-src': [...common['connect-src'], 'https://challenges.cloudflare.com'],
+      'frame-src': ["'self'", 'https://challenges.cloudflare.com']
     };
   }
   return {

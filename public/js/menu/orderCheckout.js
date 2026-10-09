@@ -96,21 +96,32 @@ export function formatWhatsAppOrderMessage(params) {
   items.forEach(item => {
     const dish = item.dish || {};
     const qty = item.qty || 1;
-    const price = (dish.price || 0) * qty;
-    msg += `▪ ${qty}x ${dish.name} - ${currency} ${price.toFixed(2)}\n`;
+    const price = Number(dish.price || 0) * qty;
+    // Ítem sin costo: se lista sin cifras (ni unitario ni total).
+    msg += price === 0
+      ? `▪ ${qty}x ${dish.name}\n`
+      : `▪ ${qty}x ${dish.name} - ${currency} ${price.toFixed(2)}\n`;
     if (item.note) msg += `   └ Nota: ${item.note}\n`;
     if (item.orderedBy) msg += `   └ Pedido por: ${item.orderedBy}\n`;
   });
 
   msg += `\n───────────────\n`;
-  msg += `Subtotal: ${currency} ${subtotal.toFixed(2)}\n`;
+  // Pedido 100% sin costo: se omiten Subtotal/TOTAL en $0 y se declara.
+  const orderIsFree = Number(total) === 0;
+  if (orderIsFree) {
+    msg += `💝 *Pedido sin costo*\n`;
+  } else {
+    msg += `Subtotal: ${currency} ${subtotal.toFixed(2)}\n`;
+  }
   if (mode === 'DELIVERY' && deliveryFee > 0) {
     msg += `Costo de envío: ${currency} ${deliveryFee.toFixed(2)}\n`;
   }
   if (discountAmount > 0) {
     msg += `Descuento: -${currency} ${discountAmount.toFixed(2)}\n`;
   }
-  msg += `*TOTAL: ${currency} ${total.toFixed(2)}*\n`;
+  if (!orderIsFree) {
+    msg += `*TOTAL: ${currency} ${total.toFixed(2)}*\n`;
+  }
 
   if (paymentMethod.includes('Mercado Pago') && paymentLink) {
     msg += `\n💳 *Link de Pago:* ${paymentLink}\n`;

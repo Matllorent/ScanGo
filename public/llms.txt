@@ -18,3 +18,10 @@ ScanGo (desarrollado bajo el ecosistema Menú Pizarrón) es una solución tecnol
 - [Página Principal](/)
 - [Menú Demo Público](/m/demo)
 - [Panel de Creación Studio](/studio)
+
+## Planes y Contacto
+- Starter Mensual: 9 USD/mes. Starter Anual: 79 USD/año.
+- Pro Mensual: 19 USD/mes. Pro Anual: 159 USD/año.
+- Evento Único: 12 USD (pago único). Prueba gratis: 7 días con acceso total.
+- Analíticas avanzadas solo en plan Pro.
+- Registro y acceso: /studio. Administración: /admin. Soporte prioritario por WhatsApp (planes Pro).

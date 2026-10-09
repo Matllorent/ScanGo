@@ -8,7 +8,7 @@ SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. 
 ```bash
 npm run dev          # Desarrollo con nodemon (puerto 3000)
 npm start            # Producción (node api/index.js)
-npm test             # Suite completa (31 tests en secuencia) — con snapshot/restore automático de data/
+npm test             # Suite completa (35 tests en secuencia) — con snapshot/restore automático de data/
 npm run test:billing # Test individual de pasarelas de pago
 npm run test:analytics # Test individual de analytics de negocio (ticket promedio, CSV, top platos)
 npm run test:admin   # Test individual del panel /admin (login 2FA, plata/mes, renovaciones)
@@ -147,12 +147,12 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** durante la corrida (flujos reales con el store local). **`npm test` ahora las aísla solo**: `scripts/test-data-guard.js` saca una foto de `data/` antes y la restaura siempre al final (pase o falle). La cadena real de tests vive en `npm run test:core`; no hay que revertir `data/` a mano para commitear.
-- Suite completa (`npm test`) ejecuta 31 tests en secuencia — **todos deben pasar (31/31)**
+- Suite completa (`npm test`) ejecuta 35 tests en secuencia — **todos deben pasar (35/35)**
 - **2 tests existen pero NO están en `npm test`**: `test-e2e.js` (E2E integral real: registra en la nube, crea un checkout de Mercado Pago real y activa la suscripción por webhook — correrlo a mano; en modo cloud confirma el email del usuario recién registrado vía Admin API de Supabase, flujo real del link, sin mocks, porque `/api/studio/save` exige `requireVerifiedEmail`) y `test-supabase-group-cart-persistence.js` (es el `npm run db:smoke`, round-trip real de `group_carts` contra la nube). `test-escape-html`, `test-db-write` y `test-semgrep` solían estar fuera pero **ahora corren en el chain** (`npm test`): el guard de tests (`test-data-guard.js`) + el SKIP autónomo de semgrep los hacen seguros de correr en serie.
 - **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 4 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell` y `test-realtime-live-guard` (usan credenciales reales; el último hace SKIP si no hay `SUPABASE_URL`/`SUPABASE_ANON_KEY`).
 - Para debug rápido: `node tests/test-billing.js` (o el test específico, o `npm run test:<alias>`)
 
-### Tests incluidos en `npm test` (31 suites)
+### Tests incluidos en `npm test` (35 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
@@ -169,18 +169,22 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-email-notifications.js` | Los 7 métodos de email (Resend/SMTP): bienvenida, recibo, fallido, dunning, warning trial, trial vencido, menú pausado |
 | `test-ai-menu-import.js` | Gemini Flash multimodal, JSON schema, carga multi-página, límites 25mb, descarte por plato |
 | `test-menu-componentization.js` | Módulos ES de menu (smartReviews, virtualWaiterHeuristics, orderCheckout), catálogos data-driven de heladería/perfumería (§11/§12) y propina del comensal (§13, `computeTipAmount`) |
-| `test-menu-seo.js` | SSR, metadatos y JSON-LD por restaurante |
+| `test-menu-seo.js` | SSR, metadatos y JSON-LD por restaurante + ETag/`s-maxage=60` en `/m/*` (200 con `ETag: W/"m-..."`, 304 con `If-None-Match`) |
 | `test-google-auth.js` | GIS, callback OAuth y configuración backend |
-| `test-security-endpoints.js` | Auth/tenant, límites, cron/readiness y QR capability |
+| `test-security-endpoints.js` | Auth/tenant, límites, cron/readiness y QR capability + P0: anti mass-assignment en `/save`, auth en IA, TOTP fail-closed, 403 a cuentas huérfanas |
 | `test-analytics-business.js` | Analytics de negocio: ticket promedio, ingresos, top platos con nombres, export CSV, canal público unificado |
 | `test-admin-panel.js` | Panel `/admin` en español llano: login 2FA TOTP, plata que entra al mes (por plan + multi-sucursal), renovaciones en 7 días, pruebas por terminar, conversión de la prueba |
 | `test-db-await-integrity.js` | Integridad `await` en llamadas a métodos async de `db` (regresión 47ea3f7) |
 | `test-frontend-esm-syntax.js` | Todos los JS de `public/js/` parsean como ES Module (regresión codemod quick-wins) |
 | `test-frontend-structure.js` | `<div>` balanceados, modales a nivel body en 3 HTML + orden close→assign→open del import IA |
 | `test-push-notifications.js` | Push Web real (VAPID): suscripción cloud, 503 PUSH_NOT_CONFIGURED sin llaves, aviso de mozo desde la mesa con entrega intentada |
-| `test-loyalty-dual.js` | Fidelización DUAL (local + red global cross-restaurant): identidad E.164 enmascarada, acreditación post-pedido, niveles Bronce→Platino + insignias, canje LOY-XXXX-XXXX con validación cross-restaurant 403/doble 409, `/customers` con privacidad, borrado total (RGPD), y centro de notificaciones: aviso de mozo persistido + inbox mark-read + suscripción guest con consentimiento y separación de roles owner/guest |
+| `test-loyalty-dual.js` | Fidelización DUAL (local + red global cross-restaurant): identidad E.164 enmascarada, acreditación post-pedido, niveles Bronce→Platino + insignias, canje LOY-XXXX-XXXX con validación cross-restaurant 403/doble 409, `/customers` con privacidad, borrado total (RGPD), OTP de posesión por email (challenge/confirm, un solo uso, email first-write), y centro de notificaciones: aviso de mozo persistido + inbox mark-read + suscripción guest con consentimiento y separación de roles owner/guest |
+| `test-loyalty-claim.js` | Atomicidad del canje: doble `validate` concurrente (`Promise.all`) = exactamente 1 éxito + 1×409 `CODE_ALREADY_REDEEMED` (mutex local + RPC atómico `claim_loyalty_redemption` si la 006 está aplicada; sonda con SKIP si falta; NOT_FOUND con espejo local delega al local —corrige 404 fantasma con cloud rezagado— y un `ok:true` con espejo ya redeemed se veta a 409 anti split-brain) |
+| `test-billing-properties.js` | Properties con PRNG seed fijo (sin deps): `calculateMultiBranchPrice` monótono/tiers 100-80-65-50, `sanitizeUrl` nunca devuelve `javascript:/data:`, y diferencial máquina-vs-`verifyAccess` (500 fixtures, 0 mismatches) |
+| `test-subscription-machine.js` | Máquina de estados de suscripción (`src/billing/subscriptionMachine.js`): tabla total 7×6, invariantes (sin retorno a trialing, `DOWNGRADE_TO_FREE` solo desde past_due, gracia solo si nunca pagó, `BLOCK_MENU` solo paused/expired) |
 | `test-order-tracking.js` | Seguimiento del pedido end-to-end: token HMAC sin estado (`signOrderToken`/`verifyOrderToken`), `POST /api/orders` devuelve `trackingToken` y persiste la propina (`tipAmount`), `GET /api/orders/track/:token` público SIN PII (sin teléfono/nombre) y con `tip`, token adulterado 404, `PATCH /api/orders/status/:orderId` (401 anónimo, 400 inválido, 403 cross-tenant), y push de estado dirigido SOLO al comensal del pedido por teléfono |
 | `test-online-payment.js` | Pago online del comensal: default OFF no aparece en `/api/menu/:slug` y `POST /api/orders/mercadopago/preference` → 403 `ONLINE_PAYMENT_DISABLED`; con `allowOnlinePayment=true` el menú lo expone (+`onlinePaymentReady`) y el gate se abre (200 con MP real, 5xx `MP_NOT_CONFIGURED` honesto sin credenciales); restaurante inexistente → 404; el flag persiste |
+| `test-openapi-contract.js` | Contrato `openapi.yaml` (3.1) vs runtime: el spec lista los 20 paths reales y el test golpea cada ruta (códigos 200/201/400/401/403/404 según caso, nunca 404 inesperado; `track/:token` sin PII) |
 | `test-realtime-rls-guard.js` | Guard estático de canales Realtime: la 002 existe, NO tiene ALTER TABLE sobre realtime.messages (evita el 42501), políticas SELECT+INSERT `realtime:%` para anon/authenticated, y los canales del código unen con `private: true` |
 | `test-realtime-live-guard.js` | E2E real del guard contra Supabase Realtime (anon key): JOIN+broadcast en `realtime:%` OK y topics ajenos (`event_waiters_*`) rechazados — detecta si la 002 NO está aplicada |
 | `test-escape-html.js` | Escape HTML legacy (CommonJS `public/js/utils/escapeHtml.js`): entidades, falsy, números, idempotencia |
@@ -222,12 +226,19 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 - Flujos **reales** con DB y pasarelas de pago en tests y desarrollo
 - No hay mocks de Stripe/LemonSqueezy/MercadoPago ni de Supabase
 
-### Sincronización API ↔ Admin
+### Sincronización API ↔ Admin ↔ Contrato
 - Mantener rutas de `api/routes/` sincronizadas con vistas de `studio.html` y `admin.html`
-- Cambios en endpoints requieren actualizar ambas partes
+- Cambios en endpoints requieren actualizar ambas partes + `openapi.yaml` + caso en `test-openapi-contract.js`
+- **Reglas duras de seguridad** (regresión en `test-security-endpoints.js`): `/api/studio/save` NUNCA persiste `subscription/userId/id/analytics/createdAt/updatedAt` del cliente (solo vías server-side: webhooks/cron/admin); `/api/ai/*` exige sesión; `tenantGuard` responde 403 `TENANT_REQUIRED` a cuentas sin local ante tenant ajeno; `ADMIN_TOTP_SECRET` es obligatorio en prod y `verifyTotpToken` sin secreto deniega
+- **Sesiones revocables** (`api/utils/tokenRevocation.js`): JWT con `jti` + `pwdTs`; logout revoca el jti, reset invalida todo vía `updatedAt` (replica a cloud, cross-instancia); `authMiddleware`/`requireAuth`/`/me` validan frescura (401 `SESSION_REVOKED`); admin con tope absoluto 8h además del deslizante 15min; TOTP single-use + `timingSafeEqual`; `ADMIN_KEY` y legacy-password por hash comparativo; `jwt.verify` siempre con `algorithms:['HS256']`; `authLimiter` por IP real
+- **Loyalty con posesión** (`requestLoyaltyOtp`/HMAC-OTP stateless 10min + `verifyLoyaltyOtp` single-use): canje y borrado exigen OTP al email del perfil (`/challenge` → `/redeem/confirm`, `DELETE /me` con `otp`); email first-write (`/email`, cambio con OTP al anterior); el modal (`LoyaltyRewardsModal`) guía email→código→confirmación
+- **Profundidad**: `originCheck` anti-CSRF en mutaciones con cookie; MP sin secreto en prod → 503; `googleReview` solo https + `escapeHtml` en `src=`; topes de tamaño en Base64 (IA/storage); `__proto__` filtrado en save y `overridePrices`; filenames solo-puntos rechazados; `requireActiveSubscription` también en branches/events/ai-import/loyalty-credit
+- **Sesión solo-cookie + app nativa** (`public/js/authClient.js` + `api/utils/deviceTokens.js`): el JWT NO viaja en el body (respuestas de login/register/google/callback y login admin); web por cookie `httpOnly`, app Capacitor con credencial opaca revocable (`POST /api/auth/device`, `GET/DELETE /api/auth/devices`, muere con el reset); `authMiddleware`/`requireAuth`/`/me` dual centralizado en `authenticateRequest()`; registro duplicado → 200 genérico anti-enumeración
+- **CAPTCHA invisible** (Turnstile, `api/utils/captcha.js`): `POST /orders` exige `captchaToken` solo con `TURNSTILE_SECRET` (403 `CAPTCHA_REQUIRED`/`CAPTCHA_INVALID`, fail-open solo si CF inalcanzable); menú lo adjunta solo vía `/api/public/captcha-config`; CSP estricta suma `challenges.cloudflare.com` (script/connect/frame)
 
-### Sin Linter / Formatter / CI/CD
-- No hay ESLint, Prettier, ni workflows de GitHub Actions
+### Linter / Formatter / CI
+- `eslint.config.mjs` + `.prettierrc` (printWidth 110, singleQuote) + `npm run lint` (`eslint api src`; requiere `npm i -D eslint`, NO entra en `npm test`, no se reformateó el repo)
+- CI: `.github/workflows/ci.yml` (push/PR, matriz Node 22+24: `npm ci` → `npm test` → `test:semgrep` → osv-scanner sin bloqueo). `.nvmrc` = `22`, `engines: >=20`.
 - `tsconfig.json` existe pero **el app corre JS puro** — no hay paso de compilación
 
 ### Trampas conocidas del codebase
@@ -279,6 +290,21 @@ Lógica real: **`resolveEventTheme()` en `public/js/menu/eventGuestMode.js`** (l
 
 Estéticas (definiciones CSS en `public/css/menu.css`): wedding = marfil + serif Playfair + dorado `#D4A853`; cumple15 = pastel rosado/champán sobre `#F9F0F5`; birthday = mint `#A8D5C7` + oro `#C9A867` sobre `#FAF8F5`; catering = neutral cálido `#C49A4A`/`#A4753C` sobre `#F7F4F0`.
 
+### Itinerario Visual de Boda (rubro Eventos)
+
+Sección data-driven `restaurant.weddingItinerary` (`{enabled, title, coupleNames, date, venue, items[{time,title,icon}]}` máx 12, sanitizado en `sanitizeWeddingItinerary()` de `api/utils/sanitizeRestaurant.js`, espejo del módulo frontend). Módulo puro `public/js/menu/weddingItinerary.js` (`sanitizeWeddingItinerary`/`renderWeddingItineraryHTML`, con escape XSS) + estilos `.wed-it-*` en `menu.css` (espina central con nodos 💛, tarjetas alternadas en desktop, una columna en móvil ≤520px; **marco floral**: doble marco dorado + 4 esquinas botánicas SVG inline + divisor floral, todo sin assets externos; usa variables del tema activo así se adapta a wedding/cumple15/birthday/catering). Visible solo con tema de evento activo + itinerario habilitado con ≥1 momento (`renderWeddingItinerary()` en `menu.js`). El dueño lo edita en Studio (sección visible solo con `businessType='events'`: toggle + título/pareja/fecha/lugar + filas hora+título+icono con `add/remove/updateWeddingItineraryItem`). Regresión en `tests/test-menu-componentization.js` (§16).
+
+**En vivo**: el timeline marca el progreso con la hora real (`resolveItineraryProgress()` + `parseItineraryTime()`: acepta `18:00`/`18.00`/`18h00`, acarreo nocturno para fiestas que cruzan la medianoche). Estados: `countdown` (⏳ faltan N días, requiere `eventDay` ISO que el dueño fija con input date en Studio), `upcoming` (🕒 comienza a las…), `live` (🔴 píldora En vivo + barra de avance + momento `AHORA` con `aria-current` + pasados con ✓ + tag Siguiente) y `finished` (✅ gracias). Sin horas válidas → `static` sin adornos. `menu.js` re-renderiza solo cada 30s (`weddingItineraryTimer`); CSS con `prefers-reduced-motion`. Regresión §19.
+
+### Neón Multi-Acentos (layout Neon Nightbar)
+
+El layout `neon` tiñe todo su glow con variables `--neon`/`--neon-rgb` según `restaurant.neonAccent`: `mint` (default, el menta original), `cyan`, `magenta`, `amber`, `lime`, `violet` (`NEON_ACCENTS` + `resolveNeonAccent()` en `public/js/menu/menuPresentation.js`; clases `body.layout-neon.neon-<clave>` en `menu.css`). `menu.js` agrega `neon-<x>` solo con layout neon (+ preview con `?neon=<clave>`, espejo de `?morph=`). Studio: selector `#inputNeonAccent` visible solo en neon + save/load; backend con allowlist en `sanitizeRestaurant.js` (default mint). Regresión §21.
+
+### Precios $0 (sin costo) y Notas por Rubro
+
+- **Sin costo**: `isFreePrice()` en `public/js/menu/menuPresentation.js` (0, ausente o no numérico → true). Con precio libre NO se muestra ninguna cifra en carta, chef specials, upsells, cross-sell del modal ni líneas del carrito (botón `+` intacto); barra flotante `Ver Pedido →` sin `($0)`; totales `Sin costo`; WhatsApp lista ítems sin precio y declara `💝 Pedido sin costo` sin Subtotal/TOTAL. Backend ya acepta monto 0 (`createOrderSchema` sin campo amount). Regresión §17.
+- **Notas por rubro**: `getDishNoteCopy()` (mismo módulo) adapta etiqueta+placeholder del modal en `openDishNoteModal`: heladería → "Nota para tu helado" (nunca "sin cebolla"), perfumería → "Nota del pedido", eventos → "Indicaciones para los anfitriones", restaurante → default de cocina. Regresión §18.
+
 ## Heladería como Rubro de Primera Clase
 
 `businessType='heladeria'` es un rubro propio (no se colapsa a `restaurant`), seleccionable en el registro (`public/index.html`) y en Studio (`#inputBusinessType`). El asistente de armado (tamaño → sabores → toppings) se gobierna con `restaurant.allowIceCreamWizard` (default `true` para heladería). `normalizeRestaurantBusinessType()` en `src/db/db.js`:
@@ -322,8 +348,16 @@ Los 5 claros sobreescriben `--chalk-white` a tinta oscura y refuerzan títulos/n
 | `src/db/migrations/003_loyalty_notifications.sql` | Migración idempotente: 5 tablas de fidelización + ALTER `push_subscriptions` (RLS FORCE) |
 | `src/db/migrations/004_order_tracking.sql` | Migración idempotente del seguimiento del pedido: `orders.status_updated_at` + `push_subscriptions.customer_phone` (aviso dirigido por teléfono) |
 | `src/db/migrations/005_order_tips.sql` | Migración idempotente de la propina del comensal: `orders.tip_amount` (NUMERIC, no negativo; aparte del ticket promedio) |
+| `src/db/migrations/006_loyalty_claim_rpc.sql` | **Aplicada en cloud**: `claim_loyalty_redemption(p_code, p_restaurant_id)` atómico (`SECURITY DEFINER`, solo `service_role`) — canje en una sola sentencia (cierra el race del doble canje concurrente; verificado por `test-loyalty-claim.js` vía RPC real) |
 | `.cursorrules` | Reglas de desarrollo (cero mocks, sync API↔Admin) |
 | `public/js/menu/eventGuestMode.js` | Resolución de tema de evento, contexto de invitado, reservas WhatsApp |
 | `public/js/utils/` | Utilidades frontend (usan `escapeHtmlBrowser.js`, ver trampas) |
 | `public/js/components/` | 14 componentes ES Module reutilizables |
-| `tests/` | 32 archivos; 31 corren en `npm test` (ver sección Testing) |
+| `tests/` | 36 archivos; 35 corren en `npm test` (ver sección Testing) |
+| `openapi.yaml` | Contrato OpenAPI 3.1 de la API (20 paths verificados contra handlers; `test-openapi-contract.js` lo golpea en runtime — endpoint nuevo = entrada acá + caso en el test) |
+| `src/billing/subscriptionMachine.js` | Máquina de estados pura de suscripción (7 estados × 6 eventos, `computeStatus` diferencialmente testeada contra `verifyAccess`; la tabla manda, el orchestrator la sigue) |
+| `src/billing/plans.json` | Fuente única de precios/planes y `TRIAL_DAYS` (el orchestrator la lee con fallback a literales) |
+| `SECURITY.md` | Política de disclosure (reporte a `hola@menu-pizarron.com` `[SECURITY]`, SLA 48h/7d) |
+| `docs/adr/` | ADRs (0001 dual JSON↔Supabase, 0002 trial 7+3, 0003 plans.json) — decisión irreversible nueva = ADR nuevo |
+| `docs/chaos-dual-write.md` | Runbook del drill mensual de divergencia JSON↔cloud (+ `npm run db:parity` solo-lectura, cero PII) |
+| `stryker.conf.json` | Mutation testing acotado (`src/billing/orchestrator.js` + `api/utils/sanitizeRestaurant.js`, `npm run test:mutation`; requiere `npm i -D @stryker-mutator/core @stryker-mutator/command-runner`) |
