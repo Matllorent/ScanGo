@@ -6,6 +6,143 @@ function openAuthModal(mode = 'register') {
   const modal = document.getElementById('authModal');
   modal.classList.add('active');
   switchAuthTab(mode);
+  // El registro hereda el rubro de la pestaña de precios que miraba el
+  // visitante (menos fricción y mejor conversión por rubro).
+  if (mode === 'register' && typeof currentPricingRubro === 'string') {
+    const bizSelect = document.getElementById('regBusinessType');
+    if (bizSelect && ['restaurant', 'heladeria', 'perfumery', 'events'].includes(currentPricingRubro)) {
+      bizSelect.value = currentPricingRubro;
+    }
+  }
+}
+
+// ── Precios por rubro: mismos planes, mensaje adaptado ────────────────────
+// La suscripción es única (planes.json); cada rubro solo cambia nombres,
+// descripciones y bullets. Eventos muestra la tarjeta de pago único.
+let currentPricingRubro = 'restaurant';
+
+const PRICING_COPY = {
+  restaurant: {
+    hint: 'Suscripción mensual o anual para tu restaurante, sin comisiones por venta.',
+    monthly: {
+      name: 'Plan Mensual Pro',
+      desc: 'Flexibilidad mes a mes para restaurantes que están comenzando.',
+      features: [
+        '<strong>Menú QR ilimitado</strong>',
+        '<strong>Pedidos por WhatsApp (0% comisión)</strong>',
+        'Soporte para delivery por zonas',
+        'Cartelería de mesa imprimible (PDF)',
+        'Acceso para 1 local gastronómico',
+        'Actualizaciones en tiempo real'
+      ]
+    },
+    annual: {
+      name: 'Plan Anual Pro',
+      desc: 'Tranquilidad para todo el año al costo más competitivo del mercado.',
+      features: [
+        '<strong>Todo lo del Plan Mensual</strong>',
+        '<strong>Logo en el centro del código QR</strong>',
+        '<strong>Catálogo internacional de 85+ platos sugeridos</strong>',
+        '<strong>Módulo de Reservas de Mesa por WhatsApp</strong>',
+        'Período de gracia garantizado de 7 días',
+        'Soporte prioritario por WhatsApp'
+      ]
+    }
+  },
+  heladeria: {
+    hint: 'Suscripción mensual o anual para tu heladería, sin comisiones por venta.',
+    monthly: {
+      name: 'Plan Mensual Heladería',
+      desc: 'Flexibilidad mes a mes para heladerías que venden todo el año.',
+      features: [
+        '<strong>Menú QR ilimitado</strong>',
+        '<strong>Pedidos por WhatsApp (0% comisión)</strong>',
+        '<strong>Armador de helado a medida</strong>',
+        'Catálogo de sabores en 1 clic',
+        'Cartelería de mesa imprimible (PDF)',
+        'Actualizaciones en tiempo real'
+      ]
+    },
+    annual: {
+      name: 'Plan Anual Heladería',
+      desc: 'Tranquilidad para todo el año al costo más competitivo del mercado.',
+      features: [
+        '<strong>Todo lo del Plan Mensual</strong>',
+        '<strong>Logo en el centro del código QR</strong>',
+        '<strong>6 estéticas de heladería (fiesta, menta, tropical…)</strong>',
+        '<strong>Promos de temporada por WhatsApp</strong>',
+        'Período de gracia garantizado de 7 días',
+        'Soporte prioritario por WhatsApp'
+      ]
+    }
+  },
+  perfumery: {
+    hint: 'Suscripción mensual o anual para tu perfumería, sin comisiones por venta.',
+    monthly: {
+      name: 'Plan Mensual Perfumería',
+      desc: 'Flexibilidad mes a mes para tu local de fragancias y cosmética.',
+      features: [
+        '<strong>Catálogo QR ilimitado</strong>',
+        '<strong>Pedidos por WhatsApp (0% comisión)</strong>',
+        '<strong>Vista de pirámide olfativa</strong>',
+        'Colecciones y lanzamientos',
+        'Cartelería con QR imprimible (PDF)',
+        'Actualizaciones en tiempo real'
+      ]
+    },
+    annual: {
+      name: 'Plan Anual Perfumería',
+      desc: 'Tranquilidad para todo el año al costo más competitivo del mercado.',
+      features: [
+        '<strong>Todo lo del Plan Mensual</strong>',
+        '<strong>Logo en el centro del código QR</strong>',
+        '<strong>Selector de frasco y presentaciones</strong>',
+        '<strong>Módulo de reservas y consultas por WhatsApp</strong>',
+        'Período de gracia garantizado de 7 días',
+        'Soporte prioritario por WhatsApp'
+      ]
+    }
+  },
+  events: {
+    hint: 'Un solo pago por fiesta: sin suscripción ni renovaciones.'
+  }
+};
+
+function renderPricingFeatures(listId, features) {
+  const ul = document.getElementById(listId);
+  if (!ul) return;
+  ul.innerHTML = features.map(f => `<li><span class="check">✓</span> ${f}</li>`).join('');
+}
+
+function switchPricingRubro(rubro) {
+  const valid = ['restaurant', 'heladeria', 'perfumery', 'events'];
+  if (!valid.includes(rubro)) return;
+  currentPricingRubro = rubro;
+  document.querySelectorAll('[data-pricing-rubro]').forEach(btn => {
+    const active = btn.getAttribute('data-pricing-rubro') === rubro;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  const hint = document.getElementById('pricingRubroHint');
+  const copy = PRICING_COPY[rubro];
+  if (hint && copy) hint.textContent = copy.hint;
+  const subGrid = document.getElementById('pricingSubscriptionGrid');
+  const eventGrid = document.getElementById('pricingEventGrid');
+  const isEvents = rubro === 'events';
+  if (subGrid) subGrid.style.display = isEvents ? 'none' : '';
+  if (eventGrid) eventGrid.style.display = isEvents ? 'flex' : 'none';
+  if (!isEvents && copy) {
+    const monthlyName = document.getElementById('planMonthlyName');
+    const monthlyDesc = document.getElementById('planMonthlyDesc');
+    const annualName = document.getElementById('planAnnualName');
+    const annualDesc = document.getElementById('planAnnualDesc');
+    if (monthlyName) monthlyName.textContent = copy.monthly.name;
+    if (monthlyDesc) monthlyDesc.textContent = copy.monthly.desc;
+    if (annualName) annualName.textContent = copy.annual.name;
+    if (annualDesc) annualDesc.textContent = copy.annual.desc;
+    renderPricingFeatures('planMonthlyFeatures', copy.monthly.features);
+    renderPricingFeatures('planAnnualFeatures', copy.annual.features);
+  }
 }
 
 function closeAuthModal() {
@@ -76,6 +213,11 @@ function handleGooglePromptFailure(error) {
 
 async function ensureGoogleIdentityReady() {
   if (googleIdentityPromise) return googleIdentityPromise;
+  // Sin aceptación de cookies de terceros no se carga Google (ver /cookies).
+  if (window.CookieConsent && !window.CookieConsent.hasThirdPartyConsent()) {
+    window.CookieConsent.show();
+    throw new Error('Para entrar con Google aceptá primero las cookies de terceros en el aviso inferior.');
+  }
   googleIdentityPromise = (async () => {
     const configResponse = await fetch('/api/auth/google/config');
     const config = await configResponse.json();
@@ -154,69 +296,6 @@ async function startGoogleSignup() {
   }
 }
 
-function initSavingsCalculator() {
-  const slider = document.getElementById('monthlySalesSlider');
-  const salesValue = document.getElementById('monthlySalesValue');
-  const commissionValue = document.getElementById('deliveryCommissionValue');
-  const savingsValue = document.getElementById('monthlySavingsValue');
-  if (!slider || !salesValue || !commissionValue || !savingsValue) return;
-
-  const money = value => `$${Math.round(value).toLocaleString('es-UY')}`;
-  const update = () => {
-    const sales = Number(slider.value) || 0;
-    const deliveryCommission = sales * 0.2;
-    salesValue.textContent = money(sales);
-    commissionValue.textContent = `${money(deliveryCommission)}/mes`;
-    savingsValue.textContent = `${money(Math.max(0, deliveryCommission - 9))}/mes`;
-    slider.setAttribute('aria-valuenow', slider.value);
-  };
-  slider.addEventListener('input', update);
-  
-  // Keyboard accessibility for slider
-  slider.addEventListener('keydown', (e) => {
-    const step = Number(slider.step) || 5000;
-    const min = Number(slider.min) || 10000;
-    const max = Number(slider.max) || 1000000;
-    let newVal = Number(slider.value);
-    
-    switch (e.key) {
-      case 'ArrowRight':
-      case 'ArrowUp':
-        e.preventDefault();
-        newVal = Math.min(newVal + step, max);
-        break;
-      case 'ArrowLeft':
-      case 'ArrowDown':
-        e.preventDefault();
-        newVal = Math.max(newVal - step, min);
-        break;
-      case 'Home':
-        e.preventDefault();
-        newVal = min;
-        break;
-      case 'End':
-        e.preventDefault();
-        newVal = max;
-        break;
-      case 'PageUp':
-        e.preventDefault();
-        newVal = Math.min(newVal + step * 10, max);
-        break;
-      case 'PageDown':
-        e.preventDefault();
-        newVal = Math.max(newVal - step * 10, min);
-        break;
-    }
-    
-    if (newVal !== Number(slider.value)) {
-      slider.value = newVal;
-      update();
-    }
-  });
-  
-  update();
-}
-
 function togglePasswordVisibility(inputId, btn) {
   const input = document.getElementById(inputId);
   if (!input) return;
@@ -260,6 +339,12 @@ async function handleRegister(e) {
       data.restaurant.allowIceCreamWizard = (businessType === 'heladeria');
       data.restaurant.allowPerfumery = (businessType === 'perfumery');
       data.restaurant.allowLoyaltyPoints = false;
+      // Heladería nace vestida de heladería (no con el verde bistro).
+      if (businessType === 'heladeria') {
+        if (!data.restaurant.theme || data.restaurant.theme === 'emerald') data.restaurant.theme = 'helado-fiesta';
+        if (!data.restaurant.iceCreamButtonStyle) data.restaurant.iceCreamButtonStyle = 'fiesta';
+        if (!data.restaurant.iceCreamBuilderLabel) data.restaurant.iceCreamBuilderLabel = 'Armá tu helado a medida';
+      }
     }
 
     localStorage.setItem('menu_pizarron_user', JSON.stringify(data.user));
@@ -678,7 +763,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   loadPublicTestimonials();
   loadPricingSettings();
   initMagneticWhatsApp();
-  initSavingsCalculator();
   
   // Si hay sesión (cookie httpOnly), mostrar acceso directo al Studio.
   // Sin token en JS: se pregunta al backend en vez de leer localStorage.

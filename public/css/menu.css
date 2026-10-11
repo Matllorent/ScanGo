@@ -472,6 +472,191 @@
         radial-gradient(circle at 82% 80%, rgba(224, 176, 74, 0.04) 0%, transparent 45%);
     }
 
+    /* ── NUEVOS TEMAS PREMIUM DE HELADERÍA (5) ───────────────────────────
+       Todos se reconocen a golpe de vista como heladería: fondos cremosos,
+       tintas comestibles y decoración de confeti / gotas / nubes sin assets
+       externos (solo radial-gradients). Ninguno toca los 6 originales. */
+
+    /* FRESA & CREMA — rosa frutilla sobre crema chantilly: dulce y femenino */
+    body.theme-helado-fresa {
+      --bg-chalkboard: #FFF5F7;
+      --surface-card: #FFFFFF;
+      --surface-card-hover: #FFE9F0;
+      --chalk-gold: #E84A7A;
+      --chalk-gold-dim: rgba(232, 74, 122, 0.14);
+      --border-gold: rgba(232, 74, 122, 0.38);
+      --chalk-berry: #B4235A;
+      --chalk-cream: #FFF0F4;
+      --chalk-white: #4A1F30;
+      --chalk-muted: #7A4A5C;
+      --chalk-dim: #8A5C6C;
+      --chalk-gold-ink: #B4235A;
+      --border-chalk: rgba(74, 31, 48, 0.10);
+      background-color: #FFF5F7;
+    }
+    body.theme-helado-fresa .restaurant-title { color: #D42A62; }
+    body.theme-helado-fresa .dish-name { color: #4A1F30; }
+    body.theme-helado-fresa .dish-badge { --chalk-gold: #E84A7A; }
+    body.theme-helado-fresa .category-title { color: #D42A62; }
+    body.theme-helado-fresa .cat-pill { border-color: rgba(74, 31, 48, 0.12); }
+    body.theme-helado-fresa .empty-state-card { border-color: rgba(74, 31, 48, 0.10); }
+    body.theme-helado-fresa .empty-state-icon { color: #D42A62; }
+    body.theme-helado-fresa .dish-card { border-radius: 18px; border-top: 3px solid rgba(232, 74, 122, 0.25); }
+    body.theme-helado-fresa::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      background-image:
+        radial-gradient(circle at 12% 16%, rgba(232, 74, 122, 0.12) 0%, transparent 34%),
+        radial-gradient(circle at 88% 22%, rgba(255, 143, 171, 0.14) 0%, transparent 32%),
+        radial-gradient(circle at 20% 84%, rgba(232, 74, 122, 0.08) 0%, transparent 30%),
+        radial-gradient(circle at 82% 86%, rgba(255, 205, 218, 0.20) 0%, transparent 32%);
+    }
+
+    /* DULCE DE LECHE ARTESANAL — caramelo y miel sobre vainilla tibia */
+    body.theme-helado-dulce {
+      --bg-chalkboard: #FFF9EF;
+      --surface-card: #FFFFFF;
+      --surface-card-hover: #FFF1DC;
+      --chalk-gold: #C47A1A;
+      --chalk-gold-dim: rgba(196, 122, 26, 0.14);
+      --border-gold: rgba(196, 122, 26, 0.38);
+      --chalk-caramel: #8A4B0E;
+      --chalk-honey: #F0B429;
+      --chalk-white: #4A2E12;
+      --chalk-muted: #7A5A34;
+      --chalk-dim: #8A6B4A;
+      --chalk-gold-ink: #8A4B0E;
+      --border-chalk: rgba(74, 46, 18, 0.10);
+      background-color: #FFF9EF;
+    }
+    body.theme-helado-dulce .restaurant-title { color: #A05E12; }
+    body.theme-helado-dulce .dish-name { color: #4A2E12; }
+    body.theme-helado-dulce .dish-badge { --chalk-gold: #C47A1A; }
+    body.theme-helado-dulce .category-title { color: #A05E12; }
+    body.theme-helado-dulce .cat-pill { border-color: rgba(74, 46, 18, 0.12); }
+    body.theme-helado-dulce .empty-state-card { border-color: rgba(74, 46, 18, 0.10); }
+    body.theme-helado-dulce .empty-state-icon { color: #A05E12; }
+    body.theme-helado-dulce .dish-card { border-radius: 16px; border-left: 4px solid rgba(196, 122, 26, 0.30); }
+    body.theme-helado-dulce::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      background-image:
+        radial-gradient(circle at 16% 20%, rgba(196, 122, 26, 0.10) 0%, transparent 36%),
+        radial-gradient(circle at 84% 28%, rgba(240, 180, 41, 0.12) 0%, transparent 32%),
+        radial-gradient(circle at 24% 84%, rgba(138, 75, 14, 0.06) 0%, transparent 34%);
+    }
+
+    /* PISTACCHIO DI SICILIA — verde pistacho con cáscara tostada, elegante */
+    body.theme-helado-pistacho {
+      --bg-chalkboard: #F4F8F0;
+      --surface-card: #FFFFFF;
+      --surface-card-hover: #E8F2E2;
+      --chalk-gold: #5B8C5A;
+      --chalk-gold-dim: rgba(91, 140, 90, 0.14);
+      --border-gold: rgba(91, 140, 90, 0.38);
+      --chalk-shell: #8A6B3E;
+      --chalk-leaf: #2F6B33;
+      --chalk-white: #243A24;
+      --chalk-muted: #4A634A;
+      --chalk-dim: #5A705A;
+      --chalk-gold-ink: #2F6B33;
+      --border-chalk: rgba(36, 58, 36, 0.10);
+      background-color: #F4F8F0;
+    }
+    body.theme-helado-pistacho .restaurant-title { color: #3E7A3E; }
+    body.theme-helado-pistacho .dish-name { color: #243A24; }
+    body.theme-helado-pistacho .dish-badge { --chalk-gold: #5B8C5A; }
+    body.theme-helado-pistacho .category-title { color: #3E7A3E; }
+    body.theme-helado-pistacho .cat-pill { border-color: rgba(36, 58, 36, 0.12); }
+    body.theme-helado-pistacho .empty-state-card { border-color: rgba(36, 58, 36, 0.10); }
+    body.theme-helado-pistacho .empty-state-icon { color: #3E7A3E; }
+    body.theme-helado-pistacho .dish-card { border-radius: 16px; }
+    body.theme-helado-pistacho::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      background-image:
+        radial-gradient(circle at 18% 22%, rgba(91, 140, 90, 0.10) 0%, transparent 36%),
+        radial-gradient(circle at 82% 78%, rgba(138, 107, 62, 0.08) 0%, transparent 34%),
+        radial-gradient(circle at 50% 50%, rgba(91, 140, 90, 0.04) 0%, transparent 55%);
+    }
+
+    /* CIELO HELADO — celeste cielo y nube de vainilla: aireado y fresco */
+    body.theme-helado-cielo {
+      --bg-chalkboard: #F0FAFF;
+      --surface-card: #FFFFFF;
+      --surface-card-hover: #E2F3FF;
+      --chalk-gold: #1E9AC5;
+      --chalk-gold-dim: rgba(30, 154, 197, 0.14);
+      --border-gold: rgba(30, 154, 197, 0.38);
+      --chalk-cloud: #BEE3F8;
+      --chalk-deep: #0E6E8E;
+      --chalk-white: #1E3440;
+      --chalk-muted: #4A6A7A;
+      --chalk-dim: #5A7A8A;
+      --chalk-gold-ink: #0E6E8E;
+      --border-chalk: rgba(30, 52, 64, 0.10);
+      background-color: #F0FAFF;
+    }
+    body.theme-helado-cielo .restaurant-title { color: #1580A8; }
+    body.theme-helado-cielo .dish-name { color: #1E3440; }
+    body.theme-helado-cielo .dish-badge { --chalk-gold: #1E9AC5; }
+    body.theme-helado-cielo .category-title { color: #1580A8; }
+    body.theme-helado-cielo .cat-pill { border-color: rgba(30, 52, 64, 0.12); }
+    body.theme-helado-cielo .empty-state-card { border-color: rgba(30, 52, 64, 0.10); }
+    body.theme-helado-cielo .empty-state-icon { color: #1580A8; }
+    body.theme-helado-cielo .dish-card { border-radius: 18px; box-shadow: 0 2px 12px rgba(30, 154, 197, 0.08); }
+    body.theme-helado-cielo::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      background-image:
+        radial-gradient(ellipse at 20% 14%, rgba(190, 227, 248, 0.35) 0%, transparent 42%),
+        radial-gradient(ellipse at 80% 24%, rgba(30, 154, 197, 0.10) 0%, transparent 38%),
+        radial-gradient(ellipse at 30% 88%, rgba(190, 227, 248, 0.28) 0%, transparent 40%);
+    }
+
+    /* MORA NOCHE — violeta mora premium sobre noche crema: el oscuro dulce */
+    body.theme-helado-mora {
+      --bg-chalkboard: #241536;
+      --surface-card: #2F1D46;
+      --surface-card-hover: #3A2560;
+      --chalk-gold: #C4B5FD;
+      --chalk-gold-dim: rgba(196, 181, 253, 0.16);
+      --border-gold: rgba(196, 181, 253, 0.40);
+      --chalk-berry: #F0ABFC;
+      --chalk-cream: #F5EFFF;
+      --chalk-white: #F5EFFF;
+      --chalk-muted: #C9BCE8;
+      --chalk-dim: #9E8EC4;
+      --border-chalk: rgba(245, 239, 255, 0.12);
+      background-color: #241536;
+      background-image:
+        radial-gradient(circle at 50% 0%, rgba(196, 181, 253, 0.10) 0%, transparent 55%),
+        radial-gradient(circle at 14% 82%, rgba(240, 171, 252, 0.08) 0%, transparent 40%);
+    }
+    body.theme-helado-mora .restaurant-title { color: #D8C8FF; }
+    body.theme-helado-mora .dish-name { color: #F5EFFF; }
+    body.theme-helado-mora .dish-badge { --chalk-gold: #C4B5FD; }
+    body.theme-helado-mora .category-title { color: #C4B5FD; }
+    body.theme-helado-mora .empty-state-icon { color: #C4B5FD; }
+    body.theme-helado-mora .dish-card { border-radius: 16px; border: 1px solid rgba(196, 181, 253, 0.22); }
+    body.theme-helado-mora::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      background-image:
+        radial-gradient(circle at 18% 18%, rgba(196, 181, 253, 0.08) 0%, transparent 44%),
+        radial-gradient(circle at 84% 80%, rgba(240, 171, 252, 0.07) 0%, transparent 44%);
+    }
+
     /* Font Styles */
     body.font-serif { --font-heading: 'Playfair Display', Georgia, serif; }
     body.font-chalk { --font-heading: 'Caveat', cursive, sans-serif; }
@@ -835,7 +1020,7 @@
 
     /* Native UI (selects, scrollbars, date pickers): oscuro por defecto;
        claro en los temas de fondo claro para que combine con la paleta. */
-    body:is(.theme-helado-fiesta, .theme-helado-menta, .theme-helado-tropical, .theme-helado-pastel, .theme-gelateria, .theme-wedding, .theme-cumple15, .theme-birthday, .theme-catering) {
+    body:is(.theme-helado-fiesta, .theme-helado-menta, .theme-helado-tropical, .theme-helado-pastel, .theme-gelateria, .theme-helado-fresa, .theme-helado-dulce, .theme-helado-pistacho, .theme-helado-cielo, .theme-wedding, .theme-cumple15, .theme-birthday, .theme-catering) {
       color-scheme: light;
     }
     body {
@@ -1207,9 +1392,9 @@
     .badge-star { background: rgba(229, 62, 62, 0.2); color: #FC8181; border: 1px solid rgba(229, 62, 62, 0.4); }
     /* Los colores de insignia de arriba están pensados para fondos oscuros; en los
        temas claros de heladería el contraste cae a ~1.8. Los oscurecemos ahí. */
-    body:is(.theme-helado-fiesta,.theme-helado-menta,.theme-helado-tropical,.theme-helado-pastel,.theme-gelateria) .dish-badge.badge-star { background: rgba(185, 28, 28, 0.12); color: #B91C1C; border-color: rgba(185, 28, 28, 0.32); }
-    body:is(.theme-helado-fiesta,.theme-helado-menta,.theme-helado-tropical,.theme-helado-pastel,.theme-gelateria) .dish-badge.badge-veggie { background: rgba(22, 101, 52, 0.12); color: #166534; border-color: rgba(22, 101, 52, 0.30); }
-    body:is(.theme-helado-fiesta,.theme-helado-menta,.theme-helado-tropical,.theme-helado-pastel,.theme-gelateria) .dish-badge.badge-celiac { background: rgba(133, 77, 14, 0.14); color: #854D0E; border-color: rgba(133, 77, 14, 0.32); }
+    body:is(.theme-helado-fiesta,.theme-helado-menta,.theme-helado-tropical,.theme-helado-pastel,.theme-gelateria,.theme-helado-fresa,.theme-helado-dulce,.theme-helado-pistacho,.theme-helado-cielo) .dish-badge.badge-star { background: rgba(185, 28, 28, 0.12); color: #B91C1C; border-color: rgba(185, 28, 28, 0.32); }
+    body:is(.theme-helado-fiesta,.theme-helado-menta,.theme-helado-tropical,.theme-helado-pastel,.theme-gelateria,.theme-helado-fresa,.theme-helado-dulce,.theme-helado-pistacho,.theme-helado-cielo) .dish-badge.badge-veggie { background: rgba(22, 101, 52, 0.12); color: #166534; border-color: rgba(22, 101, 52, 0.30); }
+    body:is(.theme-helado-fiesta,.theme-helado-menta,.theme-helado-tropical,.theme-helado-pastel,.theme-gelateria,.theme-helado-fresa,.theme-helado-dulce,.theme-helado-pistacho,.theme-helado-cielo) .dish-badge.badge-celiac { background: rgba(133, 77, 14, 0.14); color: #854D0E; border-color: rgba(133, 77, 14, 0.32); }
 
     .dish-desc {
       font-size: 0.85rem;
@@ -1576,6 +1761,103 @@
       padding: 9px 14px;
       font-size: 0.85rem;
       white-space: nowrap;
+    }
+
+    /* ── Estilos del botón armador (6 variantes premium de heladería) ──────
+       Elegibles en Studio (restaurant.iceCreamButtonStyle → style-<clave>).
+       Todos usan gradientes y brillos propios para que, de un vistazo, se lea
+       "heladería artesanal" en cualquier theme claro u oscuro. `clasico`
+       conserva el look anterior (superficie del tema). */
+    .icecream-hero.style-clasico {
+      background: linear-gradient(120deg, var(--chalk-gold-dim), var(--surface-card));
+    }
+    /* FIESTA: confeti rosa-celeste-limón sobre blanco, borde doble festivo */
+    .icecream-hero.style-fiesta {
+      background:
+        radial-gradient(circle at 12% 20%, rgba(255, 92, 138, 0.22) 0 10px, transparent 11px),
+        radial-gradient(circle at 88% 18%, rgba(76, 201, 240, 0.22) 0 9px, transparent 10px),
+        radial-gradient(circle at 22% 85%, rgba(255, 210, 63, 0.25) 0 8px, transparent 9px),
+        radial-gradient(circle at 80% 82%, rgba(184, 146, 240, 0.22) 0 9px, transparent 10px),
+        linear-gradient(120deg, #FFF0F6 0%, #FFFFFF 55%, #E8FBFF 100%);
+      border: 2px solid #FF5C8A;
+      box-shadow: 0 6px 22px rgba(255, 92, 138, 0.22);
+      color: #4A1F30;
+    }
+    .icecream-hero.style-fiesta .icw-hero-text small { color: #7A4A5C; }
+    .icecream-hero.style-fiesta .icw-hero-cta {
+      background: linear-gradient(120deg, #FF5C8A, #FF8FAB);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(255, 92, 138, 0.45);
+    }
+    /* PREMIUM DORADO: crema marfil con filete oro, sello de gelateria italiana */
+    .icecream-hero.style-premium {
+      background: linear-gradient(120deg, #FBF3E2 0%, #FFFFFF 50%, #F6ECD8 100%);
+      border: 2px solid #C9A227;
+      box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 4px rgba(201, 162, 39, 0.5), 0 8px 24px rgba(160, 120, 30, 0.20);
+      color: #3E2C14;
+    }
+    .icecream-hero.style-premium .icw-hero-text strong { letter-spacing: 0.02em; }
+    .icecream-hero.style-premium .icw-hero-text small { color: #7A6234; }
+    .icecream-hero.style-premium .icw-hero-cta {
+      background: linear-gradient(120deg, #C9A227, #E8C35A);
+      color: #241A05;
+      border: 1px solid #9A7A1A;
+    }
+    /* TROPICAL: mango-coral-turquesa vibrante, energía de verano */
+    .icecream-hero.style-tropical {
+      background: linear-gradient(115deg, #FFF1DE 0%, #FFE3E3 45%, #DFFBF3 100%);
+      border: 2px solid transparent;
+      border-radius: 18px;
+      background-clip: padding-box;
+      position: relative;
+      box-shadow: 0 8px 24px rgba(255, 122, 0, 0.22);
+      color: #3B2A1E;
+    }
+    .icecream-hero.style-tropical::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 20px;
+      padding: 2px;
+      background: linear-gradient(115deg, #FF7A00, #FF5A5F 50%, #17B8A6);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+    .icecream-hero.style-tropical .icw-hero-text small { color: #6E523A; }
+    .icecream-hero.style-tropical .icw-hero-cta {
+      background: linear-gradient(120deg, #FF7A00, #FF5A5F);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(255, 90, 95, 0.45);
+    }
+    /* NUBE: vainilla y celeste aireado, bordes suaves de nube */
+    .icecream-hero.style-nube {
+      background: linear-gradient(120deg, #FFFFFF 0%, #F0FAFF 60%, #E2F3FF 100%);
+      border: 2px dashed rgba(30, 154, 197, 0.55);
+      border-radius: 22px;
+      box-shadow: 0 6px 20px rgba(30, 154, 197, 0.16);
+      color: #1E3440;
+    }
+    .icecream-hero.style-nube .icw-hero-text small { color: #4A6A7A; }
+    .icecream-hero.style-nube .icw-hero-cta {
+      background: linear-gradient(120deg, #1E9AC5, #4CC9F0);
+      color: #fff;
+      border-radius: 999px;
+      box-shadow: 0 4px 14px rgba(30, 154, 197, 0.40);
+    }
+    /* NOCHE: cacao oscuro con brillo dorado, premium nocturno */
+    .icecream-hero.style-noche {
+      background: linear-gradient(120deg, #2A1A12 0%, #3B241B 55%, #241410 100%);
+      border: 2px solid rgba(224, 176, 74, 0.65);
+      box-shadow: 0 8px 26px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(224, 176, 74, 0.25);
+      color: #F5E6D3;
+    }
+    .icecream-hero.style-noche .icw-hero-text small { color: #D9C3A9; }
+    .icecream-hero.style-noche .icw-hero-cta {
+      background: linear-gradient(120deg, #E0B04A, #F6D47A);
+      color: #241410;
+      box-shadow: 0 4px 16px rgba(224, 176, 74, 0.45);
     }
 
     /* ── Barra de idioma (🌐 desplegable) y moneda: superficie del tema ──
@@ -3905,4 +4187,277 @@
       display: block;
       text-align: center;
       font-size: 0.72rem !important;
+    }
+
+    /* --------------------------------------------------------------------------
+       MORFOLOGÍA DELIVERY — Estilo app de delivery (claro, tarjetas blancas).
+       Hero con card superpuesta, lista horizontal con foto grande a la izquierda
+       y botón + circular oscuro. Toque ScanGo: respeta --chalk-gold del tema
+       para precios/badges y mantiene todos los flujos (WhatsApp, propina,
+       tracking, fidelización). Solo re-estiliza, no cambia el DOM.
+       -------------------------------------------------------------------------- */
+    body.layout-delivery {
+      --bg-chalkboard: #F3F4F6;
+      --surface-card: #FFFFFF;
+      --surface-card-hover: #FFFFFF;
+      --chalk-white: #111827;
+      --chalk-muted: #374151;
+      --chalk-dim: #6B7280;
+      --border-chalk: #E5E7EB;
+      background-color: #F3F4F6;
+      color: #111827;
+    }
+    body.layout-delivery .menu-banner-hero {
+      height: 250px;
+      min-height: 250px;
+      border-radius: 0 0 24px 24px;
+      overflow: hidden;
+    }
+    body.layout-delivery .menu-banner-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    body.layout-delivery .menu-header {
+      background: #FFFFFF !important;
+      --chalk-white: #111827;
+      --chalk-muted: #374151;
+      --chalk-dim: #6B7280;
+      border: 1px solid #EDEEF1 !important;
+      border-radius: 18px !important;
+      box-shadow: 0 8px 24px rgba(17, 24, 39, 0.08) !important;
+      margin: -64px 14px 0 14px;
+      padding: 18px 16px 16px 16px !important;
+      text-align: left !important;
+      z-index: 5;
+    }
+    body.layout-delivery.has-hero-banner .menu-header {
+      margin-top: -64px;
+    }
+    body.layout-delivery .restaurant-title {
+      color: #111827 !important;
+      font-size: 1.35rem !important;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      margin-bottom: 6px;
+    }
+    body.layout-delivery .restaurant-slogan {
+      color: #6B7280 !important;
+      font-family: var(--font-body) !important;
+      font-size: 0.85rem !important;
+      margin-bottom: 10px;
+    }
+    body.layout-delivery .restaurant-meta-bar {
+      justify-content: flex-start !important;
+      gap: 8px !important;
+    }
+    body.layout-delivery .meta-chip {
+      background: #F3F4F6 !important;
+      border: 1px solid #E5E7EB !important;
+      color: #374151 !important;
+      border-radius: 999px !important;
+    }
+    body.layout-delivery .meta-chip:hover {
+      border-color: #D1D5DB !important;
+      color: #111827 !important;
+      background: #EDEEF1 !important;
+    }
+    body.layout-delivery .status-pill {
+      border-radius: 999px !important;
+      font-weight: 700;
+    }
+    body.layout-delivery .menu-container {
+      padding: 14px 14px 24px 14px !important;
+    }
+    body.layout-delivery .controls-wrapper {
+      background: transparent !important;
+      border-bottom: none !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      padding: 4px 0 8px 0 !important;
+      margin-bottom: 12px !important;
+    }
+    body.layout-delivery .search-box {
+      background: #FFFFFF !important;
+      border: 1px solid #E5E7EB !important;
+      color: #111827 !important;
+      border-radius: 12px !important;
+      box-shadow: 0 1px 4px rgba(17, 24, 39, 0.05);
+    }
+    body.layout-delivery .search-box::placeholder {
+      color: #9CA3AF !important;
+    }
+    body.layout-delivery .cat-pill {
+      background: #FFFFFF !important;
+      border: 1px solid #E5E7EB !important;
+      color: #374151 !important;
+      border-radius: 999px !important;
+      box-shadow: 0 1px 3px rgba(17, 24, 39, 0.04);
+    }
+    body.layout-delivery .cat-pill.active {
+      background: #111827 !important;
+      border-color: #111827 !important;
+      color: #FFFFFF !important;
+    }
+    body.layout-delivery .category-nav-wrapper {
+      position: sticky;
+      top: 0;
+      z-index: 90;
+      background: rgba(243, 244, 246, 0.96);
+      padding: 8px 0;
+    }
+    body.layout-delivery .category-title {
+      color: #111827 !important;
+      font-size: 1.12rem !important;
+      font-weight: 800;
+      border-bottom: none !important;
+      padding-bottom: 0 !important;
+      margin-bottom: 12px !important;
+    }
+    body.layout-delivery .category-badge-count {
+      background: #EDEEF1;
+      color: #6B7280 !important;
+      border-radius: 999px;
+      padding: 2px 9px;
+      font-size: 0.7rem !important;
+      font-weight: 700;
+    }
+    body.layout-delivery .dishes-grid {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 12px !important;
+    }
+    body.layout-delivery .dish-card {
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      gap: 12px !important;
+      background: #FFFFFF !important;
+      border: 1px solid #EDEEF1 !important;
+      border-radius: 14px !important;
+      padding: 10px !important;
+      box-shadow: 0 2px 10px rgba(17, 24, 39, 0.05) !important;
+    }
+    body.layout-delivery .dish-card:hover {
+      background: #FFFFFF !important;
+      border-color: #E0E2E7 !important;
+      box-shadow: 0 4px 16px rgba(17, 24, 39, 0.08) !important;
+    }
+    body.layout-delivery .dish-thumb {
+      width: 104px !important;
+      height: 104px !important;
+      min-width: 104px !important;
+      border-radius: 10px !important;
+      border: none !important;
+      object-fit: cover !important;
+      background: #F3F4F6 !important;
+    }
+    body.layout-delivery .dish-body {
+      flex: 1;
+      min-width: 0;
+    }
+    body.layout-delivery .dish-name {
+      color: #111827 !important;
+      font-size: 0.98rem !important;
+      font-weight: 750;
+      line-height: 1.3;
+    }
+    body.layout-delivery .dish-desc {
+      color: #6B7280 !important;
+      font-size: 0.8rem !important;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-top: 3px;
+    }
+    body.layout-delivery .dish-price {
+      color: #111827 !important;
+      font-weight: 800;
+      font-size: 0.98rem !important;
+      margin-top: 6px;
+    }
+    body.layout-delivery .dish-action {
+      align-self: flex-end;
+      flex-shrink: 0;
+    }
+    body.layout-delivery .btn-add {
+      width: 36px !important;
+      height: 36px !important;
+      min-width: 36px !important;
+      border-radius: 50% !important;
+      background: #111827 !important;
+      color: #FFFFFF !important;
+      border: none !important;
+      font-size: 1.15rem !important;
+      font-weight: 700;
+      line-height: 1;
+      box-shadow: 0 3px 10px rgba(17, 24, 39, 0.25);
+    }
+    body.layout-delivery .btn-add:hover {
+      background: #000000 !important;
+      color: #FFFFFF !important;
+    }
+    body.layout-delivery .btn-add:disabled {
+      background: #D1D5DB !important;
+      color: #FFFFFF !important;
+      box-shadow: none;
+    }
+    body.layout-delivery .qty-counter {
+      font-size: 0.7rem !important;
+      color: #374151 !important;
+    }
+    body.layout-delivery .dish-badge {
+      font-size: 0.65rem !important;
+    }
+    body.layout-delivery .announcement-banner {
+      background: #DCFCE7 !important;
+      color: #15803D !important;
+      box-shadow: none !important;
+      border-bottom: 1px solid #BBF7D0;
+    }
+    body.layout-delivery .loyalty-top-bar {
+      background: #FFFFFF !important;
+      border: 1px solid #EDEEF1 !important;
+      color: #111827 !important;
+      box-shadow: 0 2px 8px rgba(17, 24, 39, 0.05);
+    }
+    body.layout-delivery .a11y-bar {
+      background: #FFFFFF !important;
+      border: 1px solid #EDEEF1 !important;
+      color: #374151 !important;
+    }
+    body.layout-delivery .empty-state-card {
+      background: #FFFFFF !important;
+      border: 1px dashed #D1D5DB !important;
+    }
+    body.layout-delivery .empty-state-title {
+      color: #111827 !important;
+    }
+    body.layout-delivery .empty-state-desc {
+      color: #6B7280 !important;
+    }
+    body.layout-delivery .chef-specials-section {
+      background: transparent;
+    }
+    @media (max-width: 360px) {
+      body.layout-delivery .menu-header {
+        margin: -48px 8px 0 8px !important;
+        padding: 14px 12px !important;
+      }
+      body.layout-delivery .dish-thumb {
+        width: 88px !important;
+        height: 88px !important;
+        min-width: 88px !important;
+      }
+      body.layout-delivery .dish-name {
+        font-size: 0.9rem !important;
+      }
+    }
+    @media print {
+      body.layout-delivery .dish-card {
+        break-inside: avoid !important;
+      }
     }

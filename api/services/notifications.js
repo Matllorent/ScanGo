@@ -251,8 +251,8 @@ const notificationsService = {
 
   /**
    * Send a real Web Push to the restaurant's subscribers.
-   * `audience`: 'owners' (default; avisos de mesa), 'guests' (promos a
-   * comensales con opt-in explícito `role: guest` + consentimiento) o 'all'.
+   * `audience`: 'owners' (default; avisos de mesa) o 'guests' (promos a
+   * comensales con opt-in explícito `role: guest` + consentimiento).
    * @throws AppError 503 PUSH_NOT_CONFIGURED si faltan llaves VAPID
    */
   async sendPromotionalNotification({ title, body, icon, url, restaurantId, targetUserId, audience = 'owners' }) {

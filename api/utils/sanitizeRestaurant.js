@@ -4,7 +4,17 @@
  */
 const { sanitizeModifierGroups, sanitizeDishOptionConfig } = require('./menuOptions');
 
-const ALLOWED_LAYOUTS = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker'];
+const ALLOWED_LAYOUTS = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker', 'delivery'];
+const NEON_ACCENT_KEYS = ['mint', 'cyan', 'magenta', 'amber', 'lime', 'violet'];
+const CLASSIC_THEMES = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football'];
+// Heladería: rubro de primera clase con estética propia (6 originales + 5 premium).
+// Un cliente heladería SOLO puede elegir estos 11 (el Studio los filtra y el
+// backend los impone: cualquier otro theme se corrige a helado-fiesta).
+const HELADERIA_THEMES = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora'];
+const ALL_THEMES = [...CLASSIC_THEMES, ...HELADERIA_THEMES];
+// Estilos del botón "Armá tu helado artesanal" (CTA protagonista del menú).
+// 6 variantes premium, obviamente de heladería, elegibles por el dueño.
+const ICE_CREAM_BUTTON_STYLES = ['clasico', 'fiesta', 'premium', 'tropical', 'nube', 'noche'];
 const ALLOWED_WEATHER_TAGS = ['muy_frio', 'frio', 'templado', 'caluroso', 'muy_caluroso'];
 const ALLOWED_TEAM_ROLES = ['admin', 'waiter', 'kitchen'];
 const COUPON_TYPES = ['percent', 'free_delivery'];
@@ -154,6 +164,10 @@ function sanitizeEventConfigGuests(guests) {
   return guests.slice(0, 500).map(g => ({
     id: sanitizeString(g.id || generateId('gst_'), 60),
     name: sanitizeString(g.name || 'Invitado', 80),
+    // Teléfono del invitado (para la invitación por WhatsApp). Mismo
+    // tratamiento que parentContact: solo dígitos, máx 20.
+    phone: sanitizePhone(g.phone),
+    whatsapp: sanitizePhone(g.whatsapp || g.phone),
     isChild: Boolean(g.isChild),
     parentGuestId: g.parentGuestId ? sanitizeString(g.parentGuestId, 60) : null,
     parentContact: g.parentContact ? {
@@ -248,19 +262,36 @@ function sanitizeRestaurantPayload(data) {
   // explícitamente. Default false → la opción no aparece en el menú.
   clean.allowOnlinePayment = Boolean(clean.allowOnlinePayment);
   clean.scheduleEnabled = Boolean(clean.scheduleEnabled);
+  // Cierre manual del dueño (override del horario): estricto, default false.
+  clean.forceClosed = clean.forceClosed === true;
   // Texto configurable del botón principal del armador de helado (vacío → default del frontend).
   clean.iceCreamBuilderLabel = sanitizeString(clean.iceCreamBuilderLabel, 60);
+  // Estilo del botón del armador (6 variantes premium de heladería, default clasico).
+  const normIceBtn = sanitizeString(clean.iceCreamButtonStyle, 20).toLowerCase().trim();
+  clean.iceCreamButtonStyle = ICE_CREAM_BUTTON_STYLES.includes(normIceBtn) ? normIceBtn : 'clasico';
 
   // Layout
   const normLayout = sanitizeString(clean.layout, 20).toLowerCase().trim();
   clean.layout = ALLOWED_LAYOUTS.includes(normLayout) ? normLayout : 'classic';
   // Acento neón del layout Neon Nightbar (allowlist, default mint)
-  const NEON_ACCENT_KEYS = ['mint', 'cyan', 'magenta', 'amber', 'lime', 'violet'];
   const normNeon = sanitizeString(clean.neonAccent, 20).toLowerCase().trim();
   clean.neonAccent = NEON_ACCENT_KEYS.includes(normNeon) ? normNeon : 'mint';
+  // Color neón libre (picker HEX): override del preset. Solo #RRGGBB exacto;
+  // cualquier otra cosa (vacío, nombres, `javascript:`, `expression(`) → ''.
+  const rawNeonCustom = sanitizeString(clean.neonCustomColor, 20).trim();
+  clean.neonCustomColor = /^#[0-9a-fA-F]{6}$/.test(rawNeonCustom)
+    ? `#${rawNeonCustom.slice(1).toLowerCase()}`
+    : '';
 
   // Eventos
   clean.businessType = sanitizeString(clean.businessType, 20);
+  // Heladería SOLO viste temas de heladería: si el rubro es heladería y el
+  // theme no es uno de los 11 propios, se corrige al default festivo.
+  // (El Studio además filtra el selector; esto es el enforcement server-side
+  // para que ningún payload viejo o manual cuele un theme de restaurante.)
+  if (clean.businessType === 'heladeria' && !HELADERIA_THEMES.includes(clean.theme)) {
+    clean.theme = 'helado-fiesta';
+  }
   clean.eventDate = sanitizeString(clean.eventDate, 30);
   clean.eventType = sanitizeString(clean.eventType, 50);
   clean.expiresAt = sanitizeString(clean.expiresAt, 30);
@@ -343,6 +374,11 @@ module.exports = {
   generateId,
   ensureUniqueSlug,
   ALLOWED_LAYOUTS,
+  NEON_ACCENT_KEYS,
+  CLASSIC_THEMES,
+  HELADERIA_THEMES,
+  ALL_THEMES,
+  ICE_CREAM_BUTTON_STYLES,
   ALLOWED_WEATHER_TAGS,
   ALLOWED_TEAM_ROLES,
   COUPON_TYPES

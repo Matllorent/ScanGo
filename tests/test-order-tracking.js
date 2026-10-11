@@ -105,6 +105,37 @@ async function runTests() {
     assert.strictEqual(order.tipAmount, 1.5, 'La propina declarada se persiste en el pedido');
     console.log('✓ POST /api/orders devuelve un trackingToken firmado del pedido');
 
+    // ── 2c) Totales canónicos: cupón validado + envío validado en el record ─
+    await db.saveRestaurant(userA.id, {
+      ...db.findRestaurantById(restA.id),
+      deliveryZones: [{ name: 'Centro', fee: 40 }],
+      customCoupons: [{ code: 'TRACK20', type: 'percent', value: 20, label: '20% OFF' }]
+    });
+    const canonRes = await postJson('/api/orders', {
+      restaurantId: restA.id,
+      orderMode: 'DELIVERY',
+      deliveryAddress: 'Calle Falsa 123',
+      deliveryFee: 40,
+      customerName: 'Alice',
+      customerPhone: testPhone,
+      currency: 'USD',
+      tipAmount: 5,
+      coupon: { code: 'TRACK20', type: 'percent', value: 99, label: 'TRUCHO' },
+      items: [{ dishId: 'dish1', quantity: 2 }]
+    });
+    assert.strictEqual(canonRes.status, 201, 'Pedido con cupón+envío creado');
+    const canon = (await canonRes.json()).data;
+    assert.strictEqual(canon.discountAmount, 4, 'Descuento recalculado server-side (20% de 20), no el declarado');
+    assert.strictEqual(canon.deliveryFee, 40, 'Envío validado contra zonas');
+    assert.strictEqual(canon.coupon.code, 'TRACK20', 'Cupón validado persistido');
+    assert.strictEqual(canon.total, 20 + 40 - 4 + 5, 'Total canónico = platos + envío − cupón + propina');
+    assert.strictEqual(canon.amount, 20, 'amount conserva el subtotal de platos');
+    const canonTrack = (await (await fetch(`${base}/api/orders/track/${canon.trackingToken}`)).json()).data;
+    assert.strictEqual(canonTrack.total, 61, 'El seguimiento expone el total canónico (no solo platos)');
+    assert.strictEqual(canonTrack.discount, 4, 'El seguimiento expone el descuento');
+    assert.strictEqual(canonTrack.deliveryFee, 40, 'El seguimiento expone el envío');
+    console.log('✓ Totales canónicos server-side en record + tracking (cupón recalculado)');
+
     // ── 2b) CAPTCHA exigido cuando el despliegue lo configura ─────────────
     // (Sin secreto el flujo anterior ya probó que no se exige nada.)
     const prevCaptchaSecret = process.env.TURNSTILE_SECRET;

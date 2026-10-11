@@ -6,6 +6,8 @@
  * renderCategoryManagerList, moveCategory, addCategoryFromManager, renameCategory, deleteCategory).
  */
 
+import { cloneDishWithNewId as cloneDishWithNewIdUtil, cloneCategoryWithNewId as cloneCategoryWithNewIdUtil } from './cloneUtils.js';
+
 /**
  * Abre el diálogo rápido para crear una nueva categoría desde el modal de plato.
  * @param {object} restaurant
@@ -80,6 +82,7 @@ export function renderCategoryManagerList(restaurant, escapeHtml) {
         <button class="btn-icon" data-js-click="moveCategory|${safeEscape(c.id)}|-1" title="Mover arriba" aria-label="Mover ${safeEscape(c.name)} arriba" ${index === 0 ? 'disabled' : ''}>↑</button>
         <button class="btn-icon" data-js-click="moveCategory|${safeEscape(c.id)}|1" title="Mover abajo" aria-label="Mover ${safeEscape(c.name)} abajo" ${index === cats.length - 1 ? 'disabled' : ''}>↓</button>
         <button class="btn-icon" data-js-click="renameCategory|${safeEscape(c.id)}" title="Renombrar">✏️</button>
+        <button class="btn-icon" data-js-click="duplicateCategoryFromManager|${safeEscape(c.id)}" title="Duplicar categoría con sus platos">⧉</button>
         <button class="btn-icon btn-icon-danger" data-js-click="deleteCategory|${safeEscape(c.id)}" title="Eliminar">🗑️</button>
       </div>
     </div>
@@ -119,6 +122,33 @@ export function addCategoryFromManager(restaurant, onUpdated) {
   restaurant.categories.push({ id: 'cat_' + Date.now(), name });
   input.value = '';
   if (typeof onUpdated === 'function') onUpdated();
+}
+
+/**
+ * Duplica una categoría completa con todos sus platos (nuevos ids, mismo
+ * contenido). El clon se inserta justo después de la original.
+ * @param {object} restaurant
+ * @param {string} catId
+ * @param {Function} onUpdated
+ */
+export function duplicateCategory(restaurant, catId, onUpdated) {
+  const cats = restaurant.categories || [];
+  const idx = cats.findIndex(c => c.id === catId);
+  if (idx === -1) return;
+  const newCat = cloneCategoryWithNewIdUtil(cats[idx]);
+  const newCatId = newCat.id;
+  const dishCount = (restaurant.dishes || []).filter(d => d.categoryId === catId).length;
+  cats.splice(idx + 1, 0, newCat);
+  if (!restaurant.dishes) restaurant.dishes = [];
+  (restaurant.dishes || [])
+    .filter(d => d.categoryId === catId)
+    .forEach(d => {
+      const clone = cloneDishWithNewIdUtil(d);
+      clone.categoryId = newCatId;
+      restaurant.dishes.push(clone);
+    });
+  if (typeof onUpdated === 'function') onUpdated();
+  return { newCatId, dishCount };
 }
 
 /**

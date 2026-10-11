@@ -28,7 +28,7 @@ const http = require('http');
 const app = require('../api/index');
 const db = require('../src/db/db');
 
-// Rutas que el spec DEBE documentar (las 20 del contrato).
+// Rutas que el spec DEBE documentar (las 23 del contrato).
 const SPEC_PATHS = [
   '/api/auth/register',
   '/api/auth/login',
@@ -36,6 +36,8 @@ const SPEC_PATHS = [
   '/api/auth/devices',
   '/api/auth/devices/{id}',
   '/api/menu/{slug}',
+  '/api/demos',
+  '/api/demos/{type}',
   '/api/studio/save',
   '/api/orders',
   '/api/orders/track/{token}',
@@ -50,6 +52,7 @@ const SPEC_PATHS = [
   '/api/public/analytics/event',
   '/api/notifications/waiter-alert',
   '/api/admin/overview',
+  '/api/billing/cancel',
 ];
 
 async function runTests() {
@@ -73,7 +76,7 @@ async function runTests() {
   assert.ok(spec.includes('trackingToken'), 'el spec documenta trackingToken');
   assert.ok(spec.includes('tipAmount'), 'el spec documenta tipAmount');
   assert.ok(spec.includes('ONLINE_PAYMENT_DISABLED'), 'el spec documenta el gate 403 de pago online');
-  console.log('✓ openapi.yaml parseable: 20/20 paths + schemas (Restaurant/Order/LoyaltyCode/Error)');
+  console.log('✓ openapi.yaml parseable: 23/23 paths + schemas (Restaurant/Order/LoyaltyCode/Error)');
 
   // ── Setup: dueño + restaurante real con un plato ─────────────────────────
   const stamp = Date.now();
@@ -112,6 +115,24 @@ async function runTests() {
     const menu404 = await fetch(`${base}/api/menu/no-existe-${stamp}`);
     assert.strictEqual(menu404.status, 404, 'slug inexistente → 404');
     console.log('✓ GET /api/menu/:slug inexistente → 404');
+
+    // ── 2b) Demos por rubro: lista + plantilla + menú público demo ────────
+    const demosRes = await fetch(`${base}/api/demos`);
+    assert.strictEqual(demosRes.status, 200, 'lista de demos responde 200');
+    const demosBody = await demosRes.json();
+    assert.ok(Array.isArray(demosBody.demos) && demosBody.demos.length === 4, '4 demos (restaurant/heladeria/perfumeria/events)');
+    const demoTplRes = await fetch(`${base}/api/demos/heladeria`);
+    assert.strictEqual(demoTplRes.status, 200, 'plantilla demo responde 200');
+    const demoTpl = (await demoTplRes.json()).demo;
+    assert.strictEqual(demoTpl.businessType, 'heladeria', 'la plantilla trae su rubro');
+    const demoTpl404 = await fetch(`${base}/api/demos/carniceria`);
+    assert.strictEqual(demoTpl404.status, 404, 'tipo inválido → 404');
+    const demoMenuRes = await fetch(`${base}/api/menu/demo-heladeria`);
+    assert.strictEqual(demoMenuRes.status, 200, 'menú demo responde 200 sin auth');
+    const demoMenu = await demoMenuRes.json();
+    assert.strictEqual(demoMenu.restaurant.isDemo, true, 'flag isDemo presente');
+    assert.ok(!('userId' in demoMenu.restaurant), 'sin userId interno en el payload público');
+    console.log('✓ GET /api/demos + /api/demos/:type + /api/menu/demo-* (públicos, sin PII interna)');
 
     // ── 3) POST /api/orders → 201 con trackingToken + tipAmount ─────────────
     const orderRes = await postJson('/api/orders', {
@@ -223,7 +244,12 @@ async function runTests() {
 
     const adminAnon = await fetch(`${base}/api/admin/overview`);
     assert.strictEqual(adminAnon.status, 403, 'admin/overview sin sesión → 403 (no 404)');
-    console.log('✓ 9 rutas restantes: códigos reales (400/401/403/200) y ningún 404');
+
+    // Baja voluntaria sin sesión → 401 real (no 404). El flujo completo con
+    // sesión (200 idempotente + menú pausado) lo cubre test-session-lifecycle.
+    const billingCancelAnon = await postJson('/api/billing/cancel', {});
+    assert.strictEqual(billingCancelAnon.status, 401, 'billing/cancel sin auth → 401 (no 404)');
+    console.log('✓ 10 rutas restantes: códigos reales (400/401/403/200) y ningún 404');
 
     console.log('\n🎉 ¡CONTRATO OPENAPI VERIFICADO CONTRA RUNTIME REAL!');
   } finally {

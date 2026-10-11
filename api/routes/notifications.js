@@ -35,8 +35,9 @@ const sendNotificationSchema = z.object({
   url: z.string().optional(),
   restaurantId: z.string().optional(),
   targetUserId: z.string().optional(),
-  // audience: 'owners' (default) | 'guests' (promos con consentimiento) | 'all'
-  audience: z.enum(['owners', 'guests', 'all']).optional()
+  // audience: 'owners' (default) | 'guests' (promos con consentimiento).
+  // 'all' se eliminó del contrato: salteaba el filtro de consentimiento.
+  audience: z.enum(['owners', 'guests']).optional()
 });
 
 const waiterAlertSchema = z.object({
@@ -177,7 +178,7 @@ router.post('/send', authMiddleware, tenantGuard, notificationLimiter, validateB
     });
 
     // Las promos también quedan en el inbox del dueño (auditoría de envío).
-    if (audience === 'guests' || audience === 'all') {
+    if (audience === 'guests') {
       await notificationsService.recordNotificationEvent({
         restaurantId: restaurantId || req.tenantId,
         type: 'promo',

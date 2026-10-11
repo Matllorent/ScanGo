@@ -29,11 +29,23 @@
     },
     {
       "src": "/terminos",
-      "dest": "/public/terminos.html"
+      "dest": "/public/legal/terms.html"
     },
     {
       "src": "/privacidad",
-      "dest": "/public/privacidad.html"
+      "dest": "/public/legal/privacy.html"
+    },
+    {
+      "src": "/cookies",
+      "dest": "/public/legal/cookies.html"
+    },
+    {
+      "src": "/reembolsos",
+      "dest": "/public/legal/refunds.html"
+    },
+    {
+      "src": "/aviso-legal",
+      "dest": "/public/legal/disclaimer.html"
     },
     {
       "src": "/(.*)",

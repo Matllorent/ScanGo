@@ -41,6 +41,66 @@ export function resolveNeonAccent(value) {
 }
 
 /**
+ * Color neón libre (picker HEX): override por encima de los 6 presets.
+ * Vacío = se usa el preset. Solo acepta #RRGGBB (nunca CSS arbitrario:
+ * el valor va a `style.setProperty('--neon', …)` y un `javascript:` o
+ * `expression(` ahí rompería el render o la CSP).
+ */
+export function isValidNeonHex(value) {
+  return /^#[0-9a-fA-F]{6}$/.test(String(value || '').trim());
+}
+
+/**
+ * Normaliza el custom a `#rrggbb` minúsculas, o `''` si no es válido.
+ */
+export function normalizeNeonHex(value) {
+  const raw = String(value || '').trim();
+  return isValidNeonHex(raw) ? `#${raw.slice(1).toLowerCase()}` : '';
+}
+
+/**
+ * Convierte `#rrggbb` a `"r, g, b"` para el canal `--neon-rgb` (glows con alfa).
+ * Hex inválido → `''` (el caller conserva el rgb del preset).
+ */
+export function neonHexToRgb(value) {
+  const hex = normalizeNeonHex(value);
+  if (!hex) return '';
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `${r}, ${g}, ${b}`;
+}
+
+/**
+ * Estilos del botón protagonista "Armá tu helado artesanal" (#iceCreamHeroCTA).
+ * 6 variantes premium, obviamente de heladería, elegibles por el dueño en
+ * Studio (restaurant.iceCreamButtonStyle). El CSS las aplica como
+ * `#iceCreamHeroCTA.style-<clave>`. `clasico` = look actual (superficie del tema).
+ */
+export const ICE_CREAM_BUTTON_STYLES = {
+  clasico: { label: 'Clásico del tema', emoji: '🍧' },
+  fiesta: { label: 'Fiesta de Helado', emoji: '🍨' },
+  premium: { label: 'Premium Dorado', emoji: '🍨' },
+  tropical: { label: 'Sorbete Tropical', emoji: '🥭' },
+  nube: { label: 'Nube de Vainilla', emoji: '🍦' },
+  noche: { label: 'Noche de Chocolate', emoji: '🍫' }
+};
+
+/**
+ * Normaliza el estilo del botón del armador a una clave válida (default clasico).
+ */
+export function resolveIceCreamButtonStyle(value) {
+  const key = String(value || '').trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(ICE_CREAM_BUTTON_STYLES, key) ? key : 'clasico';
+}
+
+/**
+ * Temas visuales exclusivos de heladería (11). El Studio los filtra y el
+ * backend los impone: una heladería nunca viste un theme de restaurante.
+ */
+export const HELADERIA_THEMES = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora'];
+
+/**
  * Copys del modal de notas por plato según el rubro del negocio.
  * En heladería el ejemplo de cocina ("sin cebolla") no tiene sentido: se
  * reemplaza por uno propio del rubro. Ningún rubro queda sin placeholder útil.

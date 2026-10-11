@@ -59,8 +59,7 @@ function requireGroupCartCapability(req, res, next) {
   next();
 }
 
-function quoteOrderItems(restaurant, items, timestamp = new Date().toISOString()) {
-  let amountInCents = 0;
+function quoteOrderItems(restaurant, items, timestamp = new Date().toISOString()) {  let amountInCents = 0;
   const itemsSnapshot = items.map(item => {
     const dish = (restaurant.dishes || []).find(candidate => candidate.id === item.dishId);
     if (!dish) throw new AppError('Platillo no encontrado para el pedido', 400, 'DISH_NOT_FOUND');
@@ -113,6 +112,12 @@ router.post('/quote', validateBody(createOrderSchema), (req, res, next) => {
     const restaurant = db.findRestaurantById(req.body.restaurantId) || db.findRestaurantBySlug(req.body.restaurantId);
     if (!restaurant) throw new AppError('Restaurante no encontrado para la cotización', 404, 'RESTAURANT_NOT_FOUND');
     const quote = quoteOrderItems(restaurant, req.body.items);
+    enforceOrderBusinessRules({
+      restaurant,
+      subtotal: quote.amountInCents / 100,
+      orderMode: req.body.orderMode,
+      deliveryAddress: req.body.deliveryAddress
+    });
     return successResponse(res, {
       ...quote,
       amount: quote.amountInCents / 100,
@@ -124,12 +129,72 @@ router.post('/quote', validateBody(createOrderSchema), (req, res, next) => {
 });
 
 /**
+ * Reglas de negocio autoritativas (anti-pedido-inservible):
+ * - Pedido mínimo del local (restaurant.minOrder) sobre el subtotal.
+ * - Delivery exige dirección de entrega.
+ * Se aplica en /quote, POST / y /mercadopago/preference por igual.
+ */
+function enforceOrderBusinessRules({ restaurant, subtotal, orderMode, deliveryAddress }) {
+  const minOrder = Number(restaurant.minOrder) || 0;
+  if (minOrder > 0 && Number(subtotal) < minOrder) {
+    throw new AppError(
+      `Pedido mínimo de ${restaurant.currency || '$'} ${minOrder}. Agregá más platos para continuar.`,
+      400,
+      'MIN_ORDER_NOT_MET'
+    );
+  }
+  if (orderMode === 'DELIVERY' && !String(deliveryAddress || '').trim()) {
+    throw new AppError('Indicá la dirección de entrega para el delivery.', 400, 'DELIVERY_ADDRESS_REQUIRED');
+  }
+}
+
+/**
+ * Totales server-side para cobro online: subtotal cotizado + envío validado
+ * contra las zonas del local − descuento de cupón validado + propina.
+ * El fee lo declara el frontend (zona elegida) pero se valida contra la carta
+ * de zonas para que no se pueda sub/sobre-cotizar el envío.
+ */
+function resolveDeliveryFee(restaurant, orderMode, declaredFee) {
+  if (orderMode !== 'DELIVERY') return 0;
+  const fee = Math.max(0, Number(declaredFee) || 0);
+  const zones = Array.isArray(restaurant.deliveryZones) ? restaurant.deliveryZones : [];
+  if (!zones.length) return fee;
+  const match = zones.some((z) => Number(z.fee) === fee);
+  if (!match) {
+    throw new AppError('Costo de envío inválido para la zona elegida.', 400, 'INVALID_DELIVERY_FEE');
+  }
+  return fee;
+}
+
+function resolveCouponDiscount({ restaurant, subtotal, deliveryFee, coupon, orderMode }) {
+  if (!coupon || !coupon.code) return { discount: 0, coupon: null };
+  const config = Array.isArray(restaurant.customCoupons) ? restaurant.customCoupons : [];
+  const valid = config.find((c) => String(c.code || '').toUpperCase() === String(coupon.code).toUpperCase());
+  // Cupón desconocido (o mutado en el cliente): no descuenta, no rompe.
+  if (!valid) return { discount: 0, coupon: null };
+  if (valid.type === 'percent') {
+    const value = Math.min(100, Math.max(0, Number(valid.value) || 0));
+    return {
+      discount: Math.round(subtotal * (value / 100) * 100) / 100,
+      coupon: { code: valid.code, type: 'percent', value, label: valid.label || `${value}% OFF` }
+    };
+  }
+  if (valid.type === 'free_delivery' && orderMode === 'DELIVERY') {
+    return {
+      discount: deliveryFee,
+      coupon: { code: valid.code, type: 'free_delivery', value: 0, label: valid.label || 'Envío Gratis' }
+    };
+  }
+  return { discount: 0, coupon: null };
+}
+
+/**
  * POST /api/orders
  * Creates a new order with monetary precision and historical item snapshots
  */
 router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (req, res, next) => {
   try {
-    const { restaurantId, tableNumber, items, currency, customerName, customerPhone, deliveryAddress, notes, tipAmount, captchaToken } = req.body;
+    const { restaurantId, tableNumber, items, currency, customerName, customerPhone, deliveryAddress, notes, tipAmount, captchaToken, orderMode, deliveryFee } = req.body;
 
     // Anti-spam/farming (Turnstile invisible): solo cuando el despliegue lo
     // configuró. Sin secreto no se exige nada (flujo actual intacto).
@@ -156,6 +221,28 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
 
     const { itemsSnapshot, amountInCents } = quoteOrderItems(restaurant, items, utcNow);
 
+    // Reglas autoritativas: pedido mínimo y dirección de delivery.
+    enforceOrderBusinessRules({
+      restaurant,
+      subtotal: amountInCents / 100,
+      orderMode,
+      deliveryAddress
+    });
+
+    // Totales canónicos server-side (lo que se cobra y se muestra en
+    // seguimiento/vivo): platos + envío validado − cupón validado + propina.
+    // `amount` conserva el subtotal de platos (no distorsiona analytics).
+    const validDeliveryFee = resolveDeliveryFee(restaurant, orderMode, deliveryFee);
+    const { discount: validDiscount, coupon: validCoupon } = resolveCouponDiscount({
+      restaurant,
+      subtotal: amountInCents / 100,
+      deliveryFee: validDeliveryFee,
+      coupon: req.body.coupon,
+      orderMode
+    });
+    const validTip = Math.max(0, Number(tipAmount) || 0);
+    const canonicalTotal = Math.max(0, Math.round((amountInCents / 100 + validDeliveryFee - validDiscount + validTip) * 100) / 100);
+
     const orderRecord = {
       id: 'ord_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
       restaurant_id: restaurant.id,
@@ -165,7 +252,7 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
       items_snapshot: itemsSnapshot,
       itemsSnapshot: itemsSnapshot,
       amount: amountInCents / 100,
-      total: amountInCents / 100,
+      total: canonicalTotal,
       amount_in_cents: amountInCents,
       currency: orderCurrency,
       status: 'pending',
@@ -177,9 +264,15 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
       isGroupOrder: Boolean(req.body.isGroupOrder),
       participants: req.body.participants || [],
       group_session_id: req.body.groupSessionId || '',
-      coupon: req.body.coupon || null,
-      tip_amount: Number(tipAmount) || 0,
-      tipAmount: Number(tipAmount) || 0,
+      // Cupón VALIDADO contra el catálogo (el del cliente se ignora si no
+      // existe: el descuento guardado es siempre el real).
+      coupon: validCoupon,
+      delivery_fee: validDeliveryFee,
+      deliveryFee: validDeliveryFee,
+      discount_amount: validDiscount,
+      discountAmount: validDiscount,
+      tip_amount: validTip,
+      tipAmount: validTip,
       created_at: utcNow
     };
 
@@ -283,7 +376,12 @@ router.get('/track/:token', async (req, res, next) => {
       restaurantName: restaurant ? (restaurant.name || restaurant.bizName || '') : '',
       tableNumber: order.table_number || order.tableNumber || '',
       currency: order.currency || '$',
-      total: order.amount != null ? order.amount : order.total,
+      // Total canónico (platos + envío − cupón + propina). Pedidos viejos
+      // solo traen `amount` (platos): se usa como fallback.
+      total: order.total != null ? order.total : order.amount,
+      subtotal: order.amount != null ? order.amount : order.total,
+      deliveryFee: Number(order.delivery_fee != null ? order.delivery_fee : (order.deliveryFee || 0)) || 0,
+      discount: Number(order.discount_amount != null ? order.discount_amount : (order.discountAmount || 0)) || 0,
       // Propina opcional declarada por el comensal (0 si no dejó).
       tip: Number(order.tip_amount != null ? order.tip_amount : (order.tipAmount || 0)) || 0,
       items: (order.items_snapshot || order.itemsSnapshot || []).map(line => ({
@@ -435,7 +533,7 @@ const mpService = require('../../src/services/mercadopago');
 
 router.post('/mercadopago/preference', validateBody(createOrderSchema), async (req, res, next) => {
   try {
-    const { restaurantId, items, customerName, currency } = req.body;
+    const { restaurantId, items, customerName, currency, tipAmount, coupon, orderMode, deliveryFee, deliveryAddress } = req.body;
     const restaurant = db.findRestaurantById(restaurantId) || db.findRestaurantBySlug(restaurantId);
     if (!restaurant) {
       throw new AppError('Restaurante no encontrado para el pago', 404, 'RESTAURANT_NOT_FOUND');
@@ -452,6 +550,20 @@ router.post('/mercadopago/preference', validateBody(createOrderSchema), async (r
     }
 
     const { itemsSnapshot, amountInCents } = quoteOrderItems(restaurant, items);
+    const subtotal = amountInCents / 100;
+
+    // Mismas reglas que el pedido: mínimo y dirección de delivery.
+    enforceOrderBusinessRules({ restaurant, subtotal, orderMode, deliveryAddress });
+
+    // Total cobrado = platos + envío validado − cupón validado + propina.
+    // (Antes solo iban los platos: se cobraba de menos y la propina se perdía.)
+    const validDeliveryFee = resolveDeliveryFee(restaurant, orderMode, deliveryFee);
+    const { discount, coupon: validCoupon } = resolveCouponDiscount({
+      restaurant, subtotal, deliveryFee: validDeliveryFee, coupon, orderMode
+    });
+    const tip = Math.max(0, Number(tipAmount) || 0);
+    const fullTotal = Math.max(0, Math.round((subtotal + validDeliveryFee - discount + tip) * 100) / 100);
+
     const orderCurrency = currency || restaurant.currency || 'UYU';
     const currencyId = ['UYU', '$U', '$'].includes(orderCurrency) ? 'UYU' : (orderCurrency === 'ARS' ? 'ARS' : 'USD');
 
@@ -469,6 +581,33 @@ router.post('/mercadopago/preference', validateBody(createOrderSchema), async (r
         currency_id: currencyId
       };
     });
+    if (validDeliveryFee > 0) {
+      mpItems.push({
+        id: 'delivery',
+        title: 'Costo de envío'.slice(0, 255),
+        quantity: 1,
+        unit_price: validDeliveryFee,
+        currency_id: currencyId
+      });
+    }
+    if (tip > 0) {
+      mpItems.push({
+        id: 'tip',
+        title: 'Propina'.slice(0, 255),
+        quantity: 1,
+        unit_price: tip,
+        currency_id: currencyId
+      });
+    }
+    if (discount > 0) {
+      mpItems.push({
+        id: 'discount',
+        title: `Descuento${validCoupon && validCoupon.code ? ` (${validCoupon.code})` : ''}`.slice(0, 255),
+        quantity: 1,
+        unit_price: -discount,
+        currency_id: currencyId
+      });
+    }
 
     const externalRef = `ord_${Date.now()}_${restaurant.id.slice(0, 8)}`;
     const returnBase = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
@@ -493,7 +632,11 @@ router.post('/mercadopago/preference', validateBody(createOrderSchema), async (r
       initPoint: preference.init_point,
       sandboxInitPoint: preference.sandbox_init_point,
       externalReference: externalRef,
-      total: amountInCents / 100
+      subtotal,
+      deliveryFee: validDeliveryFee,
+      discount,
+      tip,
+      total: fullTotal
     }, 'Preferencia de Checkout Pro generada exitosamente');
   } catch (err) {
     next(err);

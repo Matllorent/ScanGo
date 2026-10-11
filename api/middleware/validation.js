@@ -116,6 +116,12 @@ const createOrderSchema = z.object({
   // Propina opcional del comensal (nunca obligatoria). Viaja aparte del monto
   // de los platos para no distorsionar el ticket promedio de analytics.
   tipAmount: z.number().nonnegative().max(1000000).optional().default(0),
+  // Modalidad del pedido (el frontend la envía para validaciones server-side
+  // de delivery y horario; default LOCAL para compatibilidad).
+  orderMode: z.enum(['LOCAL', 'DELIVERY', 'TAKEAWAY']).optional().default('LOCAL'),
+  // Costo de envío de la zona elegida (el frontend lo declara; el backend lo
+  // valida contra restaurant.deliveryZones antes de cobrarlo).
+  deliveryFee: z.number().nonnegative().max(100000).optional().default(0),
   // Token Turnstile invisible (anti-spam/farming). Opcional en el contrato:
   // solo se exige si el despliegue configuró TURNSTILE_SECRET.
   captchaToken: z.string().max(2000).optional().default('')

@@ -455,6 +455,7 @@
       <button type="button" class="modal-close" data-js-click="closeOrderTracking" aria-label="Cerrar">✕</button>
       <h3 id="orderTrackingModalTitle" class="modal-title">🧾 Seguimiento del Pedido</h3>
       <p id="orderTrackingSubtitle" style="color:var(--chalk-dim); font-size:0.85rem; margin-bottom:14px;">Mirá en qué estado está tu pedido.</p>
+      <div id="orderTrackingList" style="display:none; margin-bottom:10px;"></div>
       <div id="orderTrackingBody" style="min-height:64px;">
         <div style="color:var(--chalk-dim); font-size:0.85rem;">Cargando…</div>
       </div>
@@ -698,7 +699,16 @@
     </div>
   </div>
 
+  <footer style="text-align:center; padding:18px 12px 90px; font-size:11px; color:var(--chalk-dim);">
+    <a href="/terminos" style="color:inherit; text-decoration:underline;">Términos</a>
+    ·
+    <a href="/privacidad" style="color:inherit; text-decoration:underline;">Privacidad</a>
+    ·
+    <a href="/cookies" style="color:inherit; text-decoration:underline;">Cookies</a>
+  </footer>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/cookieConsent.js"></script>
   <script src="/js/pwa.js" defer></script>
   <script type="module" src="/js/menu.js"></script>
 

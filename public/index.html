@@ -297,24 +297,96 @@
     </div>
   </section>
 
-  <section class="savings-section" aria-labelledby="savingsTitle">
-    <div class="container savings-layout">
-      <div class="savings-copy">
-        <span class="section-badge">Tus ventas, sin comisión</span>
-        <h2 id="savingsTitle">¿Cuánto se queda la app con tus pedidos?</h2>
-        <p>Mové el control hasta tus ventas mensuales y compará el costo de una comisión del 20% con el plan ScanGo.</p>
-        <label class="sales-slider-label" for="monthlySalesSlider">Ventas mensuales <output id="monthlySalesValue" for="monthlySalesSlider">$100.000</output></label>
-        <input id="monthlySalesSlider" class="sales-slider" type="range" min="10000" max="1000000" step="5000" value="100000" 
-               role="slider" aria-valuemin="10000" aria-valuemax="1000000" aria-valuenow="100000" 
-               aria-orientation="horizontal" aria-label="Ventas mensuales en pesos" 
-               aria-describedby="salesRangeHelp" tabindex="0">
-        <div class="slider-range-labels" id="salesRangeHelp"><span>$10.000</span><span>$1.000.000</span></div>
+  <!-- Comparativa: ScanGo vs Apps de delivery (estática, sin JS) -->
+  <section class="compare-section" aria-labelledby="compareTitle">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Sin letra chica</span>
+        <h2 id="compareTitle">Lo que te cobran las apps vs ScanGo</h2>
+        <p>El mismo pedido, dos realidades distintas para tu bolsillo.</p>
       </div>
-      <div class="savings-results" aria-live="polite" aria-atomic="true">
-        <div class="savings-result-row"><span>En apps de delivery con 20% de comisión pagás</span><strong id="deliveryCommissionValue">$20.000/mes</strong></div>
-        <div class="savings-result-row"><span>Con ScanGo pagás solo</span><strong>$9/mes</strong></div>
-        <div class="savings-total"><span>Te ahorrás</span><strong id="monthlySavingsValue">$19.991/mes</strong></div>
-        <button type="button" class="btn btn-gold" data-js-click="openAuthModal|register">Quiero dejar de pagar comisiones →</button>
+      <div class="compare-table" role="table" aria-label="Comparativa ScanGo contra aplicaciones de delivery">
+        <div class="compare-row compare-head" role="row">
+          <span role="columnheader"></span>
+          <span role="columnheader">Apps de delivery</span>
+          <span role="columnheader" class="compare-scango">ScanGo</span>
+        </div>
+        <div class="compare-row" role="row">
+          <span role="cell">Comisión por pedido</span>
+          <span role="cell">20% a 30% de cada venta</span>
+          <span role="cell" class="compare-scango">0% siempre</span>
+        </div>
+        <div class="compare-row" role="row">
+          <span role="cell">Costo mensual</span>
+          <span role="cell">Impredecible: crece con tus ventas</span>
+          <span role="cell" class="compare-scango">Fijo desde US$ 9/mes</span>
+        </div>
+        <div class="compare-row" role="row">
+          <span role="cell">Tus clientes</span>
+          <span role="cell">Son de la app, no tuyos</span>
+          <span role="cell" class="compare-scango">100% tuyos, sin intermediarios</span>
+        </div>
+        <div class="compare-row" role="row">
+          <span role="cell">Pedidos</span>
+          <span role="cell">Llegan a la tablet de ellos</span>
+          <span role="cell" class="compare-scango">Directo a tu WhatsApp</span>
+        </div>
+      </div>
+      <div style="text-align:center; margin-top:26px;">
+        <a href="#precios" class="btn btn-gold">Ver Planes →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Demos navegables por rubro (sin registro) -->
+  <section class="demos-section" aria-labelledby="demosTitle">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Probá sin registrarte</span>
+        <h2 id="demosTitle">Mirá un menú real de cada rubro</h2>
+        <p>Cuatro demos navegables con datos de ejemplo. Abrí el menú como lo vería un comensal, o entrá al Studio a editarlo.</p>
+      </div>
+      <div class="demo-grid">
+        <article class="demo-card">
+          <div class="demo-emoji" aria-hidden="true">🍽️</div>
+          <h3>La Trattoria del Puerto</h3>
+          <p class="demo-rubro">Restaurante · Clásico</p>
+          <p>Entradas, principales, postres y delivery por zonas con pedido por WhatsApp.</p>
+          <div class="demo-actions">
+            <a href="/m/demo-restaurante" class="btn btn-gold btn-sm">Ver menú →</a>
+            <a href="/studio?demo=restaurant" class="btn btn-outline btn-sm">Editar en Studio</a>
+          </div>
+        </article>
+        <article class="demo-card">
+          <div class="demo-emoji" aria-hidden="true">🍦</div>
+          <h3>Heladería Frescura</h3>
+          <p class="demo-rubro">Heladería · Armador a medida</p>
+          <p>Elegí tamaño, combiná sabores de la carta real y sumá toppings.</p>
+          <div class="demo-actions">
+            <a href="/m/demo-heladeria" class="btn btn-gold btn-sm">Ver menú →</a>
+            <a href="/studio?demo=heladeria" class="btn btn-outline btn-sm">Editar en Studio</a>
+          </div>
+        </article>
+        <article class="demo-card">
+          <div class="demo-emoji" aria-hidden="true">🌸</div>
+          <h3>Casa Aromas</h3>
+          <p class="demo-rubro">Perfumería · Pirámide olfativa</p>
+          <p>Colección de fragancias con familias olfativas y cotización por WhatsApp.</p>
+          <div class="demo-actions">
+            <a href="/m/demo-perfumeria" class="btn btn-gold btn-sm">Ver menú →</a>
+            <a href="/studio?demo=perfumery" class="btn btn-outline btn-sm">Editar en Studio</a>
+          </div>
+        </article>
+        <article class="demo-card">
+          <div class="demo-emoji" aria-hidden="true">🎉</div>
+          <h3>Boda Martina &amp; Santi</h3>
+          <p class="demo-rubro">Eventos · Itinerario en vivo</p>
+          <p>Programa de la fiesta con avance en vivo, menú del evento y confirmaciones.</p>
+          <div class="demo-actions">
+            <a href="/m/demo-evento" class="btn btn-gold btn-sm">Ver menú →</a>
+            <a href="/studio?demo=events" class="btn btn-outline btn-sm">Editar en Studio</a>
+          </div>
+        </article>
       </div>
     </div>
   </section>
@@ -402,16 +474,25 @@
         <p>Prueba 7 días gratis sin compromiso. Paga en USD o en tu moneda local vía Mercado Pago / Lemon Squeezy.</p>
       </div>
 
-      <div class="pricing-grid">
+      <!-- Pestañas por rubro: mismos precios, mensaje y CTA adaptados -->
+      <div class="pricing-rubro-tabs" role="tablist" aria-label="Elegí tu rubro">
+        <button type="button" class="pricing-rubro-tab active" role="tab" aria-selected="true" data-pricing-rubro="restaurant" data-js-click="switchPricingRubro|restaurant">🍽️ Restaurante</button>
+        <button type="button" class="pricing-rubro-tab" role="tab" aria-selected="false" data-pricing-rubro="heladeria" data-js-click="switchPricingRubro|heladeria">🍦 Heladería</button>
+        <button type="button" class="pricing-rubro-tab" role="tab" aria-selected="false" data-pricing-rubro="perfumery" data-js-click="switchPricingRubro|perfumery">🌸 Perfumería</button>
+        <button type="button" class="pricing-rubro-tab" role="tab" aria-selected="false" data-pricing-rubro="events" data-js-click="switchPricingRubro|events">🎉 Eventos</button>
+      </div>
+      <p id="pricingRubroHint" class="pricing-rubro-hint">Suscripción mensual o anual para tu restaurante, sin comisiones por venta.</p>
+
+      <div class="pricing-grid" id="pricingSubscriptionGrid">
         <!-- Monthly Plan -->
         <div class="pricing-card">
           <div>
-            <h3 class="plan-name">Plan Mensual Pro</h3>
-            <p class="plan-desc">Flexibilidad mes a mes para restaurantes que están comenzando.</p>
+            <h3 class="plan-name" id="planMonthlyName">Plan Mensual Pro</h3>
+            <p class="plan-desc" id="planMonthlyDesc">Flexibilidad mes a mes para restaurantes que están comenzando.</p>
             <div class="plan-price" id="planMonthlyPrice">$9 <span>USD / mes</span></div>
             <div class="plan-billing-note">Cobro mensual recurrente</div>
 
-            <ul class="plan-features">
+            <ul class="plan-features" id="planMonthlyFeatures">
               <li><span class="check">✓</span> <strong>Menú QR ilimitado</strong></li>
               <li><span class="check">✓</span> <strong>Pedidos por WhatsApp (0% comisión)</strong></li>
               <li><span class="check">✓</span> Soporte para delivery por zonas</li>
@@ -428,12 +509,12 @@
         <div class="pricing-card featured">
           <div class="ribbon-featured" id="planAnnualRibbon">MÁS ELEGIDO • AHORRA 36%</div>
           <div>
-            <h3 class="plan-name">Plan Anual Pro</h3>
-            <p class="plan-desc">Tranquilidad para todo el año al costo más competitivo del mercado.</p>
+            <h3 class="plan-name" id="planAnnualName">Plan Anual Pro</h3>
+            <p class="plan-desc" id="planAnnualDesc">Tranquilidad para todo el año al costo más competitivo del mercado.</p>
             <div class="plan-price" id="planAnnualPrice">$69 <span>USD / año</span></div>
             <div class="plan-billing-note" id="planAnnualNote">Equivale a solo $5.75 USD por mes</div>
 
-            <ul class="plan-features">
+            <ul class="plan-features" id="planAnnualFeatures">
               <li><span class="check">✓</span> <strong>Todo lo del Plan Mensual</strong></li>
               <li><span class="check">✓</span> <strong>Logo en el centro del código QR</strong></li>
               <li><span class="check">✓</span> <strong>Catálogo internacional de 85+ platos sugeridos</strong></li>
@@ -464,6 +545,29 @@
           </div>
 
           <button class="btn btn-outline" data-js-click="openAuthModal|register">Elegir Mercado Pago</button>
+        </div>
+      </div>
+
+      <!-- Plan por evento (solo pestaña Eventos): pago único por fiesta -->
+      <div class="pricing-grid" id="pricingEventGrid" style="display:none; justify-content:center;">
+        <div class="pricing-card featured" style="max-width:420px;">
+          <div class="ribbon-featured">PAGO ÚNICO • SIN SUSCRIPCIÓN</div>
+          <div>
+            <h3 class="plan-name">Fiesta Única</h3>
+            <p class="plan-desc">Un solo pago por tu boda, cumple o evento corporativo. Online hasta el día de la fiesta.</p>
+            <div class="plan-price">$12 <span>USD / evento</span></div>
+            <div class="plan-billing-note">Sin mensualidad · Sin renovación automática</div>
+
+            <ul class="plan-features">
+              <li><span class="check">✓</span> <strong>Programa visual de la fiesta</strong></li>
+              <li><span class="check">✓</span> <strong>Invitación con QR para tus invitados</strong></li>
+              <li><span class="check">✓</span> Confirmaciones por WhatsApp</li>
+              <li><span class="check">✓</span> Menú del evento + pedidos en vivo</li>
+              <li><span class="check">✓</span> Cartelería de mesa imprimible (PDF)</li>
+            </ul>
+          </div>
+
+          <button class="btn btn-gold" data-js-click="openAuthModal|register">Crear mi Evento →</button>
         </div>
       </div>
     </div>
@@ -624,12 +728,15 @@
             <li><a href="#" data-js-click="openAuthModal|register">Registrar Restaurante (7 Días Gratis)</a></li>
             <li><a href="/terminos">Términos del Servicio</a></li>
             <li><a href="/privacidad">Política de Privacidad</a></li>
+            <li><a href="/cookies">Política de Cookies</a></li>
+            <li><a href="/reembolsos">Reembolsos</a></li>
+            <li><a href="/aviso-legal">Aviso Legal</a></li>
           </ul>
         </div>
       </div>
 
       <div class="footer-bottom">
-        <p>© 2026 ScanGo. Todos los derechos reservados. • <a href="/terminos" style="color:inherit; text-decoration:underline;">Términos</a> • <a href="/privacidad" style="color:inherit; text-decoration:underline;">Privacidad</a></p>
+        <p>© 2026 ScanGo. Todos los derechos reservados. • <a href="/terminos" style="color:inherit; text-decoration:underline;">Términos</a> • <a href="/privacidad" style="color:inherit; text-decoration:underline;">Privacidad</a> • <a href="/cookies" style="color:inherit; text-decoration:underline;">Cookies</a></p>
       </div>
     </div>
   </footer>
@@ -790,6 +897,7 @@
   </script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0"></script>
   <script defer src="/js/authClient.js"></script>
+  <script defer src="/js/cookieConsent.js"></script>
   <script defer src="/js/pwa.js"></script>
   <script defer src="/js/index.js"></script>
 

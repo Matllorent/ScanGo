@@ -132,6 +132,33 @@ async function runTests() {
   }
   console.log('✓ vercel.json replica los headers del módulo (exit CS excluye /m/ y /api/)');
 
+  // ---------------------------------------------------------------- estático 4
+  // Rutas legales: cada path público debe existir en Express (dev) Y en
+  // vercel.json (prod estática) apuntando al MISMO archivo en disco.
+  // (Bug real: /terminos apuntaba a /public/terminos.html inexistente.)
+  const legalPaths = {
+    '/terminos': 'public/legal/terms.html',
+    '/privacidad': 'public/legal/privacy.html',
+    '/cookies': 'public/legal/cookies.html',
+    '/reembolsos': 'public/legal/refunds.html',
+    '/aviso-legal': 'public/legal/disclaimer.html'
+  };
+  const vercelRoutes = vercel.routes || [];
+  for (const [urlPath, relFile] of Object.entries(legalPaths)) {
+    assert.ok(
+      fs.existsSync(path.join(ROOT, relFile)),
+      `${relFile} existe en disco`
+    );
+    const route = vercelRoutes.find(r => r.src === urlPath);
+    assert.ok(route, `vercel.json rutea ${urlPath} en producción`);
+    assert.strictEqual(
+      route.dest,
+      `/${relFile}`,
+      `vercel.json: ${urlPath} debe servir /${relFile} (mismo que Express en dev)`
+    );
+  }
+  console.log('✓ Rutas legales idénticas en Express y vercel.json (5/5 con archivo real)');
+
   // ---------------------------------------------------------------- runtime
   const readiness = await db.ready;
   assert.strictEqual(readiness.ready, true, 'La DB debe estar hidratada antes de crear registros');
@@ -198,6 +225,15 @@ async function runTests() {
     assertHeader(apiRes, 'Content-Security-Policy', "default-src 'self'", '/api/health');
     assertHeader(apiRes, 'Referrer-Policy', 'strict-origin-when-cross-origin', '/api/health');
     console.log('✓ Las APIs JSON reciben los headers vía middleware global');
+
+    // Páginas legales servidas por Express en dev (en prod las sirve vercel.json).
+    for (const legalPath of ['/terminos', '/privacidad', '/cookies', '/reembolsos', '/aviso-legal']) {
+      const legalRes = await fetch(`${base}${legalPath}`);
+      assert.strictEqual(legalRes.status, 200, `${legalPath} responde 200 en dev`);
+      const contentType = legalRes.headers.get('content-type') || '';
+      assert.ok(contentType.includes('text/html'), `${legalPath} sirve HTML`);
+    }
+    console.log('✓ Páginas legales responden 200 con HTML (5/5)');
   } finally {
     await new Promise(resolve => server.close(resolve));
   }
@@ -207,6 +243,6 @@ module.exports = { runTests };
 
 if (require.main === module) {
   runTests()
-    .then(() => { console.log('\n✅ test-csp: CSP real + headers duros OK (28/28)'); process.exit(0); })
+    .then(() => { console.log('\n✅ test-csp: CSP real + headers duros OK (53/53)'); process.exit(0); })
     .catch(err => { console.error('\n❌ test-csp falló:', err.message); process.exit(1); });
 }

@@ -8,6 +8,7 @@
  */
 
 import { ensureDishModifierGroups, renderDishModifierAssignments, getDishOptionConfig } from './modifierGroups.js';
+import { cloneDishWithNewId as cloneDishWithNewIdUtil } from './cloneUtils.js';
 
 export function toggleDishesByIngredient(restaurant, isOut, onUpdated) {
   const input = document.getElementById('inputIngredientKeyword');
@@ -48,6 +49,10 @@ export function renderDishesList(restaurant, escapeHtml) {
   const container = document.getElementById('studioDishesList');
   const filterSelect = document.getElementById('selectCatFilter');
   if (!container || !filterSelect) return;
+
+  // Cobertura de fotos: cuántos platos no tienen imagen (cualquier campo
+  // legacy cuenta como "con foto"; el backend ya normaliza todo a photoUrl).
+  updatePhotoCoverageBanner(restaurant);
 
   const filter = filterSelect.value;
   const dishes = restaurant?.dishes || [];
@@ -103,11 +108,43 @@ export function renderDishesList(restaurant, escapeHtml) {
           </div>
         </div>
         <button class="btn-icon" data-js-click="editDish|${cleanDishId}" title="Editar">✏️</button>
+        <button class="btn-icon" data-js-click="duplicateDishItem|${cleanDishId}" title="Duplicar">⧉</button>
         <button class="btn-icon btn-icon-danger" data-js-click="deleteDish|${cleanDishId}" title="Eliminar">🗑️</button>
       </div>
     `;
   });
   container.innerHTML = html;
+}
+
+/**
+ * Banner de cobertura de fotos: cuenta platos sin imagen y lo muestra en el
+ * tab Carta. Solo informa (nunca bloquea): la foto vende, pero es opcional.
+ */
+export function updatePhotoCoverageBanner(restaurant) {
+  const banner = document.getElementById('photoCoverageBanner');
+  if (!banner) return;
+  const dishes = restaurant?.dishes || [];
+  const hasPhoto = (d) => Boolean(d.photoUrl || d.imageUrl || d.image || d.photo);
+  const missing = dishes.filter(d => !hasPhoto(d)).length;
+  if (dishes.length > 0 && missing > 0) {
+    banner.style.display = 'block';
+    banner.textContent = `📷 ${missing} de ${dishes.length} platos sin foto. La carta con fotos vende más: editalos con ✏️ y sumales imagen.`;
+  } else {
+    banner.style.display = 'none';
+    banner.textContent = '';
+  }
+}
+
+/**
+ * Duplica un plato (foto, descripción, horarios y modificadores incluidos).
+ * El clon nace visible (no agotado) justo después del original.
+ */
+export function duplicateDish(restaurant, dishId, onDuplicated) {
+  const dishes = restaurant.dishes || [];
+  const idx = dishes.findIndex(d => d.id === dishId);
+  if (idx === -1) return;
+  dishes.splice(idx + 1, 0, cloneDishWithNewIdUtil(dishes[idx]));
+  if (typeof onDuplicated === 'function') onDuplicated();
 }
 
 export function deleteDish(restaurant, dishId, showConfirmDialogFn, onDeleted) {

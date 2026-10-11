@@ -61,29 +61,44 @@
 <body>
   <div class="container">
     <h1>Política de Privacidad</h1>
-    <div class="date">Última actualización: Septiembre 2026 — Válido para Web y App Móvil (Google Play Store)</div>
+    <div class="date">Última actualización: Octubre 2026 — Válido para Web y App Móvil (Google Play Store)</div>
 
-    <p>En <strong>ScanGo / Menú Pizarrón SaaS</strong> valoramos y respetamos la privacidad de nuestros usuarios y comensales. Esta Política de Privacidad describe cómo recopilamos, utilizamos, almacenamos y protegemos la información personal en conformidad con las legislaciones aplicables de protección de datos personales.</p>
+    <p>En <strong>ScanGo / Menú Pizarrón SaaS</strong>, operado por <strong>[RAZÓN SOCIAL]</strong> (el "Responsable"), valoramos y respetamos la privacidad de dueños y comensales. Esta Política describe cómo recopilamos, utilizamos, almacenamos y protegemos la información personal, en conformidad con la <strong>Ley Nº 18.331 de Protección de Datos Personales de Uruguay</strong> (y su unidad de control, la URCDP) y principios internacionales (licitud, minimización, limitación del plazo, seguridad).</p>
 
-    <h2>1. Responsable del Tratamiento de Datos</h2>
-    <p>El responsable del tratamiento de los datos es la administración de ScanGo. Para cualquier consulta referente a datos personales, puedes contactarnos a través del panel de soporte o al correo electrónico oficial del servicio.</p>
+    <h2>1. Responsable del Tratamiento</h2>
+    <p><strong>[RAZÓN SOCIAL]</strong>, RUT <strong>[RUT]</strong>, domicilio en <strong>[DOMICILIO, CIUDAD, URUGUAY]</strong>. Contacto de privacidad y ejercicio de derechos: <strong>[EMAIL DE PRIVACIDAD]</strong>. Ante la URCDP podés reclamar en Siglo XXI 3921, Montevideo, o su sitio oficial.</p>
 
     <h2>2. Datos que Recopilamos</h2>
     <ul>
-      <li><strong>Datos de Restaurantes / Administradores:</strong> Nombre comercial, correo electrónico, teléfono de contacto comercial, lista de productos y precios, logo del negocio y credenciales de acceso protegidas mediante algoritmos de cifrado irreversible (bcrypt).</li>
-      <li><strong>Datos de Comensales:</strong> Los pedidos y llamadas a mozo son enviados directamente al canal de WhatsApp o sistema local del restaurante. ScanGo no comercializa ni rastrea datos personales de los clientes finales con terceros.</li>
-      <li><strong>Datos Técnicos de Navegación:</strong> Dirección IP anonimizada, tipo de navegador y cookies estrictamente necesarias para la persistencia de sesión segura (HTTPOnly, SameSite).</li>
+      <li><strong>Dueños (cuenta):</strong> nombre, email, teléfono comercial, datos del local (nombre, carta, precios, logo), credenciales protegidas con hash irreversible (bcrypt) y registros de facturación.</li>
+      <li><strong>Comensales (Club ScanGo, solo si participás):</strong> teléfono, email (para confirmar canjes y borrados), historial de visitas, puntos/sellos/niveles e insignias, suscripciones push del dispositivo. Nunca pedimos contraseñas a comensales.</li>
+      <li><strong>Pedidos:</strong> mesa, platos, notas y totales viajan al WhatsApp del restaurante elegido (ver §5) y quedan en el historial del local para su operación.</li>
+      <li><strong>Datos técnicos:</strong> dirección IP (seguridad y rate-limit), navegador, identificadores de suscripción push y cookies estrictamente necesarias (ver <a href="/cookies">Política de Cookies</a>).</li>
     </ul>
 
-    <h2>3. Finalidad del Tratamiento</h2>
+    <h2>3. Finalidad y Base Jurídica</h2>
     <ul>
-      <li>Proveer la funcionalidad del menú digital QR interactivo y el panel de administración.</li>
-      <li>Gestionar suscripciones y facturación mediante pasarelas de pago seguras y certificadas PCI-DSS (Stripe, Lemon Squeezy, Mercado Pago).</li>
-      <li>Garantizar la seguridad, prevenir ataques de fuerza bruta y mitigar abusos mediante limitadores de tasa (rate limiting).</li>
+      <li>Prestar el menú QR, el panel y los pedidos (ejecución del contrato).</li>
+      <li>Facturar suscripciones vía pasarelas certificadas PCI-DSS (ejecución del contrato).</li>
+      <li>Marketing directo SOLO con tu consentimiento explícito y revocable (opt-in).</li>
+      <li>Seguridad y prevención del abuso: rate-limit, detección de fraude e integridad de la plataforma (interés legítimo).</li>
+      <li>No vendemos datos personales ni los cedemos con fines publicitarios de terceros.</li>
     </ul>
 
-    <h2>4. Derechos de los Usuarios (ARCO)</h2>
-    <p>Tienes derecho a acceder, rectificar, cancelar u oponerte al tratamiento de tus datos personales en cualquier momento solicitándolo desde tu cuenta o por soporte.</p>
+    <h2>4. Encargados y Transferencias Internacionales</h2>
+    <p>Para operar usamos proveedores que tratan datos por nuestra cuenta: alojamiento y base de datos (Supabase), email transaccional (Resend), cobros (Mercado Pago, Stripe, Lemon Squeezy), login social y mapas de calor de fraude (Google, Cloudflare). Pueden estar fuera de Uruguay (p. ej. EE.UU./UE) bajo sus marcos de protección y contratos de encargo. Además, los datos de tu pedido se envían al <strong>restaurante que elegiste vía WhatsApp (Meta)</strong>: desde ese momento ese local es responsable independiente de esos datos.</p>
+
+    <h2>5. Conservación</h2>
+    <p>Conservamos los datos lo necesario para la finalidad: cuentas activas mientras dure la relación; pedidos e historiales de fidelización hasta que ejerzas tu borrado total (disponible en el propio menú, con verificación); logs de seguridad hasta 12 meses; datos de facturación los plazos fiscales aplicables. Luego se eliminan o anonimizan.</p>
+
+    <h2>6. Menores de Edad</h2>
+    <p>El servicio está dirigido a mayores de 18 años. Los menores pueden ver cartas con sus padres, pero el Club ScanGo (teléfono/email propios) requiere 18 años o autorización de padre, madre o tutor. Si detectamos datos de menores sin autorización, los eliminamos.</p>
+
+    <h2>7. Tus Derechos (Acceso, Rectificación, Supresión, Oposición)</h2>
+    <p>Podés ejercerlos gratis en cualquier momento: (a) comensales, desde el propio menú (tarjeta del club y borrado total con verificación); (b) dueños, desde el Studio o escribiendo a <strong>[EMAIL DE PRIVACIDAD]</strong> (respondemos dentro de 15 días hábiles). También podés reclamar ante la URCDP.</p>
+
+    <h2>8. Seguridad</h2>
+    <p>Aplicamos cifrado en tránsito (TLS), hash irreversible de claves, sesiones httpOnly con revocación, control de acceso por local, limitación de intentos y copias de respaldo. Ningún sistema es infalible: ante un incidente que te afecte, te avisaremos por los canales registrados.</p>
 
     <a href="/studio" class="back-btn">← Volver al Panel</a>
   </div>

@@ -324,7 +324,14 @@ export class LoyaltyRewardsModal {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: this.phone, otp: this.otpInput })
       });
-      const body = await res.json();
+      const body = await res.json().catch(() => ({}));
+      // Solo se limpia lo local si el backend borró de verdad: si falló
+      // (red, OTP inválido), se conserva la identidad y se muestra el error.
+      if (!res.ok || !body.success) {
+        this.errorMsg = (body && body.error) || 'No se pudo completar el borrado. Probá de nuevo.';
+        this.render();
+        return;
+      }
       localStorage.removeItem('scango_loyalty_phone');
       this.phone = '';
       this.card = null;

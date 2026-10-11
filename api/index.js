@@ -30,6 +30,7 @@ const { publicAnalyticsLimiter, emailLimiter } = require('./middleware/rateLimit
 const { createGroupCartToken } = require('./utils/groupCartToken');
 const sentry = require('./utils/sentry');
 const securityHeaders = require('./utils/securityHeaders');
+const { getDemoRestaurant, listDemoRestaurants, normalizeDemoType } = require('./utils/demoRestaurants');
 const authRouter = require('./routes/auth');
 const reviewsRouter = require('./routes/reviews');
 const storageRouter = require('./routes/storage');
@@ -161,7 +162,10 @@ const authIpKeyGenerator = (req) => req.ip;
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 20,
+  // 30 intentos/15min por IP: frena floods sin castigar NATs compartidas
+  // (móviles detrás de CGNAT). No es anti-brute-force real — eso requiere
+  // lockout por cuenta + CAPTCHA (diseño pendiente, ver AGENTS.md).
+  max: 30,
   keyGenerator: authIpKeyGenerator,
   validate: { keyGeneratorIpFallback: false },
   message: { success: false, error: 'Demasiados intentos de acceso. Por favor intentá nuevamente en 15 minutos.', code: 'RATE_LIMIT_EXCEEDED' },
@@ -428,8 +432,121 @@ app.post('/api/events/:slug/waiter-call', async (req, res, next) => {
 });
 
 // ==================== PUBLIC MENU VIEWER (WITH 800MS TIMEOUT RACE & STALE CACHE FALLBACK) ====================
+// ── Demos públicas por rubro (in-memory, sin persistencia) ─────────────────
+// Catálogo navegable: /m/demo-restaurante, /m/demo-heladeria,
+// /m/demo-perfumeria, /m/demo-evento. Siempre online (sin verifyAccess) y
+// con el MISMO shape público que /api/menu/:slug (incluye weddingItinerary
+// y neonAccent, que el menú usa para el timeline en vivo y el glow neón).
+function buildDemoMenuResponse(typeOrSlug) {
+  const demo = getDemoRestaurant(typeOrSlug);
+  if (!demo) return null;
+  const isEvent = demo.businessType === 'events';
+  const dishes = (demo.dishes || []).map(d => ({
+    ...d,
+    previous_price: d.previous_price || d.previousPrice || null,
+    is_chef_recommended: Boolean(d.is_chef_recommended || d.isChefRecommended)
+  }));
+  const publicData = {
+    id: demo.id,
+    organizationId: null,
+    slug: demo.slug,
+    name: demo.name,
+    bizName: demo.bizName || demo.name,
+    phone: demo.phone || '',
+    scheduleActiveHours: demo.scheduleActiveHours || '',
+    tableCount: demo.tableCount || 10,
+    activeBranch: null,
+    branches: [],
+    slogan: demo.slogan || '',
+    currency: demo.currency || '$',
+    city: demo.city || '',
+    smartWeatherEnabled: false,
+    weatherContext: null,
+    weatherTemperatureC: null,
+    theme: demo.theme || 'emerald',
+    themeFont: demo.themeFont || 'serif',
+    neonAccent: demo.neonAccent || 'mint',
+    neonCustomColor: demo.neonCustomColor || '',
+    forceClosed: demo.forceClosed === true,
+    instagram: demo.instagram || '',
+    facebook: demo.facebook || '',
+    tiktok: demo.tiktok || '',
+    x: demo.x || '',
+    googleReview: demo.googleReview || '',
+    allowReservations: demo.allowReservations !== false,
+    allowCoupons: demo.allowCoupons !== false,
+    allowBillSplitter: demo.allowBillSplitter === true,
+    announcement: demo.announcement || '',
+    paymentLink: '',
+    allowOnlinePayment: false,
+    onlinePaymentReady: false,
+    scheduleEnabled: Boolean(demo.scheduleEnabled),
+    customCoupons: [],
+    allowLoyaltyPoints: false,
+    loyaltyConfig: loyaltyService.getPublicLoyaltyConfig(demo),
+    logoUrl: demo.logoUrl || null,
+    bannerUrl: demo.bannerUrl || null,
+    layout: demo.layout || 'classic',
+    businessType: demo.businessType || 'restaurant',
+    allowIceCreamWizard: demo.allowIceCreamWizard === true,
+    iceCreamBuilderLabel: demo.iceCreamBuilderLabel || '',
+    iceCreamButtonStyle: demo.iceCreamButtonStyle || 'fiesta',
+    allowPerfumery: demo.allowPerfumery === true,
+    wifi: demo.wifi || { ssid: '', password: '' },
+    categories: demo.categories || [],
+    modifierGroups: demo.modifierGroups || [],
+    dishes,
+    deliveryZones: demo.deliveryZones || [],
+    updatedAt: demo.updatedAt,
+    weddingItinerary: demo.weddingItinerary || null,
+    isEvent,
+    eventDate: demo.eventDate,
+    eventType: demo.eventType,
+    expiresAt: demo.expiresAt,
+    eventCustomQR: demo.eventCustomQR,
+    isDemo: true
+  };
+  const response = {
+    restaurant: publicData,
+    weatherContext: null,
+    weatherTemperatureC: null,
+    isDemo: true
+  };
+  if (isEvent) {
+    response.isEvent = true;
+    response.eventDate = demo.eventDate;
+    response.expiresAt = demo.expiresAt;
+  } else {
+    response.access = { inGracePeriod: false };
+  }
+  return response;
+}
+
+// Lista de demos (metadatos para la galería de la landing).
+app.get('/api/demos', (req, res) => {
+  return res.status(200).json({ demos: listDemoRestaurants() });
+});
+
+// Demo completa por tipo (lo que el Studio en modo demo carga en el editor).
+app.get('/api/demos/:type', (req, res) => {
+  const demo = getDemoRestaurant(req.params.type);
+  if (!demo) return res.status(404).json({ error: 'Demo no encontrada' });
+  return res.status(200).json({ demo, isDemo: true });
+});
+
 app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
   const slug = (req.params.slug || '').toLowerCase();
+  // Demos públicas por rubro: catálogo in-memory, siempre online.
+  // Se sirve ANTES del cache single-flight para que la key demo:* nunca
+  // colisione con un restaurante real del mismo slug.
+  const demoType = normalizeDemoType(slug);
+  if (demoType) {
+    try {
+      return res.status(200).json(buildDemoMenuResponse(demoType));
+    } catch (e) {
+      return res.status(500).json({ error: 'No se pudo cargar la demo' });
+    }
+  }
   try {
     let timeoutId;
     const timeoutPromise = new Promise((_, reject) => {
@@ -587,6 +704,9 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
         weatherTemperatureC: weather?.temperatureC ?? null,
         theme: restaurant.theme || 'emerald',
         themeFont: restaurant.themeFont || 'serif',
+        neonAccent: restaurant.neonAccent || 'mint',
+        neonCustomColor: restaurant.neonCustomColor || '',
+        forceClosed: restaurant.forceClosed === true,
         instagram: restaurant.instagram || '',
         facebook: restaurant.facebook || '',
         tiktok: restaurant.tiktok || '',
@@ -619,6 +739,7 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
         businessType: restaurant.businessType || 'restaurant',
         allowIceCreamWizard: restaurant.allowIceCreamWizard === true,
         iceCreamBuilderLabel: restaurant.iceCreamBuilderLabel || '',
+        iceCreamButtonStyle: restaurant.iceCreamButtonStyle || 'clasico',
         allowPerfumery: restaurant.allowPerfumery === true,
         wifi: restaurant.wifi || { ssid: '', password: '' },
         categories: publicCategories,
@@ -626,6 +747,9 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
         dishes: dishes,
         deliveryZones: restaurant.deliveryZones || [],
         updatedAt: restaurant.updatedAt,
+        // Programa del evento e itinerario visual (público por diseño: es el
+        // programa de la fiesta; el menú lo renderiza como timeline en vivo).
+        weddingItinerary: restaurant.weddingItinerary || null,
         // Events mode data
         isEvent: isEvent,
         eventDate: restaurant.eventDate,
@@ -695,6 +819,34 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
 });
 
 // ==================== BILLING ROUTES ====================
+// POST /api/billing/cancel — baja voluntaria inmediata (derecho a dar de
+// baja, Ley 17.250). El menú se pausa al instante y se puede reactivar cuando
+// se quiera. Si el cobro es por pasarela recurrente, el dueño también debe
+// cancelarla en su cuenta de Mercado Pago/Stripe (se le indica en la respuesta).
+app.post('/api/billing/cancel', authMiddleware, async (req, res, next) => {
+  try {
+    const restaurant = db.findRestaurantByUserId(req.user.userId);
+    if (!restaurant) {
+      return res.status(404).json({ success: false, error: 'Restaurante no encontrado', code: 'RESTAURANT_NOT_FOUND' });
+    }
+    const current = restaurant.subscription || {};
+    if (current.status === 'canceled') {
+      return successResponse(res, { subscription: current }, 'La suscripción ya estaba dada de baja');
+    }
+    const updated = await db.updateSubscription(restaurant.id, {
+      status: 'canceled',
+      canceledAt: new Date().toISOString(),
+      previousPlan: current.plan || null
+    });
+    await invalidateMenuCache(restaurant.slug).catch(() => {});
+    return successResponse(res, {
+      subscription: updated,
+      gatewayNote: 'Si tu cobro es recurrente por Mercado Pago o Stripe, cancelá también la suscripción desde tu cuenta de la pasarela para no recibir más cargos. Ante cualquier duda escribinos por WhatsApp.'
+    }, 'Suscripción dada de baja. Tu menú quedó pausado y podés reactivarlo cuando quieras.');
+  } catch (err) {
+    next(err);
+  }
+});
 app.post('/api/billing/checkout', authMiddleware, checkSubscriptionKillSwitch, async (req, res, next) => {
   try {
     const restaurant = db.findRestaurantByUserId(req.user.userId);
@@ -1360,7 +1512,8 @@ app.get('/sitemap.xml', (req, res) => {
 // SEO & OpenGraph Dynamic Public Menu Route
 app.get('/m/:slug', (req, res) => {
   const slug = (req.params.slug || '').toLowerCase();
-  const restaurant = db.findRestaurantBySlug(slug);
+  // Demos por rubro: se resuelven sin DB (in-memory, siempre online).
+  const restaurant = db.findRestaurantBySlug(slug) || getDemoRestaurant(slug);
   const menuHtmlPath = path.join(PUBLIC_DIR, 'menu.html');
 
   if (fs.existsSync(menuHtmlPath) && restaurant) {
@@ -1531,6 +1684,11 @@ app.get('/m/:slug', (req, res) => {
 
 // Server-side Auth Guard for Studio HTML View
 function studioHtmlAuthMiddleware(req, res, next) {
+  // Modo demo (?demo=heladeria): la landing enlaza al Studio sin sesión para
+  // probar el editor con datos de ejemplo. En prod vercel.json sirve
+  // studio.html estático sin pasar por acá; este bypass es solo para dev.
+  // La seguridad real está en POST /api/studio/save (exige sesión).
+  if (normalizeDemoType(req.query.demo)) return next();
   // Solo cookie httpOnly o Bearer en memoria. El token por ?query= quedaba en
   // logs de Vercel/proxy, historial y Referer: se elimina esa vía.
   const token = req.cookies?.auth_token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);

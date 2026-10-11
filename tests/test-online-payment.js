@@ -117,6 +117,63 @@ async function runTests() {
     assert.ok(dashboard, 'Dashboard consultable');
     console.log('✓ El flag persiste; el dueño puede volver a leerlo desde su panel');
 
+    // ── 6) La preferencia cobra el total COMPLETO ──────────────────────────
+    // Antes solo iban los platos (se cobraba de menos y la propina se perdía).
+    await db.saveRestaurant(user.id, {
+      ...db.findRestaurantById(rest.id),
+      deliveryZones: [{ name: 'Centro', fee: 50 }],
+      customCoupons: [{ code: 'TEST10', type: 'percent', value: 10, label: '10% OFF' }]
+    });
+    const prefFull = await postJson('/api/orders/mercadopago/preference', {
+      restaurantId: rest.id,
+      items: [{ dishId: 'dish1', quantity: 1 }],
+      customerName: 'Ana',
+      currency: 'UYU',
+      orderMode: 'DELIVERY',
+      deliveryAddress: 'Av. Siempre Viva 123',
+      deliveryFee: 50,
+      tipAmount: 20,
+      coupon: { code: 'TEST10', type: 'percent', value: 10, label: '10% OFF' }
+    });
+    if (prefFull.status === 200) {
+      const full = (await prefFull.json()).data;
+      assert.strictEqual(full.subtotal, 100, 'Subtotal de platos');
+      assert.strictEqual(full.deliveryFee, 50, 'Envío validado contra la zona');
+      assert.strictEqual(full.discount, 10, 'Cupón validado contra el catálogo (10% de 100)');
+      assert.strictEqual(full.tip, 20, 'Propina incluida');
+      assert.strictEqual(full.total, 160, 'TOTAL = 100 + 50 − 10 + 20');
+      console.log('✓ Preferencia con total completo: platos + envío − cupón + propina');
+    } else {
+      console.log('⊘ SKIP desglose total: sin credenciales MP en este entorno (gate honesto verificado en §3)');
+    }
+
+    // ── 7) Reglas autoritativas: mínimo, dirección y fee inválido ─────────
+    await db.saveRestaurant(user.id, { ...db.findRestaurantById(rest.id), minOrder: 500 });
+    const underMin = await postJson('/api/orders/quote', {
+      restaurantId: rest.id,
+      items: [{ dishId: 'dish1', quantity: 1 }]
+    });
+    assert.strictEqual(underMin.status, 400, 'Bajo mínimo → 400');
+    assert.strictEqual((await underMin.json()).code, 'MIN_ORDER_NOT_MET');
+    const noAddr = await postJson('/api/orders/quote', {
+      restaurantId: rest.id,
+      orderMode: 'DELIVERY',
+      deliveryAddress: '',
+      items: [{ dishId: 'dish1', quantity: 10 }]
+    });
+    assert.strictEqual(noAddr.status, 400, 'Delivery sin dirección → 400');
+    assert.strictEqual((await noAddr.json()).code, 'DELIVERY_ADDRESS_REQUIRED');
+    const badFee = await postJson('/api/orders/mercadopago/preference', {
+      restaurantId: rest.id,
+      orderMode: 'DELIVERY',
+      deliveryAddress: 'Av. Siempre Viva 123',
+      deliveryFee: 9999,
+      items: [{ dishId: 'dish1', quantity: 10 }]
+    });
+    assert.strictEqual(badFee.status, 400, 'Fee que no coincide con zonas → 400');
+    assert.strictEqual((await badFee.json()).code, 'INVALID_DELIVERY_FEE');
+    console.log('✓ Reglas: mínimo, dirección de delivery y fee validado contra zonas');
+
     console.log('\n🎉 ¡TODAS LAS VERIFICACIONES DE PAGO ONLINE PASARON!');
   } finally {
     server.close();

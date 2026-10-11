@@ -424,3 +424,68 @@
       border-bottom: 1px solid var(--border);
       padding-bottom: 8px;
     }
+
+    /* ── Ticket de cocina imprimible (Fase 1) ──────────────────────────
+       En pantalla el contenedor va oculto; al imprimir es lo ÚNICO visible.
+       Formato ticket 80mm térmico: monoespaciado, separadores punteados,
+       sin colores (la térmica imprime en negro). */
+    .order-ticket-print {
+      display: none;
+    }
+    .ticket-paper {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #111;
+      background: #fff;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .ticket-paper .ticket-center { text-align: center; }
+    .ticket-paper .ticket-title {
+      font-size: 15px;
+      font-weight: 800;
+      text-align: center;
+      margin: 0 0 2px;
+    }
+    .ticket-paper .ticket-sub {
+      text-align: center;
+      font-size: 11px;
+      margin-bottom: 6px;
+    }
+    .ticket-paper .ticket-sep {
+      border: none;
+      border-top: 1px dashed #111;
+      margin: 6px 0;
+    }
+    .ticket-paper .ticket-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .ticket-paper .ticket-item { margin: 2px 0; }
+    .ticket-paper .ticket-note {
+      font-size: 11px;
+      padding-left: 12px;
+    }
+    .ticket-paper .ticket-total {
+      font-size: 14px;
+      font-weight: 800;
+    }
+    @page {
+      size: 80mm auto;
+      margin: 4mm;
+    }
+    @media print {
+      body > *:not(#orderTicketPrint) {
+        display: none !important;
+      }
+      #orderTicketPrint {
+        display: block !important;
+        position: static !important;
+        width: 72mm;
+        max-width: 72mm;
+        margin: 0 auto;
+      }
+      #orderTicketPrint .ticket-paper {
+        display: block !important;
+      }
+    }

@@ -198,10 +198,14 @@ router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
         bizName: restaurantNameFinal,
         businessType: requestedType,
         currency: '$',
-        theme: 'emerald',
+        theme: defaultThemeForBusinessType(requestedType),
+        iceCreamButtonStyle: defaultIceCreamButtonStyleFor(requestedType),
+        iceCreamBuilderLabel: requestedType === 'heladeria' ? 'Armá tu helado a medida' : '',
+        allowIceCreamWizard: requestedType === 'heladeria',
+        allowPerfumery: requestedType === 'perfumery',
         city: '',
         smartWeatherEnabled: false,
-        ...buildStarterMenu()
+        ...buildStarterMenu(requestedType)
       });
     }
 
@@ -328,10 +332,14 @@ router.post('/supabase-callback', checkSubscriptionKillSwitch, async (req, res, 
         bizName: restaurantName,
         businessType: requestedType,
         currency: '$',
-        theme: 'emerald',
+        theme: defaultThemeForBusinessType(requestedType),
+        iceCreamButtonStyle: defaultIceCreamButtonStyleFor(requestedType),
+        iceCreamBuilderLabel: requestedType === 'heladeria' ? 'Armá tu helado a medida' : '',
+        allowIceCreamWizard: requestedType === 'heladeria',
+        allowPerfumery: requestedType === 'perfumery',
         city: '',
         smartWeatherEnabled: false,
-        ...buildStarterMenu()
+        ...buildStarterMenu(requestedType)
       });
     }
 
@@ -348,8 +356,32 @@ router.post('/supabase-callback', checkSubscriptionKillSwitch, async (req, res, 
  * Menú de ejemplo con el que arranca toda cuenta nueva (registro con correo o
  * con Google): el usuario ve un menú publicable de inmediato en lugar de un
  * Studio vacío, y sirve para probar el flujo completo sin cargar datos.
+ * La heladería nace con carta de heladería (no con burgers): categorías y
+ * sabores reales para que el armador artesanal funcione desde el minuto uno.
  */
-function buildStarterMenu() {
+function defaultThemeForBusinessType(businessType) {
+  return businessType === 'heladeria' ? 'helado-fiesta' : 'emerald';
+}
+function defaultIceCreamButtonStyleFor(businessType) {
+  return businessType === 'heladeria' ? 'fiesta' : 'clasico';
+}
+function buildStarterMenu(businessType) {
+  if (businessType === 'heladeria') {
+    return {
+      categories: [
+        { id: 'cat_choco', name: 'Chocolates' },
+        { id: 'cat_ddl', name: 'Dulces de Leche' },
+        { id: 'cat_cremas', name: 'Cremas Especiales' },
+        { id: 'cat_frutales', name: 'Frutales al Agua' }
+      ],
+      dishes: [
+        { id: 'd_h1', categoryId: 'cat_choco', name: 'Chocolate Amargo 70%', price: 320, description: 'Cacao puro intenso con notas tostadas', tags: ['star'] },
+        { id: 'd_h2', categoryId: 'cat_ddl', name: 'Dulce de Leche Tradicional', price: 310, description: 'Receta rioplatense de cocción lenta', tags: ['star'] },
+        { id: 'd_h3', categoryId: 'cat_cremas', name: 'Tramontana Clásica', price: 330, description: 'Crema americana con dulce de leche y crocante', tags: [] },
+        { id: 'd_h4', categoryId: 'cat_frutales', name: 'Limón Silvestre al Agua', price: 290, description: 'Zumo natural recién exprimido, liviano', tags: ['vegan'] }
+      ]
+    };
+  }
   return {
     categories: [
       { id: 'cat_hamburguesas', name: 'Burgers Artesanales' },
@@ -446,15 +478,17 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
     const restaurant = await db.saveRestaurant(user.id, {
       name: finalBizName,
       bizName: finalBizName,
-      slogan: 'Especialidad, masas artesanales y cocina de autor',
+      slogan: businessType === 'heladeria' ? 'Heladería artesanal: sabores de la casa y armador a medida' : 'Especialidad, masas artesanales y cocina de autor',
       currency: '$',
       phone: '59899123456',
-      theme: 'emerald',
+      theme: defaultThemeForBusinessType(businessType),
       businessType,
       allowPerfumery: businessType === 'perfumery',
       allowIceCreamWizard: businessType === 'heladeria',
+      iceCreamBuilderLabel: businessType === 'heladeria' ? 'Armá tu helado a medida' : '',
+      iceCreamButtonStyle: defaultIceCreamButtonStyleFor(businessType),
       wifi: { ssid: 'Restaurante_Clientes', password: 'pizarronrico' },
-      ...buildStarterMenu()
+      ...buildStarterMenu(businessType)
     });
 
     const token = mintSessionToken(user);

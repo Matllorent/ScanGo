@@ -268,7 +268,12 @@ async function runTests() {
     console.log('✓ Borrado total: perfil, cuentas, ledger y códigos eliminados');
 
     // ── 12) OTP de posesión: canje y borrado exigen el email ───────────────
-    const otpPhone = '+598 99 777 888';
+    // Teléfonos con sufijo único (el §1-11 usa fijo histórico; acá evitamos
+    // chocar entre corridas consecutivas sin limpieza de data/).
+    const otpSuffix = String(Date.now()).slice(-6);
+    const otpPhone = `+598 99 1${otpSuffix}`;
+    const otpPhoneDigits = `598991${otpSuffix}`;
+    const freshPhone = `+598 99 2${otpSuffix}`;
     await loyaltyService.findOrCreateCustomer({ phone: otpPhone, name: 'OTP Tester', email: 'otp-tester@example.com' });
     await postJson('/api/loyalty/credit', { phone: otpPhone, points: 500, reason: 'Setup OTP' }, authA);
 
@@ -297,7 +302,6 @@ async function runTests() {
     assert.strictEqual(replay.status, 403, 'OTP de un solo uso (replay → 403)');
 
     // Registro de email: first-write (el formato y duplicado van a nivel servicio)
-    const freshPhone = '+598 99 777 889';
     await loyaltyService.findOrCreateCustomer({ phone: freshPhone, name: 'Sin Email' });
     const setEmail = await postJson('/api/loyalty/email', { phone: freshPhone, email: 'nuevo-email@example.com' });
     assert.strictEqual(setEmail.status, 200, 'Primer email se registra');
@@ -325,7 +329,7 @@ async function runTests() {
     });
     assert.strictEqual(delOtp.status, 200, 'Borrado con OTP válido → 200');
     assert.strictEqual((await delOtp.json()).data.erased, true, 'Datos borrados tras OTP');
-    assert.strictEqual(await loyaltyService.findCustomerByPhone('59899777888'), null, 'Perfil eliminado');
+    assert.strictEqual(await loyaltyService.findCustomerByPhone(otpPhoneDigits), null, 'Perfil eliminado');
     // Cobertura a nivel servicio (sin gastar el balde HTTP del limiter)
     assert.strictEqual(loyaltyService.verifyLoyaltyOtp(freshPhone, 'erase', loyaltyService.generateLoyaltyOtp(freshPhone, 'redeem')), false, 'OTP de otro propósito no autoriza');
     await assert.rejects(

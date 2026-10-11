@@ -37,7 +37,10 @@ import {
   renderWeddingItineraryHTML as renderWeddingItineraryHTMLMod,
   isFreePrice as isFreePriceMod,
   getDishNoteCopy as getDishNoteCopyMod,
-  resolveNeonAccent as resolveNeonAccentMod
+  resolveNeonAccent as resolveNeonAccentMod,
+  normalizeNeonHex as normalizeNeonHexMod,
+  neonHexToRgb as neonHexToRgbMod,
+  resolveIceCreamButtonStyle as resolveIceCreamButtonStyleMod
 } from './menu/index.js';
 
 // State
@@ -75,11 +78,21 @@ Object.defineProperties(window, {
       document.getElementById('waiterModal').classList.remove('active');
     }
     function sendWaiterCall(type) {
+      const mesa = document.getElementById('waiterTableNum').value.trim() || 'No especificada';
+      // Track analytics (fire-and-forget, canal unificado)
+      trackPublicEvent('waiter');
+      // Aviso push+inbox al dueño (fire-and-forget: si el push está apagado,
+      // igual queda en el inbox; no depende del WhatsApp del local).
+      fetch('/api/notifications/waiter-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: getSlug(), table: mesa, type })
+      }).catch(() => {});
       if (!restaurantData || !restaurantData.phone) {
-        alert('Este restaurante no tiene WhatsApp configurado.');
+        alert('Aviso registrado en el local. Configurá el WhatsApp del restaurante para avisos directos.');
+        closeWaiterModal();
         return;
       }
-      const mesa = document.getElementById('waiterTableNum').value.trim() || 'No especificada';
       let msg = '';
       if (type === 'mozo') {
         msg = `🔔 *LLAMADO AL MOZO*%0A📍 Mesa: ${mesa}%0A🕐 ${new Date().toLocaleTimeString()}%0A%0A_Enviado desde el menú digital ScanGo_`;
@@ -90,12 +103,6 @@ Object.defineProperties(window, {
       }
       // Track analytics (fire-and-forget, canal unificado)
       trackPublicEvent('waiter');
-      // Aviso push al dueño (fire-and-forget: si el push está apagado, no molesta)
-      fetch('/api/notifications/waiter-alert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: getSlug(), table: mesa, type })
-      }).catch(() => {});
       window.open(`https://wa.me/${restaurantData.phone}?text=${msg}`, '_blank');
       closeWaiterModal();
     }
@@ -275,21 +282,63 @@ Object.defineProperties(window, {
       document.getElementById('restaurantSlogan').textContent = restaurantData.slogan || 'Carta Gastronómica';
 
       // Apply Layout Morphology & 14 Authentic Classic Themes + 6 Heladería themes & Fonts to body
-      const validLayouts = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker'];
+      const validLayouts = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker', 'delivery'];
       const morphParam = new URLSearchParams(window.location.search).get('morph');
       let layout = restaurantData.layout;
       if (morphParam && validLayouts.includes(morphParam)) {
         layout = morphParam;
       }
       const layoutClass = validLayouts.includes(layout) ? `layout-${layout}` : 'layout-classic';
-      const validThemes = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football', 'helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato'];
-      const themeClass = validThemes.includes(restaurantData.theme) ? `theme-${restaurantData.theme}` : 'theme-emerald';
+      const validThemes = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football', 'helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora'];
+      // Heladería SOLO viste sus 11 temas: si el dato viene con un theme de
+      // restaurante (cuenta vieja o payload manual), se corrige a fiesta en el
+      // render para que el comensal siempre vea estética de heladería.
+      const HELADERIA_ONLY = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora'];
+      let effectiveTheme = restaurantData.theme;
+      if (restaurantData.businessType === 'heladeria' && !HELADERIA_ONLY.includes(effectiveTheme)) {
+        effectiveTheme = 'helado-fiesta';
+      }
+      // Preview ?theme=<clave> (espejo de ?morph= y ?neon=): el dueño prueba
+      // estéticas desde un link sin guardar nada. Solo claves válidas, y en
+      // heladería SOLO las 11 propias: el lockdown no tiene excepciones ni
+      // siquiera por preview (?theme=classic en heladería → fiesta).
+      const themeParam = new URLSearchParams(window.location.search).get('theme');
+      if (themeParam && validThemes.includes(themeParam)) {
+        if (restaurantData.businessType === 'heladeria' && !HELADERIA_ONLY.includes(themeParam)) {
+          effectiveTheme = 'helado-fiesta';
+        } else {
+          effectiveTheme = themeParam;
+        }
+      }
+      const themeClass = validThemes.includes(effectiveTheme) ? `theme-${effectiveTheme}` : 'theme-emerald';
       document.body.className = `${themeClass} font-${restaurantData.themeFont || 'serif'} ${layoutClass}`;
 
       // === NEON ACCENT: color elegible del layout Neon Nightbar (?neon= para previsualizar)
+      // El preset pone la clase neon-<clave>; el color libre (picker HEX del
+      // dueño o ?neon=%23RRGGBB) lo pisa vía variables inline --neon/--neon-rgb.
       if (layoutClass === 'layout-neon') {
         const neonParam = new URLSearchParams(window.location.search).get('neon');
-        document.body.classList.add(`neon-${resolveNeonAccentMod(neonParam || restaurantData.neonAccent)}`);
+        const paramHex = normalizeNeonHexMod(neonParam);
+        const baseKey = resolveNeonAccentMod(paramHex ? restaurantData.neonAccent : (neonParam || restaurantData.neonAccent));
+        document.body.classList.add(`neon-${baseKey}`);
+        const customHex = paramHex || normalizeNeonHexMod(restaurantData.neonCustomColor);
+        if (customHex) {
+          const customRgb = neonHexToRgbMod(customHex);
+          try {
+            document.body.style.setProperty('--neon', customHex);
+            if (customRgb) document.body.style.setProperty('--neon-rgb', customRgb);
+          } catch (e) {}
+        } else {
+          try {
+            document.body.style.removeProperty('--neon');
+            document.body.style.removeProperty('--neon-rgb');
+          } catch (e) {}
+        }
+      } else {
+        try {
+          document.body.style.removeProperty('--neon');
+          document.body.style.removeProperty('--neon-rgb');
+        } catch (e) {}
       }
 
       // === EVENT VISUAL THEMES: Aplicar tema visual cuando businessType='events' o ?event= parámetro
@@ -423,9 +472,17 @@ Object.defineProperties(window, {
       }
 
       // Open / Closed Real-time Status Badge
+      // El override manual `forceClosed` del dueño gana siempre: ni el horario
+      // configurado lo reabre (feriados e imprevistos sin tocar la franja).
       const statusBadge = document.getElementById('statusOpenClosedBadge');
       if (statusBadge) {
-        if (restaurantData.scheduleEnabled && restaurantData.scheduleActiveHours) {
+        if (restaurantData.forceClosed === true) {
+          statusBadge.style.display = 'inline-flex';
+          statusBadge.style.background = 'rgba(229,62,62,0.15)';
+          statusBadge.style.borderColor = 'rgba(229,62,62,0.4)';
+          statusBadge.style.color = '#FC8181';
+          statusBadge.innerHTML = '<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#E53E3E; margin-right:6px;"></span> Cerrado por el momento';
+        } else if (restaurantData.scheduleEnabled && restaurantData.scheduleActiveHours) {
           const now = new Date();
           const currentHour = now.getHours() + (now.getMinutes() / 60);
           const [startH, endH] = (restaurantData.scheduleActiveHours || '00:00-23:59').split('-').map(t => {
@@ -502,6 +559,14 @@ Object.defineProperties(window, {
           const customLabel = String(restaurantData.iceCreamBuilderLabel || '').trim();
           heroLabel.textContent = customLabel || 'Armá tu helado a medida';
         }
+        // Estilo del botón elegido por el dueño (6 variantes premium de heladería).
+        // Se resetean las clases style-* anteriores para no acumular estilos.
+        try {
+          const btnStyle = resolveIceCreamButtonStyleMod(restaurantData.iceCreamButtonStyle);
+          iceCreamHero.classList.remove('style-clasico', 'style-fiesta', 'style-premium', 'style-tropical', 'style-nube', 'style-noche');
+          iceCreamHero.classList.add(`style-${btnStyle}`);
+          iceCreamHero.dataset.iceStyle = btnStyle;
+        } catch (e) {}
       }
 
       const btnPerf = document.getElementById('btnTogglePerfumeryMode');
@@ -815,7 +880,7 @@ Object.defineProperties(window, {
 
       const dishes = restaurantData.dishes || [];
       const layout = (document.body.className.match(/layout-(\S+)/) || [])[1] || restaurantData.layout || 'classic';
-      const isBoardMorph = ['billboard', 'ticker', 'sticker'].includes(layout);
+      const isBoardMorph = ['billboard', 'ticker', 'sticker', 'delivery'].includes(layout);
 
       // Chef Specials & Menú del Día (siempre, como hasta ahora)
       const chefDishes = dishes.filter(d => {
@@ -985,7 +1050,16 @@ Object.defineProperties(window, {
         return;
       }
 
-      // Check for scheduled menu restriction
+      // Check for scheduled menu restriction (o cierre manual del dueño)
+      if (restaurantData.forceClosed === true) {
+        container.innerHTML = `
+          <div style="text-align:center; padding:40px 20px; background:rgba(236,201,75,0.06); border:1px dashed var(--border-gold); border-radius:12px;">
+            <p style="font-size:1.2rem; color:var(--chalk-gold); font-family:var(--font-heading); margin-bottom:8px;">Local cerrado por el momento</p>
+            <p style="color:var(--chalk-dim); font-size:0.9rem;">Estamos haciendo una pausa breve. Por favor volvé a consultar en unos minutos.</p>
+          </div>
+        `;
+        return;
+      }
       if (restaurantData.scheduleEnabled && restaurantData.scheduleActiveHours) {
         const now = new Date();
         const currentHour = now.getHours() + (now.getMinutes() / 60);
@@ -1263,6 +1337,16 @@ Object.defineProperties(window, {
       });
     }
     async function getCaptchaToken() {
+      // Sin consentimiento de terceros no se carga Turnstile (ver /cookies):
+      // el pedido igual se envía y el backend decide (403 solo si lo exige).
+      if (window.CookieConsent && !window.CookieConsent.hasThirdPartyConsent()) {
+        if (!getCaptchaToken._warned) {
+          getCaptchaToken._warned = true;
+          showToast('Aceptá las cookies para el control anti-robots (abajo).');
+          window.CookieConsent.show();
+        }
+        return '';
+      }
       try {
         const sitekey = await getTurnstileSitekey();
         if (!sitekey) return '';
@@ -1934,8 +2018,13 @@ Object.defineProperties(window, {
     // El comensal guarda el token firmado que devuelve POST /api/orders y con
     // él consulta el estado público (sin datos personales) hasta que el pedido
     // se entrega o se cancela. El push de estado reabre esta misma vista.
+    // Multi-pedido: se guardan hasta 5 (el nuevo NO pisa el anterior); el
+    // FAB abre la lista para cambiar y se oculta solo cuando todos cerraron.
     const ORDER_TRACKING_KEY = 'scango_active_order';
+    const ORDER_TRACKING_LIST_KEY = 'scango_tracked_orders';
+    const ORDER_TRACKING_MAX = 5;
     const ORDER_TRACKING_POLL_MS = 15000;
+    const ORDER_TRACKING_DONE = ['delivered', 'cancelled'];
     let orderTrackingTimer = null;
 
     function getActiveOrder() {
@@ -1945,19 +2034,77 @@ Object.defineProperties(window, {
       } catch (e) { return null; }
     }
 
+    function getTrackedOrders() {
+      try {
+        const raw = localStorage.getItem(ORDER_TRACKING_LIST_KEY);
+        const list = raw ? JSON.parse(raw) : null;
+        if (Array.isArray(list) && list.length) return list;
+      } catch (e) {}
+      // Migración: una sola entrada vieja → lista de uno.
+      const single = getActiveOrder();
+      return single && single.token ? [single] : [];
+    }
+
+    function persistTrackedOrders(list) {
+      try {
+        localStorage.setItem(ORDER_TRACKING_LIST_KEY, JSON.stringify(list.slice(0, ORDER_TRACKING_MAX)));
+      } catch (e) {}
+    }
+
     function saveOrderTracking(entry) {
       if (!entry || !entry.token) return;
-      try { localStorage.setItem(ORDER_TRACKING_KEY, JSON.stringify(entry)); } catch (e) {}
+      const list = getTrackedOrders().filter(o => o.token !== entry.token);
+      list.unshift({ ...entry, done: false });
+      persistTrackedOrders(list);
+      try { localStorage.setItem(ORDER_TRACKING_KEY, JSON.stringify({ ...entry, done: false })); } catch (e) {}
+    }
+
+    function markTrackedOrderDone(token, status) {
+      const list = getTrackedOrders();
+      let changed = false;
+      for (const o of list) {
+        if (o.token === token && !o.done) {
+          o.done = true;
+          o.status = status;
+          changed = true;
+        }
+      }
+      if (changed) persistTrackedOrders(list);
+      const active = getActiveOrder();
+      if (active && active.token === token) {
+        try { localStorage.setItem(ORDER_TRACKING_KEY, JSON.stringify({ ...active, done: true, status })); } catch (e) {}
+      }
+      // Sin pendientes: el FAB deja de ofrecer seguimiento (el historial
+      // queda en la lista para consulta).
+      if (list.length && list.every(o => o.done)) {
+        const fab = document.getElementById('orderTrackingFab');
+        if (fab) fab.style.display = 'none';
+      }
+    }
+
+    function selectTrackedOrder(token) {
+      const found = getTrackedOrders().find(o => o.token === token);
+      if (!found) return;
+      try { localStorage.setItem(ORDER_TRACKING_KEY, JSON.stringify(found)); } catch (e) {}
+      showOrderTrackingFab();
+      openOrderTracking();
     }
 
     function clearOrderTracking() {
-      try { localStorage.removeItem(ORDER_TRACKING_KEY); } catch (e) {}
+      try {
+        localStorage.removeItem(ORDER_TRACKING_KEY);
+        localStorage.removeItem(ORDER_TRACKING_LIST_KEY);
+      } catch (e) {}
       stopOrderTrackingPolling();
       const fab = document.getElementById('orderTrackingFab');
       if (fab) fab.style.display = 'none';
     }
 
     function showOrderTrackingFab() {
+      // Solo si hay al menos un pedido sin cerrar.
+      const pending = getTrackedOrders().some(o => !o.done);
+      const active = getActiveOrder();
+      if (!pending && !(active && !active.done)) return;
       const fab = document.getElementById('orderTrackingFab');
       if (fab) fab.style.display = 'flex';
     }
@@ -2035,15 +2182,17 @@ Object.defineProperties(window, {
       try {
         const res = await fetch(`/api/orders/track/${encodeURIComponent(active.token)}`);
         if (res.status === 404) {
-          clearOrderTracking();
+          // Solo ese pedido venció: se saca de la lista, el resto sigue.
+          persistTrackedOrders(getTrackedOrders().filter(o => o.token !== active.token));
           renderOrderTrackingError('Este pedido ya no está disponible (puede haber vencido o el local lo cerró).');
           return;
         }
         const payload = await res.json();
         if (!res.ok || !payload.success) throw new Error(payload.error || 'Error');
         renderOrderTracking(payload.data || {});
-        if (payload.data && (payload.data.status === 'delivered' || payload.data.status === 'cancelled')) {
+        if (payload.data && ORDER_TRACKING_DONE.includes(payload.data.status)) {
           stopOrderTrackingPolling();
+          markTrackedOrderDone(active.token, payload.data.status);
         }
       } catch (e) {
         renderOrderTrackingError('No pudimos actualizar el estado. Reintentando…');
@@ -2054,6 +2203,7 @@ Object.defineProperties(window, {
       const active = getActiveOrder();
       const modal = document.getElementById('orderTrackingModal');
       if (!modal) return;
+      const tracked = getTrackedOrders();
       if (!active || !active.token) {
         // Sin pedido guardado: no abrimos una vista vacía.
         const fab = document.getElementById('orderTrackingFab');
@@ -2061,6 +2211,24 @@ Object.defineProperties(window, {
         return;
       }
       modal.classList.add('active');
+      // Varios pedidos: selector para cambiar sin perder ninguno.
+      const listHost = document.getElementById('orderTrackingList');
+      if (listHost) {
+        if (tracked.length > 1) {
+          listHost.innerHTML = tracked.map(o => {
+            const isActive = o.token === active.token;
+            const label = [o.restaurantName, o.tableNumber ? `Mesa ${o.tableNumber}` : ''].filter(Boolean).join(' · ') || 'Pedido';
+            return `<button type="button" data-js-click="selectTrackedOrder|${escapeHtml(o.token)}" style="display:flex; justify-content:space-between; align-items:center; gap:8px; width:100%; text-align:left; background:${isActive ? 'rgba(236,201,75,0.12)' : 'transparent'}; border:1px solid ${isActive ? 'var(--border-gold)' : 'var(--border-chalk)'}; color:#fff; border-radius:8px; padding:8px 10px; margin-bottom:6px; cursor:pointer; font-size:0.8rem;">`
+              + `<span>${escapeHtml(label)}${o.done ? ' ✓' : ''}</span>`
+              + `<span style="color:var(--chalk-gold); font-weight:700;">${isActive ? 'Viéndolo' : 'Ver →'}</span>`
+              + `</button>`;
+          }).join('');
+          listHost.style.display = 'block';
+        } else {
+          listHost.innerHTML = '';
+          listHost.style.display = 'none';
+        }
+      }
       renderOrderTracking({ status: 'pending', restaurantName: active.restaurantName, tableNumber: active.tableNumber });
       refreshOrderTracking();
       startOrderTrackingPolling();
@@ -2073,7 +2241,22 @@ Object.defineProperties(window, {
     }
 
     function forgetOrderTracking() {
-      clearOrderTracking();
+      // Oculta SOLO el pedido en vista (el resto sigue en la lista).
+      const active = getActiveOrder();
+      if (active && active.token) {
+        persistTrackedOrders(getTrackedOrders().filter(o => o.token !== active.token));
+        const rest = getTrackedOrders();
+        try {
+          if (rest.length) localStorage.setItem(ORDER_TRACKING_KEY, JSON.stringify(rest[0]));
+          else localStorage.removeItem(ORDER_TRACKING_KEY);
+        } catch (e) {}
+        if (!rest.some(o => !o.done)) {
+          const fab = document.getElementById('orderTrackingFab');
+          if (fab) fab.style.display = 'none';
+        }
+      } else {
+        clearOrderTracking();
+      }
       closeOrderTracking();
     }
 
@@ -2091,9 +2274,31 @@ Object.defineProperties(window, {
     // un pedido activo guardado de una visita anterior.
     function initOrderTracking() {
       let urlToken = '';
+      let paymentStatus = '';
       try {
-        urlToken = new URLSearchParams(window.location.search).get('track') || '';
+        const params = new URLSearchParams(window.location.search);
+        urlToken = params.get('track') || '';
+        paymentStatus = params.get('payment') || '';
       } catch (e) { urlToken = ''; }
+
+      // Retorno de Mercado Pago (?payment=success|failure|pending&ref=...):
+      // se muestra el estado y cómo seguir, y se limpia la URL para no
+      // repetir el aviso al recargar.
+      if (paymentStatus) {
+        try {
+          const cleanUrl = new URL(window.location.href);
+          cleanUrl.searchParams.delete('payment');
+          cleanUrl.searchParams.delete('ref');
+          window.history.replaceState({}, '', cleanUrl.toString());
+        } catch (e) {}
+        if (paymentStatus === 'success') {
+          showToast('¡Pago acreditado! Ahora enviá tu pedido por WhatsApp adjuntando el comprobante.');
+        } else if (paymentStatus === 'failure') {
+          showToast('El pago no se completó. Podés reintentarlo o pagar al recibir.');
+        } else if (paymentStatus === 'pending') {
+          showToast('Tu pago está pendiente de acreditación. Te avisaremos al confirmarse.');
+        }
+      }
 
       if (urlToken) {
         saveOrderTracking({
@@ -2250,10 +2455,37 @@ Object.defineProperties(window, {
       }
     }
 
+    /**
+     * ¿El local acepta pedidos AHORA según su franja horaria?
+     * Misma regla que el badge visual (hora local del dispositivo = hora del
+     * local). Sin horario configurado → siempre abierto.
+     */
+    function isRestaurantOpenNow() {
+      // Cierre manual del dueño: cerrado aunque el horario diga abierto.
+      if (restaurantData.forceClosed === true) return false;
+      if (!restaurantData.scheduleEnabled || !restaurantData.scheduleActiveHours) return true;
+      const now = new Date();
+      const currentHour = now.getHours() + (now.getMinutes() / 60);
+      const [startH, endH] = String(restaurantData.scheduleActiveHours || '00:00-23:59').split('-').map(t => {
+        const [h, m] = t.split(':').map(Number);
+        return h + (m || 0) / 60;
+      });
+      if (startH === undefined || endH === undefined || Number.isNaN(startH) || Number.isNaN(endH)) return true;
+      return currentHour >= startH && currentHour <= endH;
+    }
+
     async function submitWhatsAppOrder() {
       const items = Object.values(cart);
       if (!items.length) {
         alert('Por favor agrega platos a tu pedido primero.');
+        return;
+      }
+
+      // Local cerrado: no se genera el pedido (el badge ya lo avisa).
+      if (!isRestaurantOpenNow()) {
+        alert(restaurantData.forceClosed === true
+          ? 'El local está cerrado por el momento. Volvé a consultar en unos minutos.'
+          : `El local está cerrado ahora (${restaurantData.scheduleActiveHours} hs). Volvé en horario de atención.`);
         return;
       }
 
@@ -2287,6 +2519,7 @@ Object.defineProperties(window, {
             customerName,
             customerPhone: getCustomerPhone(),
             deliveryAddress: mode === 'DELIVERY' ? address : '',
+            orderMode: mode,
             currency,
             notes,
             isGroupOrder,
@@ -2313,6 +2546,20 @@ Object.defineProperties(window, {
         }
 
         const quote = quotePayload.data;
+        // Delivery inservible: zona + dirección se exigen ANTES de pedir
+        // (el backend también lo valida; acá se guía con foco al campo).
+        if (mode === 'DELIVERY') {
+          const zoneValue = zoneSelect ? zoneSelect.value : '0';
+          if (!zoneValue || zoneValue === '0') {
+            if (zoneSelect) zoneSelect.focus();
+            throw new Error('Elegí tu zona de entrega para calcular el envío.');
+          }
+          if (!address) {
+            const addrInput = document.getElementById('orderAddress');
+            if (addrInput) addrInput.focus();
+            throw new Error('Escribí tu dirección de entrega para que el pedido llegue bien.');
+          }
+        }
         const subtotal = quote.amount;
         const currentDelivery = mode === 'DELIVERY' ? deliveryFee : 0;
         const currentDiscount = appliedCoupon?.type === 'percent'
@@ -2401,6 +2648,7 @@ Object.defineProperties(window, {
             customerName,
             customerPhone: getCustomerPhone(),
             deliveryAddress: mode === 'DELIVERY' ? address : '',
+            orderMode: mode,
             currency,
             notes,
             isGroupOrder,
@@ -2843,6 +3091,12 @@ Object.defineProperties(window, {
         }
       } else if (externalBox) {
         externalBox.style.display = 'none';
+        // Eligió MP pero el local no tiene con qué cobrar: se avisa y se
+        // vuelve a Efectivo en vez de dejar un box invisible y confuso.
+        if (wantsOnline && restaurantData.allowOnlinePayment === true) {
+          if (select) select.value = 'Efectivo';
+          showToast('El pago online aún no está disponible en este local. Podés pagar al recibir.');
+        }
       }
     }
 
@@ -2863,9 +3117,47 @@ Object.defineProperties(window, {
     async function startOnlinePayment() {
       const items = Object.values(cart);
       if (!items.length) return;
+      // Igual que el checkout: con el local cerrado no se cobra online.
+      if (!isRestaurantOpenNow()) {
+        alert(restaurantData.forceClosed === true
+          ? 'El local está cerrado por el momento. Volvé a consultar en unos minutos.'
+          : `El local está cerrado ahora (${restaurantData.scheduleActiveHours} hs). Volvé en horario de atención.`);
+        return;
+      }
+      // Delivery sin datos: el backend lo rechaza; se avisa antes con foco.
+      {
+        const payMode = document.getElementById('orderMode').value;
+        if (payMode === 'DELIVERY') {
+          const zoneSel = document.getElementById('deliveryZoneSelect');
+          const addrVal = (document.getElementById('orderAddress') || {}).value || '';
+          if (!zoneSel || !zoneSel.value || zoneSel.value === '0') {
+            alert('Elegí tu zona de entrega para calcular el envío.');
+            if (zoneSel) zoneSel.focus();
+            return;
+          }
+          if (!addrVal.trim()) {
+            alert('Escribí tu dirección de entrega para que el pedido llegue bien.');
+            const addrInput = document.getElementById('orderAddress');
+            if (addrInput) addrInput.focus();
+            return;
+          }
+        }
+      }
       const btn = document.getElementById('btnExternalPay');
       if (btn) btn.style.pointerEvents = 'none';
       try {
+        // Mismo total que el resumen: subtotal + envío − cupón + propina.
+        // El backend recotiza y valida todo (cupón contra catálogo, fee
+        // contra zonas); acá viajan los valores vigentes en pantalla.
+        const mode = document.getElementById('orderMode').value;
+        const subtotal = Object.values(cart).reduce((sum, item) => sum + (item.qty * getCartUnitPrice(item)), 0);
+        const tipForPay = computeTipAmountMod(subtotal, tipPercent, tipCustom);
+        let discountForPay = 0;
+        if (appliedCoupon?.type === 'percent') {
+          discountForPay = Math.round(subtotal * (appliedCoupon.value / 100) * 100) / 100;
+        } else if (appliedCoupon?.type === 'free_delivery' && mode === 'DELIVERY') {
+          discountForPay = deliveryFee;
+        }
         const res = await fetch('/api/orders/mercadopago/preference', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2873,6 +3165,11 @@ Object.defineProperties(window, {
             restaurantId: restaurantData.id,
             currency: restaurantData.currency || '$',
             customerName: (document.getElementById('orderCustomerName') || {}).value || 'Cliente',
+            orderMode: mode,
+            deliveryAddress: mode === 'DELIVERY' ? (document.getElementById('orderAddress') || {}).value || '' : '',
+            deliveryFee: mode === 'DELIVERY' ? deliveryFee : 0,
+            tipAmount: tipForPay,
+            coupon: appliedCoupon,
             items: items.map(item => ({
               dishId: item.dish.id,
               quantity: item.qty,
@@ -3240,6 +3537,7 @@ Object.defineProperties(window, {
       openOrderTracking,
       closeOrderTracking,
       refreshOrderTracking,
+      selectTrackedOrder,
       forgetOrderTracking,
       reopenOrderWhatsApp,
       openWaiterModal,

@@ -11,6 +11,12 @@
  */
 
 import { escapeHtml } from '/js/utils/escapeHtmlBrowser.js';
+import {
+  normalizeGuestPhone as normalizeGuestPhoneMod,
+  buildGuestInviteLink as buildGuestInviteLinkMod,
+  buildGuestInviteMessage as buildGuestInviteMessageMod,
+  buildGuestInviteUrl as buildGuestInviteUrlMod
+} from './menu/eventInvitations.js';
 import { state } from './studio/state.js';
 import { PLANS } from './studio/data/plans.js';
 import { PRESETS } from './studio/data/presetsData.js';
@@ -56,13 +62,15 @@ import {
   moveCategory as moveCategoryMod,
   addCategoryFromManager as addCategoryMod,
   renameCategory as renameCategoryMod,
-  deleteCategory as deleteCategoryMod
+  deleteCategory as deleteCategoryMod,
+  duplicateCategory as duplicateCategoryMod
 } from './studio/categoryManager.js';
 
 import {
   openBillingModal as openBillingModalMod,
   closeBillingModal as closeBillingModalMod,
   startCheckout as startCheckoutMod,
+  cancelSubscription as cancelSubscriptionMod,
   getBranchDiscount,
   calculateMultiBranchPrice,
   getValidBranches
@@ -170,6 +178,7 @@ import {
   populateCatFilter as populateCatFilterMod,
   renderDishesList as renderDishesListMod,
   deleteDish as deleteDishMod,
+  duplicateDish as duplicateDishMod,
   clearDishPhoto,
   toggleDishScheduleControls,
   editDish as editDishMod,
@@ -183,6 +192,18 @@ import {
 import { switchTab as switchTabMod } from './studio/ui/tabs.js';
 import { showConfirmDialog, closeConfirmDialog } from './studio/ui/confirmDialog.js';
 import { showSaveFeedback } from './studio/ui/saveFeedback.js';
+import {
+  buildEscPosTicketOps as buildEscPosTicketOpsMod,
+  ESCPOS_TICKET_COLUMNS as ESCPOS_TICKET_COLUMNS_MOD,
+  ESCPOS_LIB_URL as ESCPOS_LIB_URL_MOD,
+  ESCPOS_LIB_GLOBAL as ESCPOS_LIB_GLOBAL_MOD,
+  ESCPOS_USB_CHUNK as ESCPOS_USB_CHUNK_MOD
+} from './studio/escposTicket.js';
+import {
+  formatOrderAge as formatOrderAgeMod,
+  orderAgeLevel as orderAgeLevelMod,
+  orderAgeStyle as orderAgeStyleMod
+} from './studio/orderAging.js';
 
 export async function compressImageFile(file) {
   const bitmap = await createImageBitmap(file);
@@ -237,17 +258,244 @@ export function normalizeRestaurantBusinessType(profile) {
   return normalized;
 }
 
+// ── Modo demo (?demo=<rubro>) ─────────────────────────────────────────────
+// La landing enlaza a /studio?demo=restaurant|heladeria|perfumery|events.
+// Sin sesión: el editor carga la plantilla como borrador local (sin guardar
+// en el servidor; el POST /api/studio/save exige sesión). Con sesión: se
+// carga el local real y la plantilla se ofrece como importación explícita
+// (nunca se pisa nada sin clic en «Importar a mi local»).
+const DEMO_TYPES = ['restaurant', 'heladeria', 'perfumery', 'events'];
+let demoMode = null; // { type, slug, name, authenticated } o null
+
+function getDemoTypeFromUrl() {
+  try {
+    const raw = (new URLSearchParams(window.location.search).get('demo') || '').toLowerCase().trim();
+    if (raw === 'perfumeria') return 'perfumery';
+    if (raw === 'evento' || raw === 'boda') return 'events';
+    return DEMO_TYPES.includes(raw) ? raw : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function demoDraftKey(type) {
+  return `scango_demo_draft_${type}`;
+}
+
+function renderDemoBanner(customText) {
+  const banner = document.getElementById('demoModeBanner');
+  if (!banner || !demoMode) return;
+  banner.style.display = 'flex';
+  const textEl = document.getElementById('demoBannerText');
+  if (textEl) {
+    textEl.textContent = customText || (demoMode.authenticated
+      ? `✨ Plantilla demo «${demoMode.name}»: explorá el editor y tocá «Importar a mi local» para usarla (conserva tu slug y tu QR).`
+      : `✨ Demo «${demoMode.name}»: todo lo que edites queda como borrador en este navegador. Creá tu cuenta gratis para publicarlo con tu QR.`);
+  }
+  const viewMenu = document.getElementById('demoBannerViewMenu');
+  if (viewMenu) viewMenu.href = `/m/${demoMode.slug}`;
+  const importBtn = document.getElementById('demoBannerImport');
+  if (importBtn) importBtn.style.display = demoMode.authenticated ? '' : 'none';
+  const registerBtn = document.getElementById('demoBannerRegister');
+  if (registerBtn) registerBtn.style.display = demoMode.authenticated ? 'none' : '';
+  const saveBtnText = document.getElementById('saveBtnText');
+  if (saveBtnText && !demoMode.authenticated) saveBtnText.textContent = '💾 Guardar borrador demo';
+  if (!demoMode.authenticated) {
+    if (document.getElementById('studioNavUserEmail')) {
+      document.getElementById('studioNavUserEmail').textContent = 'Modo demo — sin sesión';
+    }
+  }
+}
+
+/**
+ * Importa la plantilla demo al local real (solo con sesión). Conserva la
+ * identidad del dueño (id, userId, slug/QR, suscripción, analíticas): solo
+ * viaja el contenido editable (carta, estética, textos, zonas, itinerario).
+ */
+export function importDemoTemplate() {
+  if (!demoMode || !demoMode.authenticated || !demoMode.template || !restaurant) return;
+  const tpl = JSON.parse(JSON.stringify(demoMode.template));
+  const keep = {
+    id: restaurant.id,
+    userId: restaurant.userId,
+    slug: restaurant.slug,
+    subscription: restaurant.subscription,
+    analytics: restaurant.analytics,
+    createdAt: restaurant.createdAt
+  };
+  delete tpl.id;
+  delete tpl.userId;
+  delete tpl.subscription;
+  delete tpl.analytics;
+  delete tpl.createdAt;
+  delete tpl.isDemo;
+  Object.assign(restaurant, tpl);
+  restaurant.id = keep.id;
+  restaurant.userId = keep.userId;
+  restaurant.slug = keep.slug;
+  restaurant.subscription = keep.subscription;
+  if (keep.analytics) restaurant.analytics = keep.analytics;
+  if (keep.createdAt) restaurant.createdAt = keep.createdAt;
+  try {
+    localStorage.removeItem(demoDraftKey(demoMode.type));
+    localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(restaurant));
+  } catch (e) { /* storage bloqueado */ }
+  normalizeRestaurantBusinessType(restaurant);
+  renderStudioUI();
+  triggerAutoSave();
+  renderDemoBanner(`Plantilla «${demoMode.name}» importada a tu local (tu slug y tu QR no cambiaron). Revisá y guardá.`);
+}
+
+export function discardDemoTemplate() {
+  const authenticated = Boolean(demoMode && demoMode.authenticated);
+  demoMode = null;
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('demo');
+    window.history.replaceState({}, '', url.toString());
+  } catch (e) { /* URL no parseable */ }
+  window.location.href = authenticated ? '/studio.html' : '/';
+}
+
+async function initDemoMode(demoType) {
+  let template = null;
+  try {
+    const res = await fetch(`/api/demos/${demoType}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    template = data.demo;
+  } catch (e) {
+    window.location.href = '/studio.html';
+    return;
+  }
+  if (!template) {
+    window.location.href = '/studio.html';
+    return;
+  }
+
+  // Sesión silenciosa: cookie httpOnly (web) o Bearer (nativo). Sin sesión
+  // válida se entra igual, en modo borrador local (nunca POST al server).
+  let session = null;
+  try {
+    const headers = (window.AuthClient ? window.AuthClient.getAuthHeaders() : {});
+    const meRes = await fetch('/api/auth/me', { headers });
+    if (meRes.ok) session = await meRes.json();
+  } catch (e) { /* sin sesión: modo borrador */ }
+
+  if (session && (session.restaurant || session.user)) {
+    await initStudioAuth(state, () => {
+      currentUser = state.currentUser;
+      restaurant = state.restaurant;
+      renderStudioUI();
+    }, normalizeRestaurantBusinessType);
+    currentUser = state.currentUser || currentUser;
+    restaurant = state.restaurant || restaurant;
+    if (!restaurant) return; // paywall activo: el gate ya mostró su pantalla
+    demoMode = { type: demoType, slug: template.slug, name: template.name, authenticated: true, template };
+    renderDemoBanner();
+    return;
+  }
+
+  // Sin sesión: borrador local (se recupera si ya había uno para este rubro).
+  let draft = null;
+  try {
+    const raw = localStorage.getItem(demoDraftKey(demoType));
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.slug === template.slug) draft = parsed;
+    }
+  } catch (e) { /* storage corrupto: se usa la plantilla fresca */ }
+  currentUser = {
+    name: 'Invitado demo',
+    email: '',
+    subscription: {
+      status: 'trialing',
+      plan: 'pro_monthly',
+      trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    }
+  };
+  restaurant = draft || JSON.parse(JSON.stringify(template));
+  state.currentUser = currentUser;
+  state.restaurant = restaurant;
+  normalizeRestaurantBusinessType(restaurant);
+  demoMode = { type: demoType, slug: template.slug, name: template.name, authenticated: false, template };
+  renderStudioUI();
+  renderDemoBanner(draft ? `Borrador demo «${template.name}» recuperado de este navegador. Seguí editando o creá tu cuenta para publicarlo.` : null);
+  reloadPreviewIframe();
+}
+
+export const HELADERIA_THEMES = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora'];
+export const ICE_CREAM_BUTTON_STYLES = ['clasico', 'fiesta', 'premium', 'tropical', 'nube', 'noche'];
+
+export function resolveIceCreamButtonStyle(value) {
+  const key = String(value || '').trim().toLowerCase();
+  return ICE_CREAM_BUTTON_STYLES.includes(key) ? key : 'clasico';
+}
+
+/**
+ * Filtra el selector de estética por rubro: una heladería SOLO ve sus 11
+ * temas propios (los 14 de restaurante se ocultan + disabled). Otros rubros
+ * ven todo. Si el valor actual quedó oculto (cuenta vieja), se corrige a
+ * helado-fiesta para que el Studio nunca muestre un theme imposible.
+ */
+export function filterThemeOptionsByBusinessType() {
+  const themeSelect = document.getElementById('inputThemeBg');
+  if (!themeSelect) return;
+  const bizType = normalizeBusinessType(restaurant?.businessType);
+  const isHeladeria = bizType === 'heladeria';
+  let corrected = false;
+  Array.from(themeSelect.options).forEach(opt => {
+    if (!opt.value) return; // optgroup labels no son options reales
+    const isHela = HELADERIA_THEMES.includes(opt.value);
+    if (isHeladeria) {
+      const hide = !isHela;
+      opt.hidden = hide;
+      opt.disabled = hide;
+    } else {
+      opt.hidden = false;
+      opt.disabled = false;
+    }
+  });
+  // Corrección automática: heladería con theme de restaurante → fiesta.
+  if (isHeladeria && restaurant && !HELADERIA_THEMES.includes(restaurant.theme)) {
+    restaurant.theme = 'helado-fiesta';
+    themeSelect.value = 'helado-fiesta';
+    corrected = true;
+  }
+  // Al salir de heladería con un theme exclusivo → emerald (no existe fuera).
+  if (!isHeladeria && restaurant && HELADERIA_THEMES.includes(restaurant.theme)) {
+    // Solo corregimos si el rubro cambió de verdad (no al cargar una heladería).
+    // Como acá bizType ya no es heladería, el theme helado quedó huérfano.
+    restaurant.theme = 'emerald';
+    themeSelect.value = 'emerald';
+    corrected = true;
+  }
+  const hint = document.getElementById('themeHeladeriaHint');
+  if (hint) hint.style.display = isHeladeria ? 'block' : 'none';
+  const countHint = document.getElementById('themeCountHint');
+  if (countHint) countHint.textContent = isHeladeria ? '(11 estéticas exclusivas de heladería)' : '(14 clásicas + 11 de heladería)';
+  if (corrected) triggerAutoSave();
+}
+
 export function updateBusinessTypeControls() {
+  // Helper local (patrón de la casa: cada función define su `el`).
+  // Sin esto, el `el(...)` de abajo es ReferenceError en el navegador
+  // (módulo ES = strict mode) y muere TODO lo que sigue: el filtro de temas,
+  // la segunda mitad de updateLiveState (theme/neon/banner/wifi/autosave) y
+  // el resto de renderStudioUI (carta, zonas, sucursales, QR, preview).
+  const el = id => document.getElementById(id);
   const bizType = normalizeBusinessType(restaurant?.businessType);
   const perfumerySection = document.getElementById('perfumeryControlsSection');
   if (perfumerySection) {
     perfumerySection.style.display = (bizType === 'perfumery') ? 'flex' : 'none';
     const perfCheckbox = el('inputAllowPerfumery');
     const sliderP = el('sliderPerfumery');
-    if (bizType === 'perfumery' && perfCheckbox) {
-      // Auto-activar el catálogo de perfumería al elegir el tipo (backend solo
-      // defaultea true si el flag está undefined; un false explícito lo mata).
+    // Solo se auto-activa cuando la bandera está ausente (cuenta nueva sin
+    // decisión). Un `false` explícito del dueño NUNCA se pisa acá (antes este
+    // bloque hacía checked=true en cada updateLiveState y era imposible apagar).
+    if (bizType === 'perfumery' && perfCheckbox && restaurant.allowPerfumery === undefined) {
       perfCheckbox.checked = true;
+      restaurant.allowPerfumery = true;
       if (sliderP) sliderP.style.backgroundColor = '#38A169';
     }
   }
@@ -256,16 +504,31 @@ export function updateBusinessTypeControls() {
     iceCreamSection.style.display = (bizType === 'heladeria') ? 'flex' : 'none';
     const iceCreamCheckbox = el('inputAllowIceCreamWizard');
     const sliderI = el('sliderIceCreamWizard');
-    if (bizType === 'heladeria' && iceCreamCheckbox) {
-      // Idem: una heladería nueva debe nacer con el asistente activo.
+    // Idem: solo default cuando la bandera está ausente. Respeta el `false`
+    // explícito del dueño (el asistente se puede apagar aunque sea heladería).
+    if (bizType === 'heladeria' && iceCreamCheckbox && restaurant.allowIceCreamWizard === undefined) {
       iceCreamCheckbox.checked = true;
+      restaurant.allowIceCreamWizard = true;
       if (sliderI) sliderI.style.backgroundColor = '#38A169';
+    }
+    // Una heladería nueva sin estilo de botón nace con 'fiesta' (premium visible).
+    if (bizType === 'heladeria' && restaurant.iceCreamButtonStyle === undefined) {
+      restaurant.iceCreamButtonStyle = 'fiesta';
+      const btnSel = el('inputIceCreamButtonStyle');
+      if (btnSel) btnSel.value = 'fiesta';
     }
   }
   const weddingSection = document.getElementById('weddingItinerarySection');
   if (weddingSection) {
     weddingSection.style.display = (bizType === 'events') ? 'flex' : 'none';
   }
+  // Invitados del evento: mismo gating que el itinerario.
+  const eventGuestsSection = document.getElementById('eventGuestsSection');
+  if (eventGuestsSection) {
+    eventGuestsSection.style.display = (bizType === 'events') ? 'flex' : 'none';
+  }
+  // El filtro de temas SIEMPRE corre con los controles de rubro.
+  filterThemeOptionsByBusinessType();
 }
 
 export function updateWeatherToggleStyle() {
@@ -644,6 +907,11 @@ export function updateLiveState() {
   if (iceCreamLabelInput) {
     restaurant.iceCreamBuilderLabel = iceCreamLabelInput.value.trim().slice(0, 60);
   }
+  const iceCreamBtnSelect = el('inputIceCreamButtonStyle');
+  if (iceCreamBtnSelect) {
+    const rawBtn = String(iceCreamBtnSelect.value || '').trim().toLowerCase();
+    restaurant.iceCreamButtonStyle = ICE_CREAM_BUTTON_STYLES.includes(rawBtn) ? rawBtn : 'clasico';
+  }
 
   const perfumeryCheckbox = el('inputAllowPerfumery');
   if (perfumeryCheckbox) {
@@ -680,13 +948,34 @@ export function updateLiveState() {
 
   const layoutSelect = el('inputMenuLayout');
   if (layoutSelect) restaurant.layout = layoutSelect.value || 'classic';
-  if (el('inputThemeBg')) restaurant.theme = el('inputThemeBg').value;
+  if (el('inputThemeBg')) {
+    let nextTheme = el('inputThemeBg').value;
+    // Cambio de rubro a heladería con theme de restaurante: corrección
+    // inmediata a fiesta (el filtro además lo impone al mostrar).
+    if (restaurant.businessType === 'heladeria' && !HELADERIA_THEMES.includes(nextTheme)) {
+      nextTheme = 'helado-fiesta';
+      el('inputThemeBg').value = nextTheme;
+    }
+    restaurant.theme = nextTheme;
+  }
   if (el('inputThemeFont')) restaurant.themeFont = el('inputThemeFont').value;
   // Acento neón (sólo layout neon; el backend valida el allowlist)
   const neonSelect = el('inputNeonAccent');
   if (neonSelect) restaurant.neonAccent = neonSelect.value || 'mint';
+  // Color neón libre (picker HEX): solo persiste marcado + #RRGGBB válido.
+  // Apagado o inválido → '' (manda el preset, sin override inline).
+  const neonCustomEnabled = el('inputNeonCustomEnabled');
+  const neonPicker = el('inputNeonCustomColor');
+  const pickerRaw = neonPicker ? String(neonPicker.value || '').trim() : '';
+  const pickerHex = /^#[0-9a-fA-F]{6}$/.test(pickerRaw) ? `#${pickerRaw.slice(1).toLowerCase()}` : '';
+  restaurant.neonCustomColor = (neonCustomEnabled && neonCustomEnabled.checked && pickerHex) ? pickerHex : '';
+  const hexLabel = document.getElementById('neonCustomHexLabel');
+  if (hexLabel) hexLabel.textContent = pickerHex || (neonPicker ? String(neonPicker.value || '') : '');
   const neonRow = document.getElementById('neonAccentRow');
-  if (neonRow) neonRow.style.display = (layoutSelect && layoutSelect.value === 'neon') ? 'block' : 'none';
+  const isNeonLayout = Boolean(layoutSelect && layoutSelect.value === 'neon');
+  if (neonRow) neonRow.style.display = isNeonLayout ? 'block' : 'none';
+  const neonCustomRow = document.getElementById('neonCustomRow');
+  if (neonCustomRow) neonCustomRow.style.display = (isNeonLayout && neonCustomEnabled && neonCustomEnabled.checked) ? 'flex' : 'none';
 
   const bannerInput = el('inputBannerUrl');
   if (bannerInput && bannerInput.value.trim() && !restaurant.bannerUrl?.startsWith('data:')) {
@@ -738,6 +1027,14 @@ export function updateLiveState() {
   const schedHours = el('inputScheduleActiveHours');
   if (schedHours) restaurant.scheduleActiveHours = schedHours.value.trim();
 
+  // Cierre manual del dueño (override del horario; default apagado).
+  const forceClosedCheck = el('inputForceClosed');
+  if (forceClosedCheck) {
+    restaurant.forceClosed = forceClosedCheck.checked === true;
+    const sliderFC = el('sliderForceClosed');
+    if (sliderFC) sliderFC.style.backgroundColor = forceClosedCheck.checked ? '#E53E3E' : '#2a3a33';
+  }
+
   if (el('inputTableCount')) restaurant.tableCount = parseInt(el('inputTableCount').value) || 10;
 
   if (el('studioNavRestaurantName')) el('studioNavRestaurantName').textContent = restaurant.name;
@@ -748,7 +1045,11 @@ export function updateLiveState() {
   syncLivePreviewIframe();
 
   try {
-    localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(restaurant));
+    if (demoMode && !demoMode.authenticated) {
+      localStorage.setItem(demoDraftKey(demoMode.type), JSON.stringify(restaurant));
+    } else {
+      localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(restaurant));
+    }
   } catch (e) {}
 
   triggerAutoSave();
@@ -759,6 +1060,21 @@ export function triggerAutoSave() {
 }
 
 export async function saveStudioChanges() {
+  // Modo demo sin sesión: borrador local + invitación a registrarse.
+  // El POST /api/studio/save exige sesión (401) así que ni se intenta.
+  if (demoMode && !demoMode.authenticated) {
+    try {
+      localStorage.setItem(demoDraftKey(demoMode.type), JSON.stringify(restaurant));
+    } catch (e) { /* storage bloqueado */ }
+    const btnText = document.getElementById('saveBtnText');
+    if (btnText) btnText.textContent = '✓ Borrador demo guardado local';
+    showSaveFeedback('saved');
+    renderDemoBanner('Borrador demo guardado en este navegador. Creá tu cuenta gratis para publicarlo con tu propio QR.');
+    setTimeout(() => {
+      if (btnText) btnText.textContent = '💾 Guardar borrador demo';
+    }, 1800);
+    return;
+  }
   await saveStudioChangesMod(restaurant, showSaveFeedback, reloadPreviewIframe);
 }
 
@@ -819,8 +1135,18 @@ export function renderStudioUI() {
   if (el('inputThemeBg')) el('inputThemeBg').value = restaurant.theme || 'emerald';
   if (el('inputThemeFont')) el('inputThemeFont').value = restaurant.themeFont || 'serif';
   if (el('inputNeonAccent')) el('inputNeonAccent').value = restaurant.neonAccent || 'mint';
+  // Color libre: checkbox marcado + picker con el hex guardado (o menta default).
+  const storedCustomRaw = String(restaurant.neonCustomColor || '').trim();
+  const storedCustom = /^#[0-9a-fA-F]{6}$/.test(storedCustomRaw) ? `#${storedCustomRaw.slice(1).toLowerCase()}` : '';
+  if (el('inputNeonCustomEnabled')) el('inputNeonCustomEnabled').checked = Boolean(storedCustom);
+  if (el('inputNeonCustomColor')) el('inputNeonCustomColor').value = storedCustom || '#00F5D4';
+  const storedHexLabel = document.getElementById('neonCustomHexLabel');
+  if (storedHexLabel) storedHexLabel.textContent = storedCustom || '#00f5d4';
   const neonRowLoad = document.getElementById('neonAccentRow');
-  if (neonRowLoad) neonRowLoad.style.display = ((restaurant.layout || 'classic') === 'neon') ? 'block' : 'none';
+  const isNeonLoad = (restaurant.layout || 'classic') === 'neon';
+  if (neonRowLoad) neonRowLoad.style.display = isNeonLoad ? 'block' : 'none';
+  const neonCustomRowLoad = document.getElementById('neonCustomRow');
+  if (neonCustomRowLoad) neonCustomRowLoad.style.display = (isNeonLoad && Boolean(storedCustom)) ? 'flex' : 'none';
 
   const couponsCheckbox = el('inputAllowCoupons');
   if (couponsCheckbox) {
@@ -853,6 +1179,12 @@ export function renderStudioUI() {
     if (sliderSched) sliderSched.style.backgroundColor = schedCheck.checked ? '#38A169' : '#2a3a33';
   }
   if (el('inputScheduleActiveHours')) el('inputScheduleActiveHours').value = restaurant.scheduleActiveHours || '';
+  const forceClosedLoad = el('inputForceClosed');
+  if (forceClosedLoad) {
+    forceClosedLoad.checked = restaurant.forceClosed === true;
+    const sliderFC = el('sliderForceClosed');
+    if (sliderFC) sliderFC.style.backgroundColor = forceClosedLoad.checked ? '#E53E3E' : '#2a3a33';
+  }
   if (el('inputTableCount')) el('inputTableCount').value = restaurant.tableCount || 10;
 
   if (restaurant.logoUrl) {
@@ -903,6 +1235,10 @@ export function renderStudioUI() {
   if (iceCreamLabelInput) {
     iceCreamLabelInput.value = restaurant.iceCreamBuilderLabel || '';
   }
+  const iceCreamBtnSelect = el('inputIceCreamButtonStyle');
+  if (iceCreamBtnSelect) {
+    iceCreamBtnSelect.value = resolveIceCreamButtonStyle(restaurant.iceCreamButtonStyle);
+  }
 
   const perfumeryCheckbox = el('inputAllowPerfumery');
   if (perfumeryCheckbox) {
@@ -925,7 +1261,22 @@ export function renderStudioUI() {
   if (el('inputWeddingDay')) el('inputWeddingDay').value = wedIt.eventDay || '';
   if (el('inputWeddingVenue')) el('inputWeddingVenue').value = wedIt.venue || '';
   renderWeddingItineraryRows();
+  renderEventGuestRows();
   updateBusinessTypeControls();
+
+  // Térmica USB: si el navegador ya autorizó el dispositivo, se restaura en
+  // silencio (sin pedir el selector de nuevo).
+  restoreUsbPrinter();
+
+  // Sonido de pedidos nuevos: respeta la preferencia guardada (default on).
+  const orderSoundBox = el('inputOrderSoundEnabled');
+  if (orderSoundBox) {
+    let soundOn = true;
+    try {
+      soundOn = localStorage.getItem('scango_order_sound') !== '0';
+    } catch (e) { /* storage bloqueado: suena */ }
+    orderSoundBox.checked = soundOn;
+  }
 
   setReviewPhotoOption('logo');
   populateCatFilter();
@@ -1038,6 +1389,7 @@ export function removeBranchCustomDishRow(idx) { removeBranchCustomDishRowMod(id
 export function openBillingModal() { openBillingModalMod(currentUser, restaurant); }
 export function closeBillingModal() { closeBillingModalMod(); }
 export function startCheckout(plan, ev) { startCheckoutMod(plan, ev, restaurant); }
+export function cancelSubscription() { cancelSubscriptionMod(); }
 
 export function promptNewCategoryInModal() { promptNewCategoryMod(restaurant, populateCatFilter, triggerAutoSave); }
 export function openCategoryManagerModal() { openCategoryModal(() => renderCategoryListMod(restaurant, escapeHtml)); }
@@ -1046,6 +1398,7 @@ export function moveCategory(id, dir) { moveCategoryMod(restaurant, id, dir, () 
 export function addCategoryFromManager() { addCategoryMod(restaurant, () => { renderCategoryListMod(restaurant, escapeHtml); populateCatFilter(); triggerAutoSave(); }); }
 export function renameCategory(id) { renameCategoryMod(restaurant, id, () => { renderCategoryListMod(restaurant, escapeHtml); populateCatFilter(); renderDishesList(); triggerAutoSave(); }); }
 export function deleteCategory(id) { deleteCategoryMod(restaurant, id, () => { renderCategoryListMod(restaurant, escapeHtml); populateCatFilter(); renderDishesList(); triggerAutoSave(); }); }
+export function duplicateCategoryFromManager(id) { duplicateCategoryMod(restaurant, id, () => { renderCategoryListMod(restaurant, escapeHtml); populateCatFilter(); renderDishesList(); triggerAutoSave(); }); }
 
 export function populateCatFilter() { populateCatFilterMod(restaurant); }
 export function renderDishesList() { renderDishesListMod(restaurant, escapeHtml); }
@@ -1054,6 +1407,7 @@ export function openNewDishModal() { openNewDishModalMod(restaurant); }
 export function saveDishFromModal(e) { saveDishFromModalMod(restaurant, e, () => { renderDishesList(); triggerAutoSave(); }); }
 export function handleDishPhotoUpload(input) { return handleDishPhotoUploadMod(input, compressImageFile); }
 export function deleteDish(id) { deleteDishMod(restaurant, id, showConfirmDialog, () => { renderDishesList(); triggerAutoSave(); }); }
+export function duplicateDishItem(id) { duplicateDishMod(restaurant, id, () => { renderDishesList(); triggerAutoSave(); }); }
 export function toggleDishesByIngredient(isOut) { toggleDishesByIngredientMod(restaurant, isOut, () => { renderDishesList(); triggerAutoSave(); }); }
 
 export function openPresetsModal() { openPresetsModalMod(escapeHtml); }
@@ -1079,6 +1433,7 @@ export function switchTab(tabId, btn) {
   if (tabId === 'qr') generateQrCode();
   if (tabId === 'stats') renderStatsTab();
   if (tabId === 'notifications') { loadNotificationEvents(); loadRecentOrders(); }
+  else { stopOrdersPolling(); }
 }
 
 export function loadAnalytics() { loadAnalyticsMod(restaurant); }
@@ -1104,17 +1459,108 @@ export function confirmAiMenuImportAction() {
   });
 }
 
-export async function initStudio() {
-  await initStudioAuth(state, () => {
-    currentUser = state.currentUser;
-    restaurant = state.restaurant;
-    renderStudioUI();
-  }, normalizeRestaurantBusinessType);
+// ── Respaldo de la carta (exportar / importar JSON) ─────────────────────
+// Exportar descarga el local completo; importar reemplaza carta, estética y
+// textos pero conserva identidad (id, slug/QR, suscripción, analíticas),
+// igual que importDemoTemplate. Sin confirmación no se pisa nada.
+export function exportMenuJson() {
+  if (!restaurant) return;
+  try {
+    const blob = new Blob([JSON.stringify(restaurant, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `carta-${restaurant.slug || 'respaldo'}-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => { try { URL.revokeObjectURL(a.href); } catch (e) {} }, 5000);
+  } catch (e) {
+    alert('No se pudo generar el respaldo.');
+  }
+}
 
-  // El paywall (initStudioAuth retorna temprano sin pasar por el callback de
-  // render) también necesita estos datos: `openBillingModal` los lee de acá.
-  currentUser = state.currentUser || currentUser;
-  restaurant = state.restaurant || restaurant;
+export function importMenuJsonFile(e) {
+  const file = e && e.target && e.target.files && e.target.files[0];
+  if (!file || !restaurant) {
+    if (e && e.target) e.target.value = '';
+    return;
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    alert('El respaldo no debe superar los 2MB.');
+    e.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const parsed = JSON.parse(event.target.result);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('formato');
+      if (!Array.isArray(parsed.dishes) || !Array.isArray(parsed.categories)) {
+        alert('El archivo no parece una carta válida (faltan platos o categorías).');
+        return;
+      }
+      const dishCount = parsed.dishes.length;
+      const catCount = parsed.categories.length;
+      if (!confirm(`Importar respaldo con ${dishCount} plato(s) y ${catCount} categoría(s)? Se reemplazan carta, estética y textos; tu slug, QR y suscripción no cambian.`)) return;
+      const tpl = JSON.parse(JSON.stringify(parsed));
+      const keep = {
+        id: restaurant.id,
+        userId: restaurant.userId,
+        slug: restaurant.slug,
+        subscription: restaurant.subscription,
+        analytics: restaurant.analytics,
+        createdAt: restaurant.createdAt
+      };
+      delete tpl.id;
+      delete tpl.userId;
+      delete tpl.subscription;
+      delete tpl.analytics;
+      delete tpl.createdAt;
+      delete tpl.isDemo;
+      Object.assign(restaurant, tpl);
+      restaurant.id = keep.id;
+      restaurant.userId = keep.userId;
+      restaurant.slug = keep.slug;
+      restaurant.subscription = keep.subscription;
+      if (keep.analytics) restaurant.analytics = keep.analytics;
+      if (keep.createdAt) restaurant.createdAt = keep.createdAt;
+      try {
+        localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(restaurant));
+      } catch (err) { /* storage bloqueado */ }
+      normalizeRestaurantBusinessType(restaurant);
+      renderStudioUI();
+      triggerAutoSave();
+    } catch (err) {
+      alert('No se pudo leer el respaldo: el archivo no es un JSON válido.');
+    } finally {
+      if (e && e.target) e.target.value = '';
+    }
+  };
+  reader.onerror = () => {
+    alert('No se pudo leer el archivo.');
+    if (e && e.target) e.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+export async function initStudio() {
+  // Modo demo (?demo=<rubro>): editor navegable con plantilla, con o sin
+  // sesión. No redirige a la landing si no hay sesión (ver initDemoMode).
+  const demoType = getDemoTypeFromUrl();
+  if (demoType) {
+    await initDemoMode(demoType);
+  } else {
+    await initStudioAuth(state, () => {
+      currentUser = state.currentUser;
+      restaurant = state.restaurant;
+      renderStudioUI();
+    }, normalizeRestaurantBusinessType);
+
+    // El paywall (initStudioAuth retorna temprano sin pasar por el callback de
+    // render) también necesita estos datos: `openBillingModal` los lee de acá.
+    currentUser = state.currentUser || currentUser;
+    restaurant = state.restaurant || restaurant;
+  }
 
   // Setup Drag & Drop on AI Menu Dropzone
   const dropzone = document.getElementById('aiMenuDropzone');
@@ -1269,6 +1715,178 @@ function removeWeddingItineraryItem(index) {
   triggerAutoSave();
 }
 
+// ── Invitados del evento + invitaciones por WhatsApp ────────────────────
+// La lista vive en restaurant.eventConfig.guests (la guarda /api/studio/save
+// con el resto del local). Cada invitado lleva su link personal con qrToken:
+// el endpoint de invitado ya resuelve mesa y dieta con ese token.
+function getEventGuestsRef() {
+  if (!restaurant) return null;
+  if (!restaurant.eventConfig || typeof restaurant.eventConfig !== 'object') {
+    restaurant.eventConfig = {};
+  }
+  if (!Array.isArray(restaurant.eventConfig.guests)) restaurant.eventConfig.guests = [];
+  return restaurant.eventConfig.guests;
+}
+
+// Tokens de invitado con entropía real: el link personal no debe ser
+// adivinable (Math.random solo no alcanza). Con fallback legado por si
+// crypto no está disponible en el WebView.
+function mintGuestToken(prefix) {
+  let rand = '';
+  try {
+    const bytes = new Uint8Array(6);
+    crypto.getRandomValues(bytes);
+    rand = Array.from(bytes, b => b.toString(36)).join('').slice(0, 8);
+  } catch (e) {
+    rand = Math.random().toString(36).slice(2, 10);
+  }
+  return `${prefix}_${Date.now().toString(36)}${rand}`;
+}
+
+function getEventInviteContext() {
+  const it = (restaurant && restaurant.weddingItinerary) || {};
+  return {
+    coupleNames: it.coupleNames || (restaurant && (restaurant.name || restaurant.bizName)) || '',
+    date: it.date || '',
+    venue: it.venue || ''
+  };
+}
+
+function buildGuestLink(guest) {
+  let origin = '';
+  try {
+    origin = window.location.origin;
+  } catch (e) { /* sin window: link relativo imposible, se devuelve vacío */ }
+  return buildGuestInviteLinkMod(origin, restaurant && restaurant.slug, guest || {});
+}
+
+function renderEventGuestRows() {
+  const container = document.getElementById('eventGuestRows');
+  if (!container || !restaurant) return;
+  const guests = getEventGuestsRef() || [];
+  const count = document.getElementById('eventGuestCount');
+  if (count) count.textContent = guests.length ? `${guests.length} invitado(s)` : '';
+  if (!guests.length) {
+    container.innerHTML = '<div style="font-size:11px; color:var(--text-dim); padding:6px 0;">Sin invitados. Tocá "Agregar invitado" para armar la lista (nombre + WhatsApp).</div>';
+    return;
+  }
+  container.innerHTML = guests.map((g, i) => {
+    const hasPhone = Boolean(normalizeGuestPhoneMod(g.phone || g.whatsapp));
+    return `
+    <div style="display:flex; gap:6px; align-items:center; margin-bottom:6px; flex-wrap:wrap;">
+      <input type="text" class="form-input" value="${escapeHtml(String(g.name || ''))}" maxlength="80" placeholder="Nombre del invitado"
+             data-js-input="updateEventGuestField|${i}|name|this.value" style="flex:2; min-width:120px; font-size:11px; padding:6px 8px;" title="Nombre">
+      <input type="tel" class="form-input" value="${escapeHtml(String(g.phone || g.whatsapp || ''))}" maxlength="20" placeholder="WhatsApp (ej: 59899123456)"
+             data-js-input="updateEventGuestField|${i}|phone|this.value" style="flex:1; min-width:110px; font-size:11px; padding:6px 8px;" title="WhatsApp">
+      <button type="button" class="btn-nav" data-js-click="sendGuestInvite|${i}" style="padding:4px 8px; font-size:10px; ${hasPhone ? 'border-color:#25D366; color:#68D391;' : 'opacity:0.45;'}" title="${hasPhone ? 'Enviar invitación personal por WhatsApp' : 'Cargá un WhatsApp válido para invitar'}">💬 Invitar</button>
+      <button type="button" class="btn-nav" data-js-click="copyGuestInviteLink|${i}" style="padding:4px 8px; font-size:10px;" title="Copiar link personal del invitado">🔗</button>
+      <button type="button" class="btn-nav" data-js-click="removeEventGuest|${i}" style="padding:4px 8px; font-size:10px; border-color:#E53E3E; color:#F87171;" title="Quitar invitado">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function updateEventGuestField(index, field, value) {
+  const guests = getEventGuestsRef();
+  if (!guests) return;
+  const guest = guests[index];
+  if (!guest) return;
+  if (field === 'name') guest.name = String(value || '').trim().slice(0, 80);
+  else if (field === 'phone') guest.phone = String(value || '').trim().slice(0, 20);
+  triggerAutoSave();
+}
+
+function addEventGuest() {
+  const guests = getEventGuestsRef();
+  if (!guests) return;
+  if (guests.length >= 500) return;
+  guests.push({
+    id: mintGuestToken('gst'),
+    name: '',
+    phone: '',
+    qrToken: mintGuestToken('qr')
+  });
+  renderEventGuestRows();
+  triggerAutoSave();
+}
+
+function removeEventGuest(index) {
+  const guests = getEventGuestsRef();
+  if (!guests || !guests[index]) return;
+  guests.splice(index, 1);
+  renderEventGuestRows();
+  triggerAutoSave();
+}
+
+function guestInviteMessage(guest) {
+  const ctx = getEventInviteContext();
+  return buildGuestInviteMessageMod({
+    coupleNames: ctx.coupleNames,
+    date: ctx.date,
+    venue: ctx.venue,
+    guestName: guest.name,
+    link: buildGuestLink(guest)
+  });
+}
+
+function eventGuestStatus(text, isError) {
+  const statusEl = document.getElementById('eventGuestMsg');
+  if (!statusEl) return;
+  statusEl.textContent = text || '';
+  statusEl.style.color = isError ? '#F87171' : 'var(--text-dim)';
+}
+
+function sendGuestInvite(index) {
+  const guests = getEventGuestsRef();
+  const guest = guests && guests[index];
+  if (!guest) return;
+  // El token viaja en el link: si aún no se persistió, se genera ahora para
+  // que el link enviado sea el mismo que queda guardado.
+  if (!guest.qrToken) {
+    guest.qrToken = mintGuestToken('qr');
+    triggerAutoSave();
+  }
+  const url = buildGuestInviteUrlMod(guest.whatsapp || guest.phone, guestInviteMessage(guest));
+  if (!url) {
+    eventGuestStatus('Cargá un WhatsApp válido (con código de país) para invitar a este invitado.', true);
+    return;
+  }
+  eventGuestStatus(`Invitación abierta para ${guest.name || 'el invitado'} en WhatsApp.`);
+  window.open(url, '_blank');
+}
+
+function copyGuestInviteLink(index) {
+  const guests = getEventGuestsRef();
+  const guest = guests && guests[index];
+  if (!guest) return;
+  if (!guest.qrToken) {
+    guest.qrToken = mintGuestToken('qr');
+    triggerAutoSave();
+  }
+  const link = buildGuestLink(guest);
+  if (!link) {
+    eventGuestStatus('No se pudo armar el link (falta el slug del evento).', true);
+    return;
+  }
+  const done = () => eventGuestStatus('Link personal copiado al portapapeles.');
+  const fail = () => eventGuestStatus('No se pudo copiar automáticamente: el link es ' + link, true);
+  try {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(link).then(done, fail);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = link;
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand && document.execCommand('copy');
+      ta.remove();
+      if (ok) done();
+      else fail();
+    }
+  } catch (e) {
+    fail();
+  }
+}
+
 async function validateLoyaltyCode() {
   const codeEl = document.getElementById('inputRedeemCode');
   const resultEl = document.getElementById('loyaltyValidateResult');
@@ -1383,8 +2001,309 @@ const ORDER_STATUS_LABELS = {
   delivered: 'Entregado', cancelled: 'Cancelado'
 };
 const ORDER_ACTION_STATES = ['confirmed', 'preparing', 'ready', 'on_the_way', 'delivered'];
+// Estados terminales con confirmación: cancelar un pedido real por error
+// duele, y avisar demora es una decisión consciente.
+const ORDER_DANGER_STATES = ['cancelled'];
+const ORDER_EXTRA_STATES = ['delayed', 'cancelled'];
 
-async function loadRecentOrders() {
+// Polling de pedidos en vivo (20s) solo con la pestaña visible.
+let ordersPollTimer = null;
+let seenOrderIds = new Set();
+// Última lista pintada: fuente del ticket imprimible (sin re-fetch).
+let lastOrdersCache = [];
+// La primera carga pinta el estado actual (sin beep): solo los pedidos que
+// aparecen DESPUÉS disparan el aviso sonoro.
+let ordersBaselineDone = false;
+let orderTitleTimer = null;
+// Ticker de antigüedad (30s): refresca los chips ⏱ sin re-fetchear.
+let orderAgeTimer = null;
+
+function isOrderSoundEnabled() {
+  const box = document.getElementById('inputOrderSoundEnabled');
+  if (box) return box.checked === true;
+  try {
+    return localStorage.getItem('scango_order_sound') !== '0';
+  } catch (e) {
+    return true;
+  }
+}
+
+export function toggleOrderSound() {
+  const box = document.getElementById('inputOrderSoundEnabled');
+  try {
+    localStorage.setItem('scango_order_sound', box && box.checked ? '1' : '0');
+  } catch (e) { /* storage bloqueado */ }
+}
+
+// Beep doble por WebAudio (sin assets): se crea al momento del aviso para no
+// pedir permiso antes de tiempo; si el navegador lo bloquea, falla en silencio.
+function playOrderAlert(count) {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const now = ctx.currentTime;
+    [0, 0.22].forEach((offset, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = i === 0 ? 880 : 1174.66;
+      gain.gain.setValueAtTime(0.0001, now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.25, now + offset + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.18);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.2);
+    });
+    setTimeout(() => { try { ctx.close(); } catch (e) {} }, 1000);
+  } catch (e) { /* autoplay bloqueado o sin audio: el badge ● NUEVO igual avisa */ }
+  // Parpadeo del título para cocinas con el panel en otra pestaña.
+  try {
+    if (orderTitleTimer) {
+      clearTimeout(orderTitleTimer);
+      orderTitleTimer = null;
+    }
+    if (!playOrderAlert._originalTitle) playOrderAlert._originalTitle = document.title;
+    document.title = `🔔 ¡${count > 1 ? count + ' pedidos nuevos' : 'Pedido nuevo'}! — ScanGo Studio`;
+    orderTitleTimer = setTimeout(() => {
+      document.title = playOrderAlert._originalTitle || document.title;
+      orderTitleTimer = null;
+    }, 8000);
+  } catch (e) {}
+}
+function stopOrdersPolling() {
+  if (ordersPollTimer) {
+    clearInterval(ordersPollTimer);
+    ordersPollTimer = null;
+  }
+  stopOrderAgeTicker();
+}
+function startOrdersPolling() {
+  stopOrdersPolling();
+  ordersPollTimer = setInterval(() => {
+    const tab = document.getElementById('tab-notifications');
+    if (tab && tab.style.display === 'none') return;
+    if (document.hidden) return;
+    loadRecentOrders(true);
+  }, 20000);
+  startOrderAgeTicker();
+}
+
+// ── Antigüedad en cocina: refresca los chips ⏱ cada 30s sin re-fetch ──
+function stopOrderAgeTicker() {
+  if (orderAgeTimer) {
+    clearInterval(orderAgeTimer);
+    orderAgeTimer = null;
+  }
+}
+function startOrderAgeTicker() {
+  stopOrderAgeTicker();
+  updateOrderAges();
+  orderAgeTimer = setInterval(updateOrderAges, 30000);
+}
+function updateOrderAges() {
+  const now = Date.now();
+  document.querySelectorAll('[data-order-age]').forEach(span => {
+    const created = span.getAttribute('data-created') || '';
+    const status = span.getAttribute('data-status') || 'pending';
+    span.textContent = `⏱ ${formatOrderAgeMod(created, now)}`;
+    const style = orderAgeStyleMod(orderAgeLevelMod(created, now, status));
+    span.style.color = style.color;
+    span.style.fontWeight = style.weight;
+  });
+}
+
+// ── Impresión térmica USB directa, ESC/POS (Fase 2) ─────────────────────
+// Librería MIT `@point-of-sale/receipt-printer-encoder` (Niels Leenheer
+// 2024), versionada y cargada SOLO al conectar (nada en el HTML estático:
+// así no toca los hashes CSP). El transporte WebUSB es código propio
+// (~30 líneas de Web API estándar): pedir dispositivo → abrir → endpoint
+// OUT → enviar troceado. Sin impresora o sin Chrome/Edge, el botón 🖨️
+// Ticket (diálogo) sigue siendo el camino.
+let usbPrinterDevice = null;
+let usbPrinterEndpoint = 0;
+let escposLibPromise = null;
+
+function usbPrinterReady() {
+  return Boolean(usbPrinterDevice && usbPrinterEndpoint > 0);
+}
+
+function setUsbStatus(text, ok) {
+  const statusEl = document.getElementById('usbPrinterStatus');
+  if (statusEl) {
+    statusEl.textContent = text || '';
+    statusEl.style.color = ok ? '#68D391' : 'var(--text-dim)';
+  }
+  const btn = document.getElementById('usbPrinterBtn');
+  if (btn) btn.textContent = usbPrinterReady() ? '🔌 Desconectar' : '🔌 Impresora';
+}
+
+function getEscPosEncoderClass() {
+  if (typeof window !== 'undefined' && typeof window[ESCPOS_LIB_GLOBAL_MOD] === 'function') {
+    return Promise.resolve(window[ESCPOS_LIB_GLOBAL_MOD]);
+  }
+  if (!escposLibPromise) {
+    escposLibPromise = new Promise((resolve) => {
+      try {
+        const script = document.createElement('script');
+        script.src = ESCPOS_LIB_URL_MOD;
+        script.async = true;
+        script.onload = () => resolve(
+          (typeof window !== 'undefined' && typeof window[ESCPOS_LIB_GLOBAL_MOD] === 'function')
+            ? window[ESCPOS_LIB_GLOBAL_MOD]
+            : null
+        );
+        script.onerror = () => resolve(null);
+        document.head.appendChild(script);
+        setTimeout(() => resolve(
+          (typeof window !== 'undefined' && typeof window[ESCPOS_LIB_GLOBAL_MOD] === 'function')
+            ? window[ESCPOS_LIB_GLOBAL_MOD]
+            : null
+        ), 10000);
+      } catch (e) {
+        resolve(null);
+      }
+    });
+  }
+  return escposLibPromise;
+}
+
+async function openUsbDevice(device) {
+  await device.open();
+  try {
+    if (device.configuration === null || device.configuration === undefined) {
+      await device.selectConfiguration(1);
+    }
+    const interfaces = (device.configuration && device.configuration.interfaces) || [];
+    const printable = interfaces.find(i => i.alternate && i.alternate.interfaceClass === 7) || interfaces[0];
+    if (!printable) throw new Error('no-interface');
+    await device.claimInterface(printable.interfaceNumber);
+    const outEp = ((printable.alternate && printable.alternate.endpoints) || [])
+      .find(e => e.direction === 'out');
+    if (!outEp) throw new Error('no-out-endpoint');
+    usbPrinterDevice = device;
+    usbPrinterEndpoint = outEp.endpointNumber;
+    return true;
+  } catch (e) {
+    try {
+      await device.close();
+    } catch (closeErr) { /* ya estaba cerrada */ }
+    usbPrinterDevice = null;
+    usbPrinterEndpoint = 0;
+    throw e;
+  }
+}
+
+export async function connectUsbPrinter() {
+  // Toggle: si ya está lista, desconecta y libera la interfaz.
+  if (usbPrinterReady()) {
+    try {
+      if (usbPrinterDevice) await usbPrinterDevice.close();
+    } catch (e) { /* best-effort */ }
+    usbPrinterDevice = null;
+    usbPrinterEndpoint = 0;
+    setUsbStatus('');
+    return;
+  }
+  if (typeof navigator === 'undefined' || !('usb' in navigator)) {
+    alert('Este navegador no soporta WebUSB. Usá Chrome o Edge en compu o Android.');
+    return;
+  }
+  setUsbStatus('Buscando impresora…');
+  try {
+    const device = await navigator.usb.requestDevice({ filters: [] });
+    await openUsbDevice(device);
+    setUsbStatus(`Lista: ${device.productName || 'térmica USB'}`, true);
+  } catch (e) {
+    setUsbStatus('');
+    // NotFoundError = el dueño cerró el selector: silencio, sin sustos.
+    if (e && e.name !== 'NotFoundError') {
+      alert('No se pudo conectar la impresora USB. Probá con el botón 🖨️ Ticket.');
+    }
+  }
+}
+
+// Restaura en silencio un permiso ya otorgado (el navegador recuerda el
+// dispositivo por origen: no pide el selector de nuevo).
+async function restoreUsbPrinter() {
+  try {
+    if (typeof navigator === 'undefined' || !('usb' in navigator)) return;
+    if (typeof navigator.usb.getDevices !== 'function') return;
+    const devices = await navigator.usb.getDevices();
+    if (devices.length) {
+      await openUsbDevice(devices[0]);
+      setUsbStatus(`Lista: ${devices[0].productName || 'térmica USB'}`, true);
+    }
+  } catch (e) { /* silencioso: el dueño conecta a mano con 🔌 */ }
+}
+
+async function sendToUsbPrinter(bytes) {
+  const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
+  for (let i = 0; i < data.length; i += ESCPOS_USB_CHUNK_MOD) {
+    await usbPrinterDevice.transferOut(usbPrinterEndpoint, data.slice(i, i + ESCPOS_USB_CHUNK_MOD));
+  }
+}
+
+function applyEscPosOps(encoder, ops) {
+  for (const op of ops || []) {
+    switch (op.t) {
+      case 'init': encoder.initialize(); break;
+      case 'align': encoder.align(op.v); break;
+      case 'bold': encoder.bold(op.v !== false); break;
+      case 'size': encoder.size(op.v); break;
+      case 'line': encoder.line(op.v); break;
+      case 'rule': encoder.rule(); break;
+      case 'feed': encoder.newline(op.v || 1); break;
+      case 'cut': encoder.cut(op.v || 'partial'); break;
+      default: break;
+    }
+  }
+  return encoder;
+}
+
+export async function printOrderEscPos(orderId) {
+  const order = (lastOrdersCache || []).find(o => String(o.id) === String(orderId));
+  if (!order) {
+    alert('No se encontró el pedido. Tocá "Actualizar" e intentá de nuevo.');
+    return;
+  }
+  if (!usbPrinterReady()) {
+    alert('Conectá primero la impresora USB con el botón 🔌 Impresora.');
+    return;
+  }
+  setUsbStatus('Imprimiendo…');
+  try {
+    const EncoderClass = await getEscPosEncoderClass();
+    if (typeof EncoderClass !== 'function') throw new Error('lib-missing');
+    const ops = buildEscPosTicketOpsMod(order, {
+      restaurantName: (restaurant && (restaurant.name || restaurant.bizName)) || '',
+      currency: order.currency || (restaurant && restaurant.currency) || '$'
+    });
+    const encoder = new EncoderClass({ columns: ESCPOS_TICKET_COLUMNS_MOD, language: 'esc-pos' });
+    encoder.codepage('auto');
+    applyEscPosOps(encoder, ops);
+    const bytes = encoder.encode();
+    try {
+      await sendToUsbPrinter(bytes);
+    } catch (sendErr) {
+      // Corte a mitad de envío (cable suelto / impresora apagada): el handle
+      // queda inválido, se suelta para reconectar limpio la próxima vez.
+      try {
+        if (usbPrinterDevice) await usbPrinterDevice.close();
+      } catch (closeErr) { /* ya estaba muerta */ }
+      usbPrinterDevice = null;
+      usbPrinterEndpoint = 0;
+      throw sendErr;
+    }
+    setUsbStatus('Ticket enviado a la térmica.', true);
+  } catch (e) {
+    setUsbStatus('');
+    alert('No se pudo imprimir por USB. Probá con el botón 🖨️ Ticket.');
+  }
+}
+
+async function loadRecentOrders(silent = false) {
   const list = document.getElementById('recentOrdersList');
   if (!list) return;
   const restaurantId = restaurant && restaurant.id;
@@ -1401,6 +2320,10 @@ async function loadRecentOrders() {
       return;
     }
     const orders = body.data.slice(0, 20);
+    lastOrdersCache = orders;
+    // Pedidos pendientes que no habíamos visto: solo avisan si ya pintamos
+    // una base (la primera carga es el estado actual, no una novedad).
+    const freshPending = orders.filter(o => !seenOrderIds.has(o.id) && (o.status || 'pending') === 'pending');
     if (!orders.length) {
       list.innerHTML = '<div style="font-size:11px; color:var(--text-dim);">Sin pedidos todavía. Cuando un comensal pida desde el menú, aparece acá.</div>';
       return;
@@ -1410,27 +2333,102 @@ async function loadRecentOrders() {
       const label = ORDER_STATUS_LABELS[status] || status;
       const items = (o.items_snapshot || []).map(i => `${i.quantity}× ${i.name}`).join(', ');
       const when = o.created_at ? new Date(o.created_at).toLocaleString() : '';
+      const isNew = !seenOrderIds.has(o.id) && status === 'pending';
+      seenOrderIds.add(o.id);
       const chips = ORDER_ACTION_STATES.map(s => {
         const active = s === status;
         return `<button type="button" class="btn-nav" data-js-click="setOrderStatus|${escapeHtml(o.id)}|${s}" style="font-size:10px; padding:4px 8px; ${active ? 'border-color:#68D391; color:#68D391;' : ''}">${escapeHtml(ORDER_STATUS_LABELS[s])}</button>`;
       }).join(' ');
-      return `<div style="background:var(--bg-base); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px;">
+      const extraChips = ORDER_EXTRA_STATES.map(s => {
+        const active = s === status;
+        const danger = ORDER_DANGER_STATES.includes(s);
+        return `<button type="button" class="btn-nav" data-js-click="setOrderStatus|${escapeHtml(o.id)}|${s}" style="font-size:10px; padding:4px 8px; ${active ? 'border-color:#68D391; color:#68D391;' : (danger ? 'border-color:rgba(229,62,62,0.5); color:#F87171;' : 'border-color:rgba(237,137,54,0.5); color:#FBD38D;')}">${escapeHtml(ORDER_STATUS_LABELS[s])}</button>`;
+      }).join(' ');
+      const total = o.total != null ? o.total : o.amount;
+      // Antigüedad en cocina: chip vivo (lo refresca el ticker cada 30s).
+      const ageStyle = orderAgeStyleMod(orderAgeLevelMod(o.created_at, Date.now(), status));
+      const ageChip = `<span data-order-age data-created="${escapeHtml(o.created_at || '')}" data-status="${escapeHtml(status)}" title="Tiempo en cocina" style="font-size:10px; color:${ageStyle.color}; font-weight:${ageStyle.weight}; white-space:nowrap; margin-left:8px;">⏱ ${escapeHtml(formatOrderAgeMod(o.created_at, Date.now()))}</span>`;
+      return `<div style="background:var(--bg-base); border:1px solid ${isNew ? '#D4A853' : 'var(--border)'}; border-radius:8px; padding:10px 12px; margin-bottom:8px;">
         <div style="display:flex; justify-content:space-between; gap:8px; align-items:center;">
-          <div style="font-size:12px; font-weight:700; color:#fff;">${escapeHtml(o.customer_name || 'Cliente')}${o.table_number ? ` · Mesa ${escapeHtml(String(o.table_number))}` : ''}</div>
-          <div style="font-size:11px; color:#68D391; font-weight:700; white-space:nowrap;">${escapeHtml(label)}</div>
+          <div style="font-size:12px; font-weight:700; color:#fff;">${escapeHtml(o.customer_name || 'Cliente')}${o.table_number ? ` · Mesa ${escapeHtml(String(o.table_number))}` : ''} ${isNew ? '<span style="font-size:9px; background:#D4A853; color:#101614; border-radius:4px; padding:1px 6px; font-weight:800;">● NUEVO</span>' : ''}</div>
+          <div style="font-size:11px; color:#68D391; font-weight:700; white-space:nowrap;">${escapeHtml(label)}${ageChip}</div>
         </div>
         <div style="font-size:11px; color:var(--text-dim); margin:3px 0;">${escapeHtml(items)}</div>
-        <div style="font-size:10px; color:var(--text-dim); margin-bottom:6px;">${escapeHtml(o.currency || '$')} ${Number(o.amount || 0).toFixed(2)} · ${escapeHtml(when)}</div>
+        <div style="font-size:10px; color:var(--text-dim); margin-bottom:6px;">${escapeHtml(o.currency || '$')} ${Number(total || 0).toFixed(2)} · ${escapeHtml(when)}</div>
         <div style="display:flex; flex-wrap:wrap; gap:6px;">${chips}</div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;">${extraChips}</div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;">
+          <button type="button" class="btn-nav" data-js-click="printOrderTicket|${escapeHtml(o.id)}" style="font-size:10px; padding:4px 8px; border-color:rgba(255,255,255,0.25); color:var(--text-dim);" title="Imprimir ticket de cocina (80mm)">🖨️ Ticket</button>
+          <button type="button" class="btn-nav" data-js-click="printOrderEscPos|${escapeHtml(o.id)}" style="font-size:10px; padding:4px 8px; border-color:rgba(0,245,212,0.4); color:#00F5D4;" title="Imprimir directo en térmica USB (requiere conectar 🔌)">⚡ Imprimir USB</button>
+        </div>
       </div>`;
     }).join('');
+    // Aviso sonoro + título solo ante novedades reales (nunca en la base).
+    if (ordersBaselineDone && freshPending.length && isOrderSoundEnabled()) {
+      playOrderAlert(freshPending.length);
+    }
+    ordersBaselineDone = true;
+    startOrdersPolling();
   } catch (e) {
     list.innerHTML = '<div style="font-size:11px; color:#F87171;">Error de conexión.</div>';
   }
 }
 
+// ── Ticket de cocina imprimible (Fase 1) ─────────────────────────────
+// Rellena #orderTicketPrint con el pedido y abre el diálogo del navegador.
+// El CSS (@media print en studio.css) deja visible SOLO el ticket en 80mm:
+// funciona con térmica, común o PDF, sin permisos ni hardware especial.
+// Todo dato va escapado (el pedido viene del comensal: nombre, notas, mesa).
+export function printOrderTicket(orderId) {
+  const box = document.getElementById('orderTicketPrint');
+  if (!box) return;
+  const order = (lastOrdersCache || []).find(o => String(o.id) === String(orderId));
+  if (!order) {
+    alert('No se encontró el pedido. Tocá "Actualizar" e intentá de nuevo.');
+    return;
+  }
+  const status = order.status || 'pending';
+  const label = ORDER_STATUS_LABELS[status] || status;
+  const items = Array.isArray(order.items_snapshot) ? order.items_snapshot : [];
+  const currency = order.currency || (restaurant && restaurant.currency) || '$';
+  const total = order.total != null ? order.total : order.amount;
+  const when = order.created_at ? new Date(order.created_at).toLocaleString() : '';
+  const lines = items.map(i => {
+    const qty = Number(i.quantity) || 0;
+    const name = escapeHtml(i.name || 'Ítem');
+    const note = i.note ? `<div class="ticket-note">↳ ${escapeHtml(i.note)}</div>` : '';
+    return `<div class="ticket-item"><div class="ticket-row"><span>${qty}× ${name}</span></div>${note}</div>`;
+  }).join('') || '<div class="ticket-item">Sin detalle de ítems</div>';
+  box.innerHTML = `
+    <div class="ticket-paper">
+      <p class="ticket-title">${escapeHtml((restaurant && (restaurant.name || restaurant.bizName)) || 'Mi local')}</p>
+      <p class="ticket-sub">TICKET DE COCINA · ${escapeHtml(label)}</p>
+      <hr class="ticket-sep">
+      <div class="ticket-row"><span>Cliente:</span><span>${escapeHtml(order.customer_name || 'Cliente')}</span></div>
+      ${order.table_number ? `<div class="ticket-row"><span>Mesa:</span><span>${escapeHtml(String(order.table_number))}</span></div>` : ''}
+      <div class="ticket-row"><span>Fecha:</span><span>${escapeHtml(when)}</span></div>
+      <div class="ticket-row"><span>Pedido:</span><span>${escapeHtml(String(order.id).slice(-6))}</span></div>
+      <hr class="ticket-sep">
+      ${lines}
+      <hr class="ticket-sep">
+      <div class="ticket-row ticket-total"><span>TOTAL:</span><span>${escapeHtml(currency)} ${Number(total || 0).toFixed(2)}</span></div>
+      <hr class="ticket-sep">
+      <p class="ticket-center ticket-sub">Generado por ScanGo</p>
+    </div>`;
+  try {
+    window.print();
+  } catch (e) {
+    alert('No se pudo abrir el diálogo de impresión en este navegador.');
+  }
+}
+
 async function setOrderStatus(orderId, status) {
   if (!orderId || !status) return;
+  // Cancelar es destructivo (el comensal lo ve al instante): confirmación.
+  if (ORDER_DANGER_STATES.includes(status)
+    && !window.confirm('¿Cancelar este pedido? El comensal lo verá como cancelado.')) {
+    return;
+  }
   try {
     const res = await studioApi(`/api/orders/status/${encodeURIComponent(orderId)}`, {
       method: 'PATCH',
@@ -1457,13 +2455,14 @@ const globalExports = {
   renderStudioUI, updateLiveState, saveStudioChanges, triggerAutoSave, reloadPreviewIframe, syncLivePreviewIframe, setPreviewView,
   switchTab, showConfirmDialog, closeConfirmDialog, showSaveFeedback,
   handleLogoUpload, removeLogo, handleBannerUpload, handleBannerUrlInput, removeBanner, renderBannerPreviewUI, handleBannerImageError,
-  openBillingModal, closeBillingModal, startCheckout,
+  openBillingModal, closeBillingModal, startCheckout, cancelSubscription,
   renderDeliveryZones, addDeliveryZone, deleteDeliveryZone,
   renderBranchesList, addBranch, deleteBranch, editBranch, closeBranchEdit, saveBranchEdit, addBranchOverrideRow, removeBranchOverrideRow, addBranchCustomDishRow, removeBranchCustomDishRow, resetBranchForm,
   loadAnalytics, updateKPIs, renderDailyChart, renderHeatmap, renderBranchMetrics, renderEventMetrics, renderTopDishes, exportAnalytics,
   generateQrCode, downloadQrPng, printTableStand, downloadAllTablesPDF,
-  promptNewCategoryInModal, openCategoryManagerModal, closeCategoryManagerModal, moveCategory, addCategoryFromManager, renameCategory, deleteCategory,
-  populateCatFilter, renderDishesList, editDish, openNewDishModal, closeDishEditModal, saveDishFromModal, handleDishPhotoUpload, deleteDish, clearDishPhoto, toggleDishScheduleControls, toggleDishesByIngredient,
+  promptNewCategoryInModal, openCategoryManagerModal, closeCategoryManagerModal, moveCategory, addCategoryFromManager, renameCategory, deleteCategory, duplicateCategoryFromManager,
+  populateCatFilter, renderDishesList, editDish, openNewDishModal, closeDishEditModal, saveDishFromModal, handleDishPhotoUpload, deleteDish, duplicateDishItem, clearDishPhoto, toggleDishScheduleControls, toggleDishesByIngredient,
+  exportMenuJson, importMenuJsonFile,
   openPresetsModal, closePresetsModal, renderPresetChips, browsePresetCategory, addSinglePresetDish, importCurrentPresetCategory, importAllPresets,
   openIceCreamPresetsModal, closeIceCreamPresetsModal, filterIceCreamPresetCat, toggleAllIceCreamFlavors, renderIceCreamPresetsList, toggleIceCreamFlavorItem, importSelectedIceCreamFlavors,
   openPerfumeryPresetsModal, closePerfumeryPresetsModal, renderPerfumeryPresetsList, importSelectedPerfumery,
@@ -1474,8 +2473,11 @@ const globalExports = {
   solicitarPushPermiso,
   addLoyaltyReward, removeLoyaltyReward, updateLoyaltyRewardField, validateLoyaltyCode, handleRedeemCodeEnter,
   addWeddingItineraryItem, removeWeddingItineraryItem, updateWeddingItineraryField, renderWeddingItineraryRows,
+  addEventGuest, removeEventGuest, updateEventGuestField, renderEventGuestRows, sendGuestInvite, copyGuestInviteLink,
   loadNotificationEvents, markNotificationEventRead, sendPromoPush,
-  loadRecentOrders, setOrderStatus,
+  loadRecentOrders, setOrderStatus, toggleOrderSound, printOrderTicket, printOrderEscPos, connectUsbPrinter,
+  importDemoTemplate, discardDemoTemplate,
+  updateBusinessTypeControls, filterThemeOptionsByBusinessType, resolveIceCreamButtonStyle,
   openAiMenuImportModal, closeAiMenuImportModal, handleAiMenuFilesInput, moveAiMenuPage, removeAiMenuPage, runAiMenuAnalysis, closeAiMenuPreviewModal, confirmAiMenuImportAction, removeDetectedAiDish
 };
 

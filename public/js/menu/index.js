@@ -12,6 +12,7 @@
  * - perfumeryHeuristics: catálogo de perfumería data-driven (sin demo)
  * - tipCalculator: propina opcional del comensal
  * - weddingItinerary: itinerario visual de bodas/eventos (data-driven)
+ * - eventInvitations: invitaciones por WhatsApp, una por invitado (data-driven)
  * - menuPresentation: reglas puras de presentación (precio $0, notas por rubro)
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -26,4 +27,5 @@ export * from './iceCreamHeuristics.js';
 export * from './perfumeryHeuristics.js';
 export * from './tipCalculator.js';
 export * from './weddingItinerary.js';
+export * from './eventInvitations.js';
 export * from './menuPresentation.js';

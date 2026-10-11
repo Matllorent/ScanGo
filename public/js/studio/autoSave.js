@@ -66,12 +66,19 @@ export async function saveStudioChanges(restaurant, showSaveFeedback, reloadPrev
       headers,
       body: JSON.stringify({ restaurantId: restaurant.id, data: restaurant })
     });
-    if (!res.ok) throw new Error('Error al guardar');
+    if (res.status === 401) {
+      finishSave('⚠️ Sesión vencida — recargá la página', 'error');
+      showSaveFeedback('error');
+      return;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     finishSave('✓ Guardado', 'saved');
+    showSaveFeedback('saved');
     if (typeof reloadPreviewIframeFn === 'function') reloadPreviewIframeFn();
   } catch (err) {
-    // Offline or server error — still saved locally
-    finishSave('✓ Guardado (Local)', 'saved');
+    // Offline o error de red: quedó guardado local, se reintenta al volver.
+    finishSave('📶 Sin conexión — guardado local', 'error');
+    showSaveFeedback('error');
   }
 }
 

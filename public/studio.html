@@ -63,6 +63,19 @@
     <button id="subscriptionAlertBtn" data-js-click="openBillingModal" style="padding:6px 16px; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; border:none; white-space:nowrap;"></button>
   </div>
 
+  <!-- Demo Mode Banner (visible solo con ?demo=<rubro>) -->
+  <div id="demoModeBanner" style="display:none; padding:12px 20px; font-weight:600; font-size:0.9rem; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; background:rgba(212,168,83,0.12); border-bottom:1px solid rgba(212,168,83,0.4);">
+    <div id="demoBannerText" style="flex:1; min-width:200px; color:#ECC94B;"></div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+      <a id="demoBannerViewMenu" href="#" target="_blank" rel="noopener" class="btn-nav" style="text-decoration:none;">
+        <span>👁️ Ver menú demo</span>
+      </a>
+      <button id="demoBannerImport" data-js-click="importDemoTemplate" style="display:none; padding:6px 16px; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; border:none; white-space:nowrap; background:#38A169; color:#fff;">📥 Importar a mi local</button>
+      <a id="demoBannerRegister" href="/" style="display:none; padding:6px 16px; border-radius:6px; font-weight:700; font-size:0.8rem; text-decoration:none; background:#D4A853; color:#101614; white-space:nowrap;">Crear cuenta gratis →</a>
+      <button data-js-click="discardDemoTemplate" style="padding:6px 12px; border-radius:6px; font-size:0.8rem; cursor:pointer; background:transparent; border:1px solid rgba(255,255,255,0.3); color:#fff;">✕ Salir de la demo</button>
+    </div>
+  </div>
+
   <!-- Main Layout -->
   <div class="workspace-layout">
 
@@ -307,6 +320,16 @@
                 <input type="text" id="inputScheduleActiveHours" class="form-input" placeholder="Ej: 11:30-15:30" style="font-family:var(--font-mono); font-size:11px;" data-js-input="updateLiveState">
                 <span class="input-hint" style="margin-top:0; white-space:nowrap;">Horario (HH:MM-HH:MM)</span>
               </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);">
+                <div>
+                  <strong style="font-size:12px; color:#FEB2B2;">🔴 Local cerrado ahora (cierre manual)</strong>
+                  <div style="font-size:10px; color:var(--text-dim);">Pisa al horario: el menú muestra "Cerrado" y no acepta pedidos hasta apagarlo.</div>
+                </div>
+                <label style="position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0;">
+                  <input type="checkbox" id="inputForceClosed" data-js-change="updateLiveState" style="opacity:0; width:0; height:0;">
+                  <span id="sliderForceClosed" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -369,6 +392,20 @@
 
           <!-- List of dishes in studio -->
           <div id="studioDishesList"></div>
+
+          <!-- Cobertura de fotos: empuja calidad visual sin obligar -->
+          <div id="photoCoverageBanner" style="display:none; margin-top:12px; padding:10px 12px; border-radius:8px; border:1px dashed rgba(236,201,75,0.4); background:rgba(236,201,75,0.06); font-size:11px; color:var(--text-dim);"></div>
+
+          <!-- Respaldo de la carta (exportar / importar JSON) -->
+          <div class="form-group" style="margin-top:14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+            <label class="form-label">💾 Respaldo de tu carta (JSON)</label>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button type="button" class="btn-nav" style="flex:1; justify-content:center; font-size:11px;" data-js-click="exportMenuJson">⬇️ Exportar carta</button>
+              <button type="button" class="btn-nav" style="flex:1; justify-content:center; font-size:11px;" data-js-click="fireClick|menuJsonFileInput">⬆️ Importar respaldo</button>
+              <input type="file" id="menuJsonFileInput" accept="application/json,.json" style="display:none;" data-js-change="importMenuJsonFile|event">
+            </div>
+            <div class="input-hint">Guardá una copia antes de cambios grandes. Al importar se reemplazan carta, estética y textos; tu slug, QR y suscripción no cambian.</div>
+          </div>
         </div>
 
         <!-- TAB 3: TEMA VISUAL -->
@@ -393,11 +430,12 @@
                 <option value="billboard">#️⃣ Billboard QSR (Menú board estilo McDonald's — Índices, fotos grandes y precios display para hamburgueserías & fast food)</option>
                 <option value="ticker">••• Ticker Tipográfico (Carta lista estilo Five Guys/Starbucks — Nombre, puntitos y precio, sin fotos ni tarjetas)</option>
                 <option value="sticker">🏷️ Sticker Artesanal (Board masonry tipo In-N-Out — Foto con nombre encima y precio en sticker para heladerías & panaderías)</option>
+                <option value="delivery">🛵 Delivery App (Estilo app de delivery — Hero con card superpuesta, lista horizontal con foto y botón + circular)</option>
               </select>
               <div class="input-hint" style="margin-top:6px;">
                 "Classic Artisanal" conserva al 100% las 14 paletas auténticas. Las nuevas morfologías aplican un diseño estructural exclusivo de vanguardia.
               </div>
-              <!-- Acento Neón (sólo layout Neon Nightbar): 6 colores de glow -->
+              <!-- Acento Neón (sólo layout Neon Nightbar): 6 colores de glow + libre -->
               <div id="neonAccentRow" style="display:none; margin-top:10px;">
                 <label class="form-label" for="inputNeonAccent">🎨 Color Neón del Nightbar</label>
                 <select id="inputNeonAccent" class="form-select" data-js-change="updateLiveState">
@@ -409,11 +447,19 @@
                   <option value="violet">🍇 Violeta Uva</option>
                 </select>
                 <div class="input-hint" style="margin-top:4px;">Tiñe precios, títulos, bordes y botones del modo neón.</div>
+                <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:11px; color:var(--text-dim); cursor:pointer;">
+                  <input type="checkbox" id="inputNeonCustomEnabled" data-js-change="updateLiveState" style="width:16px; height:16px; accent-color:#00F5D4;">
+                  🎨 Usar color libre personalizado (pisa al preset)
+                </label>
+                <div id="neonCustomRow" style="display:none; margin-top:8px; align-items:center; gap:10px;">
+                  <input type="color" id="inputNeonCustomColor" value="#00F5D4" data-js-input="updateLiveState" style="width:44px; height:32px; padding:2px; border:1px solid var(--border); border-radius:8px; background:var(--bg-base); cursor:pointer;" aria-label="Elegir color neón libre">
+                  <span id="neonCustomHexLabel" style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">#00f5d4</span>
+                </div>
               </div>
             </div>
 
             <div class="form-group">
-              <label class="form-label">Fondo y Paleta del Pizarrón (14 Opciones Temáticas)</label>
+              <label class="form-label">Fondo y Paleta del Pizarrón <span id="themeCountHint" style="font-weight:400; opacity:.7;">(14 clásicas + 11 de heladería)</span></label>
               <select id="inputThemeBg" class="form-select" data-js-change="updateLiveState">
                 <option value="classic">1. Pizarrón Clásico Negro Grafito (Tiza Blanca)</option>
                 <option value="emerald" selected>2. Pizarrón Verde Bistro Esmeralda (Bistró Pomelli)</option>
@@ -433,13 +479,21 @@
                   <option value="helado-fiesta">🍨 Fiesta de Helado (Confeti sobre blanco, familiar y alegre)</option>
                   <option value="helado-menta">🍃 Menta Granizada (Verde menta + chips de chocolate)</option>
                   <option value="helado-tropical">🥭 Sorbete Tropical (Mango, coral y turquesa de verano)</option>
+                  <option value="helado-fresa">🍓 Fresa & Crema (Rosa frutilla sobre chantilly)</option>
+                  <option value="helado-cielo">☁️ Cielo Helado (Celeste cielo y nube de vainilla)</option>
                 </optgroup>
                 <optgroup label="🍦 Heladería & Postres — Formales y elegantes">
                   <option value="helado-pastel">🫧 Sorbete Pastel (Lavanda, rosa y menta suaves)</option>
                   <option value="gelateria">🇮🇹 Gelateria Italiana (Marfil, pistacho y terracota)</option>
+                  <option value="helado-pistacho">🟢 Pistacchio di Sicilia (Verde pistacho elegante)</option>
+                  <option value="helado-dulce">🍮 Dulce de Leche Artesanal (Caramelo y miel tibia)</option>
                   <option value="cioccolato">🍫 Cioccolato Premium (Cacao oscuro y oro)</option>
+                  <option value="helado-mora">🫐 Mora Noche (Violeta mora premium nocturno)</option>
                 </optgroup>
               </select>
+              <div class="input-hint" id="themeHeladeriaHint" style="display:none; margin-top:6px; color:#F6AD55;">
+                🍦 Tu heladería solo viste sus 11 estéticas propias: cada una se reconoce a golpe de vista como heladería artesanal.
+              </div>
             </div>
 
             <div class="form-group">
@@ -584,6 +638,18 @@
                 <label for="inputIceCreamBuilderLabel" style="display:block; font-size:10px; color:var(--text-dim); margin-bottom:4px;">Texto del botón principal (aparece arriba del menú)</label>
                 <input type="text" id="inputIceCreamBuilderLabel" class="form-input" maxlength="60" placeholder="Armá tu helado a medida" data-js-input="updateLiveState">
               </div>
+              <div>
+                <label for="inputIceCreamButtonStyle" style="display:block; font-size:10px; color:var(--text-dim); margin-bottom:4px;">🎨 Estilo del botón "Armá tu helado" (6 diseños premium de heladería)</label>
+                <select id="inputIceCreamButtonStyle" class="form-select" data-js-change="updateLiveState" style="font-size:11px;">
+                  <option value="clasico">🍧 Clásico del tema (usa tu paleta actual)</option>
+                  <option value="fiesta">🎉 Fiesta de Helado (confeti rosa-celeste, familiar)</option>
+                  <option value="premium">🏛️ Premium Dorado (marfil + filete oro, gelateria)</option>
+                  <option value="tropical">🥭 Sorbete Tropical (mango-coral-turquesa de verano)</option>
+                  <option value="nube">☁️ Nube de Vainilla (celeste aireado, bordes suaves)</option>
+                  <option value="noche">🌙 Noche de Chocolate (cacao oscuro + brillo oro)</option>
+                </select>
+                <div class="input-hint">Cada estilo se ve al instante en el menú: elegí el que mejor combine con tu estética.</div>
+              </div>
             </div>
 
             <!-- Perfumery Catalog Toggle -->
@@ -635,6 +701,20 @@
               <div style="font-size:11px; font-weight:700; color:#fff; margin-top:2px;">🕒 Momentos del evento (hora + título + icono)</div>
               <div id="weddingItineraryRows"></div>
               <button type="button" class="btn-nav" data-js-click="addWeddingItineraryItem" style="width:auto; padding:6px 12px; font-size:11px; border-color:#D4A853; color:#D4A853; margin-top:2px;">＋ Agregar momento</button>
+            </div>
+
+            <!-- Invitados del evento + invitaciones por WhatsApp (sólo rubro Eventos) -->
+            <div id="eventGuestsSection" style="display:none; flex-direction:column; gap:8px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border); margin-top:10px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                <div>
+                  <strong style="font-size:12px; color:#fff;">💌 Invitados e Invitaciones por WhatsApp</strong>
+                  <div style="font-size:10px; color:var(--text-dim);">Cargá nombre y teléfono de cada invitado y enviale su invitación personal con link y QR.</div>
+                </div>
+                <span id="eventGuestCount" style="font-size:10px; color:var(--text-dim); white-space:nowrap;"></span>
+              </div>
+              <div id="eventGuestRows"></div>
+              <div id="eventGuestMsg" style="font-size:11px; min-height:1.2em;" aria-live="polite" aria-atomic="true"></div>
+              <button type="button" class="btn-nav" data-js-click="addEventGuest" style="width:auto; padding:6px 12px; font-size:11px; border-color:#25D366; color:#68D391; margin-top:2px;">＋ Agregar invitado</button>
             </div>
           </div>
 
@@ -915,6 +995,12 @@
             <div style="border-bottom:1px solid var(--border); padding-bottom:16px; margin-bottom:16px;">
               <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
                 <div class="section-title" style="margin-bottom:0;">📦 Pedidos en vivo</div>
+                <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:var(--text-dim); cursor:pointer; white-space:nowrap;">
+                  <input type="checkbox" id="inputOrderSoundEnabled" checked data-js-change="toggleOrderSound" style="width:14px; height:14px; accent-color:#D4A853;">
+                  🔔 Sonido
+                </label>
+                <button type="button" id="usbPrinterBtn" class="btn-nav" data-js-click="connectUsbPrinter" style="width:auto; padding:5px 10px; font-size:10px;" title="Conectar impresora térmica por USB (Chrome/Edge)">🔌 Impresora</button>
+                <span id="usbPrinterStatus" style="font-size:10px; color:var(--text-dim);" aria-live="polite"></span>
                 <button type="button" class="btn-nav" data-js-click="loadRecentOrders" style="margin-left:auto; width:auto; padding:5px 10px; font-size:10px;">🔄 Actualizar</button>
               </div>
               <p style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">
@@ -1603,6 +1689,13 @@
         🛡️ Pasarelas seguras: Mercado Pago (Uruguay y Argentina) y Lemon Squeezy (internacional).<br>
         7 días de prueba gratis · Smart Dunning con 7 días de gracia ante rechazo de tarjeta · Sin permanencia mínima.
       </div>
+
+      <div id="billingCancelBlock" style="display:none; margin-top:14px; padding-top:12px; border-top:1px solid var(--border);">
+        <button type="button" class="btn-nav" data-js-click="cancelSubscription" style="width:100%; justify-content:center; font-size:11px; border-color:rgba(229,62,62,0.5); color:#F87171;">
+          Dar de baja mi suscripción
+        </button>
+        <div style="font-size:10px; color:var(--text-dim); margin-top:6px; text-align:center;">El menú se pausa al instante y podés reactivarlo cuando quieras.</div>
+      </div>
     </div>
   </div>
 
@@ -1931,6 +2024,10 @@
       </div>
     </div>
   </div>
+
+  <!-- Contenedor del ticket de cocina (Fase 1): solo existe para imprimir.
+       En pantalla va oculto; en print es lo único visible (ver studio.css). -->
+  <div id="orderTicketPrint" class="order-ticket-print" style="display:none;" aria-hidden="true"></div>
 
   <script src="/js/authClient.js"></script>
   <script src="/js/pwa.js"></script>

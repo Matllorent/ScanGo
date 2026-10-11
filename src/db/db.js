@@ -712,6 +712,23 @@ const db = {
     const hooks = readJson(WEBHOOKS_FILE, []);
     return hooks.some(h => h.provider === provider && h.eventId === eventId);
   },
+  // Variante cross-instancia: el JSON local es efímero en serverless (/tmp),
+  // así que ante un redelivery post-restart también se consulta Supabase.
+  async hasProcessedWebhookAsync(provider, eventId) {
+    if (this.hasProcessedWebhook(provider, eventId)) return true;
+    if (!supabase) return false;
+    try {
+      const { data } = await supabase
+        .from('webhooks')
+        .select('id')
+        .eq('provider', provider)
+        .eq('event_id', eventId)
+        .limit(1);
+      return Array.isArray(data) && data.length > 0;
+    } catch (e) {
+      return false;
+    }
+  },
   async markWebhookProcessed(provider, eventId, eventType, data = {}) {
     const hooks = readJson(WEBHOOKS_FILE, []);
     hooks.push({

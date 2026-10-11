@@ -31,6 +31,8 @@ tags:
     description: Canal público de analítica (`POST /api/public/analytics/event` en `api/index.js`)
   - name: admin
     description: Panel maestro (`GET /api/admin/overview` en `api/index.js`)
+  - name: billing
+    description: Suscripción y baja voluntaria (`POST /api/billing/*` en `api/index.js`)
 paths:
   /api/auth/register:
     post:
@@ -202,6 +204,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/demos:
+    get:
+      tags: [menu]
+      summary: Lista de demos públicas por rubro
+      description: |-
+        Metadatos de las 4 demos navegables (in-memory, sin persistencia):
+        restaurant, heladeria, perfumery, events. Sin auth.
+      operationId: listDemos
+      responses:
+        '200':
+          description: Lista de demos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  demos:
+                    type: array
+                    items:
+                      type: object
+  /api/demos/{type}:
+    get:
+      tags: [menu]
+      summary: Plantilla demo completa por rubro
+      description: |-
+        Devuelve la demo como objeto restaurante editable (lo que el Studio en
+        modo `?demo=` carga en el editor). Tipos: `restaurant`, `heladeria`,
+        `perfumery`, `events`. Tipo inválido → 404. Sin auth.
+      operationId: getDemo
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+          example: heladeria
+      responses:
+        '200':
+          description: Demo completa
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: Demo no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/menu/{slug}:
     get:
       tags: [menu]
@@ -209,6 +260,8 @@ paths:
       description: |-
         Respuesta directa SIN sobre `success/data` (`res.json(data)`): `{ restaurant, weatherContext, ... }`.
         Expone `allowOnlinePayment` (boolean, interruptor del dueño) y `onlinePaymentReady`.
+        Slugs demo (`demo-restaurante`, `demo-heladeria`, `demo-perfumeria`, `demo-evento`)
+        sirven el catálogo in-memory con `isDemo: true`, siempre online (sin `verifyAccess`).
         Slug inexistente → 404 `{ error: 'Restaurante no encontrado' }` (sin `success`/`code`).
         Menú pausado por suscripción → 402 `MenuTemporalmenteInactivo`.
       operationId: getPublicMenu
@@ -302,7 +355,9 @@ paths:
       summary: Crear pedido del comensal
       description: |-
         Valida con `createOrderSchema` (platos por `dishId` contra la carta real:
-        inexistente → 400 `DISH_NOT_FOUND`). Responde 201 con el pedido + `trackingToken`
+        inexistente → 400 `DISH_NOT_FOUND`). Reglas autoritativas: pedido mínimo
+        del local → 400 `MIN_ORDER_NOT_MET`; `orderMode: DELIVERY` sin dirección
+        → 400 `DELIVERY_ADDRESS_REQUIRED`. Responde 201 con el pedido + `trackingToken`
         (HMAC sin estado) y `tipAmount` (propina opcional, aparte del ticket promedio).
         Acredita fidelización en background sin romper el alta.
       operationId: createOrder
@@ -354,7 +409,8 @@ paths:
       description: |-
         Público, sin auth. Token firmado `${orderId}.${HMAC}`: inválido o
         inexistente → 404 `ORDER_NOT_FOUND`. Devuelve SOLO estado + resumen
-        (SIN PII: nunca teléfono, nombre, dirección ni notas) + `tip`.
+        (SIN PII: nunca teléfono, nombre, dirección ni notas) + `tip` +
+        totales canónicos (`subtotal` platos, `deliveryFee`, `discount`, `total`).
       operationId: trackOrder
       parameters:
         - name: token
@@ -817,6 +873,10 @@ paths:
         Valida con `createOrderSchema`. Gate real: sin `restaurant.allowOnlinePayment`
         → 403 `ONLINE_PAYMENT_DISABLED` (default `false`). Sin credenciales MP en
         el server → 500 `MP_NOT_CONFIGURED`. Restaurante inexistente → 404.
+        Cobra el total COMPLETO: platos + envío (validado contra zonas,
+        400 `INVALID_DELIVERY_FEE`) − cupón validado + propina; mínimo y
+        dirección de delivery se exigen igual que en el pedido
+        (400 `MIN_ORDER_NOT_MET` / `DELIVERY_ADDRESS_REQUIRED`).
       operationId: createMpPreference
       requestBody:
         required: true
@@ -826,7 +886,7 @@ paths:
               $ref: '#/components/schemas/CreateOrderRequest'
       responses:
         '200':
-          description: Preferencia generada (`{ preferenceId, initPoint, externalReference, total }`)
+          description: Preferencia generada (`{ preferenceId, initPoint, externalReference, subtotal, deliveryFee, discount, tip, total }`)
           content:
             application/json:
               schema:
@@ -851,6 +911,14 @@ paths:
                         type: string
                       externalReference:
                         type: string
+                      subtotal:
+                        type: number
+                      deliveryFee:
+                        type: number
+                      discount:
+                        type: number
+                      tip:
+                        type: number
                       total:
                         type: number
         '400':
@@ -1026,6 +1094,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/billing/cancel:
+    post:
+      tags: [billing]
+      summary: Baja voluntaria inmediata de la suscripción
+      description: |-
+        `authMiddleware` (401 sin sesión). Idempotente: si ya estaba
+        `canceled` responde 200 igual. Pausa el menú al instante (luego el
+        menú público responde 402). Sin cobro recurrente que cancelar en el
+        server: el dueño también debe dar de baja su plan en la pasarela
+        (Mercado Pago/Stripe) — la respuesta lo indica en `gatewayNote`.
+        Derecho a dar de baja (Ley 17.250).
+      operationId: billingCancel
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Suscripción dada de baja (o ya lo estaba) con `{ subscription, gatewayNote }`
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Restaurante no encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
 components:
   securitySchemes:
     cookieAuth:
@@ -1126,7 +1243,7 @@ components:
           type: string
         layout:
           type: string
-          enum: [classic, modern, minimal]
+          enum: [classic, bento, minimalist, neon, billboard, ticker, sticker, delivery]
         allowOnlinePayment:
           type: boolean
           description: Interruptor del dueño para el pago online (default false)

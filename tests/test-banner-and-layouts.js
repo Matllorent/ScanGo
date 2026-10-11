@@ -60,7 +60,7 @@ async function runTests() {
   // 2. Verificación de layouts permitidos e integridad en api/index.js
   const apiFile = fs.readFileSync(path.join(__dirname, '../api/index.js'), 'utf8');
   const sanitizeFile = fs.readFileSync(path.join(__dirname, '../api/utils/sanitizeRestaurant.js'), 'utf8');
-  assert.ok(sanitizeFile.includes("ALLOWED_LAYOUTS = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker']"), 'allowedLayouts debe incluir classic, bento, minimalist, neon, billboard, ticker y sticker');
+  assert.ok(sanitizeFile.includes("ALLOWED_LAYOUTS = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker', 'delivery']"), 'allowedLayouts debe incluir classic, bento, minimalist, neon, billboard, ticker, sticker y delivery');
   assert.ok(apiFile.includes('bannerUrl:'), 'api/index.js debe sanitizar y devolver bannerUrl');
   console.log('✓ Saneamiento y lista blanca de layouts en el backend verificados');
 
@@ -86,6 +86,9 @@ async function runTests() {
   assert.ok(menuCss.includes('body.layout-billboard'), 'menu.css debe definir body.layout-billboard');
   assert.ok(menuCss.includes('body.layout-ticker'), 'menu.css debe definir body.layout-ticker');
   assert.ok(menuCss.includes('body.layout-sticker'), 'menu.css debe definir body.layout-sticker');
+  assert.ok(menuCss.includes('body.layout-delivery'), 'menu.css debe definir body.layout-delivery');
+  assert.ok(menuCss.includes('body.layout-delivery .dish-card'), 'delivery debe estilizar .dish-card en lista horizontal');
+  assert.ok(menuCss.includes('body.layout-delivery .btn-add'), 'delivery debe tener botón + circular propio');
   assert.ok(menuCss.includes('counter-increment: board'), 'billboard debe numerar los platos con CSS counters');
   assert.ok(menuCss.includes('scroll-snap-type: x mandatory'), 'El carrusel superior debe ser táctil con scroll-snap para móviles');
   // 3b3. Overlay sticker por clase condicional dish-has-photo (sin :has(), robusto en WebViews)
@@ -144,6 +147,7 @@ async function runTests() {
   assert.ok(studioHtml.includes('inputBannerFile'), 'studio.html debe tener inputBannerFile');
   assert.ok(studioHtml.includes('inputBannerUrl'), 'studio.html debe tener inputBannerUrl');
   assert.ok(studioHtml.includes('inputMenuLayout'), 'studio.html debe tener selector inputMenuLayout');
+  assert.ok(studioHtml.includes('<option value="delivery">'), 'studio.html debe ofrecer el layout Delivery App en el selector');
 
   const studioJs = fs.readFileSync(path.join(__dirname, '../public/js/studio.js'), 'utf8');
   assert.ok(studioJs.includes('handleBannerUpload'), 'studio.js debe implementar handleBannerUpload');
@@ -174,6 +178,7 @@ async function runTests() {
   assert.ok(menuJs.includes("'billboard'"), 'menu.js debe contemplar billboard en validLayouts');
   assert.ok(menuJs.includes("'ticker'"), 'menu.js debe contemplar ticker en validLayouts');
   assert.ok(menuJs.includes("'sticker'"), 'menu.js debe contemplar sticker en validLayouts');
+  assert.ok(menuJs.includes("'delivery'"), 'menu.js debe contemplar delivery en validLayouts');
   assert.ok(menuJs.includes("'helado-fiesta'") && menuJs.includes("'cioccolato'"), 'menu.js debe aceptar los temas de heladería en validThemes');
   // El botón del asistente se ancla en el flag, no en el rubro: un `false` explícito del
   // dueño apaga el asistente aunque businessType sea 'heladeria'.

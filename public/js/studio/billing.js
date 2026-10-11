@@ -159,8 +159,42 @@ export function openBillingModal(currentUser, restaurant) {
   if (eventBlock) eventBlock.style.display = isEvent ? 'block' : 'none';
   if (plansGrid) plansGrid.style.display = isEvent ? 'none' : 'grid';
 
+  // Baja voluntaria: visible con plan activo (no en trial sin cargo, no si
+  // ya está dada de baja). Doble confirmación en el handler.
+  const cancelBlock = document.getElementById('billingCancelBlock');
+  if (cancelBlock) {
+    const cancellable = ['active', 'past_due'].includes(sub?.status);
+    cancelBlock.style.display = cancellable ? 'block' : 'none';
+  }
+
   const modal = document.getElementById('billingModal');
   if (modal) modal.classList.add('active');
+}
+
+/**
+ * Da de baja la suscripción (efecto inmediato, reactivable).
+ * Doble confirmación + aviso de cancelar también en la pasarela.
+ */
+export async function cancelSubscription() {
+  const first = window.confirm('¿Dar de baja tu suscripción? Tu menú se pausará al instante.');
+  if (!first) return;
+  const second = window.confirm('Última confirmación: el menú dejará de estar online hasta que reactives un plan. ¿Continuar con la baja?');
+  if (!second) return;
+  try {
+    const headers = (window.AuthClient
+      ? window.AuthClient.getAuthHeaders({ 'Content-Type': 'application/json' })
+      : { 'Content-Type': 'application/json' });
+    const res = await fetch('/api/billing/cancel', { method: 'POST', headers });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.success) {
+      alert((body && body.error) || 'No se pudo procesar la baja. Probá de nuevo.');
+      return;
+    }
+    alert('Baja procesada. Tu menú quedó pausado.' + (body.data && body.data.gatewayNote ? '\n\n' + body.data.gatewayNote : ''));
+    window.location.reload();
+  } catch (e) {
+    alert('No se pudo procesar la baja. Revisá tu conexión.');
+  }
 }
 
 /**

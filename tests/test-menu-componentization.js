@@ -632,7 +632,7 @@ async function runMenuComponentizationTests() {
   // menu.js: clase neon-<x> solo con layout neon (+ preview ?neon=)
   assert.ok(menuSrc.includes('resolveNeonAccentMod'), 'menu.js importa el resolver de acento');
   assert.ok(menuSrc.includes("layoutClass === 'layout-neon'"), 'Acento solo con layout neon');
-  assert.ok(menuSrc.includes('neon-${resolveNeonAccentMod('), 'Clase neon-<acento> dinámica');
+  assert.ok(menuSrc.includes('neon-${baseKey}'), 'Clase neon-<acento> dinámica');
   // Studio: selector visible solo en neon + save/load + backend allowlist
   assert.ok(studioHtmlSrc.includes('id="inputNeonAccent"'), 'Studio: selector de acento');
   assert.ok(studioHtmlSrc.includes('value="magenta"') && studioHtmlSrc.includes('value="violet"'), 'Studio: las 6 opciones');
@@ -643,7 +643,309 @@ async function runMenuComponentizationTests() {
   assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({ name: 'T', neonAccent: 'amber' }).neonAccent, 'amber', 'Backend: ámbar pasa');
   assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({ name: 'T', neonAccent: 'fucsia' }).neonAccent, 'mint', 'Backend: inválido → mint');
   assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({ name: 'T' }).neonAccent, 'mint', 'Backend: ausente → mint');
+  // 21b. Color libre (picker HEX): override del preset, solo #RRGGBB.
+  // (El alias `resolveNeonCustomColor` se eliminó por Middle Man: se usa
+  // `normalizeNeonHex` directo en menu.js y acá.)
+  assert.ok(!('resolveNeonCustomColor' in presModule), 'Sin alias intermediario (Middle Man eliminado)');
+  assert.strictEqual(presModule.normalizeNeonHex('#FF5733'), '#ff5733', 'Custom: normaliza a minúsculas');
+  assert.strictEqual(presModule.normalizeNeonHex('#00F5D4'), '#00f5d4', 'Custom: menta libre pasa');
+  assert.strictEqual(presModule.normalizeNeonHex('rojo'), '', 'Custom: nombre → vacío (manda preset)');
+  assert.strictEqual(presModule.normalizeNeonHex('javascript:alert(1)'), '', 'Custom: nunca CSS arbitrario');
+  assert.strictEqual(presModule.normalizeNeonHex(''), '', 'Custom: vacío → preset');
+  assert.strictEqual(presModule.neonHexToRgb('#FF5733'), '255, 87, 51', 'Custom: hex→rgb para --neon-rgb');
+  assert.strictEqual(presModule.neonHexToRgb('rojo'), '', 'Custom: rgb inválido → vacío');
+  assert.ok(menuSrc.includes('normalizeNeonHexMod'), 'menu.js importa el normalizador directo');
+  assert.ok(!menuSrc.includes('resolveNeonCustomColorMod'), 'menu.js ya no usa el alias');
+  assert.ok(menuSrc.includes('neonHexToRgbMod'), 'menu.js importa el conversor rgb');
+  assert.ok(menuSrc.includes("setProperty('--neon'"), 'menu.js pisa --neon inline con el libre');
+  assert.ok(studioHtmlSrc.includes('id="inputNeonCustomEnabled"'), 'Studio: toggle de color libre');
+  assert.ok(studioHtmlSrc.includes('id="inputNeonCustomColor"'), 'Studio: picker de color libre');
+  assert.ok(studioSrc.includes('restaurant.neonCustomColor'), 'Studio: guarda el libre');
+  assert.ok(studioSrc.includes("el('inputNeonCustomColor')"), 'Studio: puebla el picker');
+  assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({ name: 'T', neonCustomColor: '#FF5733' }).neonCustomColor, '#ff5733', 'Backend: libre válido pasa');
+  assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({ name: 'T', neonCustomColor: 'red' }).neonCustomColor, '', 'Backend: libre inválido → vacío');
+  assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({ name: 'T' }).neonCustomColor, '', 'Backend: libre ausente → vacío');
+  // 21c. updateBusinessTypeControls debe resolver su helper `el` en scope:
+  // un `el(...)` sin definir es ReferenceError en el navegador (módulo ES =
+  // strict mode) y aborta el filtro de temas + la mitad de updateLiveState
+  // (theme/neon/banner/wifi/autosave) y de renderStudioUI (carta/QR/preview).
+  const ubtcStart = studioSrc.indexOf('export function updateBusinessTypeControls()');
+  assert.ok(ubtcStart !== -1, 'No se encontró updateBusinessTypeControls en studio.js');
+  const ubtcEnd = studioSrc.indexOf('\nexport ', ubtcStart + 10);
+  const ubtcBody = studioSrc.slice(ubtcStart, ubtcEnd === -1 ? undefined : ubtcEnd);
+  // Sin comentarios: los backticks de la doc (`el(...)`) falsearían el índice.
+  const ubtcCode = ubtcBody.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1');
+  const ubtcDeclIdx = ubtcCode.indexOf('const el = id => document.getElementById(id);');
+  const ubtcUseIdx = ubtcCode.search(/\bel\s*\(/);
+  assert.ok(
+    ubtcDeclIdx !== -1 && ubtcUseIdx !== -1 && ubtcDeclIdx < ubtcUseIdx,
+    'REGRESIÓN: updateBusinessTypeControls debe definir su `el` local ANTES de usarlo (sin esto todo el Studio muere con ReferenceError)'
+  );
   console.log('✓ Neón multi-acentos: 6 colores con variables CSS, selector en Studio, allowlist backend');
+
+  // 22. Checkout blindado: local cerrado, delivery con datos, retorno MP
+  assert.ok(menuSrc.includes('function isRestaurantOpenNow()'), 'Helper de horario del local');
+  assert.ok(menuSrc.includes('El local está cerrado ahora'), 'Submit bloqueado con local cerrado');
+  assert.ok(menuSrc.includes('Elegí tu zona de entrega'), 'Delivery exige zona con foco');
+  assert.ok(menuSrc.includes('Escribí tu dirección de entrega'), 'Delivery exige dirección con foco');
+  assert.ok(menuSrc.includes('orderMode: mode'), 'Modo viaja al backend (quote/pedido/preferencia)');
+  assert.ok(menuSrc.includes("params.get('payment')"), 'initOrderTracking lee el retorno de MP');
+  assert.ok(menuSrc.includes('Pago acreditado'), 'Confirmación al volver del pago exitoso');
+  assert.ok(menuSrc.includes('replaceState'), 'La URL de retorno se limpia (sin repetir aviso)');
+  assert.ok(menuSrc.includes('tipForPay'), 'Preferencia MP incluye la propina');
+  assert.ok(menuSrc.includes('discountForPay'), 'Preferencia MP incluye el descuento');
+  assert.ok(menuSrc.includes('deliveryFee: mode ==='), 'Preferencia MP incluye el envío');
+  assert.ok(menuSrc.includes('aún no está disponible en este local'), 'MP sin medios revierte con aviso');
+  console.log('✓ Checkout blindado: horario, delivery, retorno MP y pago completo');
+
+  // 23. Batch B/C: multi-tracking, Studio honesto y en vivo, erase seguro
+  assert.ok(menuSrc.includes('ORDER_TRACKING_LIST_KEY'), 'Tracking multi-pedido con lista (cap 5)');
+  assert.ok(menuSrc.includes('getTrackedOrders()'), 'Lectura de la lista con migración legacy');
+  assert.ok(menuSrc.includes('markTrackedOrderDone'), 'Terminal marca hecho y oculta el FAB sin pendientes');
+  assert.ok(menuSrc.includes('selectTrackedOrder'), 'Selector de pedido en el modal');
+  assert.ok(menuSrc.includes('orderTrackingList'), 'Contenedor de la lista en el modal');
+  const autoSaveSrc = fs.readFileSync(path.join(__dirname, '../public/js/studio/autoSave.js'), 'utf8');
+  assert.ok(autoSaveSrc.includes('Sesión vencida'), 'Guardado distingue sesión vencida');
+  assert.ok(autoSaveSrc.includes('Sin conexión'), 'Guardado distingue offline');
+  assert.ok(!autoSaveSrc.includes('Guardado (Local)'), 'Adiós al falso "Guardado (Local)" en verde');
+  assert.ok(studioSrc.includes('startOrdersPolling'), 'Pedidos en vivo con polling');
+  assert.ok(studioSrc.includes('stopOrdersPolling'), 'Polling se detiene fuera de la pestaña');
+  assert.ok(studioSrc.includes("'delayed', 'cancelled'") || studioSrc.includes('"delayed", "cancelled"') || studioSrc.includes('ORDER_EXTRA_STATES'), 'Demorar y cancelar disponibles');
+  assert.ok(studioSrc.includes('¿Cancelar este pedido?'), 'Cancelar pide confirmación');
+  assert.ok(studioSrc.includes('● NUEVO'), 'Pedidos nuevos destacados');
+  const modalSrc = fs.readFileSync(path.join(__dirname, '../public/js/components/LoyaltyRewardsModal.js'), 'utf8');
+  assert.ok(modalSrc.includes('if (!res.ok || !body.success)'), 'Erase solo limpia si el backend borró');
+  const notifSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu.js'), 'utf8');
+  assert.ok(notifSrc.includes('Aviso registrado en el local'), 'Mozo sin teléfono igual avisa (inbox+push)');
+  const notifRouteSrc = fs.readFileSync(path.join(__dirname, '../api/routes/notifications.js'), 'utf8');
+  assert.ok(notifRouteSrc.includes("z.enum(['owners', 'guests'])"), 'audience:all eliminado del contrato');
+  console.log('✓ Batch B/C: multi-tracking, Studio honesto/en vivo, erase e inbox sin teléfono');
+
+  // 24. Seis mejoras de bajo esfuerzo (preview de tema, sonido, duplicados,
+  //     banner de fotos, cierre manual y respaldo JSON).
+  // 24.1 Preview ?theme=<clave>: mismo patrón que ?morph= y ?neon=.
+  assert.ok(menuSrc.includes("get('theme')"), 'menu.js lee el preview ?theme=');
+  assert.ok(menuSrc.includes('if (themeParam && validThemes.includes(themeParam))'), 'Solo claves válidas (nunca tema roto)');
+  // 24.2 Sonido de pedido nuevo: beep WebAudio + título + toggle + baseline.
+  assert.ok(studioSrc.includes('function playOrderAlert('), 'Studio: beep de pedido nuevo');
+  assert.ok(studioSrc.includes('AudioContext'), 'Beep por WebAudio, sin assets');
+  assert.ok(studioSrc.includes('ordersBaselineDone'), 'La primera carga es base (no suena por lo viejo)');
+  assert.ok(studioSrc.includes('freshPending'), 'Solo avisan los pendientes no vistos');
+  assert.ok(studioSrc.includes('toggleOrderSound'), 'Toggle de sonido exportado a window');
+  assert.ok(studioHtmlSrc.includes('id="inputOrderSoundEnabled"'), 'Studio: checkbox de sonido en Pedidos en vivo');
+  assert.ok(studioSrc.includes('scango_order_sound'), 'Preferencia de sonido persistida en localStorage');
+  // 24.3 Duplicar plato y categoría (contenido clonado, ids nuevos).
+  const dishEditorSrc = fs.readFileSync(path.join(__dirname, '../public/js/studio/dishEditor.js'), 'utf8');
+  assert.ok(dishEditorSrc.includes('export function duplicateDish('), 'dishEditor: duplicateDish existe');
+  assert.ok(dishEditorSrc.includes('cloneDishWithNewIdUtil'), 'El clonado vive en cloneUtils (§28)');
+  assert.ok(dishEditorSrc.includes('data-js-click="duplicateDishItem|'), 'Botón duplicar en la tarjeta del plato');
+  const catManagerSrc = fs.readFileSync(path.join(__dirname, '../public/js/studio/categoryManager.js'), 'utf8');
+  assert.ok(catManagerSrc.includes('export function duplicateCategory('), 'categoryManager: duplicateCategory existe');
+  assert.ok(catManagerSrc.includes('data-js-click="duplicateCategoryFromManager|'), 'Botón duplicar en el gestor de categorías');
+  assert.ok(studioSrc.includes('duplicateDishItem'), 'Studio: wrapper duplicateDishItem');
+  assert.ok(studioSrc.includes('duplicateCategoryFromManager'), 'Studio: wrapper duplicateCategoryFromManager');
+  // 24.4 Banner de cobertura de fotos (informa, nunca bloquea).
+  assert.ok(studioHtmlSrc.includes('id="photoCoverageBanner"'), 'Studio: contenedor del banner de fotos');
+  assert.ok(dishEditorSrc.includes('updatePhotoCoverageBanner'), 'dishEditor: cómputo de cobertura');
+  assert.ok(dishEditorSrc.includes('sin foto'), 'El banner cuenta platos sin imagen');
+  // 24.5 Cierre manual forceClosed: badge + carta + submit + pago + backend.
+  assert.ok(menuSrc.includes('restaurantData.forceClosed === true'), 'menu.js respeta el cierre manual');
+  assert.ok(menuSrc.includes('Cerrado por el momento'), 'Badge y avisos con copy propio (sin "undefined hs")');
+  assert.ok(menuSrc.includes('Local cerrado por el momento'), 'Carta pausada con mensaje dedicado');
+  assert.ok(studioHtmlSrc.includes('id="inputForceClosed"'), 'Studio: toggle de cierre manual');
+  assert.ok(studioSrc.includes('restaurant.forceClosed = forceClosedCheck.checked'), 'Studio: guarda el cierre');
+  assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({ forceClosed: true }).forceClosed, true, 'Backend: true pasa');
+  assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({ forceClosed: 'si' }).forceClosed, false, 'Backend: no-booleano → false');
+  assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({}).forceClosed, false, 'Backend: ausente → false');
+  const apiIndexSrc = fs.readFileSync(path.join(__dirname, '../api/index.js'), 'utf8');
+  assert.ok(apiIndexSrc.includes('forceClosed:'), 'El menú público expone forceClosed');
+  // 24.6 Respaldo JSON: exportar descarga, importar conserva identidad.
+  assert.ok(studioHtmlSrc.includes('data-js-click="exportMenuJson"'), 'Studio: botón exportar');
+  assert.ok(studioHtmlSrc.includes('data-js-click="fireClick|menuJsonFileInput"'), 'Studio: botón importar dispara el file input');
+  assert.ok(studioHtmlSrc.includes('id="menuJsonFileInput"'), 'Studio: input de archivo JSON');
+  assert.ok(studioSrc.includes('export function exportMenuJson()'), 'Studio: exportMenuJson existe');
+  assert.ok(studioSrc.includes('export function importMenuJsonFile('), 'Studio: importMenuJsonFile existe');
+  assert.ok(studioSrc.includes('carta-${restaurant.slug'), 'El archivo se nombra con el slug');
+  console.log('✓ Seis mejoras: preview ?theme=, sonido de pedidos, duplicados, banner de fotos, cierre manual y respaldo JSON');
+
+  // 25. Ticket de cocina imprimible (Fase 1): botón por pedido + contenedor
+  //     print-only + CSS 80mm. Sin on*=, todo dato escapado, window-exportado.
+  assert.ok(studioHtmlSrc.includes('id="orderTicketPrint"'), 'Studio: contenedor print-only del ticket');
+  assert.ok(studioSrc.includes('export function printOrderTicket('), 'Studio: printOrderTicket existe');
+  assert.ok(studioSrc.includes('data-js-click="printOrderTicket|'), 'Botón 🖨️ Ticket por pedido (sin on*=)');
+  assert.ok(studioSrc.includes('lastOrdersCache'), 'El ticket sale de la última lista (sin re-fetch)');
+  assert.ok(studioSrc.includes('window.print()'), 'Abre el diálogo del navegador');
+  assert.ok(studioSrc.includes('printOrderTicket,') || studioSrc.includes('printOrderTicket }'), 'printOrderTicket exportado a window');
+  // Todo dato del comensal (nombre, mesa, notas, ítems) va escapado.
+  const ticketStart = studioSrc.indexOf('export function printOrderTicket(');
+  const ticketEnd = studioSrc.indexOf('\nasync function setOrderStatus(', ticketStart + 10);
+  const ticketBody = studioSrc.slice(ticketStart, ticketEnd === -1 ? undefined : ticketEnd);
+  for (const field of ['escapeHtml(order.customer_name', 'escapeHtml(String(order.table_number)', 'escapeHtml(i.note)', 'escapeHtml(i.name']) {
+    assert.ok(ticketBody.includes(field), `Ticket: ${field} escapado (XSS del comensal)`);
+  }
+  const studioCssSrc = fs.readFileSync(path.join(__dirname, '../public/css/studio.css'), 'utf8');
+  assert.ok(studioCssSrc.includes('@media print'), 'studio.css: bloque print');
+  assert.ok(studioCssSrc.includes('@page'), 'studio.css: tamaño de página térmico');
+  assert.ok(studioCssSrc.includes('80mm'), 'Ticket 80mm');
+  assert.ok(studioCssSrc.includes('#orderTicketPrint'), 'Solo el ticket visible al imprimir');
+  assert.ok(studioCssSrc.includes('.ticket-paper'), 'Papel monoespaciado del ticket');
+  console.log('✓ Ticket de cocina Fase 1: botón por pedido, print-only 80mm, datos escapados');
+
+  // 26. Invitaciones por WhatsApp, una por invitado (rubro Eventos).
+  const inviteModule = await import('../public/js/menu/eventInvitations.js');
+  assert.strictEqual(typeof inviteModule.normalizeGuestPhone, 'function', 'normalizeGuestPhone debe existir');
+  assert.strictEqual(typeof inviteModule.buildGuestInviteLink, 'function', 'buildGuestInviteLink debe existir');
+  assert.strictEqual(typeof inviteModule.buildGuestInviteMessage, 'function', 'buildGuestInviteMessage debe existir');
+  assert.strictEqual(typeof inviteModule.buildGuestInviteUrl, 'function', 'buildGuestInviteUrl debe existir');
+  // Teléfono: solo dígitos, mínimo 8.
+  assert.strictEqual(inviteModule.normalizeGuestPhone('598 99 123 456'), '59899123456', 'Espacios fuera, dígitos dentro');
+  assert.strictEqual(inviteModule.normalizeGuestPhone('+59899123456'), '59899123456', 'El + no viaja a wa.me');
+  assert.strictEqual(inviteModule.normalizeGuestPhone('1234567'), '', 'Muy corto → vacío (no invita)');
+  assert.strictEqual(inviteModule.normalizeGuestPhone('llamame luego'), '', 'Sin dígitos → vacío');
+  assert.strictEqual(inviteModule.normalizeGuestPhone(null), '', 'Null → vacío');
+  // Link personal con nombre + token QR.
+  const inviteLink = inviteModule.buildGuestInviteLink('https://fiesta.uy/', 'boda-mora-alex', { name: 'Valeria Sosa', qrToken: 'qr_abc123' });
+  assert.ok(inviteLink.startsWith('https://fiesta.uy/m/boda-mora-alex?'), 'Base del evento sin doble barra');
+  assert.ok(inviteLink.includes('invitado=Valeria+Sosa'), 'Nombre codificado en el link');
+  assert.ok(inviteLink.includes('qr=qr_abc123'), 'Token QR en el link (lo resuelve el endpoint de invitado)');
+  assert.strictEqual(inviteModule.buildGuestInviteLink('https://f.uy', '', { name: 'X' }), '', 'Sin slug → vacío');
+  // Mensaje: nombres + fecha/lugar solo si existen, nunca "undefined".
+  const inviteMsg = inviteModule.buildGuestInviteMessage({ coupleNames: 'Mora & Alex', date: '5 de Junio de 2029', venue: 'Salón Ensigna', guestName: 'Valeria', link: inviteLink });
+  assert.ok(inviteMsg.includes('Mora & Alex') && inviteMsg.includes('Valeria') && inviteMsg.includes(inviteLink), 'Mensaje personal completo');
+  const bareMsg = inviteModule.buildGuestInviteMessage({});
+  assert.ok(!bareMsg.includes('undefined'), 'Sin datos no filtra "undefined"');
+  // wa.me o null.
+  const waUrl = inviteModule.buildGuestInviteUrl('59899123456', inviteMsg);
+  assert.ok(waUrl && waUrl.startsWith('https://wa.me/59899123456?text='), 'wa.me con texto codificado');
+  assert.strictEqual(inviteModule.buildGuestInviteUrl('123', inviteMsg), null, 'Teléfono inválido → null (no abre chat roto)');
+  assert.strictEqual(inviteModule.buildGuestInviteUrl('59899123456', '  '), null, 'Sin mensaje → null');
+  // Barrel + Studio + backend (teléfono del invitado).
+  assert.ok(barrelSrc.includes("export * from './eventInvitations.js'"), 'El barrel debe exportar eventInvitations');
+  assert.ok(studioHtmlSrc.includes('id="eventGuestsSection"'), 'Studio: sección de invitados (solo eventos)');
+  assert.ok(studioHtmlSrc.includes('data-js-click="addEventGuest"'), 'Studio: botón agregar invitado sin on*=');
+  assert.ok(studioSrc.includes('data-js-click="sendGuestInvite|'), 'Studio: botón invitar por invitado');
+  assert.ok(studioSrc.includes('data-js-click="copyGuestInviteLink|'), 'Studio: botón copiar link personal');
+  assert.ok(studioSrc.includes("from './menu/eventInvitations.js'"), 'Studio importa el builder puro');
+  assert.ok(studioSrc.includes('addEventGuest, removeEventGuest'), 'Studio: handlers de invitados exportados a window');
+  assert.ok(studioSrc.includes("getElementById('eventGuestsSection')"), 'Studio: la sección se muestra solo en eventos');
+  // Endurecido tras revisión: el preview ?theme= respeta el lockdown y los
+  // tokens se mintean con crypto (no adivinables por Math.random solo).
+  assert.ok(menuSrc.includes("!HELADERIA_ONLY.includes(themeParam)"), 'Preview ?theme= en heladería cae a fiesta (lockdown sin excepciones)');
+  assert.ok(studioSrc.includes('crypto.getRandomValues'), 'Tokens de invitado con entropía real');
+  assert.ok(studioSrc.includes('mintGuestToken'), 'Helper único de tokens (alta + fallbacks)');
+  const guestClean = sanitizeBe.sanitizeRestaurantPayload({ eventConfig: { guests: [{ name: 'Valeria', phone: '598 99 123 456' }] } });
+  assert.strictEqual(guestClean.eventConfig.guests[0].phone, '59899123456', 'Backend: teléfono del invitado saneado a dígitos');
+  const guestDirty = sanitizeBe.sanitizeRestaurantPayload({ eventConfig: { guests: [{ name: 'X', phone: 'llamame luego' }] } });
+  assert.strictEqual(guestDirty.eventConfig.guests[0].phone, '', 'Backend: teléfono sin dígitos → vacío');
+  console.log('✓ Invitaciones por WhatsApp: link personal + mensaje + backend con teléfono');
+
+  // 27. Térmica USB directa ESC/POS (Fase 2) + antigüedad en cocina.
+  const escposModule = await import('../public/js/studio/escposTicket.js');
+  const agingModule = await import('../public/js/studio/orderAging.js');
+  // Builder puro: ops init → contenido → corte (espejo en bytes del Fase 1).
+  assert.strictEqual(typeof escposModule.buildEscPosTicketOps, 'function', 'buildEscPosTicketOps debe existir');
+  assert.strictEqual(escposModule.ESCPOS_TICKET_COLUMNS, 42, 'Ticket 80mm = 42 columnas');
+  assert.ok(escposModule.ESCPOS_LIB_URL.includes('@point-of-sale/receipt-printer-encoder@4.0.1'), 'Librería MIT con pin exacto (nunca latest)');
+  assert.ok(escposModule.ESCPOS_LIB_URL.startsWith('https://cdn.jsdelivr.net/npm/'), 'CDN ya permitido por la CSP');
+  assert.strictEqual(escposModule.ESCPOS_LIB_GLOBAL, 'ReceiptPrinterEncoder', 'Global documentado del build UMD');
+  assert.strictEqual(escposModule.sanitizeEscPosText('ñaño áéí'), 'ñaño áéí', 'Latin-1 (ñ/á) pasa tal cual a la codepage');
+  assert.strictEqual(escposModule.sanitizeEscPosText('A ↳ B — C 🍕'), 'A > B - C ', 'Emoji y rarezas se mapean, nunca rompen bytes');
+  const escOps = escposModule.buildEscPosTicketOps(
+    { id: 'ord_1', status: 'pending', customer_name: 'Juan', table_number: '4', currency: '$', total: 850, created_at: '2029-06-05T20:00:00', items_snapshot: [{ quantity: 2, name: 'Milanesa', note: 'sin sal' }] },
+    { restaurantName: 'Bodegón', currency: '$' }
+  );
+  assert.strictEqual(escOps[0].t, 'init', 'Primera op: initialize');
+  assert.strictEqual(escOps[escOps.length - 1].t, 'cut', 'Última op: corte');
+  assert.ok(escOps.some(o => o.t === 'rule'), 'Separadores de regla');
+  assert.ok(escOps.some(o => o.t === 'feed'), 'Avance antes del corte');
+  const escText = escOps.filter(o => o.t === 'line').map(o => o.v).join('\n');
+  assert.ok(escText.includes('Bodegón'), 'Nombre del local (latin-1 intacto)');
+  assert.ok(escText.includes('Cliente: Juan'), 'Cliente presente');
+  assert.ok(escText.includes('Mesa: 4'), 'Mesa presente');
+  assert.ok(escText.includes('2x Milanesa'), 'Cantidad × plato');
+  assert.ok(escText.includes('> sin sal'), 'Nota del comensal');
+  assert.ok(escText.includes('TOTAL: $ 850.00'), 'Total con 2 decimales');
+  assert.ok(escText.includes('ord_1'), 'Id corto del pedido');
+  const escEmpty = escposModule.buildEscPosTicketOps({ id: 'x' }, {});
+  assert.ok(escEmpty.some(o => o.v === 'Sin detalle de items'), 'Sin ítems: estado honesto, no ticket vacío');
+  // Antigüedad: minutos, texto criollo y niveles con umbrales 15/30.
+  assert.strictEqual(agingModule.ORDER_AGE_WARN_MIN, 15, 'Aviso ámbar a los 15 min');
+  assert.strictEqual(agingModule.ORDER_AGE_CRIT_MIN, 30, 'Crítico rojo a los 30 min');
+  const ageBase = new Date('2029-06-05T20:00:00').getTime();
+  assert.strictEqual(agingModule.orderAgeMinutes('2029-06-05T20:00:00', ageBase), 0, 'Recién creado = 0');
+  assert.strictEqual(agingModule.orderAgeMinutes('2029-06-05T19:50:00', ageBase), 10, '10 minutos');
+  assert.strictEqual(agingModule.orderAgeMinutes('basura', ageBase), null, 'Fecha inválida = null');
+  assert.strictEqual(agingModule.formatOrderAge('2029-06-05T20:00:00', ageBase), 'recién', 'Menos de 1 min');
+  assert.strictEqual(agingModule.formatOrderAge('2029-06-05T19:57:00', ageBase), 'hace 3 min', 'Minutos en criollo');
+  assert.strictEqual(agingModule.formatOrderAge('2029-06-05T18:55:00', ageBase), 'hace 1 h 5 min', 'Horas en criollo');
+  assert.strictEqual(agingModule.formatOrderAge('', ageBase), '—', 'Sin fecha = guion');
+  assert.strictEqual(agingModule.orderAgeLevel('2029-06-05T19:50:00', ageBase, 'pending'), 'ok', '10 min pendiente = ok');
+  assert.strictEqual(agingModule.orderAgeLevel('2029-06-05T19:44:00', ageBase, 'preparing'), 'warn', '16 min en cocina = warn');
+  assert.strictEqual(agingModule.orderAgeLevel('2029-06-05T19:20:00', ageBase, 'pending'), 'crit', '40 min = crit');
+  assert.strictEqual(agingModule.orderAgeLevel('2029-06-05T19:00:00', ageBase, 'delivered'), 'done', 'Entregado no envejece');
+  assert.strictEqual(agingModule.orderAgeLevel('2029-06-05T19:00:00', ageBase, 'cancelled'), 'done', 'Cancelado no envejece');
+  assert.deepStrictEqual(agingModule.orderAgeStyle('crit'), { color: '#F87171', weight: '800' }, 'Estilo crítico');
+  assert.deepStrictEqual(agingModule.orderAgeStyle('ok'), { color: 'var(--text-dim)', weight: '400' }, 'Estilo normal usa variable del tema');
+  // Cableado Studio: transporte propio + lib bajo demanda + ticker + botones.
+  assert.ok(studioSrc.includes("from './studio/escposTicket.js'"), 'Studio importa el builder puro');
+  assert.ok(studioSrc.includes("from './studio/orderAging.js'"), 'Studio importa el módulo de antigüedad');
+  assert.ok(studioSrc.includes('export async function printOrderEscPos('), 'printOrderEscPos existe');
+  assert.ok(studioSrc.includes('export async function connectUsbPrinter('), 'connectUsbPrinter existe (toggle)');
+  assert.ok(studioSrc.includes('navigator.usb.requestDevice'), 'Transporte WebUSB propio (sin copiar drivers)');
+  assert.ok(studioSrc.includes('transferOut'), 'Envío troceado al endpoint OUT');
+  assert.ok(studioSrc.includes('getDevices'), 'Restaura el permiso ya otorgado sin selector');
+  assert.ok(studioSrc.includes("codepage('auto')"), 'ñ/á/ú por codepage automática de la lib');
+  assert.ok(studioSrc.includes('data-js-click="printOrderEscPos|'), 'Botón ⚡ por pedido');
+  assert.ok(studioHtmlSrc.includes('id="usbPrinterBtn"'), 'Botón 🔌 en Pedidos en vivo');
+  assert.ok(studioHtmlSrc.includes('id="usbPrinterStatus"'), 'Estado de la impresora visible');
+  assert.ok(studioSrc.includes('data-order-age'), 'Chip ⏱ por tarjeta');
+  assert.ok(studioSrc.includes('setInterval(updateOrderAges, 30000)'), 'Ticker de 30s sin re-fetch');
+  assert.ok(studioSrc.includes('printOrderEscPos,'), 'printOrderEscPos exportado a window');
+  assert.ok(studioSrc.includes('connectUsbPrinter,'), 'connectUsbPrinter exportado a window');
+  console.log('✓ Térmica USB ESC/POS (lib MIT) + antigüedad en cocina con umbrales');
+
+  // 28. Deuda de revisión saldada: listas compartidas sin drift + clon único.
+  // Backend (CJS) y frontend (ESM) no pueden compartir módulo en runtime:
+  // la guarda es el test — si alguien agrega un tema/estilo/acento de un
+  // solo lado, esto falla en la próxima corrida.
+  assert.deepStrictEqual(
+    [...sanitizeBe.HELADERIA_THEMES],
+    [...presModule.HELADERIA_THEMES],
+    'HELADERIA_THEMES backend == frontend (agregar un tema exige ambos lados)'
+  );
+  assert.deepStrictEqual(
+    [...sanitizeBe.ICE_CREAM_BUTTON_STYLES],
+    Object.keys(presModule.ICE_CREAM_BUTTON_STYLES),
+    'Estilos del armador backend == frontend'
+  );
+  assert.deepStrictEqual(
+    [...sanitizeBe.NEON_ACCENT_KEYS],
+    Object.keys(presModule.NEON_ACCENTS),
+    'Acentos neón backend == frontend'
+  );
+  // Clonado único: dishEditor y categoryManager delegan en cloneUtils.
+  const cloneModule = await import('../public/js/studio/cloneUtils.js');
+  assert.strictEqual(typeof cloneModule.cloneDishWithNewId, 'function', 'cloneDishWithNewId debe existir');
+  assert.strictEqual(typeof cloneModule.cloneCategoryWithNewId, 'function', 'cloneCategoryWithNewId debe existir');
+  const origDish = { id: 'd_x', name: 'Milanesa', price: 500, tags: ['star'], outOfStock: true };
+  const dishClone = cloneModule.cloneDishWithNewId(origDish);
+  assert.notStrictEqual(dishClone.id, 'd_x', 'Id nuevo');
+  assert.ok(dishClone.id.startsWith('d_'), 'Prefijo d_');
+  assert.ok(dishClone.name.includes('(copia)'), 'Nombre marcado');
+  assert.strictEqual(dishClone.outOfStock, false, 'El clon nace visible');
+  assert.deepStrictEqual(dishClone.tags, ['star'], 'Deep copy del contenido');
+  assert.strictEqual(origDish.name, 'Milanesa', 'El original no se muta');
+  dishClone.tags.push('veggie');
+  assert.deepStrictEqual(origDish.tags, ['star'], 'Independencia total del clon');
+  const catClone = cloneModule.cloneCategoryWithNewId({ id: 'c_x', name: 'Bebidas' });
+  assert.ok(catClone.id.startsWith('cat_'), 'Prefijo cat_');
+  assert.ok(catClone.name.includes('(copia)'), 'Categoría marcada');
+  const dishEditorSrc28 = fs.readFileSync(path.join(__dirname, '../public/js/studio/dishEditor.js'), 'utf8');
+  assert.ok(dishEditorSrc28.includes('cloneDishWithNewIdUtil'), 'dishEditor delega el clonado');
+  assert.ok(!dishEditorSrc28.includes('JSON.parse(JSON.stringify(dishes[idx]))'), 'dishEditor sin lógica de clon propia');
+  const catManagerSrc28 = fs.readFileSync(path.join(__dirname, '../public/js/studio/categoryManager.js'), 'utf8');
+  assert.ok(catManagerSrc28.includes('cloneDishWithNewIdUtil') && catManagerSrc28.includes('cloneCategoryWithNewIdUtil'), 'categoryManager delega el clonado');
+  console.log('✓ Listas backend↔frontend sin drift + clonado único en cloneUtils');
 
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE COMPONENTIZACIÓN DE MENU PASARON AL 100%!');
 }

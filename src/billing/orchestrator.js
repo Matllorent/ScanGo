@@ -349,8 +349,9 @@ const billingOrchestrator = {
       return { success: true, ignored: true, eventId: parsed.eventId };
     }
 
-    // 3. Idempotency check: Ignore duplicate events
-    if (db.hasProcessedWebhook(providerName, parsed.eventId)) {
+    // 3. Idempotency check: Ignore duplicate events (local + Supabase, porque
+    // en serverless el JSON local se pierde entre instancias/reinicios).
+    if (await db.hasProcessedWebhookAsync(providerName, parsed.eventId)) {
       return { success: true, duplicate: true, eventId: parsed.eventId };
     }
 
