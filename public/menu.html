@@ -105,6 +105,16 @@
   <!-- Container -->
   <main id="main-content" class="menu-container" tabindex="-1">
     <div class="controls-wrapper">
+      <!-- Tarjeta de bienvenida al invitado (solo eventos: ?invitado= + tema de evento). -->
+      <section id="guestInviteHero" class="guest-invite-hero" style="display:none;" aria-label="Invitación al evento">
+        <div class="guest-hero-inner">
+          <p class="guest-hero-welcome">👋 ¡Hola, <strong id="guestHeroName"></strong>!</p>
+          <h2 class="guest-hero-title" id="guestHeroTitle"></h2>
+          <p class="guest-hero-meta" id="guestHeroMeta"></p>
+          <p class="guest-hero-hint">Te esperamos. Mirá el menú y prepará tu pedido 💛</p>
+        </div>
+      </section>
+
       <!-- Barra de idioma (🌐, sólo si hay traducciones) y moneda ($UYU, $USD, $ARS) -->
       <div id="i18nCurrencyBarContainer"></div>
 

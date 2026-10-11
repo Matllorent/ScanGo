@@ -814,6 +814,21 @@ async function runMenuComponentizationTests() {
   assert.ok(inviteMsg.includes('Mora & Alex') && inviteMsg.includes('Valeria') && inviteMsg.includes(inviteLink), 'Mensaje personal completo');
   const bareMsg = inviteModule.buildGuestInviteMessage({});
   assert.ok(!bareMsg.includes('undefined'), 'Sin datos no filtra "undefined"');
+  // Copy por tipo de evento: antes "su boda" siempre (boda incluso en un cumpleaños).
+  const bdayMsg = inviteModule.buildGuestInviteMessage({ coupleNames: 'Tita', eventType: 'birthday', guestName: 'Ana' });
+  assert.ok(bdayMsg.includes('celebrar su cumpleaños 🎂'), 'Cumpleaños: verbo propio (nada de "boda")');
+  assert.ok(!bdayMsg.includes('boda'), 'Cumpleaños: nunca dice "boda"');
+  const quinceMsg = inviteModule.buildGuestInviteMessage({ eventType: 'cumple_15', guestName: 'Ana' });
+  assert.ok(quinceMsg.includes('celebrar sus 15 años 👑') && quinceMsg.includes('_¡No faltes!_'), '15 años: verbo + cierre propios');
+  const caterMsg = inviteModule.buildGuestInviteMessage({ eventType: 'CATERING', guestName: 'Ana' });
+  assert.ok(caterMsg.includes('acompañarnos en su evento 🍽️'), 'Catering: copy propio (case-insensitive)');
+  const unknownMsg = inviteModule.buildGuestInviteMessage({ eventType: 'fiesta-de-empresa', guestName: 'Ana' });
+  assert.ok(unknownMsg.includes('celebrar su boda'), 'Tipo desconocido → default boda (nunca crashea)');
+  const legacyMsg = inviteModule.buildGuestInviteMessage({ guestName: 'Ana' });
+  assert.ok(legacyMsg.includes('celebrar su boda 🎉'), 'Sin eventType → mismo copy histórico (backward compat)');
+  assert.strictEqual(inviteModule.resolveEventInviteCopy('birthday').verb, 'celebrar su cumpleaños', 'Resolver expone el copy por tipo');
+  assert.strictEqual(inviteModule.resolveEventInviteCopy('').verb, 'celebrar su boda', 'Resolver default = boda');
+  assert.ok(studioSrc.includes('eventType: ctx.eventType'), 'Studio: envía el tipo de evento al builder');
   // wa.me o null.
   const waUrl = inviteModule.buildGuestInviteUrl('59899123456', inviteMsg);
   assert.ok(waUrl && waUrl.startsWith('https://wa.me/59899123456?text='), 'wa.me con texto codificado');
@@ -837,6 +852,13 @@ async function runMenuComponentizationTests() {
   assert.strictEqual(guestClean.eventConfig.guests[0].phone, '59899123456', 'Backend: teléfono del invitado saneado a dígitos');
   const guestDirty = sanitizeBe.sanitizeRestaurantPayload({ eventConfig: { guests: [{ name: 'X', phone: 'llamame luego' }] } });
   assert.strictEqual(guestDirty.eventConfig.guests[0].phone, '', 'Backend: teléfono sin dígitos → vacío');
+  // Hero de invitado en el menú: tarjeta de bienvenida con nombre/mesa del link.
+  assert.ok(menuHtmlSrc.includes('id="guestInviteHero"'), 'menu.html: contenedor de la tarjeta de invitado');
+  assert.ok(menuSrc.includes('parseGuestContext'), 'menu.js: importa parseGuestContext (nombre/mesa del link)');
+  assert.ok(menuSrc.includes('function renderGuestInvite'), 'menu.js: render de la tarjeta de invitado');
+  assert.ok(menuSrc.includes('nameEl.textContent = guestName'), 'menu.js: nombre con textContent (cero HTML inyectable)');
+  assert.ok(menuSrc.includes('Mesa ${tableNumber}'), 'menu.js: la mesa del link se suma a la tarjeta');
+  assert.ok(menuCssSrc.includes('.guest-invite-hero'), 'menu.css: estilos de la tarjeta (paleta del tema activo)');
   console.log('✓ Invitaciones por WhatsApp: link personal + mensaje + backend con teléfono');
 
   // 27. Térmica USB directa ESC/POS (Fase 2) + antigüedad en cocina.

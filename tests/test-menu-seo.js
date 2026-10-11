@@ -8,11 +8,11 @@ const db = require('../src/db/db');
 async function runTests() {
   const unique = Date.now();
   const slug = `schema-bistro-${unique}`;
-  const user = db.createUser({
+  const user = await db.createUser({
     email: `schema-bistro-${unique}@example.com`,
     password: 'test_password'
   });
-  db.saveRestaurant(user.id, {
+  await db.saveRestaurant(user.id, {
     name: 'Schema Bistro',
     bizName: 'Schema Bistro',
     slug,
@@ -81,6 +81,49 @@ async function runTests() {
     const vercelConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '../vercel.json'), 'utf8'));
     const menuRoute = vercelConfig.routes.find(route => route.src === '/m/(.*)');
     assert.strictEqual(menuRoute.dest, '/api/index.js', 'Vercel routes public menus through Express');
+
+    // §Evento — el preview OG debe contar la celebración (pareja/fecha/lugar),
+    // no el genérico "Menú Pizarrón" (invitaciones estéticas al compartir).
+    const evtUnique = `${unique}-evt`;
+    const evtSlug = `evento-preview-${evtUnique}`;
+    const evtUser = await db.createUser({ email: `evento-preview-${evtUnique}@example.com`, password: 'test_password' });
+    await db.saveRestaurant(evtUser.id, {
+      name: 'Estancia La Ribera',
+      bizName: 'Estancia La Ribera',
+      slug: evtSlug,
+      businessType: 'events',
+      currency: 'UYU',
+      phone: '+59899123456',
+      eventDate: '2027-12-12T20:00:00.000Z',
+      weddingItinerary: {
+        enabled: true,
+        title: 'Programa de la fiesta',
+        coupleNames: 'Martina & Santi',
+        date: '12 de diciembre de 2027',
+        venue: 'Salón Ensigna — Canelones'
+      },
+      categories: [{ id: 'cat-fiesta', name: 'Menú de la Fiesta' }],
+      dishes: [{ id: 'dish-rec', categoryId: 'cat-fiesta', name: 'Bocados de bienvenida', price: 0 }]
+    });
+    const evtResponse = await fetch(`http://localhost:${port}/m/${evtSlug}`);
+    const evtHtml = await evtResponse.text();
+    assert.strictEqual(evtResponse.status, 200, 'SSR del evento responde 200');
+    assert.ok(
+      evtHtml.includes('<meta property="og:title" content="Boda: Martina &amp; Santi — Estancia La Ribera — Menú Pizarrón"'),
+      'Evento: OG title con pareja (y "&" escapado)'
+    );
+    assert.ok(
+      evtHtml.includes('<meta property="og:description" content="12 de diciembre de 2027 · Salón Ensigna — Canelones"'),
+      'Evento: OG description con fecha y lugar'
+    );
+    assert.ok(
+      evtHtml.includes(`<meta property="og:image" content="${appUrl}/og-cover.png"`),
+      'Evento: fallback de imagen apunta al cover real'
+    );
+    // El archivo de respaldo existe y es un PNG válido (referencia rota arreglada).
+    const ogCoverPath = path.join(__dirname, '../public/og-cover.png');
+    const ogCoverBuf = fs.readFileSync(ogCoverPath);
+    assert.strictEqual(ogCoverBuf.slice(0, 8).toString('hex'), '89504e470d0a1a0a', 'og-cover.png existe con firma PNG real');
     console.log('✓ Menú SSR: Open Graph, Restaurant/Menu JSON-LD, precios/moneda y escape seguros');
   } finally {
     if (server.closeAllConnections) server.closeAllConnections();

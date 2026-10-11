@@ -1748,7 +1748,10 @@ function getEventInviteContext() {
   return {
     coupleNames: it.coupleNames || (restaurant && (restaurant.name || restaurant.bizName)) || '',
     date: it.date || '',
-    venue: it.venue || ''
+    venue: it.venue || '',
+    eventType:
+      (restaurant && (restaurant.eventType || (restaurant.eventConfig && restaurant.eventConfig.eventType))) ||
+      'wedding'
   };
 }
 
@@ -1824,7 +1827,8 @@ function guestInviteMessage(guest) {
     date: ctx.date,
     venue: ctx.venue,
     guestName: guest.name,
-    link: buildGuestLink(guest)
+    link: buildGuestLink(guest),
+    eventType: ctx.eventType
   });
 }
 

@@ -1542,9 +1542,51 @@ app.get('/m/:slug', (req, res) => {
     const restaurantName = activeBranch
       ? `${restaurant.name || restaurant.bizName || 'Menú Digital'} — ${activeBranch.name}`
       : (restaurant.name || restaurant.bizName || 'Menú Digital');
-    const title = `${restaurantName} — Menú Pizarrón`;
-    const slogan = restaurant.slogan || 'Especialidad, masas artesanales y cocina de autor';
-    const ogImage = toAbsoluteUrl(restaurant.bannerUrl || restaurant.logoUrl, `${appUrl}/og-cover.png`);
+    // Evento (boda/15/cumpleaños/catering): el preview al compartir debe contar la
+    // celebración (pareja/fecha/lugar), no el genérico "Menú Pizarrón".
+    const eventCfg = restaurant.eventConfig || {};
+    const isEventMenu = Boolean(
+      restaurant.businessType === 'events' ||
+        restaurant.eventType ||
+        eventCfg.eventType ||
+        eventCfg.coupleNames ||
+        (restaurant.weddingItinerary && restaurant.weddingItinerary.enabled)
+    );
+    const resolveEventTypeLabel = eventType => {
+      switch (String(eventType || '').toLowerCase()) {
+        case 'cumple_15':
+          return 'Cumpleaños de 15';
+        case 'birthday':
+          return 'Cumpleaños';
+        case 'catering':
+          return 'Evento';
+        case 'wedding':
+          return 'Boda';
+        default:
+          return 'Evento';
+      }
+    };
+    const eventTypeLabel = resolveEventTypeLabel(restaurant.eventType || eventCfg.eventType || 'wedding');
+    const eventCouple = String(
+      (restaurant.weddingItinerary && restaurant.weddingItinerary.coupleNames) || eventCfg.coupleNames || ''
+    ).trim();
+    const eventWhere = [
+      (restaurant.weddingItinerary && restaurant.weddingItinerary.date) || eventCfg.date,
+      (restaurant.weddingItinerary && restaurant.weddingItinerary.venue) || eventCfg.venue
+    ]
+      .map(value => String(value || '').trim())
+      .filter(Boolean);
+    const title = isEventMenu
+      ? `${eventTypeLabel}${eventCouple ? `: ${eventCouple}` : ''} — ${restaurantName} — Menú Pizarrón`
+      : `${restaurantName} — Menú Pizarrón`;
+    const slogan =
+      isEventMenu && eventWhere.length
+        ? eventWhere.join(' · ')
+        : restaurant.slogan || 'Especialidad, masas artesanales y cocina de autor';
+    const ogImage = toAbsoluteUrl(
+      restaurant.bannerUrl || restaurant.logoUrl || eventCfg.heroImage,
+      `${appUrl}/og-cover.png`
+    );
     const branchQuery = activeBranch ? `?branch=${encodeURIComponent(activeBranch.slug || activeBranch.id)}` : '';
     const menuUrl = `${appUrl}/m/${encodeURIComponent(restaurant.slug || slug)}${branchQuery}`;
     const normalized = normalizeBranchCustomDishes(restaurant.categories, restaurant.dishes, activeBranch?.customDishes || null);
@@ -1603,7 +1645,10 @@ app.get('/m/:slug', (req, res) => {
 
     const address = activeBranch?.address || restaurant.address || '';
     const city = restaurant.city || '';
-    const imageUrl = toAbsoluteUrl(restaurant.bannerUrl || restaurant.logoUrl, `${appUrl}/og-cover.png`);
+    const imageUrl = toAbsoluteUrl(
+      restaurant.bannerUrl || restaurant.logoUrl || eventCfg.heroImage,
+      `${appUrl}/og-cover.png`
+    );
     const structuredData = {
       '@context': 'https://schema.org',
       '@type': 'Restaurant',

@@ -719,6 +719,43 @@
       box-shadow: inset 0 0 0 4px var(--surface-card),
         inset 0 0 0 5px var(--border-gold, rgba(212, 168, 83, 0.35));
     }
+    /* ── Tarjeta de bienvenida al invitado (eventos) ─────────────────────────
+       Misma paleta que el itinerario: se adapta al tema de evento activo. */
+    .guest-invite-hero {
+      margin: 4px 0 14px;
+    }
+    .guest-invite-hero .guest-hero-inner {
+      position: relative;
+      padding: 22px 20px 18px;
+      background: var(--surface-card);
+      border: 1px solid var(--border-gold, rgba(212, 168, 83, 0.35));
+      border-radius: 14px;
+      text-align: center;
+      box-shadow: inset 0 0 0 4px var(--surface-card),
+        inset 0 0 0 5px var(--border-gold, rgba(212, 168, 83, 0.35));
+    }
+    .guest-hero-welcome {
+      margin: 0 0 6px;
+      font-size: 14px;
+      color: var(--chalk-dim);
+    }
+    .guest-hero-welcome strong { color: var(--chalk-gold); }
+    .guest-hero-title {
+      margin: 0 0 8px;
+      font-size: 24px;
+      line-height: 1.25;
+      color: var(--chalk-white, #fff);
+    }
+    .guest-hero-meta {
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: var(--chalk-dim);
+    }
+    .guest-hero-hint {
+      margin: 0;
+      font-size: 12.5px;
+      color: var(--chalk-muted);
+    }
     /* Esquinas botánicas doradas (SVG inline, sin imágenes externas) */
     .wed-it-corner {
       position: absolute;

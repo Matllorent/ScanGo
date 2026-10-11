@@ -6,6 +6,7 @@
  * - normalizeGuestPhone: dígitos del teléfono del invitado (vale con ≥8).
  * - buildGuestInviteLink: link personal `/m/<slug>?invitado=&qr=` (el token
  *   lo resuelve el endpoint de invitado que ya expone mesa y dieta).
+ * - resolveEventInviteCopy: copy por tipo de evento (boda/15/cumpleaños/catering).
  * - buildGuestInviteMessage: texto de invitación en español rioplatense.
  * - buildGuestInviteUrl: wa.me listo para abrir (null sin teléfono válido).
  * ─────────────────────────────────────────────────────────────────────────────
@@ -42,20 +43,50 @@ export function buildGuestInviteLink(origin, slug, guest = {}) {
 }
 
 /**
+ * Copy de la invitación por tipo de evento (data-driven). Antes el mensaje
+ * decía "su boda" siempre, incluso en un cumpleaños de 15 o un catering.
+ */
+const EVENT_INVITE_COPY = {
+  wedding: { verb: 'celebrar su boda', celebration: '🎉', closing: '¡Te esperamos!' },
+  cumple_15: { verb: 'celebrar sus 15 años', celebration: '👑', closing: '¡No faltes!' },
+  birthday: { verb: 'celebrar su cumpleaños', celebration: '🎂', closing: '¡Te esperamos!' },
+  catering: { verb: 'acompañarnos en su evento', celebration: '🍽️', closing: '¡Te esperamos!' }
+};
+
+/**
+ * Resuelve el copy de la invitación según el tipo de evento.
+ * @param {string} eventType 'wedding' | 'cumple_15' | 'birthday' | 'catering' (default wedding)
+ * @returns {{verb: string, celebration: string, closing: string}}
+ */
+export function resolveEventInviteCopy(eventType) {
+  const key = String(eventType || '').trim().toLowerCase();
+  return EVENT_INVITE_COPY[key] || EVENT_INVITE_COPY.wedding;
+}
+
+/**
  * Texto de invitación por WhatsApp (una por invitado, con su link).
  * Solo incluye fecha/lugar si el dueño los cargó (nunca "undefined").
+ * El verbo/nombre de la celebración depende de `eventType` (boda, 15, cumpleaños, catering).
  */
-export function buildGuestInviteMessage({ coupleNames = '', date = '', venue = '', guestName = '', link = '' } = {}) {
+export function buildGuestInviteMessage({
+  coupleNames = '',
+  date = '',
+  venue = '',
+  guestName = '',
+  link = '',
+  eventType = ''
+} = {}) {
+  const copy = resolveEventInviteCopy(eventType);
   const couple = String(coupleNames || '').trim() || 'Los anfitriones';
   const guest = String(guestName || '').trim();
-  let msg = `Hola ${guest || 'te'} 💛\n\n${couple} te invitan a celebrar su boda 🎉\n`;
+  let msg = `Hola ${guest || 'te'} 💛\n\n${couple} te invitan a ${copy.verb} ${copy.celebration}\n`;
   const when = String(date || '').trim();
   if (when) msg += `📅 ${when}\n`;
   const where = String(venue || '').trim();
   if (where) msg += `📍 ${where}\n`;
   const url = String(link || '').trim();
   if (url) msg += `\nTu invitación personal con todos los detalles:\n${url}\n`;
-  msg += `\n_¡Te esperamos!_`;
+  msg += `\n_${copy.closing}_`;
   return msg;
 }
 

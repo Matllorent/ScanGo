@@ -29,6 +29,7 @@ import {
   closeRestaurantInfoModal as closeRestaurantInfoModalMod,
   shareRestaurantUrl as shareRestaurantUrlMod,
   resolveEventTheme,
+  parseGuestContext,
   initGlobalModalDismiss as initGlobalModalDismissMod,
   openReservationModal as openReservationModalMod,
   closeReservationModal as closeReservationModalMod,
@@ -349,6 +350,9 @@ Object.defineProperties(window, {
 
       // === WEDDING ITINERARY: sección data-driven (dueño la configura en Studio)
       renderWeddingItinerary();
+
+      // === GUEST HERO: bienvenida al invitado (solo eventos con ?invitado=)
+      renderGuestInvite();
 
       // Render the hero image and temporarily move the existing brand/status nodes into it.
       const bannerEl = document.getElementById('menuBannerHero');
@@ -1018,6 +1022,53 @@ Object.defineProperties(window, {
       if (html) {
         weddingItineraryTimer = setInterval(renderWeddingItinerary, 30000);
       }
+    }
+
+    /**
+     * Etiqueta humana del tipo de evento (espejo del SSR en api/index.js).
+     */
+    function resolveEventMenuLabel(eventType) {
+      switch (String(eventType || '').toLowerCase()) {
+        case 'cumple_15': return 'Cumpleaños de 15';
+        case 'birthday': return 'Cumpleaños';
+        case 'catering': return 'Evento';
+        case 'wedding': return 'Boda';
+        default: return 'Evento';
+      }
+    }
+
+    /**
+     * Tarjeta de bienvenida al invitado (solo eventos con ?invitado= + tema
+     * de evento). Data-driven desde weddingItinerary (pareja/fecha/lugar) y
+     * mesa del link del invitado. Todo con textContent: cero HTML inyectable.
+     */
+    function renderGuestInvite() {
+      const host = document.getElementById('guestInviteHero');
+      if (!host || !restaurantData) return;
+      const { guestName, tableNumber } = parseGuestContext(window.location.search);
+      if (!guestName || !resolveEventTheme(restaurantData, window.location.search)) {
+        host.style.display = 'none';
+        return;
+      }
+      const it = restaurantData.weddingItinerary || {};
+      const couple = String(it.coupleNames || '').trim();
+      const eventDay = String(it.date || '').trim();
+      const venue = String(it.venue || '').trim();
+      const label = resolveEventMenuLabel(restaurantData.eventType || 'wedding');
+      const nameEl = document.getElementById('guestHeroName');
+      const titleEl = document.getElementById('guestHeroTitle');
+      const metaEl = document.getElementById('guestHeroMeta');
+      if (nameEl) nameEl.textContent = guestName;
+      if (titleEl) titleEl.textContent = couple ? `${couple} — ${label}` : (restaurantData.name || label);
+      if (metaEl) {
+        const bits = [];
+        if (eventDay) bits.push(`📅 ${eventDay}`);
+        if (venue) bits.push(`📍 ${venue}`);
+        if (tableNumber) bits.push(`Mesa ${tableNumber}`);
+        metaEl.textContent = bits.join(' · ');
+        metaEl.style.display = bits.length ? '' : 'none';
+      }
+      host.style.display = 'block';
     }
 
     function renderDishes() {
