@@ -20,7 +20,7 @@ console.log('🧪 Iniciando pruebas de notificaciones por email...');
     userName: 'Juan',
     restaurantName: 'La Esquina',
     daysLeft: 3,
-    studioUrl: 'https://menupizarron.com/studio'
+    studioUrl: 'https://scango.uy/studio'
   });
   assert.strictEqual(trialWarning3.success, true, 'Trial warning (3 días) debe ser exitoso');
   assert.strictEqual(trialWarning3.provider, 'local_mock', 'Sin RESEND_API_KEY debe usar fallback local');
@@ -32,7 +32,7 @@ console.log('🧪 Iniciando pruebas de notificaciones por email...');
     userName: 'María',
     restaurantName: 'El Buen Sabor',
     daysLeft: 1,
-    studioUrl: 'https://menupizarron.com/studio'
+    studioUrl: 'https://scango.uy/studio'
   });
   assert.strictEqual(trialWarning1.success, true, 'Trial warning (1 día) debe ser exitoso');
   console.log('✓ sendTrialWarningEmail (1 día) funciona correctamente');
@@ -55,7 +55,7 @@ console.log('🧪 Iniciando pruebas de notificaciones por email...');
     restaurantName: 'Sushi House',
     planName: 'Pro Mensual',
     gracePeriodDays: 7,
-    updatePaymentUrl: 'https://menupizarron.com/studio?tab=billing'
+    updatePaymentUrl: 'https://scango.uy/studio?tab=billing'
   });
   assert.strictEqual(failed.success, true, 'Payment failed email debe ser exitoso');
   console.log('✓ sendPaymentFailedEmail funciona correctamente');
@@ -68,7 +68,7 @@ console.log('🧪 Iniciando pruebas de notificaciones por email...');
     planName: 'Pro Mensual',
     daysLeft: 3,
     gracePeriodDays: 7,
-    updatePaymentUrl: 'https://menupizarron.com/studio?tab=billing'
+    updatePaymentUrl: 'https://scango.uy/studio?tab=billing'
   });
   assert.strictEqual(dunning.success, true, 'Dunning reminder debe ser exitoso');
   console.log('✓ sendDunningReminderEmail funciona correctamente');
@@ -79,8 +79,8 @@ console.log('🧪 Iniciando pruebas de notificaciones por email...');
     userName: 'Lucía',
     restaurantName: 'Café Central',
     graceDays: 3,
-    studioUrl: 'https://menupizarron.com/studio',
-    menuUrl: 'https://menupizarron.com/m/cafe-central'
+    studioUrl: 'https://scango.uy/studio',
+    menuUrl: 'https://scango.uy/m/cafe-central'
   });
   assert.strictEqual(trialExpired.success, true, 'Trial expired email debe ser exitoso');
   assert.strictEqual(trialExpired.provider, 'local_mock', 'Sin RESEND_API_KEY debe usar fallback local');
@@ -91,7 +91,7 @@ console.log('🧪 Iniciando pruebas de notificaciones por email...');
     to: 'test@example.com',
     userName: 'Lucía',
     restaurantName: 'Café Central',
-    studioUrl: 'https://menupizarron.com/studio'
+    studioUrl: 'https://scango.uy/studio'
   });
   assert.strictEqual(menuPaused.success, true, 'Menu paused email debe ser exitoso');
   console.log('✓ sendMenuPausedEmail funciona correctamente');
@@ -100,8 +100,8 @@ console.log('🧪 Iniciando pruebas de notificaciones por email...');
   const welcome = await emailService.sendWelcomeEmail({
     to: 'test@example.com',
     restaurantName: 'La Parrilla',
-    menuUrl: 'https://menupizarron.com/m/la-parrilla',
-    studioUrl: 'https://menupizarron.com/studio'
+    menuUrl: 'https://scango.uy/m/la-parrilla',
+    studioUrl: 'https://scango.uy/studio'
   });
   assert.strictEqual(welcome.success, true, 'Welcome email debe ser exitoso');
   console.log('✓ sendWelcomeEmail funciona correctamente');

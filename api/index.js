@@ -1479,14 +1479,14 @@ Disallow: /studio
 Disallow: /api/
 Allow: /m/
 Allow: /
-Sitemap: ${process.env.APP_URL || 'https://menupizarron.com'}/sitemap.xml
+Sitemap: ${process.env.APP_URL || 'https://scango.uy'}/sitemap.xml
 `);
 });
 
 // SEO: Dynamic XML Sitemap Route for Active Restaurant Menus
 app.get('/sitemap.xml', (req, res) => {
   res.type('application/xml');
-  const appUrl = process.env.APP_URL || 'https://menupizarron.com';
+  const appUrl = process.env.APP_URL || 'https://scango.uy';
   const restaurants = db.getAllRestaurants().filter(r => r.subscription && r.subscription.status !== 'canceled');
 
   const urlsXml = restaurants.map(r => `
@@ -1518,7 +1518,7 @@ app.get('/m/:slug', (req, res) => {
 
   if (fs.existsSync(menuHtmlPath) && restaurant) {
     let html = fs.readFileSync(menuHtmlPath, 'utf8');
-    const appUrl = (process.env.APP_URL || 'https://menupizarron.com').replace(/\/+$/, '');
+    const appUrl = (process.env.APP_URL || 'https://scango.uy').replace(/\/+$/, '');
     const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({
       '&': '&amp;',
       '<': '&lt;',

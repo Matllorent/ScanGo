@@ -43,7 +43,7 @@ async function runTests() {
 
     const response = await fetch(`http://localhost:${port}/m/${slug}`);
     const html = await response.text();
-    const appUrl = (process.env.APP_URL || 'https://menupizarron.com').replace(/\/+$/, '');
+    const appUrl = (process.env.APP_URL || 'https://scango.uy').replace(/\/+$/, '');
     assert.strictEqual(response.status, 200);
     assert.ok(html.includes('<meta property="og:title" content="Schema Bistro — Menú Pizarrón"'), 'OG title identifies the restaurant');
     assert.ok(html.includes('<meta property="og:description" content="Cocina &amp; pastas"'), 'OG description is HTML-escaped');

@@ -616,7 +616,7 @@ router.post('/mercadopago/preference', validateBody(createOrderSchema), async (r
       items: mpItems,
       payer: {
         name: customerName || 'Cliente ScanGo',
-        email: 'pedido@menupizarron.com'
+        email: 'pedido@scango.uy'
       },
       externalReference: externalRef,
       backUrls: {

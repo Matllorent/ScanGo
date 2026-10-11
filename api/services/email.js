@@ -75,7 +75,7 @@ const emailService = {
       <div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
         <h2 style="color: #10b981;">¡Tu menú digital de ${restaurantName} ya está activo!</h2>
         <p>Gracias por unirte a ScanGo. Tenés <strong>7 días gratis</strong> para cargar tus platos, ajustar precios y personalizar la estética de tu menú: sin tarjeta y sin compromiso.</p>
-        <p style="margin: 18px 0;"><a href="${studioUrl || 'https://menupizarron.com/studio'}" style="background: #10b981; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Empezar en el Panel Studio</a></p>
+        <p style="margin: 18px 0;"><a href="${studioUrl || 'https://scango.uy/studio'}" style="background: #10b981; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Empezar en el Panel Studio</a></p>
         ${menuUrl ? `<p>Tu menú público (ya compartible): <a href="${menuUrl}">${menuUrl}</a></p>` : ''}
         <p style="font-size: 12px; color: #888;">Te avisaremos por correo cuando tu prueba esté por terminar.</p>
       </div>
