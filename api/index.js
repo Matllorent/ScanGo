@@ -32,6 +32,7 @@ const { publicAnalyticsLimiter, emailLimiter } = require('./middleware/rateLimit
 const { createGroupCartToken } = require('./utils/groupCartToken');
 const sentry = require('./utils/sentry');
 const securityHeaders = require('./utils/securityHeaders');
+const seoDiscovery = require('./utils/seoDiscovery');
 const { getDemoRestaurant, listDemoRestaurants, normalizeDemoType } = require('./utils/demoRestaurants');
 const authRouter = require('./routes/auth');
 const reviewsRouter = require('./routes/reviews');
@@ -1473,43 +1474,22 @@ app.post('/api/admin/killswitch', adminMiddleware, (req, res) => {
 // Specific HTML routing (allowing dotfiles for paths containing .gemini)
 const SEND_FILE_OPTIONS = { dotfiles: 'allow' };
 
-// SEO: Dynamic Robots.txt Route
+// SEO: Dynamic Robots.txt Route (política de rastreo + IA desde el compilador
+// puro api/utils/seoDiscovery.js; /robots.txt también se sirve por Express en
+// Vercel — ver routes en vercel.json).
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain');
-  res.send(`User-agent: *
-Disallow: /admin
-Disallow: /studio
-Disallow: /api/
-Allow: /m/
-Allow: /
-Sitemap: ${process.env.APP_URL || 'https://scango.uy'}/sitemap.xml
-`);
+  res.send(seoDiscovery.buildRobotsTxt(process.env.APP_URL));
 });
 
-// SEO: Dynamic XML Sitemap Route for Active Restaurant Menus
+// SEO: Dynamic XML Sitemap (menús activos + sucursales + legales, con lastmod
+// por restaurante; los estáticos public/robots.txt y public/sitemap.xml fueron
+// ELIMINADOS a propósito: en Vercel el archivo estático pisaba al dinámico y
+// dejaba a los /m/* fuera del sitemap de producción).
 app.get('/sitemap.xml', (req, res) => {
   res.type('application/xml');
-  const appUrl = process.env.APP_URL || 'https://scango.uy';
   const restaurants = db.getAllRestaurants().filter(r => r.subscription && r.subscription.status !== 'canceled');
-
-  const urlsXml = restaurants.map(r => `
-  <url>
-    <loc>${appUrl}/m/${r.slug}</loc>
-    <lastmod>${r.updatedAt || r.createdAt || new Date().toISOString()}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>`).join('');
-
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>${appUrl}/</loc>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>${urlsXml}
-</urlset>`;
-
-  res.send(xml);
+  res.send(seoDiscovery.buildSitemapXml({ appUrl: process.env.APP_URL, restaurants }));
 });
 
 // SEO & OpenGraph Dynamic Public Menu Route
@@ -1676,7 +1656,7 @@ app.get('/m/:slug', (req, res) => {
         inLanguage: 'es',
         hasMenuSection: menuSections
       },
-      ...(restaurant.openingHours ? { openingHours: restaurant.openingHours } : {}),
+      ...(seoDiscovery.buildOpeningHoursFromSchedule(restaurant) || {}),
       ...(restaurant.priceRange ? { priceRange: restaurant.priceRange } : {}),
       ...(restaurant.servesCuisine ? { servesCuisine: restaurant.servesCuisine } : (restaurant.categories && restaurant.categories.length > 0 ? { servesCuisine: restaurant.categories.map(c => c.name) } : {}))
     };

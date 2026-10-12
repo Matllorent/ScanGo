@@ -14,7 +14,7 @@
 | Supabase cloud | ✅ esquema completo, migraciones 001–006 aplicadas y verificadas en runtime |
 | Commits pusheados a `origin/main` | ✅ (`68720df`, `3c882f4`) |
 | Secretos generados en `.env` local | ✅ JWT_SECRET, GROUP_CART_SECRET, CRON_SECRET, MERCADOPAGO_WEBHOOK_SECRET |
-| Fallbacks de dominio → `scango.uy` | ✅ (api/index.js, email.js, orders.js, tests, sitemap.xml) |
+| Fallbacks de dominio → `scango.uy` | ✅ (api/index.js, api/utils/seoDiscovery.js, email.js, orders.js, tests) |
 | Verificador de env | ✅ `node scripts/check-prod-env.js` |
 | Vercel CLI | 🕐 instalando (`npm i -g vercel`) |
 | Dominio DNS | ⛔ `scango.uy` NO resuelve — hay que registrarlo/comprarlo |
@@ -36,9 +36,10 @@
 ## Fase 1 — Código ✅
 
 - [x] `api/index.js`: fallback de dominio `menupizarron.com` → `scango.uy` (robots dinámico, sitemap dinámico, OG/canonical SSR)
+- [x] `api/utils/seoDiscovery.js`: compilador SEO/GEO puro (robots + IA, sitemap con sucursales, `OpeningHoursSpecification` derivado del horario real); los estáticos `public/robots.txt` y `public/sitemap.xml` fueron ELIMINADOS (sombra del dinámico en Vercel) y se sirven por Express en dev y prod (`vercel.json` los rutea a `/api/index.js`)
 - [x] `api/services/email.js`: fallback del CTA del email → `scango.uy/studio`
 - [x] `api/routes/orders.js`: `pedido@menupizarron.com` → `pedido@scango.uy`
-- [x] `public/sitemap.xml`: URLs absolutas con dominio (Google rechaza `<loc>/</loc>` relativo)
+- [x] Sitemap dinámico (Express): URLs absolutas con dominio (Google rechaza `<loc>/</loc>` relativo) — menús activos + sucursales + legales
 - [x] Tests espejo actualizados (`test-menu-seo.js`, `test-email-notifications.js`)
 
 ## Fase 2 — Cuentas y servicios externos (manual, dashboard)
@@ -49,8 +50,8 @@
 3. Al estar disponible, en Vercel: *Project → Settings → Domains → Add `scango.uy`*.
 4. DNS en el registrar: registro **A → `76.76.21.21`** (o CNAME `cname.vercel-dns.com`).
 5. ⚠️ Al activar el dominio final:
-   - Actualizar `APP_URL` en Vercel a `https://scango.uy`.
-   - `public/robots.txt` (Sitemap:) y `public/sitemap.xml` (base), `public/index.html` (OG/canonical hardcodeados) y `public/llms.txt`.
+   - Actualizar `APP_URL` en Vercel a `https://scango.uy` (es la base que usan `api/utils/seoDiscovery.js` y el SSR `/m/*`).
+   - `public/index.html` (OG/canonical hardcodeados) y `public/llms.txt`.
    - Re-deployar.
 
 ### 2.2. Resend (emails transaccionales) — BLOQUEANTE para clientes reales
