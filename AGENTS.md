@@ -8,7 +8,7 @@ SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. 
 ```bash
 npm run dev          # Desarrollo con nodemon (puerto 3000)
 npm start            # Producción (node api/index.js)
-npm test             # Suite completa (41 tests en secuencia) — con snapshot/restore automático de data/
+npm test             # Suite completa (42 tests en secuencia) — con snapshot/restore automático de data/
 npm run test:billing # Test individual de pasarelas de pago
 npm run test:analytics # Test individual de analytics de negocio (ticket promedio, CSV, top platos)
 npm run test:admin   # Test individual del panel /admin (login 2FA, plata/mes, renovaciones)
@@ -24,6 +24,7 @@ npm run test:csp     # Test individual del guard CSP + headers duros
 npm run test:hardening # Test individual del endurecimiento A→F (timeouts fetch, retención telemetry, concurrencia Studio, heatmap UTC, abierto/cerrado server-side, SLO/perceptiles)
 npm run test:business-hours # Test individual de la tabla de decisión ejecutable de horarios (reloj inyectable, espejo backend↔frontend)
 npm run test:money-properties # Test individual de propiedades del dinero (PRNG seed fijo: cotización en centavos, envío vs zonas, cupones, P0 anti mass-assignment)
+npm run test:differential # Test individual de differential testing (escapeHtml legacy↔browser, invariantes de la máquina de suscripción, telemetría vs re-conteo/SQL)
 npm run test:semgrep  # Análisis estático Semgrep (reglas comunitarias gratis; SKIP si semgrep no está instalado)
 npm run test:escape-html # Test individual del escape HTML legacy (CommonJS)
 npm run test:db-write # Test individual de la primitiva atómica writeJson (temp-file + rename)
@@ -160,12 +161,12 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** durante la corrida (flujos reales con el store local). **`npm test` ahora las aísla solo**: `scripts/test-data-guard.js` saca una foto de `data/` antes y la restaura siempre al final (pase o falle). La cadena real de tests vive en `npm run test:core`; no hay que revertir `data/` a mano para commitear.
-- Suite completa (`npm test`) ejecuta 41 tests en secuencia — **todos deben pasar (41/41)**
+- Suite completa (`npm test`) ejecuta 42 tests en secuencia — **todos deben pasar (42/42)**
 - **2 tests existen pero NO están en `npm test`**: `test-e2e.js` (E2E integral real: registra en la nube, crea un checkout de Mercado Pago real y activa la suscripción por webhook — correrlo a mano; en modo cloud confirma el email del usuario recién registrado vía Admin API de Supabase, flujo real del link, sin mocks, porque `/api/studio/save` exige `requireVerifiedEmail`) y `test-supabase-group-cart-persistence.js` (es el `npm run db:smoke`, round-trip real de `group_carts` contra la nube). `test-escape-html`, `test-db-write` y `test-semgrep` solían estar fuera pero **ahora corren en el chain** (`npm test`): el guard de tests (`test-data-guard.js`) + el SKIP autónomo de semgrep los hacen seguros de correr en serie.
-- **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 4 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell` y `test-realtime-live-guard` (usan credenciales reales; el último hace SKIP si no hay `SUPABASE_URL`/`SUPABASE_ANON_KEY`).
+- **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 5 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell`, `test-realtime-live-guard` y `test-differential` (usan credenciales reales; los últimos dos hacen SKIP si no hay `SUPABASE_URL`/`SUPABASE_ANON_KEY`).
 - Para debug rápido: `node tests/test-billing.js` (o el test específico, o `npm run test:<alias>`)
 
-### Tests incluidos en `npm test` (41 suites)
+### Tests incluidos en `npm test` (42 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
@@ -210,6 +211,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-hardening.js` | Endurecimiento A→F (auditoría de ingeniería): A) fetch colgado aborta `FETCH_TIMEOUT` (y el sano responde); B) retención de telemetría — cutoff `[30,730]` días, dry-run no muta, purga real del espejo local, cron fail-closed (401 sin secreto / 200 con `x-cron-secret`); C) `/api/studio/save` → 409 `MENU_CONCURRENCY_CONFLICT` con `currentUpdatedAt` y overwrite OK; D) heatmap aterrizado al huso del dueño (`utcOffsetMinutes` + `localHourOf` puro); E) abierto/cerrado server-side (`forceClosed`/horario → 400 `RESTAURANT_CLOSED` en quote y pedido); F) `LatencyTracker` p50/p95/p99 + `/api/healthz` expone `latency` real |
 | `test-business-hours.js` | **Especificación ejecutable de horarios (Bloque 1)**: reloj INYECTABLE (`nowMs`) en `computeOpenStatus` — la tabla de decisión documenta bordes inclusivos (23:00 exactas = abierto), offset que desplaza la frontera (±840 min), `forceClosed` que gana siempre, formato inválido → abierto, y **rango invertido `inicio>fin` → cerrado siempre (ventanas que cruzan medianoche NO soportadas, limitación conocida del diseño E)**. Exige paridad exacta de `{open, reason}` entre el espejo CJS (`api/utils/openStatus.js`) y el ESM del menú (`public/js/menu/openStatus.js`, al que delega `menu.js` con `-getTimezoneOffset()`) en 3073 pares (barrido 48h + PRNG seed) — la tabla es la especificación que reemplaza sleeps |
 | `test-money-properties.js` | **Propiedades del dinero (Bloque 2, PRNG mulberry32 seed fijo, 1.600+ casos)**: cotización en centavos (`quoteOrderItems`/`resolveDeliveryFee`/`resolveCouponDiscount` extraídos a `api/utils/orderMoney.js`) — consistencia `amountInCents = Σ totales`, no-negatividad, timestamp inyectado, qty 0 → 0, errores `DISH_NOT_FOUND`/`INVALID_DISH_OPTIONS`/`INVALID_DELIVERY_FEE`, cupón `percent` clamp `[0,100]` y descuento ≤ subtotal, `free_delivery` = fee completo (puede superar el subtotal: invariante honesto); P0 anti mass-assignment (`stripPrivilegedFields` en `api/utils/stripPrivilegedFields.js`, usado por Studio `/save`) — idempotente, sin fugas de `subscription/userId/analytics/createdAt/updatedAt`/proto, composición `sanitize→strip` estable. **Cazó un bug real**: `sanitizeWeddingItinerary` no era idempotente (default sin `eventDay`, segunda pasada lo agregaba) — corregido alineando el default con el espejo frontend |
+| `test-differential.js` | **Differential testing (Bloque 3, PRNG seed fijo)**: (A) escapeHtml legacy CJS (`public/js/utils/escapeHtml.js`) vs browser ESM (`escapeHtmlBrowser.js`) — 600 strings fuzzed + 300 doble-aplicación: salidas idénticas en el dominio compartido, divergencia documentada `0`/`false`/`NaN` (legacy `if(!str)` → `''`; browser → `'0'`/`'false'`/`'NaN'`), salida sin chars crudos `< > " '`, punto fijo sobre texto plano; (B) máquina de suscripción (pura, sin db) — 1.600 subs fuzzed + 400 malformados: determinismo, consistencia `state ↔ allowed/status`, 5 barridos de reloj con monotonía del acceso (allowed flipea true→false a lo sumo una vez y nunca vuelve, sin revención trialing→grace→paused); (C) telemetría — proyección `countAnalytics` vs re-conteo ingenuo de la misma fuente (corre sin credenciales) + re-lectura SQL independiente del servicio (canal directo; cloud-only con SKIP limpio sin Supabase; restaurantId throwaway + DELETE best-effort, verificado 0 filas residuales) |
 
 ## Configuración (`.env`)
 
