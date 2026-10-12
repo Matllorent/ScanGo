@@ -8,7 +8,7 @@ SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. 
 ```bash
 npm run dev          # Desarrollo con nodemon (puerto 3000)
 npm start            # Producción (node api/index.js)
-npm test             # Suite completa (43 tests en secuencia) — con snapshot/restore automático de data/
+npm test             # Suite completa (46 suites en secuencia) — con snapshot/restore automático de data/
 npm run test:billing # Test individual de pasarelas de pago
 npm run test:analytics # Test individual de analytics de negocio (ticket promedio, CSV, top platos)
 npm run test:admin   # Test individual del panel /admin (login 2FA, plata/mes, renovaciones)
@@ -20,6 +20,7 @@ npm run test:account-erasure # Test individual del derecho al olvido: borrado re
 npm run test:online-payment # Test individual del pago online del comensal (toggle del dueño, gate 403, preferencia MP real)
 npm run test:seo-discovery # Test individual del compilador SEO/GEO (robots+IA, sitemap con sucursales, JSON-LD de horarios reales)
 npm run test:seo-audit # Test individual del auditor de salud SEO (panel Studio + cron diario fail-closed)
+npm run test:indexnow # Test individual de IndexNow (key fail-closed, payload bulk inyectado, verificación /{key}.txt) — 46ª suite
 npm run test:realtime # Test individual del guard de canales Realtime (migración 002)
 npm run test:realtime-live # Test E2E real del guard (conecta a Supabase Realtime con la anon key)
 npm run test:csp     # Test individual del guard CSP + headers duros
@@ -171,6 +172,12 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - **Cron diario `/api/cron/seo-audit`** (03:00 UTC en `vercel.json`): recorre TODOS los restaurantes en SOLO LECTURA, devuelve `{ audited, failCount, warnCount, alerts[] }` y registra cada alerta en `audit_logs` (action `SEO_AUDIT_ALERT`, fire-and-forget vía `auditService`, nunca bloquea). Fail-closed con `verifyCronAuth` (401 sin `CRON_SECRET` en prod, 200 con `x-cron-secret`).
 - Regresión: `npm run test:seo-audit` (45ª suite).
 
+### SEO Local — datos al JSON-LD, IndexNow y verificación por sucursal (Batch 3)
+- **Datos locales al JSON-LD del SSR** (`api/index.js`, sanitizados en `api/utils/sanitizeRestaurant.js`): el `Restaurant` schema ahora emite `priceRange` (allowlist estricta `$|$$|$$$|$$$$`, input select en Studio "📡 Visibilidad en Buscadores (SEO Local)"), `sameAs` (array de URLs https únicas, máx 3, para el perfil de Google Business; `javascript:`/`data:` descartados en el sanitizer) y `geo` (`latitude`/`longitude` numéricos con rangos reales ±90/±180 y 6 decimales; vacío → `null`, pero `0` es VÁLIDO — Ecuador está sobre el ecuador). El sanitizer aplica estos campos en `clean` tras `googleReview`; idempotente (verificado por `test-money-properties`). UI: Studio → Mi Local → bloque con `inputPriceRange`/`inputSameAs`/`inputLatitude`/`inputLongitude` (`data-js-*`, cero `on*=`).
+- **Fix de un bug real cazado por el test**: el SSR inyectaba JSON-LD con `html.replace('</head>', ogTags)` usando un reemplazo-STRING → `String.prototype.replace` interpreta patrones `$` (`$$`, `$&`, `$'`) y CORROMPÍA el contenido del dueño: `priceRange "$$$"` salía como `"$$"` en producción (un nombre con `$` se rompía igual). Ambos replaces del SSR (title + ogTags) pasan a **función-callback** que devuelve el texto literal sin procesar `$`. Nunca usar reemplazo-string para insertar contenido del usuario en el HTML.
+- **IndexNow best-effort al guardar** (`api/utils/indexNow.js` puro + hook en `POST /api/studio/save`): cuando el dueño guarda el menú, se notifica a Bing/Yandex/Seznam/Naver (`POST https://api.indexnow.org/indexnow` con `{host,key,keyLocation,urlList}`: canonical + CADA sucursal `?branch=`). TODO fail-closed y sin mocks: la key debe matchear `[0-9a-fA-F-]{8,64}` (UUID/hex con guiones — el MISMO patrón de la ruta de `vercel.json` que desvía `/{key}.txt` al API); sin `INDEXNOW_KEY`/`INDEXNOW_ENABLED=false` no se genera NINGÚN tráfico; fire-and-forget (nunca bloquea ni rompe el save) + throttle 5 min por slug (el autosave no spamea); el fetch default usa `fetchWithTimeout` (Brecha A, 8s). **Verificación de dominio**: `GET /{key}.txt` responde 200 `text/plain` con la key exacta solo si coincide (404 si no) — en Express se registra DESPUÉS de `express.static` y con patrón hex, así `/llms.txt`/`/llms-full.txt` (letras no-hex) y cualquier `.txt` estático NUNCA se pisan.
+- **Páginas independientes por sucursal**: cada sucursal real ya es una URL canónica propia — el SSR de `/m/:slug?branch=x` emite `canonical`/`og:url` con el query, título `{local} — {sucursal} — Menú Pizarrón` y JSON-LD con `name`/`@id`/`telephone`/`streetAddress` de la sucursal; el sitemap dinámico lista `/m/:slug?branch=x` por cada sucursal real. Regresión en `tests/test-seo-discovery.js` (bloque 6b) + `npm run test:indexnow`.
+
 ### Operación — Workflows de GitHub
 - **CI** (`.github/workflows/ci.yml`): push/PR → matriz Node 22+24 (`npm test`) + semgrep + OSV-Scanner + **job `secret-scan` de gitleaks** (binario CLI v8.30.1 pin + verificación SHA256 del tarball oficial, `--redact`, escaneo de TODO el historial con `fetch-depth: 0`; el action oficial requiere licencia, el CLI es gratis). La allowlist de falsos positivos verificados vive en `.gitleaks.toml` (`[extend] useDefault`): placeholders de `.env.example`, passwords de fixture de los tests (`test_password`/`otra_clave_123` en versiones históricas) y payloads de ejemplo de la skill de terceros `benchmark.py` (token-optimizer). Cualquier secreto real (nuevo o histórico) hace fallar el job.
 - **Backup diario de Supabase** (`.github/workflows/backup-supabase.yml`, riesgo #1 del plan free): cron 02:10 UTC + `workflow_dispatch` → `pg_dump --format=custom --no-owner --no-privileges` con `SUPABASE_DB_URL` (secret; conexión **directa** puerto 5432, no el pooler) → valida con `pg_restore --list` → artifact con retención 90 días → push **opcional** a repo privado (`latest.dump`) si existen `BACKUP_REPO` (variable) + `BACKUP_REPO_TOKEN` (secret). La conexión diaria amortigua la pausa por inactividad del plan free pero no la garantiza.
@@ -180,12 +187,12 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** durante la corrida (flujos reales con el store local). **`npm test` ahora las aísla solo**: `scripts/test-data-guard.js` saca una foto de `data/` antes y la restaura siempre al final (pase o falle). La cadena real de tests vive en `npm run test:core`; no hay que revertir `data/` a mano para commitear.
-- Suite completa (`npm test`) ejecuta 43 tests en secuencia — **todos deben pasar (43/43)**
+- Suite completa (`npm test`) ejecuta 46 suites en secuencia — **todas deben pasar (46/46)**
 - **2 tests existen pero NO están en `npm test`**: `test-e2e.js` (E2E integral real: registra en la nube, crea un checkout de Mercado Pago real y activa la suscripción por webhook — correrlo a mano; en modo cloud confirma el email del usuario recién registrado vía Admin API de Supabase, flujo real del link, sin mocks, porque `/api/studio/save` exige `requireVerifiedEmail`) y `test-supabase-group-cart-persistence.js` (es el `npm run db:smoke`, round-trip real de `group_carts` contra la nube). `test-escape-html`, `test-db-write` y `test-semgrep` solían estar fuera pero **ahora corren en el chain** (`npm test`): el guard de tests (`test-data-guard.js`) + el SKIP autónomo de semgrep los hacen seguros de correr en serie.
 - **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 5 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell`, `test-realtime-live-guard` y `test-differential` (usan credenciales reales; los últimos dos hacen SKIP si no hay `SUPABASE_URL`/`SUPABASE_ANON_KEY`).
 - Para debug rápido: `node tests/test-billing.js` (o el test específico, o `npm run test:<alias>`)
 
-### Tests incluidos en `npm test` (45 suites)
+### Tests incluidos en `npm test` (46 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
@@ -205,6 +212,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-menu-seo.js` | SSR, metadatos y JSON-LD por restaurante + ETag/`s-maxage=60` en `/m/*` (200 con `ETag: W/"m-..."`, 304 con `If-None-Match`) |
 | `test-seo-discovery.js` | Compilador SEO/GEO (`api/utils/seoDiscovery.js`): `OpeningHoursSpecification` DERIVADO del horario real (ventana nocturna `18:00-02:00` = dos tramos, `23:00-00:00` = uno), robots.txt con política de IA por user-agent + paneles privados fuera del índice, sitemap dinámico con menús activos + sucursales `?branch=` + legales, `noindex,follow` en los 4 paneles privados, y verificación de que los estáticos viejos `public/robots.txt`/`public/sitemap.xml` NO existen (en Vercel sombreaban al dinámico y prod quedaba sin `/m/*` en el sitemap) |
 | `test-seo-audit.js` | **Auditor de salud SEO** (`api/utils/seoAudit.js`, puro): score 0–100 (fail=25 / warn=5) sobre carta vacía, precios inválidos, horario roto (misma fuente `buildOpeningHoursFromSchedule`), overrides muertos de sucursales, nombres duplicados, datos locales, descripción, marca, JSON-LD, suscripción cancelada (fuera del sitemap) y unicidad de slug; `GET /api/studio/seo-audit` (200 dueño / 401 anónimo) para el panel; cron `/api/cron/seo-audit` fail-closed (401 sin `CRON_SECRET`, 200 con `x-cron-secret`) en solo lectura + alertas a `audit_logs`; pestaña "Salud SEO" del Studio sin `on*=` |
+| `test-indexnow.js` | **IndexNow** (`api/utils/indexNow.js`, puro + fetch inyectable): key fail-closed con el patrón `[0-9a-fA-F-]{8,64}` (igual a la ruta de vercel), `INDEXNOW_ENABLED=false/0` apaga, `buildIndexNowUrl` nunca acepta `javascript:`/`data:`, `getMenuUrlsForPing` = canonical + sucursales `?branch=`, payload POST bulk exacto `{host,key,keyLocation,urlList}` con un solo host por lote, errores de red → `ok:false` sin lanzar, `GET /{key}.txt` 200 `text/plain` solo con la key exacta (404 fail-closed), `/llms.txt`/`/llms-full.txt` estáticos intactos y guard de fuente del hook del Studio |
 | `test-google-auth.js` | GIS, callback OAuth y configuración backend |
 | `test-security-endpoints.js` | Auth/tenant, límites, cron/readiness y QR capability + P0: anti mass-assignment en `/save`, auth en IA, TOTP fail-closed, 403 a cuentas huérfanas |
 | `test-session-lifecycle.js` | Ciclo de sesión (partido de security-endpoints por el presupuesto del limiter 30/15min): logout con revocación jti, rehash bcrypt, muerte por pwdTs, reset atómico concurrente, Origin 403, device tokens (emisión/uso/listado/revocación/purga por reset) y baja voluntaria idempotente |
@@ -257,6 +265,8 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 | `SUPABASE_ANON_KEY` | Clave pública para Realtime en navegador (protegida por RLS) |
 | `CRON_SECRET` | Bearer/header requerido para cron en producción |
 | `TELEMETRY_RETENTION_DAYS` | Días de retención de `telemetry_events` (default 183, clamp `[30,730]`); lo aplica el cron mensual `/api/cron/telemetry-retention` |
+| `INDEXNOW_KEY` | Key de verificación de dominio IndexNow (obligatoria `[0-9a-fA-F-]{8,64}` = UUID/hex con guiones; generarla con `node -e "console.log(require('crypto').randomUUID())"`). Sirve `/{key}.txt` y habilita el ping best-effort al guardar; cualquier otro formato desactiva el feature |
+| `INDEXNOW_ENABLED` | `false`/`0`/`no`/`off` apaga el ping IndexNow aunque haya key válida (default: habilitado si `INDEXNOW_KEY` es válida) |
 | `GROUP_CART_SECRET` | Firma HMAC de QR de mesa; puede usar `JWT_SECRET` como fallback |
 
 ### Tooling OpenCode
