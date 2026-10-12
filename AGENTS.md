@@ -26,6 +26,7 @@ npm run test:business-hours # Test individual de la tabla de decisión ejecutabl
 npm run test:money-properties # Test individual de propiedades del dinero (PRNG seed fijo: cotización en centavos, envío vs zonas, cupones, P0 anti mass-assignment)
 npm run test:differential # Test individual de differential testing (escapeHtml legacy↔browser, invariantes de la máquina de suscripción, telemetría vs re-conteo/SQL)
 npm run test:architecture # Test individual de guards de arquitectura (analytics proyección, api/utils puro, frontend plano sin require/imports que escapen)
+npm run check          # Cadena de verificación rápida del Nivel A: contrato+CSP+arquitectura+dineros+differential+horarios (HARD) + semgrep/paridad dual-write/mutation local (SOFT, no bloquean)
 npm run test:semgrep  # Análisis estático Semgrep (reglas comunitarias gratis; SKIP si semgrep no está instalado)
 npm run test:escape-html # Test individual del escape HTML legacy (CommonJS)
 npm run test:db-write # Test individual de la primitiva atómica writeJson (temp-file + rename)
@@ -378,6 +379,14 @@ Un solo guard de regresión: `tests/test-hardening.js` (`npm run test:hardening`
 - **D · Heatmap en hora del dueño**: `getHourlyHeatmap` acepta `?utcOffsetMinutes=` (antes `getHours()`/`getDay()` del server = UTC en Vercel, picos corridos 3h). Helpers puros `localHourOf`/`localDayOf` (hora/día = UTC + offset leído con `getUTC*`, truco estándar de bucketing); el Studio ya manda el offset del navegador (`-getTimezoneOffset()`) en el fetch del heatmap.
 - **E · Abierto/cerrado con autoridad server-side**: el reloj del navegador ya no es la única fuente. `assertRestaurantOpen()` (espejo de `isRestaurantOpenNow()` en `public/js/menu/openStatus.js`) corre dentro de `enforceOrderBusinessRules` → se aplica en `/quote`, `POST /api/orders` y `/mercadopago/preference`. `forceClosed===true` gana siempre; con horario, la hora local del local se recalcula con `utcOffsetMinutes` (±840, campo nuevo en `createOrderSchema`; el menú envía `-new Date().getTimezoneOffset()`). Cerrado → 400 `RESTAURANT_CLOSED` (un rango invertido `inicio>fin` nunca matchea → cerrado siempre). **Bloque 1**: la decisión es ahora la función pura `computeOpenStatus(restaurant, utcOffsetMinutes, nowMs)` en `api/utils/openStatus.js` (misma fórmula en el espejo ESM `public/js/menu/openStatus.js`, al que `menu.js` delega y del barrel `menu/index.js`). `nowMs` inyectable congela el reloj: `tests/test-business-hours.js` valida la **tabla de decisión ejecutable de horarios** (bordes inclusivos `>=`/`<=`, offsets, `forceClosed`, formato inválido → abierto) + **paridad exacta backend↔frontend** (3073 pares deterministas). **Limitación conocida documentada**: las franjas que cruzan medianoche (`18:00-02:00`) quedan cerradas 24/7 por diseño (`inicio>fin` nunca matchea) — útil para bares/heladerías nocturnos, pendiente de decisión de producto (ver FAQ de los bloques Nivel A).
 - **F · Observabilidad / SLO** (`api/utils/latencyTracker.js`): percentiles en memoria por grupo (`menu_public` `/m/*`, `api` `/api/*`, `other`; ring 2000 muestras, push O(1)); `requestId.js` registra cada `finish`. `GET /api/healthz` expone `latency` (aditivo, ningún test asevera la forma previa). SLO de referencia: **menú público p95 < 500ms** y **API p95 < 1000ms** en la ventana diaria (se revisa con el uptime check sobre `/api/healthz`).
+
+## Cadena de Verificación Rápida — `npm run check` (Bloque 5)
+
+`scripts/check.js` agrega los frentes del Nivel A en UNA invocación, reusando los tests individuales como subprocesos (cero duplicación de lógica). Corre con snapshot/restore de `data/` (mismo patrón que `npm test`).
+
+- **HARD (fallan el check)**: `test-openapi-contract` (contrato 3.1), `test-csp` (CSP real + headers duros + cero `on*=`), `test-architecture-guards` (Bloque 4), `test-money-properties` (Bloque 2), `test-differential` (Bloque 3) y `test-business-hours` (Bloque 1).
+- **SOFT (no bloquean, solo avisan)**: `test-semgrep` (SKIP interno si el binario no está; si está, una regla rota sale como ⚠️), `npm run db:parity` (read-only; exit 2 sin credenciales → SKIP informado; divergencias se reportan sin romper el drill mensual) y **mutation stryker SOLO si el binario local existe** (`node_modules/@stryker-mutator/core/bin/stryker.js` o el shim `.bin`; probe sin npx ni red — instalarlo con `npm i -D @stryker-mutator/core` lo activa).
+- Salida: resumen final con códigos de salida y tiempos; `exitCode=1` solo si algún HARD falla.
 
 ## Heladería como Rubro de Primera Clase
 

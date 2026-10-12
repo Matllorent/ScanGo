@@ -32,6 +32,7 @@
     "test:money-properties": "node tests/test-money-properties.js",
     "test:differential": "node tests/test-differential.js",
     "test:architecture": "node tests/test-architecture-guards.js",
+    "check": "node scripts/check.js",
     "test:demos": "node tests/test-demos.js",
     "test:mutation": "npx --yes @stryker-mutator/core run",
     "db:parity": "node scripts/verify-dual-write-parity.js",
