@@ -12,6 +12,7 @@ const { authMiddleware } = require('../middleware/auth');
 const requireVerifiedEmail = require('../middleware/requireVerifiedEmail');
 const { requireActiveSubscription } = require('../middleware/subscriptionGuard');
 const { createGroupCartToken } = require('../utils/groupCartToken');
+const { stripPrivilegedFields } = require('../utils/stripPrivilegedFields');
 const aiRouter = require('./ai');
 const auditService = require('../services/audit');
 
@@ -51,14 +52,7 @@ router.post('/save', authMiddleware, requireVerifiedEmail, requireActiveSubscrip
       });
     }
 
-    const cleanPayload = sanitizeRestaurantPayload(payload);
-    // Anti mass-assignment: el dueño NUNCA fija estos campos por /save.
-    // La suscripción solo la mutan webhooks de pago, el cron y el admin
-    // (vías server-side directas a db); el resto es identidad/proyección.
-    // __proto__/constructor/prototype: cierra prototype pollution vía merge.
-    for (const privileged of ['subscription', 'userId', 'id', 'analytics', 'createdAt', 'updatedAt', '__proto__', 'constructor', 'prototype']) {
-      delete cleanPayload[privileged];
-    }
+    const cleanPayload = stripPrivilegedFields(sanitizeRestaurantPayload(payload));
     const restaurant = await db.saveRestaurant(req.user.userId, cleanPayload);
     if (restaurant && restaurant.slug) {
       memoryCache.delete(restaurant.slug);

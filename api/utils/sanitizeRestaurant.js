@@ -189,7 +189,10 @@ function sanitizeEventConfigGuests(guests) {
 // Itinerario visual de boda/evento: programa cronológico configurable.
 // Espejo server-side del módulo frontend weddingItinerary.js (misma semántica).
 function sanitizeWeddingItinerary(raw) {
-  const empty = { enabled: false, title: 'Programa de Boda', coupleNames: '', date: '', venue: '', items: [] };
+  // EventDay en el default: el espejo frontend (public/js/menu/weddingItinerary.js)
+  // ya lo incluía; sin él, sanitizar dos veces cambiaba la forma ({} → {eventDay:''})
+  // y rompía la idempotencia (regresión cazada por tests/test-money-properties.js).
+  const empty = { enabled: false, title: 'Programa de Boda', coupleNames: '', date: '', eventDay: '', venue: '', items: [] };
   if (!raw || typeof raw !== 'object') return empty;
   const items = Array.isArray(raw.items) ? raw.items : [];
   const rawDay = sanitizeString(raw.eventDay, 10);

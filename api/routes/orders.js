@@ -7,7 +7,6 @@ const { validateBody, createOrderSchema } = require('../middleware/validation');
 const idempotencyMiddleware = require('../middleware/idempotency');
 const { tenantGuard } = require('../middleware/tenantGuard');
 const { authenticateRequest } = require('../middleware/auth');
-const { validateAndPriceOrderLine } = require('../utils/menuOptions');
 const { isCaptchaEnforced, verifyTurnstile } = require('../utils/captcha');
 const AppError = require('../utils/AppError');
 const sentry = require('../utils/sentry');
@@ -15,6 +14,7 @@ const logger = require('../utils/logger');
 const { groupCartLimiter } = require('../middleware/rateLimits');
 const { verifyGroupCartToken } = require('../utils/groupCartToken');
 const { computeOpenStatus } = require('../utils/openStatus');
+const { quoteOrderItems, resolveDeliveryFee, resolveCouponDiscount } = require('../utils/orderMoney');
 const loyaltyService = require('../services/loyalty');
 const notificationsService = require('../services/notifications');
 const { signOrderToken, verifyOrderToken } = require('../utils/orderTrackingToken');
@@ -60,36 +60,7 @@ function requireGroupCartCapability(req, res, next) {
   next();
 }
 
-function quoteOrderItems(restaurant, items, timestamp = new Date().toISOString()) {  let amountInCents = 0;
-  const itemsSnapshot = items.map(item => {
-    const dish = (restaurant.dishes || []).find(candidate => candidate.id === item.dishId);
-    if (!dish) throw new AppError('Platillo no encontrado para el pedido', 400, 'DISH_NOT_FOUND');
 
-    const pricing = validateAndPriceOrderLine(dish, item.choices, restaurant.modifierGroups || []);
-    if (!pricing.valid) throw new AppError(pricing.error, 400, 'INVALID_DISH_OPTIONS');
-    const totalItemAmountInCents = pricing.unitPriceInCents * item.quantity;
-    amountInCents += totalItemAmountInCents;
-    const category = (restaurant.categories || []).find(candidate => candidate.id === dish.categoryId);
-
-    return {
-      dishId: dish.id,
-      name: dish.name,
-      unitPrice: pricing.unitPriceInCents / 100,
-      unitPriceInCents: pricing.unitPriceInCents,
-      quantity: item.quantity,
-      note: item.note || '',
-      orderedBy: item.orderedBy || '',
-      orderedById: item.orderedById || '',
-      totalItemAmount: totalItemAmountInCents / 100,
-      totalItemAmountInCents,
-      categoryName: category ? category.name : 'General',
-      optionsSnapshot: pricing.choicesSnapshot,
-      snapshotTimestamp: timestamp
-    };
-  });
-
-  return { itemsSnapshot, amountInCents };
-}
 
 /**
  * Busca un pedido para seguimiento: primero el espejo local (dev/offline) y
@@ -179,45 +150,7 @@ function enforceOrderBusinessRules({ restaurant, subtotal, orderMode, deliveryAd
   assertRestaurantOpen(restaurant, utcOffsetMinutes);
 }
 
-/**
- * Totales server-side para cobro online: subtotal cotizado + envío validado
- * contra las zonas del local − descuento de cupón validado + propina.
- * El fee lo declara el frontend (zona elegida) pero se valida contra la carta
- * de zonas para que no se pueda sub/sobre-cotizar el envío.
- */
-function resolveDeliveryFee(restaurant, orderMode, declaredFee) {
-  if (orderMode !== 'DELIVERY') return 0;
-  const fee = Math.max(0, Number(declaredFee) || 0);
-  const zones = Array.isArray(restaurant.deliveryZones) ? restaurant.deliveryZones : [];
-  if (!zones.length) return fee;
-  const match = zones.some((z) => Number(z.fee) === fee);
-  if (!match) {
-    throw new AppError('Costo de envío inválido para la zona elegida.', 400, 'INVALID_DELIVERY_FEE');
-  }
-  return fee;
-}
-
-function resolveCouponDiscount({ restaurant, subtotal, deliveryFee, coupon, orderMode }) {
-  if (!coupon || !coupon.code) return { discount: 0, coupon: null };
-  const config = Array.isArray(restaurant.customCoupons) ? restaurant.customCoupons : [];
-  const valid = config.find((c) => String(c.code || '').toUpperCase() === String(coupon.code).toUpperCase());
-  // Cupón desconocido (o mutado en el cliente): no descuenta, no rompe.
-  if (!valid) return { discount: 0, coupon: null };
-  if (valid.type === 'percent') {
-    const value = Math.min(100, Math.max(0, Number(valid.value) || 0));
-    return {
-      discount: Math.round(subtotal * (value / 100) * 100) / 100,
-      coupon: { code: valid.code, type: 'percent', value, label: valid.label || `${value}% OFF` }
-    };
-  }
-  if (valid.type === 'free_delivery' && orderMode === 'DELIVERY') {
-    return {
-      discount: deliveryFee,
-      coupon: { code: valid.code, type: 'free_delivery', value: 0, label: valid.label || 'Envío Gratis' }
-    };
-  }
-  return { discount: 0, coupon: null };
-}
+/** quoteOrderItems / resolveDeliveryFee / resolveCouponDiscount viven en ../utils/orderMoney (Bloque 2). */
 
 /**
  * POST /api/orders
