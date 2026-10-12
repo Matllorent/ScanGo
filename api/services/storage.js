@@ -17,6 +17,18 @@ if (!fs.existsSync(PUBLIC_DIR)) {
 
 /**
  * Storage Service for managing uploads to Supabase Storage Bucket
+ *
+ * ⚠️ REGLA DE ORO DEL BUCKET `photos` (contrato de seguridad, punto 5 de la
+ * auditoría): es un bucket PÚBLICO por diseño — todo objeto dentro de él es
+ * legible por cualquiera que conozca (o adivine) la URL pública
+ * (`getPublicUrl()`). Por eso SOLO puede contener contenido destinado al
+ * público: fotos de platos, logos, imágenes de reseñas autorizadas, imágenes
+ * del menú. PROHIBIDO subir documentos o datos privados (DNI, facturas,
+ * extractos, datos personales de clientes/comensales) a `photos`: el acceso
+ * público lo volvería una fuga. Si en el futuro hay archivos privados, van a
+ * un bucket privado NUEVO con políticas RLS de acceso por dueño + URL firmada.
+ * Los uploads ya validan MIME (image/*) y tamaño (5 MB); el `folder` está
+ * limitado por el enum del router ('dishes' | 'logos' | 'reviews' | 'general').
  */
 const storageService = {
   /**
@@ -127,6 +139,48 @@ const storageService = {
         path: storagePath,
         bucket
       };
+    }
+  },
+
+  /**
+   * Borra TODOS los objetos del tenant dentro de `tenants/<tenantId>/` del
+   * bucket `photos`. Se usa en el derecho al olvido (borrado de cuenta):
+   * imágenes huérfanas no pueden quedar flotando en un bucket público.
+   * No-op seguro sin Supabase (modo local) y si la carpeta no existe.
+   * @param {string} tenantId - ID del dueño (userId)
+   * @returns {Promise<{removed: number, error?: string}>}
+   */
+  async deleteTenantFiles(tenantId) {
+    const supabase = getSupabaseClient();
+    if (!supabase) return { removed: 0 };
+
+    const cleanTenantId = String(tenantId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+    if (!cleanTenantId) return { removed: 0 };
+    const prefix = `tenants/${cleanTenantId}`;
+    const collected = [];
+
+    // Recorre carpetas anidadas (dishes/logos/reviews/general): en la API de
+    // storage, las entradas-carpeta llegan con id === null.
+    const walk = async (dir) => {
+      const { data, error } = await supabase.storage.from('photos').list(dir, { limit: 1000, offset: 0 });
+      if (error && (error.statusCode === 404 || /not found/i.test(error.message))) return; // carpeta inexistente
+      if (error) throw error;
+      for (const f of data || []) {
+        if (f.id === null) await walk(`${dir}/${f.name}`);
+        else collected.push(`${dir}/${f.name}`);
+      }
+    };
+
+    try {
+      await walk(prefix);
+      if (collected.length) {
+        const { error } = await supabase.storage.from('photos').remove(collected);
+        if (error) throw error;
+      }
+      return { removed: collected.length };
+    } catch (e) {
+      // Nunca rompe el borrado de cuenta: se loguea y se continúa.
+      return { removed: 0, error: e.message };
     }
   }
 };

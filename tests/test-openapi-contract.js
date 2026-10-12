@@ -53,6 +53,7 @@ const SPEC_PATHS = [
   '/api/notifications/waiter-alert',
   '/api/admin/overview',
   '/api/billing/cancel',
+  '/api/account/delete-request',
 ];
 
 async function runTests() {
@@ -249,7 +250,12 @@ async function runTests() {
     // sesión (200 idempotente + menú pausado) lo cubre test-session-lifecycle.
     const billingCancelAnon = await postJson('/api/billing/cancel', {});
     assert.strictEqual(billingCancelAnon.status, 401, 'billing/cancel sin auth → 401 (no 404)');
-    console.log('✓ 10 rutas restantes: códigos reales (400/401/403/200) y ningún 404');
+
+    // Derecho al olvido sin sesión → 401 real (el flujo completo con sesión lo
+    // cubre test-account-erasure.js).
+    const accountDeleteAnon = await postJson('/api/account/delete-request', { confirm: true });
+    assert.strictEqual(accountDeleteAnon.status, 401, 'account/delete sin auth → 401 (no 404)');
+    console.log('✓ 11 rutas restantes: códigos reales (400/401/403/200) y ningún 404');
 
     console.log('\n🎉 ¡CONTRATO OPENAPI VERIFICADO CONTRA RUNTIME REAL!');
   } finally {

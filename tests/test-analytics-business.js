@@ -68,7 +68,26 @@ async function runTests() {
   const escapedLine = csvEscaped.split('\n')[0];
   assert.ok(escapedLine.includes('"Nota rara, con, comas"'), 'Cabecera con coma debe ir entrecomillada');
   assert.ok(escapedLine.includes('"Valor ""x"""'), 'Comillas dobles internas deben duplicarse (RFC 4180)');
-  console.log('✓ CSV: headers, filas diarias, escaping RFC 4180 y BOM (buildDailyCsv puro)');
+
+  // CSV Injection (CWE-1236): celdas que arrancan con =, +, -, @ o tab son
+  // fórmulas vivas en Excel/Sheets. Deben neutralizarse con un apóstrofo.
+  const csvInject = buildDailyCsv(
+    [{ date: '2026-10-07', visits: 9, dishClicks: 0, orders: 0, waiterCalls: 0, revenue: 0 }],
+    { headers: ['Fecha', '=CMD()', '+SUM(1,1)', '-2+3', '@SUM(A1:A2)', '\t=1', 'Normal'] }
+  );
+  const injectLine = csvInject.split('\n')[0];
+  assert.ok(injectLine.includes("'=CMD()"), 'celda que arranca con = se neutraliza');
+  assert.ok(injectLine.includes("'+SUM(1,1)"), 'celda que arranca con + se neutraliza');
+  assert.ok(injectLine.includes("'-2+3"), 'celda que arranca con - se neutraliza');
+  assert.ok(injectLine.includes("'@SUM(A1:A2)"), 'celda que arranca con @ se neutraliza');
+  assert.ok(injectLine.includes("'\t=1"), 'celda con tab inicial se neutraliza');
+  // Ninguna celda puede ARRANCAR con una fórmula viva (=, +, -, @) sin el
+  // apóstrofo neutralizador delante (la línea arranca con "Fecha" y el resto
+  // de las celdas van precedidas por coma + apóstrofo).
+  assert.ok(/^[^=+@\-\t]/.test(injectLine), 'la línea no arranca con una fórmula viva');
+  assert.ok(!/,\s*[=+@\-]/.test(injectLine), 'ninguna celda arranca con fórmula viva (todas neutralizadas)');
+  assert.ok(injectLine.includes('Normal'), 'celda normal intacta');
+  console.log('✓ CSV: headers, filas diarias, escaping RFC 4180, BOM y neutralización de fórmulas (CSV injection)');
 
   // ── Parte B: canal público unificado → métricas de negocio ──
   const user = await db.createUser({

@@ -63,6 +63,9 @@ const lemonProvider = {
       status: normalizedStatus,
       rawStatus: status,
       customerEmail: dataObj.user_email,
+      // Timestamp autoritativo del evento (para el guard de recency del
+      // orchestrator). Lemon lo expone en data.attributes.created_at.
+      eventCreatedAt: dataObj.created_at || payload.created_at || null,
       renewsAt: renewsAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       provider: 'lemonsqueezy'
     };

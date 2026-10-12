@@ -13,7 +13,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    # La suite completa (31 tests en secuencia) tarda varios minutos.
+    # La suite completa (38 tests en secuencia) tarda varios minutos.
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -56,3 +56,33 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: osv-results.sarif
+
+  # Escaneo de secretos con Gitleaks CLI (v8.30.1, pin exacto + verificación
+  # SHA256). El action oficial de Gitleaks exige licencia comercial; el binario
+  # CLI es MIT y gratis: lo instalamos y verificamos su hash en cada corrida.
+  # Escanea TODO el historial del repo (fetch-depth: 0), no solo el HEAD.
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Instalar Gitleaks v8.30.1 (pin + sha256 del release oficial)
+        env:
+          GITLEAKS_VERSION: v8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION#v}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks version
+
+      - name: Detectar secretos en todo el historial
+        run: |
+          set -euo pipefail
+          ./gitleaks detect --source . --config .gitleaks.toml --redact --no-banner --exit-code 1

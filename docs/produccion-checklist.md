@@ -133,9 +133,14 @@ vercel domains         # listar el dominio *.vercel.app asignado
 
 ## Fase 5 — Monitoreo y operación
 
-- [ ] **UptimeRobot**: monitor HTTP `https://<dominio>/api/healthz`, intervalo 5 min, falla si no 200.
-- [ ] **Sentry**: confirmar que `captureException` llega (generar un error a propósito o esperar el primer 4xx/5xx).
-- [ ] **Backup Supabase**: activar PITR o al menos backups diarios (Dashboard → Database → Backups).
+- [ ] **UptimeRobot**: monitor HTTP `https://<dominio>/api/healthz`, intervalo 5 min, falla si no 200. Mientras no exista, el workflow `.github/workflows/uptime-check.yml` golpea el health check cada 6 h desde GitHub (abre issue `[CAIDO]` si falla). UptimeRobot es la capa seria (intervalo corto + alertas por email/Telegram); el workflow es el fallback $0.
+- [ ] **Sentry**: confirmar que `captureException` llega (generar un error a propósito o esperar el primer 4xx/5xx). Vars `SENTRY_DSN` en Vercel. Si no se quiere Sentry, al menos los logs de Vercel (Functions → Logs).
+- [ ] **Backup de Supabase (Riesgo #1 — plan free sin backups ni PITR)**: activar el workflow `.github/workflows/backup-supabase.yml` (cron 02:10 UTC) configurando el secret `SUPABASE_DB_URL` en **Settings → Secrets and variables → Actions**:
+  - Sacar la cadena en el dashboard de Supabase → **Settings → Database → Connection string → URI** (la variante **directa**, puerto 5432; el pooler transaccional 6543 también sirve pero es menos estable para dumps de muchos GB — acá no hace falta pooler).
+  - Formato: `postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres` (pooler) o la directa `@db.<ref>.supabase.co:5432/postgres`. El password es el de la **base de datos**, no la anon/service key.
+  - El workflow valida el dump (`pg_restore --list`) y lo sube como artifact (retención 90 días). OPCIONAL: crear un repo privado `backups-scango` en GitHub y configurar `BACKUP_REPO` (variable) + `BACKUP_REPO_TOKEN` (secret, PAT con scope `repo` a ese repo) para que además pushee `latest.dump`.
+  - Restaurar si hiciera falta: `pg_restore --clean --if-exists --dbname "$SUPABASE_DB_URL" latest.dump` (probar en proyecto de staging primero).
+  - **Ojo**: la conexión diaria amortigua la pausa por inactividad del plan free, pero NO es su garantía (la pausa se mide por actividad real de APIs). El backup existe para poder recuperar el proyecto tal cual si lo pausaran.
 - [ ] **Kill-switch** documentado: `api/middleware/killSwitch.js` + panel admin.
 - [ ] **Rotación de secretos**: documentar cuándo rotar `JWT_SECRET` (invalida sesiones) y `GROUP_CART_SECRET` (invalida QR de mesa activos).
 
@@ -145,6 +150,25 @@ vercel domains         # listar el dominio *.vercel.app asignado
 - [ ] Copiar `mobile/capacitor.config.json` → raíz, `npx cap add android`
 - [ ] `npm run mobile:sync`, firmar AAB (`android/app/release/app-release.aab`)
 - [ ] Play Console: cuenta $25, ficha, íconos, capturas, política de privacidad = `https://<dominio>/privacidad`
+- [ ] Ficha: sección "Borrado de cuenta/Data deletion" apuntando al modal del Studio (🏪 → Eliminar Cuenta), que ahora SÍ borra de verdad (punto 7).
+
+## Fase 7 — Cierre de los 9 puntos de seguridad (auditorías)
+
+Implementado en el repo y verificado por tests; resta solo lo que depende del deploy:
+
+| # | Punto | Implementación | Estado |
+|---|---|---|---|
+| 1 | Backup Supabase (plan free sin backups) | `.github/workflows/backup-supabase.yml` (pg_dump diario 02:10 UTC + `pg_restore --list` + artifact 90d + push opcional a repo privado) | ⬅ **Configurar secret `SUPABASE_DB_URL`** |
+| 2 | Auditoría de mutaciones (save/estado) | `auditService.logAction` conectado en `/api/studio/save` (`RESTAURANT_UPDATE`), orchestrator de webhooks (`SUBSCRIPTION_STATUS_CHANGE` / `SUBSCRIPTION_EVENT_STALE`) y moderación de reseñas (`REVIEW_MODERATED`). `test-account-erasure.js` lo verifica | ✔ |
+| 3 | Secrets scan en CI | Job `secret-scan` en `.github/workflows/ci.yml`: gitleaks CLI v8.30.1 pin + verificación SHA256, `--redact`, historial completo | ✔ |
+| 4 | CSV injection (CWE-1236) | `escapeCell` en `public/js/utils/csvExport.js` prefija `'` a celdas que arrancan con `= + - @ tab CR`; test en `test-analytics-business.js` | ✔ |
+| 5 | Bucket público solo contenido público | Contrato documentado en `api/services/storage.js` (solo fotos platos/logos/reseñas; prohibido privado) + `deleteTenantFiles()` para el borrado de cuenta | ✔ |
+| 6 | Webhooks fuera de orden (stale) | Guard de recency en `src/billing/orchestrator.js`: timestamp por provider (`lastWebhookEventAt`, providers exponen `eventCreatedAt`), evento viejo → 200 `{stale:true}` sin aplicar + audit. Test en `test-billing.js` §7 | ✔ |
+| 7 | Derecho al olvido (borrado de cuenta real) | `POST /api/account/delete-request` (400 sin `confirm:true`, 401 anónimo, borra usuario+restaurante+asociados local/cloud+storage, sesión muerta, audit previo) + modal Studio cableado con confirmación escrita "ELIMINAR" y manejo honesto de errores. Test `test-account-erasure.js` | ✔ |
+| 8 | PII en logs de email | `maskEmail`/`maskEmailList` en `api/services/email.js`: logs `To:` redactados (`j***@x.com`) | ✔ |
+| 9 | Monitoreo $0 | `.github/workflows/uptime-check.yml` (cron 6h → `curl /api/healthz` → issue `[CAIDO]`) + checklist UptimeRobot/Sentry arriba | ⬅ **Crear UptimeRobot + `SENTRY_DSN`** |
+
+Correr localmente: `npm test` (38 tests) y los individuales `npm run test:account-erasure`, `npm run test:billing`, `npm run test:analytics`, `npm run test:contract`.
 
 ## Notas de riesgo
 

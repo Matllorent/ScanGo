@@ -1,0 +1,87 @@
+# Backup diario de Supabase (plan free) — MITIGACIÓN DEL RIESGO #1
+# ─────────────────────────────────────────────────────────────────────
+# El plan free de Supabase NO tiene backups gestionados y pausa el proyecto
+# tras ~1 semana de inactividad. Este workflow vuelca TODA la base con
+# pg_dump (formato custom, portable, compressible) una vez por día a las
+# 02:10 UTC, valida la integridad con pg_restore --list y sube el volcado
+# como artifact con retención de 90 días. La conexión diaria además amortigua
+# la pausa por inactividad (aunque NO es su garantía: el proyecto puede
+# pausarse igual si nadie golpea las APIs; el backup es la red de seguridad).
+#
+# OPCIONAL: si los dueños configuran los secrets `BACKUP_REPO` +
+# `BACKUP_REPO_TOKEN` (repo privado en GitHub para guardar dumps), el job
+# pushea el volcado a ese repo como `latest.dump` (copia adicional fuera de
+# los artifacts de GH, que expiran a los 90 días).
+#
+# Secrets requeridos:
+#   SUPABASE_DB_URL   → cadena postgres del proyecto (ver README del runbook
+#                       docs/produccion-checklist.md): usar la conexión DIRECTA
+#                       (puerto 5432), NO el pooler transaccional 6543.
+name: Backup Supabase (diario)
+
+on:
+  schedule:
+    - cron: "10 2 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Instalar cliente PostgreSQL (pg_dump/pg_restore)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Fecha del volcado (UTC)
+        id: date
+        run: echo "stamp=$(date -u +%Y-%m-%dT%H%MZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Volcado completo (pg_dump custom format, sin owner/privileges)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_DB_URL:-}" ]; then
+            echo "::error::Falta el secret SUPABASE_DB_URL. Configuralo en Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          pg_dump "$SUPABASE_DB_URL" \
+            --format=custom \
+            --no-owner --no-privileges \
+            --file="scango-backup-${{ steps.date.outputs.stamp }}.dump"
+          test -s "scango-backup-${{ steps.date.outputs.stamp }}.dump"
+          echo "Volcado: $(du -h scango-backup-${{ steps.date.outputs.stamp }}.dump | cut -f1)"
+
+      - name: Validar integridad del volcado (pg_restore --list no debe fallar)
+        run: |
+          set -euo pipefail
+          pg_restore --list "scango-backup-${{ steps.date.outputs.stamp }}.dump" > /dev/null
+          echo "✔ Volcado íntegro"
+
+      - name: Subir artifact del backup (retención 90 días)
+        uses: actions/upload-artifact@v4
+        with:
+          name: scango-backup-${{ steps.date.outputs.stamp }}
+          path: scango-backup-*.dump
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Push a repo privado de backups (OPCIONAL)
+        if: vars.BACKUP_REPO != ''
+        env:
+          BACKUP_REPO: ${{ vars.BACKUP_REPO }}
+          BACKUP_REPO_TOKEN: ${{ secrets.BACKUP_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p backup-repo && cd backup-repo
+          git init -q -b main
+          git config user.name "scango-backup-bot"
+          git config user.email "backups@menu-pizarron.com"
+          cp "../scango-backup-${{ steps.date.outputs.stamp }}.dump" ./latest.dump
+          git add latest.dump
+          git -c commit.gpgsign=false commit -q -m "backup ${{ steps.date.outputs.stamp }}"
+          git remote add origin "https://x-access-token:${BACKUP_REPO_TOKEN}@github.com/${BACKUP_REPO}.git"
+          git push -q origin main

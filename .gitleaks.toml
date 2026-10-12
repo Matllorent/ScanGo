@@ -1,0 +1,41 @@
+# Configuración de gitleaks para Menú Pizarrón SaaS (ScanGo).
+# Extiende las reglas por defecto del proyecto gitleaks y documenta los únicos
+# falsos positivos verificados con `gitleaks detect --source .` sobre TODO el
+# historial (132 commits, ~38 MB, 17 hallazgos — ninguno es un secreto real).
+#
+# El job `secret-scan` de CI (`.github/workflows/ci.yml`) corre con
+# `--config .gitleaks.toml` + `--exit-code 1`: si aparece un secreto real en
+# cualquier commit (pasado o nuevo), el check falla y bloquea la rama.
+#
+# NOTA: los `paths` se matchean con el sufijo (funciona igual en Windows con
+# `\`, en Linux con `/`, y con rutas relativas o absolutas).
+title = "Menú Pizarrón SaaS — gitleaks allowlist (falsos positivos documentados)"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = """Solo falsos positivos, verificados contra el historial completo
+(gitleaks escanea todos los commits, no solo el working tree):
+  1. .env.example → plantilla de variables de entorno con placeholders de
+     ejemplo (el `.env` real está en `.gitignore` y nunca entró al repo).
+  2. benchmark.py de la skill instalada "token-optimizer" (duplicada bajo
+     .agents/skills/ y .aider-desk/skills/) → código de terceros con payloads
+     de ejemplo ("token": "...", GOOGLE_API_KEY=..., JWT del tutorial de jwt.io).
+  3. Passwords de fixture de las suites de test (valor actual "test_password";
+     versiones históricas de reset concurrente/device tokens usaron
+     "otra_clave_123"). Cualquier otra password/secret SÍ queda marcado.
+"""
+paths = [
+  # Plantilla de entorno: solo placeholders; el .env real está en .gitignore.
+  '''\.env\.example$''',
+  # Skill de terceros (token-optimizer): los hallazgos jwt/generic-api-key
+  # salen de payloads de ejemplo, nunca de credenciales del proyecto.
+  '''benchmark\.py$''',
+]
+regexes = [
+  # Fixtures de password de los tests (actual "test_password"; versiones
+  # históricas usaron "otra_clave_123"). Allowlist de nombre exacto: cualquier
+  # otra password/secret en el historial o el working tree sigue marcándose.
+  '''(test_password|otra_clave_123)''',
+]

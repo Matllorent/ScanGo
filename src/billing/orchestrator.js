@@ -4,6 +4,7 @@ const stripeProvider = require('./providers/stripe');
 const mpProvider = require('./providers/mercadopago');
 const sentry = require('../../api/utils/sentry');
 const emailService = require('../../api/services/email');
+const auditService = require('../../api/services/audit');
 const AppError = require('../../api/utils/AppError');
 
 const PROVIDERS = {
@@ -357,6 +358,40 @@ const billingOrchestrator = {
 
     // 4. Update restaurant subscription in DB
     if (parsed.restaurantId && parsed.status && parsed.status !== 'pending') {
+      const currentRest = db.findRestaurantById(parsed.restaurantId);
+      const appliedTs = (currentRest && currentRest.subscription && currentRest.subscription.lastWebhookEventAt) || {};
+
+      // 4.0 Guard de recency: un evento que llega FUERA DE ORDEN no debe
+      //     revertir la suscripción a un estado obsoleto. Ej.: un
+      //     `payment_failed` de hace 3 días entregado tarde, después de un
+      //     `payment_success` más nuevo, NO puede mandar la suscripción a
+      //     past_due. El proveedor recibe 200 (ack) pero el evento se ignora
+      //     y queda en la auditoría como SUBSCRIPTION_EVENT_STALE.
+      if (
+        parsed.eventCreatedAt &&
+        appliedTs[providerName] &&
+        new Date(parsed.eventCreatedAt).getTime() <= new Date(appliedTs[providerName]).getTime()
+      ) {
+        auditService.logAction({
+          tenantId: parsed.restaurantId,
+          action: 'SUBSCRIPTION_EVENT_STALE',
+          entity: 'subscription',
+          details: {
+            provider: providerName,
+            eventName: parsed.eventName,
+            eventId: parsed.eventId,
+            eventCreatedAt: parsed.eventCreatedAt,
+            lastAppliedAt: appliedTs[providerName]
+          }
+        });
+        sentry.captureMessage('[Billing] Evento stale descartado: ' + providerName + ' ' + parsed.eventId, {
+          level: 'info',
+          tags: { restaurantId: parsed.restaurantId, provider: providerName, eventId: parsed.eventId }
+        });
+        return { success: true, stale: true, eventId: parsed.eventId };
+      }
+      const newTsMap = parsed.eventCreatedAt ? { ...appliedTs, [providerName]: parsed.eventCreatedAt } : appliedTs;
+
       // El plan de evento one-off no se renueva: la validez llega hasta la fecha
       // del evento (expiresAt/eventDate), NO hasta el renewsAt del proveedor
       // (MP asume +30 días como si fuera una suscripción recurrente).
@@ -374,12 +409,27 @@ const billingOrchestrator = {
         currentPeriodEnd: periodEnd,
         // Sin smart dunning en el one-off: no hay cobro recurrente que rechazar
         gracePeriodDaysRemaining: isEventOneOff ? 0 : PAST_DUE_GRACE_DAYS,
-        lastPaymentError: parsed.status === 'past_due' ? 'Falló el cobro automático de la tarjeta' : null
+        lastPaymentError: parsed.status === 'past_due' ? 'Falló el cobro automático de la tarjeta' : null,
+        // Recency: el timestamp del último evento APLICADO por proveedor.
+        ...(Object.keys(newTsMap).length ? { lastWebhookEventAt: newTsMap } : {})
       };
       // Conserva el plan comprado (Lemon/Stripe lo infieren del webhook; MP del external_reference)
       if (parsed.plan && PLANS[parsed.plan]) subUpdate.plan = parsed.plan;
 
       await db.updateSubscription(parsed.restaurantId, subUpdate);
+
+      auditService.logAction({
+        tenantId: parsed.restaurantId,
+        action: 'SUBSCRIPTION_STATUS_CHANGE',
+        entity: 'subscription',
+        details: {
+          provider: providerName,
+          eventName: parsed.eventName,
+          eventId: parsed.eventId,
+          from: currentRest && currentRest.subscription && currentRest.subscription.status,
+          to: parsed.status
+        }
+      });
 
       sentry.captureMessage('[Billing] Suscripción actualizada: Rest=' + parsed.restaurantId + ' Status=' + parsed.status + ' Provider=' + providerName, {
         level: 'info',

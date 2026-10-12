@@ -13,6 +13,7 @@ const requireVerifiedEmail = require('../middleware/requireVerifiedEmail');
 const { requireActiveSubscription } = require('../middleware/subscriptionGuard');
 const { createGroupCartToken } = require('../utils/groupCartToken');
 const aiRouter = require('./ai');
+const auditService = require('../services/audit');
 
 /**
  * POST /api/studio/save - Guardar restaurante/menú completo
@@ -39,6 +40,19 @@ router.post('/save', authMiddleware, requireVerifiedEmail, requireActiveSubscrip
       memoryCache.delete(restaurant.slug);
       await invalidateMenuCache(restaurant.slug);
     }
+    // Auditoría (fire-and-forget, nunca rompe el save): mutación de la carta.
+    auditService.logAction({
+      tenantId: restaurant ? restaurant.id : undefined,
+      userId: req.user.userId,
+      requestId: req.requestId,
+      action: 'RESTAURANT_UPDATE',
+      entity: 'restaurant',
+      details: {
+        fieldCount: Object.keys(cleanPayload).length,
+        hasDishes: Array.isArray(cleanPayload.dishes),
+        hasCategories: Array.isArray(cleanPayload.categories)
+      }
+    });
     return res.json({ success: true, restaurant });
   } catch (e) {
     return next(e);

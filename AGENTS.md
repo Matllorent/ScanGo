@@ -8,7 +8,7 @@ SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. 
 ```bash
 npm run dev          # Desarrollo con nodemon (puerto 3000)
 npm start            # Producción (node api/index.js)
-npm test             # Suite completa (37 tests en secuencia) — con snapshot/restore automático de data/
+npm test             # Suite completa (38 tests en secuencia) — con snapshot/restore automático de data/
 npm run test:billing # Test individual de pasarelas de pago
 npm run test:analytics # Test individual de analytics de negocio (ticket promedio, CSV, top platos)
 npm run test:admin   # Test individual del panel /admin (login 2FA, plata/mes, renovaciones)
@@ -16,6 +16,7 @@ npm run test:push    # Test individual de push notifications (VAPID, aviso de mo
 npm run test:loyalty # Test individual de fidelización dual (local + red global) y centro de notificaciones
 npm run test:order-tracking # Test individual del seguimiento del pedido (token, estado público, push dirigido)
 npm run test:demos # Test individual de demos por rubro + edición en Studio
+npm run test:account-erasure # Test individual del derecho al olvido: borrado real de cuenta (RGPD/Ley 18.331) + auditoría
 npm run test:online-payment # Test individual del pago online del comensal (toggle del dueño, gate 403, preferencia MP real)
 npm run test:realtime # Test individual del guard de canales Realtime (migración 002)
 npm run test:realtime-live # Test E2E real del guard (conecta a Supabase Realtime con la anon key)
@@ -41,6 +42,9 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - **Cron**: `api/cron/billing-dunning.js` (montado como `/api/cron/billing-dunning`, requiere `CRON_SECRET`)
 - **Middleware**: `api/middleware/` (auth, validation, rateLimits, killSwitch, subscriptionGuard, tenantGuard, requireVerifiedEmail, idempotency, cache, errorHandler, requestId)
 - **Services**: `api/services/` (audit, email, geminiMenuParser, **loyalty**, notifications, storage, telemetry, weather). El servicio de Mercado Pago vive en `src/services/mercadopago.js`. **La telemetría es la fuente única de verdad de analytics**: `restaurant.analytics` es una proyección derivada (`telemetry.countAnalytics()` → `db.setAnalyticsSnapshot()`), nunca se incrementa a mano.
+- **Auditoría de mutaciones** (`api/services/audit.js`, antes 100% muerto, ahora cableado): `RESTAURANT_UPDATE` en `POST /api/studio/save` (Studio), `SUBSCRIPTION_STATUS_CHANGE` + `SUBSCRIPTION_EVENT_STALE` en el orchestrator de webhooks de pago, `REVIEW_MODERATED` en la aprobación/rechazo de reseñas del panel admin y `ACCOUNT_DELETE` en el borrado de cuenta (todos con `tenantId`/`userId`/`requestId`, fire-and-forget vía `retryQueue`; el insert a `audit_logs` es no-bloqueante).
+- **Derecho al olvido real** (RGPD/Ley 18.331/Google Play): `POST /api/account/delete-request` en `api/index.js` (limiter 10/15min + `authMiddleware`). Exige `confirm: true` explícito (400 `CONFIRMATION_REQUIRED`), borra usuario + restaurante + datos asociados en local y Supabase (`db.deleteRestaurantData()` en `src/db/db.js`: users/restaurants/reviews/feedback/reset_tokens/webhooks/orders locales + orders/reviews/customer_feedback/group_carts/push_subscriptions/telemetry_events/notification_events/restaurants/users en la nube) + imágenes del tenant (`storageService.deleteTenantFiles()`), invalida la cache del menú, revoca la sesión y deja audit `ACCOUNT_DELETE` ANTES del borrado. **No borra** `audit_logs` (registro de procesamiento) ni `webhooks` (registro contable de pagos). El modal del Studio (`confirmAccountDeletion` en `public/js/studio.js`) exige escribir `ELIMINAR` y maneja los errores de forma honesta (401 → re-login; 5xx → "NO se borró nada, reintentá"). El 404 `ACCOUNT_NOT_FOUND` queda como caso límite de sesión válida sin usuario; con la cuenta borrada `authMiddleware` responde 401 (sesión muerta).
+- **Guard de recency en webhooks de pago**: los providers exponen `eventCreatedAt` (Lemon `data.attributes.created_at`, Stripe `event.created` unix→ISO, MP `payment.date_created`) y el orchestrator (`src/billing/orchestrator.js`) guarda `restaurant.subscription.lastWebhookEventAt` (mapa por provider) con el timestamp del último evento **aplicado**. Un evento que llega con timestamp ≤ al último aplicado se descarta: 200 `{stale:true}` para el proveedor, sin tocar la suscripción, audit `SUBSCRIPTION_EVENT_STALE` + `captureMessage`. Evita que un `payment_failed` viejo (entregado tarde) revierta una suscripción que ya fue renovada por un evento más nuevo. `test-billing.js` §7 cubre fuera-de-orden y posterior-legítimo.
 - **Utils**: `api/utils/` (response, sentry, hash, menuOptions, groupCartToken, …)
 
 ### Frontend (`public/`)
@@ -144,16 +148,21 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
   - **`headers`**: CSP transicional + headers duros en los estáticos (ver "Seguridad — CSP"), excluyendo `/m/*` y `/api/*`
 - Cron: `/api/cron/billing-dunning` cada día a las 02:00 UTC
 
+### Operación — Workflows de GitHub
+- **CI** (`.github/workflows/ci.yml`): push/PR → matriz Node 22+24 (`npm test`) + semgrep + OSV-Scanner + **job `secret-scan` de gitleaks** (binario CLI v8.30.1 pin + verificación SHA256 del tarball oficial, `--redact`, escaneo de TODO el historial con `fetch-depth: 0`; el action oficial requiere licencia, el CLI es gratis). La allowlist de falsos positivos verificados vive en `.gitleaks.toml` (`[extend] useDefault`): placeholders de `.env.example`, passwords de fixture de los tests (`test_password`/`otra_clave_123` en versiones históricas) y payloads de ejemplo de la skill de terceros `benchmark.py` (token-optimizer). Cualquier secreto real (nuevo o histórico) hace fallar el job.
+- **Backup diario de Supabase** (`.github/workflows/backup-supabase.yml`, riesgo #1 del plan free): cron 02:10 UTC + `workflow_dispatch` → `pg_dump --format=custom --no-owner --no-privileges` con `SUPABASE_DB_URL` (secret; conexión **directa** puerto 5432, no el pooler) → valida con `pg_restore --list` → artifact con retención 90 días → push **opcional** a repo privado (`latest.dump`) si existen `BACKUP_REPO` (variable) + `BACKUP_REPO_TOKEN` (secret). La conexión diaria amortigua la pausa por inactividad del plan free pero no la garantiza.
+- **Uptime check $0** (`.github/workflows/uptime-check.yml`): cron cada 6 h + `workflow_dispatch` → `curl -fsS` a `vars.HEALTH_URL` (default `https://menu-pizarron-saas.vercel.app/api/healthz`) → si falla abre issue `[CAIDO]` (sin duplicados). Es el fallback mientras no exista UptimeRobot (ver `docs/produccion-checklist.md` Fase 5).
+
 ## Testing
 
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** durante la corrida (flujos reales con el store local). **`npm test` ahora las aísla solo**: `scripts/test-data-guard.js` saca una foto de `data/` antes y la restaura siempre al final (pase o falle). La cadena real de tests vive en `npm run test:core`; no hay que revertir `data/` a mano para commitear.
-- Suite completa (`npm test`) ejecuta 37 tests en secuencia — **todos deben pasar (37/37)**
+- Suite completa (`npm test`) ejecuta 38 tests en secuencia — **todos deben pasar (38/38)**
 - **2 tests existen pero NO están en `npm test`**: `test-e2e.js` (E2E integral real: registra en la nube, crea un checkout de Mercado Pago real y activa la suscripción por webhook — correrlo a mano; en modo cloud confirma el email del usuario recién registrado vía Admin API de Supabase, flujo real del link, sin mocks, porque `/api/studio/save` exige `requireVerifiedEmail`) y `test-supabase-group-cart-persistence.js` (es el `npm run db:smoke`, round-trip real de `group_carts` contra la nube). `test-escape-html`, `test-db-write` y `test-semgrep` solían estar fuera pero **ahora corren en el chain** (`npm test`): el guard de tests (`test-data-guard.js`) + el SKIP autónomo de semgrep los hacen seguros de correr en serie.
 - **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 4 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell` y `test-realtime-live-guard` (usan credenciales reales; el último hace SKIP si no hay `SUPABASE_URL`/`SUPABASE_ANON_KEY`).
 - Para debug rápido: `node tests/test-billing.js` (o el test específico, o `npm run test:<alias>`)
 
-### Tests incluidos en `npm test` (35 suites)
+### Tests incluidos en `npm test` (36 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
@@ -174,6 +183,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-google-auth.js` | GIS, callback OAuth y configuración backend |
 | `test-security-endpoints.js` | Auth/tenant, límites, cron/readiness y QR capability + P0: anti mass-assignment en `/save`, auth en IA, TOTP fail-closed, 403 a cuentas huérfanas |
 | `test-session-lifecycle.js` | Ciclo de sesión (partido de security-endpoints por el presupuesto del limiter 30/15min): logout con revocación jti, rehash bcrypt, muerte por pwdTs, reset atómico concurrente, Origin 403, device tokens (emisión/uso/listado/revocación/purga por reset) y baja voluntaria idempotente |
+| `test-account-erasure.js` | Derecho al olvido real (RGPD/Ley 18.331/Google Play): `POST /api/account/delete-request` responde 400 sin `confirm:true` y 401 anónimo; con `confirm:true` borra usuario, restaurante, reseñas y feedback (local + cloud), revoca la sesión (`/api/auth/me` 401), persiste auditoría `ACCOUNT_DELETE` ANTES del borrado, el save de Studio queda auditado (`RESTAURANT_UPDATE`) y la cookie muerta no revive nada al reintentar |
 | `test-analytics-business.js` | Analytics de negocio: ticket promedio, ingresos, top platos con nombres, export CSV, canal público unificado |
 | `test-admin-panel.js` | Panel `/admin` en español llano: login 2FA TOTP, plata que entra al mes (por plan + multi-sucursal), renovaciones en 7 días, pruebas por terminar, conversión de la prueba |
 | `test-db-await-integrity.js` | Integridad `await` en llamadas a métodos async de `db` (regresión 47ea3f7) |
@@ -236,6 +246,8 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 - **Sesiones revocables** (`api/utils/tokenRevocation.js`): JWT con `jti` + `pwdTs`; logout revoca el jti, reset invalida todo vía `updatedAt` (replica a cloud, cross-instancia); `authMiddleware`/`requireAuth`/`/me` validan frescura (401 `SESSION_REVOKED`); admin con tope absoluto 8h además del deslizante 15min; TOTP single-use + `timingSafeEqual`; `ADMIN_KEY` y legacy-password por hash comparativo; `jwt.verify` siempre con `algorithms:['HS256']`; `authLimiter` por IP real
 - **Loyalty con posesión** (`requestLoyaltyOtp`/HMAC-OTP stateless 10min + `verifyLoyaltyOtp` single-use): canje y borrado exigen OTP al email del perfil (`/challenge` → `/redeem/confirm`, `DELETE /me` con `otp`); email first-write (`/email`, cambio con OTP al anterior); el modal (`LoyaltyRewardsModal`) guía email→código→confirmación
 - **Profundidad**: `originCheck` anti-CSRF en mutaciones con cookie; MP sin secreto en prod → 503; `googleReview` solo https + `escapeHtml` en `src=`; topes de tamaño en Base64 (IA/storage); `__proto__` filtrado en save y `overridePrices`; filenames solo-puntos rechazados; `requireActiveSubscription` también en branches/events/ai-import/loyalty-credit
+- **Bucket `photos` = SOLO contenido público** (contrato en `api/services/storage.js`): fotos de platos, logos y reseñas autorizadas. Prohibido subir documentos/datos privados (DNI, facturas, datos de comensales): el bucket es público por diseño. El borrado de cuenta limpia `tenants/<userId>/` vía `storageService.deleteTenantFiles()` (recursivo, no-op sin Supabase).
+- **PII en logs**: `api/services/email.js` redacta destinatarios con `maskEmail`/`maskEmailList` (`j***@x.com` — nunca el email crudo en logs de envio/caida).
 - **Sesión solo-cookie + app nativa** (`public/js/authClient.js` + `api/utils/deviceTokens.js`): el JWT NO viaja en el body (respuestas de login/register/google/callback y login admin); web por cookie `httpOnly`, app Capacitor con credencial opaca revocable (`POST /api/auth/device`, `GET/DELETE /api/auth/devices`, muere con el reset); `authMiddleware`/`requireAuth`/`/me` dual centralizado en `authenticateRequest()`; registro duplicado → 200 genérico anti-enumeración
 - **CAPTCHA invisible** (Turnstile, `api/utils/captcha.js`): `POST /orders` exige `captchaToken` solo con `TURNSTILE_SECRET` (403 `CAPTCHA_REQUIRED`/`CAPTCHA_INVALID`, fail-open solo si CF inalcanzable); menú lo adjunta solo vía `/api/public/captcha-config`; CSP estricta suma `challenges.cloudflare.com` (script/connect/frame)
 
@@ -280,6 +292,7 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 | `escapeHtmlBrowser.js` | Sanitizador XSS — **el que importa todo el frontend** (`menu.js`, `studio.js`, componentes) |
 | `dishPriceFormatter.js` | Formateo de precios, Happy Hour, strike |
 | `categoryFilter.js` | Filtros dietéticos, orden por clima |
+| `csvExport.js` | Export CSV del dashboard de analítica: **`escapeCell` neutraliza CSV injection (CWE-1236)** — celdas que arrancan con `= + - @ tab CR` reciben prefijo `'` (apóstrofo invisible de Excel) para que ninguna sea interpretada como fórmula viva. Regresión en `test-analytics-business.js` |
 | *(removido en Block 6)* | `eventThemes.js` (legacy CommonJS sin imports) fue borrado — no usar |
 
 ## Temas Visuales para Eventos
@@ -392,8 +405,8 @@ Los 5 claros sobreescriben `--chalk-white` a tinta oscura y refuerzan títulos/n
 | `public/js/menu/eventGuestMode.js` | Resolución de tema de evento, contexto de invitado, reservas WhatsApp |
 | `public/js/utils/` | Utilidades frontend (usan `escapeHtmlBrowser.js`, ver trampas) |
 | `public/js/components/` | 14 componentes ES Module reutilizables |
-| `tests/` | 38 archivos; 37 corren en `npm test` (ver sección Testing) |
-| `openapi.yaml` | Contrato OpenAPI 3.1 de la API (23 paths verificados contra handlers; `test-openapi-contract.js` lo golpea en runtime — endpoint nuevo = entrada acá + caso en el test) |
+| `tests/` | 39 archivos; 38 corren en `npm test` (ver sección Testing) |
+| `openapi.yaml` | Contrato OpenAPI 3.1 de la API (24 paths verificados contra handlers; `test-openapi-contract.js` lo golpea en runtime — endpoint nuevo = entrada acá + caso en el test) |
 | `src/billing/subscriptionMachine.js` | Máquina de estados pura de suscripción (7 estados × 6 eventos, `computeStatus` diferencialmente testeada contra `verifyAccess`; la tabla manda, el orchestrator la sigue) |
 | `src/billing/plans.json` | Fuente única de precios/planes y `TRIAL_DAYS` (el orchestrator la lee con fallback a literales) |
 | `SECURITY.md` | Política de disclosure (reporte a `hola@menu-pizarron.com` `[SECURITY]`, SLA 48h/7d) |

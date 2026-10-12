@@ -163,6 +163,9 @@ const mpProvider = {
       status,
       rawStatus,
       customerEmail: (payment.payer && payment.payer.email) || payment.collector_email || null,
+      // Fecha real del pago en Mercado Pago (timestamp autoritativo para el
+      // guard de recency del orchestrator; el IPN no la trae en el body).
+      eventCreatedAt: payment.date_created || null,
       renewsAt,
       provider: 'mercadopago'
     };

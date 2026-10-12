@@ -930,6 +930,86 @@ const db = {
    */
   getSchemaStatus() {
     return cloudSchemaStatus;
+  },
+  /**
+   * Derecho al olvido (RGPD / Ley 18.331 / Google Play): borra el usuario, su
+   * restaurante y TODOS los datos asociados — local (JSON) y nube (Supabase,
+   * best-effort: nunca rompe el flujo si la nube falla).
+   *
+   * No borra: la tabla `audit_logs` (registro de procesamiento propio) ni la
+   * tabla `webhooks` (registro contable de pagos, requisito legal de facturación).
+   * Tampoco toca `customer_profiles`/`loyalty_*`: son datos de los COMENSALES,
+   * no del dueño que se da de baja (su borrado es otro derecho, del comensal).
+   * Idempotente: si no existe nada, no falla.
+   *
+   * @param {string} userId - ID del dueño
+   * @param {string|null} restaurantId - ID de su restaurante (si existe)
+   * @returns {Promise<{usersRemoved: number}>}
+   */
+  async deleteRestaurantData(userId, restaurantId) {
+    // Primero drena las escrituras pendientes a la nube: un upsert encolado
+    // hace 1 s podría re-insertar el restaurante DESPUÉS de borrarlo.
+    await this.flushCloudWrites();
+
+    // ── Local JSON ──────────────────────────────────────────────────────────
+    await writeJson(USERS_FILE, readJson(USERS_FILE, []).filter((u) => u.id !== userId));
+
+    await writeJson(RESTAURANTS_FILE, readJson(RESTAURANTS_FILE, []).filter((r) => r.id !== restaurantId));
+
+    const reviewsFile = path.join(DATA_DIR, 'reviews.json');
+    await writeJson(
+      reviewsFile,
+      readJson(reviewsFile, []).filter((r) => r.restaurant_id !== restaurantId && r.restaurantId !== restaurantId)
+    );
+
+    const feedbackFile = path.join(DATA_DIR, 'feedback.json');
+    await writeJson(
+      feedbackFile,
+      readJson(feedbackFile, []).filter((f) => f.restaurantId !== restaurantId)
+    );
+
+    const tokensFile = path.join(DATA_DIR, 'reset_tokens.json');
+    await writeJson(
+      tokensFile,
+      readJson(tokensFile, []).filter((t) => t.userId !== userId && t.user_id !== userId)
+    );
+
+    const hooksFile = path.join(DATA_DIR, 'webhooks.json');
+    await writeJson(
+      hooksFile,
+      readJson(hooksFile, []).filter(
+        (h) => !h.data || (h.data.restaurant_id !== restaurantId && h.data.restaurantId !== restaurantId)
+      )
+    );
+
+    const ordersFile = path.join(DATA_DIR, 'orders.json');
+    await writeJson(
+      ordersFile,
+      readJson(ordersFile, []).filter((o) => o.restaurant_id !== restaurantId && o.restaurantId !== restaurantId)
+    );
+
+    // ── Supabase (best-effort; un fallo no debe impedir el derecho al olvido) ─
+    if (supabase) {
+      const deletes = [];
+      if (restaurantId) {
+        for (const table of [
+          'orders',
+          'reviews',
+          'customer_feedback',
+          'group_carts',
+          'push_subscriptions',
+          'telemetry_events',
+          'notification_events'
+        ]) {
+          deletes.push(supabase.from(table).delete().eq('restaurant_id', restaurantId));
+        }
+        deletes.push(supabase.from('restaurants').delete().eq('id', restaurantId));
+      }
+      deletes.push(supabase.from('users').delete().eq('id', userId));
+      await Promise.allSettled(deletes);
+    }
+
+    return { usersRemoved: 1 };
   }
 };
 

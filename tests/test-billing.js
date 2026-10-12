@@ -231,6 +231,89 @@ async function runTests() {
   assert.strictEqual(accessEventExpired.allowed, false, 'evento sin pago tras el trial: acceso denegado');
   console.log('✓ Evento sin pago one-off tras el trial → menú pausado');
 
+  // ── 7) Guard de recency: un evento VIEJO que llega tarde no revierte la
+  //        suscripción a un estado obsoleto (p. ej. un payment_failed de hace
+  //        5 días entregado después de un pago exitoso más nuevo).
+  const staleRest = await db.saveRestaurant(user.id, {
+    bizName: 'Recency Test',
+    slug: 'recency-' + Date.now()
+  });
+  const freshTs = new Date().toISOString();
+  const oldTs = new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString();
+
+  // 7a. Primero llega el evento NUEVO (pago exitoso, con su timestamp).
+  const newEvId = 'evt_recency_new_' + Date.now();
+  const newPayload = {
+    meta: {
+      event_name: 'subscription_payment_success',
+      custom_data: { restaurant_id: staleRest.id, event_id: newEvId }
+    },
+    data: {
+      id: newEvId,
+      attributes: {
+        status: 'active',
+        user_email: user.email,
+        created_at: freshTs,
+        renews_at: freshTs
+      }
+    }
+  };
+  const newRes = await billingOrchestrator.processWebhook('lemonsqueezy', {}, JSON.stringify(newPayload), newPayload);
+  assert.strictEqual(newRes.success, true);
+  assert.strictEqual(newRes.status, 'active');
+
+  // 7b. Después llega el evento VIEJO (fallo de cobro de hace 5 días). Debe
+  //     descartarse como stale SIN tocar la suscripción.
+  const oldEvId = 'evt_recency_old_' + Date.now();
+  const oldPayload = {
+    meta: {
+      event_name: 'subscription_payment_failed',
+      custom_data: { restaurant_id: staleRest.id, event_id: oldEvId }
+    },
+    data: {
+      id: oldEvId,
+      attributes: {
+        status: 'past_due',
+        user_email: user.email,
+        created_at: oldTs,
+        ends_at: oldTs
+      }
+    }
+  };
+  const oldRes = await billingOrchestrator.processWebhook('lemonsqueezy', {}, JSON.stringify(oldPayload), oldPayload);
+  assert.strictEqual(oldRes.success, true, 'el proveedor recibe 200 (ack) aunque el evento se ignore');
+  assert.strictEqual(oldRes.stale, true, 'evento más viejo que el último aplicado → stale');
+  const staleAfter = db.findRestaurantById(staleRest.id);
+  assert.strictEqual(staleAfter.subscription.status, 'active', 'la suscripción NO se revierte a past_due');
+  assert.ok(
+    new Date(staleAfter.subscription.lastWebhookEventAt.lemonsqueezy).getTime() === new Date(freshTs).getTime(),
+    'lastWebhookEventAt queda con el timestamp del evento más nuevo'
+  );
+  console.log('✓ Guard de recency: evento atrasado descartado sin revertir la suscripción');
+
+  // 7c. Un evento NUEVO con timestamp posterior sí se aplica (el guard no
+  //     bloquea lo legítimo: el dueño vuelve a pagar).
+  const renewedId = 'evt_recency_renewed_' + Date.now();
+  const renewedPayload = {
+    meta: {
+      event_name: 'subscription_payment_success',
+      custom_data: { restaurant_id: staleRest.id, event_id: renewedId }
+    },
+    data: {
+      id: renewedId,
+      attributes: {
+        status: 'active',
+        user_email: user.email,
+        created_at: new Date(Date.now() + 1000).toISOString(),
+        renews_at: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString()
+      }
+    }
+  };
+  const renewedRes = await billingOrchestrator.processWebhook('lemonsqueezy', {}, JSON.stringify(renewedPayload), renewedPayload);
+  assert.strictEqual(renewedRes.stale, undefined, 'evento posterior no es stale');
+  assert.strictEqual(renewedRes.status, 'active', 'evento posterior se aplica normal');
+  console.log('✓ Guard de recency: un evento más nuevo sigue aplicándose normal');
+
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE BILLING PASARON EXITOSAMENTE AL 100%!\n');
 }
 

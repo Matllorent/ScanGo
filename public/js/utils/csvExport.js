@@ -26,7 +26,12 @@ export function buildDailyCsv(dailyData, options = {}) {
   ]);
 
   const escapeCell = (value) => {
-    const s = String(value);
+    let s = String(value);
+    // Seguridad — CSV Injection (CWE-1236): una celda que comienza con =, +, -,
+    // @, tab o CR puede ser interpretada como FÓRMULA viva por Excel/Sheets
+    // (cmd / DDE / traer datos externos). Se neutraliza prefijando un apóstrofo:
+    // en Excel el ' inicial es invisible y el dato se lee como texto.
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
     // RFC 4180: entrecomillar si contiene separador, salto o comilla
     if (/[",\n;]/.test(s)) {
       return `"${s.replace(/"/g, '""')}"`;

@@ -8,6 +8,7 @@ const requireVerifiedEmail = require('../middleware/requireVerifiedEmail');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { adminMiddleware } = require('../middleware/auth');
+const auditService = require('../services/audit');
 
 const router = express.Router();
 
@@ -216,6 +217,14 @@ router.patch('/admin/:id/approve', adminMiddleware, async (req, res, next) => {
     if (!updatedLocal) {
       throw new AppError('Reseña no encontrada', 404, 'REVIEW_NOT_FOUND');
     }
+
+    // Auditoría (fire-and-forget): el admin decide la suerte de una reseña.
+    auditService.logAction({
+      tenantId: updatedLocal.restaurant_id || updatedLocal.restaurantId,
+      action: 'REVIEW_MODERATED',
+      entity: 'review',
+      details: { reviewId, status: 'approved' }
+    });
 
     return successResponse(res, updatedLocal, 'Reseña aprobada exitosamente');
   } catch (err) {

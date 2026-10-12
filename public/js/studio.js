@@ -828,31 +828,73 @@ export function sendOrderStateWA(stateName) {
   window.open(waUrl, '_blank');
 }
 
-// Account Deletion
+// Account Deletion — derecho al olvido REAL (RGPD / Ley 18.331 / Google Play).
+// El backend borra la cuenta al instante (`POST /api/account/delete-request`
+// con `confirm: true`); esta función maneja la respuesta de forma honesta (ya
+// no dice "registrada correctamente" cuando el borrado no ocurrió). Exige
+// escribir ELIMINAR en el modal (confirmación escrita de intención).
 export async function confirmAccountDeletion() {
   const btn = document.getElementById('btnConfirmDeleteAccount');
   const reason = document.getElementById('deleteAccountReason')?.value.trim() || 'Sin motivo especificado';
-  if (!confirm('¿Estás seguro de solicitar la baja definitiva de tu cuenta y todos tus datos? Esta acción no se puede deshacer.')) {
+  const phrase = document.getElementById('deleteAccountConfirmPhrase')?.value.trim() || '';
+  if (phrase !== 'ELIMINAR') {
+    alert('Para confirmar, escribí exactamente ELIMINAR en el campo de confirmación.');
+    return;
+  }
+
+  if (!confirm('¿Borrar DEFINITIVAMENTE tu cuenta y TODOS tus datos? El borrado es inmediato e irreversible: ' +
+    'se eliminan tu usuario, tu restaurante, tu menú, tus reseñas, tus pedidos y tus imágenes.')) {
     return;
   }
   if (btn) {
     btn.disabled = true;
-    btn.textContent = 'Procesando baja...';
+    btn.textContent = 'Borrando datos...';
   }
   const authHeaders = window.AuthClient
     ? window.AuthClient.getAuthHeaders({ 'Content-Type': 'application/json' })
     : { 'Content-Type': 'application/json' };
+  let res;
   try {
-    await fetch('/api/account/delete-request', {
+    res = await fetch('/api/account/delete-request', {
       method: 'POST',
       headers: authHeaders,
-      body: JSON.stringify({ reason })
-    }).catch(() => {});
-  } catch (e) {}
+      body: JSON.stringify({ confirm: true, reason })
+    });
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Confirmar Eliminación Definitiva'; }
+    alert('No se pudo contactar el servidor. Tu cuenta NO fue borrada. Revisá tu conexión e intentá de nuevo.');
+    return;
+  }
 
-  alert('Tu solicitud de eliminación de cuenta y purga de datos personales ha sido registrada correctamente.');
-  localStorage.clear();
-  window.location.href = '/index.html';
+  if (res.status === 401) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Confirmar Eliminación Definitiva'; }
+    alert('Tu sesión expiró. Iniciá sesión de nuevo para poder borrar tu cuenta.');
+    window.location.href = '/index.html?login=1';
+    return;
+  }
+
+  let body = null;
+  try { body = await res.json(); } catch (e) { /* body no JSON */ }
+
+  if (res.ok && body && body.deleted === true) {
+    alert('Tu cuenta y todos tus datos fueron borrados definitivamente. ¡Gracias por habernos probado!');
+    localStorage.clear();
+    window.location.href = '/index.html';
+    return;
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Confirmar Eliminación Definitiva'; }
+  if (res.status === 400) {
+    alert('Faltó la confirmación final. Volvé a intentar (escribí ELIMINAR y confirmá).');
+    return;
+  }
+
+  if (body && body.message) {
+    alert(body.message);
+    return;
+  }
+
+  alert('Ocurrió un error al borrar la cuenta. NO se borró nada. Intentá de nuevo o escribinos a soporte.');
 }
 
 // Live State Synchronization

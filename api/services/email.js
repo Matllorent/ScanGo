@@ -2,6 +2,24 @@ const AppError = require('../utils/AppError');
 const { retryQueue } = require('../utils/retryQueue');
 
 /**
+ * Enmascara una dirección de email para logs: conserva la primera letra del
+ * Local-Part y el dominio completo (suficiente para operar, sin exponer PII).
+ * `juan.perez@x.com` → `j***@x.com`. Nunca loguear emails crudos.
+ */
+function maskEmail(email) {
+  const s = String(email || '');
+  const at = s.lastIndexOf('@');
+  if (at <= 1) return s.length ? s[0] + '***' : '***';
+  return s.slice(0, 1) + '***' + s.slice(at);
+}
+
+/** Enmascara un destinatario o lista de destinatarios (string|string[]). */
+function maskEmailList(to) {
+  const arr = Array.isArray(to) ? to : [to];
+  return arr.map(maskEmail).join(', ');
+}
+
+/**
  * Email Service for Transactional & Marketing Emails
  * Integrates Resend API client via native fetch with process.env credentials
  */
@@ -24,7 +42,8 @@ const emailService = {
     const fromEmail = process.env.EMAIL_FROM || process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
     if (!resendApiKey) {
-      console.log(`✉️ [Local Email Service Fallback] [${new Date().toISOString()}] To: ${to} | Subject: ${subject}`);
+      // PII redactada: nunca el email crudo en logs (solo el Local-Part parcial).
+      console.log(`✉️ [Local Email Service Fallback] [${new Date().toISOString()}] To: ${maskEmailList(to)} | Subject: ${subject}`);
       return { provider: 'local_mock', success: true, timestamp: new Date().toISOString() };
     }
 
@@ -47,7 +66,8 @@ const emailService = {
       const responseData = await response.json().catch(() => ({}));
 
       if (response.ok) {
-        console.log(`✉️ [Resend Email Sent] To: ${to} | ID: ${responseData.id}`);
+        // PII redactada: id del mensaje + destinatario enmascarado.
+        console.log(`✉️ [Resend Email Sent] To: ${maskEmailList(to)} | ID: ${responseData.id}`);
         return { provider: 'resend', id: responseData.id, success: true, responseData };
       } else {
         console.warn(`⚠️ [Resend Email Warning] Status ${response.status}:`, responseData);
@@ -353,5 +373,9 @@ const emailService = {
     return this.sendEmail({ to, subject, html });
   }
 };
+
+// Helpers puros exportados (testeables): ocultan PII de destinatarios en logs.
+emailService.maskEmail = maskEmail;
+emailService.maskEmailList = maskEmailList;
 
 module.exports = emailService;

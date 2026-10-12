@@ -1,0 +1,64 @@
+# Uptime check $0 — fallback de monitoreo pre-UptimeRobot (punto 9)
+# ─────────────────────────────────────────────────────────────────────
+# Mientras no exista UptimeRobot (u otro monitor externo), este workflow
+# golpea /api/healthz de producción cada 6 horas desde los runners de GitHub
+# (una red diferente a la que visita el dueño). Si falla, abre un issue en el
+# repo (etiquetado y sin duplicados). Cuando UptimeRobot esté configurado,
+# este job puede quedarse como segunda capa o eliminarse (ver
+# docs/produccion-checklist.md).
+#
+# Variable (repo → Settings → Secrets and variables → Actions → Variables):
+#   HEALTH_URL → URL del health check en prod. Default:
+#   https://menu-pizarron-saas.vercel.app/api/healthz
+name: Uptime Check ($0 — fallback de monitoreo)
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  healthz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: GET /api/healthz de producción
+        env:
+          HEALTH_URL: ${{ vars.HEALTH_URL }}
+        run: |
+          set -euo pipefail
+          url="${HEALTH_URL:-https://menu-pizarron-saas.vercel.app/api/healthz}"
+          echo "Golpeando $url"
+          curl -fsS --max-time 20 "$url" > healthz.txt
+          cat healthz.txt
+
+      - name: Abrir issue si el sitio no respondió
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            const exists = open.some((i) => i.title.startsWith('[CAIDO]'));
+            if (!exists) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '[CAIDO] /api/healthz no responde',
+                body: [
+                  'El health check programado (cron `17 */6 * * *` UTC) falló.',
+                  '',
+                  '- Verificar el dashboard de Vercel: https://vercel.com/dashboard',
+                  '- Revisar logs de función: pestaña Functions del proyecto.',
+                  '- Si fue transitorio, el próximo check lo confirma solo.',
+                  ''
+                ].join('\n')
+              });
+            }

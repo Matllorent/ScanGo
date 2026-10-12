@@ -1825,6 +1825,10 @@
         <label class="form-label">Motivo (Opcional):</label>
         <input type="text" id="deleteAccountReason" class="form-input" placeholder="Ej: Cierre de local, cambio de plataforma...">
       </div>
+      <div class="form-group" style="margin-bottom: 14px;">
+        <label class="form-label" for="deleteAccountConfirmPhrase">Confirmación escrita (obligatorio):</label>
+        <input type="text" id="deleteAccountConfirmPhrase" class="form-input" autocomplete="off" placeholder="Escribí ELIMINAR para confirmar el borrado definitivo">
+      </div>
       <div style="display: flex; gap: 8px; justify-content: flex-end;">
         <button type="button" class="btn-nav" data-js-click="closeDeleteAccountModal">Cancelar</button>
         <button type="button" id="btnConfirmDeleteAccount" class="btn-nav btn-danger" style="background: #EF4444; color: #fff; border-color: #EF4444;" data-js-click="confirmAccountDeletion">

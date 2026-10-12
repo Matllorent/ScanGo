@@ -33,6 +33,8 @@ tags:
     description: Panel maestro (`GET /api/admin/overview` en `api/index.js`)
   - name: billing
     description: Suscripción y baja voluntaria (`POST /api/billing/*` en `api/index.js`)
+  - name: account
+    description: Ciclo de vida de la cuenta del dueño (derecho al olvido, RGPD / Ley 18.331)
 paths:
   /api/auth/register:
     post:
@@ -1143,6 +1145,78 @@ paths:
                     type: string
                   code:
                     type: string
+  /api/account/delete-request:
+    post:
+      tags: [account]
+      summary: Derecho al olvido — borrado definitivo de la cuenta del dueño
+      description: |-
+        `authMiddleware` (401 sin sesión). Requiere `confirm: true` explícito
+        (400 `CONFIRMATION_REQUIRED` si falta). Borra de verdad el usuario, su
+        restaurante y los datos asociados (reseñas, feedback, pedidos, grupos de
+        mesa, suscripciones push, telemetría, notificaciones) en local y en
+        Supabase, además de las imágenes del bucket público
+        (`tenants/<userId>/`). La sesión muere con la cuenta (401 al reintentar).
+        Deja una entrada de auditoría `ACCOUNT_DELETE` ANTES del borrado.
+        (Regulación br 2016/679 — RGPD; Ley 18.331 Uruguay; política de
+        borrado de cuentas de Google Play.)
+      operationId: accountDeleteRequest
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm:
+                  type: boolean
+                  description: Debe ser `true` para ejecutar el borrado
+                reason:
+                  type: string
+                  maxLength: 500
+                  description: Motivo opcional (opcional) que se registra en la auditoría
+      responses:
+        '200':
+          description: Cuenta borrada (usuario, restaurante y datos asociados eliminados)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, deleted]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  deleted:
+                    type: boolean
+                    example: true
+        '400':
+          description: Falta la confirmación explícita (`confirm: true`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sin sesión (o sesión ya revocada)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Cuenta no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit de eliminaciones (10/15 min)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 components:
   securitySchemes:
     cookieAuth:

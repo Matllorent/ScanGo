@@ -79,6 +79,12 @@ const stripeProvider = {
       ? new Date(dataObj.current_period_end * 1000).toISOString()
       : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
+    // Stripe firma eventos con `created` (segundos unix) — timestamp
+    // autoritativo para el guard de recency del orchestrator.
+    const eventCreatedAt = event.created
+      ? new Date(event.created * 1000).toISOString()
+      : null;
+
     return {
       eventId,
       eventName: eventType,
@@ -87,6 +93,7 @@ const stripeProvider = {
       status: normalizedStatus,
       rawStatus: dataObj.status,
       customerEmail: dataObj.customer_email || (dataObj.customer_details && dataObj.customer_details.email),
+      eventCreatedAt,
       renewsAt,
       provider: 'stripe'
     };
