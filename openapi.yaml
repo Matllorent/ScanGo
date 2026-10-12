@@ -1405,6 +1405,22 @@ components:
           type: string
         city:
           type: string
+        priceRange:
+          type: string
+          enum: ['$', '$$', '$$$', '$$$$']
+          description: Visibilidad SEO local — allowlist estricta, emitida como priceRange en el JSON-LD de /m/:slug
+        sameAs:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: URLs públicas únicas (https) — Google Business Profile, emitidas como sameAs en el JSON-LD
+        latitude:
+          type: number
+          description: GeoCoordinates — rango [-90, 90], 6 decimales; null si no se configura
+        longitude:
+          type: number
+          description: GeoCoordinates — rango [-180, 180], 6 decimales; null si no se configura
         businessType:
           type: string
           enum: [restaurant, heladeria, perfumery, events]

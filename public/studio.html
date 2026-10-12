@@ -241,6 +241,45 @@
               <input type="text" id="inputGoogleReview" class="form-input" placeholder="https://g.page/r/tu-local/review" data-js-input="updateLiveState">
             </div>
 
+            <!-- Visibilidad SEO Local (marcado JSON-LD de /m/:slug) -->
+            <div style="margin-top:14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <strong style="font-size:12px; color:#fff;">📡 Visibilidad en Buscadores (SEO Local)</strong>
+                <span style="font-size:9px; color:var(--text-dim);">JSON-LD del menú público</span>
+              </div>
+              <p style="font-size:10px; color:var(--text-dim); margin-bottom:10px;">Google y los asistentes de IA leen estos datos para mostrar tu ficha con coherencia en tu página pública (<code>/m/tu-slug</code>).</p>
+
+              <div class="form-group">
+                <label class="form-label">Rango de Precios</label>
+                <select id="inputPriceRange" class="form-select" data-js-change="updateLiveState">
+                  <option value="">— Sin especificar —</option>
+                  <option value="$">$ · Económico</option>
+                  <option value="$$">$$ · Medio</option>
+                  <option value="$$$">$$$ · Premium</option>
+                  <option value="$$$$">$$$$ · Alto</option>
+                </select>
+                <div class="input-hint">Se publica como <code>priceRange</code> en el marcado.</div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Google Business Profile (link público)</label>
+                <input type="text" id="inputSameAs" class="form-input" placeholder="https://business.google.com/..." data-js-input="updateLiveState">
+                <div class="input-hint">Se publica como <code>sameAs</code>: vincula tu menú con tu ficha de Google (consistencia de datos locales).</div>
+              </div>
+
+              <div class="field-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div class="form-group">
+                  <label class="form-label">Latitud</label>
+                  <input type="number" step="any" id="inputLatitude" class="form-input" placeholder="Ej: -34.9053" data-js-input="updateLiveState">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Longitud</label>
+                  <input type="number" step="any" id="inputLongitude" class="form-input" placeholder="Ej: -56.1916" data-js-input="updateLiveState">
+                </div>
+              </div>
+              <div class="input-hint">Coordenadas del local (<code>GeoCoordinates</code>). En Google Maps: clic derecho sobre el local → copiar coordenadas.</div>
+            </div>
+
             <!-- Logo Upload for Menu & QR Center -->
             <div class="form-group" style="margin-top: 14px;">
               <label class="form-label">Logo o Emblema (Aparece en el menú y en el centro del QR)</label>

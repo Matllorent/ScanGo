@@ -24,6 +24,7 @@ const path = require('path');
 const app = require('../api/index');
 const db = require('../src/db/db');
 const seoDiscovery = require('../api/utils/seoDiscovery');
+const { sanitizeRestaurantPayload } = require('../api/utils/sanitizeRestaurant');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const appUrl = process.env.APP_URL || 'https://scango.uy';
@@ -119,6 +120,40 @@ async function runTests() {
     assert.ok(sitemap.includes(expected), `sitemap debe contener ${expected}`);
   }
 
+  // 3a. Datos locales (priceRange/sameAs/geo) saneados ANTES del JSON-LD:
+  //     allowlist estricta, solo https, lat/lng con rangos reales, cero drift.
+  {
+    const clean = sanitizeRestaurantPayload({
+      name: 'X',
+      priceRange: '$$$',
+      sameAs: 'https://business.google.com/ejemplo',
+      latitude: -34.9053,
+      longitude: -56.1916
+    });
+    assert.strictEqual(clean.priceRange, '$$$', 'priceRange dentro de la allowlist se conserva');
+    assert.deepStrictEqual(clean.sameAs, ['https://business.google.com/ejemplo'], 'sameAs string → [url]');
+    assert.strictEqual(clean.latitude, -34.9053, 'latitud válida sin redondear');
+    assert.strictEqual(clean.longitude, -56.1916, 'longitud válida sin redondear');
+  }
+  {
+    const dirty = sanitizeRestaurantPayload({
+      priceRange: '<script>alert(1)</script>',
+      sameAs: ['javascript:alert(1)', 'https://a.com', 'https://a.com'],
+      latitude: 999,
+      longitude: -999,
+      latRad: 3.14159
+    });
+    assert.strictEqual(dirty.priceRange, '', 'priceRange fuera de allowlist → vacío (no inyecta)');
+    assert.deepStrictEqual(dirty.sameAs, ['https://a.com'], 'javascript: descartado y duplicados colapsados');
+    assert.strictEqual(dirty.latitude, null, 'latitud fuera de rango → null');
+    assert.strictEqual(dirty.longitude, null, 'longitud fuera de rango → null');
+  }
+  {
+    const ecuador = sanitizeRestaurantPayload({ latitude: 0, longitude: 0 });
+    assert.strictEqual(ecuador.latitude, 0, 'latitud 0 es válida (Ecuador)');
+    assert.strictEqual(ecuador.longitude, 0, 'longitud 0 es válida');
+  }
+
   // ── Fase B · runtime (SSR + rutas dinámicas reales) ─────────────────────
   const unique = Date.now();
   const slug = `seo-local-${unique}`;
@@ -134,6 +169,10 @@ async function runTests() {
     currency: 'UYU',
     phone: '+59899123456',
     city: 'Montevideo',
+    priceRange: '$$$',
+    sameAs: ['https://business.google.com/seo-bistro'],
+    latitude: -34.9053,
+    longitude: -56.1916,
     scheduleEnabled: true,
     scheduleActiveHours: '18:00-02:00',
     categories: [{ id: 'cat-main', name: 'Platos principales' }],
@@ -157,6 +196,12 @@ async function runTests() {
       '"closes":"23:59"',
       '"opens":"00:00"',
       '"closes":"02:00"',
+      '"priceRange":"$$$"',
+      '"sameAs":["https://business.google.com/seo-bistro"]',
+      '"@type":"GeoCoordinates"',
+      '"latitude":-34.9053',
+      '"longitude":-56.1916',
+      `"@id":"${appUrl}/m/${slug}#restaurant"`,
       `<link rel="canonical" href="${appUrl}/m/${slug}"`
     ]) {
       assert.ok(html.includes(token), `SSR /m/${slug} debe incluir ${token}`);
@@ -177,6 +222,24 @@ async function runTests() {
     assert.ok(sitemapText.includes(`/m/${slug}`), 'sitemap: menú activo listado');
     assert.ok(sitemapText.includes(`/m/${slug}?branch=centro`), 'sitemap: sucursal real listada');
     assert.ok(sitemapText.includes('/terminos'), 'sitemap: legales presentes (paridad con el flujo anterior)');
+
+    // 6b. Cada sucursal es una página independiente: cuando el SSR recibe
+    //     ?branch=, canonical/og:url/og:title/JSON-LD reflejan la sucursal
+    //     (nombre, dirección y teléfono propios o el fallback del local).
+    const branchResponse = await fetch(`http://localhost:${port}/m/${slug}?branch=centro`);
+    const branchHtml = await branchResponse.text();
+    assert.strictEqual(branchResponse.status, 200);
+    for (const token of [
+      `<link rel="canonical" href="${appUrl}/m/${slug}?branch=centro"`,
+      `<meta property="og:url" content="${appUrl}/m/${slug}?branch=centro"`,
+      '<title>SEO Bistró — Centro — Menú Pizarrón</title>',
+      `"@id":"${appUrl}/m/${slug}?branch=centro#restaurant"`,
+      '"name":"SEO Bistró — Centro"',
+      '"telephone":"+59899123456"',
+      '"streetAddress":"18 de Julio 1234"'
+    ]) {
+      assert.ok(branchHtml.includes(token), `SSR ?branch=centro debe incluir ${token}`);
+    }
 
     // 7. noindex,follow en paneles privados (nunca indexados).
     for (const file of ['studio.html', 'admin.html', 'reset-password.html', 'email-verified.html']) {

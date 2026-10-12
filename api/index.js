@@ -1659,6 +1659,14 @@ app.get('/m/:slug', (req, res) => {
       },
       ...(seoDiscovery.buildOpeningHoursFromSchedule(restaurant) || {}),
       ...(restaurant.priceRange ? { priceRange: restaurant.priceRange } : {}),
+      ...(Array.isArray(restaurant.sameAs) && restaurant.sameAs.length ? { sameAs: restaurant.sameAs } : {}),
+      ...(Number.isFinite(Number(restaurant.latitude)) && Number.isFinite(Number(restaurant.longitude)) ? {
+        geo: {
+          '@type': 'GeoCoordinates',
+          latitude: Number(restaurant.latitude),
+          longitude: Number(restaurant.longitude)
+        }
+      } : {}),
       ...(restaurant.servesCuisine ? { servesCuisine: restaurant.servesCuisine } : (restaurant.categories && restaurant.categories.length > 0 ? { servesCuisine: restaurant.categories.map(c => c.name) } : {}))
     };
     const safeJsonLd = JSON.stringify(structuredData).replace(/[<>&\u2028\u2029]/g, character => ({
@@ -1668,7 +1676,6 @@ app.get('/m/:slug', (req, res) => {
       '\u2028': '\\u2028',
       '\u2029': '\\u2029'
     })[character]);
-
     const ogTags = `
       <meta name="description" content="${escapeHtml(slogan)}" />
       <link rel="canonical" href="${escapeHtml(menuUrl)}" />
@@ -1684,8 +1691,14 @@ app.get('/m/:slug', (req, res) => {
       <script type="application/ld+json">${safeJsonLd}</script>
     `;
 
-    html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`);
-    html = html.replace('</head>', `${ogTags}\n</head>`);
+    // IMPORTANTE: replace con FUNCIÓN, no con string. String.prototype.replace
+    // interpreta patrones `$` en el reemplazo ($&, $$, $', ...): si el título o el
+    // JSON-LD inyectado contienen `$` (p.ej. priceRange "$$$" o un nombre con $),
+    // un reemplazo-string los corrompe (V8 colapsa "$$$" → "$$"). Una función
+    // devuelve el texto literal sin procesar los `$`. (Bug real cazado por
+    // test-seo-discovery al agregar priceRange "$$$" al JSON-LD del SSR.)
+    html = html.replace(/<title>[\s\S]*?<\/title>/i, () => `<title>${escapeHtml(title)}</title>`);
+    html = html.replace('</head>', () => `${ogTags}\n</head>`);
     // Falso positivo verificado: TODO dato de restaurante inyectado en `html` pasa por
     // escapeHtml() (ogTags, title) o por safeJsonLd (JSON.stringify + escape de <>& y \u2028\u2029);
     // la base `html` es el template estático de menu.html, sin interpolación de usuario.

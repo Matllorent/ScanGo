@@ -19,6 +19,10 @@ const ALLOWED_WEATHER_TAGS = ['muy_frio', 'frio', 'templado', 'caluroso', 'muy_c
 const ALLOWED_TEAM_ROLES = ['admin', 'waiter', 'kitchen'];
 const COUPON_TYPES = ['percent', 'free_delivery'];
 const WEDDING_ITINERARY_MAX_ITEMS = 12;
+// Visibilidad SEO local (marcado JSON-LD de /m/:slug): priceRange con allowlist
+// estricta ($..$$$$), sameAs solo http(s) y geo lat/lng numérico con rangos reales.
+const PRICE_RANGE_TOKENS = ['$', '$$', '$$$', '$$$$'];
+const MAX_SAME_AS_URLS = 3;
 
 function sanitizeString(str, maxLen) {
   if (typeof str !== 'string') return '';
@@ -52,6 +56,40 @@ function sanitizeUrl(url, maxLen = 500) {
 function sanitizeSocialUrl(url, maxLen = 500) {
   const s = sanitizeUrl(url, maxLen);
   return /^https?:\/\//i.test(s) ? s : '';
+}
+
+// Rango de precios para el JSON-LD: allowlist estricta ($..$$$$). Cualquier
+// otro valor (vacío, texto libre, <script>) → '' (nunca inventa ni pasa crudo).
+function sanitizePriceRange(raw) {
+  const s = sanitizeString(raw, 5).trim();
+  return PRICE_RANGE_TOKENS.includes(s) ? s : '';
+}
+
+// `sameAs` de schema.org: URLs únicas y solo http(s) (sanitizeUrl ya descarta
+// javascript:/data:). Un string suelto se normaliza a [url]; máximo 3 entradas.
+function sanitizeSameAs(raw) {
+  if (raw === undefined || raw === null) return [];
+  const entries = Array.isArray(raw) ? raw : [raw];
+  const out = [];
+  const seen = new Set();
+  for (const entry of entries) {
+    const url = sanitizeUrl(entry, 500);
+    if (url && !seen.has(url)) {
+      seen.add(url);
+      out.push(url);
+      if (out.length >= MAX_SAME_AS_URLS) break;
+    }
+  }
+  return out;
+}
+
+// Coordenadas para GeoCoordinates: numérico finito dentro del rango real del
+// planeta, redondeado a 6 decimales (~1m). Fuera de rango/no numérico → null.
+function sanitizeLatLng(raw, min, max) {
+  if (raw === undefined || raw === null || raw === '') return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < min || n > max) return null;
+  return Math.round(n * 1e6) / 1e6;
 }
 
 function generateId(prefix = '') {
@@ -256,6 +294,12 @@ function sanitizeRestaurantPayload(data) {
   clean.tiktok = sanitizeSocialUrl(clean.tiktok, 500);
   clean.x = sanitizeSocialUrl(clean.x, 500);
   clean.googleReview = sanitizeSocialUrl(clean.googleReview, 300);
+  // Visibilidad SEO local (JSON-LD de /m/:slug): sin inventar datos ni dejar
+  // pasar valores crudos. priceRange con allowlist, sameAs https únicos, geo numérico.
+  clean.priceRange = sanitizePriceRange(clean.priceRange);
+  clean.sameAs = sanitizeSameAs(clean.sameAs);
+  clean.latitude = sanitizeLatLng(clean.latitude, -90, 90);
+  clean.longitude = sanitizeLatLng(clean.longitude, -180, 180);
   clean.allowReservations = Boolean(clean.allowReservations);
   clean.allowCoupons = Boolean(clean.allowCoupons);
   clean.allowBillSplitter = Boolean(clean.allowBillSplitter);

@@ -988,6 +988,16 @@ export function updateLiveState() {
   restaurant.x = el('inputX')?.value.trim() || '';
   restaurant.googleReview = el('inputGoogleReview')?.value.trim() || '';
 
+  // Visibilidad SEO local (JSON-LD de /m/:slug): priceRange, sameAs (URL de
+  // Google Business) y geo como lat/lng numérico. El backend valida/permite.
+  restaurant.priceRange = el('inputPriceRange')?.value || '';
+  const sameAsValue = el('inputSameAs')?.value.trim() || '';
+  restaurant.sameAs = sameAsValue ? [sameAsValue] : [];
+  const latValue = el('inputLatitude')?.value.trim();
+  const lngValue = el('inputLongitude')?.value.trim();
+  restaurant.latitude = latValue === '' ? null : Number(latValue);
+  restaurant.longitude = lngValue === '' ? null : Number(lngValue);
+
   const layoutSelect = el('inputMenuLayout');
   if (layoutSelect) restaurant.layout = layoutSelect.value || 'classic';
   if (el('inputThemeBg')) {
@@ -1171,6 +1181,13 @@ export function renderStudioUI() {
   if (el('inputTiktok')) el('inputTiktok').value = restaurant.tiktok || '';
   if (el('inputX')) el('inputX').value = restaurant.x || '';
   if (el('inputGoogleReview')) el('inputGoogleReview').value = restaurant.googleReview || '';
+
+  // Visibilidad SEO local: priceRange con allowlist, sameAs como [url],
+  // lat/lng numérico (0 es válido — Ecuador pasa el Number.isFinite).
+  if (el('inputPriceRange')) el('inputPriceRange').value = restaurant.priceRange || '';
+  if (el('inputSameAs')) el('inputSameAs').value = (Array.isArray(restaurant.sameAs) ? restaurant.sameAs[0] : restaurant.sameAs) || '';
+  if (el('inputLatitude')) el('inputLatitude').value = Number.isFinite(Number(restaurant.latitude)) ? restaurant.latitude : '';
+  if (el('inputLongitude')) el('inputLongitude').value = Number.isFinite(Number(restaurant.longitude)) ? restaurant.longitude : '';
 
   const layoutSelect = el('inputMenuLayout');
   if (layoutSelect) layoutSelect.value = restaurant.layout || 'classic';
