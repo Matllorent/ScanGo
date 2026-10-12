@@ -74,12 +74,13 @@ async function runTests() {
   }
   console.log('✓ db.updateSettings() persiste y retorna valores actualizados');
 
-  // Restablecer valores estándar
+  // Restablecer valores estándar (alineados con los planes reales de src/billing/plans.json:
+  // starter 9/79, descuento anual real 27%, banner de descuento OFF por defecto)
   await db.updateSettings({
     monthlyPrice: 9,
-    annualPrice: 69,
-    annualDiscountPercent: 36,
-    promoBannerEnabled: true,
+    annualPrice: 79,
+    annualDiscountPercent: 27,
+    promoBannerEnabled: false,
     promoDiscountPercent: 50,
     promoBannerText: '🔥 ¡50% OFF por tiempo limitado en todos los planes! Lanzá tu carta hoy.'
   });

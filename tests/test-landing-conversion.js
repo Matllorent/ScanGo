@@ -8,7 +8,7 @@ const css = read('public/css/index.css');
 const client = read('public/js/index.js');
 const auth = read('api/routes/auth.js');
 
-assert.ok(html.includes('Probar 7 días gratis con Google'), 'La landing y el modal deben ofrecer el alta con Google');
+assert.ok(html.includes('Comenzar 7 días gratis con Google'), 'La landing y el modal deben ofrecer el alta con Google');
 assert.ok(html.includes('window.loadGoogleIdentityServices'), 'GIS debe cargarse bajo demanda para proteger el LCP');
 assert.ok(client.includes("https://accounts.google.com/gsi/client") === false, 'El script externo debe cargarse desde el loader diferido de HTML');
 assert.ok(client.includes("fetch('/api/auth/google'"), 'El ID token debe validarse en el backend');

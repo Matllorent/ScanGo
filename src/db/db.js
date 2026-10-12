@@ -865,10 +865,15 @@ const db = {
   getSettings() {
     const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
     const defaultSettings = {
+      // Los precios reflejan los planes reales de src/billing/plans.json
+      // (starter 9/79, pro 19/159) — la landing jamás debe prometer un precio
+      // que el checkout no cobra.
       monthlyPrice: 9,
-      annualPrice: 69,
-      annualDiscountPercent: 36,
-      promoBannerEnabled: true,
+      annualPrice: 79,
+      annualDiscountPercent: 27,
+      // El descuento anual real es 27% (79 vs 9*12=108). Un banner de descuento
+      // solo debe activarse cuando exista un precio promocional real en la pasarela.
+      promoBannerEnabled: false,
       promoDiscountPercent: 50,
       promoBannerText: '🔥 ¡50% OFF por tiempo limitado en todos los planes! Lanzá tu carta hoy.'
     };

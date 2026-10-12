@@ -25,8 +25,8 @@ const PRICING_COPY = {
   restaurant: {
     hint: 'Suscripción mensual o anual para tu restaurante, sin comisiones por venta.',
     monthly: {
-      name: 'Plan Mensual Pro',
-      desc: 'Flexibilidad mes a mes para restaurantes que están comenzando.',
+      name: 'Plan Mensual',
+      desc: 'Flexibilidad mes a mes para negocios que están comenzando.',
       features: [
         '<strong>Menú QR ilimitado</strong>',
         '<strong>Pedidos por WhatsApp (0% comisión)</strong>',
@@ -37,7 +37,7 @@ const PRICING_COPY = {
       ]
     },
     annual: {
-      name: 'Plan Anual Pro',
+      name: 'Plan Anual',
       desc: 'Tranquilidad para todo el año al costo más competitivo del mercado.',
       features: [
         '<strong>Todo lo del Plan Mensual</strong>',
