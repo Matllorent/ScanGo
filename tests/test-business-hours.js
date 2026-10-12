@@ -12,6 +12,12 @@ const backend = require('../api/utils/openStatus');
  * (estilo specification-by-example) + un barrido determinista de paridad
  * entre los dos espejos (CJS backend / ESM frontend).
  *
+ * Ventana nocturna (Bloque 1.1): un rango invertido `inicio > fin` (p.ej.
+ * `18:00-02:00`) NO es config inválida: es una franja que cruza medianoche y
+ * el local abre cuando `horaLocal >= inicio || horaLocal <= fin`. `23:00-00:00`
+ * cubre [23:00, 24:00) más la medianoche exacta; `inicio == fin` se trata como
+ * rango normal (abre solo ese instante, config degenerada).
+ *
  * El espejo ESM vive en public/js/menu/openStatus.js y menu.js delega en él
  * (con `utcOffsetMinutes = -new Date().getTimezoneOffset()`), así el browser y
  * el server prueban la MISMA fórmula — la tabla de acá es la especificación.
@@ -25,8 +31,9 @@ const at = (iso) => Date.parse(iso);
 
 // ── 1) Tabla de decisión (specification-by-example) ─────────────────────────
 // Cada fila: descripción de la regla de negocio → { restaurant, offset, nowMs }
-// → decisión esperada. Un rango `inicio>fin` nunca matchea (cerrado siempre);
-// los bordes son inclusivos (>= y <=) como en el frontend original.
+// → decisión esperada. Los bordes son inclusivos (>= y <=) como en el frontend
+// original. Rango invertido (inicio>fin) = ventana nocturna que cruza
+// medianoche: abierto cuando horaLocal >= inicio O <= fin.
 const openCases = [
   {
     desc: 'Sin horario configurado → política explícita: abierto',
@@ -65,19 +72,49 @@ const openCases = [
     want: { open: true, reason: 'open' }
   },
   {
-    desc: 'Rango invertido 18:00-02:00 (cruza medianoche), 01:30 → cerrado SIEMPRE por diseño (E): inicio>fin nunca matchea; ventanas nocturnas no soportadas (limitación conocida)',
+    desc: 'Ventana nocturna 18:00-02:00, 01:30 (después de medianoche, en el tramo fin) → ABIERTO',
     rest: { forceClosed: false, scheduleEnabled: true, scheduleActiveHours: '18:00-02:00' },
     offset: 0, nowMs: at('2026-10-14T01:30:00Z'),
+    want: { open: true, reason: 'open' }
+  },
+  {
+    desc: 'Ventana nocturna 18:00-02:00, 23:00 (antes de medianoche, en el tramo inicio) → ABIERTO',
+    rest: { forceClosed: false, scheduleEnabled: true, scheduleActiveHours: '18:00-02:00' },
+    offset: 0, nowMs: at('2026-10-13T23:00:00Z'),
+    want: { open: true, reason: 'open' }
+  },
+  {
+    desc: 'Ventana nocturna 18:00-02:00, 02:00 exactas → ABIERTO (borde inclusivo del fin)',
+    rest: { forceClosed: false, scheduleEnabled: true, scheduleActiveHours: '18:00-02:00' },
+    offset: 0, nowMs: at('2026-10-14T02:00:00Z'),
+    want: { open: true, reason: 'open' }
+  },
+  {
+    desc: 'Ventana nocturna 18:00-02:00, 17:59 → cerrado (todavía no abrió)',
+    rest: { forceClosed: false, scheduleEnabled: true, scheduleActiveHours: '18:00-02:00' },
+    offset: 0, nowMs: at('2026-10-13T17:59:00Z'),
     want: { open: false, reason: 'closed_schedule' }
   },
   {
-    desc: 'Rango invertido 18:00-02:00, 03:00 → cerrado siempre (misma regla)',
+    desc: 'Ventana nocturna 18:00-02:00, 03:00 → cerrado (fuera de ambos tramos)',
     rest: { forceClosed: false, scheduleEnabled: true, scheduleActiveHours: '18:00-02:00' },
     offset: 0, nowMs: at('2026-10-14T03:00:00Z'),
     want: { open: false, reason: 'closed_schedule' }
   },
   {
-    desc: 'Rango invertido 23:00-00:00, 12:00 → nunca matchea → cerrado siempre',
+    desc: 'Ventana 23:00-00:00, 23:30 → ABIERTO (tramo [23:00, 24:00))',
+    rest: { forceClosed: false, scheduleEnabled: true, scheduleActiveHours: '23:00-00:00' },
+    offset: 0, nowMs: at('2026-10-13T23:30:00Z'),
+    want: { open: true, reason: 'open' }
+  },
+  {
+    desc: 'Ventana 23:00-00:00, 00:30 → cerrado (el tramo fin llega solo a la medianoche exacta)',
+    rest: { forceClosed: false, scheduleEnabled: true, scheduleActiveHours: '23:00-00:00' },
+    offset: 0, nowMs: at('2026-10-14T00:30:00Z'),
+    want: { open: false, reason: 'closed_schedule' }
+  },
+  {
+    desc: 'Ventana 23:00-00:00, 12:00 → cerrado (fuera de la ventana)',
     rest: { forceClosed: false, scheduleEnabled: true, scheduleActiveHours: '23:00-00:00' },
     offset: 0, nowMs: at('2026-10-13T12:00:00Z'),
     want: { open: false, reason: 'closed_schedule' }
@@ -146,7 +183,7 @@ async function run() {
     );
     rows++;
   }
-  console.log(`✓ Tabla de decisión: ${rows} filas verdes (bordes inclusivos, offsets, forceClosed, rango invertido → cerrado siempre)`);
+  console.log(`✓ Tabla de decisión: ${rows} filas verdes (bordes inclusivos, offsets, forceClosed, ventanas nocturnas)`);
 
   // localHourOfNow: aritmética de offset pura (00:00Z + 60min = 01:00 local).
   assert.strictEqual(backend.localHourOfNow(at('2026-01-01T00:00:00Z'), 60), 1, 'offset +60 min desplaza 1h');

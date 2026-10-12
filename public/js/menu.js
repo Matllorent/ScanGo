@@ -42,7 +42,8 @@ import {
   normalizeNeonHex as normalizeNeonHexMod,
   neonHexToRgb as neonHexToRgbMod,
   resolveIceCreamButtonStyle as resolveIceCreamButtonStyleMod,
-  isRestaurantOpenNow as isRestaurantOpenNowMod
+  isRestaurantOpenNow as isRestaurantOpenNowMod,
+  computeOpenStatus as computeOpenStatusMod
 } from './menu/index.js';
 
 // State
@@ -488,21 +489,16 @@ Object.defineProperties(window, {
           statusBadge.style.color = '#FC8181';
           statusBadge.innerHTML = '<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#E53E3E; margin-right:6px;"></span> Cerrado por el momento';
         } else if (restaurantData.scheduleEnabled && restaurantData.scheduleActiveHours) {
-          const now = new Date();
-          const currentHour = now.getHours() + (now.getMinutes() / 60);
-          const [startH, endH] = (restaurantData.scheduleActiveHours || '00:00-23:59').split('-').map(t => {
-            const [h, m] = t.split(':').map(Number);
-            return h + (m || 0) / 60;
-          });
-          const isOpen = (startH === undefined || endH === undefined) || (currentHour >= startH && currentHour <= endH);
+          // Badge con la MISMA regla del checkout (espejo ESM openStatus):
+          // rango invertido = ventana nocturna, forceClosed ya se cubrió arriba.
+          const st = computeOpenStatusMod(restaurantData, -new Date().getTimezoneOffset());
           statusBadge.style.display = 'inline-flex';
-          if (isOpen) {
+          if (st.open) {
             statusBadge.style.background = 'rgba(72,187,120,0.15)';
             statusBadge.style.borderColor = 'rgba(72,187,120,0.4)';
             statusBadge.style.color = '#48BB78';
             statusBadge.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#48BB78; margin-right:6px; box-shadow:0 0 6px #48BB78;"></span> Abierto (${restaurantData.scheduleActiveHours} hs)`;
           } else {
-            statusBadge.style.display = 'inline-flex';
             statusBadge.style.background = 'rgba(229,62,62,0.15)';
             statusBadge.style.borderColor = 'rgba(229,62,62,0.4)';
             statusBadge.style.color = '#FC8181';
@@ -1113,13 +1109,8 @@ Object.defineProperties(window, {
         return;
       }
       if (restaurantData.scheduleEnabled && restaurantData.scheduleActiveHours) {
-        const now = new Date();
-        const currentHour = now.getHours() + (now.getMinutes() / 60);
-        const [startH, endH] = (restaurantData.scheduleActiveHours || '00:00-23:59').split('-').map(t => {
-          const [h, m] = t.split(':').map(Number);
-          return h + (m || 0) / 60;
-        });
-        if (startH !== undefined && endH !== undefined && (currentHour < startH || currentHour > endH)) {
+        const st = computeOpenStatusMod(restaurantData, -new Date().getTimezoneOffset());
+        if (!st.open) {
           container.innerHTML = `
             <div style="text-align:center; padding:40px 20px; background:rgba(236,201,75,0.06); border:1px dashed var(--border-gold); border-radius:12px;">
               <p style="font-size:1.2rem; color:var(--chalk-gold); font-family:var(--font-heading); margin-bottom:8px;">Carta Fuera de Horario</p>

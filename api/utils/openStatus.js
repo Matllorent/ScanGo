@@ -12,8 +12,12 @@
  * - `forceClosed === true` gana siempre (cerrado aunque el horario diga abierto).
  * - Sin horario configurado, o con formato inválido → abierto (política
  *   explícita del producto: el dueño que no fija horario no queda bloqueado).
- * - Un rango invertido (inicio > fin) nunca matchea → cerrado siempre
- *   (config inválida a la vista del comensal, misma semántica que el frontend).
+ * - Rango normal (inicio <= fin): abierto si `horaLocal >= inicio && <= fin`
+ *   (bordes inclusivos).
+ * - Rango invertido (inicio > fin) = VENTANA NOCTURNA (cruza medianoche, p.ej.
+ *   `18:00-02:00`): abierto si `horaLocal >= inicio || horaLocal <= fin`.
+ *   `23:00-00:00` cubre [23:00, 24:00) más la medianoche exacta; `inicio == fin`
+ *   se trata como rango normal (abre solo ese instante, config degenerada).
  * - La hora local del local se recalcula como UTC + offset (`getUTC*`), así la
  *   regla no depende del huso del server (Vercel corre en UTC).
  *
@@ -52,8 +56,14 @@ function computeOpenStatus(restaurant, utcOffsetMinutes = 0, nowMs = Date.now())
   if (!range) return { open: true, reason: 'no_schedule' };
 
   const currentHour = localHourOfNow(nowMs, utcOffsetMinutes);
-  // Misma semántica que el frontend (>= inicio y <= fin).
-  if (currentHour < range.startH || currentHour > range.endH) {
+  // Fórmula de ventana: normal (inicio<=fin) → dentro de [inicio,fin]; invertida
+  // (inicio>fin) = ventana nocturna que cruza medianoche → después del inicio
+  // O antes/igual del fin (bordes inclusivos en ambos tramos).
+  const inWindow =
+    range.startH <= range.endH
+      ? currentHour >= range.startH && currentHour <= range.endH
+      : currentHour >= range.startH || currentHour <= range.endH;
+  if (!inWindow) {
     return { open: false, reason: 'closed_schedule', hours: restaurant.scheduleActiveHours };
   }
   return { open: true, reason: 'open' };

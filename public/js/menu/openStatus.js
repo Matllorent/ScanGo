@@ -9,6 +9,8 @@
  * local (front). La tabla de decisión ejecutable de horarios
  * (tests/test-business-hours.js) exige que ambos espejos produzcan
  * `{ open, reason }` idénticos para los mismos (restaurant, offset, nowMs).
+ * Ventana nocturna: rango invertido `inicio > fin` (p.ej. 18:00-02:00) abre
+ * cuando `horaLocal >= inicio || horaLocal <= fin`.
  */
 export function parseScheduleRange(scheduleActiveHours) {
   const [startH, endH] = String(scheduleActiveHours || '')
@@ -35,8 +37,14 @@ export function computeOpenStatus(restaurant, utcOffsetMinutes = 0, nowMs = Date
   if (!range) return { open: true, reason: 'no_schedule' };
 
   const currentHour = localHourOfNow(nowMs, utcOffsetMinutes);
-  // Misma semántica que el frontend original (>= inicio y <= fin).
-  if (currentHour < range.startH || currentHour > range.endH) {
+  // Misma fórmula que el backend: normal (inicio<=fin) → dentro de [inicio,fin];
+  // invertida (inicio>fin) = ventana nocturna (cruza medianoche) → después del
+  // inicio O antes/igual del fin. Bordes inclusivos en ambos tramos.
+  const inWindow =
+    range.startH <= range.endH
+      ? currentHour >= range.startH && currentHour <= range.endH
+      : currentHour >= range.startH || currentHour <= range.endH;
+  if (!inWindow) {
     return { open: false, reason: 'closed_schedule', hours: restaurant.scheduleActiveHours };
   }
   return { open: true, reason: 'open' };

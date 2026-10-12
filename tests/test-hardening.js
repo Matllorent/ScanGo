@@ -206,9 +206,15 @@ async function runTests() {
     assert.strictEqual(quoteClosed.status, 400, 'la cotización también respeta el cierre (400)');
 
     current = db.findRestaurantById(restE.id);
-    await db.saveRestaurant(userE.id, { ...current, forceClosed: false, scheduleEnabled: true, scheduleActiveHours: '23:00-00:00' });
+    // Ventana de 1h que NUNCA contiene la hora actual: start=(h+2)%24, end=(h+3)%24
+    // (siempre normal start<end salvo h=21 → 23-00, y en ese caso 21:00 queda fuera
+    // de la ventana nocturna). Así el servidor (reloj real, no inyectable acá) está
+    // garantizado CERRADO a cualquier hora de ejecución de la suite.
+    const hNow = new Date().getHours();
+    const alwaysClosedHours = `${(hNow + 2) % 24}:00-${(hNow + 3) % 24}:00`;
+    await db.saveRestaurant(userE.id, { ...current, forceClosed: false, scheduleEnabled: true, scheduleActiveHours: alwaysClosedHours });
     r = await postJson('/api/orders', orderBody());
-    assert.strictEqual(r.status, 400, 'rango invertido (inicio > fin) nunca matchea → cerrado');
+    assert.strictEqual(r.status, 400, `horario ${alwaysClosedHours} no cubre la hora actual → cerrado (400)`);
     assert.strictEqual((await r.json()).code, 'RESTAURANT_CLOSED');
 
     current = db.findRestaurantById(restE.id);
