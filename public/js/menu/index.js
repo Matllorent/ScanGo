@@ -14,6 +14,7 @@
  * - weddingItinerary: itinerario visual de bodas/eventos (data-driven)
  * - eventInvitations: invitaciones por WhatsApp, una por invitado (data-driven)
  * - menuPresentation: reglas puras de presentación (precio $0, notas por rubro)
+ * - openStatus: abierto/cerrado puro con reloj inyectable (espejo del backend)
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -29,3 +30,4 @@ export * from './tipCalculator.js';
 export * from './weddingItinerary.js';
 export * from './eventInvitations.js';
 export * from './menuPresentation.js';
+export * from './openStatus.js';

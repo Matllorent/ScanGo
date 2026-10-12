@@ -14,6 +14,7 @@ const sentry = require('../utils/sentry');
 const logger = require('../utils/logger');
 const { groupCartLimiter } = require('../middleware/rateLimits');
 const { verifyGroupCartToken } = require('../utils/groupCartToken');
+const { computeOpenStatus } = require('../utils/openStatus');
 const loyaltyService = require('../services/loyalty');
 const notificationsService = require('../services/notifications');
 const { signOrderToken, verifyOrderToken } = require('../utils/orderTrackingToken');
@@ -137,42 +138,30 @@ router.post('/quote', validateBody(createOrderSchema), (req, res, next) => {
  */
 /**
  * Autoridad server-side de abierto/cerrado (espejo de `isRestaurantOpenNow`
- * en public/js/menu.js): el reloj del navegador no es la única fuente. El
- * cliente manda su `utcOffsetMinutes` y acá se recalcula la hora local del
- * local (UTC + offset) contra `scheduleActiveHours`. `forceClosed === true`
- * gana siempre. Sin horario configurado → abierto.
+ * en public/js/menu/openStatus.js): el reloj del navegador no es la única
+ * fuente. El cliente manda su `utcOffsetMinutes` y acá se recalcula la hora
+ * local del local (UTC + offset) contra `scheduleActiveHours`. `forceClosed
+ * === true` gana siempre. Sin horario configurado → abierto.
+ *
+ * La decisión vive en `computeOpenStatus` (api/utils/openStatus.js, puro):
+ * `nowMs` inyectable permite congelar el reloj en la tabla de decisión de
+ * tests/test-business-hours.js sin sleeps ni mocks (default: el real).
  */
-function assertRestaurantOpen(restaurant, utcOffsetMinutes = 0) {
-  if (restaurant.forceClosed === true) {
+function assertRestaurantOpen(restaurant, utcOffsetMinutes = 0, nowMs = Date.now()) {
+  const status = computeOpenStatus(restaurant, utcOffsetMinutes, nowMs);
+  if (status.open) return;
+  if (status.reason === 'closed_force') {
     throw new AppError(
       'El local está cerrado por el momento. Volvé a consultar en unos minutos.',
       400,
       'RESTAURANT_CLOSED'
     );
   }
-  if (!restaurant.scheduleEnabled || !restaurant.scheduleActiveHours) return;
-
-  const offsetMs = (Number(utcOffsetMinutes) || 0) * 60000;
-  const localNow = new Date(Date.now() + offsetMs);
-  const currentHour = localNow.getUTCHours() + localNow.getUTCMinutes() / 60;
-
-  const [startH, endH] = String(restaurant.scheduleActiveHours || '')
-    .split('-')
-    .map((t) => {
-      const [h, m] = String(t || '').split(':').map(Number);
-      return h + (m || 0) / 60;
-    });
-  if (startH === undefined || endH === undefined || Number.isNaN(startH) || Number.isNaN(endH)) return;
-
-  // Misma semántica que el frontend (>= inicio y <= fin). Un rango invertido
-  // (inicio > fin) nunca matchea → cerrado siempre (config inválida).
-  if (currentHour < startH || currentHour > endH) {
-    throw new AppError(
-      `El local está cerrado a esta hora (${restaurant.scheduleActiveHours} hs). Volvé en horario de atención.`,
-      400,
-      'RESTAURANT_CLOSED'
-    );
-  }
+  throw new AppError(
+    `El local está cerrado a esta hora (${status.hours} hs). Volvé en horario de atención.`,
+    400,
+    'RESTAURANT_CLOSED'
+  );
 }
 
 function enforceOrderBusinessRules({ restaurant, subtotal, orderMode, deliveryAddress, utcOffsetMinutes }) {

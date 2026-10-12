@@ -41,7 +41,8 @@ import {
   resolveNeonAccent as resolveNeonAccentMod,
   normalizeNeonHex as normalizeNeonHexMod,
   neonHexToRgb as neonHexToRgbMod,
-  resolveIceCreamButtonStyle as resolveIceCreamButtonStyleMod
+  resolveIceCreamButtonStyle as resolveIceCreamButtonStyleMod,
+  isRestaurantOpenNow as isRestaurantOpenNowMod
 } from './menu/index.js';
 
 // State
@@ -2508,21 +2509,13 @@ Object.defineProperties(window, {
 
     /**
      * ¿El local acepta pedidos AHORA según su franja horaria?
-     * Misma regla que el badge visual (hora local del dispositivo = hora del
-     * local). Sin horario configurado → siempre abierto.
+     * Delegación a la regla pura compartida (public/js/menu/openStatus.js,
+     * mismo espejo del backend): `utcOffsetMinutes` = offset del dispositivo
+     * contra UTC (-new Date().getTimezoneOffset()), así la hora local del
+     * local se recalcula con getUTC* (independiente del huso del server).
      */
     function isRestaurantOpenNow() {
-      // Cierre manual del dueño: cerrado aunque el horario diga abierto.
-      if (restaurantData.forceClosed === true) return false;
-      if (!restaurantData.scheduleEnabled || !restaurantData.scheduleActiveHours) return true;
-      const now = new Date();
-      const currentHour = now.getHours() + (now.getMinutes() / 60);
-      const [startH, endH] = String(restaurantData.scheduleActiveHours || '00:00-23:59').split('-').map(t => {
-        const [h, m] = t.split(':').map(Number);
-        return h + (m || 0) / 60;
-      });
-      if (startH === undefined || endH === undefined || Number.isNaN(startH) || Number.isNaN(endH)) return true;
-      return currentHour >= startH && currentHour <= endH;
+      return isRestaurantOpenNowMod(restaurantData, -new Date().getTimezoneOffset());
     }
 
     async function submitWhatsAppOrder() {
