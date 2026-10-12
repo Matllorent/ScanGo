@@ -376,6 +376,76 @@ paths:
                     type: string
                     format: date-time
                     example: '2026-10-12T18:00:00.000Z'
+  /api/studio/seo-audit:
+    get:
+      tags: [studio]
+      summary: Auditor de salud SEO/GEO del menú del dueño
+      description: |-
+        Reporte on-the-fly del panel "Salud SEO" del Studio: `runSeoAudit`
+        (api/utils/seoAudit.js, función pura) sobre la carta ya validada. Devuelve
+        `{ success, score (0-100), summary {total,ok,warn,fail}, checks[] }` con
+        severidad `ok|warn|fail` y hint accionable. Middleware: `authMiddleware`
+        (401 sin sesión) → `requireVerifiedEmail` (403 `EMAIL_NOT_CONFIRMED`);
+        404 `RESTAURANT_NOT_FOUND` si el usuario no tiene restaurante.
+      operationId: studioSeoAudit
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Reporte de salud SEO del menú
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, score, summary, checks]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  score:
+                    type: integer
+                    minimum: 0
+                    maximum: 100
+                    example: 85
+                  summary:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      ok:
+                        type: integer
+                      warn:
+                        type: integer
+                      fail:
+                        type: integer
+                  checks:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, label, status, hint]
+                      properties:
+                        id:
+                          type: string
+                        label:
+                          type: string
+                        status:
+                          type: string
+                          enum: [ok, warn, fail]
+                        hint:
+                          type: string
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Restaurante no encontrado (`RESTAURANT_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/orders:
     post:
       tags: [orders]

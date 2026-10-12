@@ -124,6 +124,10 @@
           <span class="tab-icon">📈</span>
           <span>Analíticas</span>
         </button>
+        <button class="tab-btn" data-js-click="switchTab|seo" title="Salud SEO — Cómo te encuentran Google, Bing y la IA">
+          <span class="tab-icon">🛡️</span>
+          <span>Salud SEO</span>
+        </button>
         <button class="tab-btn" data-js-click="switchTab|coupons" title="Promos — Cupones y descuentos">
           <span class="tab-icon">🎟️</span>
           <span>Promos</span>
@@ -1322,6 +1326,33 @@
                 <button type="button" class="btn-nav btn-nav-gold" style="width:auto; padding:6px 12px; font-size:11px;" data-js-click="onCouponNew" data-coupon-event="scango:coupon-new">＋ Nuevo cupón</button>
               </div>
               <!-- handler real: dispatchEvent(new CustomEvent('scango:coupon-new')) vendrá después -->
+            </section>
+          </div>
+        </div>
+
+        <!-- TAB: SALUD SEO -->
+        <div id="tab-seo" class="tab-pane">
+          <div class="form-section">
+            <section id="seoAuditSection">
+              <div class="section-title">🛡️ Salud SEO de tu menú</div>
+              <p style="font-size:11px; color:var(--text-dim); margin:8px 0 14px;">
+                Auditoría automática de cómo te ven Google, Bing y la IA (robots, sitemap,
+                horarios, precios y marcado estructurado). Arreglá los rojos y tu menú queda
+                mejor posicionado y más citable.
+              </p>
+              <div id="seoAuditScore" class="seo-audit-score" style="display:none; align-items:center; gap:12px; margin-bottom:14px;">
+                <div id="seoScoreBadge" style="min-width:64px; height:64px; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:800; font-size:20px; line-height:1; color:#fff;"></div>
+                <div style="font-size:12px; color:var(--text-dim);">
+                  <div id="seoScoreLabel" style="font-weight:700; font-size:14px; color:var(--text-light);"></div>
+                  <div id="seoScoreSummary" style="margin-top:3px;"></div>
+                </div>
+              </div>
+              <ul id="seoAuditList" style="list-style:none; margin:0; padding:0;"></ul>
+              <div style="margin-top:14px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+                <button type="button" class="btn-nav btn-nav-gold" style="width:auto; padding:6px 12px; font-size:11px;" data-js-click="loadSeoAudit">↻ Re-evaluar</button>
+                <a class="btn-nav" style="width:auto; padding:6px 12px; font-size:11px; text-decoration:none; color:var(--text-light); border:1px solid var(--border);" href="/sitemap.xml" target="_blank" rel="noopener">Sitemap</a>
+                <a class="btn-nav" style="width:auto; padding:6px 12px; font-size:11px; text-decoration:none; color:var(--text-light); border:1px solid var(--border);" href="/robots.txt" target="_blank" rel="noopener">robots.txt</a>
+              </div>
             </section>
           </div>
         </div>

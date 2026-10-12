@@ -107,6 +107,10 @@
     {
       "path": "/api/cron/telemetry-retention",
       "schedule": "0 2 1 * *"
+    },
+    {
+      "path": "/api/cron/seo-audit",
+      "schedule": "0 3 * * *"
     }
   ]
 }

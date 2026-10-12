@@ -15,6 +15,7 @@ const { createGroupCartToken } = require('../utils/groupCartToken');
 const { stripPrivilegedFields } = require('../utils/stripPrivilegedFields');
 const aiRouter = require('./ai');
 const auditService = require('../services/audit');
+const { runSeoAudit } = require('../utils/seoAudit');
 
 /**
  * POST /api/studio/save - Guardar restaurante/menú completo
@@ -294,6 +295,26 @@ router.delete('/events/:id', authMiddleware, requireVerifiedEmail, async (req, r
     }
 
     return res.json({ success: true, message: 'Evento finalizado' });
+  } catch (e) {
+    return next(e);
+  }
+});
+
+/**
+ * GET /api/studio/seo-audit - Panel "Salud SEO" (reporte on-the-fly del menú)
+ * Auditor puro (api/utils/seoAudit.js) sobre la carta ya validada: página vacía,
+ * precios inválidos, horario roto, referencias muertas de sucursales, datos
+ * locales, marcado JSON-LD y unicidad de slug. Solo el dueño (tenant propio).
+ */
+router.get('/seo-audit', authMiddleware, requireVerifiedEmail, async (req, res, next) => {
+  try {
+    const rests = db.getAllRestaurants ? db.getAllRestaurants() : [];
+    const restaurant = rests.find((r) => r && r.userId === req.user.userId) || null;
+    if (!restaurant) {
+      return res.status(404).json({ success: false, error: 'Restaurante no encontrado', code: 'RESTAURANT_NOT_FOUND' });
+    }
+    const report = runSeoAudit(restaurant, { allRestaurants: rests });
+    return res.json({ success: true, ...report });
   } catch (e) {
     return next(e);
   }

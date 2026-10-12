@@ -39,6 +39,7 @@ const SPEC_PATHS = [
   '/api/demos',
   '/api/demos/{type}',
   '/api/studio/save',
+  '/api/studio/seo-audit',
   '/api/orders',
   '/api/orders/track/{token}',
   '/api/orders/status/{orderId}',
@@ -216,6 +217,9 @@ async function runTests() {
 
     const studioAnon = await postJson('/api/studio/save', { name: 'x' });
     assert.strictEqual(studioAnon.status, 401, 'studio/save sin auth → 401 (no 404)');
+
+    const seoAuditAnon = await fetch(`${base}/api/studio/seo-audit`);
+    assert.strictEqual(seoAuditAnon.status, 401, 'studio/seo-audit sin auth → 401 (no 404)');
 
     const loyaltyMe = await postJson('/api/loyalty/me', { phone: `+598 00 ${String(stamp).slice(-6)}` });
     assert.strictEqual(loyaltyMe.status, 200, 'loyalty/me público → 200 (no 404)');

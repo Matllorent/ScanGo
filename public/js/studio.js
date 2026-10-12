@@ -1596,6 +1596,7 @@ export async function initStudio() {
       currentUser = state.currentUser;
       restaurant = state.restaurant;
       renderStudioUI();
+      loadSeoAudit();
     }, normalizeRestaurantBusinessType);
 
     // El paywall (initStudioAuth retorna temprano sin pasar por el callback de
@@ -2495,9 +2496,76 @@ async function setOrderStatus(orderId, status) {
   }
 }
 
+// ── Salud SEO (tab SEO) ─────────────────────────────────────────────────────
+const SEO_STATUS_COLORS = { ok: '#2e9e5b', warn: '#d4a853', fail: '#d64545' };
+
+async function loadSeoAudit() {
+  const list = document.getElementById('seoAuditList');
+  if (!list) return;
+  list.textContent = '';
+  const scoreBox = document.getElementById('seoAuditScore');
+  const badge = document.getElementById('seoScoreBadge');
+  const label = document.getElementById('seoScoreLabel');
+  const summary = document.getElementById('seoScoreSummary');
+  try {
+    const res = await fetch('/api/studio/seo-audit');
+    if (res.status === 401) {
+      list.appendChild(createSeoAuditItem('warn', 'Sesión vencida', 'Recargá la página para volver a entrar.'));
+      if (scoreBox) scoreBox.style.display = 'none';
+      return;
+    }
+    if (!res.ok) {
+      list.appendChild(createSeoAuditItem('fail', 'No se pudo auditar', 'El servicio no respondió. Reintentá en un momento.'));
+      if (scoreBox) scoreBox.style.display = 'none';
+      return;
+    }
+    const data = await res.json();
+    if (!data.checks || !Array.isArray(data.checks)) return;
+    const grade =
+      data.score >= 90
+        ? { label: 'Excelente', color: '#2e9e5b' }
+        : data.score >= 70
+          ? { label: 'Muy bien', color: '#7bbf5e' }
+          : data.score >= 50
+            ? { label: 'A mejorar', color: '#d4a853' }
+            : { label: 'Crítico', color: '#d64545' };
+    if (badge) {
+      badge.textContent = String(data.score);
+      badge.style.background = grade.color;
+    }
+    if (label) label.textContent = `${grade.label} (${data.score}/100)`;
+    if (summary) summary.textContent = `${data.summary.ok} en orden · ${data.summary.warn} recomendaciones · ${data.summary.fail} por arreglar.`;
+    if (scoreBox) scoreBox.style.display = 'flex';
+    data.checks.forEach((c) => list.appendChild(createSeoAuditItem(c.status, c.label, c.hint)));
+  } catch (e) {
+    list.appendChild(createSeoAuditItem('warn', 'Sin conexión', 'Reintentá más tarde.'));
+    if (scoreBox) scoreBox.style.display = 'none';
+  }
+}
+
+function createSeoAuditItem(status, title, hint) {
+  const li = document.createElement('li');
+  li.style.cssText = `display:flex; gap:10px; align-items:flex-start; padding:8px 10px; margin-bottom:8px; border-radius:8px; background:var(--bg-base); border-left:3px solid ${SEO_STATUS_COLORS[status]};`;
+  const icon = document.createElement('span');
+  icon.textContent = status === 'ok' ? '✓' : status === 'warn' ? '⚠' : '✗';
+  icon.style.cssText = `color:${SEO_STATUS_COLORS[status]}; font-weight:800; font-size:14px; line-height:20px;`;
+  const text = document.createElement('div');
+  const t = document.createElement('div');
+  t.textContent = title;
+  t.style.cssText = 'font-weight:700; font-size:12px; color:var(--text-light);';
+  const h = document.createElement('div');
+  h.textContent = hint;
+  h.style.cssText = 'font-size:11px; color:var(--text-dim); margin-top:2px;';
+  text.appendChild(t);
+  text.appendChild(h);
+  li.appendChild(icon);
+  li.appendChild(text);
+  return li;
+}
+
 // Bind all functions to window for HTML inline event handlers
 const globalExports = {
-  initStudio, logout, openDeleteAccountModal, closeDeleteAccountModal, confirmAccountDeletion,
+  initStudio, loadSeoAudit, logout, openDeleteAccountModal, closeDeleteAccountModal, confirmAccountDeletion,
   renderStudioUI, updateLiveState, saveStudioChanges, triggerAutoSave, reloadPreviewIframe, syncLivePreviewIframe, setPreviewView,
   switchTab, showConfirmDialog, closeConfirmDialog, showSaveFeedback,
   handleLogoUpload, removeLogo, handleBannerUpload, handleBannerUrlInput, removeBanner, renderBannerPreviewUI, handleBannerImageError,

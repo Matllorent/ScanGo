@@ -19,6 +19,7 @@ npm run test:demos # Test individual de demos por rubro + edición en Studio
 npm run test:account-erasure # Test individual del derecho al olvido: borrado real de cuenta (RGPD/Ley 18.331) + auditoría
 npm run test:online-payment # Test individual del pago online del comensal (toggle del dueño, gate 403, preferencia MP real)
 npm run test:seo-discovery # Test individual del compilador SEO/GEO (robots+IA, sitemap con sucursales, JSON-LD de horarios reales)
+npm run test:seo-audit # Test individual del auditor de salud SEO (panel Studio + cron diario fail-closed)
 npm run test:realtime # Test individual del guard de canales Realtime (migración 002)
 npm run test:realtime-live # Test E2E real del guard (conecta a Supabase Realtime con la anon key)
 npm run test:csp     # Test individual del guard CSP + headers duros
@@ -164,6 +165,12 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - **`noindex,follow`** en los 4 paneles privados (`studio.html`, `admin.html`, `reset-password.html`, `email-verified.html`): nunca entran al índice aunque alguien linkee la URL.
 - Regresión: `npm run test:seo-discovery` (44ª suite).
 
+### Auditor de Salud SEO — panel + cron diario (Prioridad 4 de la estrategia)
+- **`api/utils/seoAudit.js` (puro, cero I/O)**: `runSeoAudit(restaurant, { allRestaurants })` → `{ score 0–100, summary {total,ok,warn,fail}, checks[] }`. Pesos: fail=25, warn=5 (clamp). 12 checks: URL/slug, carta publicada (vacía=fail), precios coherentes (negativos/NaN=fail, sin precio=warn), sucursales sin overrides muertos (warn), nombres duplicados dentro de una categoría (warn), horario válido (delega en la MISMA fuente `buildOpeningHoursFromSchedule` — activo inválido=fail, deshabilitado=warn), datos locales teléfono/dirección/ciudad (warn si falta alguno), descripción corta (slogan), imagen de marca (banner/logo), marcado JSON-LD viable, suscripción activa (cancelada/expired=fail: queda fuera del sitemap) y unicidad de slug en la red (colisión=fail).
+- **Panel Studio**: pestaña **🛡️ Salud SEO** (`data-js-click="switchTab|seo"` + pane `tab-seo`) con badge de score circular, listado de checks (✓/⚠/✗ con hint accionable) y links a `/sitemap.xml` y `/robots.txt`. Carga on-the-fly vía `GET /api/studio/seo-audit` (`authMiddleware` + `requireVerifiedEmail`, reporte computado con `allRestaurants` para el check global de slug; 404 `RESTAURANT_NOT_FOUND` sin restaurante). `loadSeoAudit`/`createSeoAuditItem` en `public/js/studio.js` (solo DOM API + `textContent`, cero `innerHTML` con data, cero `on*=`).
+- **Cron diario `/api/cron/seo-audit`** (03:00 UTC en `vercel.json`): recorre TODOS los restaurantes en SOLO LECTURA, devuelve `{ audited, failCount, warnCount, alerts[] }` y registra cada alerta en `audit_logs` (action `SEO_AUDIT_ALERT`, fire-and-forget vía `auditService`, nunca bloquea). Fail-closed con `verifyCronAuth` (401 sin `CRON_SECRET` en prod, 200 con `x-cron-secret`).
+- Regresión: `npm run test:seo-audit` (45ª suite).
+
 ### Operación — Workflows de GitHub
 - **CI** (`.github/workflows/ci.yml`): push/PR → matriz Node 22+24 (`npm test`) + semgrep + OSV-Scanner + **job `secret-scan` de gitleaks** (binario CLI v8.30.1 pin + verificación SHA256 del tarball oficial, `--redact`, escaneo de TODO el historial con `fetch-depth: 0`; el action oficial requiere licencia, el CLI es gratis). La allowlist de falsos positivos verificados vive en `.gitleaks.toml` (`[extend] useDefault`): placeholders de `.env.example`, passwords de fixture de los tests (`test_password`/`otra_clave_123` en versiones históricas) y payloads de ejemplo de la skill de terceros `benchmark.py` (token-optimizer). Cualquier secreto real (nuevo o histórico) hace fallar el job.
 - **Backup diario de Supabase** (`.github/workflows/backup-supabase.yml`, riesgo #1 del plan free): cron 02:10 UTC + `workflow_dispatch` → `pg_dump --format=custom --no-owner --no-privileges` con `SUPABASE_DB_URL` (secret; conexión **directa** puerto 5432, no el pooler) → valida con `pg_restore --list` → artifact con retención 90 días → push **opcional** a repo privado (`latest.dump`) si existen `BACKUP_REPO` (variable) + `BACKUP_REPO_TOKEN` (secret). La conexión diaria amortigua la pausa por inactividad del plan free pero no la garantiza.
@@ -178,7 +185,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 5 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell`, `test-realtime-live-guard` y `test-differential` (usan credenciales reales; los últimos dos hacen SKIP si no hay `SUPABASE_URL`/`SUPABASE_ANON_KEY`).
 - Para debug rápido: `node tests/test-billing.js` (o el test específico, o `npm run test:<alias>`)
 
-### Tests incluidos en `npm test` (44 suites)
+### Tests incluidos en `npm test` (45 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
@@ -197,6 +204,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-menu-componentization.js` | Módulos ES de menu (smartReviews, virtualWaiterHeuristics, orderCheckout), catálogos data-driven de heladería/perfumería (§11/§12) y propina del comensal (§13, `computeTipAmount`) |
 | `test-menu-seo.js` | SSR, metadatos y JSON-LD por restaurante + ETag/`s-maxage=60` en `/m/*` (200 con `ETag: W/"m-..."`, 304 con `If-None-Match`) |
 | `test-seo-discovery.js` | Compilador SEO/GEO (`api/utils/seoDiscovery.js`): `OpeningHoursSpecification` DERIVADO del horario real (ventana nocturna `18:00-02:00` = dos tramos, `23:00-00:00` = uno), robots.txt con política de IA por user-agent + paneles privados fuera del índice, sitemap dinámico con menús activos + sucursales `?branch=` + legales, `noindex,follow` en los 4 paneles privados, y verificación de que los estáticos viejos `public/robots.txt`/`public/sitemap.xml` NO existen (en Vercel sombreaban al dinámico y prod quedaba sin `/m/*` en el sitemap) |
+| `test-seo-audit.js` | **Auditor de salud SEO** (`api/utils/seoAudit.js`, puro): score 0–100 (fail=25 / warn=5) sobre carta vacía, precios inválidos, horario roto (misma fuente `buildOpeningHoursFromSchedule`), overrides muertos de sucursales, nombres duplicados, datos locales, descripción, marca, JSON-LD, suscripción cancelada (fuera del sitemap) y unicidad de slug; `GET /api/studio/seo-audit` (200 dueño / 401 anónimo) para el panel; cron `/api/cron/seo-audit` fail-closed (401 sin `CRON_SECRET`, 200 con `x-cron-secret`) en solo lectura + alertas a `audit_logs`; pestaña "Salud SEO" del Studio sin `on*=` |
 | `test-google-auth.js` | GIS, callback OAuth y configuración backend |
 | `test-security-endpoints.js` | Auth/tenant, límites, cron/readiness y QR capability + P0: anti mass-assignment en `/save`, auth en IA, TOTP fail-closed, 403 a cuentas huérfanas |
 | `test-session-lifecycle.js` | Ciclo de sesión (partido de security-endpoints por el presupuesto del limiter 30/15min): logout con revocación jti, rehash bcrypt, muerte por pwdTs, reset atómico concurrente, Origin 403, device tokens (emisión/uso/listado/revocación/purga por reset) y baja voluntaria idempotente |
@@ -433,6 +441,7 @@ Los 5 claros sobreescriben `--chalk-white` a tinta oscura y refuerzan títulos/n
 | `vercel.json` | Routing + headers CSP/duros + cron config para Vercel (**ojo**: las rutas legales deben apuntar a `public/legal/*.html`; el catch-all `/(.*)` NO resuelve `/cookies` sin extensión) |
 | `api/utils/securityHeaders.js` | Única fuente de verdad de CSP + headers duros (Express y Vercel) |
 | `api/utils/seoDiscovery.js` | Compilador SEO/GEO puro: robots.txt + política de IA, sitemap con sucursales, horarios JSON-LD derivados |
+| `api/utils/seoAudit.js` | Auditor de salud SEO puro (score 0–100, 12 checks) para el panel del Studio y el cron diario |
 | `public/js/dom-bindings.js` | Binder de eventos delegados `data-js-*` universal (menú, Studio, Admin, Landing; paths punteados `i18nManager.setLanguage\|pt` invocan método con receiver = dueño) |
 | `scripts/codemod-csp-events.js` | Codemod `onclick=""` → `data-js-*` reutilizable (migró los ~230 handlers de la Etapa 2; correr en dry-run ante HTML nuevo) |
 | `scripts/regen-vercel-csp.js` | Regenera los headers CSP de `vercel.json` desde `api/utils/securityHeaders.js` (correr tras editar scripts inline de admin/index/reset-password) |
