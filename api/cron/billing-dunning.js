@@ -1,9 +1,9 @@
 const express = require('express');
-const crypto = require('crypto');
 const db = require('../../src/db/db');
 const { getSupabaseClient } = require('../utils/supabase');
 const logger = require('../utils/logger');
 const emailService = require('../services/email');
+const { verifyCronAuth } = require('../middleware/cronAuth');
 
 const router = express.Router();
 
@@ -11,49 +11,10 @@ const GRACE_PERIOD_DAYS = 7;
 const FREE_PLAN = 'free';
 
 /**
- * Verifica el token de autorización del cron job.
- * Soporta Authorization: Bearer <token> o x-cron-secret header.
+ * (El guard de autorización del cron vive en api/middleware/cronAuth.js:
+ * shared con api/cron/telemetry-retention.js — producción falla cerrado sin
+ * CRON_SECRET, dev sin secreto deja pasar para los tests.)
  */
-function verifyCronAuth(req, res, next) {
-  const cronSecret = process.env.CRON_SECRET || '';
-  if (!cronSecret) {
-    if (process.env.NODE_ENV === 'production') {
-      return res.status(503).json({
-        success: false,
-        error: 'Cron deshabilitado: configura CRON_SECRET en el entorno.',
-        code: 'CRON_AUTH_NOT_CONFIGURED'
-      });
-    }
-    return next();
-  }
-
-  const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-  const cronSecretHeader = req.headers['x-cron-secret'] || '';
-
-  const provided = token || cronSecretHeader;
-
-  if (!provided) {
-    return res.status(401).json({
-      success: false,
-      error: 'Cron secret requerido',
-      code: 'CRON_AUTH_REQUIRED'
-    });
-  }
-
-  const providedBuf = Buffer.from(provided, 'utf8');
-  const expectedBuf = Buffer.from(cronSecret, 'utf8');
-
-  if (providedBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(providedBuf, expectedBuf)) {
-    return res.status(401).json({
-      success: false,
-      error: 'Cron secret inválido',
-      code: 'CRON_AUTH_INVALID'
-    });
-  }
-
-  next();
-}
 
 /**
  * GET /api/cron/billing-dunning

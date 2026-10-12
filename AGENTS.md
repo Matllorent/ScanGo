@@ -8,7 +8,7 @@ SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. 
 ```bash
 npm run dev          # Desarrollo con nodemon (puerto 3000)
 npm start            # Producción (node api/index.js)
-npm test             # Suite completa (38 tests en secuencia) — con snapshot/restore automático de data/
+npm test             # Suite completa (39 tests en secuencia) — con snapshot/restore automático de data/
 npm run test:billing # Test individual de pasarelas de pago
 npm run test:analytics # Test individual de analytics de negocio (ticket promedio, CSV, top platos)
 npm run test:admin   # Test individual del panel /admin (login 2FA, plata/mes, renovaciones)
@@ -21,6 +21,7 @@ npm run test:online-payment # Test individual del pago online del comensal (togg
 npm run test:realtime # Test individual del guard de canales Realtime (migración 002)
 npm run test:realtime-live # Test E2E real del guard (conecta a Supabase Realtime con la anon key)
 npm run test:csp     # Test individual del guard CSP + headers duros
+npm run test:hardening # Test individual del endurecimiento A→F (timeouts fetch, retención telemetry, concurrencia Studio, heatmap UTC, abierto/cerrado server-side, SLO/perceptiles)
 npm run test:semgrep  # Análisis estático Semgrep (reglas comunitarias gratis; SKIP si semgrep no está instalado)
 npm run test:escape-html # Test individual del escape HTML legacy (CommonJS)
 npm run test:db-write # Test individual de la primitiva atómica writeJson (temp-file + rename)
@@ -157,12 +158,12 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** durante la corrida (flujos reales con el store local). **`npm test` ahora las aísla solo**: `scripts/test-data-guard.js` saca una foto de `data/` antes y la restaura siempre al final (pase o falle). La cadena real de tests vive en `npm run test:core`; no hay que revertir `data/` a mano para commitear.
-- Suite completa (`npm test`) ejecuta 38 tests en secuencia — **todos deben pasar (38/38)**
+- Suite completa (`npm test`) ejecuta 39 tests en secuencia — **todos deben pasar (39/39)**
 - **2 tests existen pero NO están en `npm test`**: `test-e2e.js` (E2E integral real: registra en la nube, crea un checkout de Mercado Pago real y activa la suscripción por webhook — correrlo a mano; en modo cloud confirma el email del usuario recién registrado vía Admin API de Supabase, flujo real del link, sin mocks, porque `/api/studio/save` exige `requireVerifiedEmail`) y `test-supabase-group-cart-persistence.js` (es el `npm run db:smoke`, round-trip real de `group_carts` contra la nube). `test-escape-html`, `test-db-write` y `test-semgrep` solían estar fuera pero **ahora corren en el chain** (`npm test`): el guard de tests (`test-data-guard.js`) + el SKIP autónomo de semgrep los hacen seguros de correr en serie.
 - **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 4 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell` y `test-realtime-live-guard` (usan credenciales reales; el último hace SKIP si no hay `SUPABASE_URL`/`SUPABASE_ANON_KEY`).
 - Para debug rápido: `node tests/test-billing.js` (o el test específico, o `npm run test:<alias>`)
 
-### Tests incluidos en `npm test` (36 suites)
+### Tests incluidos en `npm test` (39 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
@@ -204,6 +205,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-db-write.js` | Primitiva atómica `db.writeJson` (temp-file + rename, retries con backoff no-bloqueante): write básico, arrays y 5 escrituras concurrentes sin busy-wait |
 | `test-semgrep.js` | Análisis estático Semgrep (`p/security-audit` + `p/owasp-top-ten` + `p/javascript` sobre `api/ src/ public/js/`); hace SKIP con exit 0 si `semgrep` no está instalado |
 | `test-csp.js` | Guard CSP real + headers duros: **cero `on*=` en TODO `public/`** (scan de todos los JS+HTML; si alguien agrega un onclick, la CSP con `script-src-attr 'none'` lo rompe y el guard falla), hashes SHA-256 de scripts inline (normalizados CRLF→LF como el browser) presentes en la CSP transitional, paridad exacta vercel.json ↔ api/utils/securityHeaders.js, **rutas legales idénticas Express↔vercel (5/5)**, y en runtime `/m/:slug` responde con CSP estricta y el resto con transitional (ambas `script-src-attr 'none'`) |
+| `test-hardening.js` | Endurecimiento A→F (auditoría de ingeniería): A) fetch colgado aborta `FETCH_TIMEOUT` (y el sano responde); B) retención de telemetría — cutoff `[30,730]` días, dry-run no muta, purga real del espejo local, cron fail-closed (401 sin secreto / 200 con `x-cron-secret`); C) `/api/studio/save` → 409 `MENU_CONCURRENCY_CONFLICT` con `currentUpdatedAt` y overwrite OK; D) heatmap aterrizado al huso del dueño (`utcOffsetMinutes` + `localHourOf` puro); E) abierto/cerrado server-side (`forceClosed`/horario → 400 `RESTAURANT_CLOSED` en quote y pedido); F) `LatencyTracker` p50/p95/p99 + `/api/healthz` expone `latency` real |
 
 ## Configuración (`.env`)
 
@@ -226,6 +228,7 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 | `ADMIN_TOTP_SECRET` | 2FA opcional panel admin |
 | `SUPABASE_ANON_KEY` | Clave pública para Realtime en navegador (protegida por RLS) |
 | `CRON_SECRET` | Bearer/header requerido para cron en producción |
+| `TELEMETRY_RETENTION_DAYS` | Días de retención de `telemetry_events` (default 183, clamp `[30,730]`); lo aplica el cron mensual `/api/cron/telemetry-retention` |
 | `GROUP_CART_SECRET` | Firma HMAC de QR de mesa; puede usar `JWT_SECRET` como fallback |
 
 ### Tooling OpenCode
@@ -357,6 +360,17 @@ Un solo motor de cobro (`plans.json`); la landing muestra pestañas por rubro (`
 - **Sin costo**: `isFreePrice()` en `public/js/menu/menuPresentation.js` (0, ausente o no numérico → true). Con precio libre NO se muestra ninguna cifra en carta, chef specials, upsells, cross-sell del modal ni líneas del carrito (botón `+` intacto); barra flotante `Ver Pedido →` sin `($0)`; totales `Sin costo`; WhatsApp lista ítems sin precio y declara `💝 Pedido sin costo` sin Subtotal/TOTAL. Backend ya acepta monto 0 (`createOrderSchema` sin campo amount). Regresión §17.
 - **Notas por rubro**: `getDishNoteCopy()` (mismo módulo) adapta etiqueta+placeholder del modal en `openDishNoteModal`: heladería → "Nota para tu helado" (nunca "sin cebolla"), perfumería → "Nota del pedido", eventos → "Indicaciones para los anfitriones", restaurante → default de cocina. Regresión §18.
 
+## Endurecimiento de Ingeniería — Brechas A→F (auditoría)
+
+Un solo guard de regresión: `tests/test-hardening.js` (`npm run test:hardening`).
+
+- **A · Timeouts en fetch externo** (`api/utils/fetchWithTimeout.js`): un proveedor que acepta la conexión y nunca responde ya no cuelga el request (AbortController, default 15s; combina señales con `AbortSignal.any`, limpia el timer siempre; error con `code='FETCH_TIMEOUT'`). Aplicado en: `src/services/mercadopago.js` (preferencia vía fetch + timeout en el fallback https con `req.setTimeout`), `src/billing/providers/mercadopago.js` (`getPayment`), `src/billing/providers/stripe.js` (checkout), `api/services/email.js` + `src/email/emailService.js` (Resend) y `api/middleware/cache.js` (invalidate Redis/Upstash, 5s best-effort).
+- **B · Retención de telemetría** (`api/services/telemetry.js`): los eventos acumulaban sin límite (palanca de coste del plan free 500MB + alimenta la pausa por inactividad). `TELEMETRY_RETENTION_DAYS` (default 183, clamp `[30,730]`) define el cutoff; `purgeOldTelemetry({olderThanDays, dryRun})` borra en Supabase (`DELETE ... lt created_at`, una sentencia, sin paginar ids) y poda el espejo local con la MISMA política (dry-run reporta y no muta, nunca lanza). Cron nuevo `api/cron/telemetry-retention.js` montado en `/api/cron` y en `vercel.json` (`0 2 1 * *`, mensual). El guard pasa a ser compartido: `api/middleware/cronAuth.js` (fail-closed sin `CRON_SECRET` en prod; billing-dunning ahora lo importa en vez de duplicarlo).
+- **C · Concurrencia optimista en Studio**: `POST /api/studio/save` compara el `updatedAt` del cliente (su VERSIÓN, capturada ANTES de que sanitize lo borre) contra `restaurant.updatedAt` vigente; si es más viejo → **409 `MENU_CONCURRENCY_CONFLICT`** con `currentUpdatedAt` (nunca last-write-wins silencioso entre dos pestañas/empleados). Sin `updatedAt` (cliente legacy / restaurante recién creado sin versión) nunca choca. El frontend (`public/js/studio/autoSave.js`) ofrece sobrescribir (`window.confirm`, sin `on*=`) reintentando con `currentUpdatedAt`, o no guardar y recargar; tras cada save exitoso toma `restaurant.updatedAt` de la respuesta como nueva base. Contrato: 409 en `openapi.yaml`.
+- **D · Heatmap en hora del dueño**: `getHourlyHeatmap` acepta `?utcOffsetMinutes=` (antes `getHours()`/`getDay()` del server = UTC en Vercel, picos corridos 3h). Helpers puros `localHourOf`/`localDayOf` (hora/día = UTC + offset leído con `getUTC*`, truco estándar de bucketing); el Studio ya manda el offset del navegador (`-getTimezoneOffset()`) en el fetch del heatmap.
+- **E · Abierto/cerrado con autoridad server-side**: el reloj del navegador ya no es la única fuente. `assertRestaurantOpen()` (espejo de `isRestaurantOpenNow()` en `public/js/menu.js`) corre dentro de `enforceOrderBusinessRules` → se aplica en `/quote`, `POST /api/orders` y `/mercadopago/preference`. `forceClosed===true` gana siempre; con horario, la hora local del local se recalcula con `utcOffsetMinutes` (±840, campo nuevo en `createOrderSchema`; el menú envía `-new Date().getTimezoneOffset()`). Cerrado → 400 `RESTAURANT_CLOSED` (un rango invertido `inicio>fin` nunca matchea → cerrado siempre).
+- **F · Observabilidad / SLO** (`api/utils/latencyTracker.js`): percentiles en memoria por grupo (`menu_public` `/m/*`, `api` `/api/*`, `other`; ring 2000 muestras, push O(1)); `requestId.js` registra cada `finish`. `GET /api/healthz` expone `latency` (aditivo, ningún test asevera la forma previa). SLO de referencia: **menú público p95 < 500ms** y **API p95 < 1000ms** en la ventana diaria (se revisa con el uptime check sobre `/api/healthz`).
+
 ## Heladería como Rubro de Primera Clase
 
 `businessType='heladeria'` es un rubro propio (no se colapsa a `restaurant`), seleccionable en el registro (`public/index.html`) y en Studio (`#inputBusinessType`). El asistente de armado (tamaño → sabores → toppings) se gobierna con `restaurant.allowIceCreamWizard` (default `true` para heladería). `normalizeRestaurantBusinessType()` en `src/db/db.js`:
@@ -405,7 +419,7 @@ Los 5 claros sobreescriben `--chalk-white` a tinta oscura y refuerzan títulos/n
 | `public/js/menu/eventGuestMode.js` | Resolución de tema de evento, contexto de invitado, reservas WhatsApp |
 | `public/js/utils/` | Utilidades frontend (usan `escapeHtmlBrowser.js`, ver trampas) |
 | `public/js/components/` | 14 componentes ES Module reutilizables |
-| `tests/` | 39 archivos; 38 corren en `npm test` (ver sección Testing) |
+| `tests/` | 40 archivos; 39 corren en `npm test` (ver sección Testing) |
 | `openapi.yaml` | Contrato OpenAPI 3.1 de la API (24 paths verificados contra handlers; `test-openapi-contract.js` lo golpea en runtime — endpoint nuevo = entrada acá + caso en el test) |
 | `src/billing/subscriptionMachine.js` | Máquina de estados pura de suscripción (7 estados × 6 eventos, `computeStatus` diferencialmente testeada contra `verifyAccess`; la tabla manda, el orchestrator la sigue) |
 | `src/billing/plans.json` | Fuente única de precios/planes y `TRIAL_DAYS` (el orchestrator la lee con fallback a literales) |

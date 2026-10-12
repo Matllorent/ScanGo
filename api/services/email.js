@@ -1,5 +1,6 @@
 const AppError = require('../utils/AppError');
 const { retryQueue } = require('../utils/retryQueue');
+const { fetchWithTimeout } = require('../utils/fetchWithTimeout');
 
 /**
  * Enmascara una dirección de email para logs: conserva la primera letra del
@@ -48,7 +49,7 @@ const emailService = {
     }
 
     try {
-      const response = await fetch('https://api.resend.com/emails', {
+      const response = await fetchWithTimeout('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${resendApiKey}`,

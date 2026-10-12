@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { fetchWithTimeout } = require('../../../api/utils/fetchWithTimeout');
 
 const stripeProvider = {
   name: 'stripe',
@@ -43,7 +44,7 @@ const stripeProvider = {
     });
     if (customerEmail) body.set('customer_email', customerEmail);
 
-    const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+    const res = await fetchWithTimeout('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${secretKey}`,

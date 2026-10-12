@@ -116,7 +116,8 @@ router.post('/quote', validateBody(createOrderSchema), (req, res, next) => {
       restaurant,
       subtotal: quote.amountInCents / 100,
       orderMode: req.body.orderMode,
-      deliveryAddress: req.body.deliveryAddress
+      deliveryAddress: req.body.deliveryAddress,
+      utcOffsetMinutes: req.body.utcOffsetMinutes
     });
     return successResponse(res, {
       ...quote,
@@ -134,7 +135,47 @@ router.post('/quote', validateBody(createOrderSchema), (req, res, next) => {
  * - Delivery exige dirección de entrega.
  * Se aplica en /quote, POST / y /mercadopago/preference por igual.
  */
-function enforceOrderBusinessRules({ restaurant, subtotal, orderMode, deliveryAddress }) {
+/**
+ * Autoridad server-side de abierto/cerrado (espejo de `isRestaurantOpenNow`
+ * en public/js/menu.js): el reloj del navegador no es la única fuente. El
+ * cliente manda su `utcOffsetMinutes` y acá se recalcula la hora local del
+ * local (UTC + offset) contra `scheduleActiveHours`. `forceClosed === true`
+ * gana siempre. Sin horario configurado → abierto.
+ */
+function assertRestaurantOpen(restaurant, utcOffsetMinutes = 0) {
+  if (restaurant.forceClosed === true) {
+    throw new AppError(
+      'El local está cerrado por el momento. Volvé a consultar en unos minutos.',
+      400,
+      'RESTAURANT_CLOSED'
+    );
+  }
+  if (!restaurant.scheduleEnabled || !restaurant.scheduleActiveHours) return;
+
+  const offsetMs = (Number(utcOffsetMinutes) || 0) * 60000;
+  const localNow = new Date(Date.now() + offsetMs);
+  const currentHour = localNow.getUTCHours() + localNow.getUTCMinutes() / 60;
+
+  const [startH, endH] = String(restaurant.scheduleActiveHours || '')
+    .split('-')
+    .map((t) => {
+      const [h, m] = String(t || '').split(':').map(Number);
+      return h + (m || 0) / 60;
+    });
+  if (startH === undefined || endH === undefined || Number.isNaN(startH) || Number.isNaN(endH)) return;
+
+  // Misma semántica que el frontend (>= inicio y <= fin). Un rango invertido
+  // (inicio > fin) nunca matchea → cerrado siempre (config inválida).
+  if (currentHour < startH || currentHour > endH) {
+    throw new AppError(
+      `El local está cerrado a esta hora (${restaurant.scheduleActiveHours} hs). Volvé en horario de atención.`,
+      400,
+      'RESTAURANT_CLOSED'
+    );
+  }
+}
+
+function enforceOrderBusinessRules({ restaurant, subtotal, orderMode, deliveryAddress, utcOffsetMinutes }) {
   const minOrder = Number(restaurant.minOrder) || 0;
   if (minOrder > 0 && Number(subtotal) < minOrder) {
     throw new AppError(
@@ -146,6 +187,7 @@ function enforceOrderBusinessRules({ restaurant, subtotal, orderMode, deliveryAd
   if (orderMode === 'DELIVERY' && !String(deliveryAddress || '').trim()) {
     throw new AppError('Indicá la dirección de entrega para el delivery.', 400, 'DELIVERY_ADDRESS_REQUIRED');
   }
+  assertRestaurantOpen(restaurant, utcOffsetMinutes);
 }
 
 /**
@@ -221,12 +263,13 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
 
     const { itemsSnapshot, amountInCents } = quoteOrderItems(restaurant, items, utcNow);
 
-    // Reglas autoritativas: pedido mínimo y dirección de delivery.
+    // Reglas autoritativas: pedido mínimo, dirección de delivery y abierto/cerrado.
     enforceOrderBusinessRules({
       restaurant,
       subtotal: amountInCents / 100,
       orderMode,
-      deliveryAddress
+      deliveryAddress,
+      utcOffsetMinutes: req.body.utcOffsetMinutes
     });
 
     // Totales canónicos server-side (lo que se cobra y se muestra en
@@ -552,8 +595,8 @@ router.post('/mercadopago/preference', validateBody(createOrderSchema), async (r
     const { itemsSnapshot, amountInCents } = quoteOrderItems(restaurant, items);
     const subtotal = amountInCents / 100;
 
-    // Mismas reglas que el pedido: mínimo y dirección de delivery.
-    enforceOrderBusinessRules({ restaurant, subtotal, orderMode, deliveryAddress });
+    // Mismas reglas que el pedido: mínimo, dirección de delivery y abierto/cerrado.
+    enforceOrderBusinessRules({ restaurant, subtotal, orderMode, deliveryAddress, utcOffsetMinutes: req.body.utcOffsetMinutes });
 
     // Total cobrado = platos + envío validado − cupón validado + propina.
     // (Antes solo iban los platos: se cobraba de menos y la propina se perdía.)

@@ -71,7 +71,41 @@ export async function saveStudioChanges(restaurant, showSaveFeedback, reloadPrev
       showSaveFeedback('error');
       return;
     }
+    if (res.status === 409) {
+      // Concurrencia optimista: otra pestaña/empleado guardó desde nuestra
+      // última lectura. Opciones honestas: sobrescribir (confirm) o no guardar
+      // y recargar para ver la versión más reciente.
+      const body = await res.json().catch(() => ({}));
+      if (body.code === 'MENU_CONCURRENCY_CONFLICT') {
+        const overwrite = window.confirm(
+          'Tu menú fue actualizado en otra pestaña o por otro empleado.\n\n' +
+          '• Aceptar: sobrescribís los cambios ajenos con los tuyos.\n' +
+          '• Cancelar: no se guarda nada; recargá la página para ver la versión más reciente.'
+        );
+        if (overwrite) {
+          // Reconocer la versión ajena como base → el servidor nos deja guardar
+          // (es el "sobrescribir" que el dueño eligió), y el próximo save ya
+          // vuelve a la cadena normal de versiones.
+          restaurant.updatedAt = body.currentUpdatedAt || restaurant.updatedAt;
+          if (btn) {
+            btn.dataset.saving = 'false';
+            btn.disabled = false;
+          }
+          return saveStudioChanges(restaurant, showSaveFeedback, reloadPreviewIframeFn);
+        }
+        finishSave('⚠️ Conflicto de edición — recargá para ver la versión más nueva', 'error');
+        showSaveFeedback('error');
+        return;
+      }
+      throw new Error(`HTTP ${res.status}`);
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const savedBody = await res.json().catch(() => ({}));
+    // La respuesta devuelve el restaurante con su updatedAt fresco: lo tomamos
+    // como nuestra nueva base de versionado (evita falsos 409 en el próximo save).
+    if (savedBody && savedBody.restaurant && savedBody.restaurant.updatedAt) {
+      restaurant.updatedAt = savedBody.restaurant.updatedAt;
+    }
     finishSave('✓ Guardado', 'saved');
     showSaveFeedback('saved');
     if (typeof reloadPreviewIframeFn === 'function') reloadPreviewIframeFn();

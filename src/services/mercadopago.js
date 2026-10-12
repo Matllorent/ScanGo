@@ -4,6 +4,7 @@
  */
 
 const https = require('https');
+const { fetchWithTimeout } = require('../../api/utils/fetchWithTimeout');
 
 function getAccessToken() {
   return process.env.MERCADOPAGO_ACCESS_TOKEN || '';
@@ -69,7 +70,7 @@ async function createPreference(options) {
 
   // Use native fetch (Node 18+) or fallback to HTTPS request
   if (typeof fetch === 'function') {
-    const res = await fetch('https://api.mercadopago.com/checkout/preferences', {
+    const res = await fetchWithTimeout('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -122,6 +123,10 @@ async function createPreference(options) {
         }
       });
     });
+
+    // Timeout explícito también en el fallback: un MP que acepta la conexión
+    // y nunca responde no puede dejar el checkout del dueño colgado.
+    req.setTimeout(15000, () => req.destroy(new Error('Timeout creando preferencia en Mercado Pago')));
 
     req.on('error', reject);
     req.write(dataString);

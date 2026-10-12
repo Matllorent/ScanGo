@@ -124,7 +124,11 @@ const createOrderSchema = z.object({
   deliveryFee: z.number().nonnegative().max(100000).optional().default(0),
   // Token Turnstile invisible (anti-spam/farming). Opcional en el contrato:
   // solo se exige si el despliegue configuró TURNSTILE_SECRET.
-  captchaToken: z.string().max(2000).optional().default('')
+  captchaToken: z.string().max(2000).optional().default(''),
+  // Huso del dispositivo del comensal (minutos, ±840). El reloj del navegador
+  // NO es la autoridad de abierto/cerrado: el servidor recalcula la hora local
+  // del local con este offset para validar el horario de atención (brecha E).
+  utcOffsetMinutes: z.number().min(-840).max(840).optional().default(0)
 });
 
 // Zod 4: compilar el schema una vez por middleware. SafeParse mantiene el mismo

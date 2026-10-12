@@ -152,8 +152,9 @@ router.get('/daily/:restaurantId', tenantGuard, requireAnalyticsFeature, async (
 
 /**
  * GET /api/analytics/heatmap/:restaurantId
- * Returns hourly heatmap for peak hours analysis
- * Query params: ?days=7&branchId=xxx&eventId=xxx
+ * Returns hourly heatmap for peak hours analysis (hora del dueño con
+ * ?utcOffsetMinutes=, igual que /today; sin offset = UTC).
+ * Query params: ?days=7&branchId=xxx&eventId=xxx&utcOffsetMinutes=180
  */
 router.get('/heatmap/:restaurantId', tenantGuard, requireAnalyticsFeature, async (req, res, next) => {
   try {
@@ -161,7 +162,8 @@ router.get('/heatmap/:restaurantId', tenantGuard, requireAnalyticsFeature, async
     const days = Math.min(30, Math.max(1, parseInt(req.query.days) || 7));
     const branchId = req.query.branchId || undefined;
     const eventId = req.query.eventId || undefined;
-    const heatmap = await telemetryService.getHourlyHeatmap(restaurantId, { days, branchId, eventId });
+    const utcOffsetMinutes = parseInt(req.query.utcOffsetMinutes) || 0;
+    const heatmap = await telemetryService.getHourlyHeatmap(restaurantId, { days, branchId, eventId, utcOffsetMinutes });
     return successResponse(res, heatmap, 'Heatmap horario calculado');
   } catch (err) {
     next(err);

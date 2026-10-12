@@ -1,10 +1,12 @@
 ﻿// Email Service supporting Resend or SMTP with HTML templates
 
+const { fetchWithTimeout } = require('../../api/utils/fetchWithTimeout');
+
 const emailService = {
   async sendMail({ to, subject, html }) {
     if (process.env.RESEND_API_KEY) {
       try {
-        const res = await fetch('https://api.resend.com/emails', {
+        const res = await fetchWithTimeout('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
             'Authorization': 'Bearer ' + process.env.RESEND_API_KEY,

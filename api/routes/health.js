@@ -1,6 +1,7 @@
 const express = require('express');
 const { getSupabaseClient } = require('../utils/supabase');
 const db = require('../../src/db/db');
+const { latencyTracker } = require('../utils/latencyTracker');
 
 const router = express.Router();
 
@@ -58,7 +59,11 @@ router.get('/healthz', async (req, res, next) => {
       heapUsedMb: +(mem.heapUsed / (1024 * 1024)).toFixed(2),
       heapTotalMb: +(mem.heapTotal / (1024 * 1024)).toFixed(2),
       rssMb: +(mem.rss / (1024 * 1024)).toFixed(2)
-    }
+    },
+    // Percentiles de latencia por grupo (ver api/utils/latencyTracker.js).
+    // SLO: menú público p95 < 500ms, API p95 < 1000ms. Best-effort por
+    // instancia; con tráfico bajo los percentiles pueden ser null.
+    latency: latencyTracker.snapshot()
   };
 
     const httpStatus = dbConnected ? 200 : 503;

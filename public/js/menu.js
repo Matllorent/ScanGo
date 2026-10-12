@@ -2575,6 +2575,10 @@ Object.defineProperties(window, {
             notes,
             isGroupOrder,
             participants: window.groupCartManagerInstance ? Array.from(window.groupCartManagerInstance.participants) : [],
+            // Huso del dispositivo: el servidor valida el horario de atención
+            // y el abierto/cerrado en hora local del local (no confía del todo
+            // en el reloj del navegador).
+            utcOffsetMinutes: -new Date().getTimezoneOffset(),
             items: items.map(item => ({
               dishId: item.dish.id,
               quantity: item.qty,
@@ -2706,6 +2710,7 @@ Object.defineProperties(window, {
             coupon: appliedCoupon,
             tipAmount,
             captchaToken: captchaToken || undefined,
+            utcOffsetMinutes: -new Date().getTimezoneOffset(),
             participants: window.groupCartManagerInstance ? Array.from(window.groupCartManagerInstance.participants) : [],
             items: items.map(item => ({
               dishId: item.dish.id,
@@ -3221,6 +3226,7 @@ Object.defineProperties(window, {
             deliveryFee: mode === 'DELIVERY' ? deliveryFee : 0,
             tipAmount: tipForPay,
             coupon: appliedCoupon,
+            utcOffsetMinutes: -new Date().getTimezoneOffset(),
             items: items.map(item => ({
               dishId: item.dish.id,
               quantity: item.qty,

@@ -47,6 +47,7 @@ const studioRouter = require('./routes/studio');
 const loyaltyRouter = require('./routes/loyalty');
 const loyaltyService = require('./services/loyalty');
 const billingDunningRouter = require('./cron/billing-dunning');
+const telemetryRetentionRouter = require('./cron/telemetry-retention');
 
 const app = express();
 // Detrás de Vercel (proxy) el req.ip real llega por X-Forwarded-For (Vercel lo
@@ -2146,6 +2147,7 @@ app.use('/api/notifications', notificationsRouter);
 app.use('/api/loyalty', loyaltyRouter);
 app.use('/api/email', emailRouter);
 app.use('/api/cron', billingDunningRouter);
+app.use('/api/cron', telemetryRetentionRouter);
 
 // Protected routes: require active subscription (Billing operations)
 // IMPORTANTE: sólo aplica a rutas /api/billing montadas DESPUÉS de esta línea.

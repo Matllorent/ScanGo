@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { latencyTracker } = require('../utils/latencyTracker');
 
 /**
  * Request Tracing Middleware
@@ -24,6 +25,9 @@ function requestIdMiddleware(req, res, next) {
       statusCode: res.statusCode,
       responseTime
     });
+    // Percentiles de latencia por grupo (menú público /api / resto): alimenta
+    // el campo `latency` de /api/healthz y los SLO documentados.
+    latencyTracker.record(req.path || req.url, responseTime);
   });
 
   next();

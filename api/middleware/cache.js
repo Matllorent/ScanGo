@@ -1,4 +1,5 @@
 const logger = require('../utils/logger');
+const { fetchWithTimeout } = require('../utils/fetchWithTimeout');
 
 // High-Performance In-Memory LRU Cache Store
 class LRUCache {
@@ -116,9 +117,9 @@ async function invalidateMenuCache(slug) {
 
   if (redisUrl && redisToken) {
     try {
-      await fetch(`${redisUrl}/del/menu:${cleanSlug}`, {
+      await fetchWithTimeout(`${redisUrl}/del/menu:${cleanSlug}`, {
         headers: { Authorization: `Bearer ${redisToken}` }
-      });
+      }, 5000);
     } catch (e) {
       logger.warn('[Upstash Redis Invalidation Error]', { slug: cleanSlug, details: e.message });
     }

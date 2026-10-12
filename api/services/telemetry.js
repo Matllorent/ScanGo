@@ -328,10 +328,14 @@ const telemetryService = {
 
   /**
    * Hourly heatmap for peak hours analysis
+   * La hora/día se calcula en el huso del dueño (utcOffsetMinutes, como /today):
+   * antes se usaba getHours()/getDay() del servidor (UTC en Vercel), así un
+   * restaurante uruguayo veía sus picos corridos 3 horas. Sin offset → UTC.
    * @param {string} restaurantId
+   * @param {object} [opts] - { days, branchId, eventId, utcOffsetMinutes }
    * @returns {Promise<object>} Hourly breakdown
    */
-  async getHourlyHeatmap(restaurantId, { days = 7, branchId, eventId } = {}) {
+  async getHourlyHeatmap(restaurantId, { days = 7, branchId, eventId, utcOffsetMinutes = 0 } = {}) {
     const since = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
     const events = await this.getEvents(restaurantId, { since, branchId, eventId });
 
@@ -344,10 +348,9 @@ const telemetryService = {
     }));
 
     events.forEach(e => {
-      const date = new Date(e.created_at);
-      const hour = date.getHours();
-      const day = date.getDay(); // 0 = Sunday
-      if (heatmap[hour]) {
+      const hour = localHourOf(e.created_at, utcOffsetMinutes);
+      const day = localDayOf(e.created_at, utcOffsetMinutes); // 0 = Sunday
+      if (hour !== null && heatmap[hour]) {
         heatmap[hour].days[day]++;
         heatmap[hour].total++;
       }
@@ -427,5 +430,94 @@ const telemetryService = {
     }));
   }
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Retención (brecha B del informe): la telemetría inserta una fila por
+// scan/clic/pedido y acumula SIN LÍMITE — es la palanca de coste principal del
+// plan free (500MB) además de alimentar la pausa por inactividad. Se purgan los
+// eventos más viejos que TELEMETRY_RETENTION_DAYS (default 183 = 6 meses; el
+// análisis diario/heatmap no necesita más de 90 días).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Hora local (0-23) de un evento apuntado al huso del dueño.
+ * Equivalente a `new Date(iso).getHours()` en una máquina con ese offset: se
+ * suma `utcOffsetMinutes` y se lee con getUTC*. Devuelve null si la fecha es
+ * inválida (nunca rompe el bucket).
+ */
+function localHourOf(isoDate, utcOffsetMinutes = 0) {
+  const t = new Date(isoDate);
+  if (Number.isNaN(t.getTime())) return null;
+  return new Date(t.getTime() + (Number(utcOffsetMinutes) || 0) * 60000).getUTCHours();
+}
+
+/** Día de semana local (0 = Sunday) del evento, mismo huso que localHourOf. */
+function localDayOf(isoDate, utcOffsetMinutes = 0) {
+  const t = new Date(isoDate);
+  if (Number.isNaN(t.getTime())) return null;
+  return new Date(t.getTime() + (Number(utcOffsetMinutes) || 0) * 60000).getUTCDay();
+}
+
+/** Cutoff ISO de retención: ahora − N días, acotado a [30, 730] días. */
+function retentionCutoffIso(olderThanDays) {
+  const requested = Number(olderThanDays ?? process.env.TELEMETRY_RETENTION_DAYS);
+  const days = Number.isFinite(requested) && requested > 0 ? Math.min(730, Math.max(30, requested)) : 183;
+  return new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
+}
+
+/**
+ * Purga eventos viejos de telemetría (nube + espejo en memoria):
+ *  - Supabase: DELETE sobre telemetry_events created_at < cutoff (una sola
+ *    sentencia, sin paginar ids — nunca arma URLs largas).
+ *  - Local/JSON/dev: se poda `localTelemetryEvents` con la misma política.
+ * Nunca lanza: degrada a `{ error }` para que el cron no falle entero y el
+ * resto de la app siga funcionando. `dryRun` solo reporta (nada se borra).
+ * @param {object} [opts] - { olderThanDays, dryRun }
+ * @returns {Promise<object>} Resumen { cutoff, mode, dryRun, scanned*, pruned* }
+ */
+async function purgeOldTelemetry({ olderThanDays, dryRun = false } = {}) {
+  const cutoff = retentionCutoffIso(olderThanDays);
+  const result = { cutoff, mode: 'local', dryRun, scannedLocal: 0, prunedLocal: 0, scannedCloud: 0, prunedCloud: 0 };
+
+  try {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { count, error: countError } = await supabase
+        .from('telemetry_events')
+        .select('id', { count: 'exact', head: true })
+        .lt('created_at', cutoff);
+      if (countError) throw new Error(`COUNT telemetry_events: ${countError.message}`);
+      result.scannedCloud = count || 0;
+      if (!dryRun && (count || 0) > 0) {
+        const { error } = await supabase.from('telemetry_events').delete().lt('created_at', cutoff);
+        if (error) throw new Error(`DELETE telemetry_events: ${error.message}`);
+        result.prunedCloud = count;
+        result.mode = 'supabase';
+      }
+    }
+
+    const before = localTelemetryEvents.length;
+    const kept = localTelemetryEvents.filter((e) => !e.created_at || e.created_at >= cutoff);
+    // Reporta cuánto se PODARÍA/ podó, pero dry-run jamás muta el espejo.
+    result.scannedLocal = before;
+    result.prunedLocal = before - kept.length;
+    if (!dryRun) {
+      localTelemetryEvents.length = 0;
+      localTelemetryEvents.push(...kept);
+    }
+
+    return result;
+  } catch (e) {
+    logger.warn('[Telemetry Retention] falló parcialmente', { details: e.message, cutoff });
+    result.error = e.message;
+    return result;
+  }
+}
+
+telemetryService.retentionCutoffIso = retentionCutoffIso;
+telemetryService.purgeOldTelemetry = purgeOldTelemetry;
+telemetryService.getLocalTelemetryCount = () => localTelemetryEvents.length;
+telemetryService.localHourOf = localHourOf;
+telemetryService.localDayOf = localDayOf;
 
 module.exports = telemetryService;

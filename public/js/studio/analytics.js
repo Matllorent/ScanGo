@@ -328,7 +328,7 @@ export async function loadAnalytics(restaurant) {
     const [weekly, daily, heatmap, branches, events, today] = await Promise.all([
       fetchAnalytics(`/api/analytics/weekly/${restaurant.id}`),
       fetchAnalytics(`/api/analytics/daily/${restaurant.id}?days=${days}${branchId ? '&branchId=' + branchId : ''}${eventId ? '&eventId=' + eventId : ''}`),
-      fetchAnalytics(`/api/analytics/heatmap/${restaurant.id}?days=7${branchId ? '&branchId=' + branchId : ''}${eventId ? '&eventId=' + eventId : ''}`),
+      fetchAnalytics(`/api/analytics/heatmap/${restaurant.id}?days=7${branchId ? '&branchId=' + branchId : ''}${eventId ? '&eventId=' + eventId : ''}&utcOffsetMinutes=${utcOffset}`),
       fetchAnalytics(`/api/analytics/branches/${restaurant.id}?days=${days}`),
       fetchAnalytics(`/api/analytics/events/${restaurant.id}`),
       fetchAnalytics(`/api/analytics/today/${restaurant.id}?utcOffsetMinutes=${utcOffset}`)

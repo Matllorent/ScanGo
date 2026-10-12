@@ -27,6 +27,30 @@ router.post('/save', authMiddleware, requireVerifiedEmail, requireActiveSubscrip
     if (JSON.stringify(payload).length > 1_000_000) {
       return res.status(413).json({ error: 'El menú excede el tamaño máximo permitido (1MB)' });
     }
+
+    // Concurrencia optimista: el `updatedAt` que trae el cliente no es un campo
+    // que se persiste (se borra abajo como privilegiado) sino su VERSIÓN — el
+    // instante de la última respuesta que vio el Studio. Si entre esa lectura y
+    // este save otra pestaña/empleado guardó, rechazamos con 409 en vez de
+    // sobreescribir en silencio (last-write-wins).
+    const clientUpdatedAt = payload && payload.updatedAt;
+    const existing = req.user && req.user.userId ? db.findRestaurantByUserId(req.user.userId) : null;
+    const serverUpdatedAt = existing && existing.updatedAt;
+    if (
+      clientUpdatedAt &&
+      serverUpdatedAt &&
+      Number.isFinite(new Date(clientUpdatedAt).getTime()) &&
+      Number.isFinite(new Date(serverUpdatedAt).getTime()) &&
+      new Date(clientUpdatedAt).getTime() < new Date(serverUpdatedAt).getTime()
+    ) {
+      return res.status(409).json({
+        success: false,
+        error: 'El menú fue actualizado en otra pestaña o por otro empleado. Recargá para ver la versión más reciente o sobrescribí.',
+        code: 'MENU_CONCURRENCY_CONFLICT',
+        currentUpdatedAt: serverUpdatedAt
+      });
+    }
+
     const cleanPayload = sanitizeRestaurantPayload(payload);
     // Anti mass-assignment: el dueño NUNCA fija estos campos por /save.
     // La suscripción solo la mutan webhooks de pago, el cron y el admin

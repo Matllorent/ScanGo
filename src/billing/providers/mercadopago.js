@@ -1,4 +1,5 @@
 const mpService = require('../../services/mercadopago');
+const { fetchWithTimeout } = require('../../../api/utils/fetchWithTimeout');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -43,7 +44,7 @@ async function getPayment(paymentId) {
   const accessToken = mpService.getAccessToken();
   if (!accessToken) throw new Error('MERCADOPAGO_ACCESS_TOKEN no está configurado');
 
-  const res = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}`, {
+  const res = await fetchWithTimeout(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}`, {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
   const data = await res.json().catch(() => ({}));

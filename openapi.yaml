@@ -351,6 +351,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: |-
+            Concurrencia optimista: el `updatedAt` del cliente es MÁS VIEJO que la
+            versión vigente del server (otra pestaña/empleado guardó desde su última
+            lectura). El Studio ofrece sobrescribir reintentando con `currentUpdatedAt`.
+            Sin `updatedAt` en el payload (cliente legacy) nunca conflictúa.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, error, code, currentUpdatedAt]
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: El menú fue actualizado en otra pestaña o por otro empleado.
+                  code:
+                    type: string
+                    example: MENU_CONCURRENCY_CONFLICT
+                  currentUpdatedAt:
+                    type: string
+                    format: date-time
+                    example: '2026-10-12T18:00:00.000Z'
   /api/orders:
     post:
       tags: [orders]
