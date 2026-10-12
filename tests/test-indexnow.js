@@ -239,10 +239,7 @@ async function runTests() {
   console.log('✓ IndexNow validado: key fail-closed, payload bulk, verificación {key}.txt y .txt estático intacto');
 }
 
-runTests().then(
-  () => process.exit(0),
-  (err) => {
-    console.error(err);
-    process.exit(1);
-  }
-);
+runTests().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
