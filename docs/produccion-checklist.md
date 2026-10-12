@@ -1,6 +1,6 @@
 # 🚀 Checklist de Puesta en Producción — ScanGo / Menú Pizarrón SaaS
 
-> Estado: **en ejecución** · Última actualización: 2026-10-11
+> Estado: **en ejecución** · Última actualización: 2026-10-12
 > Dominio objetivo: `scango.uy` (a comprar) · Dominio de arranque: `*.vercel.app`
 > Pasarela global elegida: **Lemon Squeezy** · Latam: **Mercado Pago**
 
@@ -8,20 +8,20 @@
 
 | Área | Estado |
 |---|---|
-| Suite de tests (37) | ✅ 37/37 en verde (incluye Realtime real y CSP 53/53) |
+| Suite de tests (46) | ✅ 46/46 en verde (incluye Realtime real, CSP 53/53 e IndexNow) |
 | Semgrep | ✅ 0 hallazgos |
-| OSV-Scanner | ✅ solo `braces@3.0.3` (dev-only, riesgo aceptado documentado) |
+| OSV-Scanner | ✅ re-auditado 2026-10-12: solo `braces@3.0.3` (dev-only, sin fix publicado, riesgo aceptado documentado) |
 | Supabase cloud | ✅ esquema completo, migraciones 001–006 aplicadas y verificadas en runtime |
-| Commits pusheados a `origin/main` | ✅ (`68720df`, `3c882f4`) |
-| Secretos generados en `.env` local | ✅ JWT_SECRET, GROUP_CART_SECRET, CRON_SECRET, MERCADOPAGO_WEBHOOK_SECRET |
+| Commits pusheados a `origin/main` | ✅ (`eb715f4` SEO audit, `6ecd292`–`7141296` Batch 3 SEO local/IndexNow/sucursales) |
+| Secretos generados en `.env` local | ✅ JWT_SECRET, GROUP_CART_SECRET, CRON_SECRET, MERCADOPAGO_WEBHOOK_SECRET, INDEXNOW_KEY (`node -e "console.log(require('crypto').randomUUID())"`) |
 | Fallbacks de dominio → `scango.uy` | ✅ (api/index.js, api/utils/seoDiscovery.js, email.js, orders.js, tests) |
 | Verificador de env | ✅ `node scripts/check-prod-env.js` |
-| Vercel CLI | 🕐 instalando (`npm i -g vercel`) |
+| Vercel CLI | ✅ instalado v63.1.2 (`npm i -g vercel`) — ⛔ **deslogueado**: falta `vercel login` + `vercel link` (`whoami`: Logged out) |
 | Dominio DNS | ⛔ `scango.uy` NO resuelve — hay que registrarlo/comprarlo |
 | Email real | ⛔ `EMAIL_FROM` usa `@resend.dev` — falta verificar dominio en Resend |
 | Pasarela global | ⛔ sin Lemon Squeezy (API key, store, webhook, variants) |
 | Google OAuth origin | ⛔ falta agregar el dominio de prod en Google Cloud Console |
-| Deploy en Vercel | ⛔ pendiente |
+| Deploy en Vercel | ⛔ pendiente — verificado 2026-10-12: `https://menu-pizarron-saas.vercel.app/api/healthz` → **404** (sin deployment); CLI deslogueada |
 | Sentry DSN | ⛔ pendiente (recomendado) |
 | UptimeRobot | ⛔ pendiente (recomendado) |
 | Play Store | ⏸️ fase 2 (Capacitor no instalado aún) |
@@ -103,6 +103,7 @@ Con `vercel link` hecho, setear en **Vercel → Project → Settings → Environ
 | `LEMONSQUEEZY_*` + `DEFAULT_BILLING_PROVIDER` | de 2.3 |
 | `SENTRY_DSN` (opcional) | de 2.6 |
 | `TURNSTILE_SECRET` / `TURNSTILE_SITEKEY` (opcional) | anti-farmeo del checkout |
+| `INDEXNOW_KEY` | UUID/hex (`node -e "console.log(require('crypto').randomUUID())"`) — habilita el ping best-effort al guardar y sirve el archivo de verificación en `/{key}.txt` |
 
 **Verificación pre-deploy**: `node scripts/check-prod-env.js --strict` (lee `.env` local; para Vercel confiá en el dashboard + el healthz post-deploy).
 
@@ -169,7 +170,7 @@ Implementado en el repo y verificado por tests; resta solo lo que depende del de
 | 8 | PII en logs de email | `maskEmail`/`maskEmailList` en `api/services/email.js`: logs `To:` redactados (`j***@x.com`) | ✔ |
 | 9 | Monitoreo $0 | `.github/workflows/uptime-check.yml` (cron 6h → `curl /api/healthz` → issue `[CAIDO]`) + checklist UptimeRobot/Sentry arriba | ⬅ **Crear UptimeRobot + `SENTRY_DSN`** |
 
-Correr localmente: `npm test` (38 tests) y los individuales `npm run test:account-erasure`, `npm run test:billing`, `npm run test:analytics`, `npm run test:contract`.
+Correr localmente: `npm test` (46 suites) y los individuales `npm run test:account-erasure`, `npm run test:billing`, `npm run test:analytics`, `npm run test:contract`.
 
 ## Notas de riesgo
 
