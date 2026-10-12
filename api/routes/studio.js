@@ -16,6 +16,12 @@ const { stripPrivilegedFields } = require('../utils/stripPrivilegedFields');
 const aiRouter = require('./ai');
 const auditService = require('../services/audit');
 const { runSeoAudit } = require('../utils/seoAudit');
+const indexNow = require('../utils/indexNow');
+
+// IndexNow (best-effort): throttle por slug — el autosave del Studio guarda a
+// menudo; no spameamos la API de pings de Bing/Yandex con cada tecla.
+const indexNowThrottle = new Map();
+const INDEXNOW_MIN_INTERVAL_MS = 5 * 60 * 1000;
 
 /**
  * POST /api/studio/save - Guardar restaurante/menú completo
@@ -72,6 +78,21 @@ router.post('/save', authMiddleware, requireVerifiedEmail, requireActiveSubscrip
         hasCategories: Array.isArray(cleanPayload.categories)
       }
     });
+    // IndexNow (fire-and-forget, nunca rompe ni espera): el contenido cambió y
+    // el menú + cada sucursal real pueden re-indexarse casi de inmediato.
+    // Sin INDEXNOW_KEY / INDEXNOW_ENABLED=false no genera NINGÚN tráfico, y el
+    // throttle de 5 min por slug acota el ruido del autosave.
+    if (indexNow.isIndexNowEnabled() && restaurant && restaurant.slug) {
+      const now = Date.now();
+      const lastPing = indexNowThrottle.get(restaurant.slug) || 0;
+      if (now - lastPing >= INDEXNOW_MIN_INTERVAL_MS) {
+        indexNowThrottle.set(restaurant.slug, now);
+        indexNow.dispatchIndexNowPing({
+          key: indexNow.getIndexNowKey(),
+          urls: indexNow.getMenuUrlsForPing(process.env.APP_URL || 'https://scango.app', restaurant)
+        });
+      }
+    }
     return res.json({ success: true, restaurant });
   } catch (e) {
     return next(e);

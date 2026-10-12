@@ -33,6 +33,7 @@ const { createGroupCartToken } = require('./utils/groupCartToken');
 const sentry = require('./utils/sentry');
 const securityHeaders = require('./utils/securityHeaders');
 const seoDiscovery = require('./utils/seoDiscovery');
+const indexNow = require('./utils/indexNow');
 const { getDemoRestaurant, listDemoRestaurants, normalizeDemoType } = require('./utils/demoRestaurants');
 const authRouter = require('./routes/auth');
 const reviewsRouter = require('./routes/reviews');
@@ -1491,6 +1492,20 @@ app.get('/sitemap.xml', (req, res) => {
   res.type('application/xml');
   const restaurants = db.getAllRestaurants().filter(r => r.subscription && r.subscription.status !== 'canceled');
   res.send(seoDiscovery.buildSitemapXml({ appUrl: process.env.APP_URL, restaurants }));
+});
+
+// IndexNow: archivo de verificación de dominio en /{key}.txt (espec de Bing,
+// Yandex, Seznam, Naver). SOLO responde 200 si el segmento coincide EXACTO con
+// INDEXNOW_KEY (mismo patrón [0-9a-fA-F-]{8,64} que la ruta de vercel.json que
+// desvía acá el .txt en producción); sin key configurada no existe archivo.
+// Se registra DESPUÉS de express.static (línea ~281): los .txt estáticos
+// (robots, llms, llms-full) ya fueron servidos; acá solo llegan los hex-dash.
+app.get('/:key.txt', (req, res) => {
+  const configuredKey = indexNow.getIndexNowKey();
+  if (!configuredKey || req.params.key !== configuredKey) {
+    return res.status(404).type('text/plain').send('Not Found');
+  }
+  res.type('text/plain').send(configuredKey);
 });
 
 // SEO & OpenGraph Dynamic Public Menu Route
