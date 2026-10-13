@@ -16,6 +16,61 @@ console.log('🧪 Puesta en marcha: checklist de activación (puro + wiring)...'
 
 const ON_ATTR = /\son(?:click|change|input|submit|error|load|mouseover|mouseout|keydown|focus|blur)\s*=/i;
 
+// DOM mínimo simulado (sin jsdom): ejerce el render REAL de la lista de pasos
+// en Node. `textContent` setter limpia hijos (como el DOM de verdad cuando se
+// hace `list.textContent = ''`).
+function makeEl(tag = 'div') {
+  const el = {
+    tagName: tag.toUpperCase(),
+    className: '',
+    type: '',
+    style: {},
+    children: [],
+    attrs: {},
+    _text: '',
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+    setAttribute(k, v) {
+      this.attrs[k] = String(v);
+    },
+    getAttribute(k) {
+      return Object.prototype.hasOwnProperty.call(this.attrs, k) ? this.attrs[k] : null;
+    }
+  };
+  Object.defineProperty(el, 'textContent', {
+    get() {
+      return this._text;
+    },
+    set(v) {
+      this._text = String(v);
+      this.children = [];
+    }
+  });
+  return el;
+}
+
+function installFakeDom(ids) {
+  const registry = {};
+  for (const id of ids) registry[id] = makeEl('div');
+  const store = {};
+  globalThis.document = {
+    getElementById: (id) => registry[id] || null,
+    createElement: (tag) => makeEl(tag)
+  };
+  globalThis.localStorage = {
+    getItem: (k) => (Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null),
+    setItem: (k, v) => {
+      store[k] = String(v);
+    },
+    removeItem: (k) => {
+      delete store[k];
+    }
+  };
+  return registry;
+}
+
 async function run() {
   const mod = await import('../public/js/studio/onboardingChecklist.js');
 
@@ -136,6 +191,46 @@ async function run() {
   assert.ok(!/\.innerHTML\s*=/.test(js), 'el módulo no usa innerHTML con data');
   assert.ok(js.includes('data-js-click'), 'el módulo crea los botones con data-js-click');
   console.log('✓ Wiring HTML/CSS/Studio sin on* ni innerHTML con data');
+
+  // ── 6) Render REAL con DOM simulado (contador, barra, botones Ir, ocultado) ─
+  const dom = installFakeDom(['onboardingChecklist', 'onboardingCount', 'onboardingPercent', 'onboardingBar', 'onboardingSteps']);
+
+  mod.renderOnboardingChecklist({ categories: [{ id: 'c1' }] });
+  assert.strictEqual(dom.onboardingChecklist.style.display, '', 'incompleto → visible');
+  assert.strictEqual(dom.onboardingCount.textContent, '1 de 6', 'contador "X de Y"');
+  assert.strictEqual(dom.onboardingPercent.textContent, '17%', 'porcentaje redondeado (1/6)');
+  assert.strictEqual(dom.onboardingBar.style.width, '17%', 'barra proporcional');
+  assert.strictEqual(dom.onboardingSteps.children.length, 6, 'una fila por paso');
+  const pendingRows = dom.onboardingSteps.children.filter(
+    (li) => /onboarding-step\b/.test(li.className) && !/\bdone\b/.test(li.className)
+  );
+  assert.strictEqual(pendingRows.length, 5, '5 pasos pendientes');
+  const goBtn = pendingRows[0].children.find((n) => n.className === 'onboarding-step-go');
+  assert.ok(
+    goBtn && goBtn.getAttribute('data-js-click') === 'onboardGoToStep|local',
+    'el botón Ir del 1er pendiente (marca) navega a "local"'
+  );
+  const doneRow = dom.onboardingSteps.children.find((li) => /\bdone\b/.test(li.className));
+  assert.ok(doneRow && !doneRow.children.some((n) => n.className === 'onboarding-step-go'), 'un paso hecho no tiene botón Ir');
+  console.log('✓ Render DOM: contador, barra, botones "Ir →" y fila hecha sin botón');
+
+  // Supresión (modo demo) oculta aunque falten pasos
+  mod.setOnboardingSuppressed(() => true);
+  mod.renderOnboardingChecklist({ categories: [{ id: 'c1' }] });
+  assert.strictEqual(dom.onboardingChecklist.style.display, 'none', 'suprimido (demo) → oculto');
+  mod.setOnboardingSuppressed(null);
+
+  // Local completo → oculto
+  mod.renderOnboardingChecklist(fullR);
+  assert.strictEqual(dom.onboardingChecklist.style.display, 'none', 'completo → oculto');
+
+  // Descarte del dueño: persiste y oculta
+  mod.renderOnboardingChecklist({ categories: [{ id: 'c1' }] });
+  assert.strictEqual(dom.onboardingChecklist.style.display, '', 'vuelve a mostrarse mientras falte algo');
+  mod.dismissOnboarding();
+  assert.strictEqual(dom.onboardingChecklist.style.display, 'none', 'descartado → oculto');
+  assert.strictEqual(globalThis.localStorage.getItem(mod.ONBOARDING_DISMISS_KEY), '1', 'el descarte persiste en localStorage');
+  console.log('✓ Render DOM: supresión demo, local completo y descarte ocultan el checklist');
 
   console.log('\n🎉 ¡PUESTA EN MARCHA EN VERDE: checklist puro + wiring CSP-safe!\n');
 }
