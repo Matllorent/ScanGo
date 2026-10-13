@@ -20,6 +20,43 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; margin: 0; padding: 0; }
 
+    /* Focus visible (WCAG 2.4.7): anillo dorado consistente en todo el panel */
+    :focus-visible {
+      outline: 3px solid var(--accent-gold);
+      outline-offset: 2px;
+    }
+    :focus:not(:focus-visible) {
+      outline: none;
+    }
+    /* Utilidad: contenido solo para lectores de pantalla (WCAG 1.3.1 / 2.4.1) */
+    .sr-only {
+      position: absolute !important;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    /* Skip link: oculto hasta navegar con teclado (WCAG 2.4.1) */
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent-gold);
+      color: #121A18;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 700;
+      z-index: 9999;
+      text-decoration: none;
+      transition: top 0.2s;
+    }
+    .skip-link:focus {
+      top: 10px;
+    }
+
     body {
       background: var(--bg-base);
       color: var(--text-main);

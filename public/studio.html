@@ -26,6 +26,8 @@
 </head>
 <body>
 
+  <a href="#tab-content-scroll" class="skip-link">Saltar al contenido principal</a>
+
   <!-- Top Navigation Bar -->
   <header class="top-navbar">
     <div class="brand-area">
@@ -61,7 +63,7 @@
   <!-- Subscription Alert Banner -->
   <div id="subscriptionAlertBanner" style="display:none; padding:12px 20px; font-weight:600; font-size:0.9rem; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
     <div id="subscriptionAlertText" style="flex:1; min-width:200px;"></div>
-    <button id="subscriptionAlertBtn" data-js-click="openBillingModal" style="padding:6px 16px; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; border:none; white-space:nowrap;"></button>
+    <button id="subscriptionAlertBtn" data-js-click="openBillingModal" aria-label="Gestionar suscripción" style="padding:6px 16px; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; border:none; white-space:nowrap;"></button>
   </div>
 
   <!-- Demo Mode Banner (visible solo con ?demo=<rubro>) -->
@@ -153,7 +155,7 @@
         </button>
       </nav>
 
-      <div class="tab-content-scroll">
+      <div class="tab-content-scroll" id="tab-content-scroll" tabindex="-1">
 
         <!-- TAB 1: MI LOCAL -->
         <div id="tab-local" class="tab-pane active">
@@ -182,23 +184,23 @@
             <div class="section-title">📍 Datos Principales del Local</div>
 
             <div class="form-group">
-              <label class="form-label">Nombre del Restaurante / Bar</label>
+              <label class="form-label" for="inputLocalName">Nombre del Restaurante / Bar</label>
               <input type="text" id="inputLocalName" class="form-input" data-js-input="updateLiveState">
             </div>
 
             <div class="form-group">
-              <label class="form-label">Slogan o Descripción Corta</label>
+              <label class="form-label" for="inputLocalSlogan">Slogan o Descripción Corta</label>
               <input type="text" id="inputLocalSlogan" class="form-input" placeholder="Ej: Especialidad, cocina de autor y tragos" data-js-input="updateLiveState">
             </div>
 
             <div class="form-group">
-              <label class="form-label">Slug de Enlace Público (/m/:slug)</label>
+              <label class="form-label" for="inputLocalSlug">Slug de Enlace Público (/m/:slug)</label>
               <input type="text" id="inputLocalSlug" class="form-input" placeholder="ej: la-trattoria" data-js-input="updateLiveState">
               <div class="input-hint">Tu enlace web será: <code id="previewFullUrl">/m/slug</code></div>
             </div>
 
             <div class="form-group">
-              <label class="form-label">Rubro / Tipo de Comercio</label>
+              <label class="form-label" for="inputBusinessType">Rubro / Tipo de Comercio</label>
               <select id="inputBusinessType" class="form-select" data-js-change="updateLiveState">
                 <option value="restaurant">🍽️ Restaurante, Bar & Gastronomía General</option>
                 <option value="heladeria">🍦 Heladería & Postres</option>
@@ -226,7 +228,7 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label">Moneda de la Carta</label>
+              <label class="form-label" for="inputLocalCurrency">Moneda de la Carta</label>
               <select id="inputLocalCurrency" class="form-select" data-js-change="updateLiveState">
                 <option value="$">$ (Pesos UYU / ARS / MXN)</option>
                 <option value="US$">US$ (Dólares Americanos)</option>
@@ -237,26 +239,26 @@
 
             <div class="field-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px;">
               <div class="form-group">
-                <label class="form-label">Instagram (@usuario)</label>
+                <label class="form-label" for="inputInstagram">Instagram (@usuario)</label>
                 <input type="text" id="inputInstagram" class="form-input" placeholder="Ej: @tulocal" data-js-input="updateLiveState">
               </div>
               <div class="form-group">
-                <label class="form-label">Facebook (link)</label>
+                <label class="form-label" for="inputFacebook">Facebook (link)</label>
                 <input type="text" id="inputFacebook" class="form-input" placeholder="https://facebook.com/tulocal" data-js-input="updateLiveState">
               </div>
             </div>
             <div class="field-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px;">
               <div class="form-group">
-                <label class="form-label">TikTok (link)</label>
+                <label class="form-label" for="inputTiktok">TikTok (link)</label>
                 <input type="text" id="inputTiktok" class="form-input" placeholder="https://tiktok.com/@tulocal" data-js-input="updateLiveState">
               </div>
               <div class="form-group">
-                <label class="form-label">X / Twitter (link)</label>
+                <label class="form-label" for="inputX">X / Twitter (link)</label>
                 <input type="text" id="inputX" class="form-input" placeholder="https://x.com/tulocal" data-js-input="updateLiveState">
               </div>
             </div>
             <div class="form-group" style="margin-top: 4px;">
-              <label class="form-label">Link Reseñas de Google</label>
+              <label class="form-label" for="inputGoogleReview">Link Reseñas de Google</label>
               <input type="text" id="inputGoogleReview" class="form-input" placeholder="https://g.page/r/tu-local/review" data-js-input="updateLiveState">
             </div>
 
@@ -269,7 +271,7 @@
               <p style="font-size:10px; color:var(--text-dim); margin-bottom:10px;">Google y los asistentes de IA leen estos datos para mostrar tu ficha con coherencia en tu página pública (<code>/m/tu-slug</code>).</p>
 
               <div class="form-group">
-                <label class="form-label">Rango de Precios</label>
+                <label class="form-label" for="inputPriceRange">Rango de Precios</label>
                 <select id="inputPriceRange" class="form-select" data-js-change="updateLiveState">
                   <option value="">— Sin especificar —</option>
                   <option value="$">$ · Económico</option>
@@ -281,18 +283,18 @@
               </div>
 
               <div class="form-group">
-                <label class="form-label">Google Business Profile (link público)</label>
+                <label class="form-label" for="inputSameAs">Google Business Profile (link público)</label>
                 <input type="text" id="inputSameAs" class="form-input" placeholder="https://business.google.com/..." data-js-input="updateLiveState">
                 <div class="input-hint">Se publica como <code>sameAs</code>: vincula tu menú con tu ficha de Google (consistencia de datos locales).</div>
               </div>
 
               <div class="field-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                 <div class="form-group">
-                  <label class="form-label">Latitud</label>
+                  <label class="form-label" for="inputLatitude">Latitud</label>
                   <input type="number" step="any" id="inputLatitude" class="form-input" placeholder="Ej: -34.9053" data-js-input="updateLiveState">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">Longitud</label>
+                  <label class="form-label" for="inputLongitude">Longitud</label>
                   <input type="number" step="any" id="inputLongitude" class="form-input" placeholder="Ej: -56.1916" data-js-input="updateLiveState">
                 </div>
               </div>
@@ -338,7 +340,7 @@
                   </button>
                 </div>
                 <div>
-                  <input type="text" id="inputBannerUrl" class="form-input" placeholder="O pega aquí la URL de la imagen (https://...)" style="font-size: 11px;" data-js-input="handleBannerUrlInput|event">
+                  <input type="text" id="inputBannerUrl" aria-label="URL de la imagen del banner" class="form-input" placeholder="O pega aquí la URL de la imagen (https://...)" style="font-size: 11px;" data-js-input="handleBannerUrlInput|event">
                   <span class="input-hint">Formato panorámico recomendado (1200x400 o 16:9). Se adaptará fluidamente en móviles.</span>
                 </div>
               </div>
@@ -346,7 +348,7 @@
 
             <!-- Announcement Banner of the Day -->
             <div class="form-group" style="margin-top: 14px;">
-              <label class="form-label">📢 Cartel de Anuncio del Día (Banner Superior en el Menú)</label>
+              <label class="form-label" for="inputAnnouncement">📢 Cartel de Anuncio del Día (Banner Superior en el Menú)</label>
               <input type="text" id="inputAnnouncement" class="form-input" placeholder="Ej: ¡Hoy 2x1 en Cervezas Artesanales de 19 a 21 hs! 🍻" data-js-input="updateLiveState">
               <div class="input-hint">Aparecerá destacado en la parte superior de la carta para todos tus clientes. Déjalo vacío para ocultarlo.</div>
             </div>
@@ -363,7 +365,7 @@
                   <span id="sliderOnlinePayment" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
                 </label>
               </div>
-              <input type="text" id="inputPaymentLink" class="form-input" placeholder="Link de pago propio (opcional): https://mpago.la/tu-link" data-js-input="updateLiveState">
+              <input type="text" id="inputPaymentLink" aria-label="Link de pago propio (opcional)" class="form-input" placeholder="Link de pago propio (opcional): https://mpago.la/tu-link" data-js-input="updateLiveState">
               <div class="input-hint">Si lo dejás vacío y el servidor tiene Mercado Pago configurado, el menú genera un link de pago por pedido.</div>
             </div>
 
@@ -380,7 +382,7 @@
                 </label>
               </div>
               <div style="display:flex; gap:8px; align-items:center;">
-                <input type="text" id="inputScheduleActiveHours" class="form-input" placeholder="Ej: 11:30-15:30" style="font-family:var(--font-mono); font-size:11px;" data-js-input="updateLiveState">
+                <input type="text" id="inputScheduleActiveHours" aria-label="Horario de atención (HH:MM-HH:MM)" class="form-input" placeholder="Ej: 11:30-15:30" style="font-family:var(--font-mono); font-size:11px;" data-js-input="updateLiveState">
                 <span class="input-hint" style="margin-top:0; white-space:nowrap;">Horario (HH:MM-HH:MM)</span>
               </div>
               <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);">
@@ -399,11 +401,11 @@
           <div class="form-section">
             <div class="section-title">📶 Conectividad Wi-Fi para Clientes</div>
             <div class="form-group">
-              <label class="form-label">Nombre de Red Wi-Fi (SSID)</label>
+              <label class="form-label" for="inputWifiSsid">Nombre de Red Wi-Fi (SSID)</label>
               <input type="text" id="inputWifiSsid" class="form-input" placeholder="Ej: BarPizarron_Clientes" data-js-input="updateLiveState">
             </div>
             <div class="form-group">
-              <label class="form-label">Contraseña de Red Wi-Fi</label>
+              <label class="form-label" for="inputWifiPass">Contraseña de Red Wi-Fi</label>
               <input type="text" id="inputWifiPass" class="form-input" placeholder="Ej: CafeRico2026" data-js-input="updateLiveState">
             </div>
           </div>
@@ -428,7 +430,7 @@
               <label class="form-label" style="margin-bottom:0;">Filtrar por Categoría</label>
               <button type="button" class="btn-nav" style="font-size:10px; padding:2px 8px;" data-js-click="openCategoryManagerModal">📁 Gestionar Categorías</button>
             </div>
-            <select id="selectCatFilter" class="form-select" data-js-change="renderDishesList">
+            <select id="selectCatFilter" aria-label="Filtrar platos por categoría" class="form-select" data-js-change="renderDishesList">
               <option value="ALL">Todas las Categorías</option>
             </select>
           </div>
@@ -440,7 +442,7 @@
               <span style="font-size:9px; color:var(--text-dim);">Desactiva en masa</span>
             </label>
             <div style="display:flex; gap:6px;">
-              <input type="text" id="inputIngredientKeyword" class="form-input" placeholder="Ej: Salmón, Champiñones, Aguacate..." style="font-size:11px;">
+              <input type="text" id="inputIngredientKeyword" aria-label="Ingrediente a marcar como agotado" class="form-input" placeholder="Ej: Salmón, Champiñones, Aguacate..." style="font-size:11px;">
               <button type="button" class="btn-nav btn-icon-danger" style="padding:0 10px; font-size:11px; white-space:nowrap;" data-js-click="toggleDishesByIngredient|true">
                 ✕ Agotar
               </button>
@@ -481,7 +483,7 @@
 
             <!-- Layout Switcher (Nuevas Morfologías) -->
             <div class="form-group" style="margin-bottom: 16px; background: var(--bg-base); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
-              <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
+              <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;" for="inputMenuLayout">
                 <span>📐 Morfología y Estructura del Menú (Layout)</span>
                 <span style="font-size:10px; color:var(--accent-gold); font-weight:700;">LAYOUT SWITCHER</span>
               </label>
@@ -522,7 +524,7 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label">Fondo y Paleta del Pizarrón <span id="themeCountHint" style="font-weight:400; opacity:.7;">(14 clásicas + 11 de heladería)</span></label>
+              <label class="form-label" for="inputThemeBg">Fondo y Paleta del Pizarrón <span id="themeCountHint" style="font-weight:400; opacity:.7;">(14 clásicas + 11 de heladería)</span></label>
               <select id="inputThemeBg" class="form-select" data-js-change="updateLiveState">
                 <option value="classic">1. Pizarrón Clásico Negro Grafito (Tiza Blanca)</option>
                 <option value="emerald" selected>2. Pizarrón Verde Bistro Esmeralda (Bistró Pomelli)</option>
@@ -560,7 +562,7 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label">Estilo Tipográfico de Títulos</label>
+              <label class="form-label" for="inputThemeFont">Estilo Tipográfico de Títulos</label>
               <select id="inputThemeFont" class="form-select" data-js-change="updateLiveState">
                 <option value="serif">Elegante Serif (Playfair Display)</option>
                 <option value="chalk">Tiza Cursiva Clásica (Caveat)</option>
@@ -577,7 +579,7 @@
           <div class="form-section">
             <div class="section-title">📲 Canal de WhatsApp Directo</div>
             <div class="form-group">
-              <label class="form-label">Número de WhatsApp (con código de país sin +)</label>
+              <label class="form-label" for="inputPhone">Número de WhatsApp (con código de país sin +)</label>
               <input type="text" id="inputPhone" class="form-input" placeholder="Ej: 59899123456" data-js-input="updateLiveState">
               <div class="input-hint">Los clientes te enviarán el pedido estructurado aquí sin comisión.</div>
             </div>
@@ -661,19 +663,19 @@
               </p>
               <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:10px;">
                 <div>
-                  <label class="form-label">Puntos por pedido</label>
+                  <label class="form-label" for="inputLoyaltyPointsPerOrder">Puntos por pedido</label>
                   <input type="number" id="inputLoyaltyPointsPerOrder" class="form-input" min="0" step="1" value="10">
                 </div>
                 <div>
-                  <label class="form-label">Puntos por $1</label>
+                  <label class="form-label" for="inputLoyaltyPointsPerCurrency">Puntos por $1</label>
                   <input type="number" id="inputLoyaltyPointsPerCurrency" class="form-input" min="0" step="1" value="1">
                 </div>
                 <div>
-                  <label class="form-label">Sellos para premio</label>
+                  <label class="form-label" for="inputLoyaltyStampsTarget">Sellos para premio</label>
                   <input type="number" id="inputLoyaltyStampsTarget" class="form-input" min="2" step="1" value="6">
                 </div>
                 <div>
-                  <label class="form-label">Premio por sellos</label>
+                  <label class="form-label" for="inputLoyaltyVisitRewardTitle">Premio por sellos</label>
                   <input type="text" id="inputLoyaltyVisitRewardTitle" class="form-input" value="Café de bienvenida" maxlength="60">
                 </div>
               </div>
@@ -823,7 +825,7 @@
 
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; align-items:flex-end;">
               <div class="form-group" style="margin-bottom:0;">
-                <label class="form-label">Cantidad Total de Mesas</label>
+                <label class="form-label" for="inputTableCount">Cantidad Total de Mesas</label>
                 <input type="number" id="inputTableCount" class="form-input" min="1" max="100" value="10" data-js-input="updateLiveState">
               </div>
               <button class="btn-nav btn-nav-gold" style="height:36px; justify-content:center; width:100%;" data-js-click="downloadAllTablesPDF">
@@ -905,20 +907,20 @@
               <form id="addBranchForm" data-js-submit="addBranch|event">
                 <div class="field-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
                   <div class="form-group">
-                    <label class="form-label">Nombre de la Sucursal *</label>
+                    <label class="form-label" for="branchName">Nombre de la Sucursal *</label>
                     <input type="text" id="branchName" class="form-input" placeholder="Ej: Sucursal Centro, Pocitos, etc." required maxlength="60">
                   </div>
                   <div class="form-group">
-                    <label class="form-label">Teléfono de Contacto</label>
+                    <label class="form-label" for="branchPhone">Teléfono de Contacto</label>
                     <input type="text" id="branchPhone" class="form-input" placeholder="Ej: 59899123456" maxlength="20">
                   </div>
                 </div>
                 <div class="form-group">
-                  <label class="form-label">Dirección Completa</label>
+                  <label class="form-label" for="branchAddress">Dirección Completa</label>
                   <textarea id="branchAddress" class="form-textarea" rows="2" placeholder="Ej: Av. 18 de Julio 1234, Montevideo" maxlength="200"></textarea>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label">Slug Interno (para enlaces directos /m/:slug?sucursal=...)</label>
+                  <label class="form-label" for="branchSlug">Slug Interno (para enlaces directos /m/:slug?sucursal=...)</label>
                   <input type="text" id="branchSlug" class="form-input" placeholder="Ej: centro, pocitos, shopping" maxlength="30" style="font-family:var(--font-mono); font-size:11px;">
                   <span class="input-hint">Solo minúsculas, números y guiones. Si lo dejás vacío, se genera automáticamente.</span>
                 </div>
@@ -983,7 +985,7 @@
 
             <form id="restaurantReviewForm" data-js-submit="submitOwnerReview|event">
               <div class="form-group">
-                <label class="form-label">Calificación General *</label>
+                <label class="form-label" for="reviewRating">Calificación General *</label>
                 <select id="reviewRating" class="form-select">
                   <option value="5" selected>⭐⭐⭐⭐⭐ 5 Estrellas (Excelente)</option>
                   <option value="4">⭐⭐⭐⭐ 4 Estrellas (Muy Bueno)</option>
@@ -994,7 +996,7 @@
               </div>
 
               <div class="form-group">
-                <label class="form-label">Tu Cargo / Rol en el Local *</label>
+                <label class="form-label" for="reviewAuthorRole">Tu Cargo / Rol en el Local *</label>
                 <input type="text" id="reviewAuthorRole" class="form-input" placeholder="Ej: Dueño / Chef Ejecutivo / Gerente" required>
               </div>
 
@@ -1041,7 +1043,7 @@
               </div>
 
               <div class="form-group">
-                <label class="form-label">Tu Testimonio u Opinión *</label>
+                <label class="form-label" for="reviewComment">Tu Testimonio u Opinión *</label>
                 <textarea id="reviewComment" class="form-textarea" rows="4" placeholder="¿Cómo te ayudó ScanGo en la gestión de tu restaurante y en el ahorro de comisiones?" required></textarea>
               </div>
 
@@ -1078,12 +1080,12 @@
             </p>
 
             <div class="form-group">
-              <label class="form-label">Teléfono del Cliente (con código de país sin +)</label>
+              <label class="form-label" for="notifPhone">Teléfono del Cliente (con código de país sin +)</label>
               <input type="text" id="notifPhone" class="form-input" placeholder="Ej: 59899123456">
             </div>
 
             <div class="form-group">
-              <label class="form-label">Nombre del Cliente / N° Pedido o Mesa</label>
+              <label class="form-label" for="notifClientName">Nombre del Cliente / N° Pedido o Mesa</label>
               <input type="text" id="notifClientName" class="form-input" placeholder="Ej: Marcela (Mesa 4 / Pedido #12)">
             </div>
 
@@ -1140,7 +1142,7 @@
                 Pegalo acá para validarlo y marcarlo como usado. Los códigos de otros restaurantes se rechazan solos.
               </p>
               <div style="display:flex; gap:8px; margin-bottom:8px;">
-                <input type="text" id="inputRedeemCode" class="form-input" placeholder="LOY-XXXX-XXXX" style="text-transform:uppercase; font-family:var(--font-mono);" data-js-keydown="handleRedeemCodeEnter|event">
+                <input type="text" id="inputRedeemCode" aria-label="Código de canje de fidelización" class="form-input" placeholder="LOY-XXXX-XXXX" style="text-transform:uppercase; font-family:var(--font-mono);" data-js-keydown="handleRedeemCodeEnter|event">
                 <button type="button" class="btn-nav" data-js-click="validateLoyaltyCode" style="white-space:nowrap; padding:0 14px; font-size:11px;">Validar ✅</button>
               </div>
               <div id="loyaltyValidateResult" style="font-size:11px;"></div>
@@ -1167,11 +1169,11 @@
                 (rol guest + opt-in). Nunca se envían promos a quien no dio su permiso.
               </p>
               <div class="form-group">
-                <label class="form-label">Título</label>
+                <label class="form-label" for="inputPromoTitle">Título</label>
                 <input type="text" id="inputPromoTitle" class="form-input" maxlength="100" placeholder="🍕 2x1 en pizzas este finde">
               </div>
               <div class="form-group">
-                <label class="form-label">Mensaje</label>
+                <label class="form-label" for="inputPromoBody">Mensaje</label>
                 <textarea id="inputPromoBody" class="form-textarea" rows="2" maxlength="500" placeholder="Mostrando el código PROMO10 al ordenar..."></textarea>
               </div>
               <button type="button" class="btn-nav btn-nav-gold" data-js-click="sendPromoPush" style="width:100%; justify-content:center; padding:8px; font-weight:700; font-size:12px;">📣 Enviar promo</button>
@@ -1190,15 +1192,15 @@
 
             <!-- Time Range Selector -->
             <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
-              <select id="analyticsTimeRange" class="form-select" data-js-change="loadAnalytics" style="width:auto; min-width:160px;">
+              <select id="analyticsTimeRange" aria-label="Rango de tiempo de las métricas" class="form-select" data-js-change="loadAnalytics" style="width:auto; min-width:160px;">
                 <option value="7">Últimos 7 días</option>
                 <option value="30" selected>Últimos 30 días</option>
                 <option value="90">Últimos 90 días</option>
               </select>
-              <select id="analyticsBranchFilter" class="form-select" data-js-change="loadAnalytics" style="width:auto; min-width:180px;">
+              <select id="analyticsBranchFilter" aria-label="Filtrar métricas por sucursal" class="form-select" data-js-change="loadAnalytics" style="width:auto; min-width:180px;">
                 <option value="">Todas las sucursales</option>
               </select>
-              <select id="analyticsEventFilter" class="form-select" data-js-change="loadAnalytics" style="width:auto; min-width:180px;">
+              <select id="analyticsEventFilter" aria-label="Filtrar métricas por evento" class="form-select" data-js-change="loadAnalytics" style="width:auto; min-width:180px;">
                 <option value="">Todos los eventos</option>
               </select>
               <button class="btn-nav" data-js-click="loadAnalytics">🔄 Actualizar</button>
@@ -1446,9 +1448,9 @@
 
   <!-- Presets 85+ Dishes Modal with Individual Dish Selection -->
   <div id="presetsModal" class="modal-overlay">
-    <div class="modal-box" style="max-width: 600px;">
-      <button class="modal-close" data-js-click="closePresetsModal">✕</button>
-      <h3 class="modal-title">💡 Catálogo de 85+ Platos Frecuentes</h3>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="presetsModalTitle" style="max-width: 600px;">
+      <button class="modal-close" data-js-click="closePresetsModal" aria-label="Cerrar">✕</button>
+      <h3 class="modal-title" id="presetsModalTitle">💡 Catálogo de 85+ Platos Frecuentes</h3>
       <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px;">
         Haz clic en una categoría para explorar sus platos y agregar platos individuales o importar toda la sección.
       </p>
@@ -1479,9 +1481,9 @@
 
   <!-- Modal Catálogo de 30+ Sabores de Heladería (Presets con Checkboxes) -->
   <div id="iceCreamPresetsModal" class="modal-overlay">
-    <div class="modal-box" style="max-width: 650px;">
-      <button class="modal-close" data-js-click="closeIceCreamPresetsModal">✕</button>
-      <h3 class="modal-title" style="display:flex; align-items:center; gap:8px;">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="iceCreamPresetsTitle" style="max-width: 650px;">
+      <button class="modal-close" data-js-click="closeIceCreamPresetsModal" aria-label="Cerrar">✕</button>
+      <h3 class="modal-title" id="iceCreamPresetsTitle" style="display:flex; align-items:center; gap:8px;">
         <span>🍦 Catálogo de Sabores de Heladería Artesanal</span>
       </h3>
       <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px;">
@@ -1526,9 +1528,9 @@
 
   <!-- Modal Catálogo de Perfumería & Cosmética -->
   <div id="perfumeryPresetsModal" class="modal-overlay" data-business-type="perfumery">
-    <div class="modal-box" style="max-width: 650px;">
-      <button class="modal-close" data-js-click="closePerfumeryPresetsModal">✕</button>
-      <h3 class="modal-title" style="display:flex; align-items:center; gap:8px;">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="perfumeryPresetsTitle" style="max-width: 650px;">
+      <button class="modal-close" data-js-click="closePerfumeryPresetsModal" aria-label="Cerrar">✕</button>
+      <h3 class="modal-title" id="perfumeryPresetsTitle" style="display:flex; align-items:center; gap:8px;">
         <span>🌸 Catálogo de Fragancias de Autor & Cosmética</span>
       </h3>
       <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px;">
@@ -1547,15 +1549,15 @@
 
   <!-- Dish Create / Edit Modal -->
   <div id="dishEditModal" class="modal-overlay">
-    <div class="modal-box">
-      <button class="modal-close" data-js-click="closeDishEditModal">✕</button>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="dishModalTitle">
+      <button class="modal-close" data-js-click="closeDishEditModal" aria-label="Cerrar">✕</button>
       <h3 class="modal-title" id="dishModalTitle">Editar Plato</h3>
 
       <form id="dishForm" data-js-submit="saveDishFromModal|event">
         <input type="hidden" id="modalDishId">
 
         <div class="form-group">
-          <label class="form-label">Nombre del Plato / Bebida *</label>
+          <label class="form-label" for="modalDishName">Nombre del Plato / Bebida *</label>
           <input type="text" id="modalDishName" class="form-input" required placeholder="Ej: Milanesa Napolitana con Fritas">
         </div>
 
@@ -1564,24 +1566,24 @@
             <label class="form-label" style="margin-bottom:0;">Categoría *</label>
             <button type="button" class="btn-nav" style="font-size:10px; padding:2px 8px;" data-js-click="promptNewCategoryInModal">+ Nueva Categoría</button>
           </div>
-          <select id="modalDishCategory" class="form-select" required>
+          <select id="modalDishCategory" aria-label="Categoría del plato" class="form-select" required>
             <!-- Populated dynamically -->
           </select>
         </div>
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
           <div class="form-group" style="margin-bottom:0;">
-            <label class="form-label">Precio Actual *</label>
+            <label class="form-label" for="modalDishPrice">Precio Actual *</label>
             <input type="number" id="modalDishPrice" class="form-input" required step="0.01" min="0" placeholder="Ej: 490">
           </div>
           <div class="form-group" style="margin-bottom:0;">
-            <label class="form-label">Precio Anterior (Tachado)</label>
+            <label class="form-label" for="modalDishOriginalPrice">Precio Anterior (Tachado)</label>
             <input type="number" id="modalDishOriginalPrice" class="form-input" step="0.01" min="0" placeholder="Ej: 590 (Opcional)">
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Descripción / Ingredientes</label>
+          <label class="form-label" for="modalDishDesc">Descripción / Ingredientes</label>
           <textarea id="modalDishDesc" class="form-textarea" rows="3" placeholder="Ej: Lomo tierno empanado, salsa pomodoro casera, jamón y queso muzzarella fundido con papas fritas."></textarea>
         </div>
 
@@ -1599,7 +1601,7 @@
         <div class="form-group">
           <label class="form-label">📷 Foto del Plato</label>
           <div style="display:flex; flex-direction:column; gap:6px;">
-            <input type="text" id="modalDishPhoto" class="form-input" placeholder="https://... o seleccioná una foto de tu dispositivo">
+            <input type="text" id="modalDishPhoto" aria-label="URL de la foto del plato" class="form-input" placeholder="https://... o seleccioná una foto de tu dispositivo">
             <div style="display:flex; align-items:center; gap:8px;">
               <label for="modalDishPhotoFile" class="btn-nav" style="font-size:11px; padding:5px 10px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
                 📁 Subir foto de dispositivo
@@ -1620,7 +1622,7 @@
           <div style="background:var(--surface-2); padding:8px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; justify-content:space-between; min-height:60px;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
               <strong style="font-size:11px; color:#fff;">Agotado</strong>
-              <input type="checkbox" id="modalDishOutOfStock" style="width:16px; height:16px; cursor:pointer;">
+              <input type="checkbox" id="modalDishOutOfStock" aria-label="Marcar el plato como agotado" style="width:16px; height:16px; cursor:pointer;">
             </div>
             <div style="font-size:9px; color:var(--text-dim);">Tacha el plato</div>
           </div>
@@ -1628,7 +1630,7 @@
           <div style="background:var(--surface-2); padding:8px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; justify-content:space-between; min-height:60px;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
               <strong style="font-size:11px; color:var(--accent-gold);">Destacado ⭐</strong>
-              <input type="checkbox" id="modalDishStar" style="width:16px; height:16px; cursor:pointer;">
+              <input type="checkbox" id="modalDishStar" aria-label="Marcar el plato como destacado" style="width:16px; height:16px; cursor:pointer;">
             </div>
             <div style="font-size:9px; color:var(--text-dim);">Especialidad</div>
           </div>
@@ -1636,7 +1638,7 @@
           <div style="background:rgba(236,201,75,0.08); padding:8px; border-radius:8px; border:1px solid rgba(236,201,75,0.3); display:flex; flex-direction:column; justify-content:space-between; min-height:60px;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
               <strong style="font-size:11px; color:var(--accent-gold);">👨‍🍳 Menú del Día</strong>
-              <input type="checkbox" id="modalDishChefSpecial" style="width:16px; height:16px; cursor:pointer;">
+              <input type="checkbox" id="modalDishChefSpecial" aria-label="Marcar el plato como menú del día" style="width:16px; height:16px; cursor:pointer;">
             </div>
             <div style="font-size:9px; color:var(--text-dim);">Sugerencia Chef</div>
           </div>
@@ -1694,16 +1696,16 @@
             </div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px;">
               <div>
-                <label class="form-label" style="font-size:10px; margin-bottom:2px;">Hora Inicio</label>
+                <label class="form-label" style="font-size:10px; margin-bottom:2px;" for="modalDishTimeStart">Hora Inicio</label>
                 <input type="time" id="modalDishTimeStart" class="form-input" value="11:30" style="font-size:11px;">
               </div>
               <div>
-                <label class="form-label" style="font-size:10px; margin-bottom:2px;">Hora Fin</label>
+                <label class="form-label" style="font-size:10px; margin-bottom:2px;" for="modalDishTimeEnd">Hora Fin</label>
                 <input type="time" id="modalDishTimeEnd" class="form-input" value="15:30" style="font-size:11px;">
               </div>
             </div>
             <div>
-              <label class="form-label" style="font-size:10px; margin-bottom:2px;">Fuera de Horario:</label>
+              <label class="form-label" style="font-size:10px; margin-bottom:2px;" for="modalDishScheduleBehavior">Fuera de Horario:</label>
               <select id="modalDishScheduleBehavior" class="form-select" style="font-size:11px;">
                 <option value="hide">Ocultar completamente del menú</option>
                 <option value="badge">Mostrar como 'No disponible en este horario'</option>
@@ -1722,9 +1724,9 @@
 
   <!-- Billing Modal -->
   <div id="billingModal" class="modal-overlay">
-    <div class="modal-box" style="text-align: center;">
-      <button class="modal-close" data-js-click="closeBillingModal">✕</button>
-      <h3 class="modal-title">Gestionar Suscripción — ScanGo</h3>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="billingModalTitle" style="text-align: center;">
+      <button class="modal-close" data-js-click="closeBillingModal" aria-label="Cerrar">✕</button>
+      <h3 class="modal-title" id="billingModalTitle">Gestionar Suscripción — ScanGo</h3>
       
       <div style="background:var(--surface-2); padding:16px; border-radius:10px; margin-bottom:16px; text-align:left;">
         <div style="font-size:12px; color:var(--text-dim);">Estado Actual:</div>
@@ -1791,10 +1793,10 @@
 
   <!-- Modal Reseña a los 30 Días -->
   <div id="milestone30DaysModal" class="modal-overlay">
-    <div class="modal-box" style="max-width: 500px; text-align: center;">
-      <button class="modal-close" data-js-click="closeMilestone30DaysModal">✕</button>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="milestone30Title" style="max-width: 500px; text-align: center;">
+      <button class="modal-close" data-js-click="closeMilestone30DaysModal" aria-label="Cerrar">✕</button>
       <div style="font-size: 3rem; margin-bottom: 8px;">🎉</div>
-      <h3 class="modal-title" style="margin-bottom: 6px;">¡Cumpliste tu Primer Mes con ScanGo!</h3>
+      <h3 class="modal-title" id="milestone30Title" style="margin-bottom: 6px;">¡Cumpliste tu Primer Mes con ScanGo!</h3>
       <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 16px; line-height: 1.6;">
         Tu restaurante ya forma parte de los locales gastronómicos que aumentan ventas y eliminan comisiones abusivas. Nos encantaría conocer tu experiencia.
       </p>
@@ -1819,29 +1821,29 @@
 
   <!-- Sucursal Edit Modal: edición de sucursal con overridePrices + customDishes -->
   <div id="branchEditModal" class="modal-overlay">
-    <div class="modal-box" style="max-width: 640px;">
-      <button class="modal-close" data-js-click="closeBranchEdit">✕</button>
-      <h3 class="modal-title">⚙️ Editar Sucursal</h3>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="branchEditTitle" style="max-width: 640px;">
+      <button class="modal-close" data-js-click="closeBranchEdit" aria-label="Cerrar">✕</button>
+      <h3 class="modal-title" id="branchEditTitle">⚙️ Editar Sucursal</h3>
       <p id="branchEditStatus" style="font-size:11px; color:var(--text-dim); margin-bottom:14px;">
         Configurá los datos de contacto, precios personalizados y platillos exclusivos de esta sucursal.
       </p>
       <form data-js-submit="saveBranchEdit|event">
         <div class="field-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
           <div class="form-group">
-            <label class="form-label">Nombre</label>
+            <label class="form-label" for="branchEditName">Nombre</label>
             <input type="text" id="branchEditName" class="form-input" maxlength="80">
           </div>
           <div class="form-group">
-            <label class="form-label">Teléfono</label>
+            <label class="form-label" for="branchEditPhone">Teléfono</label>
             <input type="text" id="branchEditPhone" class="form-input" placeholder="Ej: 59899123456" maxlength="20">
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Dirección Completa</label>
+          <label class="form-label" for="branchEditAddress">Dirección Completa</label>
           <textarea id="branchEditAddress" class="form-textarea" rows="2" placeholder="Ej: Av. 18 de Julio 1234, Montevideo" maxlength="200"></textarea>
         </div>
         <div class="form-group">
-          <label class="form-label">Slug Interno (para enlaces directos /m/:slug?sucursal=...)</label>
+          <label class="form-label" for="branchEditSlug">Slug Interno (para enlaces directos /m/:slug?sucursal=...)</label>
           <input type="text" id="branchEditSlug" class="form-input" placeholder="Ej: centro, pocitos, shopping" maxlength="30" style="font-family:var(--font-mono); font-size:11px;">
           <span class="input-hint">Si cambiás el slug, actualizá los QR/enlaces impresos que apunten a esta sucursal.</span>
         </div>
@@ -1881,8 +1883,8 @@
 
   <!-- Custom Confirmation Dialog Modal -->
   <div id="confirmActionModal" class="modal-overlay">
-    <div class="modal-box" style="max-width: 440px; text-align: center;">
-      <button class="modal-close" data-js-click="closeConfirmDialog|false">✕</button>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="confirmDialogTitle" style="max-width: 440px; text-align: center;">
+      <button class="modal-close" data-js-click="closeConfirmDialog|false" aria-label="Cerrar">✕</button>
       <div id="confirmDialogIcon" style="font-size: 2.8rem; margin-bottom: 8px;">⚠️</div>
       <h3 id="confirmDialogTitle" class="modal-title" style="border:none; margin-bottom: 8px; font-size: 1.15rem;">¿Confirmar Acción?</h3>
       <p id="confirmDialogMessage" style="font-size: 12px; color: var(--text-dim); margin-bottom: 20px; line-height: 1.6;">
@@ -1901,10 +1903,10 @@
   </div>
   <!-- Modal Eliminación de Cuenta (Google Play Account Deletion Policy Compliance) -->
   <div id="deleteAccountModal" class="modal-overlay">
-    <div class="modal-box" style="max-width: 480px; text-align: left;">
-      <button class="modal-close" data-js-click="closeDeleteAccountModal">✕</button>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="deleteAccountTitle" style="max-width: 480px; text-align: left;">
+      <button class="modal-close" data-js-click="closeDeleteAccountModal" aria-label="Cerrar">✕</button>
       <div style="font-size: 2.2rem; margin-bottom: 8px;">🗑️</div>
-      <h3 class="modal-title" style="margin-bottom: 8px; color: #EF4444;">Eliminar Cuenta y Datos Personales</h3>
+      <h3 class="modal-title" id="deleteAccountTitle" style="margin-bottom: 8px; color: #EF4444;">Eliminar Cuenta y Datos Personales</h3>
       <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 14px; line-height: 1.6;">
         En cumplimiento con las directivas de Google Play Store y leyes de privacidad (GDPR/LGPD), tenés el derecho de solicitar la baja definitiva de tu cuenta de usuario, establecimiento registrado, comensales y datos asociados.
       </p>
@@ -1912,7 +1914,7 @@
         ⚠️ Esta acción eliminará permanentemente tu menú digital, catálogo de platos, códigos QR generados y accesos a suscripciones.
       </div>
       <div class="form-group" style="margin-bottom: 14px;">
-        <label class="form-label">Motivo (Opcional):</label>
+        <label class="form-label" for="deleteAccountReason">Motivo (Opcional):</label>
         <input type="text" id="deleteAccountReason" class="form-input" placeholder="Ej: Cierre de local, cambio de plataforma...">
       </div>
       <div class="form-group" style="margin-bottom: 14px;">
@@ -1930,13 +1932,13 @@
 
   <!-- Category Manager Modal -->
   <div id="categoryManagerModal" class="modal-overlay">
-    <div class="modal-box" style="max-width: 440px; text-align: left;">
-      <button class="modal-close" data-js-click="closeCategoryManagerModal">✕</button>
-      <h3 class="modal-title">📁 Gestión de Categorías</h3>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="categoryManagerTitle" style="max-width: 440px; text-align: left;">
+      <button class="modal-close" data-js-click="closeCategoryManagerModal" aria-label="Cerrar">✕</button>
+      <h3 class="modal-title" id="categoryManagerTitle">📁 Gestión de Categorías</h3>
       <p style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;">Crea, renombra o elimina las secciones de tu carta.</p>
       
       <div style="display: flex; gap: 6px; margin-bottom: 14px;">
-        <input type="text" id="newCategoryInput" class="form-input" placeholder="Nombre de categoría (ej: Postres)">
+        <input type="text" id="newCategoryInput" aria-label="Nombre de la nueva categoría" class="form-input" placeholder="Nombre de categoría (ej: Postres)">
         <button type="button" class="btn-nav btn-nav-gold" style="white-space: nowrap; padding: 0 12px;" data-js-click="addCategoryFromManager">+ Crear</button>
       </div>
 
@@ -1951,9 +1953,9 @@
   </div>
 
   <div id="modifierGroupManagerModal" class="modal-overlay">
-    <div class="modal-box modifier-group-modal">
+    <div class="modal-box modifier-group-modal" role="dialog" aria-modal="true" aria-labelledby="modifierGroupTitle">
       <button type="button" class="modal-close" data-js-click="closeModifierGroupManager" aria-label="Cerrar">✕</button>
-      <h3 class="modal-title">Grupos de opciones</h3>
+      <h3 class="modal-title" id="modifierGroupTitle">Grupos de opciones</h3>
       <p class="modifier-group-intro">Creá grupos reutilizables. Un adicional en cero no cambia el precio; revisá los valores antes de asignarlos.</p>
       <div id="modifierGroupList" class="modifier-group-list"></div>
       <div class="modifier-group-create-actions">
@@ -2016,15 +2018,15 @@
 
   <!-- Modal 1: Importador de Cartas Físicas con IA (Gemini Flash) -->
   <div id="aiMenuImportModal" class="modal-overlay">
-    <div class="modal-box" style="max-width: 620px; text-align: left;">
-      <button class="modal-close" data-js-click="closeAiMenuImportModal">✕</button>
-      <h3 class="modal-title">📷 Importar Menú Físico con IA ✨</h3>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="aiMenuImportTitle" style="max-width: 620px; text-align: left;">
+      <button class="modal-close" data-js-click="closeAiMenuImportModal" aria-label="Cerrar">✕</button>
+      <h3 class="modal-title" id="aiMenuImportTitle">📷 Importar Menú Físico con IA ✨</h3>
       <p style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;">
         Sube las fotos de tu menú impreso (portada, platos, bebidas, etc.). <strong>Gemini Flash</strong> procesará todas las páginas en simultáneo para extraer categorías, nombres, descripciones, precios y sugerir el estilo visual de tu marca.
       </p>
 
       <!-- Drag & Drop Zone -->
-      <div id="aiMenuDropzone" style="border: 2px dashed rgba(236,201,75,0.4); border-radius: 10px; padding: 24px; text-align: center; background: rgba(0,0,0,0.2); cursor: pointer; transition: border-color .2s;" data-js-click="fireClick|aiMenuFilesInput">
+      <div id="aiMenuDropzone" role="button" tabindex="0" aria-label="Seleccionar fotos o PDF de tu menú" style="border: 2px dashed rgba(236,201,75,0.4); border-radius: 10px; padding: 24px; text-align: center; background: rgba(0,0,0,0.2); cursor: pointer; transition: border-color .2s;" data-js-click="fireClick|aiMenuFilesInput">
         <input type="file" id="aiMenuFilesInput" multiple accept="image/*,.pdf,application/pdf" style="display:none;" data-js-change="handleAiMenuFilesInput|event">
         <div style="font-size: 32px; margin-bottom: 8px;">📑 📸</div>
         <div style="font-size: 13px; font-weight: 600; color: #fff; margin-bottom: 4px;">
@@ -2073,9 +2075,9 @@
 
   <!-- Modal 2: Previsualización y Confirmación de Menú Detectado -->
   <div id="aiMenuPreviewModal" class="modal-overlay">
-    <div class="modal-box" style="max-width: 640px; text-align: left; max-height: 90vh; display: flex; flex-direction: column;">
-      <button class="modal-close" data-js-click="closeAiMenuPreviewModal">✕</button>
-      <h3 class="modal-title">📋 Menú Detectado por IA — Previsualización</h3>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="aiMenuPreviewTitle" style="max-width: 640px; text-align: left; max-height: 90vh; display: flex; flex-direction: column;">
+      <button class="modal-close" data-js-click="closeAiMenuPreviewModal" aria-label="Cerrar">✕</button>
+      <h3 class="modal-title" id="aiMenuPreviewTitle">📋 Menú Detectado por IA — Previsualización</h3>
       <p style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;">
         Revisa la información extraída y elige cómo integrarla en tu menú digital.
       </p>

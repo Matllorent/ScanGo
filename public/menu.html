@@ -26,7 +26,7 @@
   <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
 
   <!-- Top Loyalty Bar (Tarjeta de Puntos & Recompensas) -->
-  <div id="loyaltyTopBanner" class="loyalty-top-bar" data-js-click="openLoyaltyModal" role="button" tabindex="0" aria-label="Club Puntos y Recompensas" aria-expanded="false">
+  <div id="loyaltyTopBanner" class="loyalty-top-bar" data-js-click="openLoyaltyModal" role="button" tabindex="0" aria-label="Club Puntos y Recompensas" aria-haspopup="dialog">
     <div class="loyalty-top-content">
       <span class="loyalty-star-icon">⭐</span>
       <span class="loyalty-banner-title">¡Gana puntos y recompensas!</span>
@@ -42,7 +42,7 @@
   </div>
 
   <!-- Top Hero Banner / Portada Superior -->
-  <div id="menuBannerHero" class="menu-banner-hero" style="display:none;" aria-label="Portada del restaurante">
+  <div id="menuBannerHero" class="menu-banner-hero" style="display:none;" role="img" aria-label="Portada del restaurante">
   </div>
 
   <!-- Header -->
@@ -218,10 +218,11 @@
   </main>
 
   <!-- Floating Cart Bar -->
-  <div id="floatingCart" class="floating-cart-bar" data-js-click="openCartModal" role="status" aria-live="polite" aria-atomic="true">
+  <div id="floatingCart" class="floating-cart-bar" data-js-click="openCartModal" role="button" tabindex="0" aria-label="Ver pedido y abrir el carrito">
     <span id="cartCountBadge">🛒 0 ítems</span>
     <span>Ver Pedido (<span id="cartTotalBadge">$0</span>) →</span>
   </div>
+  <div id="cartLiveAnnounce" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <div id="dishNoteModal" class="modal-overlay" aria-hidden="true" data-js-click-backdrop="closeDishNoteModal" role="dialog" aria-modal="true" aria-labelledby="dishNoteTitle">
     <section class="modal-box dish-note-modal">
@@ -522,12 +523,12 @@
       </div>
 
       <!-- Star Rating Interactive Selector -->
-      <div class="stars-selector-wrap" id="starsSelectorWrap" role="radiogroup" aria-label="Calificación en estrellas">
-        <button type="button" class="star-btn" data-star="1" data-js-click="handleStarSelect|1" title="1 estrella">★</button>
-        <button type="button" class="star-btn" data-star="2" data-js-click="handleStarSelect|2" title="2 estrellas">★</button>
-        <button type="button" class="star-btn" data-star="3" data-js-click="handleStarSelect|3" title="3 estrellas">★</button>
-        <button type="button" class="star-btn" data-star="4" data-js-click="handleStarSelect|4" title="4 estrellas">★</button>
-        <button type="button" class="star-btn" data-star="5" data-js-click="handleStarSelect|5" title="5 estrellas">★</button>
+      <div class="stars-selector-wrap" id="starsSelectorWrap" role="group" aria-label="Calificación en estrellas">
+        <button type="button" class="star-btn" data-star="1" data-js-click="handleStarSelect|1" aria-label="1 estrella" aria-pressed="false" title="1 estrella">★</button>
+        <button type="button" class="star-btn" data-star="2" data-js-click="handleStarSelect|2" aria-label="2 estrellas" aria-pressed="false" title="2 estrellas">★</button>
+        <button type="button" class="star-btn" data-star="3" data-js-click="handleStarSelect|3" aria-label="3 estrellas" aria-pressed="false" title="3 estrellas">★</button>
+        <button type="button" class="star-btn" data-star="4" data-js-click="handleStarSelect|4" aria-label="4 estrellas" aria-pressed="false" title="4 estrellas">★</button>
+        <button type="button" class="star-btn" data-star="5" data-js-click="handleStarSelect|5" aria-label="5 estrellas" aria-pressed="false" title="5 estrellas">★</button>
       </div>
       <div id="starHintText" class="star-hint-text">Tocá las estrellas para calificar</div>
 

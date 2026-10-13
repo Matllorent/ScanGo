@@ -179,7 +179,7 @@
   </header>
 
   <!-- Landmark Main for Accessibility & SEO (WCAG AA) -->
-  <main id="main-content">
+  <main id="main-content" tabindex="-1">
 
   <!-- Hero Section -->
   <section id="inicio" class="hero-section">
@@ -273,7 +273,7 @@
             </div>
 
             <!-- Simulator Cart Bar -->
-            <div class="sim-cart-bar" id="simCartBar" style="cursor:pointer;" data-js-click="simOrderWhatsApp">
+            <div class="sim-cart-bar" id="simCartBar" style="cursor:pointer;" role="button" tabindex="0" aria-label="Pedir por WhatsApp desde el simulador de demo" data-js-click="simOrderWhatsApp">
               <span id="simCartCount">🛒 0 ítems en el carrito</span>
               <span id="simCartTotal">Pedir por WhatsApp ($0) →</span>
             </div>
@@ -589,61 +589,61 @@
 
       <div class="faq-container">
         <div class="faq-item active">
-          <div class="faq-question" data-js-click="toggleFaq|this">
+          <div class="faq-question" id="faq-q-1" role="button" tabindex="0" aria-expanded="true" aria-controls="faq-a-1" data-js-click="toggleFaq|this">
             <span>¿Cobran comisiones sobre los pedidos o ventas que recibo?</span>
             <span class="faq-icon" aria-hidden="true">+</span>
           </div>
-          <div class="faq-answer">
+          <div class="faq-answer" id="faq-a-1" role="region" aria-labelledby="faq-q-1">
             <strong>0% comisiones.</strong> En ScanGo pagas únicamente tu suscripción fija mensual o anual. Todo el dinero de las ventas y pedidos de tus clientes va 100% directo a tu negocio.
           </div>
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" data-js-click="toggleFaq|this">
+          <div class="faq-question" id="faq-q-2" role="button" tabindex="0" aria-expanded="false" aria-controls="faq-a-2" data-js-click="toggleFaq|this">
             <span>¿Mis clientes necesitan descargar alguna aplicación en su teléfono?</span>
             <span class="faq-icon" aria-hidden="true">+</span>
           </div>
-          <div class="faq-answer">
+          <div class="faq-answer" id="faq-a-2" role="region" aria-labelledby="faq-q-2">
             <strong>No, ninguna.</strong> Tus clientes solo apuntan la cámara de su celular al código QR y la carta abre al instante en su navegador web en menos de 1 segundo.
           </div>
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" data-js-click="toggleFaq|this">
+          <div class="faq-question" id="faq-q-3" role="button" tabindex="0" aria-expanded="false" aria-controls="faq-a-3" data-js-click="toggleFaq|this">
             <span>¿Cómo funciona la prueba gratuita de 7 días?</span>
             <span class="faq-icon" aria-hidden="true">+</span>
           </div>
-          <div class="faq-answer">
+          <div class="faq-answer" id="faq-a-3" role="region" aria-labelledby="faq-q-3">
             Te registrás con el nombre de tu local y tu correo electrónico. Tenés 7 días de acceso ilimitado a todas las funciones profesionales sin ingresar ninguna tarjeta de crédito. Si decidís no continuar, tu cuenta simplemente expira sin cargos sorpresa.
           </div>
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" data-js-click="toggleFaq|this">
+          <div class="faq-question" id="faq-q-4" role="button" tabindex="0" aria-expanded="false" aria-controls="faq-a-4" data-js-click="toggleFaq|this">
             <span>¿Qué es la semana de gracia (Smart Dunning)?</span>
             <span class="faq-icon" aria-hidden="true">+</span>
           </div>
-          <div class="faq-answer">
+          <div class="faq-answer" id="faq-a-4" role="region" aria-labelledby="faq-q-4">
             Si un mes tu tarjeta de crédito vence, no tiene saldo temporalmente o el banco rechaza el cobro automático, tu menú <strong>NO se apaga de inmediato</strong>. Te otorgamos 7 días de gracia para que puedas actualizar el pago con tranquilidad sin perder ventas un fin de semana.
           </div>
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" data-js-click="toggleFaq|this">
+          <div class="faq-question" id="faq-q-5" role="button" tabindex="0" aria-expanded="false" aria-controls="faq-a-5" data-js-click="toggleFaq|this">
             <span>¿Cómo llegan los pedidos a mi restaurante?</span>
             <span class="faq-icon" aria-hidden="true">+</span>
           </div>
-          <div class="faq-answer">
+          <div class="faq-answer" id="faq-a-5" role="region" aria-labelledby="faq-q-5">
             Llegan organizados, legibles y numerados al WhatsApp oficial de tu restaurante: mesa o dirección de delivery, platos seleccionados, aclaraciones del cliente, método de pago y monto total exacto.
           </div>
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" data-js-click="toggleFaq|this">
+          <div class="faq-question" id="faq-q-6" role="button" tabindex="0" aria-expanded="false" aria-controls="faq-a-6" data-js-click="toggleFaq|this">
             <span>¿Puedo cambiar precios o platos desde mi celular sobre la marcha?</span>
             <span class="faq-icon" aria-hidden="true">+</span>
           </div>
-          <div class="faq-answer">
+          <div class="faq-answer" id="faq-a-6" role="region" aria-labelledby="faq-q-6">
             Sí. Ingresás al Studio de ScanGo desde tu smartphone o computadora, editás el precio o el plato en 10 segundos y el cambio se refleja inmediatamente en el menú que ven los comensales.
           </div>
         </div>
@@ -733,15 +733,15 @@
     <div class="modal-card" role="dialog" aria-modal="true" aria-label="Autenticación ScanGo">
       <button class="modal-close" data-js-click="closeAuthModal" aria-label="Cerrar ventana de autenticación">✕</button>
 
-      <div class="modal-tabs">
-        <button id="tabRegisterBtn" class="modal-tab-btn active" data-js-click="switchAuthTab|register">Crear Cuenta Gratis</button>
-        <button id="tabLoginBtn" class="modal-tab-btn" data-js-click="switchAuthTab|login">Iniciar Sesión</button>
+      <div class="modal-tabs" role="tablist" aria-label="Crear cuenta o iniciar sesión">
+        <button id="tabRegisterBtn" role="tab" aria-selected="true" aria-controls="registerForm" class="modal-tab-btn active" data-js-click="switchAuthTab|register">Crear Cuenta Gratis</button>
+        <button id="tabLoginBtn" role="tab" aria-selected="false" aria-controls="loginForm" class="modal-tab-btn" data-js-click="switchAuthTab|login">Iniciar Sesión</button>
       </div>
 
       <div id="authError" class="form-error"></div>
 
       <!-- Register Form -->
-      <form id="registerForm" data-js-submit="handleRegister|event">
+      <form id="registerForm" role="tabpanel" aria-labelledby="tabRegisterBtn" data-js-submit="handleRegister|event">
         <button type="button" class="btn btn-google google-modal-button" data-js-click="startGoogleSignup"><span class="google-mark" aria-hidden="true">G</span> Comenzar 7 días gratis con Google</button>
         <div class="auth-divider"><span>o registrate con tu correo</span></div>
         <div class="form-group">
@@ -783,7 +783,7 @@
       </form>
 
       <!-- Login Form -->
-      <form id="loginForm" style="display: none;" data-js-submit="handleLogin|event">
+      <form id="loginForm" role="tabpanel" aria-labelledby="tabLoginBtn" style="display: none;" data-js-submit="handleLogin|event">
         <div class="form-group">
           <label class="form-label" for="loginEmail">Correo Electrónico</label>
           <input type="email" id="loginEmail" class="form-input" placeholder="tu@restaurante.com" required>

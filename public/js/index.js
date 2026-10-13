@@ -6,10 +6,40 @@ let googleLocalOriginHintLogged = false;
 // el mismo conjunto en api/middleware/validation.js).
 const BUSINESS_TYPES = ['restaurant', 'heladeria', 'perfumery', 'events'];
 
+// ── Accesibilidad de modales de la landing (WCAG 2.4.3 / 2.4.7) ─────────────
+// Lleva el foco dentro del modal al abrirlo, lo devuelve al disparador al
+// cerrarlo y permite cerrar con Escape. Sin dependencias.
+let lastFocusedBeforeModal = null;
+function focusModal(modalEl) {
+  if (!modalEl) return;
+  lastFocusedBeforeModal = document.activeElement;
+  const target = modalEl.querySelector(
+    'input:not([type="hidden"]), select, textarea, button, [href], [tabindex]:not([tabindex="-1"])'
+  );
+  if (target) setTimeout(() => target.focus(), 40);
+}
+function restoreModalFocus() {
+  if (lastFocusedBeforeModal && typeof lastFocusedBeforeModal.focus === 'function') {
+    lastFocusedBeforeModal.focus();
+  }
+  lastFocusedBeforeModal = null;
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const auth = document.getElementById('authModal');
+  const forgot = document.getElementById('forgotPasswordModal');
+  if (auth && auth.classList.contains('active')) {
+    closeAuthModal();
+  } else if (forgot && forgot.classList.contains('active')) {
+    closeForgotPasswordModal();
+  }
+});
+
 function openAuthModal(mode = 'register') {
   const modal = document.getElementById('authModal');
   modal.classList.add('active');
   switchAuthTab(mode);
+  focusModal(modal);
   // El registro hereda el rubro de la pestaña de precios que miraba el
   // visitante (menos fricción y mejor conversión por rubro); las landings
   // /soluciones pueden forzarlo con ?rubro=<tipo>.
@@ -155,6 +185,7 @@ function closeAuthModal() {
   const modal = document.getElementById('authModal');
   modal.classList.remove('active');
   hideError();
+  restoreModalFocus();
 }
 
 function switchAuthTab(mode) {
@@ -164,7 +195,8 @@ function switchAuthTab(mode) {
   const formReg = document.getElementById('registerForm');
   const formLog = document.getElementById('loginForm');
 
-  if (mode === 'register') {
+  const isRegister = mode === 'register';
+  if (isRegister) {
     tabReg.classList.add('active');
     tabLog.classList.remove('active');
     formReg.style.display = 'block';
@@ -174,6 +206,11 @@ function switchAuthTab(mode) {
     tabReg.classList.remove('active');
     formLog.style.display = 'block';
     formReg.style.display = 'none';
+  }
+  // ARIA del patrón de pestañas (WCAG 4.1.2): anunciar cuál está seleccionada.
+  if (tabReg && tabLog) {
+    tabReg.setAttribute('aria-selected', String(isRegister));
+    tabLog.setAttribute('aria-selected', String(!isRegister));
   }
 }
 
@@ -545,11 +582,13 @@ function openForgotPasswordModal() {
     alertBox.textContent = '';
   }
   if (modal) modal.classList.add('active');
+  focusModal(modal);
 }
 
 function closeForgotPasswordModal() {
   const modal = document.getElementById('forgotPasswordModal');
   if (modal) modal.classList.remove('active');
+  restoreModalFocus();
 }
 
 async function handleForgotPassword(e) {
@@ -673,13 +712,15 @@ function initMagneticWhatsApp() {
   });
 }
 
-// FAQ Accordion Toggle
+// FAQ Accordion Toggle (patrón divulgación accesible: button + aria-expanded)
 function toggleFaq(btn) {
   const item = btn.parentElement;
   const wasActive = item.classList.contains('active');
   document.querySelectorAll('.faq-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.faq-question[aria-expanded]').forEach(q => q.setAttribute('aria-expanded', 'false'));
   if (!wasActive) {
     item.classList.add('active');
+    if (btn.setAttribute) btn.setAttribute('aria-expanded', 'true');
   }
 }
 

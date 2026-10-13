@@ -26,7 +26,8 @@ async function runTests() {
     document: {
       getElementById: id => elements[id] || null,
       querySelector: () => null,
-      querySelectorAll: () => [elements.googleLoginBtn]
+      querySelectorAll: () => [elements.googleLoginBtn],
+      addEventListener: () => {}
     },
     localStorage: {
       setItem: (key, value) => localStorage.set(key, value),

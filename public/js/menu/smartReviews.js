@@ -33,7 +33,10 @@ export function openSmartReviewModal(restaurantData = {}) {
   if (successMsg) successMsg.style.display = 'none';
   if (hintText) hintText.textContent = 'Tocá las estrellas para calificar';
 
-  document.querySelectorAll('.star-btn').forEach(btn => btn.classList.remove('active', 'hover-active'));
+  document.querySelectorAll('.star-btn').forEach(btn => {
+    btn.classList.remove('active', 'hover-active');
+    btn.setAttribute('aria-pressed', 'false');
+  });
 
   if (nameEl) nameEl.textContent = restaurantData.name || 'nuestro local';
   if (googleBtn) googleBtn.href = restaurantData.googleReview || '#';
@@ -74,6 +77,7 @@ export function handleStarSelect(rating) {
   document.querySelectorAll('.star-btn').forEach(btn => {
     const star = parseInt(btn.dataset.star, 10);
     btn.classList.toggle('active', star <= rating);
+    btn.setAttribute('aria-pressed', String(star === rating));
   });
 
   const hintTexts = ['', '😞 Muy mala', '😕 Regular', '🙂 Buena', '😊 Muy buena', '🤩 ¡Excelente!'];

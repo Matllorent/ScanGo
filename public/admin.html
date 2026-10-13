@@ -30,6 +30,33 @@
       --info: #3b82f6;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* Focus visible (WCAG 2.4.7) + utilidad solo-lectores */
+    :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+    :focus:not(:focus-visible) { outline: none; }
+    .sr-only {
+      position: absolute !important;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--gold);
+      color: #121A18;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 700;
+      z-index: 9999;
+      text-decoration: none;
+      transition: top 0.2s;
+    }
+    .skip-link:focus { top: 10px; }
     body {
       background: var(--bg);
       color: var(--text);
@@ -236,6 +263,7 @@
   </style>
 </head>
 <body>
+  <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
   <header>
     <div class="brand">
       <img src="/logo-scango.png" alt="ScanGo" style="height: 36px; width: auto; object-fit: contain; border-radius: 6px;">
@@ -248,7 +276,7 @@
     </div>
   </header>
 
-  <main>
+  <main id="main-content" tabindex="-1">
     <!-- View: Login with Master Key -->
     <div id="auth-view">
       <img src="/logo-scango.png" alt="ScanGo Logo" style="height: 60px; width: auto; margin-bottom: 1rem; border-radius: 8px;">
@@ -256,7 +284,7 @@
       <p>Ingresá la clave maestra del dueño del emprendimiento y tu código 2FA obligatorio para administrar clientes e ingresos.</p>
       <form id="admin-form" data-js-submit="handleLogin|event">
         <div class="form-group">
-          <label>Clave Maestra (ADMIN_KEY)</label>
+          <label for="admin-key">Clave Maestra (ADMIN_KEY)</label>
           <div class="password-input-group">
             <input type="password" id="admin-key" class="form-control" placeholder="••••••••••••••••" required autofocus>
             <button type="button" class="toggle-password-btn" data-js-click="togglePasswordVisibility|admin-key|this" aria-label="Mostrar u ocultar contraseña" title="Mostrar/ocultar contraseña">
@@ -265,7 +293,7 @@
           </div>
         </div>
         <div class="form-group">
-          <label style="display:flex; justify-content:space-between;">
+          <label for="admin-totp" style="display:flex; justify-content:space-between;">
             <span>Código 2FA (Google Authenticator)</span>
             <span style="font-size:0.75rem; color:#f87171; font-weight:600;">(Obligatorio)</span>
           </label>
@@ -463,15 +491,15 @@
           <form id="pricing-settings-form" data-js-submit="savePricingSettingsAdmin|event">
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem;">
               <div class="form-group" style="margin-bottom:0;">
-                <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:6px;">Precio Plan Mensual (USD/mes)</label>
+                <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:6px;" for="setting-monthly-price">Precio Plan Mensual (USD/mes)</label>
                 <input type="number" id="setting-monthly-price" class="form-control" min="1" step="1" required style="background:var(--bg-dark); border:1px solid var(--card-border); color:#fff; padding:0.6rem 0.8rem; border-radius:6px; width:100%;">
               </div>
               <div class="form-group" style="margin-bottom:0;">
-                <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:6px;">Precio Plan Anual (USD/año)</label>
+                <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:6px;" for="setting-annual-price">Precio Plan Anual (USD/año)</label>
                 <input type="number" id="setting-annual-price" class="form-control" min="1" step="1" required style="background:var(--bg-dark); border:1px solid var(--card-border); color:#fff; padding:0.6rem 0.8rem; border-radius:6px; width:100%;">
               </div>
               <div class="form-group" style="margin-bottom:0;">
-                <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:6px;">% Ahorro Mostrado en Anual (OFF)</label>
+                <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:6px;" for="setting-annual-discount">% Ahorro Mostrado en Anual (OFF)</label>
                 <input type="number" id="setting-annual-discount" class="form-control" min="0" max="100" style="background:var(--bg-dark); border:1px solid var(--card-border); color:#fff; padding:0.6rem 0.8rem; border-radius:6px; width:100%;">
               </div>
             </div>
@@ -486,11 +514,11 @@
 
               <div style="display:grid; grid-template-columns: 140px 1fr; gap: 1rem; align-items:flex-end;">
                 <div>
-                  <label style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:6px;">% Descuento (Badge)</label>
+                  <label style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:6px;" for="setting-banner-percent">% Descuento (Badge)</label>
                   <input type="number" id="setting-banner-percent" class="form-control" min="1" max="100" placeholder="50" style="background:var(--bg-dark); border:1px solid var(--card-border); color:#fff; padding:0.6rem 0.8rem; border-radius:6px; width:100%;">
                 </div>
                 <div>
-                  <label style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:6px;">Texto Promocional del Banner</label>
+                  <label style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:6px;" for="setting-banner-text">Texto Promocional del Banner</label>
                   <input type="text" id="setting-banner-text" class="form-control" placeholder="🔥 ¡50% OFF por tiempo limitado en todos los planes!" style="background:var(--bg-dark); border:1px solid var(--card-border); color:#fff; padding:0.6rem 0.8rem; border-radius:6px; width:100%;">
                 </div>
               </div>
@@ -538,13 +566,13 @@
 
     <!-- Modal: Invitar Restaurante Real -->
     <div id="inviteModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px); padding:1rem;">
-      <div style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:16px; padding:2rem; width:100%; max-width:460px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.7); position:relative;">
+      <div role="dialog" aria-modal="true" aria-labelledby="inviteModalTitle" style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:16px; padding:2rem; width:100%; max-width:460px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.7); position:relative;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
-          <h3 style="color:var(--gold); font-size:1.25rem; font-weight:700; display:flex; align-items:center; gap:0.5rem;">
-            <i class="fa-solid fa-paper-plane"></i> Invitar Restaurante Real
+          <h3 id="inviteModalTitle" style="color:var(--gold); font-size:1.25rem; font-weight:700; display:flex; align-items:center; gap:0.5rem;">
+            <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Invitar Restaurante Real
           </h3>
-          <button data-js-click="closeInviteModal" style="background:transparent; border:none; color:var(--text-muted); font-size:1.25rem; cursor:pointer; padding:0.25rem;">
-            <i class="fa-solid fa-xmark"></i>
+          <button data-js-click="closeInviteModal" aria-label="Cerrar" style="background:transparent; border:none; color:var(--text-muted); font-size:1.25rem; cursor:pointer; padding:0.25rem;">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
           </button>
         </div>
         <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.5rem; line-height:1.4;">
@@ -552,15 +580,15 @@
         </p>
         <form id="inviteForm" data-js-submit="handleInviteRestaurant|event">
           <div class="form-group">
-            <label>Email del Dueño / Negocio *</label>
+            <label for="invite-email">Email del Dueño / Negocio *</label>
             <input type="email" id="invite-email" class="form-control" placeholder="dueño@restaurante.com" required>
           </div>
           <div class="form-group">
-            <label>Nombre del Restaurante *</label>
+            <label for="invite-name">Nombre del Restaurante *</label>
             <input type="text" id="invite-name" class="form-control" placeholder="Ej: Pizzería Bella Napoli" required>
           </div>
           <div class="form-group">
-            <label>Slug URL (Opcional)</label>
+            <label for="invite-slug">Slug URL (Opcional)</label>
             <input type="text" id="invite-slug" class="form-control" placeholder="pizzeria-bella-napoli">
           </div>
           <div id="invite-alert" style="display:none; padding:0.75rem 1rem; border-radius:8px; font-size:0.85rem; margin-bottom:1.25rem;"></div>

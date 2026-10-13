@@ -8,7 +8,7 @@ SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. 
 ```bash
 npm run dev          # Desarrollo con nodemon (puerto 3000)
 npm start            # Producción (node api/index.js)
-npm test             # Suite completa (48 suites en secuencia) — con snapshot/restore automático de data/
+npm test             # Suite completa (49 suites en secuencia) — con snapshot/restore automático de data/
 npm run test:billing # Test individual de pasarelas de pago
 npm run test:analytics # Test individual de analytics de negocio (ticket promedio, CSV, top platos)
 npm run test:admin   # Test individual del panel /admin (login 2FA, plata/mes, renovaciones)
@@ -23,6 +23,7 @@ npm run test:seo-audit # Test individual del auditor de salud SEO (panel Studio 
 npm run test:indexnow # Test individual de IndexNow (key fail-closed, payload bulk inyectado, verificación /{key}.txt) — 46ª suite
 npm run test:solutions # Test individual del SEO programático por rubro (/soluciones: catálogo puro, JSON-LD WebPage+Breadcrumb+FAQ, HTML sin on*=, rutas 200/404, sitemap) — 47ª suite
 npm run test:onboarding # Test individual del checklist de puesta en marcha del Studio (progreso puro desde el estado del local + wiring CSP-safe) — 48ª suite
+npm run test:a11y    # Test individual del guard de accesibilidad (WCAG AA): landmarks/encabezados/alt, modales ARIA, labels asociados, estado ARIA dinámico, skip-links y CSS de foco — 49ª suite
 npm run test:realtime # Test individual del guard de canales Realtime (migración 002)
 npm run test:realtime-live # Test E2E real del guard (conecta a Supabase Realtime con la anon key)
 npm run test:csp     # Test individual del guard CSP + headers duros
@@ -200,18 +201,19 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** durante la corrida (flujos reales con el store local). **`npm test` ahora las aísla solo**: `scripts/test-data-guard.js` saca una foto de `data/` antes y la restaura siempre al final (pase o falle). La cadena real de tests vive en `npm run test:core`; no hay que revertir `data/` a mano para commitear.
-- Suite completa (`npm test`) ejecuta 48 suites en secuencia — **todas deben pasar (48/48)**
+- Suite completa (`npm test`) ejecuta 49 suites en secuencia — **todas deben pasar (49/49)**
 - **2 tests existen pero NO están en `npm test`**: `test-e2e.js` (E2E integral real: registra en la nube, crea un checkout de Mercado Pago real y activa la suscripción por webhook — correrlo a mano; en modo cloud confirma el email del usuario recién registrado vía Admin API de Supabase, flujo real del link, sin mocks, porque `/api/studio/save` exige `requireVerifiedEmail`) y `test-supabase-group-cart-persistence.js` (es el `npm run db:smoke`, round-trip real de `group_carts` contra la nube). `test-escape-html`, `test-db-write` y `test-semgrep` solían estar fuera pero **ahora corren en el chain** (`npm test`): el guard de tests (`test-data-guard.js`) + el SKIP autónomo de semgrep los hacen seguros de correr en serie.
 - **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 5 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell`, `test-realtime-live-guard` y `test-differential` (usan credenciales reales; los últimos dos hacen SKIP si no hay `SUPABASE_URL`/`SUPABASE_ANON_KEY`).
 - Para debug rápido: `node tests/test-billing.js` (o el test específico, o `npm run test:<alias>`)
 
-### Tests incluidos en `npm test` (48 suites)
+### Tests incluidos en `npm test` (49 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
 | `test-billing.js` | Webhooks, idempotencia, dunning, precios multi-sucursal |
 | `test-fixes.js` | 7 mejoras críticas, saneamiento, 2FA, expiración trial |
 | `test-new-features.js` | Landmarks, dimensiones de logos, contraste, jerarquía de encabezados |
+| `test-a11y.js` | **Guard de accesibilidad WCAG AA** (estático + runtime): `lang` + un único `<main id="main-content" tabindex="-1">` (destino del skip-link), sin `tabindex` positivo, `img alt`, encabezados, ids únicos; cada modal `role="dialog"`+`aria-modal="true"`+nombre accesible (`aria-label`/`aria-labelledby` que existe); controles clickables no nativos con `role`/`tabindex`/nombre y botones con nombre; todo input/select/textarea con label asociado (o `aria-label`) y sin `label[for]` colgantes; estado ARIA dinámico en JS (FAQ `aria-expanded`, tabs `aria-selected`, estrellas `aria-pressed`, live region `role=status` del carrito); `:focus-visible`/`.sr-only`/`.skip-link` en las hojas; el enhancer de modales del Studio (`public/js/studio/modalA11y.js`: foco inicial, Escape, trampa de Tab, `aria-hidden` sincronizado, foco restaurado) — verificado también en navegador real |
 | `test-resilience-security.js` | Rate-limit, headers HTTP, seguridad JWT, prevención de reutilización de tokens |
 | `test-banner-and-layouts.js` | Banner hero, 14 temas clásicos, 6 temas de heladería (3 coloridos + 3 formales), round-trip del rubro Heladería, morfologías Bento/Minimalist/Neon |
 | `test-mp-upsell-reviews.js` | Mercado Pago Checkout Pro, upselling "El Mozo Virtual", reseñas inteligentes |
@@ -420,6 +422,19 @@ Un solo motor de cobro (`plans.json`); la landing muestra pestañas por rubro (`
 - **Render solo con DOM API** (`createElement`/`textContent`, cero `innerHTML` con data) y **cero `on*=`** (CSP `script-src-attr 'none'`). `refreshOnboardingChecklist()` recalcula con la última referencia del local y se llama en `renderStudioUI()`, `switchTab()` y `triggerAutoSave()` → el progreso se actualiza al instante al cargar un plato, subir el logo o cambiar el horario.
 - Regresión: `npm run test:onboarding` (48ª suite).
 
+## Accesibilidad (WCAG 2.1 AA) — cobertura y decisión
+
+- **Guard ejecutable** `tests/test-a11y.js` (`npm run test:a11y`, 49ª suite): asserts de FUENTE sobre los 15 HTML de `public/` (no solo balance de tags) + verificación en navegador real de los flujos de foco. Desde el HTML/JS, no desde una librería (el frontend es plano y sin build).
+- **Estructura semántica**: cada página tiene `lang="es"` y un único `<main id="main-content" tabindex="-1">` (el `tabindex="-1"` es obligatorio para que el skip-link mueva el FOCO, no solo el scroll); sin `tabindex` positivo; `img` con `alt`; jerarquía de encabezados sin saltos; ids únicos; HTML con `<main>` nuevo en `404/500/email-verified/reset-password/privacidad/terminos` y `public/legal/*`.
+- **Skip-links** (WCAG 2.4.1) como primer elemento focusable en landing, menú, Studio y Admin; destino siempre con `tabindex="-1"`. `.skip-link` se estiliza en `public/css/{index,studio}.css` y inline en `admin.html`.
+- **Modales**: los 9 del menú, los 13 del Studio, los 2 de la landing y el `#inviteModal` del admin exponen `role="dialog"` + `aria-modal="true"` + nombre accesible (`aria-label` o `aria-labelledby` que apunta a un id existente) + botón ✕ con `aria-label="Cerrar"`. Detalle del menú: el rol va en el propio `.modal-overlay` (el overlay ES el diálogo); en Studio/landing va en la `.modal-box`/`.modal-card` interna. El test cubre ambas formas.
+- **Enhancer de modales del Studio** (`public/js/studio/modalA11y.js`, cableado en `public/js/studio.js` en `DOMContentLoaded`): genérico y no intrusivo, observa `.modal-overlay` (clase `.active`/`style.display`) con `MutationObserver` y (1) sincroniza `aria-hidden` con la visibilidad real, (2) al abrir mueve el foco al primer control, (3) al cerrar lo devuelve al disparador, (4) encierra Tab dentro del diálogo (WCAG 2.1.2 sin trampa de foco), (5) Escape cierra el modal abierto más alto simulando su botón `[data-js-click^="close"]`. Idempotente por `dataset.a11yReady`.
+- **Estado ARIA dinámico** (WCAG 4.1.2, vive en el JS, no en el HTML): FAQ de la landing (`aria-expanded`), tabs de auth (`aria-selected`), estrellas de reseña (`aria-pressed`), y una live region `#cartLiveAnnounce` (`role="status"`/`aria-live="polite"`) que anuncia "Carrito actualizado: N ítems, subtotal …" (la barra `#floatingCart` es botón focusable, así que la cantidad se anuncia aparte). El guard falla si se vuelve a romper cualquiera.
+- **Campos con nombre accesible**: universales en Studio/Admin por codemod (`for=` en labels ya existentes) + `aria-label` en los campos sin label adyacente (15 en Studio). El guard escanea TODO `input/select/textarea` no oculto y falla si alguno queda sin nombre o si hay un `label[for]` colgante (apunta a un id inexistente).
+- **Foco visible**: `:focus-visible` en `index.css`, `studio.css` y `menu.css` (+ inline en `admin.html`) — el anillo de foco no se pierde al navegar por teclado; `.sr-only` para texto solo-lectores.
+- **Cero `on*=`** (requisito de la CSP `script-src-attr 'none'`): toda la A11y nueva usa `data-js-*` + el binder universal o listeners `addEventListener`, nunca atributos de evento inline.
+- **Verificado en navegador real** (Playwright, sin mocks): skip-link primero y su destino focusable; FAQ/tabs; apertura de modal con foco adentro + Escape que cierra + foco que vuelve; los 9 modales del menú con rol/aria-modal/nombre; live region del carrito al agregar un plato; enhancer del Studio (abrir/cerrar/Escape/foco restaurado) importado y ejercitado en el contexto real; `/admin` servido tras login 2FA con skip-link, `<main>` y labels.
+
 ## Endurecimiento de Ingeniería — Brechas A→F (auditoría)
 
 Un solo guard de regresión: `tests/test-hardening.js` (`npm run test:hardening`).
@@ -489,7 +504,7 @@ Los 5 claros sobreescriben `--chalk-white` a tinta oscura y refuerzan títulos/n
 | `public/js/menu/eventGuestMode.js` | Resolución de tema de evento, contexto de invitado, reservas WhatsApp |
 | `public/js/utils/` | Utilidades frontend (usan `escapeHtmlBrowser.js`, ver trampas) |
 | `public/js/components/` | 14 componentes ES Module reutilizables |
-| `tests/` | 50 archivos; 48 corren en `npm test` (ver sección Testing) |
+| `tests/` | 51 archivos; 49 corren en `npm test` (ver sección Testing) |
 | `openapi.yaml` | Contrato OpenAPI 3.1 de la API (24 paths verificados contra handlers; `test-openapi-contract.js` lo golpea en runtime — endpoint nuevo = entrada acá + caso en el test) |
 | `src/billing/subscriptionMachine.js` | Máquina de estados pura de suscripción (7 estados × 6 eventos, `computeStatus` diferencialmente testeada contra `verifyAccess`; la tabla manda, el orchestrator la sigue) |
 | `src/billing/plans.json` | Fuente única de precios/planes y `TRIAL_DAYS` (el orchestrator la lee con fallback a literales) |

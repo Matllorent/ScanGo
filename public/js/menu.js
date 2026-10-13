@@ -1877,6 +1877,7 @@ Object.defineProperties(window, {
       }
     };
 
+    let lastAnnouncedCartCount = -1;
     function updateCartUI() {
       const totalCount = Object.values(cart).reduce((sum, item) => sum + item.qty, 0);
       const subtotal = Object.values(cart).reduce((sum, item) => sum + (item.qty * getCartUnitPrice(item)), 0);
@@ -1898,6 +1899,16 @@ Object.defineProperties(window, {
         }
       } else {
         bar.classList.remove('active');
+      }
+
+      // Región viva para lectores de pantalla: la barra ahora es un botón
+      // (focusable), así que los cambios de cantidad se anuncian aparte.
+      const live = document.getElementById('cartLiveAnnounce');
+      if (live && totalCount !== lastAnnouncedCartCount) {
+        live.textContent = totalCount > 0
+          ? `Carrito actualizado: ${totalCount} ${totalCount === 1 ? 'ítem' : 'ítems'}${barIsFree ? '' : `, subtotal ${formattedSubtotal}`}.`
+          : 'Carrito vacío.';
+        lastAnnouncedCartCount = totalCount;
       }
     }
 

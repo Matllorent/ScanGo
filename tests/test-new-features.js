@@ -8,8 +8,8 @@ async function runTests() {
   // 1. Check HTML Accessibility & SEO
   const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
 
-  // 1.1 Main Landmark
-  if (!indexHtml.includes('<main id="main-content">') || !indexHtml.includes('</main>')) {
+  // 1.1 Main Landmark (puede llevar tabindex="-1" para ser destino del skip-link)
+  if (!/<main id="main-content"[\s>]/.test(indexHtml) || !indexHtml.includes('</main>')) {
     throw new Error('Falta la etiqueta semántica <main id="main-content">');
   }
   console.log('✓ Landmark <main> correctamente implementado');
