@@ -13,7 +13,7 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-postgres",
-        "postgresql://postgres:ñññScanGoMat2001ñññ@db.olqdcudvstbawkcvsfdd.supabase.co:5432/postgres"
+        "postgresql://postgres:${SUPABASE_DB_PASSWORD}@db.olqdcudvstbawkcvsfdd.supabase.co:5432/postgres"
       ]
     },
     "git-tools": {

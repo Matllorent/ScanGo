@@ -39,3 +39,12 @@ regexes = [
   # otra password/secret en el historial o el working tree sigue marcándose.
   '''(test_password|otra_clave_123)''',
 ]
+
+# Regla propia: URL de Postgres con password real nunca va al repo (usar
+# ${...}/env; el backup usa SUPABASE_DB_URL como secret). El `{}` excluye
+# a propósito el placeholder ${SUPABASE_DB_PASSWORD} de mcp.json.
+[[rules]]
+id = "postgres-url-with-password"
+description = "Postgres connection string con password en texto plano"
+regex = '''postgres(ql)?://[^/\s:]+:[^/\s@{}]+@'''
+tags = ["postgres", "supabase", "database-url"]
