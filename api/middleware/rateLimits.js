@@ -43,6 +43,9 @@ module.exports = {
     { keyGenerator: publicEventKeyGenerator, validate: { keyGeneratorIpFallback: false } }
   ),
   loyaltyLimiter: createRateLimit(30, 'LOYALTY_RATE_LIMITED', 'Demasiadas operaciones de fidelización en poco tiempo.'),
+  // Feed Descubrir beta: público por IP (no hay slug), balde generoso porque
+  // cada visita pagina varias veces. Cache de 60s en la ruta amortigua picos.
+  discoverLimiter: createRateLimit(60, 'DISCOVER_RATE_LIMITED', 'Demasiadas consultas al Descubrir en poco tiempo.'),
   storageLimiter: createRateLimit(20, 'STORAGE_RATE_LIMITED', 'Límite de cargas excedido.'),
   groupCartLimiter: createRateLimit(90, 'GROUP_CART_RATE_LIMITED', 'Límite de sincronización de mesa excedido.'),
   publicEventKeyGenerator

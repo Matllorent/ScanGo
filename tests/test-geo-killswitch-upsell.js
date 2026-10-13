@@ -93,6 +93,14 @@ assert.ok(!/\$69\b/.test(llmsFullTxt), 'llms-full.txt no debe contener el precio
 assert.ok(!/14 días de Free Trial/.test(llmsFullTxt), 'llms-full.txt no debe declarar 14 días de prueba');
 console.log('✓ GEO sin drift: precios y trial de llms*.txt == plans.json');
 
+// 3c. GEO anti-drift de features: lo nuevo (embudo neutral, Descubrir beta)
+// debe estar documentado para la IA, sin el copy viejo del filtro 5★/1-4★.
+assert.ok(llmsTxt.includes('Descubrir'), 'llms.txt debe documentar Descubrir beta');
+assert.ok(!llmsTxt.includes('1 a 4 estrellas se canalizan'), 'llms.txt no debe describir el embudo viejo');
+assert.ok(llmsFullTxt.includes('/descubrir') && llmsFullTxt.includes('/api/discover/feed'), 'llms-full.txt debe documentar la página y el endpoint');
+assert.ok(llmsFullTxt.includes('4-5'), 'llms-full.txt debe describir el embudo actual (4-5★ Google)');
+console.log('✓ GEO features: embudo neutral + Descubrir documentados, copy viejo afuera');
+
 // 3c. GEO ↔ soluciones: los archivos de IA deben exponer el hub y cada landing por
 // rubro. Si se agrega un rubro y no se documenta acá, este guard lo detecta.
 const seoSolutions = require('../api/utils/seoSolutions');

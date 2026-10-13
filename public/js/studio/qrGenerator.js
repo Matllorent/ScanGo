@@ -245,6 +245,104 @@ export function printTableStand(restaurant) {
 }
 
 /**
+ * Abre ventana emergente para imprimir carpa de reseñas Google.
+ * QR abre la carta con el modal de calificación directo (?review=1).
+ * Sin link de Google configurado avisa antes (el QR igual sirve, pero el
+ * camino a Google no existe).
+ * @param {object} restaurant
+ */
+export function printReviewTent(restaurant) {
+  if (!restaurant || !restaurant.googleReview) {
+    alert('Configurá primero tu Link de Reseñas de Google en Mi Local para que la carpa lleve a tu formulario.');
+    return;
+  }
+  if (!restaurant.slug) {
+    alert('Guardá tu local para tener slug antes de imprimir la carpa.');
+    return;
+  }
+  const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const reviewUrl = `${window.location.origin}/m/${restaurant.slug}?review=1`;
+  const temp = document.createElement('div');
+  temp.style.display = 'none';
+  document.body.appendChild(temp);
+  let src = '';
+  try {
+    if (typeof QRCode === 'undefined') {
+      temp.remove();
+      alert('Librería de QR aún cargando. Esperá unos segundos y reintentá.');
+      return;
+    }
+    new QRCode(temp, {
+      text: reviewUrl,
+      width: 300,
+      height: 300,
+      colorDark: '#0E1412',
+      colorLight: '#FFFFFF',
+      correctLevel: QRCode.CorrectLevel.H
+    });
+    const finish = () => {
+      try {
+        const canvas = temp.querySelector('canvas');
+        const img = temp.querySelector('img');
+        if (canvas) src = canvas.toDataURL('image/png');
+        else if (img) src = img.src;
+      } catch (err) {
+        console.warn('[QR] Canvas tainted en printReviewTent:', err);
+      }
+      temp.remove();
+      openTent(src);
+    };
+    // QRCode.js renderiza async: espera al canvas o img.
+    let waited = 0;
+    const timer = setInterval(() => {
+      waited += 100;
+      if (temp.querySelector('canvas, img') || waited > 3000) {
+        clearInterval(timer);
+        finish();
+      }
+    }, 100);
+  } catch (err) {
+    temp.remove();
+    alert('No se pudo generar el QR de reseñas.');
+  }
+
+  function openTent(qrSrc) {
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <title>Carpa de Reseñas — ${esc(restaurant.name)}</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 30px; background: #fff; color: #111; }
+          .card { border: 3px solid #111; border-radius: 16px; padding: 28px; max-width: 380px; margin: 0 auto; }
+          .stars { font-size: 30px; letter-spacing: 4px; margin: 0 0 8px 0; }
+          h1 { margin: 0 0 6px 0; font-size: 22px; font-weight: 800; }
+          p { margin: 0 0 16px 0; color: #444; font-size: 14px; }
+          img { width: 220px; height: 220px; margin-bottom: 12px; }
+          .step { background: #f4f4f5; padding: 8px 14px; border-radius: 8px; font-size: 13px; border: 1px dashed #ccc; margin-bottom: 12px; }
+          .badge-powered { font-size: 10px; color: #888; margin-top: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="stars">⭐⭐⭐⭐⭐</div>
+          <h1>${esc(restaurant.name)}</h1>
+          <p>¿Te gustó? Dejá tu reseña en Google en 10 segundos</p>
+          ${qrSrc ? `<img src="${qrSrc}" alt="QR Reseñas" />` : ''}
+          <div class="step">1️⃣ Escaneá &nbsp; 2️⃣ Tocá tus estrellas &nbsp; 3️⃣ Publicá</div>
+          <div class="badge-powered">Menú Digital • Menú Pizarrón Studio</div>
+        </div>
+        <script>setTimeout(() => window.print(), 300);<\/script>
+      </body>
+      </html>
+    `);
+    win.document.close();
+  }
+}
+
+/**
  * Genera PDF con todas las mesas configuradas usando jsPDF.
  * @param {object} restaurant
  */

@@ -9,6 +9,18 @@
 
 export let selectedStarRating = 0;
 
+// i18n del modal (manager del menú si existe; fallback español inline).
+function rt(key, fallback) {
+  try {
+    const m = window.i18nManager;
+    if (m && typeof m.t === 'function') {
+      const v = m.t(key);
+      if (v && v !== key) return v;
+    }
+  } catch (e) {}
+  return fallback;
+}
+
 /**
  * Opens the Smart Review modal and prepares form state.
  * @param {object} restaurantData Restaurant metadata (name, googleReview url)
@@ -30,6 +42,34 @@ export function openSmartReviewModal(restaurantData = {}) {
 
   if (box5Stars) box5Stars.style.display = 'none';
   if (boxPrivate) boxPrivate.style.display = 'none';
+  const googleAlt0 = document.getElementById('btnGoogleReviewAlt');
+  if (googleAlt0) googleAlt0.style.display = 'none';
+
+  // Copys i18n (los estáticos del HTML son el fallback español).
+  const setText = (id, key, fallback) => {
+    const node = document.getElementById(id);
+    if (node) node.textContent = rt(key, fallback);
+  };
+  const setPh = (id, key, fallback) => {
+    const node = document.getElementById(id);
+    if (node) node.placeholder = rt(key, fallback);
+  };
+  setText('smartReviewTitle', 'reviewTitle', '¿Cómo estuvo tu experiencia?');
+  setText('reviewGoogleTitle', 'reviewGoogleTitle', '¡Nos alegra un montón que te haya encantado!');
+  setText('reviewGoogleText', 'reviewGoogleText', '¿Nos regalarías 10 segundos de tu tiempo para dejar tu reseña en Google Maps? Tu calificación nos impulsa enormemente.');
+  setText('googleCtaText', 'reviewGoogleCta', '⭐ Publicar Reseña en Google Maps ➔');
+  setText('reviewDismissBtn', 'reviewDismiss', 'Listo, ¡muchas gracias!');
+  setText('reviewAltPrivateBtn', 'reviewAltPrivate', 'o contanos en privado →');
+  setText('reviewPrivateTitle', 'reviewPrivateTitle', 'Queremos escucharte y mejorar');
+  setText('reviewPrivateText', 'reviewPrivateText', 'Lamentamos no haber alcanzado la perfección. Tu mensaje llegará de forma directa y privada a la administración:');
+  setText('reviewCommentLabel', 'reviewCommentLabel', '¿En qué podemos mejorar o qué sucedió?');
+  setPh('feedbackCommentInput', 'reviewCommentPh', 'Contanos tu experiencia (atención, tiempos, sabor, presentación…)');
+  setText('reviewNameLabel', 'reviewNameLabel', 'Tu Nombre (opcional)');
+  setPh('feedbackNameInput', 'reviewNamePh', 'Ej: Juan');
+  setText('reviewContactLabel', 'reviewContactLabel', 'WhatsApp o E-mail (opcional)');
+  setPh('feedbackContactInput', 'reviewContactPh', 'Para contactarte…');
+  setText('reviewSuccessTitle', 'reviewSuccessTitle', '✓ ¡Mensaje recibido!');
+  setText('reviewSuccessText', 'reviewSuccessText', 'Tu comentario fue enviado directamente a la gerencia. Gracias por ayudarnos a perfeccionar nuestro servicio.');
   if (successMsg) successMsg.style.display = 'none';
   if (hintText) hintText.textContent = 'Tocá las estrellas para calificar';
 
@@ -40,6 +80,8 @@ export function openSmartReviewModal(restaurantData = {}) {
 
   if (nameEl) nameEl.textContent = restaurantData.name || 'nuestro local';
   if (googleBtn) googleBtn.href = restaurantData.googleReview || '#';
+  const googleAltBtn = document.getElementById('btnGoogleReviewAlt');
+  if (googleAltBtn) googleAltBtn.href = restaurantData.googleReview || '#';
 
   if (form) {
     form.reset();
@@ -48,7 +90,7 @@ export function openSmartReviewModal(restaurantData = {}) {
   if (submitBtn) {
     submitBtn.disabled = false;
     const span = submitBtn.querySelector('span');
-    if (span) span.textContent = '📩 Enviar Comentario Privado a la Gerencia';
+    if (span) span.textContent = rt('reviewPrivateSubmit', '📩 Enviar Comentario Privado a la Gerencia');
   }
 
   modal.classList.add('active');
@@ -69,6 +111,9 @@ export function closeSmartReviewModal() {
 
 /**
  * Handles star selection with visual rating hint and branch logic.
+ * Pro-política Google: el camino a Google existe para TODOS (4-5★ directo,
+ * 1-3★ vía link alternativo), y el canal privado siempre visible. La entrada
+ * ("¿Cómo estuvo tu experiencia?") es neutral: nunca se pide solo lo positivo.
  * @param {number} rating Selected rating 1-5
  */
 export function handleStarSelect(rating) {
@@ -80,20 +125,38 @@ export function handleStarSelect(rating) {
     btn.setAttribute('aria-pressed', String(star === rating));
   });
 
-  const hintTexts = ['', '😞 Muy mala', '😕 Regular', '🙂 Buena', '😊 Muy buena', '🤩 ¡Excelente!'];
+  const hintTexts = ['', rt('reviewStar1', '😞 Muy mala'), rt('reviewStar2', '😕 Regular'), rt('reviewStar3', '🙂 Buena'), rt('reviewStar4', '😊 Muy buena'), rt('reviewStar5', '🤩 ¡Excelente!')];
   const hintText = document.getElementById('starHintText');
   if (hintText) hintText.textContent = hintTexts[rating] || '';
 
+  showReviewBranch(rating >= 4 ? 'google' : 'private');
+}
+
+/**
+ * Muestra una rama del modal (google|private) con su link alternativo.
+ * La rama Google sin link configurado cae al canal privado (nunca a un '#').
+ */
+export function showReviewBranch(which) {
   const box5Stars = document.getElementById('review5StarsBox');
   const boxPrivate = document.getElementById('reviewPrivateFeedbackBox');
+  const googleAlt = document.getElementById('btnGoogleReviewAlt');
+  const googleBtn = document.getElementById('btnGoogleReviewRedirect');
+  const hasGoogle = Boolean(googleBtn && googleBtn.getAttribute('href') && googleBtn.getAttribute('href') !== '#');
 
-  if (rating === 5) {
-    if (box5Stars) box5Stars.style.display = 'block';
-    if (boxPrivate) boxPrivate.style.display = 'none';
-  } else {
-    if (box5Stars) box5Stars.style.display = 'none';
-    if (boxPrivate) boxPrivate.style.display = 'block';
-  }
+  const showGoogle = which === 'google' && hasGoogle;
+  if (box5Stars) box5Stars.style.display = showGoogle ? 'block' : 'none';
+  if (boxPrivate) boxPrivate.style.display = showGoogle ? 'none' : 'block';
+  if (googleAlt) googleAlt.style.display = (!showGoogle && hasGoogle) ? '' : 'none';
+}
+
+/** Atajo del link alternativo: ver el canal privado. */
+export function showPrivateFeedbackBox() {
+  showReviewBranch('private');
+}
+
+/** Atajo del link alternativo: ver el camino a Google. */
+export function showGoogleReviewBox() {
+  showReviewBranch('google');
 }
 
 /**
@@ -128,8 +191,8 @@ export async function submitPrivateFeedback(e, restaurantData = {}, getSlugFn = 
 
   if (!comment) {
     if (btn) btn.disabled = false;
-    if (span) span.textContent = '📩 Enviar Comentario Privado a la Gerencia';
-    alert('Por favor escribí un comentario antes de enviar.');
+    if (span) span.textContent = rt('reviewPrivateSubmit', '📩 Enviar Comentario Privado a la Gerencia');
+    alert(rt('reviewNeedComment', 'Por favor escribí un comentario antes de enviar.'));
     return;
   }
 
@@ -159,14 +222,14 @@ export async function submitPrivateFeedback(e, restaurantData = {}, getSlugFn = 
       }).catch(() => {});
     } else {
       const data = await response.json().catch(() => ({}));
-      alert(data.error || 'No se pudo enviar el comentario. Intentá nuevamente.');
+      alert(data.error || rt('reviewSendError', 'No se pudo enviar el comentario. Intentá nuevamente.'));
       if (btn) btn.disabled = false;
-      if (span) span.textContent = '📩 Enviar Comentario Privado a la Gerencia';
+      if (span) span.textContent = rt('reviewPrivateSubmit', '📩 Enviar Comentario Privado a la Gerencia');
     }
   } catch (err) {
-    alert('Error de conexión. Por favor, intentá nuevamente.');
+    alert(rt('reviewConnError', 'Error de conexión. Por favor, intentá nuevamente.'));
     if (btn) btn.disabled = false;
-    if (span) span.textContent = '📩 Enviar Comentario Privado a la Gerencia';
+    if (span) span.textContent = rt('reviewPrivateSubmit', '📩 Enviar Comentario Privado a la Gerencia');
   }
 }
 

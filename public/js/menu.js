@@ -3,6 +3,8 @@ import {
   openSmartReviewModal as openSmartReviewModalMod,
   closeSmartReviewModal as closeSmartReviewModalMod,
   handleStarSelect as handleStarSelectMod,
+  showPrivateFeedbackBox as showPrivateFeedbackBoxMod,
+  showGoogleReviewBox as showGoogleReviewBoxMod,
   handleGoogleReviewClick as handleGoogleReviewClickMod,
   submitPrivateFeedback as submitPrivateFeedbackMod,
   initStarHover as initStarHoverMod,
@@ -43,7 +45,23 @@ import {
   neonHexToRgb as neonHexToRgbMod,
   resolveIceCreamButtonStyle as resolveIceCreamButtonStyleMod,
   isRestaurantOpenNow as isRestaurantOpenNowMod,
-  computeOpenStatus as computeOpenStatusMod
+  computeOpenStatus as computeOpenStatusMod,
+  maybeAutoEnterStories as maybeAutoEnterStoriesMod,
+  toggleStoriesMode as toggleStoriesModeMod,
+  saveOrderTracking as saveOrderTrackingMod,
+  showOrderTrackingFab as showOrderTrackingFabMod,
+  initOrderTracking as initOrderTrackingMod,
+  openOrderTracking as openOrderTrackingMod,
+  closeOrderTracking as closeOrderTrackingMod,
+  refreshOrderTracking as refreshOrderTrackingMod,
+  openReviewNudge as openReviewNudgeMod,
+  selectTrackedOrder as selectTrackedOrderMod,
+  forgetOrderTracking as forgetOrderTrackingMod,
+  reopenOrderWhatsApp as reopenOrderWhatsAppMod,
+  scheduleBillNudge as scheduleBillNudgeMod,
+  maybeOpenDishDeepLink as maybeOpenDishDeepLinkMod,
+  maybeOpenReviewFromLink as maybeOpenReviewFromLinkMod,
+  flashDishCard as flashDishCardMod
 } from './menu/index.js';
 import { initModalA11y } from './modalA11y.js';
 
@@ -109,7 +127,11 @@ Object.defineProperties(window, {
       trackPublicEvent('waiter');
       window.open(`https://wa.me/${restaurantData.phone}?text=${msg}`, '_blank');
       closeWaiterModal();
+      // 🧾 Nudge al pedir la cuenta (lógica en orderTracking.js).
+      scheduleBillNudgeMod(type, trackingCtx);
     }
+
+    // (nudge de cuenta: scheduleBillNudge en orderTracking.js)
 
     // Detect slug
     function getSlug() {
@@ -179,7 +201,33 @@ Object.defineProperties(window, {
       try {
         window.dispatchEvent(new CustomEvent('scango:menu-ready'));
       } catch (e) {}
+      maybeOpenReviewFromLink();
+      maybeOpenDishDeepLink();
     }
+
+    // ── Seguimiento del pedido + nudges (lógica en orderTracking.js) ──────
+    // menu.js conserva wrappers del MISMO nombre (contratos window/binder
+    // intactos); el estado vive en el módulo.
+    const trackingCtx = {
+      getRestaurantData: () => restaurantData,
+      getSlug,
+      selectCategory,
+      openReviewModal: () => openSmartReviewModal(),
+      showToast
+    };
+    function saveOrderTracking(entry) { return saveOrderTrackingMod(entry); }
+    function showOrderTrackingFab() { return showOrderTrackingFabMod(); }
+    function initOrderTracking() { return initOrderTrackingMod(trackingCtx); }
+    function openOrderTracking() { return openOrderTrackingMod(trackingCtx); }
+    function closeOrderTracking() { return closeOrderTrackingMod(); }
+    function refreshOrderTracking() { return refreshOrderTrackingMod(trackingCtx); }
+    function openReviewNudge() { return openReviewNudgeMod(trackingCtx); }
+    function selectTrackedOrder(token) { return selectTrackedOrderMod(token, trackingCtx); }
+    function forgetOrderTracking() { return forgetOrderTrackingMod(); }
+    function reopenOrderWhatsApp() { return reopenOrderWhatsAppMod(trackingCtx); }
+    function maybeOpenDishDeepLink() { return maybeOpenDishDeepLinkMod(trackingCtx); }
+    function maybeOpenReviewFromLink() { return maybeOpenReviewFromLinkMod(trackingCtx); }
+    function flashDishCard(dishId, deps) { return flashDishCardMod(dishId, { selectCategory, ...(deps || {}) }); }
 
     // Fetch Restaurant Menu with Client-Side Timeout & Branch-Aware Caching
     async function loadMenu() {
@@ -198,6 +246,7 @@ Object.defineProperties(window, {
             renderCategories();
             renderDishes();
             notifyMenuReady();
+            maybeAutoEnterStoriesMod();
           }
         } catch (e) {}
       }
@@ -230,6 +279,7 @@ Object.defineProperties(window, {
         renderCategories();
         renderDishes();
         notifyMenuReady();
+        maybeAutoEnterStoriesMod();
         // Track visit analytics
         fetch('/api/public/analytics/event', {
           method: 'POST',
@@ -247,6 +297,7 @@ Object.defineProperties(window, {
               renderCategories();
               renderDishes();
               notifyMenuReady();
+              maybeAutoEnterStoriesMod();
               showOfflineBanner(true, 'Modo sin conexión: mostrando carta guardada');
               return;
             }
@@ -267,6 +318,7 @@ Object.defineProperties(window, {
         renderCategories();
         renderDishes();
         notifyMenuReady();
+        maybeAutoEnterStoriesMod();
       }
     });
 
@@ -286,14 +338,14 @@ Object.defineProperties(window, {
       document.getElementById('restaurantSlogan').textContent = restaurantData.slogan || 'Carta Gastronómica';
 
       // Apply Layout Morphology & 14 Authentic Classic Themes + 6 Heladería themes & Fonts to body
-      const validLayouts = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker', 'delivery'];
+      const validLayouts = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker', 'delivery', 'stories'];
       const morphParam = new URLSearchParams(window.location.search).get('morph');
       let layout = restaurantData.layout;
       if (morphParam && validLayouts.includes(morphParam)) {
         layout = morphParam;
       }
       const layoutClass = validLayouts.includes(layout) ? `layout-${layout}` : 'layout-classic';
-      const validThemes = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football', 'helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora'];
+      const validThemes = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football', 'smash-urban', 'glass-gastro', 'ticket', 'helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora'];
       // Heladería SOLO viste sus 11 temas: si el dato viene con un theme de
       // restaurante (cuenta vieja o payload manual), se corrige a fiesta en el
       // render para que el comensal siempre vea estética de heladería.
@@ -1252,6 +1304,7 @@ Object.defineProperties(window, {
       if (d.tags && d.tags.includes('sinlactosa')) badgeHtml += '<span class="dish-badge" style="background:rgba(99,179,237,0.2); color:#63B3ED; border:1px solid rgba(99,179,237,0.4);">🥛 Sin Lactosa</span> ';
       if (d.tags && d.tags.includes('picante')) badgeHtml += '<span class="dish-badge" style="background:rgba(237,137,54,0.2); color:#ED8936; border:1px solid rgba(237,137,54,0.4);">🌶️ Picante</span> ';
       if (d.tags && d.tags.includes('star')) badgeHtml += '<span class="dish-badge badge-star">⭐ Destacado</span> ';
+      if (d.videoUrl) badgeHtml += '<span class="dish-badge dish-videobadge">🎬 Video</span> ';
       // Happy Hour badge
       if (sched.isHappyHour) badgeHtml += '<span class="dish-badge" style="background:rgba(72,187,120,0.2); color:#48BB78; border:1px solid rgba(72,187,120,0.4);">🕐 Happy Hour</span> ';
 
@@ -2058,307 +2111,11 @@ Object.defineProperties(window, {
       }
     }
 
-    // ── Seguimiento del pedido ─────────────────────────────────────────────
-    // El comensal guarda el token firmado que devuelve POST /api/orders y con
-    // él consulta el estado público (sin datos personales) hasta que el pedido
-    // se entrega o se cancela. El push de estado reabre esta misma vista.
-    // Multi-pedido: se guardan hasta 5 (el nuevo NO pisa el anterior); el
-    // FAB abre la lista para cambiar y se oculta solo cuando todos cerraron.
-    const ORDER_TRACKING_KEY = 'scango_active_order';
-    const ORDER_TRACKING_LIST_KEY = 'scango_tracked_orders';
-    const ORDER_TRACKING_MAX = 5;
-    const ORDER_TRACKING_POLL_MS = 15000;
-    const ORDER_TRACKING_DONE = ['delivered', 'cancelled'];
-    let orderTrackingTimer = null;
+    // ── Seguimiento del pedido + nudges ────────────────────────────────────
+    // Extraído a orderTracking.js (módulo; menu.js conserva wrappers del mismo
+    // nombre). Ver trackingCtx + wrappers junto a notifyMenuReady.
 
-    function getActiveOrder() {
-      try {
-        const raw = localStorage.getItem(ORDER_TRACKING_KEY);
-        return raw ? JSON.parse(raw) : null;
-      } catch (e) { return null; }
-    }
-
-    function getTrackedOrders() {
-      try {
-        const raw = localStorage.getItem(ORDER_TRACKING_LIST_KEY);
-        const list = raw ? JSON.parse(raw) : null;
-        if (Array.isArray(list) && list.length) return list;
-      } catch (e) {}
-      // Migración: una sola entrada vieja → lista de uno.
-      const single = getActiveOrder();
-      return single && single.token ? [single] : [];
-    }
-
-    function persistTrackedOrders(list) {
-      try {
-        localStorage.setItem(ORDER_TRACKING_LIST_KEY, JSON.stringify(list.slice(0, ORDER_TRACKING_MAX)));
-      } catch (e) {}
-    }
-
-    function saveOrderTracking(entry) {
-      if (!entry || !entry.token) return;
-      const list = getTrackedOrders().filter(o => o.token !== entry.token);
-      list.unshift({ ...entry, done: false });
-      persistTrackedOrders(list);
-      try { localStorage.setItem(ORDER_TRACKING_KEY, JSON.stringify({ ...entry, done: false })); } catch (e) {}
-    }
-
-    function markTrackedOrderDone(token, status) {
-      const list = getTrackedOrders();
-      let changed = false;
-      for (const o of list) {
-        if (o.token === token && !o.done) {
-          o.done = true;
-          o.status = status;
-          changed = true;
-        }
-      }
-      if (changed) persistTrackedOrders(list);
-      const active = getActiveOrder();
-      if (active && active.token === token) {
-        try { localStorage.setItem(ORDER_TRACKING_KEY, JSON.stringify({ ...active, done: true, status })); } catch (e) {}
-      }
-      // Sin pendientes: el FAB deja de ofrecer seguimiento (el historial
-      // queda en la lista para consulta).
-      if (list.length && list.every(o => o.done)) {
-        const fab = document.getElementById('orderTrackingFab');
-        if (fab) fab.style.display = 'none';
-      }
-    }
-
-    function selectTrackedOrder(token) {
-      const found = getTrackedOrders().find(o => o.token === token);
-      if (!found) return;
-      try { localStorage.setItem(ORDER_TRACKING_KEY, JSON.stringify(found)); } catch (e) {}
-      showOrderTrackingFab();
-      openOrderTracking();
-    }
-
-    function clearOrderTracking() {
-      try {
-        localStorage.removeItem(ORDER_TRACKING_KEY);
-        localStorage.removeItem(ORDER_TRACKING_LIST_KEY);
-      } catch (e) {}
-      stopOrderTrackingPolling();
-      const fab = document.getElementById('orderTrackingFab');
-      if (fab) fab.style.display = 'none';
-    }
-
-    function showOrderTrackingFab() {
-      // Solo si hay al menos un pedido sin cerrar.
-      const pending = getTrackedOrders().some(o => !o.done);
-      const active = getActiveOrder();
-      if (!pending && !(active && !active.done)) return;
-      const fab = document.getElementById('orderTrackingFab');
-      if (fab) fab.style.display = 'flex';
-    }
-
-    function stopOrderTrackingPolling() {
-      if (orderTrackingTimer) {
-        clearInterval(orderTrackingTimer);
-        orderTrackingTimer = null;
-      }
-    }
-
-    function startOrderTrackingPolling() {
-      stopOrderTrackingPolling();
-      orderTrackingTimer = setInterval(() => {
-        const modal = document.getElementById('orderTrackingModal');
-        if (modal && modal.classList.contains('active')) refreshOrderTracking();
-      }, ORDER_TRACKING_POLL_MS);
-    }
-
-    const ORDER_TRACKING_STEPS = [
-      { key: 'pending', label: 'Pedido recibido' },
-      { key: 'confirmed', label: 'Confirmado por el local' },
-      { key: 'preparing', label: 'En preparación' },
-      { key: 'ready', label: 'Listo para retirar' },
-      { key: 'on_the_way', label: 'En camino' },
-      { key: 'delivered', label: 'Entregado' }
-    ];
-
-    function renderOrderTracking(data) {
-      const body = document.getElementById('orderTrackingBody');
-      if (!body) return;
-      const status = data.status || 'pending';
-      const subtitle = document.getElementById('orderTrackingSubtitle');
-      const metaBits = [data.restaurantName || '', data.tableNumber ? String(data.tableNumber) : ''].filter(Boolean);
-      if (subtitle) subtitle.textContent = metaBits.join(' · ') || 'Mirá en qué estado está tu pedido.';
-
-      if (status === 'cancelled') {
-        body.innerHTML = '<div style="text-align:center; padding:16px 4px; color:#FEB2B2; font-size:0.9rem;">❌ Tu pedido fue cancelado. Si fue un error, escribinos por WhatsApp.</div>';
-        return;
-      }
-
-      const currentIndex = Math.max(0, ORDER_TRACKING_STEPS.findIndex(s => s.key === status));
-      const warning = status === 'delayed'
-        ? '<div style="background:rgba(237,137,54,0.15); border:1px solid rgba(237,137,54,0.5); color:#FBD38D; font-size:0.8rem; border-radius:8px; padding:8px 10px; margin-bottom:12px;">⏳ El local avisó una demora imprevista. Tu pedido sigue en marcha.</div>'
-        : '';
-      const stepsHtml = ORDER_TRACKING_STEPS.map((step, index) => {
-        const done = index < currentIndex;
-        const active = index === currentIndex;
-        const dot = done ? '✓' : (active ? '●' : '○');
-        const color = done ? '#68D391' : (active ? '#63B3ED' : 'rgba(255,255,255,0.3)');
-        const labelColor = done ? 'var(--chalk-dim)' : (active ? '#fff' : 'rgba(255,255,255,0.4)');
-        return `<div style="display:flex; align-items:center; gap:10px; padding:5px 0;">
-          <span style="color:${color}; font-size:1.05rem; width:18px; text-align:center;">${dot}</span>
-          <span style="color:${labelColor}; font-size:0.88rem; font-weight:${active ? '700' : '400'};">${escapeHtml(step.label)}</span>
-        </div>`;
-      }).join('');
-
-      const totalLine = (data.total != null && data.currency)
-        ? `<div style="border-top:1px solid rgba(255,255,255,0.1); margin-top:12px; padding-top:10px; color:var(--chalk-gold); font-weight:700; font-size:0.9rem;">Total: ${escapeHtml(String(data.currency))} ${Number(data.total).toFixed(2)}</div>`
-        : '';
-      body.innerHTML = warning + stepsHtml + totalLine;
-    }
-
-    function renderOrderTrackingError(message) {
-      const body = document.getElementById('orderTrackingBody');
-      if (body) body.innerHTML = `<div style="color:#FEB2B2; font-size:0.85rem; padding:8px 0;">${escapeHtml(message || 'No pudimos cargar el estado.')}</div>`;
-    }
-
-    async function refreshOrderTracking() {
-      const active = getActiveOrder();
-      if (!active || !active.token) {
-        renderOrderTrackingError('No hay un pedido activo para seguir.');
-        return;
-      }
-      try {
-        const res = await fetch(`/api/orders/track/${encodeURIComponent(active.token)}`);
-        if (res.status === 404) {
-          // Solo ese pedido venció: se saca de la lista, el resto sigue.
-          persistTrackedOrders(getTrackedOrders().filter(o => o.token !== active.token));
-          renderOrderTrackingError('Este pedido ya no está disponible (puede haber vencido o el local lo cerró).');
-          return;
-        }
-        const payload = await res.json();
-        if (!res.ok || !payload.success) throw new Error(payload.error || 'Error');
-        renderOrderTracking(payload.data || {});
-        if (payload.data && ORDER_TRACKING_DONE.includes(payload.data.status)) {
-          stopOrderTrackingPolling();
-          markTrackedOrderDone(active.token, payload.data.status);
-        }
-      } catch (e) {
-        renderOrderTrackingError('No pudimos actualizar el estado. Reintentando…');
-      }
-    }
-
-    function openOrderTracking() {
-      const active = getActiveOrder();
-      const modal = document.getElementById('orderTrackingModal');
-      if (!modal) return;
-      const tracked = getTrackedOrders();
-      if (!active || !active.token) {
-        // Sin pedido guardado: no abrimos una vista vacía.
-        const fab = document.getElementById('orderTrackingFab');
-        if (fab) fab.style.display = 'none';
-        return;
-      }
-      modal.classList.add('active');
-      // Varios pedidos: selector para cambiar sin perder ninguno.
-      const listHost = document.getElementById('orderTrackingList');
-      if (listHost) {
-        if (tracked.length > 1) {
-          listHost.innerHTML = tracked.map(o => {
-            const isActive = o.token === active.token;
-            const label = [o.restaurantName, o.tableNumber ? `Mesa ${o.tableNumber}` : ''].filter(Boolean).join(' · ') || 'Pedido';
-            return `<button type="button" data-js-click="selectTrackedOrder|${escapeHtml(o.token)}" style="display:flex; justify-content:space-between; align-items:center; gap:8px; width:100%; text-align:left; background:${isActive ? 'rgba(236,201,75,0.12)' : 'transparent'}; border:1px solid ${isActive ? 'var(--border-gold)' : 'var(--border-chalk)'}; color:#fff; border-radius:8px; padding:8px 10px; margin-bottom:6px; cursor:pointer; font-size:0.8rem;">`
-              + `<span>${escapeHtml(label)}${o.done ? ' ✓' : ''}</span>`
-              + `<span style="color:var(--chalk-gold); font-weight:700;">${isActive ? 'Viéndolo' : 'Ver →'}</span>`
-              + `</button>`;
-          }).join('');
-          listHost.style.display = 'block';
-        } else {
-          listHost.innerHTML = '';
-          listHost.style.display = 'none';
-        }
-      }
-      renderOrderTracking({ status: 'pending', restaurantName: active.restaurantName, tableNumber: active.tableNumber });
-      refreshOrderTracking();
-      startOrderTrackingPolling();
-    }
-
-    function closeOrderTracking() {
-      const modal = document.getElementById('orderTrackingModal');
-      if (modal) modal.classList.remove('active');
-      stopOrderTrackingPolling();
-    }
-
-    function forgetOrderTracking() {
-      // Oculta SOLO el pedido en vista (el resto sigue en la lista).
-      const active = getActiveOrder();
-      if (active && active.token) {
-        persistTrackedOrders(getTrackedOrders().filter(o => o.token !== active.token));
-        const rest = getTrackedOrders();
-        try {
-          if (rest.length) localStorage.setItem(ORDER_TRACKING_KEY, JSON.stringify(rest[0]));
-          else localStorage.removeItem(ORDER_TRACKING_KEY);
-        } catch (e) {}
-        if (!rest.some(o => !o.done)) {
-          const fab = document.getElementById('orderTrackingFab');
-          if (fab) fab.style.display = 'none';
-        }
-      } else {
-        clearOrderTracking();
-      }
-      closeOrderTracking();
-    }
-
-    function reopenOrderWhatsApp() {
-      const rawPhone = String((restaurantData && restaurantData.phone) || '').replace(/[^0-9]/g, '');
-      if (!rawPhone) return;
-      const active = getActiveOrder();
-      const local = (restaurantData && restaurantData.name) || 'el local';
-      const tableBit = active && active.tableNumber ? ` (Mesa ${active.tableNumber})` : '';
-      const msg = `¡Hola ${local}! 👋 Quería consultar por mi pedido${tableBit}.`;
-      window.open(`https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`, '_blank');
-    }
-
-    // Arranca el seguimiento si llega ?track=<token> (push del local) o si hay
-    // un pedido activo guardado de una visita anterior.
-    function initOrderTracking() {
-      let urlToken = '';
-      let paymentStatus = '';
-      try {
-        const params = new URLSearchParams(window.location.search);
-        urlToken = params.get('track') || '';
-        paymentStatus = params.get('payment') || '';
-      } catch (e) { urlToken = ''; }
-
-      // Retorno de Mercado Pago (?payment=success|failure|pending&ref=...):
-      // se muestra el estado y cómo seguir, y se limpia la URL para no
-      // repetir el aviso al recargar.
-      if (paymentStatus) {
-        try {
-          const cleanUrl = new URL(window.location.href);
-          cleanUrl.searchParams.delete('payment');
-          cleanUrl.searchParams.delete('ref');
-          window.history.replaceState({}, '', cleanUrl.toString());
-        } catch (e) {}
-        if (paymentStatus === 'success') {
-          showToast('¡Pago acreditado! Ahora enviá tu pedido por WhatsApp adjuntando el comprobante.');
-        } else if (paymentStatus === 'failure') {
-          showToast('El pago no se completó. Podés reintentarlo o pagar al recibir.');
-        } else if (paymentStatus === 'pending') {
-          showToast('Tu pago está pendiente de acreditación. Te avisaremos al confirmarse.');
-        }
-      }
-
-      if (urlToken) {
-        saveOrderTracking({
-          token: urlToken,
-          slug: getSlug(),
-          restaurantName: (restaurantData && restaurantData.name) || '',
-          tableNumber: '',
-          createdAt: Date.now()
-        });
-      }
-
-      const active = getActiveOrder();
-      if (!active || !active.token) return;
-      showOrderTrackingFab();
-      if (urlToken) openOrderTracking();
-    }
+    // (render + polling + modales + init: ver orderTracking.js)
 
     function applyCoupon() {
       const input = document.getElementById('inputCouponCode');
@@ -3258,6 +3015,12 @@ Object.defineProperties(window, {
       selectedStarRating = rating;
       handleStarSelectMod(rating);
     }
+    function showPrivateFeedbackBox() {
+      showPrivateFeedbackBoxMod();
+    }
+    function showGoogleReviewBox() {
+      showGoogleReviewBoxMod();
+    }
 
     function handleGoogleReviewClick() {
       handleGoogleReviewClickMod(getSlug);
@@ -3352,6 +3115,26 @@ Object.defineProperties(window, {
       const addrEl = document.getElementById('infoAddressFullText');
       if (addrEl && restaurantData) {
         addrEl.textContent = restaurantData.address || 'Dirección no disponible';
+      }
+      // 🗺️ Cómo llegar: geo exacta si el dueño la cargó, sino búsqueda por
+      // dirección+ciudad. Link universal de Google Maps (sin APIs pagas).
+      const dirEl = document.getElementById('infoDirectionsLink');
+      if (dirEl && restaurantData) {
+        const lat = parseFloat(restaurantData.latitude);
+        const lng = parseFloat(restaurantData.longitude);
+        let dest = '';
+        if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+          dest = `${lat},${lng}`;
+        } else {
+          const q = [restaurantData.address, restaurantData.city].filter(Boolean).join(', ').trim();
+          if (q) dest = q;
+        }
+        if (dest) {
+          dirEl.setAttribute('href', `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`);
+          dirEl.style.display = '';
+        } else {
+          dirEl.style.display = 'none';
+        }
       }
       const dtModal = document.getElementById('infoDeliveryTimeModal');
       if (dtModal && restaurantData) {
@@ -3528,6 +3311,7 @@ Object.defineProperties(window, {
       loadMenu,
       selectCategory,
       toggleCategory,
+      toggleStoriesMode: toggleStoriesModeMod,
       selectCategoryFromModal,
       openCategoriesMenuModal,
       closeCategoriesMenuModal,
@@ -3555,6 +3339,8 @@ Object.defineProperties(window, {
       openSmartReviewModal,
       closeSmartReviewModal,
       handleStarSelect,
+      showPrivateFeedbackBox,
+      showGoogleReviewBox,
       handleGoogleReviewClick,
       submitPrivateFeedback,
       openReservationModal,
@@ -3579,6 +3365,7 @@ Object.defineProperties(window, {
       openOrderTracking,
       closeOrderTracking,
       refreshOrderTracking,
+      openReviewNudge,
       selectTrackedOrder,
       forgetOrderTracking,
       reopenOrderWhatsApp,

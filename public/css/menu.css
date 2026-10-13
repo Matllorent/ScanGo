@@ -262,10 +262,595 @@
       --border-chalk: rgba(224, 231, 34, 0.28);
       --border-gold: rgba(224, 231, 34, 0.58);
       background-color: #0B1911;
-      background-image: 
+      background-image:
         radial-gradient(circle at 50% 50%, transparent 80px, rgba(255,255,255,0.025) 81px, rgba(255,255,255,0.025) 83px, transparent 84px),
         linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px);
       background-size: 100% 100%, 100% 60px;
+    }
+
+    /* ============================================================
+       SMASH URBAN — bottom-sheet blanco flotando sobre hero negro
+       (hamburgueserías / delivery: estética "Larry's").
+       El .menu-container ES la sheet: radio 32px + solape -56px +
+       sombra profunda sobre el fondo negro del body.
+       ============================================================ */
+    body.theme-smash-urban {
+      --bg-chalkboard: #070707;
+      --surface-card: #FFFFFF;
+      --surface-card-hover: #F4F5F6;
+      --chalk-gold: #0E9AA0;
+      --chalk-gold-dim: rgba(14, 154, 160, 0.12);
+      --chalk-green: #0E9AA0;
+      --chalk-white: #141414;
+      --chalk-muted: #5B6472;
+      --chalk-dim: #8A94A6;
+      --border-chalk: rgba(0, 0, 0, 0.08);
+      --border-gold: rgba(14, 154, 160, 0.45);
+      background-color: #070707;
+      background-image:
+        radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.07) 0%, transparent 55%),
+        radial-gradient(circle at 85% 30%, rgba(14, 154, 160, 0.10) 0%, transparent 45%);
+    }
+    body.theme-smash-urban .menu-header {
+      background: transparent;
+      border-bottom: none;
+      box-shadow: none;
+      padding: 20px 16px 88px;
+    }
+    body.theme-smash-urban .restaurant-title {
+      font-family: 'Bungee', 'Anton', sans-serif;
+      color: #FFFFFF;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: clamp(2rem, 8vw, 3.2rem);
+      line-height: 0.95;
+      text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+    }
+    body.theme-smash-urban .restaurant-slogan { color: #D7DBE0; }
+    body.theme-smash-urban .restaurant-logo {
+      border-color: #FFFFFF;
+      box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
+    }
+    body.theme-smash-urban .restaurant-meta-bar { color: #D7DBE0; }
+    body.theme-smash-urban .meta-chip {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.22);
+      color: #EDEFF2;
+    }
+    body.theme-smash-urban .meta-chip:hover {
+      border-color: #FFFFFF;
+      color: #FFFFFF;
+      background: rgba(255, 255, 255, 0.14);
+    }
+    /* La sheet blanca */
+    body.theme-smash-urban .menu-container {
+      background: #FFFFFF;
+      color: #141414;
+      border-radius: 32px 32px 0 0;
+      margin-top: -56px;
+      position: relative;
+      z-index: 2;
+      box-shadow: 0 -18px 60px rgba(0, 0, 0, 0.55);
+      max-width: 760px;
+      padding: 10px 18px 40px;
+    }
+    body.theme-smash-urban .menu-container::before {
+      content: '';
+      display: block;
+      width: 56px;
+      height: 5px;
+      border-radius: 99px;
+      background: #E2E4E7;
+      margin: 2px auto 12px;
+    }
+    body.theme-smash-urban .controls-wrapper {
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid #F0F1F3;
+    }
+    body.theme-smash-urban .search-box {
+      background: #FFFFFF;
+      border: 1px solid #E8EAED;
+      border-radius: 16px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+      color: #141414;
+      padding: 14px 16px;
+    }
+    body.theme-smash-urban .search-box::placeholder { color: #9AA3B2; }
+    body.theme-smash-urban .category-pills { gap: 22px; }
+    body.theme-smash-urban .cat-pill {
+      background: none;
+      border: none;
+      border-radius: 0;
+      color: #8A94A6;
+      padding: 8px 2px;
+      font-weight: 400;
+    }
+    body.theme-smash-urban .cat-pill.active {
+      background: none;
+      color: #0E9AA0;
+      border-bottom: 2.5px solid #0E9AA0;
+      border-radius: 0;
+      font-weight: 600;
+    }
+    body.theme-smash-urban .category-title {
+      color: #141414;
+      border-bottom: 1px solid #F0F1F3;
+    }
+    body.theme-smash-urban .category-badge-count { color: #8A94A6; }
+    body.theme-smash-urban .dishes-grid { gap: 26px; }
+    body.theme-smash-urban .dish-card {
+      background: #FFFFFF;
+      border: none;
+      box-shadow: none;
+      padding: 0;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    body.theme-smash-urban .dish-card:hover {
+      background: #FFFFFF;
+      border-color: transparent;
+    }
+    body.theme-smash-urban .dish-thumb {
+      width: 148px;
+      height: 148px;
+      border-radius: 16px;
+      border: none;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    }
+    body.theme-smash-urban .dish-name { color: #141414; font-weight: 500; }
+    body.theme-smash-urban .dish-desc { color: #8A94A6; }
+    body.theme-smash-urban .dish-price { color: #141414; }
+    body.theme-smash-urban .dish-price s,
+    body.theme-smash-urban .dish-old-price { color: #C9CDD3; font-weight: 400; }
+    body.theme-smash-urban .btn-add {
+      background: #0E9AA0;
+      color: #FFFFFF;
+      box-shadow: 0 6px 18px rgba(14, 154, 160, 0.45);
+    }
+    body.theme-smash-urban .qty-counter { color: #0E9AA0; }
+    body.theme-smash-urban .dish-badge.badge-star { background: rgba(185, 28, 28, 0.12); color: #B91C1C; border-color: rgba(185, 28, 28, 0.32); }
+    body.theme-smash-urban .dish-badge.badge-veggie { background: rgba(22, 101, 52, 0.12); color: #166534; border-color: rgba(22, 101, 52, 0.30); }
+    body.theme-smash-urban .dish-badge.badge-celiac { background: rgba(133, 77, 14, 0.14); color: #854D0E; border-color: rgba(133, 77, 14, 0.32); }
+    body.theme-smash-urban .floating-cart-bar {
+      background: #0E9AA0;
+      color: #FFFFFF;
+      box-shadow: 0 12px 30px rgba(14, 154, 160, 0.5);
+    }
+    body.theme-smash-urban .a11y-bar {
+      background: rgba(14, 154, 160, 0.08);
+      border-color: rgba(14, 154, 160, 0.35);
+      color: #0B6B70;
+    }
+    body.theme-smash-urban .btn-a11y-tts {
+      border-color: rgba(14, 154, 160, 0.45);
+      color: #0B6B70;
+    }
+    body.theme-smash-urban .empty-state-card { border-color: rgba(0, 0, 0, 0.12); background: #FAFBFC; }
+    body.theme-smash-urban .empty-state-title { color: #0E9AA0; }
+    body.theme-smash-urban .empty-state-desc { color: #8A94A6; }
+    body.theme-smash-urban .empty-state-btn { border-color: #0E9AA0; color: #0E9AA0; }
+    body.theme-smash-urban .empty-state-btn:hover { background: #0E9AA0; color: #FFFFFF; }
+    body.theme-smash-urban .chef-specials-section {
+      background: #F7F9FA;
+      border: 1px dashed rgba(14, 154, 160, 0.5);
+    }
+    body.theme-smash-urban .chef-specials-title { color: #0E9AA0; text-shadow: none; }
+    body.theme-smash-urban .chef-special-card {
+      background: #FFFFFF;
+      border: 1px solid #ECEEF1;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    }
+    @media (min-width: 900px) {
+      body.theme-smash-urban .menu-container {
+        border-radius: 28px;
+        margin: -70px auto 40px;
+        max-width: 1080px;
+        padding: 18px 36px 48px;
+      }
+      body.theme-smash-urban .dishes-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 34px 48px;
+      }
+      body.theme-smash-urban .menu-header { padding-bottom: 110px; }
+    }
+    @media (max-width: 760px) {
+      body.theme-smash-urban .dish-thumb { width: 124px; height: 124px; }
+      body.theme-smash-urban .dish-name { font-size: 0.98rem; }
+    }
+
+    /* ============================================================
+       GLASS GASTRO — vidrio multicapa sobre ambiente nocturno
+       Capas: foto del local (si hay banner) + orbes cyan/magenta/ámbar
+       que sangran tras el blur + highlight superior + acento lateral.
+       100% CSS (backdrop-filter + saturate), sin librerías ni assets.
+       ============================================================ */
+    body.theme-glass-gastro {
+      --bg-chalkboard: #070D18;
+      --surface-card: rgba(255, 255, 255, 0.10);
+      --surface-card-hover: rgba(255, 255, 255, 0.16);
+      --chalk-gold: #22D3EE;
+      --chalk-gold-dim: rgba(34, 211, 238, 0.14);
+      --chalk-green: #34D399;
+      --chalk-white: #F2F6FB;
+      --chalk-muted: #C4CFDD;
+      --chalk-dim: #8FA0B3;
+      --border-chalk: rgba(255, 255, 255, 0.22);
+      --border-gold: rgba(34, 211, 238, 0.45);
+      background-color: #070D18;
+      background-image:
+        radial-gradient(circle at 12% 0%, rgba(34, 211, 238, 0.22) 0%, transparent 42%),
+        radial-gradient(circle at 88% 22%, rgba(244, 114, 182, 0.18) 0%, transparent 46%),
+        radial-gradient(circle at 50% 110%, rgba(245, 158, 11, 0.16) 0%, transparent 50%),
+        linear-gradient(rgba(4, 8, 16, 0.55) 0%, rgba(4, 8, 16, 0.88) 100%);
+      background-attachment: fixed;
+    }
+    body.theme-glass-gastro::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.10;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.85'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+    }
+    body.theme-glass-gastro .menu-header {
+      --chalk-white: #F2F6FB;
+      --chalk-muted: #C4CFDD;
+      --chalk-dim: #8FA0B3;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 20px;
+      margin: 12px 12px 0;
+      padding: 22px 16px 20px;
+      backdrop-filter: blur(22px) saturate(160%);
+      -webkit-backdrop-filter: blur(22px) saturate(160%);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    }
+    body.theme-glass-gastro .restaurant-title {
+      color: #FFFFFF;
+      letter-spacing: 1.5px;
+      text-shadow: 0 2px 18px rgba(34, 211, 238, 0.25);
+    }
+    body.theme-glass-gastro .restaurant-slogan { color: #7DD3FC; }
+    body.theme-glass-gastro .restaurant-logo {
+      border-color: rgba(255, 255, 255, 0.55);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    }
+    body.theme-glass-gastro .meta-chip {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.22);
+      color: #DBE4EF;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    body.theme-glass-gastro .meta-chip:hover {
+      border-color: #22D3EE;
+      color: #22D3EE;
+      background: rgba(34, 211, 238, 0.12);
+    }
+    body.theme-glass-gastro .menu-container {
+      background: transparent;
+      position: relative;
+      z-index: 1;
+    }
+    body.theme-glass-gastro .controls-wrapper {
+      background: rgba(10, 18, 32, 0.55);
+      backdrop-filter: blur(22px) saturate(160%);
+      -webkit-backdrop-filter: blur(22px) saturate(160%);
+      border: 1px solid rgba(255, 255, 255, 0.20);
+      border-radius: 18px;
+      box-shadow: 0 10px 34px rgba(0, 0, 0, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      margin: 12px 0 18px;
+      padding: 12px 12px 10px;
+    }
+    body.theme-glass-gastro .search-box {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 14px;
+      color: #FFFFFF;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    body.theme-glass-gastro .search-box::placeholder { color: #8FA0B3; }
+    body.theme-glass-gastro .search-box:focus { border-color: #22D3EE; }
+    body.theme-glass-gastro .category-pills { gap: 8px; }
+    body.theme-glass-gastro .cat-pill {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.20);
+      color: #DBE4EF;
+      border-radius: 999px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+    body.theme-glass-gastro .cat-pill.active {
+      background: linear-gradient(135deg, #22D3EE 0%, #67E8F9 100%);
+      border-color: transparent;
+      color: #04222B;
+      box-shadow: 0 6px 22px rgba(34, 211, 238, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    }
+    body.theme-glass-gastro .category-title {
+      color: #EEF3F9;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+    }
+    body.theme-glass-gastro .category-badge-count { color: #7DD3FC; }
+    body.theme-glass-gastro .dish-card {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.20) 0%, rgba(255, 255, 255, 0.06) 60%);
+      border: 1px solid rgba(255, 255, 255, 0.30);
+      border-radius: 22px;
+      backdrop-filter: blur(24px) saturate(170%);
+      -webkit-backdrop-filter: blur(24px) saturate(170%);
+      box-shadow: 0 12px 38px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.40);
+    }
+    body.theme-glass-gastro .dish-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 10%;
+      right: 10%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+      pointer-events: none;
+    }
+    body.theme-glass-gastro .dish-card::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 14px;
+      bottom: 14px;
+      width: 3px;
+      border-radius: 99px;
+      background: linear-gradient(#22D3EE, #F472B6);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+    body.theme-glass-gastro .dish-card:hover {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.09) 60%);
+      border-color: rgba(34, 211, 238, 0.55);
+    }
+    body.theme-glass-gastro .dish-thumb {
+      width: 80px;
+      height: 80px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+    }
+    body.theme-glass-gastro .dish-name { color: #FFFFFF; }
+    body.theme-glass-gastro .dish-desc { color: #B9C6D8; }
+    body.theme-glass-gastro .dish-price { color: #FFFFFF; }
+    body.theme-glass-gastro .btn-add {
+      background: linear-gradient(135deg, #22D3EE 0%, #0EA5E9 100%);
+      color: #04222B;
+      border-radius: 14px;
+      width: 40px;
+      height: 40px;
+      box-shadow: 0 6px 20px rgba(34, 211, 238, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    }
+    body.theme-glass-gastro .qty-counter { color: #67E8F9; }
+    body.theme-glass-gastro .floating-cart-bar {
+      background: linear-gradient(135deg, rgba(20, 30, 48, 0.85), rgba(20, 30, 48, 0.60));
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      color: #FFFFFF;
+      backdrop-filter: blur(26px) saturate(170%);
+      -webkit-backdrop-filter: blur(26px) saturate(170%);
+      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.30);
+    }
+    body.theme-glass-gastro .a11y-bar {
+      background: rgba(34, 211, 238, 0.10);
+      border-color: rgba(34, 211, 238, 0.35);
+      color: #7DD3FC;
+    }
+    body.theme-glass-gastro .btn-a11y-tts { border-color: rgba(34, 211, 238, 0.45); color: #7DD3FC; }
+    body.theme-glass-gastro .chef-specials-section {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04));
+      border: 1px solid rgba(255, 255, 255, 0.26);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+    body.theme-glass-gastro .chef-special-card {
+      background: rgba(10, 18, 32, 0.60);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+    body.theme-glass-gastro .empty-state-card {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.22);
+    }
+    @media (min-width: 900px) {
+      body.theme-glass-gastro .menu-container { max-width: 900px; }
+      body.theme-glass-gastro .dishes-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      body.theme-glass-gastro .menu-header { margin: 16px auto 0; max-width: 900px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      body.theme-glass-gastro .dish-card,
+      body.theme-smash-urban .dish-card { transition: none; }
+    }
+
+    /* ============================================================
+       TICKET TÉRMICO — recibo de mostrador (parrillas / cantinas).
+       Papel angosto centrado con borde dentado, monoespaciada real,
+       líneas punteadas, sellos por categoría y stub de total oscuro.
+       ============================================================ */
+    body.theme-ticket {
+      --bg-chalkboard: #1C1917;
+      --surface-card: #FAF6EE;
+      --surface-card-hover: #F3EEDF;
+      --chalk-gold: #B91C1C;
+      --chalk-gold-dim: rgba(185, 28, 28, 0.10);
+      --chalk-green: #1C1917;
+      --chalk-white: #1C1917;
+      --chalk-muted: #57534E;
+      --chalk-dim: #78716C;
+      --border-chalk: rgba(28, 25, 23, 0.18);
+      --border-gold: rgba(185, 28, 28, 0.45);
+      --font-heading: 'IBM Plex Mono', ui-monospace, monospace;
+      --font-body: 'IBM Plex Mono', ui-monospace, monospace;
+      background-color: #1C1917;
+      background-image: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.06) 0%, transparent 60%);
+    }
+    body.theme-ticket .menu-header {
+      background: #FAF6EE;
+      border-bottom: 2px dashed #1C1917;
+      box-shadow: none;
+      padding: 26px 16px 18px;
+    }
+    body.theme-ticket .restaurant-title {
+      font-family: 'IBM Plex Mono', ui-monospace, monospace;
+      color: #1C1917;
+      letter-spacing: 2px;
+      font-size: clamp(1.3rem, 5vw, 1.8rem);
+    }
+    body.theme-ticket .restaurant-slogan { color: #57534E; font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+    body.theme-ticket .restaurant-logo {
+      border-color: #1C1917;
+      box-shadow: none;
+      border-radius: 8px;
+    }
+    body.theme-ticket .restaurant-meta-bar { color: #57534E; }
+    body.theme-ticket .meta-chip {
+      background: transparent;
+      border: 1.5px solid #1C1917;
+      border-radius: 6px;
+      color: #1C1917;
+    }
+    body.theme-ticket .meta-chip:hover {
+      background: #1C1917;
+      color: #FAF6EE;
+      border-color: #1C1917;
+    }
+    body.theme-ticket .btn-info-modal,
+    body.theme-ticket .header-top-row .social-btn-round {
+      color: #1C1917;
+      border-color: #1C1917;
+    }
+    /* El papel: columna angosta con dentado inferior */
+    body.theme-ticket .menu-container {
+      background: #FAF6EE;
+      color: #1C1917;
+      max-width: 480px;
+      padding: 14px 22px 30px;
+      position: relative;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+    }
+    body.theme-ticket .menu-container::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -13px;
+      height: 14px;
+      background: radial-gradient(circle at 10px -3px, transparent 12px, #FAF6EE 13px);
+      background-size: 20px 14px;
+    }
+    body.theme-ticket .controls-wrapper {
+      background: #FAF6EE;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      border-bottom: 2px dashed #1C1917;
+    }
+    body.theme-ticket .search-box {
+      background: #FFFFFF;
+      border: 2px solid #1C1917;
+      border-radius: 6px;
+      color: #1C1917;
+      font-family: 'IBM Plex Mono', ui-monospace, monospace;
+      box-shadow: 3px 3px 0 #1C1917;
+    }
+    body.theme-ticket .search-box::placeholder { color: #A8A29E; }
+    body.theme-ticket .cat-pill {
+      background: transparent;
+      border: 2px solid #1C1917;
+      border-radius: 6px;
+      color: #1C1917;
+      transform: rotate(-1.2deg);
+    }
+    body.theme-ticket .cat-pill:nth-child(even) { transform: rotate(1.2deg); }
+    body.theme-ticket .cat-pill.active {
+      background: #1C1917;
+      color: #FAF6EE;
+      border-color: #1C1917;
+      transform: rotate(0);
+    }
+    body.theme-ticket .category-title {
+      color: #1C1917;
+      border-bottom: 2px dashed #1C1917;
+      font-family: 'IBM Plex Mono', ui-monospace, monospace;
+      letter-spacing: 1px;
+    }
+    body.theme-ticket .category-badge-count { color: #78716C; }
+    body.theme-ticket .dish-card {
+      background: transparent;
+      border: none;
+      border-bottom: 2px dotted #A8A29E;
+      border-radius: 0;
+      padding: 10px 2px;
+      align-items: center;
+    }
+    body.theme-ticket .dish-card:hover {
+      background: transparent;
+      border-color: #A8A29E;
+    }
+    body.theme-ticket .dish-thumb {
+      width: 72px;
+      height: 72px;
+      border-radius: 6px;
+      border: 2px solid #1C1917;
+      background: #FFFFFF;
+    }
+    body.theme-ticket .dish-name { color: #1C1917; font-weight: 700; }
+    body.theme-ticket .dish-desc { color: #57534E; }
+    body.theme-ticket .dish-price { color: #1C1917; }
+    body.theme-ticket .dish-badge.badge-star { background: rgba(185, 28, 28, 0.12); color: #B91C1C; border-color: rgba(185, 28, 28, 0.40); }
+    body.theme-ticket .dish-badge.badge-veggie { background: rgba(22, 101, 52, 0.12); color: #166534; border-color: rgba(22, 101, 52, 0.35); }
+    body.theme-ticket .dish-badge.badge-celiac { background: rgba(133, 77, 14, 0.14); color: #854D0E; border-color: rgba(133, 77, 14, 0.35); }
+    body.theme-ticket .btn-add {
+      background: transparent;
+      color: #1C1917;
+      border: 2px solid #1C1917;
+      border-radius: 50%;
+      box-shadow: 2px 2px 0 #1C1917;
+    }
+    body.theme-ticket .btn-add:active { transform: scale(0.9); box-shadow: none; }
+    body.theme-ticket .qty-counter { color: #1C1917; }
+    body.theme-ticket .floating-cart-bar {
+      background: #0C0A09;
+      color: #E7E5E4;
+      border: 1px solid #B91C1C;
+      font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    }
+    body.theme-ticket .a11y-bar {
+      background: #FFFFFF;
+      border: 1.5px dashed #1C1917;
+      color: #57534E;
+    }
+    body.theme-ticket .btn-a11y-tts { border-color: #1C1917; color: #1C1917; }
+    body.theme-ticket .empty-state-card { background: #FFFFFF; border-color: rgba(28, 25, 23, 0.25); }
+    body.theme-ticket .empty-state-title { color: #1C1917; }
+    body.theme-ticket .empty-state-desc { color: #57534E; }
+    body.theme-ticket .empty-state-btn { border-color: #1C1917; color: #1C1917; }
+    body.theme-ticket .empty-state-btn:hover { background: #1C1917; color: #FAF6EE; }
+    body.theme-ticket .chef-specials-section {
+      background: #FFFFFF;
+      border: 2px dashed rgba(185, 28, 28, 0.55);
+    }
+    body.theme-ticket .chef-specials-title { color: #B91C1C; text-shadow: none; }
+    body.theme-ticket .chef-special-card {
+      background: #FAF6EE;
+      border: 1.5px solid #1C1917;
+      box-shadow: 3px 3px 0 #1C1917;
+    }
+    @media (min-width: 900px) {
+      body.theme-ticket .menu-container { max-width: 520px; }
     }
 
     /* ============================================================
@@ -1413,6 +1998,13 @@
     .dish-card:hover {
       background: var(--surface-card-hover);
       border-color: rgba(255,255,255,0.2);
+    }
+    /* Render diferido de tarjetas (cartas de 400 platos): el navegador salta
+       el pintado fuera de ventana. collectStories usa offsetParent (no se ve
+       afectado) y scrollIntoView fuerza el render al enfocar. */
+    .dishes-grid .dish-card {
+      content-visibility: auto;
+      contain-intrinsic-size: auto 140px;
     }
     .dish-body { flex: 1; }
     .dish-title-line {
@@ -2821,6 +3413,19 @@
       line-height: 1.4;
       color: var(--chalk-muted);
     }
+    .info-directions-link {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--chalk-gold);
+      text-decoration: none;
+      border: 1px solid var(--border-gold);
+      border-radius: 8px;
+      padding: 7px 12px;
+      background: var(--chalk-gold-dim);
+    }
+    .info-directions-link:hover { filter: brightness(1.15); }
     .service-cards-list {
       display: flex;
       flex-direction: column;
@@ -4507,4 +5112,477 @@
       body.layout-delivery .dish-card {
         break-inside: avoid !important;
       }
+    }
+
+    /* ============================================================
+       LAYOUT STORIES — modo dual: carta clásica en mesa, historias en casa.
+       El overlay #storiesOverlay (construido por storiesLayout.js desde las
+       .dish-card reales) es un feed full-screen con scroll-snap, segmentos
+       de progreso, tap izq/der y tarjeta glass. Hereda el acento del tema
+       activo vía --chalk-gold. Funciona con CUALQUIER tema (no pisa la
+       carta: la cubre con un diálogo fijo; Esc o ✕ vuelve a la carta).
+       ============================================================ */
+    body.layout-stories {
+      --stories-accent: var(--chalk-gold);
+    }
+    body.stories-open {
+      overscroll-behavior: none;
+    }
+    /* Chrome flotante de la página (consentimiento, install, loyalty, push)
+       se difiere mientras el overlay inmersivo está abierto: no se descarta,
+       solo se oculta; reaparece intacto al cerrar historias. */
+    body.stories-open #scangoCookieBanner,
+    body.stories-open #pwaInstallBanner,
+    body.stories-open #pushPromptBanner,
+    body.stories-open #loyaltyTopBanner {
+      display: none !important;
+    }
+    #storiesOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 500;
+      background: #05070C;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+    }
+    #storiesOverlay .st-feed {
+      height: 100vh;
+      height: 100dvh;
+      width: 100%;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scroll-snap-type: y mandatory;
+      scrollbar-width: none;
+      position: relative;
+    }
+    #storiesOverlay .st-feed::-webkit-scrollbar { display: none; }
+    #storiesOverlay .st-story {
+      position: relative;
+      height: 100vh;
+      height: 100dvh;
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+      overflow: hidden;
+      background: #0B111C;
+    }
+    #storiesOverlay .st-bg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #000;
+    }
+    #storiesOverlay .st-bg-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 96px;
+      background:
+        radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.14) 0%, transparent 45%),
+        radial-gradient(circle at 85% 80%, var(--stories-accent, #22D3EE) 0%, transparent 55%),
+        linear-gradient(160deg, #1B2536 0%, #0B111C 100%);
+    }
+    /* Slot de medios (virtualización): ocupa el fondo; el <img>/<video>
+       se monta solo en ventana. Concha barata de alto fijo. */
+    #storiesOverlay .st-media {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+    #storiesOverlay .st-story::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0%, transparent 24%, transparent 46%, rgba(0, 0, 0, 0.84) 100%);
+      pointer-events: none;
+    }
+    #storiesOverlay .st-segs {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      display: flex;
+      gap: 6px;
+      z-index: 6;
+    }
+    #storiesOverlay .st-seg {
+      flex: 1;
+      height: 3px;
+      border: none;
+      padding: 0;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.35);
+      overflow: hidden;
+      cursor: pointer;
+    }
+    #storiesOverlay .st-seg i {
+      display: block;
+      height: 100%;
+      width: 0;
+      background: #FFFFFF;
+      border-radius: 99px;
+    }
+    #storiesOverlay .st-top {
+      position: absolute;
+      top: 24px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 6;
+    }
+    #storiesOverlay .st-logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid rgba(255, 255, 255, 0.85);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+      flex-shrink: 0;
+      background: #000;
+    }
+    #storiesOverlay .st-brand {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #FFFFFF;
+      text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+      min-width: 0;
+    }
+    #storiesOverlay .st-brand small {
+      display: block;
+      font-weight: 500;
+      color: #C6D2E0;
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 56vw;
+    }
+    #storiesOverlay .st-cart {
+      margin-left: auto;
+      position: relative;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      background: rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      color: #FFFFFF;
+      font-size: 19px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    #storiesOverlay .st-cart i {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      background: var(--stories-accent, #22D3EE);
+      color: #04222B;
+      font-style: normal;
+      font-size: 11px;
+      font-weight: 800;
+      min-width: 20px;
+      height: 20px;
+      border-radius: 99px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 5px;
+    }
+    #storiesOverlay .st-tap {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 30%;
+      z-index: 4;
+    }
+    #storiesOverlay .st-tap-prev { left: 0; }
+    #storiesOverlay .st-tap-next { right: 0; }
+    #storiesOverlay .st-info {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 14px;
+      z-index: 5;
+      max-height: 48vh;
+      max-height: 48dvh;
+      overflow-y: auto;
+      border-radius: 22px;
+      padding: 16px;
+      background: linear-gradient(135deg, rgba(12, 20, 34, 0.80), rgba(12, 20, 34, 0.55));
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      backdrop-filter: blur(22px) saturate(160%);
+      -webkit-backdrop-filter: blur(22px) saturate(160%);
+      box-shadow: 0 14px 44px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.30);
+    }
+    #storiesOverlay .st-cat {
+      font-size: 10.5px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      color: var(--stories-accent, #67E8F9);
+      text-transform: uppercase;
+    }
+    #storiesOverlay .st-name {
+      font-size: 21px;
+      margin: 4px 0;
+      color: #FFFFFF;
+      line-height: 1.2;
+    }
+    #storiesOverlay .st-desc {
+      font-size: 13px;
+      color: #C2CEDD;
+      line-height: 1.45;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    #storiesOverlay .st-sold {
+      font-size: 12px;
+      font-weight: 700;
+      color: #FCA5A5;
+      margin-top: 6px;
+    }
+    #storiesOverlay .st-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+    }
+    #storiesOverlay .st-price {
+      font-size: 22px;
+      font-weight: 800;
+      color: #FFFFFF;
+    }
+    #storiesOverlay .st-add {
+      margin-left: auto;
+      border: none;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 14px;
+      font-family: inherit;
+      color: #04222B;
+      padding: 13px 22px;
+      border-radius: 16px;
+      background: var(--stories-accent, #22D3EE);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+    #storiesOverlay .st-add:active { transform: scale(0.95); }
+    #storiesOverlay .st-add:disabled { opacity: 0.55; cursor: default; }
+    /* ── Modo Descubrir: me gusta + pedir en el local (sin carrito mixto) ─ */
+    #storiesOverlay .st-like {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      background: rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #FFFFFF;
+      font-size: 18px;
+      padding: 9px 14px;
+      border-radius: 16px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    #storiesOverlay .st-like .st-like-count {
+      font-size: 13px;
+      font-weight: 800;
+    }
+    #storiesOverlay .st-like.on {
+      border-color: #F472B6;
+      color: #F9A8D4;
+    }
+    #storiesOverlay .st-order {
+      border: none;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 14px;
+      font-family: inherit;
+      text-decoration: none;
+      color: #04222B;
+      padding: 13px 20px;
+      border-radius: 16px;
+      background: var(--stories-accent, #22D3EE);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      white-space: nowrap;
+    }
+    #storiesOverlay .st-exit {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      background: rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      color: #FFFFFF;
+      font-size: 16px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    #storiesOverlay .st-exit:focus-visible {
+      outline: 3px solid var(--stories-accent, #22D3EE);
+      outline-offset: 2px;
+    }
+    @media (min-width: 900px) {
+      #storiesOverlay { align-items: center; }
+      #storiesOverlay .st-feed {
+        height: 88vh;
+        height: min(88dvh, 860px);
+        width: 430px;
+        border-radius: 30px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
+      }
+      #storiesOverlay .st-story { height: 88vh; height: min(88dvh, 860px); }
+    }
+    /* ── Pista de gestos (solo primera historia, se desvanece sola) ──── */
+    #storiesOverlay .st-hint {
+      position: absolute;
+      left: 50%;
+      bottom: 34%;
+      transform: translateX(-50%);
+      z-index: 6;
+      white-space: nowrap;
+      font-size: 12px;
+      font-weight: 700;
+      color: #FFFFFF;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      padding: 8px 14px;
+      border-radius: 99px;
+      pointer-events: none;
+      animation: stHintFade 6s ease forwards;
+    }
+    @keyframes stHintFade {
+      0%, 70% { opacity: 1; }
+      100% { opacity: 0; visibility: hidden; }
+    }
+    @media print {
+      #storiesOverlay { display: none !important; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #storiesOverlay .st-add:active { transform: none; }
+    }
+
+    /* ── Bandeja de destacados 📖 sobre la carta normal ────────────────
+       Anillos estilo IG por categoría: tap → historias en ese punto. */
+    .stories-tray {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 2px 0 10px;
+    }
+    .stories-tray-title {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+      color: var(--chalk-dim);
+      white-space: nowrap;
+    }
+    .stories-tray-rings {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding: 2px;
+      scrollbar-width: none;
+      flex: 1;
+    }
+    .stories-tray-rings::-webkit-scrollbar { display: none; }
+    .st-ring {
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 2px;
+      font-family: inherit;
+    }
+    .st-ring-face {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: 2.5px solid transparent;
+      background:
+        linear-gradient(var(--surface-card), var(--surface-card)) padding-box,
+        linear-gradient(45deg, #F9CE34, #EE2A7B, #6228D7) border-box;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      font-size: 22px;
+    }
+    .st-ring-face img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .st-ring-label {
+      font-size: 0.62rem;
+      font-weight: 600;
+      color: var(--chalk-muted);
+      max-width: 60px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .st-ring:focus-visible {
+      outline: 3px solid var(--chalk-gold);
+      outline-offset: 2px;
+      border-radius: 12px;
+    }
+    /* ── Botón compartir por historia + deep-link a la carta ─────────── */
+    #storiesOverlay .st-share {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      background: rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      color: #FFFFFF;
+      font-size: 18px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    #storiesOverlay .st-links { margin-top: 10px; }
+    #storiesOverlay .st-goto {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #C2CEDD;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      padding: 2px 0;
+    }
+    #storiesOverlay .st-goto:hover { color: #FFFFFF; }
+    /* ── Flash del plato al volver de historias ("Ver en carta") ─────── */
+    .dish-card.st-flash {
+      animation: stFlash 1.6s ease;
+      border-color: var(--chalk-gold) !important;
+    }    @keyframes stFlash {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+      25%, 65% { box-shadow: 0 0 0 3px var(--chalk-gold); }
+    }
+    /* ── Badge 🎬 en la carta clásica (el plato tiene video en Stories) ─ */
+    /* Sólido teal-700 + blanco: contrasta en temas oscuros Y claros. */
+    .dish-badge.dish-videobadge {
+      background: #0E7490;
+      color: #FFFFFF;
+      border: 1px solid #0E7490;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .dish-card.st-flash { animation: none; }
     }

@@ -60,7 +60,7 @@ async function runTests() {
   // 2. Verificación de layouts permitidos e integridad en api/index.js
   const apiFile = fs.readFileSync(path.join(__dirname, '../api/index.js'), 'utf8');
   const sanitizeFile = fs.readFileSync(path.join(__dirname, '../api/utils/sanitizeRestaurant.js'), 'utf8');
-  assert.ok(sanitizeFile.includes("ALLOWED_LAYOUTS = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker', 'delivery']"), 'allowedLayouts debe incluir classic, bento, minimalist, neon, billboard, ticker, sticker y delivery');
+  assert.ok(sanitizeFile.includes("ALLOWED_LAYOUTS = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker', 'delivery', 'stories']"), 'allowedLayouts debe incluir classic, bento, minimalist, neon, billboard, ticker, sticker, delivery y stories');
   assert.ok(apiFile.includes('bannerUrl:'), 'api/index.js debe sanitizar y devolver bannerUrl');
   console.log('✓ Saneamiento y lista blanca de layouts en el backend verificados');
 
@@ -179,6 +179,58 @@ async function runTests() {
   assert.ok(menuJs.includes("'ticker'"), 'menu.js debe contemplar ticker en validLayouts');
   assert.ok(menuJs.includes("'sticker'"), 'menu.js debe contemplar sticker en validLayouts');
   assert.ok(menuJs.includes("'delivery'"), 'menu.js debe contemplar delivery en validLayouts');
+  // Modo dual Stories: overlay de historias (mesa=carta clásica, casa=?morph=stories)
+  assert.ok(menuJs.includes("'stories'"), 'menu.js debe contemplar stories en validLayouts');
+  assert.ok(menuJs.includes('toggleStoriesMode'), 'menu.js debe exponer toggleStoriesMode (botón 📖 + binder)');
+  assert.ok(menuJs.includes('maybeAutoEnterStoriesMod'), 'menu.js debe auto-entrar a stories con layout=stories tras renderizar');
+  assert.ok(menuCss.includes('body.layout-stories'), 'menu.css debe definir body.layout-stories');
+  assert.ok(menuCss.includes('#storiesOverlay'), 'menu.css debe estilizar el overlay #storiesOverlay (snap + segmentos + glass)');
+  assert.ok(menuCss.includes('#storiesOverlay .st-add'), 'el overlay stories debe tener botón Agregar propio con acento del tema');
+  assert.ok(studioHtml.includes('<option value="stories">'), 'studio.html debe ofrecer el layout Stories (modo dual) en el selector');
+  const storiesMod = fs.readFileSync(path.join(__dirname, '../public/js/menu/storiesLayout.js'), 'utf8');
+  assert.ok(storiesMod.includes('collectStories') && storiesMod.includes('enterStoriesMode') && storiesMod.includes('exitStoriesMode'), 'storiesLayout.js debe exportar collect/enter/exit');
+  assert.ok(!/\.innerHTML\s*=(?!=)/.test(storiesMod), 'storiesLayout.js debe construir solo con DOM API (cero innerHTML con data, CSP-safe)');
+  assert.ok(!storiesMod.includes('onClick') && !storiesMod.includes('onclick'), 'storiesLayout.js no debe usar handlers inline (CSP script-src-attr none)');
+  assert.ok(storiesMod.includes("window.addToCart"), 'stories debe reutilizar window.addToCart (flujo real de notas/modificadores)');
+  assert.ok(menuHtml.includes('data-js-click="toggleStoriesMode"'), 'menu.html debe tener el botón 📖 conmutador de historias');
+  assert.ok(menuHtml.includes('id="storiesTray"'), 'menu.html debe tener la bandeja de destacados #storiesTray (anillos por categoría)');
+  assert.ok(storiesMod.includes('renderStoriesTray'), 'stories debe renderizar anillos de destacados que abren en esa categoría');
+  assert.ok(storiesMod.includes('scango_stories_pos_'), 'stories debe reanudar donde quedó (índice por slug, sin PII)');
+  assert.ok(storiesMod.includes('touchend') && storiesMod.includes('SWIPE_EXIT_PX'), 'stories debe salir con swipe-down en la primera historia');
+  assert.ok(storiesMod.includes('focusDishId'), 'stories debe enlazar "Ver en carta" (sale + enfoca el plato)');
+  const trackingSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/orderTracking.js'), 'utf8');
+  assert.ok(trackingSrc.includes('st-flash') && trackingSrc.includes('function flashDishCard'), 'flashDishCard canónica vive en orderTracking.js (stories la importa, antes duplicada)');
+  assert.ok(storiesMod.includes('st-share') && storiesMod.includes('shareRestaurantUrl'), 'cada historia debe poder compartirse');
+  assert.ok(storiesMod.includes('emptyPhoto') && storiesMod.includes("addEventListener('error'"), 'foto rota del dueño debe caer a placeholder, nunca ícono roto');
+  assert.ok(storiesMod.includes('st-logo'), 'la cabecera debe mostrar el logo real del local');
+  assert.ok(storiesMod.includes('st-hint'), 'la primera historia debe enseñar los gestos (pista que se desvanece)');
+  assert.ok(storiesMod.includes("removeEventListener('pointerup'"), 'el overlay debe liberar sus listeners globales al cerrar (sin fugas)');
+  assert.ok(menuCss.includes('100vh;') && menuCss.includes('#storiesOverlay'), 'stories debe tener fallback 100vh para navegadores sin dvh');
+  assert.ok(menuCss.includes('#storiesOverlay { display: none !important; }'), 'imprimir con stories abierto debe ocultar el overlay');
+  // Escalabilidad: virtualización por ventana (cartas de hasta 400 platos)
+  assert.ok(storiesMod.includes('IntersectionObserver') && storiesMod.includes('rootMargin'), 'stories debe virtualizar medios con IntersectionObserver (±2 pantallas)');
+  assert.ok(storiesMod.includes('mountMedia') && storiesMod.includes('unmountMedia'), 'stories debe montar/desmontar medios al entrar/salir de ventana');
+  assert.ok(storiesMod.includes('onStoriesResize'), 'stories debe re-anclar ante resize/rotación');
+  assert.ok(storiesMod.includes('.st-media'), 'cada historia debe tener slot de medios de alto fijo');
+  // Video del plato en Stories (link MP4 directo, foto de póster)
+  assert.ok(sanitizeFile.includes('sanitizeVideoUrl'), 'sanitize debe exponer sanitizeVideoUrl para el video del plato');
+  assert.ok(sanitizeFile.includes("'.mp4'") && sanitizeFile.includes("'.webm'"), 'video: solo contenedores cross-browser (.mp4/.webm), .mov afuera');
+  assert.ok(sanitizeFile.includes('videoUrl: sanitizeVideoUrl'), 'sanitizeDish debe persistir videoUrl saneado');
+  assert.ok(studioHtml.includes('id="modalDishVideo"'), 'studio debe pedir el link MP4 en el editor del plato');
+  assert.ok(menuJs.includes('dish-videobadge'), 'la carta clásica debe señalizar con 🎬 los platos con video');
+  assert.ok(storiesMod.includes('lookupDishVideo') && storiesMod.includes('window.restaurantData'), 'stories debe leer el video del puente vivo (sin duplicar estado)');
+  assert.ok(storiesMod.includes("setAttribute('playsinline'") && storiesMod.includes('STORY_VIDEO_MAX_MS'), 'video: playsinline + avance atado a duración con tope 15s');
+  assert.ok(storiesMod.includes('saveData') && storiesMod.includes('.catch('), 'video: respeta save-data y el play() con catch (iOS ahorro)');
+  assert.ok(menuCss.includes('video.st-bg') || menuCss.includes('.st-bg'), 'el video debe llenar la historia como la foto (object-fit cover)');
+  // Tema Ticket térmico (recibo de mostrador)
+  assert.ok(menuCss.includes('body.theme-ticket'), 'menu.css debe definir body.theme-ticket');
+  assert.ok(menuCss.includes('body.theme-ticket .menu-container::after'), 'ticket debe tener borde dentado inferior en el papel');
+  assert.ok(menuCss.includes('body.theme-ticket .cat-pill'), 'ticket debe tener sellos por categoría');
+  assert.ok(menuJs.includes("'ticket'"), 'menu.js debe contemplar ticket en validThemes');
+  assert.ok(studioHtml.includes('<option value="ticket">'), 'studio.html debe ofrecer el tema Ticket en el selector');
+  assert.ok(menuCss.includes('body.stories-open #scangoCookieBanner'), 'stories debe diferir banners flotantes (cookies/PWA/loyalty) mientras está abierto');
+  assert.ok(storiesMod.includes('ArrowDown') && storiesMod.includes('Escape'), 'stories debe navegar con teclado (flechas + Escape)');
+  assert.ok(storiesMod.includes("ev.key === 'Tab'"), 'stories debe atrapar el Tab dentro del overlay (diálogo inmersivo)');
   assert.ok(menuJs.includes("'helado-fiesta'") && menuJs.includes("'cioccolato'"), 'menu.js debe aceptar los temas de heladería en validThemes');
   // El botón del asistente se ancla en el flag, no en el rubro: un `false` explícito del
   // dueño apaga el asistente aunque businessType sea 'heladeria'.
@@ -197,6 +249,13 @@ async function runTests() {
     assert.strictEqual(occurrences, 3, `La key i18n ${key} debe existir en es, en y pt (encontradas: ${occurrences})`);
   }
   console.log('✓ Las 7 keys i18n nuevas del carrusel existen en los 3 idiomas (es/en/pt)');
+
+  // 5c. i18n de Stories + reseñas + nudge (overlay, modal y bandeja en 3 idiomas)
+  for (const key of ['storiesViewMenu', 'storiesTrayTitle', 'storiesHint', 'storiesClose', 'storiesAdd', 'storiesSoldOut', 'storiesOrder', 'storiesSeeInMenu', 'storiesShareLocal', 'storiesViewCart', 'reviewNudgeTitle', 'reviewNudgeText', 'reviewNudgeCta', 'reviewAltPrivate', 'reviewAltGoogle', 'reviewStar1', 'reviewStar2', 'reviewStar3', 'reviewStar4', 'reviewStar5', 'reviewTitle', 'reviewGoogleTitle', 'reviewGoogleText', 'reviewGoogleCta', 'reviewDismiss', 'reviewPrivateTitle', 'reviewPrivateText', 'reviewPrivateSubmit', 'reviewCommentLabel', 'reviewCommentPh', 'reviewNameLabel', 'reviewNamePh', 'reviewContactLabel', 'reviewContactPh', 'reviewSuccessTitle', 'reviewSuccessText', 'reviewNeedComment', 'reviewSendError', 'reviewConnError']) {
+    const occurrences = (i18nFile.match(new RegExp(key + ':', 'g')) || []).length;
+    assert.strictEqual(occurrences, 3, `La key i18n ${key} debe existir en es, en y pt (encontradas: ${occurrences})`);
+  }
+  console.log('✓ Las 39 keys i18n de stories/reseñas existen en los 3 idiomas (es/en/pt)');
 
   console.log('\n🎉 ¡TODAS LAS VERIFICACIONES DE BANNER Y MORFOLOGÍAS PASARON AL 100%!');
 }

@@ -4,9 +4,9 @@
  */
 const { sanitizeModifierGroups, sanitizeDishOptionConfig } = require('./menuOptions');
 
-const ALLOWED_LAYOUTS = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker', 'delivery'];
+const ALLOWED_LAYOUTS = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker', 'delivery', 'stories'];
 const NEON_ACCENT_KEYS = ['mint', 'cyan', 'magenta', 'amber', 'lime', 'violet'];
-const CLASSIC_THEMES = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football'];
+const CLASSIC_THEMES = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football', 'smash-urban', 'glass-gastro', 'ticket'];
 // Heladería: rubro de primera clase con estética propia (6 originales + 5 premium).
 // Un cliente heladería SOLO puede elegir estos 11 (el Studio los filtra y el
 // backend los impone: cualquier otro theme se corrige a helado-fiesta).
@@ -56,6 +56,25 @@ function sanitizeUrl(url, maxLen = 500) {
 function sanitizeSocialUrl(url, maxLen = 500) {
   const s = sanitizeUrl(url, maxLen);
   return /^https?:\/\//i.test(s) ? s : '';
+}
+
+// Video del plato (Stories): link MP4/WebM directo por plato. Reglas:
+// - Solo https (nunca http: evita mixed-content que frena el autoplay; nunca
+//   javascript:/data:/blob: — data:Base64 inflaría las filas y ciega la cuota).
+// - Extensión de contenedor reproducible en todos los browsers (.mp4/.webm;
+//   .mov NO: Safari sí, Chrome no). Se valida el pathname (ignora ?query de
+//   URLs firmadas). Vacío/inválido → '' (la historia cae a la foto).
+const VIDEO_EXTS = ['.mp4', '.webm'];
+function sanitizeVideoUrl(url, maxLen = 500) {
+  const s = sanitizeUrl(url, maxLen);
+  if (!/^https:\/\//i.test(s)) return '';
+  try {
+    const path = new URL(s).pathname.toLowerCase();
+    if (!VIDEO_EXTS.some(ext => path.endsWith(ext))) return '';
+    return s;
+  } catch {
+    return '';
+  }
 }
 
 // Rango de precios para el JSON-LD: allowlist estricta ($..$$$$). Cualquier
@@ -124,6 +143,7 @@ function sanitizeDish(d) {
       : null,
     description: sanitizeString(d.description || '', 400),
     photoUrl: sanitizeUrl(d.photoUrl || d.imageUrl || d.image || d.photo, 5000000),
+    videoUrl: sanitizeVideoUrl(d.videoUrl || d.video || '', 500),
     outOfStock: Boolean(d.outOfStock),
     isChefSpecial: Boolean(d.isChefSpecial),
     weatherTags: Array.isArray(d.weatherTags)
@@ -308,6 +328,9 @@ function sanitizeRestaurantPayload(data) {
   // Pago online del comensal: SOLO una posibilidad que el dueño habilita
   // explícitamente. Default false → la opción no aparece en el menú.
   clean.allowOnlinePayment = Boolean(clean.allowOnlinePayment);
+  // Descubrir beta: opt-in explícito del dueño (default false: nadie aparece
+  // sin querer). El feed solo lista locales con suscripción válida.
+  clean.allowDiscovery = clean.allowDiscovery === true;
   clean.scheduleEnabled = Boolean(clean.scheduleEnabled);
   // Cierre manual del dueño (override del horario): estricto, default false.
   clean.forceClosed = clean.forceClosed === true;
@@ -418,6 +441,7 @@ module.exports = {
   sanitizeString,
   sanitizePhone,
   sanitizeUrl,
+  sanitizeVideoUrl,
   generateId,
   ensureUniqueSlug,
   ALLOWED_LAYOUTS,

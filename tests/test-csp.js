@@ -114,6 +114,9 @@ async function runTests() {
   const scriptSrcElem = (transitionalCsp.match(/script-src 'self'[^;]*/) || [''])[0];
   assert.ok(!scriptSrcElem.includes("'unsafe-inline'"), 'CSP transitional: script-src (elem) debe ser estricto, sin unsafe-inline');
   assert.ok(transitionalCsp.includes("script-src-attr 'none'"), 'CSP transitional: script-src-attr none (Etapa 2 completa: cero handlers on*= en public/)');
+  // Video de Stories por plato: media-src propio (nunca data:/blob:).
+  assert.ok(transitionalCsp.includes("media-src 'self' https:"), 'CSP transitional: media-src self+https para videos MP4 del dueño');
+  assert.ok(!transitionalCsp.match(/media-src[^;]*data:/), 'CSP: media-src nunca permite data: (un base64 de video ciega la cuota)');
   console.log('✓ Hashes de scripts inline presentes en la CSP transitional');
 
   // ---------------------------------------------------------------- estático 3
@@ -212,6 +215,7 @@ async function runTests() {
     assert.ok(!strictScriptSrc.includes("'unsafe-inline'"), 'CSP estricta: script-src (elem) sin unsafe-inline');
     assert.ok(strictCsp.includes('https://cdn.jsdelivr.net'), 'CSP estricta: script-src permite supabase-js (jsdelivr)');
     assert.strictEqual(strictCsp, securityHeaders.getSecurityHeaders({ strictMenu: true })['Content-Security-Policy'], 'CSP estricta idéntica a la del módulo');
+    assert.ok(strictCsp.includes("media-src 'self' https:"), 'CSP estricta: media-src para video de Stories en /m/*');
     assertHeader(menuRes, 'Referrer-Policy', 'strict-origin-when-cross-origin', '/m/:slug');
     assertHeader(menuRes, 'Permissions-Policy', 'camera=()', '/m/:slug');
     assertHeader(menuRes, 'X-Content-Type-Options', 'nosniff', '/m/:slug');

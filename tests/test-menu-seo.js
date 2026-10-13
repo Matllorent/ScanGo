@@ -58,6 +58,7 @@ async function runTests() {
     assert.strictEqual(restaurant['@type'], 'Restaurant');
     assert.strictEqual(restaurant.name, 'Schema Bistro');
     assert.strictEqual(restaurant.hasMenu['@type'], 'Menu');
+    assert.strictEqual(restaurant.areaServed, 'Montevideo', 'areaServed local para SEO de cercanía');
     assert.strictEqual(restaurant.hasMenu.hasMenuSection[0].name, 'Platos principales');
     const menuItem = restaurant.hasMenu.hasMenuSection[0].hasMenuItem[0];
     assert.strictEqual(menuItem.name, 'Pasta fresca');

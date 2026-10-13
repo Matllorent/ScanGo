@@ -203,4 +203,31 @@ router.get('/events/:restaurantId', tenantGuard, requireAnalyticsFeature, async 
   }
 });
 
+/**
+ * GET /api/analytics/funnel/:restaurantId
+ * Embudo Google (30 días): clicks a reseñar, aceptes del nudge y feedbacks
+ * privados. SIN gate Pro (a diferencia de weekly/daily): es el loop de
+ * crecimiento del local gratuito — ver que funciona empuja a configurarlo.
+ */
+router.get('/funnel/:restaurantId', tenantGuard, async (req, res, next) => {
+  try {
+    const restaurantId = req.params.restaurantId;
+    const days = Math.min(90, Math.max(1, parseInt(req.query.days) || 30));
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const [google, nudge, feedback] = await Promise.all([
+      telemetryService.getEvents(restaurantId, { since, eventType: 'google_review_click' }),
+      telemetryService.getEvents(restaurantId, { since, eventType: 'review_nudge_accept' }),
+      telemetryService.getEvents(restaurantId, { since, eventType: 'private_feedback' })
+    ]);
+    return successResponse(res, {
+      days,
+      googleClicks: google.length,
+      nudgeAccepts: nudge.length,
+      privateFeedbacks: feedback.length
+    }, 'Embudo de reseñas calculado');
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

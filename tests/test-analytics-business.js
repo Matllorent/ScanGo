@@ -138,6 +138,12 @@ async function runTests() {
     const invalid = await postEvent({ slug: restaurant.slug, event: 'hack', dishId: '<script>' });
     assert.strictEqual(invalid.status, 400, 'Eventos fuera de la whitelist se rechazan');
 
+    // Eventos del embudo Google (reseñas): se aceptan y NO distorsionan métricas
+    for (const ev of ['google_review_click', 'private_feedback', 'review_nudge_accept']) {
+      const r = await postEvent({ slug: restaurant.slug, event: ev });
+      assert.strictEqual(r.status, 200, `${ev} debe aceptarse en el canal público`);
+    }
+
     const weekly = await waitForMetrics(port, token, restaurant.id, 2);
     const metrics = weekly.metrics;
     assert.strictEqual(metrics.ordersPlaced, 2, 'Deben contarse los 2 pedidos');
@@ -241,6 +247,22 @@ async function runTests() {
     assert.ok(!todayData.topDishesSold.some(d => !d.dishId), 'Ítems sin id se descartan (saneamiento)');
     assert.strictEqual(todayData.byBranch.find(b => b.branchId === 'br_2_norte')?.orders, 1, 'Pedido de hoy agrupado por sucursal');
     console.log('✓ Hoy: pedidos=3, plata=880, unidades=7, platos vendidos con nombre y saneados');
+
+    // Embudo Google (30d): clicks, nudges y feedbacks del paquete de reseñas
+    const funnelRes = await fetch(`${base}/api/analytics/funnel/${restaurant.id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    assert.strictEqual(funnelRes.status, 200, 'funnel debe responder 200 al dueño');
+    const funnel = (await funnelRes.json()).data;
+    assert.strictEqual(funnel.days, 30, 'funnel por defecto 30 días');
+    assert.ok(funnel.googleClicks >= 1, 'clicks a Google registrados');
+    assert.ok(funnel.nudgeAccepts >= 1, 'aceptes del nudge registrados');
+    assert.ok(funnel.privateFeedbacks >= 1, 'feedbacks privados registrados');
+    const funnelOther = await fetch(`${base}/api/analytics/funnel/other-tenant-id`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    assert.strictEqual(funnelOther.status, 403, 'IDOR bloqueado en funnel');
+    console.log('✓ Embudo Google: clicks/nudges/feedbacks + IDOR 403');
 
     // IDOR: un owner no lee métricas de otro tenant
     const idor = await fetch(`${base}/api/analytics/weekly/other-tenant-id`, {

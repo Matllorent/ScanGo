@@ -59,12 +59,15 @@ function errorHandler(err, req, res, next) {
   const details = process.env.NODE_ENV !== 'production' && err.stack ? { stack: err.stack } : null;
 
   if (statusCode >= 500) {
+    // Sin query en el tag (puede traer ?lat=&lng= redondeadas u otros datos):
+    // misma regla que los logs de requestId.js.
+    const cleanUrl = String(req.originalUrl || req.url || '').split('?')[0];
     sentry.captureException(err, {
       source: 'errorHandler',
       level: 'error',
       tags: {
         method: req.method,
-        path: req.originalUrl,
+        path: cleanUrl,
         statusCode: String(statusCode),
         errorCode
       },

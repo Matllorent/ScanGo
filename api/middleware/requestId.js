@@ -18,10 +18,14 @@ function requestIdMiddleware(req, res, next) {
   res.on('finish', () => {
     const responseTime = Date.now() - startTime;
     const logger = require('../utils/logger');
+    // Sin query strings en logs: pueden traer coords redondeadas (?lat=&lng=)
+    // u otros datos del comensal. La ruta sola alcanza para operar.
+    const rawPath = req.originalUrl || req.url || '';
+    const cleanPath = String(rawPath).split('?')[0];
     logger.info('HTTP Request', {
       requestId,
       method: req.method,
-      path: req.originalUrl || req.url,
+      path: cleanPath,
       statusCode: res.statusCode,
       responseTime
     });

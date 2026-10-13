@@ -48,6 +48,7 @@ const analyticsRouter = require('./routes/analytics');
 const aiRouter = require('./routes/ai');
 const studioRouter = require('./routes/studio');
 const loyaltyRouter = require('./routes/loyalty');
+const discoverRouter = require('./routes/discover');
 const loyaltyService = require('./services/loyalty');
 const billingDunningRouter = require('./cron/billing-dunning');
 const telemetryRetentionRouter = require('./cron/telemetry-retention');
@@ -1306,9 +1307,11 @@ app.post('/api/public/analytics/event', publicAnalyticsLimiter, async (req, res)
   try {
     const { slug, event, dishId, branchId, amount, items } = req.body || {};
     if (!slug || !event) return res.status(400).json({ error: 'slug y event requeridos' });
-    const validEvents = ['visit', 'order', 'reservation', 'waiter', 'dish_click', 'order_placed'];
+    const validEvents = ['visit', 'order', 'reservation', 'waiter', 'dish_click', 'order_placed', 'google_review_click', 'private_feedback', 'review_nudge_accept', 'dish_like'];
     if (!validEvents.includes(event)) return res.status(400).json({ error: 'Evento inválido' });
-
+    // dish_like sin plato es ruido (inflaría lecturas del feed sin contar en
+    // ningún lado): se rechaza antes de persistir.
+    if (event === 'dish_like' && !dishId) return res.status(400).json({ error: 'dishId requerido' });
     const restaurant = db.findRestaurantBySlug(slug);
     if (!restaurant) {
       // Los menús demo son públicos pero NO son restaurantes reales: no se
@@ -1316,6 +1319,12 @@ app.post('/api/public/analytics/event', publicAnalyticsLimiter, async (req, res)
       // llenar de 404 el panel de red / monitoreo de cada visita a una demo.
       if (isDemoSlug(slug)) return res.json({ success: true, demo: true });
       return res.status(404).json({ error: 'Restaurante no encontrado' });
+    }
+    // dish_like de un plato que no es de la carta: voto fantasma (inflaría el
+    // feed de otro local). Se valida pertenencia antes de persistir.
+    if (event === 'dish_like') {
+      const belongs = (restaurant.dishes || []).some(d => d && String(d.id) === String(dishId).slice(0, 80));
+      if (!belongs) return res.status(400).json({ error: 'Plato no pertenece al local' });
     }
 
     // Telemetría rica: alimenta ticket promedio, top platos y comparativa de
@@ -1706,6 +1715,8 @@ app.get('/m/:slug', (req, res) => {
         inLanguage: 'es',
         hasMenuSection: menuSections
       },
+      // SEO local: zona de servicio para búsquedas "cerca de mí".
+      ...(city ? { areaServed: String(city) } : {}),
       ...(seoDiscovery.buildOpeningHoursFromSchedule(restaurant) || {}),
       ...(restaurant.priceRange ? { priceRange: restaurant.priceRange } : {}),
       ...(Array.isArray(restaurant.sameAs) && restaurant.sameAs.length ? { sameAs: restaurant.sameAs } : {}),
@@ -2072,6 +2083,12 @@ app.get('/admin', adminHtmlAuthMiddleware, (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'admin.html'), SEND_FILE_OPTIONS);
 });
 
+// Descubrir beta: página pública (sin auth) del feed de platos de la zona.
+// En Vercel la sirve el CDN vía vercel.json; acá en dev la sirve Express.
+app.get('/descubrir', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'discover.html'), SEND_FILE_OPTIONS);
+});
+
 app.get('/terminos', (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'legal', 'terms.html'), SEND_FILE_OPTIONS);
 });
@@ -2188,6 +2205,7 @@ app.use('/api/studio', studioRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/loyalty', loyaltyRouter);
+app.use('/api/discover', discoverRouter);
 app.use('/api/email', emailRouter);
 app.use('/api/cron', billingDunningRouter);
 app.use('/api/cron', telemetryRetentionRouter);

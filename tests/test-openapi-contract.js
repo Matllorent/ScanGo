@@ -28,7 +28,7 @@ const http = require('http');
 const app = require('../api/index');
 const db = require('../src/db/db');
 
-// Rutas que el spec DEBE documentar (las 23 del contrato).
+// Rutas que el spec DEBE documentar (las 24 del contrato).
 const SPEC_PATHS = [
   '/api/auth/register',
   '/api/auth/login',
@@ -38,6 +38,7 @@ const SPEC_PATHS = [
   '/api/menu/{slug}',
   '/api/demos',
   '/api/demos/{type}',
+  '/api/discover/feed',
   '/api/studio/save',
   '/api/studio/seo-audit',
   '/api/orders',
@@ -78,7 +79,7 @@ async function runTests() {
   assert.ok(spec.includes('trackingToken'), 'el spec documenta trackingToken');
   assert.ok(spec.includes('tipAmount'), 'el spec documenta tipAmount');
   assert.ok(spec.includes('ONLINE_PAYMENT_DISABLED'), 'el spec documenta el gate 403 de pago online');
-  console.log('✓ openapi.yaml parseable: 23/23 paths + schemas (Restaurant/Order/LoyaltyCode/Error)');
+  console.log('✓ openapi.yaml parseable: 24/24 paths + schemas (Restaurant/Order/LoyaltyCode/Error)');
 
   // ── Setup: dueño + restaurante real con un plato ─────────────────────────
   const stamp = Date.now();
@@ -135,6 +136,13 @@ async function runTests() {
     assert.strictEqual(demoMenu.restaurant.isDemo, true, 'flag isDemo presente');
     assert.ok(!('userId' in demoMenu.restaurant), 'sin userId interno en el payload público');
     console.log('✓ GET /api/demos + /api/demos/:type + /api/menu/demo-* (públicos, sin PII interna)');
+
+    // ── 2c) Descubrir beta: feed público sin PII ───────────────────────────
+    const feedRes = await fetch(`${base}/api/discover/feed?limit=5`);
+    assert.strictEqual(feedRes.status, 200, 'feed responde 200 sin auth');
+    const feedBody = await feedRes.json();
+    assert.strictEqual(feedBody.data.beta, true, 'feed marcado beta');
+    assert.ok(Array.isArray(feedBody.data.items), 'items es array');
 
     // ── 3) POST /api/orders → 201 con trackingToken + tipAmount ─────────────
     const orderRes = await postJson('/api/orders', {

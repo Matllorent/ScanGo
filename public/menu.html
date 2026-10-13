@@ -157,10 +157,18 @@
       <!-- Itinerario visual de boda/evento (sólo businessType events + configurado) -->
       <section id="weddingItinerarySection" class="wed-it-section" style="display:none;" aria-label="Programa del evento"></section>
 
+      <!-- Anillos de destacados 📖 (los rellena storiesLayout.js; tap = historias en esa categoría) -->
+      <div id="storiesTray" class="stories-tray" role="group" aria-label="Destacados: ver la carta como historias" style="display: none;">
+        <span class="stories-tray-title">📖 Historias</span>
+        <div id="storiesTrayRings" class="stories-tray-rings"></div>
+      </div>
+
       <!-- Filtro de Categorías con Acceso Rápido a Búsqueda y Lista -->
       <div class="category-nav-wrapper">
         <button type="button" class="cat-nav-icon-btn" data-js-click="focusSearchInput" aria-label="Buscar en la carta" title="Buscar plato">🔍</button>
         <button type="button" class="cat-nav-icon-btn" data-js-click="openCategoriesMenuModal" aria-label="Ver todas las categorías" title="Categorías">☰</button>
+        <button type="button" id="btnStoriesToggle" class="cat-nav-icon-btn" data-js-click="toggleStoriesMode" aria-label="Ver carta como historias" title="Ver como historias">📖</button>
+        <a class="cat-nav-icon-btn" href="/descubrir" aria-label="Descubrir platos de la zona (beta)" title="Descubrir (beta)" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">🧭</a>
         <div id="categoryPills" class="category-pills" role="group" aria-label="Categorías de la carta">
           <button class="cat-pill active" aria-pressed="true" data-js-click="selectCategory|ALL">Todos</button>
         </div>
@@ -536,34 +544,35 @@
       <div id="review5StarsBox" class="review-branch-box" style="display:none;">
         <div class="review-success-banner">
           <span style="font-size:2.2rem; display:block; margin-bottom:6px;">🎉</span>
-          <h4 style="font-size:1.15rem; color:var(--chalk-gold); margin:0 0 6px 0;">¡Nos alegra un montón que te haya encantado!</h4>
-          <p style="font-size:0.88rem; color:var(--chalk-muted); margin:0 0 16px 0; line-height:1.4;">¿Nos regalarías 10 segundos de tu tiempo para dejar tu reseña en Google Maps? Tu calificación de 5 estrellas nos impulsa enormemente.</p>
+          <h4 id="reviewGoogleTitle" style="font-size:1.15rem; color:var(--chalk-gold); margin:0 0 6px 0;">¡Nos alegra un montón que te haya encantado!</h4>
+          <p id="reviewGoogleText" style="font-size:0.88rem; color:var(--chalk-muted); margin:0 0 16px 0; line-height:1.4;">¿Nos regalarías 10 segundos de tu tiempo para dejar tu reseña en Google Maps? Tu calificación nos impulsa enormemente.</p>
         </div>
         <a id="btnGoogleReviewRedirect" href="#" target="_blank" rel="noopener noreferrer" class="btn-google-review-cta" data-js-click="handleGoogleReviewClick">
-          <span>⭐ Publicar Reseña en Google Maps (5★) ➔</span>
+          <span id="googleCtaText">⭐ Publicar Reseña en Google Maps ➔</span>
         </a>
-        <button type="button" class="btn-feedback-dismiss" data-js-click="closeSmartReviewModal">Listo, ¡muchas gracias!</button>
+        <button type="button" id="reviewDismissBtn" class="btn-feedback-dismiss" data-js-click="closeSmartReviewModal">Listo, ¡muchas gracias!</button>
+        <button type="button" id="reviewAltPrivateBtn" class="btn-feedback-dismiss" style="opacity:0.75;" data-js-click="showPrivateFeedbackBox">o contanos en privado →</button>
       </div>
 
       <!-- Branch B: 1-4 Stars -> Private Constructive Feedback Form for Owner -->
       <div id="reviewPrivateFeedbackBox" class="review-branch-box" style="display:none;">
         <div class="review-constructive-banner">
           <span style="font-size:1.8rem; display:block; margin-bottom:6px;">💬</span>
-          <h4 style="font-size:1.05rem; color:#F6AD55; margin:0 0 6px 0;">Queremos escucharte y mejorar</h4>
-          <p style="font-size:0.86rem; color:var(--chalk-muted); margin:0 0 14px 0; line-height:1.4;">Lamentamos no haber alcanzado la perfección. Tu mensaje llegará de forma directa y privada a la administración:</p>
+          <h4 id="reviewPrivateTitle" style="font-size:1.05rem; color:#F6AD55; margin:0 0 6px 0;">Queremos escucharte y mejorar</h4>
+          <p id="reviewPrivateText" style="font-size:0.86rem; color:var(--chalk-muted); margin:0 0 14px 0; line-height:1.4;">Lamentamos no haber alcanzado la perfección. Tu mensaje llegará de forma directa y privada a la administración:</p>
         </div>
         <form id="privateFeedbackForm" data-js-submit="submitPrivateFeedback|event">
           <div class="form-group" style="margin-bottom:10px;">
-            <label for="feedbackCommentInput" class="form-label">¿En qué podemos mejorar o qué sucedió?</label>
+            <label id="reviewCommentLabel" for="feedbackCommentInput" class="form-label">¿En qué podemos mejorar o qué sucedió?</label>
             <textarea id="feedbackCommentInput" class="form-textarea" rows="3" placeholder="Contanos tu experiencia (atención, tiempos, sabor, presentación…)" required style="font-size:0.9rem;"></textarea>
           </div>
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:12px;">
             <div class="form-group" style="margin-bottom:0;">
-              <label for="feedbackNameInput" class="form-label">Tu Nombre (opcional)</label>
+              <label id="reviewNameLabel" for="feedbackNameInput" class="form-label">Tu Nombre (opcional)</label>
               <input type="text" id="feedbackNameInput" name="name" class="form-input" placeholder="Ej: Juan" autocomplete="name">
             </div>
             <div class="form-group" style="margin-bottom:0;">
-              <label for="feedbackContactInput" class="form-label">WhatsApp o E-mail (opcional)</label>
+              <label id="reviewContactLabel" for="feedbackContactInput" class="form-label">WhatsApp o E-mail (opcional)</label>
               <input type="text" id="feedbackContactInput" name="contact" class="form-input" placeholder="Para contactarte…" autocomplete="off">
             </div>
           </div>
@@ -571,9 +580,10 @@
             <span>📩 Enviar Comentario Privado a la Gerencia</span>
           </button>
         </form>
+        <a id="btnGoogleReviewAlt" href="#" target="_blank" rel="noopener noreferrer" class="btn-feedback-dismiss" style="display:none; text-decoration:none; text-align:center;" data-js-click="handleGoogleReviewClick">o dejala en Google →</a>
         <div id="feedbackSuccessMessage" class="feedback-success-box" style="display:none; text-align:center; padding:16px 12px; background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.3); border-radius:10px; margin-top:10px;">
-          <p style="color:#68D391; font-weight:700; margin:0 0 6px 0;">✓ ¡Mensaje recibido!</p>
-          <p style="color:var(--chalk-muted); font-size:0.85rem; margin:0;">Tu comentario fue enviado directamente a la gerencia. Gracias por ayudarnos a perfeccionar nuestro servicio.</p>
+          <p id="reviewSuccessTitle" style="color:#68D391; font-weight:700; margin:0 0 6px 0;">✓ ¡Mensaje recibido!</p>
+          <p id="reviewSuccessText" style="color:var(--chalk-muted); font-size:0.85rem; margin:0;">Tu comentario fue enviado directamente a la gerencia. Gracias por ayudarnos a perfeccionar nuestro servicio.</p>
         </div>
       </div>
     </div>
@@ -636,6 +646,7 @@
               Cam. Tomkinson 3265, 12600 Montevideo, Departamento de Montevideo, Uruguay
             </div>
           </div>
+          <a id="infoDirectionsLink" href="#" target="_blank" rel="noopener" class="info-directions-link" style="display:none;">🗺️ Cómo llegar en Google Maps →</a>
         </div>
 
         <!-- Tipos de Servicio -->

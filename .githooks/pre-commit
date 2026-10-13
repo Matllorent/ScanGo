@@ -1,0 +1,10 @@
+#!/bin/sh
+# Githooks del repo (sin dependencias): gates rápidos y estáticos.
+# Instalación una vez por clon: git config core.hooksPath .githooks
+# Lo pesado (suite completa, semgrep, navegador) queda en CI y `npm test`.
+set -e
+echo "[pre-commit] ESM + estructura + arquitectura (rápido, sin servidor)..."
+node tests/test-frontend-esm-syntax.js || exit 1
+node tests/test-frontend-structure.js || exit 1
+node tests/test-architecture-guards.js || exit 1
+echo "[pre-commit] OK"

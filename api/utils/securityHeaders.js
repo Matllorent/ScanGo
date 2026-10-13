@@ -78,6 +78,10 @@ function buildCspDirectives({ strictMenu = false } = {}) {
     'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'], // cdnjs: Font Awesome (admin)
     'font-src': ["'self'", 'data:', 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'], // cdnjs: webfonts FA
     'img-src': ["'self'", 'data:', 'blob:', 'https:'],
+    // Video de Stories por plato (link MP4 directo del dueño): media separado
+    // de img (nunca data:/blob: — un base64 de video inflaría filas y ciega
+    // la cuota). El navegador igual exige gesto/política para autoplay.
+    'media-src': ["'self'", 'https:'],
     'connect-src': ["'self'", 'https://*.supabase.co', 'wss://*.supabase.co'],
     'frame-ancestors': ["'self'"],
     'object-src': ["'none'"],

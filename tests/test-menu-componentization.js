@@ -232,6 +232,18 @@ async function runMenuComponentizationTests() {
   );
   console.log(`✓ ${exposed.size} funciones expuestas en window: handlers inline de menu.html y menu.js 100% resueltos`);
 
+  // 9b. Barrel link-check: todo lo que menu.js importa del barrel debe
+  // existir (un import roto tumba TODO menu.js en el navegador: cazado en
+  // el refactor de orderTracking con selectTrackedOrder).
+  const barrelImport = menuMainSrc.match(/import\s*\{([\s\S]*?)\}\s*from\s*['"]\.\/menu\/index\.js['"]/);
+  assert.ok(barrelImport, 'menu.js debe importar del barrel menu/index.js');
+  const needed = [...barrelImport[1].matchAll(/(\w+)\s+as\s+(\w+)/g)].map(m => m[1]);
+  assert.ok(needed.length > 10, 'el barrel se usa de verdad (decenas de imports)');
+  const barrel = await import('../public/js/menu/index.js');
+  const missingExports = needed.filter(n => barrel[n] === undefined);
+  assert.deepStrictEqual(missingExports, [], `Exports faltantes en el barrel (rompen menu.js): ${missingExports.join(', ')}`);
+  console.log(`✓ Barrel link-check: ${needed.length} imports de menu.js resuelven en menu/index.js`);
+
   // 10. Puente window ↔ estado del módulo: menu-modules.js lee window.restaurantData
   //     (GroupCartManager, wizards, i18n) y escribe window.cart; deben apuntar al estado real.
   assert.ok(/restaurantData:\s*\{\s*get:/.test(menuMainSrc),
@@ -689,9 +701,11 @@ async function runMenuComponentizationTests() {
   assert.ok(menuSrc.includes('Elegí tu zona de entrega'), 'Delivery exige zona con foco');
   assert.ok(menuSrc.includes('Escribí tu dirección de entrega'), 'Delivery exige dirección con foco');
   assert.ok(menuSrc.includes('orderMode: mode'), 'Modo viaja al backend (quote/pedido/preferencia)');
-  assert.ok(menuSrc.includes("params.get('payment')"), 'initOrderTracking lee el retorno de MP');
-  assert.ok(menuSrc.includes('Pago acreditado'), 'Confirmación al volver del pago exitoso');
-  assert.ok(menuSrc.includes('replaceState'), 'La URL de retorno se limpia (sin repetir aviso)');
+  const trackingModSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/orderTracking.js'), 'utf8');
+  assert.ok(trackingModSrc.includes("params.get('payment')"), 'initOrderTracking (módulo) lee el retorno de MP');
+  assert.ok(menuSrc.includes('function initOrderTracking()'), 'menu.js conserva el wrapper initOrderTracking');
+  assert.ok(trackingModSrc.includes('Pago acreditado'), 'Confirmación al volver del pago exitoso');
+  assert.ok(trackingModSrc.includes('replaceState'), 'La URL de retorno se limpia (sin repetir aviso)');
   assert.ok(menuSrc.includes('tipForPay'), 'Preferencia MP incluye la propina');
   assert.ok(menuSrc.includes('discountForPay'), 'Preferencia MP incluye el descuento');
   assert.ok(menuSrc.includes('deliveryFee: mode ==='), 'Preferencia MP incluye el envío');
@@ -699,11 +713,16 @@ async function runMenuComponentizationTests() {
   console.log('✓ Checkout blindado: horario, delivery, retorno MP y pago completo');
 
   // 23. Batch B/C: multi-tracking, Studio honesto y en vivo, erase seguro
-  assert.ok(menuSrc.includes('ORDER_TRACKING_LIST_KEY'), 'Tracking multi-pedido con lista (cap 5)');
-  assert.ok(menuSrc.includes('getTrackedOrders()'), 'Lectura de la lista con migración legacy');
-  assert.ok(menuSrc.includes('markTrackedOrderDone'), 'Terminal marca hecho y oculta el FAB sin pendientes');
-  assert.ok(menuSrc.includes('selectTrackedOrder'), 'Selector de pedido en el modal');
-  assert.ok(menuSrc.includes('orderTrackingList'), 'Contenedor de la lista en el modal');
+  // El cluster vive en orderTracking.js (extraído de menu.js sin cambios);
+  // menu.js conserva wrappers del mismo nombre (contratos window/binder).
+  const trackingSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/orderTracking.js'), 'utf8');
+  assert.ok(trackingSrc.includes('ORDER_TRACKING_LIST_KEY'), 'Tracking multi-pedido con lista (cap 5)');
+  assert.ok(trackingSrc.includes('getTrackedOrders()'), 'Lectura de la lista con migración legacy');
+  assert.ok(trackingSrc.includes('markTrackedOrderDone'), 'Terminal marca hecho y oculta el FAB sin pendientes');
+  assert.ok(trackingSrc.includes('function selectTrackedOrder(token, ctx)'), 'Selector de pedido con ctx explícito');
+  assert.ok(menuSrc.includes('function selectTrackedOrder(token)'), 'menu.js conserva el wrapper selectTrackedOrder');
+  assert.ok(menuSrc.includes('saveOrderTrackingMod') && menuSrc.includes('openOrderTrackingMod'), 'wrappers delegan al módulo');
+  assert.ok(fs.readFileSync(path.join(__dirname, '../public/menu.html'), 'utf8').includes('id="orderTrackingList"'), 'el modal conserva el contenedor de la lista');
   const autoSaveSrc = fs.readFileSync(path.join(__dirname, '../public/js/studio/autoSave.js'), 'utf8');
   assert.ok(autoSaveSrc.includes('Sesión vencida'), 'Guardado distingue sesión vencida');
   assert.ok(autoSaveSrc.includes('Sin conexión'), 'Guardado distingue offline');

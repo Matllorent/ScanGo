@@ -66,12 +66,12 @@
     <p>En <strong>ScanGo / Menú Pizarrón SaaS</strong> empleamos cookies y almacenamientos locales mínimos. Las <strong>estrictamente necesarias</strong> funcionan siempre (sin ellas no hay sesión); las de <strong>terceros</strong> solo se activan si las aceptás en el aviso inferior (podés cambiar de idea borrando la clave <code>scango_cookie_consent</code> de tu navegador y recargando).</p>
 
     <h2>1. ¿Qué son las Cookies?</h2>
-    <p>Son pequeños datos que tu navegador guarda para reconocerte o recordar preferencias. También usamos <code>localStorage</code> del navegador para preferencias no sensibles (tema, último teléfono de fidelización si lo ingresaste).</p>
+    <p>Son pequeños datos que tu navegador guarda para reconocerte o recordar preferencias. También usamos <code>localStorage</code> del navegador para preferencias no sensibles (tema, último teléfono de fidelización si lo ingresaste, ubicación aproximada guardada si activaste el radio de Descubrir, tus "me gusta" y la posición de historias).</p>
 
     <h2>2. Cookies Necesarias (siempre activas)</h2>
     <ul>
       <li><strong>Sesión de dueño (<code>auth_token</code>) y de admin (<code>admin_token</code>):</strong> mantienen tu sesión iniciada de forma protegida (<code>HttpOnly</code>, <code>SameSite=Lax</code>). Sin ellas no funciona el Studio ni el Admin.</li>
-      <li><strong>Preferencias locales:</strong> idioma/moneda del menú, teléfono de fidelización si lo ingresaste, estado del simulador. Viven solo en tu dispositivo y podés borrarlas cuando quieras.</li>
+      <li><strong>Preferencias locales:</strong> idioma/moneda del menú, teléfono de fidelización si lo ingresaste, estado del simulador, ubicación aproximada (solo si tocaste 📍 en Descubrir), tus "me gusta" y dónde quedaste en las historias. Viven solo en tu dispositivo y podés borrarlas cuando quieras.</li>
     </ul>
 
     <h2>3. Cookies y Servicios de Terceros (solo con tu aceptación)</h2>
@@ -79,6 +79,7 @@
       <li><strong>Google Identity Services</strong> (botón "Entrar con Google): instala sus propias cookies y procesa tu identidad según la <a href="https://policies.google.com/privacy">política de Google</a>. Si elegís "Solo necesarias", este botón no carga.</li>
       <li><strong>Cloudflare Turnstile</strong> (control anti-robots invisible al pedir): evalúa el navegador según la <a href="https://www.cloudflare.com/privacypolicy/">política de Cloudflare</a>. Sin aceptación, el pedido igual se envía pero puede requerir verificación.</li>
       <li><strong>Fuentes e imágenes</strong> (Google Fonts, jsDelivr): descargas técnicas sin rastreo publicitario.</li>
+      <li><strong>Google Maps</strong> (solo si tocás "Cómo llegar"): salís a Google Maps y rige la <a href="https://policies.google.com/privacy">política de Google</a>. Nunca enviamos tu ubicación exacta: viaja redondeada a ~100 metros.</li>
     </ul>
     <p>No utilizamos cookies de publicidad, no hacemos perfiles con fines de marketing de terceros ni vendemos historiales de navegación.</p>
 

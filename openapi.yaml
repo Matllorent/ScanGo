@@ -255,6 +255,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/discover/feed:
+    get:
+      tags: [menu]
+      summary: Feed público beta de platos (formato tiktok de la zona)
+      description: |-
+        Solo locales con `allowDiscovery=true` y suscripción válida, con
+        platos disponibles (máx 6 por local, round-robin). Sin PII: nunca
+        teléfono, dirección, userId ni emails. `likeCount` 90d por plato.
+        Rate-limit público + cache 60s. Sin auth.
+      operationId: getDiscoverFeed
+      parameters:
+        - name: city
+          in: query
+          required: false
+          schema:
+            type: string
+          example: Montevideo
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 12
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [mix, top]
+            default: mix
+          description: mix (round-robin justo) o top (tendencias por likes, orden global antes de paginar).
+      responses:
+        '200':
+          description: Página del feed beta
+          content:
+            application/json:
+              schema:
+                type: object
   /api/menu/{slug}:
     get:
       tags: [menu]
@@ -1428,7 +1472,7 @@ components:
           type: string
         layout:
           type: string
-          enum: [classic, bento, minimalist, neon, billboard, ticker, sticker, delivery]
+          enum: [classic, bento, minimalist, neon, billboard, ticker, sticker, delivery, stories]
         allowOnlinePayment:
           type: boolean
           description: Interruptor del dueño para el pago online (default false)

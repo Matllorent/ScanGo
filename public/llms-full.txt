@@ -27,10 +27,10 @@ Motor contextual desarrollado en JavaScript que evalúa los platos presentes en 
 - **Sugerencias de Cierre**: Analiza el subtotal para proponer postres o café cuando el pedido está listo para enviarse.
 - **Control del Comensal**: Interruptor accesible ("Activar Mozo Virtual 🤖") que respeta la decisión del usuario y persiste su preferencia en `localStorage`.
 
-### 3.2. Smart Google Reviews (Filtro Inteligente de Reseñas)
-Sistema de recolección de feedback post-pedido:
-- Si el usuario califica con **5 Estrellas (⭐⭐⭐⭐⭐)**: Se le agradece cordialmente y se le redirige directamente al perfil de Google Maps del restaurante para dejar su reseña pública, elevando el ranking SEO local del establecimiento.
-- Si el usuario califica con **1 a 4 Estrellas**: Se despliega un formulario confidencial que guarda el comentario en base de datos (`POST /api/reviews/feedback`) para que el dueño y la gerencia tomen acciones correctivas sin exponer al restaurante a reseñas negativas públicas en Google Maps.
+### 3.2. Smart Google Reviews (Embudo Pro-Política)
+Sistema de recolección de feedback post-pedido con entrada neutral:
+- Si el usuario califica con **4-5 Estrellas**: Se le agradece y se le ofrece el formulario de Google Maps del restaurante (más nudge una vez por pedido entregado y deep-link `?review=1` para QR de mesa).
+- Si califica con **1-3 Estrellas**: formulario confidencial a gerencia (`POST /api/reviews/feedback`), con link alternativo a Google siempre visible (la política de Google exige no pedir solo positivas).
 
 ### 3.3. Pasarelas de Pago Nativas en LATAM y Global
 - **Mercado Pago Checkout Pro**: Conexión nativa mediante Access Token de producción (`APP_USR-...`) para generación de preferencias dinámicas vía API REST (`POST /api/orders/mercadopago/preference`) con soporte para pesos uruguayos (UYU), pesos argentinos (ARS), reales brasileños (BRL) y dólares (USD).
@@ -38,10 +38,13 @@ Sistema de recolección de feedback post-pedido:
 - **Comprobantes por WhatsApp**: El comensal envía el pedido estructurado y adjunta comprobante de pago o el enlace directo provisto por Checkout Pro.
 
 ### 3.4. Resiliencia, Accesibilidad y Diseño
-- **Classic Artisanal**: 14 variantes de diseño pizarra (Classic, Emerald, Rustic, Taquería, Bar, Moderna, Foodtruck, Gamer, Otaku, Explosivo, Infantil, Alegre, Basketball, Football).
-- **Nuevas Morfologías**: Bento Grid modular, Minimalist Luxury editorial de alta cocina y Neon Nightbar para coctelería y eventos nocturnos.
+- **Classic Artisanal**: 17 variantes (las 14 de pizarra más Smash Urban, Glass Gastro y Ticket Térmico).
+- **Nuevas Morfologías**: Bento Grid modular, Minimalist Luxury editorial, Neon Nightbar, Delivery App, Billboard/Ticker/Sticker y Stories (modo dual mesa/casa, con video por plato y virtualización).
 - **Hero Banner con Contain & Blur Backdrop**: La imagen de portada no se recorta; se muestra 100% íntegra mediante `object-fit: contain` con un elegante fondo difuminado (blur) creado a partir de la misma imagen.
 - **Seguridad**: Autenticación 2FA TOTP (Google Authenticator), tokens JWT de un solo uso con JTI y expiración de 15 minutos, Kill-Switch de suscripciones con código HTTP 503.
+
+### 3.5. Descubrir Beta (formato tiktok de la zona, en prueba)
+Feed público opt-in (`allowDiscovery`, suscripción válida) en `/descubrir` con API `GET /api/discover/feed` (round-robin o `?sort=top`, radio `?lat=&lng=&radiusKm=`, me gusta, sin PII). El pedido se hace siempre en cada local (`?dish=`, sin carrito mixto).
 
 ---
 
@@ -50,7 +53,9 @@ Sistema de recolección de feedback post-pedido:
 - `POST /api/orders/quote`: Valida en el servidor los precios de los ítems, presentaciones, tamaños y grupos de modificadores evitando alteraciones del cliente.
 - `POST /api/orders`: Registra un pedido con snapshot histórico inmutable de precios.
 - `POST /api/orders/mercadopago/preference`: Genera una preferencia de pago en Mercado Pago Checkout Pro.
-- `POST /api/reviews/feedback`: Recepción de comentarios privados (filtro constructivo de 1-4 estrellas).
+- `POST /api/reviews/feedback`: Recepción de comentarios privados (canal de gerencia del embudo de reseñas).
+- `GET /api/discover/feed`: Feed público beta opt-in (platos sin PII, me gusta, radio de cercanía).
+- `GET /api/analytics/funnel/:restaurantId`: Embudo Google del dueño (clicks, nudges, feedbacks).
 - `GET /api/admin/killswitch`: Consulta el estado del interruptor de emergencias para suscripciones.
 - `POST /api/admin/killswitch`: Alterna el estado del Kill-Switch (true/false).
 - `POST /api/auth/register`: Registro de nuevos restaurantes (protegido por Kill-Switch y verificación de dominios desechables).

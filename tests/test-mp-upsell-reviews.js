@@ -47,8 +47,35 @@ async function runTests() {
 
   // 6. Smart Google Reviews Modal with 5★ / 1-4★ bifurcation
   assert.ok(menuHtml.includes('smartReviewModal') || menuHtml.includes('Smart Review'), 'menu.html debe tener modal Smart Reviews');
-  assert.ok(menuHtml.includes('5★') || menuHtml.includes('cinco estrellas') || menuHtml.includes('rating-5'), 'Modal debe tener opción 5 estrellas');
+  assert.ok(menuHtml.includes('5 estrellas') || menuHtml.includes('cinco estrellas') || menuHtml.includes('rating-5'), 'Modal debe tener opción 5 estrellas');
   console.log('✓ Modal Smart Google Reviews con bifurcación 5★ / 1-4★ verificado en menu.html');
+
+  // 6b. Paquete Google Conectado: Maps + nudge post-entrega + ?review=1 + Studio + embudo pro-política
+  assert.ok(menuHtml.includes('id="infoDirectionsLink"'), 'menu.html debe tener link Cómo llegar en el modal de info');
+  assert.ok(menuJs.includes('maps/dir/?api=1&destination='), 'menu.js debe armar direcciones de Google Maps (geo o dirección)');
+  assert.ok(menuJs.includes('openReviewNudge'), 'menu.js debe exponer openReviewNudge (wrapper al módulo)');
+  const trackingSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/orderTracking.js'), 'utf8');
+  assert.ok(trackingSrc.includes('scango_review_nudged'), 'el nudge post-entrega vive en el módulo (una vez por pedido)');
+  assert.ok(menuJs.includes('BILL_NUDGE_KEY') || trackingSrc.includes('BILL_NUDGE_KEY'), 'nudge de cuenta con llave diaria');
+  assert.ok(menuJs.includes('cuenta_efectivo'), 'menu.js distingue pedir la cuenta en efectivo');
+  assert.ok(menuJs.includes('maybeOpenReviewFromLink'), 'menu.js conserva el wrapper ?review=1');
+  assert.ok(trackingSrc.includes("params.get('review')"), 'el módulo consume el param review');
+  const smartMod = fs.readFileSync(path.join(__dirname, '../public/js/menu/smartReviews.js'), 'utf8');
+  assert.ok(smartMod.includes('showReviewBranch') && smartMod.includes('rating >= 4'), 'smartReviews debe bifurcar 4-5★ Google con camino alternativo para todos');
+  assert.ok(menuHtml.includes('id="btnGoogleReviewAlt"') && menuHtml.includes('showPrivateFeedbackBox'), 'ambas ramas deben tener su link alternativo (ida y vuelta)');
+  const studioHtml = fs.readFileSync(path.join(__dirname, '../public/studio.html'), 'utf8');
+  assert.ok(studioHtml.includes('id="inputGoogleReview"') && studioHtml.includes('googleReviewStatus'), 'studio debe validar el link con estado visible');
+  assert.ok(studioHtml.includes('copyReviewLink') && studioHtml.includes('?review=1'), 'studio debe copiar el deep-link de reseñas');
+  const gMod = fs.readFileSync(path.join(__dirname, '../public/js/studio/googleReview.js'), 'utf8');
+  assert.ok(gMod.includes('writereview') && gMod.includes('g.page'), 'googleReview.js debe reconocer los formatos reales del link');
+  assert.ok(gMod.includes('maps.app.goo.gl'), 'googleReview.js debe aceptar links cortos de Maps');
+  const qrGen = fs.readFileSync(path.join(__dirname, '../public/js/studio/qrGenerator.js'), 'utf8');
+  assert.ok(qrGen.includes('printReviewTent') && qrGen.includes('?review=1'), 'qrGenerator debe imprimir la carpa con QR al deep-link');
+  assert.ok(studioHtml.includes('data-js-click="printReviewTent"'), 'studio debe ofrecer el botón de carpa de reseñas');
+  assert.ok(menuJs.includes('scheduleBillNudgeMod'), 'menu.js programa el nudge vía el módulo (wrapper)');
+  const analyticsRoutes = fs.readFileSync(path.join(__dirname, '../api/routes/analytics.js'), 'utf8');
+  assert.ok(analyticsRoutes.includes("'/funnel/:restaurantId'") || analyticsRoutes.includes('/funnel/:restaurantId'), 'analytics debe exponer el embudo Google (30d, sin gate Pro)');
+  console.log('✓ Paquete Google Conectado: Maps, nudge, ?review=1, Studio y embudo pro-política');
 
   // 7. JS logic for smart reviews filter
   assert.ok(menuJs.includes('openSmartReviewModal') || menuJs.includes('smartReview'), 'menu.js debe implementar lógica de Smart Reviews');

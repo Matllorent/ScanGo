@@ -259,7 +259,13 @@
             </div>
             <div class="form-group" style="margin-top: 4px;">
               <label class="form-label" for="inputGoogleReview">Link Reseñas de Google</label>
-              <input type="text" id="inputGoogleReview" class="form-input" placeholder="https://g.page/r/tu-local/review" data-js-input="updateLiveState">
+              <input type="text" id="inputGoogleReview" class="form-input" placeholder="https://g.page/r/tu-local/review" data-js-input="updateLiveState" data-js-change="validateGoogleReviewLink">
+              <div id="googleReviewStatus" style="font-size:11px; margin-top:6px; color:var(--text-dim);">Pegá el link de “Escribir una reseña” de tu ficha (Google Business → Compartir → Reseñas).</div>
+              <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+                <button type="button" class="btn-nav" style="font-size:11px; padding:5px 10px;" data-js-click="testGoogleReviewLink">🔗 Probar link</button>
+                <button type="button" class="btn-nav" style="font-size:11px; padding:5px 10px;" data-js-click="copyReviewLink">📋 Copiar link de reseñas (?review=1)</button>
+              </div>
+              <div class="input-hint">El link copiado abre tu carta con el modal de calificación directo: ideal para el QR de la carpa/mesa. El chip ⭐ aparece solo si hay link válido.</div>
             </div>
 
             <!-- Visibilidad SEO Local (marcado JSON-LD de /m/:slug) -->
@@ -367,6 +373,20 @@
               </div>
               <input type="text" id="inputPaymentLink" aria-label="Link de pago propio (opcional)" class="form-input" placeholder="Link de pago propio (opcional): https://mpago.la/tu-link" data-js-input="updateLiveState">
               <div class="input-hint">Si lo dejás vacío y el servidor tiene Mercado Pago configurado, el menú genera un link de pago por pedido.</div>
+            </div>
+
+            <!-- Descubrir beta (opt-in): aparecer en el feed tipo tiktok de la zona -->
+            <div class="form-group" style="margin-top:14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div>
+                  <strong style="font-size:12px; color:#fff;">🧭 Aparecer en Descubrir <span style="font-size:9px; color:var(--accent-gold); font-weight:700;">BETA</span></strong>
+                  <div style="font-size:10px; color:var(--text-dim);">Tus platos (sin teléfono ni dirección) en el feed de la zona. Solo suscripciones válidas. Apagado por defecto. Para el radio de cercanía cargá tu ubicación en SEO Local (lat/lng).</div>
+                </div>
+                <label style="position:relative; display:inline-block; width:42px; height:24px;">
+                  <input type="checkbox" id="inputAllowDiscovery" data-js-change="updateLiveState" style="opacity:0; width:0; height:0;" aria-label="Aparecer en Descubrir beta">
+                  <span id="sliderDiscovery" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
+                </label>
+              </div>
             </div>
 
             <!-- Schedule / Timed Menus -->
@@ -488,7 +508,7 @@
                 <span style="font-size:10px; color:var(--accent-gold); font-weight:700;">LAYOUT SWITCHER</span>
               </label>
               <select id="inputMenuLayout" class="form-select" data-js-change="updateLiveState" style="font-weight:600;">
-                <option value="classic" selected>📜 Classic Artisanal (Por Defecto — Pizarrón tradicional con sus 14 paletas)</option>
+                <option value="classic" selected>📜 Classic Artisanal (Por Defecto — Pizarrón tradicional con sus 16 paletas)</option>
                 <option value="bento">🍱 Bento Grid (Moderna cuadrícula modular — Cafeterías de especialidad & Fast-Good)</option>
                 <option value="minimalist">🍷 Minimalist Luxury (Alta cocina & Fine-dining — Tipografía serif y fondos marfil/carbón)</option>
                 <option value="neon">🍸 Neon Nightbar (Modo ultra-oscuro #090D0E — Acentos de neón sutiles para tragos y 2x1)</option>
@@ -496,9 +516,11 @@
                 <option value="ticker">••• Ticker Tipográfico (Carta lista estilo Five Guys/Starbucks — Nombre, puntitos y precio, sin fotos ni tarjetas)</option>
                 <option value="sticker">🏷️ Sticker Artesanal (Board masonry tipo In-N-Out — Foto con nombre encima y precio en sticker para heladerías & panaderías)</option>
                 <option value="delivery">🛵 Delivery App (Estilo app de delivery — Hero con card superpuesta, lista horizontal con foto y botón + circular)</option>
+                <option value="stories">📖 Stories (Modo dual: carta clásica en MESA, historias full-screen en CASA — link delivery con ?morph=stories)</option>
               </select>
               <div class="input-hint" style="margin-top:6px;">
-                "Classic Artisanal" conserva al 100% las 14 paletas auténticas. Las nuevas morfologías aplican un diseño estructural exclusivo de vanguardia.
+                "Classic Artisanal" conserva al 100% las 17 paletas auténticas. Las nuevas morfologías aplican un diseño estructural exclusivo de vanguardia.<br>
+                📖 <b>Modo dual Stories:</b> el QR de la mesa abre la carta clásica; compartí el link con <b>?morph=stories</b> (Instagram/WhatsApp) para que en casa vean las historias. El comensal también puede alternar con el botón 📖 de la carta.
               </div>
               <!-- Acento Neón (sólo layout Neon Nightbar): 6 colores de glow + libre -->
               <div id="neonAccentRow" style="display:none; margin-top:10px;">
@@ -524,7 +546,7 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="inputThemeBg">Fondo y Paleta del Pizarrón <span id="themeCountHint" style="font-weight:400; opacity:.7;">(14 clásicas + 11 de heladería)</span></label>
+              <label class="form-label" for="inputThemeBg">Fondo y Paleta del Pizarrón <span id="themeCountHint" style="font-weight:400; opacity:.7;">(17 clásicas + 11 de heladería)</span></label>
               <select id="inputThemeBg" class="form-select" data-js-change="updateLiveState">
                 <option value="classic">1. Pizarrón Clásico Negro Grafito (Tiza Blanca)</option>
                 <option value="emerald" selected>2. Pizarrón Verde Bistro Esmeralda (Bistró Pomelli)</option>
@@ -540,6 +562,9 @@
                 <option value="alegre">12. ☀️ Alegre & Cálido (Tiza Amarilla y Naranja Sol)</option>
                 <option value="basketball">13. 🏀 Basketball Court (Pizarra Táctica & Naranja)</option>
                 <option value="football">14. ⚽ Football Stadium (Pizarra Táctica de Césped)</option>
+                <option value="smash-urban">15. 🍔 Smash Urban (Sheet blanca flotante sobre hero negro, estilo delivery)</option>
+                <option value="glass-gastro">16. ✨ Glass Gastro (Vidrio multicapa nocturno con orbes de color)</option>
+                <option value="ticket">17. 🧾 Ticket Térmico (Recibo de mostrador: papel dentado, monoespaciada y sellos)</option>
                 <optgroup label="🍦 Heladería & Postres — Entretenidos y coloridos">
                   <option value="helado-fiesta">🍨 Fiesta de Helado (Confeti sobre blanco, familiar y alegre)</option>
                   <option value="helado-menta">🍃 Menta Granizada (Verde menta + chips de chocolate)</option>
@@ -813,6 +838,9 @@
               <button class="btn-nav" data-js-click="printTableStand">
                 🖨️ Imprimir Cartel Individual
               </button>
+              <button class="btn-nav" data-js-click="printReviewTent" title="Carpa con QR que abre la calificación directo">
+                ⭐ Imprimir Carpa de Reseñas
+              </button>
             </div>
           </div>
 
@@ -948,6 +976,19 @@
                 <div id="reviewsTotalCount" style="font-size:1.2rem; font-weight:700; color:#fff;">0</div>
                 <div style="font-size:0.75rem; color:var(--text-dim);">Reseñas totales</div>
               </div>
+            </div>
+            <!-- Embudo Google (30 días): ¿el loop de reseñas funciona? -->
+            <div style="padding:12px; background:var(--bg-base); border-radius:10px; border:1px solid var(--border); margin-bottom:16px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <strong style="font-size:12px; color:#fff;">📈 Embudo Google (30 días)</strong>
+                <button type="button" class="btn-nav" style="font-size:10px; padding:3px 8px;" data-js-click="loadReviewFunnel">↻ Actualizar</button>
+              </div>
+              <div id="reviewFunnelBox" style="display:flex; gap:16px; font-size:11px; color:var(--text-dim);">
+                <div>⭐ Clicks a Google: <strong id="funnelClicks" style="color:#fff;">—</strong></div>
+                <div>💬 Nudges aceptados: <strong id="funnelNudges" style="color:#fff;">—</strong></div>
+                <div>📩 Feedbacks privados: <strong id="funnelFeedback" style="color:#fff;">—</strong></div>
+              </div>
+              <div class="input-hint">Si los clicks son 0, pegá tu link en Mi Local y poné la carpa con QR en las mesas.</div>
             </div>
             <div id="reviewsManagementList">
               <div style="text-align:center; padding:20px; color:var(--text-dim);">Cargando reseñas...</div>
@@ -1615,6 +1656,20 @@
             </div>
           </div>
           <div class="input-hint">Podés usar un enlace web o cargar una foto desde tu galería o cámara. Las fotos se convierten a WebP antes de subirlas.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="modalDishVideo">🎬 Video del Plato (solo Stories)</label>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <input type="url" id="modalDishVideo" aria-label="URL del video del plato" class="form-input" placeholder="https://...mp4 (link directo, máx ~15s)" data-js-input="previewDishVideo">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button type="button" id="btnClearDishVideo" data-js-click="clearDishVideo" style="display:none; background:none; border:none; color:#E53E3E; font-size:11px; cursor:pointer;">✕ Quitar video</button>
+            </div>
+            <div id="dishVideoPreviewContainer" style="display:none; margin-top:4px;">
+              <video id="dishVideoPreview" src="" muted playsinline preload="metadata" style="width:120px; height:80px; object-fit:cover; border-radius:6px; border:1px solid var(--border);"></video>
+            </div>
+          </div>
+          <div class="input-hint">Link MP4/WebM directo (https). Se reproduce <b>solo en Stories</b>; la foto queda de portada. Recomendado: ≤15s, 720p, H.264. Los videos consumen datos del plan: usalos en tus platos estrella.</div>
         </div>
 
         <!-- Out of Stock, Star & Chef's Special Toggles -->

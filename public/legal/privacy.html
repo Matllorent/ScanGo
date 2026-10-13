@@ -73,6 +73,7 @@
       <li><strong>Dueños (cuenta):</strong> nombre, email, teléfono comercial, datos del local (nombre, carta, precios, logo), credenciales protegidas con hash irreversible (bcrypt) y registros de facturación.</li>
       <li><strong>Comensales (Club ScanGo, solo si participás):</strong> teléfono, email (para confirmar canjes y borrados), historial de visitas, puntos/sellos/niveles e insignias, suscripciones push del dispositivo. Nunca pedimos contraseñas a comensales.</li>
       <li><strong>Pedidos:</strong> mesa, platos, notas y totales viajan al WhatsApp del restaurante elegido (ver §5) y quedan en el historial del local para su operación.</li>
+      <li><strong>Descubrir beta (opcional):</strong> ubicación aproximada solo si tocás 📍 (se redondea a ~100 metros antes de enviarse y no se asocia a tu identidad) y "me gusta" anónimos por navegador (conteo sin identidad). El pedido igual se hace siempre en cada local, nunca mezclado.</li>
       <li><strong>Datos técnicos:</strong> dirección IP (seguridad y rate-limit), navegador, identificadores de suscripción push y cookies estrictamente necesarias (ver <a href="/cookies">Política de Cookies</a>).</li>
     </ul>
 
@@ -86,7 +87,7 @@
     </ul>
 
     <h2>4. Encargados y Transferencias Internacionales</h2>
-    <p>Para operar usamos proveedores que tratan datos por nuestra cuenta: alojamiento y base de datos (Supabase), email transaccional (Resend), cobros (Mercado Pago, Stripe, Lemon Squeezy), login social y mapas de calor de fraude (Google, Cloudflare). Pueden estar fuera de Uruguay (p. ej. EE.UU./UE) bajo sus marcos de protección y contratos de encargo. Además, los datos de tu pedido se envían al <strong>restaurante que elegiste vía WhatsApp (Meta)</strong>: desde ese momento ese local es responsable independiente de esos datos.</p>
+    <p>Para operar usamos proveedores que tratan datos por nuestra cuenta: alojamiento y base de datos (Supabase), email transaccional (Resend), cobros (Mercado Pago, Stripe, Lemon Squeezy), login social y mapas de calor de fraude (Google, Cloudflare). Pueden estar fuera de Uruguay (p. ej. EE.UU./UE) bajo sus marcos de protección y contratos de encargo. Además, los datos de tu pedido se envían al <strong>restaurante que elegiste vía WhatsApp (Meta)</strong>: desde ese momento ese local es responsable independiente de esos datos. Si tocás "Cómo llegar", salís a <strong>Google Maps</strong> y rige su política.</p>
 
     <h2>5. Conservación</h2>
     <p>Conservamos los datos lo necesario para la finalidad: cuentas activas mientras dure la relación; pedidos e historiales de fidelización hasta que ejerzas tu borrado total (disponible en el propio menú, con verificación); logs de seguridad hasta 12 meses; datos de facturación los plazos fiscales aplicables. Luego se eliminan o anonimizan.</p>

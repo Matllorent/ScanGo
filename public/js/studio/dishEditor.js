@@ -183,6 +183,38 @@ export function clearDishPhoto() {
   if (previewContainer) previewContainer.style.display = 'none';
 }
 
+// Video del plato (solo Stories): link MP4 directo, sin subida de archivo
+// (un video en base64 inflaría el save y ciega la cuota del plan).
+export function clearDishVideo() {
+  const urlInput = document.getElementById('modalDishVideo');
+  const clearBtn = document.getElementById('btnClearDishVideo');
+  const previewContainer = document.getElementById('dishVideoPreviewContainer');
+  const preview = document.getElementById('dishVideoPreview');
+
+  if (urlInput) urlInput.value = '';
+  if (clearBtn) clearBtn.style.display = 'none';
+  if (previewContainer) previewContainer.style.display = 'none';
+  if (preview) preview.removeAttribute('src');
+}
+
+export function previewDishVideo() {
+  const urlInput = document.getElementById('modalDishVideo');
+  const clearBtn = document.getElementById('btnClearDishVideo');
+  const previewContainer = document.getElementById('dishVideoPreviewContainer');
+  const preview = document.getElementById('dishVideoPreview');
+  const url = urlInput ? urlInput.value.trim() : '';
+  const ok = /^https:\/\//i.test(url) && /\.(mp4|webm)(\?|#|$)/i.test(url);
+  if (ok && preview && previewContainer) {
+    preview.src = url;
+    previewContainer.style.display = 'block';
+    if (clearBtn) clearBtn.style.display = 'inline';
+  } else {
+    if (previewContainer) previewContainer.style.display = 'none';
+    if (clearBtn) clearBtn.style.display = url ? 'inline' : 'none';
+    if (preview) preview.removeAttribute('src');
+  }
+}
+
 export async function handleDishPhotoUpload(input, compressImage) {
   const file = input?.files?.[0];
   if (!file) return;
@@ -233,6 +265,10 @@ export function editDish(restaurant, dishId) {
 
   const existingPhoto = dish.photoUrl || dish.imageUrl || dish.image || dish.photo || '';
   if (el('modalDishPhoto')) el('modalDishPhoto').value = existingPhoto;
+  // Video del plato (solo Stories): link directo, con preview.
+  const existingVideo = dish.videoUrl || '';
+  if (el('modalDishVideo')) el('modalDishVideo').value = existingVideo;
+  previewDishVideo();
   if (el('modalDishOutOfStock')) el('modalDishOutOfStock').checked = !!dish.outOfStock;
   if (el('modalDishStar')) el('modalDishStar').checked = (dish.tags || []).includes('star');
   if (el('modalDishChefSpecial')) el('modalDishChefSpecial').checked = !!dish.isChefSpecial || (dish.tags || []).includes('chef_special');
@@ -324,6 +360,8 @@ export function openNewDishModal(restaurant) {
   if (el('modalDishPrice')) el('modalDishPrice').value = '';
   if (el('modalDishOriginalPrice')) el('modalDishOriginalPrice').value = '';
   if (el('modalDishPhoto')) el('modalDishPhoto').value = '';
+  if (el('modalDishVideo')) el('modalDishVideo').value = '';
+  clearDishVideo();
   if (el('modalDishOutOfStock')) el('modalDishOutOfStock').checked = false;
   if (el('modalDishStar')) el('modalDishStar').checked = false;
   if (el('modalDishChefSpecial')) el('modalDishChefSpecial').checked = false;
@@ -389,6 +427,7 @@ export function saveDishFromModal(restaurant, event, onSaved) {
   const originalPrice = isNaN(originalPriceVal) ? null : originalPriceVal;
   const description = document.getElementById('modalDishDesc')?.value.trim();
   const photoUrl = document.getElementById('modalDishPhoto')?.value.trim();
+  const videoUrl = document.getElementById('modalDishVideo')?.value.trim();
   const categoryId = document.getElementById('modalDishCategory')?.value;
   const outOfStock = document.getElementById('modalDishOutOfStock')?.checked;
   const isChefSpecial = document.getElementById('modalDishChefSpecial')?.checked;
@@ -441,6 +480,7 @@ export function saveDishFromModal(restaurant, event, onSaved) {
       dish.originalPrice = originalPrice;
       dish.description = description;
       dish.photoUrl = photoUrl || null;
+      dish.videoUrl = videoUrl || null;
       dish.categoryId = finalCategoryId;
       dish.outOfStock = outOfStock;
       dish.isChefSpecial = isChefSpecial;
@@ -463,6 +503,7 @@ export function saveDishFromModal(restaurant, event, onSaved) {
       originalPrice: originalPrice,
       description: description || 'Plato casero elaborado en el día',
       photoUrl: photoUrl || null,
+      videoUrl: videoUrl || null,
       categoryId: finalCategoryId,
       outOfStock,
       isChefSpecial,

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Descubrir platos (beta) — Menú Pizarrón</title>
+  <meta name="description" content="Probá el formato tiktok de la zona: platos de locales con suscripción válida que eligieron aparecer. El pedido se hace siempre en cada local.">
+  <meta name="robots" content="noindex,follow">
+  <link rel="icon" type="image/png" href="/logo-scango.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/menu.css">
+  <style>
+    body.descubrir { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #05070C; color: #fff; min-height: 100vh; margin: 0; }
+    .dz-hero { max-width: 560px; margin: 0 auto; padding: 56px 20px 20px; text-align: center; }
+    .dz-hero h1 { font-size: 30px; margin: 0 0 8px; }
+    .dz-beta { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: 1px; background: #22D3EE; color: #04222B; border-radius: 99px; padding: 3px 10px; vertical-align: middle; margin-left: 8px; }
+    .dz-hero p { color: #9FB0C3; font-size: 14px; line-height: 1.6; }
+    .dz-bar { display: flex; gap: 8px; max-width: 560px; margin: 0 auto; padding: 0 20px; }
+    .dz-bar input { flex: 1; border-radius: 14px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.07); color: #fff; padding: 12px 14px; font-size: 14px; outline: none; font-family: inherit; }
+    .dz-bar button { border-radius: 14px; border: none; background: #22D3EE; color: #04222B; font-weight: 800; padding: 12px 18px; cursor: pointer; font-family: inherit; font-size: 14px; }
+    .dz-bar button#dzGeo { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.22); color: #fff; padding: 12px 14px; }
+    .dz-bar button#dzGeo.on { background: #22D3EE; color: #04222B; border-color: transparent; }
+    .dz-status { max-width: 560px; margin: 12px auto 0; padding: 0 20px; color: #9FB0C3; font-size: 13px; min-height: 20px; }
+    .dz-cards { max-width: 560px; margin: 0 auto; padding: 120px 20px 60px; text-align: center; color: #5B6B82; font-size: 13px; line-height: 1.8; }
+    .dz-cards b { color: #fff; }
+    .dz-cards a { color: #22D3EE; }
+    a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid #22D3EE; outline-offset: 2px; }
+  </style>
+</head>
+<body class="descubrir">
+  <a href="#dz-main" class="skip-link">Saltar al contenido principal</a>
+  <main id="dz-main" class="dz-hero" tabindex="-1">
+    <h1 id="dzHeroTitle">Descubrir <span class="dz-beta">BETA · PRUEBA</span></h1>
+    <p id="dzHeroSub">El formato tiktok de la zona, en prueba.</p>
+  </main>
+  <div class="dz-bar" role="search">
+    <input id="dzCity" type="text" placeholder="Filtrar por ciudad (vacío = todas)" aria-label="Filtrar por ciudad" autocomplete="off">
+    <button id="dzGeo" type="button" title="Solo locales cerca de mí">📍</button>
+    <button id="dzGo" type="button">Ver</button>
+  </div>
+  <div id="dzStatus" class="dz-status" role="status">Cargando platos…</div>
+  <div class="dz-bar" style="margin-top:10px;">
+    <button id="dzMore" type="button" style="display:none; width:100%;">Ver más platos</button>
+  </div>
+  <div class="dz-cards">
+    <p id="dzOwnerLine">¿Tenés un local? Aparecé acá desde Studio → Mi Local → Aparecer en Descubrir.</p>
+    <p><a id="dzBackLink" href="/">← Volver al inicio</a></p>
+  </div>
+  <script type="module" src="/js/discover.js"></script>
+</body>
+</html>

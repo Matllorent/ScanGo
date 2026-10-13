@@ -32,3 +32,6 @@ public/uploads/
 tests/tmp-*
 public/qa-menu-*
 
+# Mockups estáticos de revisión visual (previews/tema-*.html, solo workspace)
+previews/
+

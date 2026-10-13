@@ -115,6 +115,7 @@ import {
   generateQrCode as generateQrCodeMod,
   downloadQrPng as downloadQrPngMod,
   printTableStand as printTableStandMod,
+  printReviewTent as printReviewTentMod,
   downloadAllTablesPDF as downloadAllTablesPDFMod
 } from './studio/qrGenerator.js';
 
@@ -186,6 +187,8 @@ import {
   deleteDish as deleteDishMod,
   duplicateDish as duplicateDishMod,
   clearDishPhoto,
+  clearDishVideo,
+  previewDishVideo,
   toggleDishScheduleControls,
   editDish as editDishMod,
   openNewDishModal as openNewDishModalMod,
@@ -196,6 +199,7 @@ import {
 } from './studio/dishEditor.js';
 
 import { switchTab as switchTabMod } from './studio/ui/tabs.js';
+import { classifyGoogleReviewLink as classifyGoogleReviewLinkMod, buildReviewLink as buildReviewLinkMod } from './studio/googleReview.js';
 import { showConfirmDialog, closeConfirmDialog } from './studio/ui/confirmDialog.js';
 import { showSaveFeedback } from './studio/ui/saveFeedback.js';
 import {
@@ -485,7 +489,7 @@ export function filterThemeOptionsByBusinessType() {
   const hint = document.getElementById('themeHeladeriaHint');
   if (hint) hint.style.display = isHeladeria ? 'block' : 'none';
   const countHint = document.getElementById('themeCountHint');
-  if (countHint) countHint.textContent = isHeladeria ? '(11 estéticas exclusivas de heladería)' : '(14 clásicas + 11 de heladería)';
+  if (countHint) countHint.textContent = isHeladeria ? '(11 estéticas exclusivas de heladería)' : '(17 clásicas + 11 de heladería)';
   if (corrected) triggerAutoSave();
 }
 
@@ -1081,6 +1085,13 @@ export function updateLiveState() {
     const sliderOP = el('sliderOnlinePayment');
     if (sliderOP) sliderOP.style.backgroundColor = onlinePayCheckbox.checked ? '#38A169' : '#2a3a33';
   }
+  // Descubrir beta: opt-in explícito (default apagado).
+  const discoveryCheckbox = el('inputAllowDiscovery');
+  if (discoveryCheckbox) {
+    restaurant.allowDiscovery = discoveryCheckbox.checked === true;
+    const sliderD = el('sliderDiscovery');
+    if (sliderD) sliderD.style.backgroundColor = discoveryCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
 
   const schedCheck = el('inputScheduleEnabled');
   if (schedCheck) {
@@ -1195,6 +1206,14 @@ export function renderStudioUI() {
   if (el('inputTiktok')) el('inputTiktok').value = restaurant.tiktok || '';
   if (el('inputX')) el('inputX').value = restaurant.x || '';
   if (el('inputGoogleReview')) el('inputGoogleReview').value = restaurant.googleReview || '';
+  validateGoogleReviewLink();
+  // Embudo Google: se carga solo una vez por sesión (el botón ↻ fuerza).
+  if (!window.__stFunnelLoaded) {
+    window.__stFunnelLoaded = true;
+    try {
+      loadReviewFunnel();
+    } catch (e) {}
+  }
 
   // Visibilidad SEO local: priceRange con allowlist, sameAs como [url],
   // lat/lng numérico (0 es válido — Ecuador pasa el Number.isFinite).
@@ -1243,6 +1262,12 @@ export function renderStudioUI() {
     onlinePayCheckbox.checked = restaurant.allowOnlinePayment === true;
     const sliderOP = el('sliderOnlinePayment');
     if (sliderOP) sliderOP.style.backgroundColor = onlinePayCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
+  const discoveryCheckbox = el('inputAllowDiscovery');
+  if (discoveryCheckbox) {
+    discoveryCheckbox.checked = restaurant.allowDiscovery === true;
+    const sliderD = el('sliderDiscovery');
+    if (sliderD) sliderD.style.backgroundColor = discoveryCheckbox.checked ? '#38A169' : '#2a3a33';
   }
 
   const schedCheck = el('inputScheduleEnabled');
@@ -1443,6 +1468,7 @@ export function printTableStand() {
   printTableStandMod(restaurant);
 }
 export function downloadAllTablesPDF() { downloadAllTablesPDFMod(restaurant); }
+export function printReviewTent() { printReviewTentMod(restaurant); }
 
 export function renderDeliveryZones() { renderZonesMod(restaurant, escapeHtml); }
 export function addDeliveryZone() { addZoneMod(restaurant, triggerAutoSave, escapeHtml); }
@@ -1963,6 +1989,121 @@ function copyGuestInviteLink(index) {
     }
   } catch (e) {
     fail();
+  }
+}
+
+// ── Google Reviews: validador del link + deep-link ?review=1 ──────────────
+// La mayoría de los dueños pega el link de la FICHA (no abre el formulario).
+// El validador reconoce los 4 formatos reales de "Escribir reseña".
+function paintGoogleReviewStatus(result, empty) {
+  const box = document.getElementById('googleReviewStatus');
+  if (!box) return;
+  if (empty) {
+    box.style.color = 'var(--text-dim)';
+    box.textContent = 'Pegá el link de “Escribir una reseña” de tu ficha (Google Business → Compartir → Reseñas).';
+    return;
+  }
+  if (result.ok) {
+    const kindLabel = { writereview: 'formulario directo (ideal)', gpage: 'link corto g.page', maps: 'link de Maps', short: 'link corto goo.gl' }[result.kind] || 'válido';
+    box.style.color = '#68D391';
+    box.textContent = `✅ Link válido (${kindLabel}). El chip ⭐ aparece en tu carta.`;
+  } else {
+    box.style.color = '#F6AD55';
+    box.textContent = '⚠️ Ese link no abre el formulario de reseña. En tu ficha de Google: Compartir → Reseñas → copiá ese enlace.';
+  }
+}
+
+function validateGoogleReviewLink() {
+  const input = document.getElementById('inputGoogleReview');
+  const raw = input ? input.value : '';
+  if (!String(raw || '').trim()) {
+    paintGoogleReviewStatus(null, true);
+    return;
+  }
+  paintGoogleReviewStatus(classifyGoogleReviewLinkMod(raw), false);
+}
+
+function testGoogleReviewLink() {
+  const input = document.getElementById('inputGoogleReview');
+  const raw = input ? input.value.trim() : '';
+  const result = classifyGoogleReviewLinkMod(raw);
+  paintGoogleReviewStatus(result, !raw);
+  if (result.ok) {
+    try {
+      window.open(raw, '_blank', 'noopener');
+    } catch (e) {}
+  }
+}
+
+function copyReviewLink() {
+  const slug = restaurant && restaurant.slug ? restaurant.slug : '';
+  const link = buildReviewLinkMod(window.location.origin, slug);
+  const box = document.getElementById('googleReviewStatus');
+  if (!link) {
+    if (box) {
+      box.style.color = '#F6AD55';
+      box.textContent = '⚠️ Guardá primero tu local para tener slug y copiar el link.';
+    }
+    return;
+  }
+  const done = () => {
+    if (box) {
+      box.style.color = '#68D391';
+      box.textContent = '✅ Link de reseñas copiado: abre tu carta con el modal directo.';
+    }
+  };
+  const fail = () => {
+    if (box) {
+      box.style.color = '#F6AD55';
+      box.textContent = 'No se pudo copiar automáticamente: el link es ' + link;
+    }
+  };
+  try {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(link).then(done, fail);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = link;
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand && document.execCommand('copy');
+      ta.remove();
+      if (ok) done();
+      else fail();
+    }
+  } catch (e) {
+    fail();
+  }
+}
+
+// ── Embudo Google (30 días) para el tab Reseñas ────────────────────────────
+async function loadReviewFunnel() {
+  const set = (id, val) => {
+    const node = document.getElementById(id);
+    if (node) node.textContent = val;
+  };
+  if (!restaurant || !restaurant.id) {
+    set('funnelClicks', '—');
+    set('funnelNudges', '—');
+    set('funnelFeedback', '—');
+    return;
+  }
+  set('funnelClicks', '…');
+  set('funnelNudges', '…');
+  set('funnelFeedback', '…');
+  try {
+    const headers = window.AuthClient ? window.AuthClient.getAuthHeaders() : {};
+    const res = await fetch(`/api/analytics/funnel/${encodeURIComponent(restaurant.id)}`, { headers });
+    const payload = await res.json().catch(() => ({}));
+    const data = payload && payload.data ? payload.data : null;
+    if (!res.ok || !data) throw new Error('sin datos');
+    set('funnelClicks', String(data.googleClicks ?? '—'));
+    set('funnelNudges', String(data.nudgeAccepts ?? '—'));
+    set('funnelFeedback', String(data.privateFeedbacks ?? '—'));
+  } catch (e) {
+    set('funnelClicks', '—');
+    set('funnelNudges', '—');
+    set('funnelFeedback', '—');
   }
 }
 
@@ -2613,9 +2754,9 @@ const globalExports = {
   renderDeliveryZones, addDeliveryZone, deleteDeliveryZone,
   renderBranchesList, addBranch, deleteBranch, editBranch, closeBranchEdit, saveBranchEdit, addBranchOverrideRow, removeBranchOverrideRow, addBranchCustomDishRow, removeBranchCustomDishRow, resetBranchForm,
   loadAnalytics, updateKPIs, renderDailyChart, renderHeatmap, renderBranchMetrics, renderEventMetrics, renderTopDishes, exportAnalytics,
-  generateQrCode, downloadQrPng, printTableStand, downloadAllTablesPDF,
+  generateQrCode, downloadQrPng, printTableStand, printReviewTent, downloadAllTablesPDF,
   promptNewCategoryInModal, openCategoryManagerModal, closeCategoryManagerModal, moveCategory, addCategoryFromManager, renameCategory, deleteCategory, duplicateCategoryFromManager,
-  populateCatFilter, renderDishesList, editDish, openNewDishModal, closeDishEditModal, saveDishFromModal, handleDishPhotoUpload, deleteDish, duplicateDishItem, clearDishPhoto, toggleDishScheduleControls, toggleDishesByIngredient,
+  populateCatFilter, renderDishesList, editDish, openNewDishModal, closeDishEditModal, saveDishFromModal, handleDishPhotoUpload, deleteDish, duplicateDishItem, clearDishPhoto, clearDishVideo, previewDishVideo, toggleDishScheduleControls, toggleDishesByIngredient,
   exportMenuJson, importMenuJsonFile,
   openPresetsModal, closePresetsModal, renderPresetChips, browsePresetCategory, addSinglePresetDish, importCurrentPresetCategory, importAllPresets,
   openIceCreamPresetsModal, closeIceCreamPresetsModal, filterIceCreamPresetCat, toggleAllIceCreamFlavors, renderIceCreamPresetsList, toggleIceCreamFlavorItem, importSelectedIceCreamFlavors,
@@ -2628,6 +2769,7 @@ const globalExports = {
   addLoyaltyReward, removeLoyaltyReward, updateLoyaltyRewardField, validateLoyaltyCode, handleRedeemCodeEnter,
   addWeddingItineraryItem, removeWeddingItineraryItem, updateWeddingItineraryField, renderWeddingItineraryRows,
   addEventGuest, removeEventGuest, updateEventGuestField, renderEventGuestRows, sendGuestInvite, copyGuestInviteLink,
+  validateGoogleReviewLink, testGoogleReviewLink, copyReviewLink, loadReviewFunnel,
   loadNotificationEvents, markNotificationEventRead, sendPromoPush,
   loadRecentOrders, setOrderStatus, toggleOrderSound, printOrderTicket, printOrderEscPos, connectUsbPrinter,
   importDemoTemplate, discardDemoTemplate,
