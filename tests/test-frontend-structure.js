@@ -243,6 +243,38 @@ function runFrontendStructureTests() {
   );
   console.log('✓ Heladería: CTA protagonista + armador data-driven con resumen y total en vivo');
 
+  // ---------- G: el Service Worker NO intercepta requests cross-origin ----------
+  // Bug real (QA en navegador): el SW re-descargaba con `fetch()` las imágenes y
+  // fuentes de OTRO origen. El fetch del SW queda sujeto al CSP de /sw.js
+  // (`connect-src 'self' + supabase`), así que las bloqueaba — aunque el CSP de
+  // la página ya las permite por `img-src`/`font-src` (https:). Los <img>
+  // cross-origin (demos con Unsplash, fotos del dueño en cualquier host fuera de
+  // Supabase) disparaban violaciones de `connect-src` y no cargaban con el SW
+  // activo. Debe devolver el control al navegador para todo lo cross-origin.
+  const sw = read('public/sw.js');
+  assert.ok(
+    /if\s*\(\s*url\.origin\s*!==\s*self\.location\.origin\s*\)\s*return\s*;/.test(sw),
+    'REGRESIÓN (bug real): sw.js debe devolver el control al navegador para requests cross-origin ' +
+    '(if (url.origin !== self.location.origin) return;) — interceptarlas las re-descarga bajo el connect-src del SW y las bloquea'
+  );
+  const swRespondWith = sw.match(/event\.respondWith\(/g) || [];
+  assert.ok(
+    swRespondWith.length === 1,
+    'REGRESIÓN: sw.js debe tener UN solo event.respondWith (solo same-origin); interceptar cross-origin rompe imágenes/fuentes externas'
+  );
+  const guardIdx = sw.indexOf('!== self.location.origin');
+  const respondIdx = sw.indexOf('event.respondWith(');
+  assert.ok(
+    guardIdx !== -1 && respondIdx !== -1 && guardIdx < respondIdx,
+    'REGRESIÓN: el early-return cross-origin debe ir ANTES del event.respondWith same-origin'
+  );
+  const cacheVer = (sw.match(/const CACHE_NAME = 'scango-cache-v(\d+)'/) || [])[1];
+  assert.ok(
+    cacheVer && Number(cacheVer) >= 6,
+    'REGRESIÓN: CACHE_NAME debe ser v6+ — el handler de fetch cambió y hay que invalidar el cache viejo del cliente'
+  );
+  console.log('✓ sw.js: no intercepta cross-origin (imágenes/fuentes externas cargan con el CSP de la página)');
+
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE ESTRUCTURA FRONTEND PASARON AL 100%!');
 }
 

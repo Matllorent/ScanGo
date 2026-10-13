@@ -1,5 +1,5 @@
 // ScanGo Service Worker — Offline Resilience & PWA Caching + Push Notifications
-const CACHE_NAME = 'scango-cache-v5';
+const CACHE_NAME = 'scango-cache-v6';
 const STATIC_ASSETS = [
   '/',
   '/menu.html',
@@ -49,44 +49,25 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
+
+  // NUNCA interceptar requests de OTRO origen. El fetch del propio Service
+  // Worker queda sujeto al CSP de /sw.js (connect-src 'self' + supabase), así
+  // que re-descargar una imagen/fuente externa acá la BLOQUEA — aunque el CSP
+  // de la página ya la permita por img-src/font-src (https:). Síntoma real en
+  // producción: los <img> cross-origin (demos con Unsplash, fotos del dueño en
+  // cualquier host fuera de Supabase) disparaban violaciones de connect-src y
+  // no cargaban con el SW activo. Devolver el control al navegador las carga
+  // nativas y con el CSP correcto. Además las respuestas cross-origin son
+  // "opaque" (status 0): nunca entraban al cache igual.
+  if (url.origin !== self.location.origin) return;
+
   const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
   const isHtmlRequest = event.request.mode === 'navigate' || event.request.headers.get('accept')?.includes('text/html');
-
-  if (url.origin === self.location.origin) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200 && response.type === 'basic') {
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseClone);
-            });
-          }
-          return response;
-        })
-        .catch(() => {
-          if (!isOffline && !isHtmlRequest) {
-            return Response.error();
-          }
-
-          return caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) return cachedResponse;
-
-            if (isHtmlRequest) {
-              return caches.match('/menu.html') || caches.match('/') || new Response('Sin conexión', { status: 503, statusText: 'Offline Fallback' });
-            }
-
-            return Response.error();
-          });
-        })
-    );
-    return;
-  }
 
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        if (response && response.status === 200) {
+        if (response && response.status === 200 && response.type === 'basic') {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseClone);
@@ -95,10 +76,19 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() => {
-        if (isOffline) {
-          return caches.match(event.request) || Response.error();
+        if (!isOffline && !isHtmlRequest) {
+          return Response.error();
         }
-        return Response.error();
+
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
+
+          if (isHtmlRequest) {
+            return caches.match('/menu.html') || caches.match('/') || new Response('Sin conexión', { status: 503, statusText: 'Offline Fallback' });
+          }
+
+          return Response.error();
+        });
       })
   );
 });
