@@ -8,7 +8,7 @@ SaaS de menús digitales QR con pedidos por WhatsApp y suscripción recurrente. 
 ```bash
 npm run dev          # Desarrollo con nodemon (puerto 3000)
 npm start            # Producción (node api/index.js)
-npm test             # Suite completa (47 suites en secuencia) — con snapshot/restore automático de data/
+npm test             # Suite completa (48 suites en secuencia) — con snapshot/restore automático de data/
 npm run test:billing # Test individual de pasarelas de pago
 npm run test:analytics # Test individual de analytics de negocio (ticket promedio, CSV, top platos)
 npm run test:admin   # Test individual del panel /admin (login 2FA, plata/mes, renovaciones)
@@ -22,6 +22,7 @@ npm run test:seo-discovery # Test individual del compilador SEO/GEO (robots+IA, 
 npm run test:seo-audit # Test individual del auditor de salud SEO (panel Studio + cron diario fail-closed)
 npm run test:indexnow # Test individual de IndexNow (key fail-closed, payload bulk inyectado, verificación /{key}.txt) — 46ª suite
 npm run test:solutions # Test individual del SEO programático por rubro (/soluciones: catálogo puro, JSON-LD WebPage+Breadcrumb+FAQ, HTML sin on*=, rutas 200/404, sitemap) — 47ª suite
+npm run test:onboarding # Test individual del checklist de puesta en marcha del Studio (progreso puro desde el estado del local + wiring CSP-safe) — 48ª suite
 npm run test:realtime # Test individual del guard de canales Realtime (migración 002)
 npm run test:realtime-live # Test E2E real del guard (conecta a Supabase Realtime con la anon key)
 npm run test:csp     # Test individual del guard CSP + headers duros
@@ -197,12 +198,12 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 
 - **Framework**: `assert` de Node puro — **sin Jest/Mocha**
 - **Tests mutan `data/*.json`** durante la corrida (flujos reales con el store local). **`npm test` ahora las aísla solo**: `scripts/test-data-guard.js` saca una foto de `data/` antes y la restaura siempre al final (pase o falle). La cadena real de tests vive en `npm run test:core`; no hay que revertir `data/` a mano para commitear.
-- Suite completa (`npm test`) ejecuta 47 suites en secuencia — **todas deben pasar (47/47)**
+- Suite completa (`npm test`) ejecuta 48 suites en secuencia — **todas deben pasar (48/48)**
 - **2 tests existen pero NO están en `npm test`**: `test-e2e.js` (E2E integral real: registra en la nube, crea un checkout de Mercado Pago real y activa la suscripción por webhook — correrlo a mano; en modo cloud confirma el email del usuario recién registrado vía Admin API de Supabase, flujo real del link, sin mocks, porque `/api/studio/save` exige `requireVerifiedEmail`) y `test-supabase-group-cart-persistence.js` (es el `npm run db:smoke`, round-trip real de `group_carts` contra la nube). `test-escape-html`, `test-db-write` y `test-semgrep` solían estar fuera pero **ahora corren en el chain** (`npm test`): el guard de tests (`test-data-guard.js`) + el SKIP autónomo de semgrep los hacen seguros de correr en serie.
 - **Sin `.env` la suite igual arranca**: `JWT_SECRET` y `GROUP_CART_SECRET` caen a fallbacks de dev (`dev_secret_menu_pizarron_2026`). Solo 5 tests cargan `.env` solos: `test-mp-upsell-reviews`, `test-group-cart-mozo`, `test-geo-killswitch-upsell`, `test-realtime-live-guard` y `test-differential` (usan credenciales reales; los últimos dos hacen SKIP si no hay `SUPABASE_URL`/`SUPABASE_ANON_KEY`).
 - Para debug rápido: `node tests/test-billing.js` (o el test específico, o `npm run test:<alias>`)
 
-### Tests incluidos en `npm test` (47 suites)
+### Tests incluidos en `npm test` (48 suites)
 
 | Archivo | Qué Prueba |
 |---------|------------|
@@ -224,6 +225,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-seo-audit.js` | **Auditor de salud SEO** (`api/utils/seoAudit.js`, puro): score 0–100 (fail=25 / warn=5) sobre carta vacía, precios inválidos, horario roto (misma fuente `buildOpeningHoursFromSchedule`), overrides muertos de sucursales, nombres duplicados, datos locales, descripción, marca, JSON-LD, suscripción cancelada (fuera del sitemap) y unicidad de slug; `GET /api/studio/seo-audit` (200 dueño / 401 anónimo) para el panel; cron `/api/cron/seo-audit` fail-closed (401 sin `CRON_SECRET`, 200 con `x-cron-secret`) en solo lectura + alertas a `audit_logs`; pestaña "Salud SEO" del Studio sin `on*=` |
 | `test-indexnow.js` | **IndexNow** (`api/utils/indexNow.js`, puro + fetch inyectable): key fail-closed con el patrón `[0-9a-fA-F-]{8,64}` (igual a la ruta de vercel), `INDEXNOW_ENABLED=false/0` apaga, `buildIndexNowUrl` nunca acepta `javascript:`/`data:`, `getMenuUrlsForPing` = canonical + sucursales `?branch=`, payload POST bulk exacto `{host,key,keyLocation,urlList}` con un solo host por lote, errores de red → `ok:false` sin lanzar, `GET /{key}.txt` 200 `text/plain` solo con la key exacta (404 fail-closed), `/llms.txt`/`/llms-full.txt` estáticos intactos y guard de fuente del hook del Studio |
 | `test-solutions-seo.js` | **SEO programático por rubro** (`api/utils/seoSolutions.js`, puro): catálogo de 4 rubros con slugs únicos, título/meta/H1/FAQs completos y `demoSlug` real; JSON-LD `WebPage`+`BreadcrumbList`+`FAQPage` por landing y `CollectionPage`+`ItemList` en el hub; render server-side SIN atributos `on*=` y con un único `<script>` (el JSON-LD); `escapeHtml`/`safeJsonLd` neutralizan tags; `GET /soluciones` 200 (hub) y cada `/soluciones/:slug` 200 con canonical + CSP `script-src-attr 'none'`, slug inválido 404, y el sitemap incluye el hub + cada landing |
+| `test-onboarding-checklist.js` | **Checklist de puesta en marcha del Studio** (`public/js/studio/onboardingChecklist.js`, puro): `computeOnboardingSteps`/`computeOnboardingProgress` desde el estado REAL del local (marca, WhatsApp ≥8 dígitos, categoría, ≥3 platos, foto de plato, horario válido + activo), forma de cada paso + pestañas reales + ids únicos, progreso 0→100% y `complete`; wiring sin `on*=` (HTML/CSS/Studio) y render solo con DOM API (cero `innerHTML` con data) |
 | `test-google-auth.js` | GIS, callback OAuth y configuración backend |
 | `test-security-endpoints.js` | Auth/tenant, límites, cron/readiness y QR capability + P0: anti mass-assignment en `/save`, auth en IA, TOTP fail-closed, 403 a cuentas huérfanas |
 | `test-session-lifecycle.js` | Ciclo de sesión (partido de security-endpoints por el presupuesto del limiter 30/15min): logout con revocación jti, rehash bcrypt, muerte por pwdTs, reset atómico concurrente, Origin 403, device tokens (emisión/uso/listado/revocación/purga por reset) y baja voluntaria idempotente |
@@ -409,6 +411,13 @@ Un solo motor de cobro (`plans.json`); la landing muestra pestañas por rubro (`
 - **Sin costo**: `isFreePrice()` en `public/js/menu/menuPresentation.js` (0, ausente o no numérico → true). Con precio libre NO se muestra ninguna cifra en carta, chef specials, upsells, cross-sell del modal ni líneas del carrito (botón `+` intacto); barra flotante `Ver Pedido →` sin `($0)`; totales `Sin costo`; WhatsApp lista ítems sin precio y declara `💝 Pedido sin costo` sin Subtotal/TOTAL. Backend ya acepta monto 0 (`createOrderSchema` sin campo amount). Regresión §17.
 - **Notas por rubro**: `getDishNoteCopy()` (mismo módulo) adapta etiqueta+placeholder del modal en `openDishNoteModal`: heladería → "Nota para tu helado" (nunca "sin cebolla"), perfumería → "Nota del pedido", eventos → "Indicaciones para los anfitriones", restaurante → default de cocina. Regresión §18.
 
+### Checklist de Puesta en Marcha (activación del Studio)
+
+- **Módulo puro** `public/js/studio/onboardingChecklist.js`: `computeOnboardingSteps(restaurant)` / `computeOnboardingProgress(restaurant)` derivan 6 pasos del estado REAL del local (sin demo, sin inventos): marca (logo **o** portada), WhatsApp de pedidos (≥8 dígitos, se ignoran `+`/espacios/guiones), primera categoría, ≥3 platos, una foto de plato (cualquiera de `photoUrl|imageUrl|image|photo`) y horario de atención (activado + rango válido `HH:MM-HH:MM`, la misma forma que consume `computeOpenStatus`). Devuelve `{ steps, total, done, percent, complete }`; cada paso trae `id` único, `label`, `hint`, `tab` (pestaña real del Studio) y `done`.
+- **Banner** `#onboardingChecklist` en `public/studio.html` (arriba del layout, visible en todas las pestañas): título + "X de Y" + porcentaje + barra de progreso + lista de pasos con botón "Ir →" que navega a la pestaña del paso pendiente (`data-js-click="onboardGoToStep|<tab>"`). **Se oculta solo** al completar los 6 pasos o cuando el dueño lo descarta (`localStorage scango_onboarding_dismissed`).
+- **Render solo con DOM API** (`createElement`/`textContent`, cero `innerHTML` con data) y **cero `on*=`** (CSP `script-src-attr 'none'`). `refreshOnboardingChecklist()` recalcula con la última referencia del local y se llama en `renderStudioUI()`, `switchTab()` y `triggerAutoSave()` → el progreso se actualiza al instante al cargar un plato, subir el logo o cambiar el horario.
+- Regresión: `npm run test:onboarding` (48ª suite).
+
 ## Endurecimiento de Ingeniería — Brechas A→F (auditoría)
 
 Un solo guard de regresión: `tests/test-hardening.js` (`npm run test:hardening`).
@@ -478,7 +487,7 @@ Los 5 claros sobreescriben `--chalk-white` a tinta oscura y refuerzan títulos/n
 | `public/js/menu/eventGuestMode.js` | Resolución de tema de evento, contexto de invitado, reservas WhatsApp |
 | `public/js/utils/` | Utilidades frontend (usan `escapeHtmlBrowser.js`, ver trampas) |
 | `public/js/components/` | 14 componentes ES Module reutilizables |
-| `tests/` | 49 archivos; 47 corren en `npm test` (ver sección Testing) |
+| `tests/` | 50 archivos; 48 corren en `npm test` (ver sección Testing) |
 | `openapi.yaml` | Contrato OpenAPI 3.1 de la API (24 paths verificados contra handlers; `test-openapi-contract.js` lo golpea en runtime — endpoint nuevo = entrada acá + caso en el test) |
 | `src/billing/subscriptionMachine.js` | Máquina de estados pura de suscripción (7 estados × 6 eventos, `computeStatus` diferencialmente testeada contra `verifyAccess`; la tabla manda, el orchestrator la sigue) |
 | `src/billing/plans.json` | Fuente única de precios/planes y `TRIAL_DAYS` (el orchestrator la lee con fallback a literales) |

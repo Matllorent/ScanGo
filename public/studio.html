@@ -77,6 +77,25 @@
     </div>
   </div>
 
+  <!-- Onboarding Checklist (puesta en marcha del menú) -->
+  <section id="onboardingChecklist" class="onboarding-checklist" style="display:none;" aria-label="Puesta en marcha de tu menú">
+    <div class="onboarding-head">
+      <div class="onboarding-head-text">
+        <span class="onboarding-title">🚀 Puesta en marcha</span>
+        <span class="onboarding-subtitle">Completá estos pasos para dejar tu menú listo para tus clientes.</span>
+      </div>
+      <div class="onboarding-progress-meta">
+        <span id="onboardingCount" class="onboarding-count">0 de 6</span>
+        <span id="onboardingPercent" class="onboarding-percent">0%</span>
+        <button type="button" class="onboarding-dismiss" data-js-click="dismissOnboardingChecklist" title="Ocultar la puesta en marcha" aria-label="Ocultar la puesta en marcha">✕</button>
+      </div>
+    </div>
+    <div class="onboarding-bar-track" role="progressbar" aria-label="Progreso de puesta en marcha">
+      <div id="onboardingBar" class="onboarding-bar" style="width:0%;"></div>
+    </div>
+    <ul id="onboardingSteps" class="onboarding-steps"></ul>
+  </section>
+
   <!-- Main Layout -->
   <div class="workspace-layout">
 

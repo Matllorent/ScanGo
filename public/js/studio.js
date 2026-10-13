@@ -23,6 +23,11 @@ import { PRESETS } from './studio/data/presetsData.js';
 import { ICE_CREAM_PRESETS_DATA } from './studio/data/iceCreamPresets.js';
 import { PERFUMERY_PRESETS_STUDIO } from './studio/data/perfumeryPresets.js';
 import { setupPushNotifications, solicitarPushPermiso } from './studio/notifications.js';
+import {
+  renderOnboardingChecklist as renderOnboardingMod,
+  refreshOnboardingChecklist as refreshOnboardingMod,
+  dismissOnboarding as dismissOnboardingMod
+} from './studio/onboardingChecklist.js';
 
 import {
   normalizeSubscription,
@@ -1109,6 +1114,7 @@ export function updateLiveState() {
 
 export function triggerAutoSave() {
   triggerAutoSaveMod({ autoSaveTimeout }, showSaveFeedback, saveStudioChanges);
+  refreshOnboardingMod();
 }
 
 export async function saveStudioChanges() {
@@ -1157,6 +1163,7 @@ export function renderStudioUI() {
   checkSubscriptionAlerts(currentUser.subscription);
   renderMenuStatusIndicator(currentUser.subscription);
   renderQuickMetrics();
+  renderOnboardingMod(restaurant);
 
   if (el('inputLocalName')) el('inputLocalName').value = restaurant.name || '';
   if (el('inputLocalSlogan')) el('inputLocalSlogan').value = restaurant.slogan || '';
@@ -1486,6 +1493,7 @@ export function deleteModifierGroup(id) { deleteModifierGroupMod(restaurant, id,
 
 export function switchTab(tabId, btn) {
   switchTabMod(tabId, btn);
+  refreshOnboardingMod();
   if (tabId === 'analytics') loadAnalyticsMod(restaurant);
   if (tabId === 'branches') renderBranchesList();
   if (tabId === 'dishes') { populateCatFilter(); renderDishesList(); }
@@ -2580,6 +2588,14 @@ function createSeoAuditItem(status, title, hint) {
   return li;
 }
 
+// ── Puesta en marcha (checklist de activación) ─────────────────────────
+// El módulo puro calcula el progreso desde el estado real del local; acá se
+// expone al binder data-js-* y se navega a la pestaña del paso pendiente.
+export function renderOnboardingChecklist() { renderOnboardingMod(restaurant); }
+export function refreshOnboardingChecklist() { refreshOnboardingMod(); }
+export function dismissOnboardingChecklist() { dismissOnboardingMod(); }
+export function onboardGoToStep(tab) { switchTab(tab); }
+
 // Bind all functions to window for HTML inline event handlers
 const globalExports = {
   initStudio, loadSeoAudit, logout, openDeleteAccountModal, closeDeleteAccountModal, confirmAccountDeletion,
@@ -2608,6 +2624,7 @@ const globalExports = {
   loadNotificationEvents, markNotificationEventRead, sendPromoPush,
   loadRecentOrders, setOrderStatus, toggleOrderSound, printOrderTicket, printOrderEscPos, connectUsbPrinter,
   importDemoTemplate, discardDemoTemplate,
+  renderOnboardingChecklist, refreshOnboardingChecklist, dismissOnboardingChecklist, onboardGoToStep,
   updateBusinessTypeControls, filterThemeOptionsByBusinessType, resolveIceCreamButtonStyle,
   openAiMenuImportModal, closeAiMenuImportModal, handleAiMenuFilesInput, moveAiMenuPage, removeAiMenuPage, runAiMenuAnalysis, closeAiMenuPreviewModal, confirmAiMenuImportAction, removeDetectedAiDish
 };

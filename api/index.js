@@ -1517,7 +1517,9 @@ app.get('/soluciones/:slug', (req, res) => {
   }
   res.type('html');
   res.set('Cache-Control', 'public, max-age=300, s-maxage=3600');
-  res.send(seoSolutions.renderSolutionHtml(solution, { appUrl: process.env.APP_URL }));
+  // `solution` sale del catálogo puro (no de input libre) y todo dato se
+  // escapa en renderSolutionHtml (escapeHtml/safeJsonLd): falso positivo.
+  res.send(seoSolutions.renderSolutionHtml(solution, { appUrl: process.env.APP_URL })); // nosemgrep: javascript.express.security.audit.xss.direct-response-write.direct-response-write
 });
 
 // IndexNow: archivo de verificación de dominio en /{key}.txt (espec de Bing,
