@@ -1,0 +1,249 @@
+/*
+ * public/css/solutions.css
+ * ───────────────────────────────────────────────────────────────────────────
+ * Estilos de las páginas de soluciones por rubro (/soluciones y /soluciones/:slug).
+ * Se apoya en los tokens y clases base de index.css (--bg-*, --accent-gold,
+ * .container, .btn, .site-header, .site-footer) para verse como una extensión
+ * natural del sitio. Acá solo vive el layout propio de estas landings.
+ */
+
+.sol-breadcrumb {
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: rgba(255, 255, 255, 0.02);
+}
+.sol-breadcrumb ol {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 0;
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+.sol-breadcrumb li:not(:last-child)::after {
+  content: '›';
+  margin-left: 8px;
+  color: var(--text-dim);
+}
+.sol-breadcrumb a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.sol-breadcrumb a:hover {
+  color: var(--accent-gold);
+}
+.sol-breadcrumb [aria-current='page'] {
+  color: var(--text-white);
+  font-weight: 600;
+}
+
+.sol-hero {
+  padding: clamp(48px, 7vw, 96px) 0 clamp(32px, 4vw, 56px);
+  background:
+    radial-gradient(900px 420px at 12% -10%, var(--accent-gold-glow), transparent 60%),
+    radial-gradient(700px 380px at 100% 0%, var(--accent-green-glow), transparent 55%);
+}
+.sol-hero h1 {
+  max-width: 20ch;
+}
+.sol-lead {
+  max-width: 62ch;
+  margin-bottom: 1.6rem;
+}
+.sol-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 0.9rem;
+}
+.sol-hero-note {
+  color: var(--text-dim);
+  font-size: 0.86rem;
+  margin-bottom: 1.6rem;
+}
+.sol-highlights {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+}
+.sol-highlights li {
+  position: relative;
+  padding: 12px 16px 12px 42px;
+  background: var(--bg-surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  color: var(--text-muted);
+  font-size: 0.94rem;
+}
+.sol-highlights li::before {
+  content: '✓';
+  position: absolute;
+  left: 16px;
+  top: 12px;
+  color: var(--accent-green);
+  font-weight: 800;
+}
+
+.sol-section {
+  padding: clamp(40px, 6vw, 72px) 0;
+}
+.sol-section-alt {
+  background-color: rgba(255, 255, 255, 0.02);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.sol-section-header {
+  max-width: 62ch;
+  margin-bottom: 32px;
+}
+
+.sol-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+.sol-card {
+  padding: 26px 24px;
+  background: var(--bg-surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.sol-card-link {
+  display: flex;
+  flex-direction: column;
+}
+.sol-card-link:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-gold);
+}
+.sol-card-icon {
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+.sol-card-title {
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+.sol-card-text {
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+.sol-card-cta {
+  margin-top: auto;
+  color: var(--accent-gold);
+  font-weight: 700;
+  text-decoration: none;
+}
+.sol-card-cta:hover {
+  text-decoration: underline;
+}
+
+.sol-features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+.sol-feature {
+  padding: 22px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+}
+.sol-feature-icon {
+  font-size: 1.7rem;
+  margin-bottom: 8px;
+}
+.sol-feature-title {
+  font-size: 1.05rem;
+  margin-bottom: 0.4rem;
+}
+.sol-feature-text {
+  color: var(--text-muted);
+  font-size: 0.94rem;
+  margin: 0;
+}
+
+.sol-faq {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 860px;
+}
+.sol-faq-item {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--bg-surface-card);
+  overflow: hidden;
+}
+.sol-faq-item[open] {
+  border-color: var(--border-gold);
+}
+.sol-faq-item summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 16px 20px;
+  font-weight: 700;
+  color: var(--text-white);
+  position: relative;
+  padding-right: 48px;
+}
+.sol-faq-item summary::-webkit-details-marker {
+  display: none;
+}
+.sol-faq-item summary::after {
+  content: '+';
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent-gold);
+  font-size: 1.3rem;
+  transition: transform 0.2s ease;
+}
+.sol-faq-item[open] summary::after {
+  transform: translateY(-50%) rotate(45deg);
+}
+.sol-faq-item p {
+  margin: 0;
+  padding: 0 20px 18px;
+  color: var(--text-muted);
+}
+
+.sol-cta {
+  padding: clamp(48px, 7vw, 88px) 0;
+  text-align: center;
+  background:
+    radial-gradient(700px 320px at 50% 0%, var(--accent-gold-glow), transparent 65%),
+    var(--bg-surface);
+  border-top: 1px solid var(--border-subtle);
+}
+.sol-cta h2 {
+  max-width: 24ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+.sol-cta p {
+  max-width: 52ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+.sol-cta .sol-hero-actions {
+  justify-content: center;
+}
+
+@media (max-width: 640px) {
+  .sol-hero h1 {
+    max-width: none;
+  }
+  .sol-hero-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

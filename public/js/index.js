@@ -2,16 +2,23 @@ let googleIdentityPromise = null;
 let googleIdentityClientId = '';
 let googleLocalOriginHintLogged = false;
 
+// Rubros válidos del producto (fuente única en el frontend; el backend valida
+// el mismo conjunto en api/middleware/validation.js).
+const BUSINESS_TYPES = ['restaurant', 'heladeria', 'perfumery', 'events'];
+
 function openAuthModal(mode = 'register') {
   const modal = document.getElementById('authModal');
   modal.classList.add('active');
   switchAuthTab(mode);
   // El registro hereda el rubro de la pestaña de precios que miraba el
-  // visitante (menos fricción y mejor conversión por rubro).
-  if (mode === 'register' && typeof currentPricingRubro === 'string') {
+  // visitante (menos fricción y mejor conversión por rubro); las landings
+  // /soluciones pueden forzarlo con ?rubro=<tipo>.
+  if (mode === 'register') {
     const bizSelect = document.getElementById('regBusinessType');
-    if (bizSelect && ['restaurant', 'heladeria', 'perfumery', 'events'].includes(currentPricingRubro)) {
-      bizSelect.value = currentPricingRubro;
+    const urlRubro = new URLSearchParams(window.location.search).get('rubro');
+    const chosen = BUSINESS_TYPES.includes(urlRubro) ? urlRubro : currentPricingRubro;
+    if (bizSelect && BUSINESS_TYPES.includes(chosen)) {
+      bizSelect.value = chosen;
     }
   }
 }
@@ -115,8 +122,7 @@ function renderPricingFeatures(listId, features) {
 }
 
 function switchPricingRubro(rubro) {
-  const valid = ['restaurant', 'heladeria', 'perfumery', 'events'];
-  if (!valid.includes(rubro)) return;
+  if (!BUSINESS_TYPES.includes(rubro)) return;
   currentPricingRubro = rubro;
   document.querySelectorAll('[data-pricing-rubro]').forEach(btn => {
     const active = btn.getAttribute('data-pricing-rubro') === rubro;
@@ -763,16 +769,29 @@ window.addEventListener('DOMContentLoaded', async () => {
   loadPublicTestimonials();
   loadPricingSettings();
   initMagneticWhatsApp();
-  
+
+  // Landings /soluciones: el CTA enlaza con ?registro=1 para llevar directo al
+  // alta (sin que el visitante tenga que buscar el botón).
+  const wantsRegister = new URLSearchParams(window.location.search).get('registro') === '1';
+
   // Si hay sesión (cookie httpOnly), mostrar acceso directo al Studio.
   // Sin token en JS: se pregunta al backend en vez de leer localStorage.
   try {
     const meRes = await fetch('/api/auth/me');
     if (meRes.ok) {
+      if (wantsRegister) {
+        window.location.href = '/studio.html';
+        return;
+      }
       const navActions = document.querySelector('.nav-actions');
       if (navActions) {
         navActions.innerHTML = '<a href="/studio.html" class="btn btn-gold btn-sm">Ir a Mi Studio 🚀</a>';
       }
+    } else if (wantsRegister) {
+      openAuthModal('register');
     }
-  } catch (e) { /* sin sesión: se deja el CTA por defecto */ }
+  } catch (e) {
+    // Sin sesión: si pedían registro abrimos el modal; si no, queda el CTA.
+    if (wantsRegister) openAuthModal('register');
+  }
 });

@@ -33,6 +33,7 @@ const { createGroupCartToken } = require('./utils/groupCartToken');
 const sentry = require('./utils/sentry');
 const securityHeaders = require('./utils/securityHeaders');
 const seoDiscovery = require('./utils/seoDiscovery');
+const seoSolutions = require('./utils/seoSolutions');
 const indexNow = require('./utils/indexNow');
 const { getDemoRestaurant, listDemoRestaurants, normalizeDemoType } = require('./utils/demoRestaurants');
 const authRouter = require('./routes/auth');
@@ -1491,7 +1492,32 @@ app.get('/robots.txt', (req, res) => {
 app.get('/sitemap.xml', (req, res) => {
   res.type('application/xml');
   const restaurants = db.getAllRestaurants().filter(r => r.subscription && r.subscription.status !== 'canceled');
-  res.send(seoDiscovery.buildSitemapXml({ appUrl: process.env.APP_URL, restaurants }));
+  res.send(seoDiscovery.buildSitemapXml({
+    appUrl: process.env.APP_URL,
+    restaurants,
+    solutions: seoSolutions.getAllSolutions()
+  }));
+});
+
+// SEO: landings de "soluciones por rubro" (/soluciones y /soluciones/:slug).
+// HTML 100% server-rendered desde el módulo puro api/utils/seoSolutions.js:
+// capturan búsquedas long-tail por rubro y exponen WebPage + BreadcrumbList +
+// FAQPage a buscadores e IA. Sin JS ni on*= (CSP script-src-attr 'none'); los
+// CTA apuntan a /?registro=1 (el landing abre el registro solo).
+app.get('/soluciones', (req, res) => {
+  res.type('html');
+  res.set('Cache-Control', 'public, max-age=300, s-maxage=3600');
+  res.send(seoSolutions.renderSolutionsIndexHtml({ appUrl: process.env.APP_URL }));
+});
+
+app.get('/soluciones/:slug', (req, res) => {
+  const solution = seoSolutions.getSolutionBySlug(req.params.slug);
+  if (!solution) {
+    return res.status(404).sendFile(path.join(PUBLIC_DIR, '404.html'), SEND_FILE_OPTIONS);
+  }
+  res.type('html');
+  res.set('Cache-Control', 'public, max-age=300, s-maxage=3600');
+  res.send(seoSolutions.renderSolutionHtml(solution, { appUrl: process.env.APP_URL }));
 });
 
 // IndexNow: archivo de verificación de dominio en /{key}.txt (espec de Bing,

@@ -56,6 +56,14 @@
       "dest": "/api/index.js"
     },
     {
+      "src": "/soluciones",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/soluciones/(.*)",
+      "dest": "/api/index.js"
+    },
+    {
       "src": "/([0-9a-fA-F-]{8,64})\\.txt",
       "dest": "/api/index.js"
     },
