@@ -2234,6 +2234,14 @@ app.use('/api', (req, res) => {
   return errorResponse(res, 'Ruta de API no encontrada', 404, null, 'NOT_FOUND');
 });
 
+// Fallback 404 (rutas NO-API sin match): en Vercel el CDN sirve public/404.html
+// automáticamente, pero en Express el default es un "Cannot GET" feo. Servimos
+// la MISMA página 404 (ya usada para un /m/:slug inexistente) para que dev y
+// producción se vean igual y la app sea correcta en cualquier host de Node.
+app.use((req, res) => {
+  return res.status(404).sendFile(path.join(PUBLIC_DIR, '404.html'), SEND_FILE_OPTIONS);
+});
+
 // Mount Global Error Handler Middleware
 app.use(errorHandler);
 

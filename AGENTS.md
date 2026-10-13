@@ -157,6 +157,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
   - `/terminos`, `/privacidad` → páginas legales
   - `/(.*)` → `public/$1` (static)
   - **`headers`**: CSP transicional + headers duros en los estáticos (ver "Seguridad — CSP"), excluyendo `/m/*` y `/api/*`
+- **Fallback 404 en Express**: cualquier ruta NO-API que no matchea nada sirve `public/404.html` (mismo archivo que un `/m/:slug` inexistente) en vez del `Cannot GET` por defecto. En Vercel el CDN ya sirve `public/404.html`; esto iguala dev↔prod y deja la app correcta en cualquier host Node (las APIs sin match siguen devolviendo JSON `NOT_FOUND`).
 - Cron: `/api/cron/billing-dunning` cada día a las 02:00 UTC
 
 ### Descubrimiento SEO/GEO — compilador (Prioridad 1+3 de la estrategia)
