@@ -96,6 +96,23 @@ async function run() {
   assert.strictEqual(typeof mod.dismissOnboarding, 'function', 'expone dismiss');
   console.log('✓ API del módulo (steps/progreso/clave/render/dismiss) coherente');
 
+  // ── 4b) Regla pura de visibilidad (completo / descartado / suprimido) ─
+  const fullR = {
+    logoUrl: 'x',
+    phone: '59891234567',
+    categories: [{ id: 'c' }],
+    dishes: [{ id: 'd1', photoUrl: 'x' }, { id: 'd2' }, { id: 'd3' }],
+    scheduleEnabled: true,
+    scheduleActiveHours: '10:00-20:00'
+  };
+  assert.strictEqual(mod.shouldShowOnboarding({}, {}), true, 'local incompleto → se muestra');
+  assert.strictEqual(mod.shouldShowOnboarding(fullR, {}), false, 'local completo → oculto');
+  assert.strictEqual(mod.shouldShowOnboarding({}, { suppressed: true }), false, 'modo demo (suprimido) → oculto');
+  assert.strictEqual(mod.shouldShowOnboarding({}, { dismissed: true }), false, 'descartado por el dueño → oculto');
+  assert.strictEqual(mod.shouldShowOnboarding(fullR, { suppressed: true, dismissed: true }), false, 'completo y suprimido → oculto');
+  assert.strictEqual(typeof mod.setOnboardingSuppressed, 'function', 'expone el setter de supresión');
+  console.log('✓ Visibilidad pura: se muestra solo si falta algo y no está descartado ni suprimido');
+
   // ── 5) Wiring: HTML + CSS + Studio, sin on*= ─────────────────────────
   const html = fs.readFileSync(path.join(__dirname, '../public/studio.html'), 'utf8');
   assert.ok(html.includes('id="onboardingChecklist"'), 'studio.html tiene el contenedor del checklist');
@@ -111,6 +128,7 @@ async function run() {
   const studioJs = fs.readFileSync(path.join(__dirname, '../public/js/studio.js'), 'utf8');
   assert.ok(studioJs.includes("from './studio/onboardingChecklist.js'"), 'studio.js importa el módulo');
   assert.ok(studioJs.includes('onboardGoToStep'), 'studio.js navega al paso pendiente');
+  assert.ok(studioJs.includes('setOnboardingSuppressedMod('), 'studio.js registra la supresión del modo demo');
   assert.ok(/renderOnboardingMod\(restaurant\)/.test(studioJs), 'studio.js llama al render tras cargar');
 
   const js = fs.readFileSync(path.join(__dirname, '../public/js/studio/onboardingChecklist.js'), 'utf8');

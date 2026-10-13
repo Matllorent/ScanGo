@@ -26,7 +26,8 @@ import { setupPushNotifications, solicitarPushPermiso } from './studio/notificat
 import {
   renderOnboardingChecklist as renderOnboardingMod,
   refreshOnboardingChecklist as refreshOnboardingMod,
-  dismissOnboarding as dismissOnboardingMod
+  dismissOnboarding as dismissOnboardingMod,
+  setOnboardingSuppressed as setOnboardingSuppressedMod
 } from './studio/onboardingChecklist.js';
 
 import {
@@ -271,6 +272,11 @@ export function normalizeRestaurantBusinessType(profile) {
 // (nunca se pisa nada sin clic en «Importar a mi local»).
 const DEMO_TYPES = ['restaurant', 'heladeria', 'perfumery', 'events'];
 let demoMode = null; // { type, slug, name, authenticated } o null
+
+// El checklist de puesta en marcha no aplica al modo demo (estás viendo una
+// plantilla, no tu local). El predicado lee el estado VIVO de `demoMode`, así
+// no depende del orden de las llamadas del flujo demo.
+setOnboardingSuppressedMod(() => Boolean(demoMode));
 
 function getDemoTypeFromUrl() {
   try {

@@ -98,6 +98,19 @@ export function computeOnboardingProgress(restaurant) {
   };
 }
 
+/**
+ * Decisión PURA de visibilidad del checklist. Centraliza la regla
+ * (completo / descartado / suprimido → oculto) para poder testearla sin DOM.
+ * `suppressed` lo usa el Studio para el modo demo (estás viendo una plantilla,
+ * no tu propio local).
+ */
+export function shouldShowOnboarding(restaurant, options = {}) {
+  if (computeOnboardingProgress(restaurant).complete) return false;
+  if (options.suppressed) return false;
+  if (options.dismissed) return false;
+  return true;
+}
+
 export function isOnboardingDismissed() {
   try {
     return localStorage.getItem(DISMISS_KEY) === '1';
@@ -121,16 +134,30 @@ export function dismissOnboarding() {
 // tener que pasar el objeto otra vez.
 let lastRestaurant = null;
 
+// Predicado de supresión (p.ej. modo demo). El Studio lo registra una vez con
+// `() => Boolean(demoMode)`, así el estado VIVO manda sin depender del orden de
+// las llamadas (en el demo autenticado el primer render ocurre antes de fijar
+// `demoMode`).
+let isSuppressed = () => false;
+
+export function setOnboardingSuppressed(predicate) {
+  isSuppressed = typeof predicate === 'function' ? predicate : () => false;
+}
+
 export function renderOnboardingChecklist(restaurant) {
   if (restaurant) lastRestaurant = restaurant;
   const box = document.getElementById('onboardingChecklist');
   if (!box) return;
-  const progress = computeOnboardingProgress(lastRestaurant);
-  if (progress.complete || isOnboardingDismissed()) {
+  const show = shouldShowOnboarding(lastRestaurant, {
+    suppressed: isSuppressed(),
+    dismissed: isOnboardingDismissed()
+  });
+  if (!show) {
     box.style.display = 'none';
     return;
   }
   box.style.display = '';
+  const progress = computeOnboardingProgress(lastRestaurant);
 
   const count = document.getElementById('onboardingCount');
   if (count) count.textContent = `${progress.done} de ${progress.total}`;
