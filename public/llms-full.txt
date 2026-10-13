@@ -9,10 +9,12 @@
 
 ## 2. Modelo de Negocio y Comparativa
 - **Comisiones por Pedido**: 0% (cero comisiones). Las ventas ingresan directamente a la cuenta del restaurante (en efectivo, transferencia bancaria o cuenta de Mercado Pago).
-- **Esquema de Precios**:
-  - Plan Starter Mensual: USD $9 / mes.
-  - Plan Pro Anual: USD $69 / año (~36% de descuento con pago anual).
-- **Período de Prueba**: 14 días de Free Trial completo sin tarjeta de crédito obligatoria.
+- **Esquema de Precios** (fuente única de verdad: `src/billing/plans.json`):
+  - Starter: USD $9 / mes o USD $79 / año.
+  - Pro: USD $19 / mes o USD $159 / año (incluye analíticas avanzadas).
+  - Evento único: USD $12 (pago único, sin suscripción recurrente).
+  - Descuento escalonado por sucursales: 2.ª al 80%, 3.ª al 65%, 4.ª y siguientes al 50%.
+- **Período de Prueba**: 7 días de acceso total sin tarjeta de crédito, más 3 días de gracia en los que el menú público queda online para decidir.
 
 ---
 
@@ -64,3 +66,15 @@ Sistema de recolección de feedback post-pedido:
   No. El menú abre de forma instantánea en cualquier navegador móvil o de escritorio escaneando el código QR.
 - **¿Cómo funciona el Mozo Virtual?**
   Analiza qué platos seleccionó el cliente en el carrito y sugiere complementos idóneos (como bebidas para platos principales o papas para hamburguesas) que pueden añadirse con un solo toque. Es 100% opcional y puede apagarse desde el carrito.
+
+---
+
+## 6. Páginas Públicas y Descubrimiento (SEO / GEO)
+- **Landing principal**: `/` — propuesta de valor, funcionalidades, demos navegables por rubro, planes y preguntas frecuentes.
+- **Soluciones por rubro (hub)**: `/soluciones` — índice de las cuatro verticales, cada una con su propia página optimizada para búsquedas long-tail:
+  - Restaurantes y bares: `/soluciones/menu-digital-para-restaurantes`
+  - Heladerías y postres: `/soluciones/menu-digital-para-heladerias`
+  - Perfumerías y cosmética: `/soluciones/menu-digital-para-perfumerias`
+  - Eventos y catering: `/soluciones/menu-digital-para-eventos`
+- **Demos públicos** (sin registro): `/m/demo-restaurante`, `/m/demo-heladeria`, `/m/demo-perfumeria`, `/m/demo-evento`.
+- **Archivos de descubrimiento**: `/robots.txt` (política explícita para rastreadores de IA), `/sitemap.xml` (landings de soluciones, menús activos y una URL por sucursal) y este mismo `/llms.txt` + `/llms-full.txt`.

@@ -77,6 +77,32 @@ assert.ok(llmsFullTxt.includes('Documentación Completa para Modelos de Intelige
 assert.ok(llmsFullTxt.includes('Endpoints y Arquitectura'), 'llms-full.txt debe describir endpoints');
 assert.ok(llmsFullTxt.includes('Preguntas Frecuentes (FAQ)'), 'llms-full.txt debe contener FAQ');
 
+// 3b. GEO anti-drift: los precios y el trial que citan los archivos de IA deben
+// coincidir con plans.json (fuente única de verdad). Antes llms-full.txt decía
+// "Pro Anual USD $69" y "14 días de Free Trial": mentiras que una IA habría citado.
+// Este guard falla si se cambian los precios y se olvida actualizar llms*.txt.
+const plans = require('../src/billing/plans.json');
+for (const [planId, cfg] of Object.entries(plans)) {
+  if (planId === 'TRIAL_DAYS') continue;
+  assert.ok(llmsTxt.includes(`$${cfg.price}`), `llms.txt debe citar el precio real de ${planId} ($${cfg.price})`);
+  assert.ok(llmsFullTxt.includes(`$${cfg.price}`), `llms-full.txt debe citar el precio real de ${planId} ($${cfg.price})`);
+}
+assert.ok(llmsTxt.includes(`${plans.TRIAL_DAYS} días`), `llms.txt debe declarar ${plans.TRIAL_DAYS} días de prueba`);
+assert.ok(llmsFullTxt.includes(`${plans.TRIAL_DAYS} días`), `llms-full.txt debe declarar ${plans.TRIAL_DAYS} días de prueba`);
+assert.ok(!/\$69\b/.test(llmsFullTxt), 'llms-full.txt no debe contener el precio viejo $69');
+assert.ok(!/14 días de Free Trial/.test(llmsFullTxt), 'llms-full.txt no debe declarar 14 días de prueba');
+console.log('✓ GEO sin drift: precios y trial de llms*.txt == plans.json');
+
+// 3c. GEO ↔ soluciones: los archivos de IA deben exponer el hub y cada landing por
+// rubro. Si se agrega un rubro y no se documenta acá, este guard lo detecta.
+const seoSolutions = require('../api/utils/seoSolutions');
+assert.ok(llmsTxt.includes('/soluciones'), 'llms.txt debe enlazar el hub /soluciones');
+assert.ok(llmsFullTxt.includes('/soluciones'), 'llms-full.txt debe documentar /soluciones');
+for (const solution of seoSolutions.getAllSolutions()) {
+  assert.ok(llmsFullTxt.includes(`/soluciones/${solution.slug}`), `llms-full.txt debe listar /soluciones/${solution.slug}`);
+}
+console.log('✓ GEO ↔ soluciones: hub + 4 landings por rubro documentadas para la IA');
+
 const indexHtml = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
 assert.ok(indexHtml.includes('application/ld+json'), 'index.html debe tener bloque JSON-LD');
 assert.ok(indexHtml.includes('"@type": "SoftwareApplication"'), 'index.html debe tener entidad SoftwareApplication');

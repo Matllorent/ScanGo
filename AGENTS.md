@@ -185,6 +185,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - **JSON-LD por página**: `WebPage` + `BreadcrumbList` (Inicio → Soluciones → rubro) + `FAQPage` (una `Question` por FAQ); el hub emite `CollectionPage` + `ItemList` con los 4 rubros. Contenido único por rubro (pains, features y FAQs propios; los `features` y `demoSlug` corresponden a funcionalidad REAL: el armador de helado de `demo-heladeria`, las invitaciones por evento de `demo-evento`, etc.).
 - **Cero JS, cero `on*=`**: las landings son HTML server-rendered con un único `<script type="application/ld+json">`. Los CTA son links a `/?registro=1&rubro=<tipo>` — el landing (`public/js/index.js`) auto-abre el registro con el rubro preseleccionado (`?rubro=`) y, si ya hay sesión, va directo al Studio. Estilos propios en `public/css/solutions.css` (reusa los tokens y clases de `index.css`), servidos desde `'self'` sin tocar hashes CSP.
 - **Sitemap**: `buildSitemapXml` acepta `solutions` (default `[]`, retrocompatible) y emite el hub + cada landing; `api/index.js` le pasa `seoSolutions.getAllSolutions()`. Precios NO se hardcodean en la copia (enlaza a `/#precios`): la única fuente de verdad sigue siendo `plans.json`.
+- **Enlazado interno + verdad GEO**: la landing principal enlaza a `/soluciones` (nav, footer "Soluciones por rubro" y sección de demos) y el hub enlaza de vuelta a `/` y `/#precios`, así el crawler recorre el grafo completo. Los archivos de IA (`public/llms.txt` + `public/llms-full.txt`) citan precios/trial REALES (derivados de `plans.json`) y listan el hub + las 4 landings; un guard en `test-geo-killswitch-upsell.js` falla si se vuelven a desincronizar (antes `llms-full.txt` decía "Pro Anual USD $69" y "14 días de Free Trial").
 - Regresión: `npm run test:solutions` (47ª suite) — catálogo, JSON-LD, render sin `on*=`/scripts inline, rutas 200/404, CSP transicional con `script-src-attr 'none'` y sitemap.
 
 ### Operación — Workflows de GitHub
@@ -211,7 +212,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 | `test-resilience-security.js` | Rate-limit, headers HTTP, seguridad JWT, prevención de reutilización de tokens |
 | `test-banner-and-layouts.js` | Banner hero, 14 temas clásicos, 6 temas de heladería (3 coloridos + 3 formales), round-trip del rubro Heladería, morfologías Bento/Minimalist/Neon |
 | `test-mp-upsell-reviews.js` | Mercado Pago Checkout Pro, upselling "El Mozo Virtual", reseñas inteligentes |
-| `test-geo-killswitch-upsell.js` | GEO (llms.txt/Schema), kill-switch HTTP 503, mozo virtual contextual |
+| `test-geo-killswitch-upsell.js` | GEO (llms.txt/Schema), kill-switch HTTP 503, mozo virtual contextual, y **guard anti-drift**: los precios y el trial de `llms.txt`/`llms-full.txt` deben coincidir con `plans.json` (antes decían "Pro Anual $69" y "14 días") + que ambos documenten el hub `/soluciones` y las 4 landings por rubro |
 | `test-weather.js` | Contexto de clima, caché por ciudad, fallback rápido |
 | `test-landing-conversion.js` | Landing page, Google seguro, simulador sin registro |
 | `test-group-cart-mozo.js` | GroupCartManager, Mozo Virtual, permisos por comensal, Realtime |
