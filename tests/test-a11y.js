@@ -19,7 +19,8 @@
  *   E) Nombres accesibles de íconos-botón (botón vacío ⇒ aria-label/title).
  *   F) Estado accesible dinámico en JS: aria-expanded (FAQ), aria-selected
  *      (pestañas de auth), aria-pressed (estrellas de reseña), live region del
- *      carrito, y el enhancer de modales del Studio (foco/Escape/aria-hidden).
+ *      carrito, y el enhancer de modales compartido por el menú y el Studio
+ *      (foco/Escape/aria-hidden).
  *   G) Utilidades CSS: :focus-visible y .sr-only en las 3 hojas; .skip-link en
  *      las 4 páginas principales.
  *   H) Skip-link presente y apuntando a un destino focusable (tabindex="-1").
@@ -266,19 +267,59 @@ function runA11yTests() {
   );
   console.log('✓ menu.js: live region del carrito (role=status) para lectores de pantalla');
 
-  const modalA11y = read('public/js/studio/modalA11y.js');
+  const menuHtml = stripComments(read('public/menu.html'));
+  assert.ok(
+    /aria-pressed=/.test(menuJs),
+    'REGRESIÓN: los filtros del menú (categorías/dietas) deben exponer su estado con aria-pressed'
+  );
+  assert.ok(
+    /id=["']categoryPills["'][^>]*role=["']group["']/.test(menuHtml) &&
+      /id=["']dietaryFilterPills["'][^>]*role=["']group["']/.test(menuHtml),
+    'Los grupos de pills del menú deben declarar role="group" con aria-label'
+  );
+  console.log('✓ menu.html/js: filtros agrupados (role=group) con estado aria-pressed');
+
+  // Enhancer COMPARTIDO por el menú público y el Studio (accesibilidad de modales).
+  const modalA11y = read('public/js/modalA11y.js');
   assert.ok(/export function initModalA11y/.test(modalA11y), 'modalA11y.js debe exportar initModalA11y()');
   assert.ok(/aria-hidden/.test(modalA11y), 'modalA11y.js debe sincronizar aria-hidden de los modales');
   assert.ok(/['"]Escape['"]/.test(modalA11y), 'modalA11y.js debe cerrar el modal con Escape');
   assert.ok(/['"]Tab['"]/.test(modalA11y), 'modalA11y.js debe atrapar el foco dentro del modal (Tab)');
   assert.ok(/MutationObserver/.test(modalA11y), 'modalA11y.js debe observar la apertura/cierre de modales');
+
   const studioJs = read('public/js/studio.js');
   assert.ok(
-    /import\s*\{\s*initModalA11y\s*\}\s*from\s*['"]\.\/studio\/modalA11y\.js['"]/.test(studioJs) &&
+    /import\s*\{\s*initModalA11y\s*\}\s*from\s*['"]\.\/modalA11y\.js['"]/.test(studioJs) &&
       /initModalA11y\s*\(\s*\)/.test(studioJs),
     'REGRESIÓN: studio.js debe importar y ejecutar initModalA11y()'
   );
-  console.log('✓ studio/modalA11y.js: foco, Escape, trampa de Tab y aria-hidden, cableado en studio.js');
+  assert.ok(
+    /import\s*\{\s*initModalA11y\s*\}\s*from\s*['"]\.\/modalA11y\.js['"]/.test(menuJs) &&
+      /initModalA11y\s*\(\s*\)/.test(menuJs),
+    'REGRESIÓN: menu.js debe importar y ejecutar initModalA11y() (foco/Escape en los modales del menú)'
+  );
+  const menuModals = read('public/js/menu/menuModals.js');
+  assert.ok(
+    !/addEventListener\(\s*['"]keydown['"]/.test(menuModals),
+    'menu/menuModals.js no debe manejar keydown (Escape) por duplicado: la fuente única es modalA11y.js'
+  );
+  // Modales creados en runtime: el enhancer debe cablearlos al agregarse/eliminarse
+  // del DOM, y esos modales deben declarar role/aria-modal como los estáticos.
+  assert.ok(
+    /childList:\s*true/.test(modalA11y) && /addedNodes/.test(modalA11y) && /removedNodes/.test(modalA11y),
+    'modalA11y.js debe cablear modales creados/eliminados en runtime (body childList + addedNodes/removedNodes)'
+  );
+  const loyaltyModalJs = read('public/js/components/LoyaltyRewardsModal.js');
+  assert.ok(
+    /setAttribute\(['"]role['"],\s*['"]dialog['"]\)/.test(loyaltyModalJs) && /aria-modal/.test(loyaltyModalJs),
+    'El modal de fidelización (creado en JS) debe declarar role="dialog" + aria-modal'
+  );
+  const groupCartJs = read('public/js/components/GroupCartManager.js');
+  assert.ok(
+    /id="groupUserNameModal"[^>]*role="dialog"[^>]*aria-modal/.test(groupCartJs),
+    'El modal de nombre del comensal (creado en JS) debe declarar role="dialog" + aria-modal'
+  );
+  console.log('✓ modalA11y.js (menú + Studio): foco inicial/restaurado, Escape, trampa de Tab y aria-hidden, incl. modales dinámicos');
 
   // --------------------------------------------------------------- G) Utilidades CSS
   const cssExpectations = [

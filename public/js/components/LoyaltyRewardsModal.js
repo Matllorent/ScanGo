@@ -354,10 +354,13 @@ export class LoyaltyRewardsModal {
     const modal = document.createElement('div');
     modal.id = 'loyaltyRewardsModal';
     modal.className = 'modal-overlay';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'loyaltyModalTitle');
     modal.innerHTML = `
       <div class="modal-box loyalty-modal-box" style="max-width: 520px; padding: 22px; position: relative;">
         <button type="button" class="modal-close" data-js-click="activeLoyaltyModal.close" aria-label="Cerrar">✕</button>
-        <h3 class="modal-title" style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+        <h3 id="loyaltyModalTitle" class="modal-title" style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
           <span>⭐ Club Puntos &amp; Recompensas</span>
         </h3>
         <div id="loyaltyModalContent" style="min-height: 120px;">

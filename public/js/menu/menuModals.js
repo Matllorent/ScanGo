@@ -18,30 +18,25 @@ export function openWifiModal() {
 }
 
 /**
- * Initializes global modal dismissal: ESC key + backdrop click
- * closes the topmost active .modal-overlay (a11y + mobile UX polish).
+ * Initializes global modal dismissal: backdrop click closes the topmost active
+ * .modal-overlay (mobile UX polish). El cierre por teclado (Escape) lo maneja el
+ * enhancer compartido `public/js/modalA11y.js` (única fuente, con restauración
+ * de foco y ejecución del control de cierre real de cada modal).
  */
 export function initGlobalModalDismiss() {
   if (typeof document === 'undefined' || window.__modalDismissInit) return;
   window.__modalDismissInit = true;
 
-  const getActiveOverlays = () =>
-    [...document.querySelectorAll('.modal-overlay.active')];
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-    const overlays = getActiveOverlays();
-    const top = overlays[overlays.length - 1];
-    if (top) {
-      top.classList.remove('active');
-      top.setAttribute('aria-hidden', 'true');
-    }
-  });
-
   document.addEventListener('click', (e) => {
-    if (e.target.classList && e.target.classList.contains('modal-overlay') && e.target.classList.contains('active')) {
-      e.target.classList.remove('active');
-      e.target.setAttribute('aria-hidden', 'true');
+    const overlay = e.target;
+    if (!overlay.classList || !overlay.classList.contains('modal-overlay')) return;
+    if (!overlay.classList.contains('active')) return;
+    // Preferir el control de cierre real (ejecuta cleanup); si no existe, ocultar.
+    const closer = overlay.querySelector('[data-js-click^="close"]');
+    if (closer) closer.click();
+    else {
+      overlay.classList.remove('active');
+      overlay.setAttribute('aria-hidden', 'true');
     }
   });
 }

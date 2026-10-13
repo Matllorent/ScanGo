@@ -45,6 +45,7 @@ import {
   isRestaurantOpenNow as isRestaurantOpenNowMod,
   computeOpenStatus as computeOpenStatusMod
 } from './menu/index.js';
+import { initModalA11y } from './modalA11y.js';
 
 // State
 let restaurantData = null;
@@ -705,24 +706,25 @@ Object.defineProperties(window, {
         .filter(c => dishes.some(d => d.categoryId === c.id));
       const hasFeatured = dishes.some(d => d.tags && d.tags.includes('star'));
 
-      let html = `<button class="cat-pill ${selectedCategory === 'ALL' ? 'active' : ''}" data-js-click="selectCategory|ALL">Todos</button>`;
+      let html = `<button class="cat-pill ${selectedCategory === 'ALL' ? 'active' : ''}" aria-pressed="${selectedCategory === 'ALL'}" data-js-click="selectCategory|ALL">Todos</button>`;
       if (hasFeatured) {
-        html += `<button class="cat-pill ${selectedCategory === 'POPULAR' ? 'active' : ''}" data-js-click="toggleCategory|POPULAR" style="color:var(--chalk-gold-ink, var(--chalk-gold)); border-color:var(--border-gold);">⭐ Populares</button>`;
+        html += `<button class="cat-pill ${selectedCategory === 'POPULAR' ? 'active' : ''}" aria-pressed="${selectedCategory === 'POPULAR'}" data-js-click="toggleCategory|POPULAR" style="color:var(--chalk-gold-ink, var(--chalk-gold)); border-color:var(--border-gold);">⭐ Populares</button>`;
       }
 
       cats.forEach(c => {
-        html += `<button class="cat-pill ${selectedCategory === c.id ? 'active' : ''}" data-cat-id="${escapeHtml(c.id)}" data-js-click="toggleCategory|this.dataset.catId">${escapeHtml(c.name)}</button>`;
+        html += `<button class="cat-pill ${selectedCategory === c.id ? 'active' : ''}" aria-pressed="${selectedCategory === c.id}" data-cat-id="${escapeHtml(c.id)}" data-js-click="toggleCategory|this.dataset.catId">${escapeHtml(c.name)}</button>`;
       });
       pillsContainer.innerHTML = html;
     }
 
     function selectCategory(catId) {
       selectedCategory = catId;
-      document.querySelectorAll('.cat-pill').forEach(btn => {
+      document.querySelectorAll('#categoryPills .cat-pill').forEach(btn => {
         const isSelected = (catId === 'ALL' && btn.textContent.trim() === 'Todos') ||
                            (catId === 'POPULAR' && btn.textContent.trim().includes('Populares')) ||
                            (restaurantData.categories && (restaurantData.categories.find(c => c.id === catId) || {}).name === btn.textContent.trim());
         btn.classList.toggle('active', isSelected);
+        btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
       });
       renderDishes();
     }
@@ -780,6 +782,9 @@ Object.defineProperties(window, {
         else if (isSinLactosa) key = 'sinlactosa';
         else if (isPicante) key = 'picante';
 
+        if (key) {
+          btn.setAttribute('aria-pressed', selectedDietFilter === key ? 'true' : 'false');
+        }
         if (key && !available.has(key)) {
           btn.style.display = 'none';
         } else {
@@ -807,6 +812,7 @@ Object.defineProperties(window, {
                       (selectedDietFilter === 'sinlactosa' && btn.textContent.includes('Sin Lactosa')) ||
                       (selectedDietFilter === 'picante' && btn.textContent.includes('Picante'));
         btn.classList.toggle('active', isSel);
+        btn.setAttribute('aria-pressed', isSel ? 'true' : 'false');
       });
       renderDishes();
     }
@@ -1477,31 +1483,15 @@ Object.defineProperties(window, {
         : 'Agregar al carrito';
 
       const modal = document.getElementById('dishNoteModal');
+      // Foco inicial y aria-hidden: los gestiona el enhancer compartido (modalA11y.js).
       modal.classList.add('active');
-      modal.setAttribute('aria-hidden', 'false');
-
-      // Focus management for accessibility: move focus to the first interactive element
-      const firstFocusable = modal.querySelector('.dish-choice-input, .dish-note-cancel, #dishNoteInput');
-      if (firstFocusable) {
-        firstFocusable.focus();
-      }
-
-      // Store the previously focused element to restore on close
-      document.getElementById('dishNoteModal').dataset.previousFocus = document.activeElement?.id || '';
     }
 
     function closeDishNoteModal() {
       const modal = document.getElementById('dishNoteModal');
+      // Foco restaurado y aria-hidden: los gestiona el enhancer compartido (modalA11y.js).
       modal.classList.remove('active');
-      modal.setAttribute('aria-hidden', 'true');
       pendingDishNoteAction = null;
-
-      // Restore focus to the element that opened the modal
-      const previousFocusId = modal.dataset.previousFocus;
-      if (previousFocusId) {
-        const prevEl = document.getElementById(previousFocusId);
-        if (prevEl) prevEl.focus();
-      }
     }
 
     function confirmDishNote() {
@@ -3622,10 +3612,12 @@ Object.defineProperties(window, {
       window.addEventListener('DOMContentLoaded', () => {
         loadMenu().then(initLoyalty).then(initOrderTracking);
         initPushPrompt();
+        initModalA11y();
         initGlobalModalDismissMod();
       });
     } else {
       loadMenu().then(initLoyalty).then(initOrderTracking);
       initPushPrompt();
+      initModalA11y();
       initGlobalModalDismissMod();
     }

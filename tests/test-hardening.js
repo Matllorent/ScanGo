@@ -206,11 +206,13 @@ async function runTests() {
     assert.strictEqual(quoteClosed.status, 400, 'la cotización también respeta el cierre (400)');
 
     current = db.findRestaurantById(restE.id);
-    // Ventana de 1h que NUNCA contiene la hora actual: start=(h+2)%24, end=(h+3)%24
-    // (siempre normal start<end salvo h=21 → 23-00, y en ese caso 21:00 queda fuera
-    // de la ventana nocturna). Así el servidor (reloj real, no inyectable acá) está
-    // garantizado CERRADO a cualquier hora de ejecución de la suite.
-    const hNow = new Date().getHours();
+    // Ventana de 1h que NUNCA contiene la hora actual evaluada por el servidor.
+    // El body manda `utcOffsetMinutes: 0`, así que el server usa la hora UTC:
+    // la ventana debe construirse con getUTCHours() (no getHours(), que devuelve
+    // la hora local de la máquina y desincroniza el fixture en husos ≠ UTC).
+    // start=(h+2)%24, end=(h+3)%24 → start<end salvo h=21 → 23-00 (ventana
+    // nocturna que tampoco cubre h=21). Cerrado a cualquier hora de ejecución.
+    const hNow = new Date().getUTCHours();
     const alwaysClosedHours = `${(hNow + 2) % 24}:00-${(hNow + 3) % 24}:00`;
     await db.saveRestaurant(userE.id, { ...current, forceClosed: false, scheduleEnabled: true, scheduleActiveHours: alwaysClosedHours });
     r = await postJson('/api/orders', orderBody());

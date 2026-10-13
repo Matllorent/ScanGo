@@ -210,7 +210,7 @@ import {
   orderAgeLevel as orderAgeLevelMod,
   orderAgeStyle as orderAgeStyleMod
 } from './studio/orderAging.js';
-import { initModalA11y } from './studio/modalA11y.js';
+import { initModalA11y } from './modalA11y.js';
 
 export async function compressImageFile(file) {
   const bitmap = await createImageBitmap(file);

@@ -160,10 +160,10 @@ export class GroupCartManager {
       if (prevModal) prevModal.remove();
 
       const modalHtml = `
-        <div id="groupUserNameModal" class="modal-overlay active" style="z-index: 99999; backdrop-filter: blur(8px);">
+        <div id="groupUserNameModal" class="modal-overlay active" role="dialog" aria-modal="true" aria-labelledby="groupUserNameTitle" style="z-index: 99999; backdrop-filter: blur(8px);">
           <div class="modal-box" style="max-width: 380px; text-align: center; border: 1px solid var(--border-gold, #ECC94B); box-shadow: 0 10px 30px rgba(0,0,0,0.8);">
             <div style="font-size: 2.2rem; margin-bottom: 10px;">👋 👥</div>
-            <h3 class="modal-title" style="color: var(--chalk-gold, #ECC94B); margin-bottom: 6px;">¡Mesa ${escapeHtml(this.tableNumber)}!</h3>
+            <h3 id="groupUserNameTitle" class="modal-title" style="color: var(--chalk-gold, #ECC94B); margin-bottom: 6px;">¡Mesa ${escapeHtml(this.tableNumber)}!</h3>
             <p style="color: var(--chalk-muted, #A0AEC0); font-size: 0.88rem; margin-bottom: 18px; line-height: 1.4;">
               Estás en el <strong>Pedido Grupal en Tiempo Real</strong>. ¿Cuál es tu nombre para sumarte al pedido de la mesa?
             </p>

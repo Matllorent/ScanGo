@@ -161,19 +161,19 @@
       <div class="category-nav-wrapper">
         <button type="button" class="cat-nav-icon-btn" data-js-click="focusSearchInput" aria-label="Buscar en la carta" title="Buscar plato">🔍</button>
         <button type="button" class="cat-nav-icon-btn" data-js-click="openCategoriesMenuModal" aria-label="Ver todas las categorías" title="Categorías">☰</button>
-        <div id="categoryPills" class="category-pills">
-          <button class="cat-pill active" data-js-click="selectCategory|ALL">Todos</button>
+        <div id="categoryPills" class="category-pills" role="group" aria-label="Categorías de la carta">
+          <button class="cat-pill active" aria-pressed="true" data-js-click="selectCategory|ALL">Todos</button>
         </div>
       </div>
 
       <!-- Filtros Dietéticos Rápidos -->
-      <div id="dietaryFilterPills" style="display: flex; gap: 6px; overflow-x: auto; padding-top: 6px; scrollbar-width: none;">
-        <button class="cat-pill active" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|ALL">Todos los estilos</button>
-        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|veggie">🥬 Vegetariano</button>
-        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|vegan">🌱 Vegano</button>
-        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|celiac">🌾 Sin TACC</button>
-        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|sinlactosa">🥛 Sin Lactosa</button>
-        <button class="cat-pill" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|picante">🌶️ Picante</button>
+      <div id="dietaryFilterPills" role="group" aria-label="Filtros dietéticos" style="display: flex; gap: 6px; overflow-x: auto; padding-top: 6px; scrollbar-width: none;">
+        <button class="cat-pill active" aria-pressed="true" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|ALL">Todos los estilos</button>
+        <button class="cat-pill" aria-pressed="false" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|veggie">🥬 Vegetariano</button>
+        <button class="cat-pill" aria-pressed="false" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|vegan">🌱 Vegano</button>
+        <button class="cat-pill" aria-pressed="false" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|celiac">🌾 Sin TACC</button>
+        <button class="cat-pill" aria-pressed="false" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|sinlactosa">🥛 Sin Lactosa</button>
+        <button class="cat-pill" aria-pressed="false" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|picante">🌶️ Picante</button>
       </div>
     </div>
 
