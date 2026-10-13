@@ -109,9 +109,15 @@ function cspToString(directives) {
 }
 
 const REFERRER_POLICY = 'strict-origin-when-cross-origin';
+// `usb=(self)` (y NO `usb=()`): el Studio usa WebUSB para la impresora térmica
+// ESC/POS (public/js/studio.js, §27). Denegarlo por completo deshabilitaba la
+// función en producción. `self` = el propio origen (el dueño conecta SU
+// impresora con un gesto), no iframes de terceros.
+// Sin `ambient-light-sensor`: Chrome ya no reconoce esa feature y el header
+// ensuciaba la consola con "Unrecognized feature" en cada carga.
 const PERMISSIONS_POLICY =
-  'camera=(), geolocation=(), microphone=(), payment=(), usb=(), serial=(), ' +
-  'magnetometer=(), gyroscope=(), ambient-light-sensor=()';
+  'camera=(), geolocation=(), microphone=(), payment=(), usb=(self), serial=(), ' +
+  'magnetometer=(), gyroscope=()';
 const HSTS = 'max-age=15552000; includeSubDomains';
 
 function getSecurityHeaders({ strictMenu = false } = {}) {

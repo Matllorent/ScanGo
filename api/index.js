@@ -35,7 +35,7 @@ const securityHeaders = require('./utils/securityHeaders');
 const seoDiscovery = require('./utils/seoDiscovery');
 const seoSolutions = require('./utils/seoSolutions');
 const indexNow = require('./utils/indexNow');
-const { getDemoRestaurant, listDemoRestaurants, normalizeDemoType } = require('./utils/demoRestaurants');
+const { getDemoRestaurant, listDemoRestaurants, normalizeDemoType, isDemoSlug } = require('./utils/demoRestaurants');
 const authRouter = require('./routes/auth');
 const reviewsRouter = require('./routes/reviews');
 const storageRouter = require('./routes/storage');
@@ -1310,7 +1310,13 @@ app.post('/api/public/analytics/event', publicAnalyticsLimiter, async (req, res)
     if (!validEvents.includes(event)) return res.status(400).json({ error: 'Evento inválido' });
 
     const restaurant = db.findRestaurantBySlug(slug);
-    if (!restaurant) return res.status(404).json({ error: 'Restaurante no encontrado' });
+    if (!restaurant) {
+      // Los menús demo son públicos pero NO son restaurantes reales: no se
+      // persiste telemetría (cero datos falsos). Se responde 200 no-op para no
+      // llenar de 404 el panel de red / monitoreo de cada visita a una demo.
+      if (isDemoSlug(slug)) return res.json({ success: true, demo: true });
+      return res.status(404).json({ error: 'Restaurante no encontrado' });
+    }
 
     // Telemetría rica: alimenta ticket promedio, top platos y comparativa de
     // sucursales. Los valores se sanean (cadenas cortas; amount numérico 0..1e9;

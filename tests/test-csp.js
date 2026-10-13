@@ -132,6 +132,18 @@ async function runTests() {
   }
   console.log('✓ vercel.json replica los headers del módulo (exit CS excluye /m/ y /api/)');
 
+  // ---------------------------------------------------------------- estático 3b
+  // Permissions-Policy: el Studio usa WebUSB (impresora térmica ESC/POS, §27).
+  // `usb=()` deshabilitaba la función en producción; debe ser `usb=(self)`.
+  // `ambient-light-sensor` sobra: Chrome ya no la reconoce (ruido en consola).
+  const modulePermissions = securityHeaders.getSecurityHeaders()['Permissions-Policy'];
+  for (const [label, policy] of [['módulo', modulePermissions], ['vercel.json', ruleHeaderMap['Permissions-Policy']]]) {
+    assert.ok(policy.includes('usb=(self)'), `${label}: Permissions-Policy debe permitir usb=(self) para la impresora térmica del Studio`);
+    assert.ok(!policy.includes('usb=()'), `${label}: Permissions-Policy NO debe deshabilitar usb=() (rompe la impresora)`);
+    assert.ok(!policy.includes('ambient-light-sensor'), `${label}: Permissions-Policy no debe listar la feature obsoleta ambient-light-sensor`);
+  }
+  console.log('✓ Permissions-Policy: usb=(self) para WebUSB del Studio + sin features obsoletas');
+
   // ---------------------------------------------------------------- estático 4
   // Rutas legales: cada path público debe existir en Express (dev) Y en
   // vercel.json (prod estática) apuntando al MISMO archivo en disco.

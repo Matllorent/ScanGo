@@ -16,6 +16,8 @@
  *  7. Landing enlaza las 4 demos (ver menú + editar en Studio) y Studio trae
  *     el banner de modo demo con handlers data-js-* (cero on*=).
  *  8. El catálogo es determinista y devuelve copias frescas (sin aliasing).
+ *  9. Analytics de una demo: 200 no-op (`{demo:true}`, sin persistir) en vez del
+ *     404 ruidoso; un slug desconocido real sigue siendo 404.
  *
  * Cero mocks: server HTTP real + catálogo in-memory (sin data/*.json).
  */
@@ -143,6 +145,23 @@ async function runTests() {
     assert.ok(spec.includes('/api/demos:'), 'el spec documenta /api/demos');
     assert.ok(spec.includes('/api/demos/{type}:'), 'el spec documenta /api/demos/{type}');
     console.log('✓ openapi.yaml documenta las rutas de demos');
+
+    // ── 6b) Analytics de demo: 200 no-op (sin 404 ruidoso ni datos falsos) ──
+    const demoEvent = await fetch(`${base}/api/public/analytics/event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug: 'demo-heladeria', event: 'visit' })
+    });
+    assert.strictEqual(demoEvent.status, 200, 'analytics de un slug demo → 200 (no 404)');
+    const demoEventBody = await demoEvent.json();
+    assert.strictEqual(demoEventBody.demo, true, 'respuesta { demo:true } (no persiste telemetría)');
+    const ghostEvent = await fetch(`${base}/api/public/analytics/event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug: 'no-existe-xyz', event: 'visit' })
+    });
+    assert.strictEqual(ghostEvent.status, 404, 'un slug desconocido real sigue siendo 404');
+    console.log('✓ Analytics demo: 200 no-op para demos, 404 para slugs desconocidos');
   } finally {
     await new Promise(resolve => server.close(resolve));
   }
@@ -163,13 +182,13 @@ async function runTests() {
   assert.ok(studioJs.includes('scango_demo_draft_'), 'el borrador demo persiste en localStorage');
   console.log('✓ Landing con galería (8 enlaces) + Studio con modo demo (banner + importar/salir)');
 
-  console.log('✅ 8/8 secciones de demos OK');
+  console.log('✅ 9/9 secciones de demos OK');
 }
 
 module.exports = { runTests };
 
 if (require.main === module) {
   runTests()
-    .then(() => { console.log('\n✅ test-demos: demos por rubro + Studio OK (8/8)'); process.exit(0); })
+    .then(() => { console.log('\n✅ test-demos: demos por rubro + Studio OK (9/9)'); process.exit(0); })
     .catch(err => { console.error('\n❌ test-demos falló:', err.message); process.exit(1); });
 }

@@ -882,7 +882,9 @@
       return window.googleIdentityServicesPromise;
     };
   </script>
-  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0"></script>
+  <!-- La landing NO usa supabase-js: Realtime vive en el menú público /m/*
+       (menu.html + GroupCartManager). Cargarlo acá era peso muerto (~100KB) y
+       un punto de falla externo en la página de conversión. No re-agregar. -->
   <script defer src="/js/authClient.js"></script>
   <script defer src="/js/cookieConsent.js"></script>
   <script defer src="/js/pwa.js"></script>

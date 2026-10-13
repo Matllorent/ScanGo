@@ -57,17 +57,22 @@ function runTests() {
     'api/index.js une event_waiters_ con private:true'
   );
 
-  // 4) El navegador carga supabase-js >= 2.44 (requisito de canales privados).
-  for (const html of ['menu.html', 'index.html']) {
-    const htmlSrc = fs.readFileSync(path.join(ROOT, 'public', html), 'utf8');
-    assert.ok(
-      /@supabase\/supabase-js@2/.test(htmlSrc),
-      `${html} debe cargar @supabase/supabase-js@2 (canales privados desde v2.44)`
-    );
-  }
+  // 4) El MENÚ público carga supabase-js >= 2.44 (requisito de canales privados).
+  //    Solo menu.html: la landing (index.html) NO usa Realtime — su carga era
+  //    peso muerto (~100KB) porque GroupCartManager solo vive en el menú.
+  const menuHtml = fs.readFileSync(path.join(ROOT, 'public', 'menu.html'), 'utf8');
+  assert.ok(
+    /@supabase\/supabase-js@2/.test(menuHtml),
+    'menu.html debe cargar @supabase/supabase-js@2 (canales privados desde v2.44)'
+  );
+  const landingHtml = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
+  assert.ok(
+    !/@supabase\/supabase-js@2/.test(landingHtml),
+    'index.html NO debe cargar supabase-js (no usa Realtime: cero peso muerto en la landing)'
+  );
 
   console.log('✓ 002 sin ALTER TABLE killer + políticas SELECT/INSERT realtime:% para anon/authenticated');
-  console.log('✓ Canales privados en GroupCartManager, orders.js e index.js + supabase-js@2 en el navegador');
+  console.log('✓ Canales privados en GroupCartManager, orders.js e index.js + supabase-js@2 solo en el menú');
   console.log('🎉 ¡GUARD DE CANALES REALTIME VERIFICADO AL 100%!');
 }
 

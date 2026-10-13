@@ -86,7 +86,7 @@
         },
         {
           "key": "Permissions-Policy",
-          "value": "camera=(), geolocation=(), microphone=(), payment=(), usb=(), serial=(), magnetometer=(), gyroscope=(), ambient-light-sensor=()"
+          "value": "camera=(), geolocation=(), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()"
         },
         {
           "key": "Cross-Origin-Opener-Policy",
