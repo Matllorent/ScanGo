@@ -18,6 +18,10 @@ try {
 }
 
 function getSubscriptionKillSwitch() {
+  // El entorno manda: en Vercel el flag en memoria/archivo no sobrevive entre
+  // instancias serverless. Con ALLOW_NEW_SUBSCRIPTIONS=false las altas quedan
+  // pausadas en TODAS las instancias sin importar el estado en memoria.
+  if (isEnvBlocked()) return false;
   return allowNewSubscriptions;
 }
 
@@ -29,8 +33,18 @@ function setSubscriptionKillSwitch(status) {
   return allowNewSubscriptions;
 }
 
+// Respaldo por entorno para producción serverless (Vercel): la memoria y el
+// JSON local no sobreviven entre instancias frías. Con
+// ALLOW_NEW_SUBSCRIPTIONS=false|0|no|off las altas quedan pausadas en todas
+// las instancias aunque alguien reactive el toggle en una de ellas. Se lee en
+// runtime (sin reinicio de código: basta cambiar la env en Vercel).
+function isEnvBlocked() {
+  const v = String(process.env.ALLOW_NEW_SUBSCRIPTIONS ?? '').trim().toLowerCase();
+  return v === 'false' || v === '0' || v === 'no' || v === 'off';
+}
+
 function checkSubscriptionKillSwitch(req, res, next) {
-  if (!allowNewSubscriptions) {
+  if (isEnvBlocked() || !allowNewSubscriptions) {
     return res.status(503).json({
       success: false,
       error: 'SuscripcionesPausadas',

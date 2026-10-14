@@ -294,6 +294,7 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 | `INDEXNOW_KEY` | Key de verificación de dominio IndexNow (obligatoria `[0-9a-fA-F-]{8,64}` = UUID/hex con guiones; generarla con `node -e "console.log(require('crypto').randomUUID())"`). Sirve `/{key}.txt` y habilita el ping best-effort al guardar; cualquier otro formato desactiva el feature |
 | `INDEXNOW_ENABLED` | `false`/`0`/`no`/`off` apaga el ping IndexNow aunque haya key válida (default: habilitado si `INDEXNOW_KEY` es válida) |
 | `GROUP_CART_SECRET` | Firma HMAC de QR de mesa; puede usar `JWT_SECRET` como fallback |
+| `ALLOW_NEW_SUBSCRIPTIONS` | `false`/`0`/`no`/`off` pausa registro y checkout (503) en TODAS las instancias (el toggle del panel es solo en memoria y no sobrevive en Vercel). Default: ventas abiertas |
 
 ### Tooling OpenCode
 - `opencode.json` define 8 MCP locales: `menu-filesystem`, `memory-graph`, `playwright-testing`, `chrome-devtools`, `context7`, `supabase` (**read-only**, project-ref `olqdcudvstbawkcvsfdd`, requiere `SUPABASE_ACCESS_TOKEN` en el entorno), `osv-scanner` y `semgrep` (ambos activos en la sesión).

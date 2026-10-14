@@ -53,6 +53,17 @@ assert.strictEqual(mockRes.body.error, 'SuscripcionesPausadas', 'Debe devolver e
 // Reset to true
 killSwitch.setSubscriptionKillSwitch(true);
 assert.strictEqual(killSwitch.getSubscriptionKillSwitch(), true, 'KillSwitch debe volver a true');
+
+// Respaldo por entorno (Vercel serverless): con ALLOW_NEW_SUBSCRIPTIONS=false
+// el gate bloquea aunque la memoria diga true, y el getter lo refleja.
+process.env.ALLOW_NEW_SUBSCRIPTIONS = 'false';
+let envNext = false;
+killSwitch.checkSubscriptionKillSwitch(mockReq, mockRes, () => { envNext = true; });
+assert.strictEqual(envNext, false, 'Con env=false no llama next() aunque la memoria diga true');
+assert.strictEqual(mockRes.statusCode, 503, 'Con env=false devuelve 503');
+assert.strictEqual(killSwitch.getSubscriptionKillSwitch(), false, 'El getter refleja el bloqueo por entorno');
+delete process.env.ALLOW_NEW_SUBSCRIPTIONS;
+assert.strictEqual(killSwitch.getSubscriptionKillSwitch(), true, 'Sin la env, vuelve a mandar la memoria');
 console.log('✓ Middleware y lógica del Kill-Switch (HTTP 503 estructurado) verificados');
 
 // Check admin routes & UI
