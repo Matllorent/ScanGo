@@ -83,6 +83,13 @@ const createOrderItemSchema = z.object({
   note: z.string().trim().max(250).optional().default(''),
   orderedBy: z.string().max(100).optional().default(''),
   orderedById: z.string().max(100).optional().default(''),
+  // Helado a medida (armador): el servidor recomputa el total contra la
+  // config del dueño y NUNCA confía en el precio del cliente.
+  customIceCream: z.object({
+    containerId: z.string().min(1).max(40),
+    flavorIds: z.array(z.string().min(1).max(80)).min(1).max(6),
+    toppingIds: z.array(z.string().min(1).max(80)).max(30).optional().default([])
+  }).optional(),
   choices: z.array(z.object({
     groupId: z.string().min(1).max(80),
     selections: z.array(z.object({

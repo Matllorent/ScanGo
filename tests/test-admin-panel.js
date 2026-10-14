@@ -10,13 +10,22 @@
  * se revierten a HEAD antes de commitear).
  */
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 const http = require('http');
 const app = require('../api/index');
 const db = require('../src/db/db');
 const { generateTotpToken } = require('../api/utils/totp');
+const { verifyTotpToken } = require('../api/utils/totp');
+
+// El servidor es fail-closed sin ADMIN_TOTP_SECRET (sin default público):
+// el test fija uno aleatorio por corrida si el entorno no lo trae.
+if (!process.env.ADMIN_TOTP_SECRET) {
+  process.env.ADMIN_TOTP_SECRET = require('crypto').randomBytes(20).toString('base64');
+}
 
 const ADMIN_KEY = process.env.ADMIN_KEY || 'pizarron_admin_master_key_2026';
-const ADMIN_TOTP_SECRET = process.env.ADMIN_TOTP_SECRET || 'JBSWY3DPEHPK3PXP';
+const ADMIN_TOTP_SECRET = process.env.ADMIN_TOTP_SECRET;
 
 const iso = (ms) => new Date(ms).toISOString();
 const DAY = 24 * 60 * 60 * 1000;
@@ -92,6 +101,15 @@ async function runTests() {
     const adminCookie = setCookie.split(';')[0];
     assert.ok(adminCookie.startsWith('admin_token='), 'El login setea la cookie admin_token');
     console.log('✓ Login admin con 2FA TOTP real (RFC 6238), sesión solo-cookie');
+
+    // Fail-closed sin secreto: verifyTotpToken('',/undefined) nunca acepta y
+    // la ruta ya no trae default público (antes 'JBSWY3DPEHPK3PXP').
+    assert.strictEqual(verifyTotpToken('123456', ''), false, 'Sin secreto → denegado (no bypass)');
+    assert.strictEqual(verifyTotpToken('123456', undefined), false, 'Secreto undefined → denegado');
+    assert.strictEqual(verifyTotpToken('', ADMIN_TOTP_SECRET), false, 'Token vacío → denegado');
+    const apiSrc = fs.readFileSync(path.join(__dirname, '../api/index.js'), 'utf8');
+    assert.ok(!apiSrc.includes('JBSWY3DPEHPK3PXP'), 'Sin default público de ADMIN_TOTP_SECRET (además hay fail-closed en boot)');
+    console.log('✓ TOTP fail-closed: sin secreto no hay bypass ni default público');
 
     // Sin sesión → 403
     const noAuth = await fetch(`${base}/api/admin/overview`);

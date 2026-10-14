@@ -117,6 +117,56 @@ Object.defineProperties(window, {
     function areMenuOrdersEnabled() {
       return !restaurantData || restaurantData.allowMenuOrders !== false;
     }
+    // Barra de filtros configurable (fija / auto-oculta / compacta): el dueño
+    // elige en Studio → Estética (`restaurant.filterBarMode`, default fija).
+    // `?filterbar=<modo>` previsualiza por link (espejo de ?theme=/?morph=).
+    // Auto-oculta: al bajar más de 220px la barra colapsa (más carta visible);
+    // al subir o volver arriba reaparece. Compacta: todo más chico (ver CSS).
+    const FILTER_BAR_MODES = ['fixed', 'autohide', 'compact'];
+    let filterBarScrollBound = false;
+    let filterLastY = 0;
+    let filterTicking = false;
+    function resolveFilterBarMode() {
+      const preview = new URLSearchParams(window.location.search).get('filterbar');
+      if (preview && FILTER_BAR_MODES.includes(preview)) return preview;
+      const saved = restaurantData && restaurantData.filterBarMode;
+      return FILTER_BAR_MODES.includes(saved) ? saved : 'fixed';
+    }
+    function applyFilterBarMode() {
+      const mode = resolveFilterBarMode();
+      document.body.classList.toggle('filter-autohide', mode === 'autohide');
+      document.body.classList.toggle('filter-compact', mode === 'compact');
+      document.body.classList.remove('filter-hidden');
+      filterLastY = window.scrollY || 0;
+      if (mode === 'autohide' && !filterBarScrollBound) {
+        filterBarScrollBound = true;
+        window.addEventListener('scroll', () => {
+          if (filterTicking) return;
+          filterTicking = true;
+          requestAnimationFrame(() => {
+            filterTicking = false;
+            updateFilterAutohide();
+          });
+        }, { passive: true });
+      }
+    }
+    function updateFilterAutohide() {
+      if (!document.body.classList.contains('filter-autohide')) return;
+      const y = window.scrollY || 0;
+      const goingDown = y > filterLastY + 4;
+      const goingUp = y < filterLastY - 4;
+      filterLastY = y;
+      // Si el foco quedó dentro de la barra al ocultarla, se suelta (a11y).
+      const hide = y > 220 && goingDown;
+      const show = y <= 220 || goingUp;
+      if (hide && !document.body.classList.contains('filter-hidden')) {
+        const active = document.activeElement;
+        if (active && active.closest && active.closest('.filter-collapse')) active.blur();
+        document.body.classList.add('filter-hidden');
+      } else if (show) {
+        document.body.classList.remove('filter-hidden');
+      }
+    }
     function updateTableServiceUI() {
       const allowWaiter = !restaurantData || restaurantData.allowWaiterCall !== false;
       const showBill = isTableBillVisible();
@@ -191,13 +241,20 @@ Object.defineProperties(window, {
 
     // Analítica unificada fire-and-forget: contadores legacy + telemetría rica
     // (dish_click / order_placed con amount) en el canal público.
+    // Consentimiento (Ley 18.331): viaja el estado del banner de cookies para
+    // que el servidor descarte lo puramente analítico con 'necessary'.
     function trackPublicEvent(event, extra = {}) {
       const slug = getSlug();
       if (!slug) return;
+      let consent = null;
+      try {
+        consent = localStorage.getItem('scango_cookie_consent');
+      } catch (e) { /* storage bloqueado */ }
       const body = {
         slug,
         event,
-        branchId: getActiveBranchId() || undefined
+        branchId: getActiveBranchId() || undefined,
+        consent: consent === 'all' || consent === 'necessary' ? consent : undefined
       };
       Object.assign(body, extra || {});
       fetch('/api/public/analytics/event', {
@@ -240,6 +297,7 @@ Object.defineProperties(window, {
         window.dispatchEvent(new CustomEvent('scango:menu-ready'));
       } catch (e) {}
       updateTableServiceUI();
+      applyFilterBarMode();
       maybeOpenReviewFromLink();
       maybeOpenDishDeepLink();
     }
@@ -384,18 +442,18 @@ Object.defineProperties(window, {
         layout = morphParam;
       }
       const layoutClass = validLayouts.includes(layout) ? `layout-${layout}` : 'layout-classic';
-      const validThemes = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football', 'smash-urban', 'glass-gastro', 'ticket', 'helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora'];
-      // Heladería SOLO viste sus 11 temas: si el dato viene con un theme de
+      const validThemes = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football', 'smash-urban', 'glass-gastro', 'ticket', 'helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora', 'helado-crema'];
+      // Heladería SOLO viste sus 12 temas: si el dato viene con un theme de
       // restaurante (cuenta vieja o payload manual), se corrige a fiesta en el
       // render para que el comensal siempre vea estética de heladería.
-      const HELADERIA_ONLY = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora'];
+      const HELADERIA_ONLY = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora', 'helado-crema'];
       let effectiveTheme = restaurantData.theme;
       if (restaurantData.businessType === 'heladeria' && !HELADERIA_ONLY.includes(effectiveTheme)) {
         effectiveTheme = 'helado-fiesta';
       }
       // Preview ?theme=<clave> (espejo de ?morph= y ?neon=): el dueño prueba
       // estéticas desde un link sin guardar nada. Solo claves válidas, y en
-      // heladería SOLO las 11 propias: el lockdown no tiene excepciones ni
+      // heladería SOLO las 12 propias: el lockdown no tiene excepciones ni
       // siquiera por preview (?theme=classic en heladería → fiesta).
       const themeParam = new URLSearchParams(window.location.search).get('theme');
       if (themeParam && validThemes.includes(themeParam)) {
@@ -644,7 +702,9 @@ Object.defineProperties(window, {
       // (restaurant.iceCreamBuilderLabel); si está vacío, queda el default del HTML.
       const iceCreamHero = document.getElementById('iceCreamHeroCTA');
       if (iceCreamHero) {
-        iceCreamHero.style.display = isHeladeria ? 'flex' : 'none';
+        // Vitrina: sin pedidos no hay nada que armar (el CTA lleva al wizard).
+        const ordersOn = typeof areMenuOrdersEnabled === 'function' ? areMenuOrdersEnabled() : true;
+        iceCreamHero.style.display = (isHeladeria && ordersOn) ? 'flex' : 'none';
         const heroLabel = document.getElementById('iceCreamHeroLabel');
         if (heroLabel) {
           const customLabel = String(restaurantData.iceCreamBuilderLabel || '').trim();
@@ -2318,6 +2378,30 @@ Object.defineProperties(window, {
       return isRestaurantOpenNowMod(restaurantData, -new Date().getTimezoneOffset());
     }
 
+    // Helado a medida (armador): el servidor recomputa el total contra la
+    // config del dueño (tamaños/toppings/recargos); el cliente solo declara
+    // qué armó — nunca el precio. Sin esto, /quote respondía DISH_NOT_FOUND
+    // al id sintético `icecream_*` y el pedido se bloqueaba.
+    function toOrderItemPayload(item) {
+      const payload = {
+        dishId: item.dish.id,
+        quantity: item.qty,
+        note: item.note || '',
+        orderedBy: item.orderedBy || '',
+        orderedById: item.orderedById || '',
+        choices: item.choices || []
+      };
+      const custom = item.dish && item.dish.customOptions;
+      if (item.dish && item.dish.isCustomIceCream && custom) {
+        payload.customIceCream = {
+          containerId: String((custom.container && custom.container.id) || ''),
+          flavorIds: Object.keys(custom.flavors || {}),
+          toppingIds: Object.keys(custom.toppings || [])
+        };
+      }
+      return payload;
+    }
+
     async function submitWhatsAppOrder() {
       const items = Object.values(cart);
       if (!items.length) {
@@ -2372,20 +2456,24 @@ Object.defineProperties(window, {
             // y el abierto/cerrado en hora local del local (no confía del todo
             // en el reloj del navegador).
             utcOffsetMinutes: -new Date().getTimezoneOffset(),
-            items: items.map(item => ({
-              dishId: item.dish.id,
-              quantity: item.qty,
-              note: item.note || '',
-              orderedBy: item.orderedBy || '',
-              orderedById: item.orderedById || '',
-              choices: (item.choices || []).map(choice => ({
-                groupId: choice.groupId,
-                selections: choice.selections.map(selection => ({
-                  optionId: selection.optionId,
-                  quantity: selection.quantity
+            items: items.map(item => {
+              const p = toOrderItemPayload(item);
+              return {
+                dishId: p.dishId,
+                quantity: p.quantity,
+                note: p.note,
+                orderedBy: p.orderedBy,
+                orderedById: p.orderedById,
+                ...(p.customIceCream ? { customIceCream: p.customIceCream } : {}),
+                choices: (item.choices || []).map(choice => ({
+                  groupId: choice.groupId,
+                  selections: choice.selections.map(selection => ({
+                    optionId: selection.optionId,
+                    quantity: selection.quantity
+                  }))
                 }))
-              }))
-            }))
+              };
+            })
           })
         });
         const quotePayload = await quoteResponse.json();
@@ -2505,14 +2593,18 @@ Object.defineProperties(window, {
             captchaToken: captchaToken || undefined,
             utcOffsetMinutes: -new Date().getTimezoneOffset(),
             participants: window.groupCartManagerInstance ? Array.from(window.groupCartManagerInstance.participants) : [],
-            items: items.map(item => ({
-              dishId: item.dish.id,
-              quantity: item.qty,
-              note: item.note || '',
-              orderedBy: item.orderedBy || '',
-              orderedById: item.orderedById || '',
-              choices: item.choices || []
-            }))
+            items: items.map(item => {
+              const p = toOrderItemPayload(item);
+              return {
+                dishId: p.dishId,
+                quantity: p.quantity,
+                note: p.note,
+                orderedBy: p.orderedBy,
+                orderedById: p.orderedById,
+                ...(p.customIceCream ? { customIceCream: p.customIceCream } : {}),
+                choices: p.choices
+              };
+            })
           })
         })
           .then(res => res.json())
@@ -3021,17 +3113,21 @@ Object.defineProperties(window, {
             tipAmount: tipForPay,
             coupon: appliedCoupon,
             utcOffsetMinutes: -new Date().getTimezoneOffset(),
-            items: items.map(item => ({
-              dishId: item.dish.id,
-              quantity: item.qty,
-              choices: (item.choices || []).map(choice => ({
-                groupId: choice.groupId,
-                selections: (choice.selections || []).map(selection => ({
-                  optionId: selection.optionId,
-                  quantity: selection.quantity
-                }))
-              }))
-            }))
+            items: items.map(item => {
+              const p = toOrderItemPayload(item);
+              return {
+                dishId: p.dishId,
+                quantity: p.quantity,
+                choices: (item.choices || []).map(choice => ({
+                  groupId: choice.groupId,
+                  selections: (choice.selections || []).map(selection => ({
+                    optionId: selection.optionId,
+                    quantity: selection.quantity
+                  }))
+                })),
+                ...(p.customIceCream ? { customIceCream: p.customIceCream } : {})
+              };
+            })
           })
         });
         const body = await res.json();
@@ -3425,6 +3521,7 @@ Object.defineProperties(window, {
       closeWaiterModal,
       sendWaiterCall,
       updateTableServiceUI,
+      applyFilterBarMode,
       areMenuOrdersEnabled,
       isMozoVirtualEnabled,
       handleMozoVirtualToggle,

@@ -119,7 +119,7 @@
       <div id="i18nCurrencyBarContainer"></div>
 
       <!-- Buscador con botón de limpiar -->
-      <div style="position: relative; margin-bottom: 10px;">
+      <div id="menuSearchWrap" class="filter-collapse" style="position: relative; margin-bottom: 10px;">
         <input type="text" id="searchFilter" name="q" class="search-box" style="margin-bottom:0; padding-right:32px;" placeholder="🔍 Buscar plato, ingrediente…" aria-label="Buscar plato o ingrediente" autocomplete="off" data-js-input="filterDishes">
         <button type="button" id="btnClearSearch" data-js-click="clearSearchFilter" aria-label="Limpiar búsqueda" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--chalk-dim); font-size:16px; cursor:pointer; display:none;">✕</button>
       </div>
@@ -158,13 +158,13 @@
       <section id="weddingItinerarySection" class="wed-it-section" style="display:none;" aria-label="Programa del evento"></section>
 
       <!-- Anillos de destacados 📖 (los rellena storiesLayout.js; tap = historias en esa categoría) -->
-      <div id="storiesTray" class="stories-tray" role="group" aria-label="Destacados: ver la carta como historias" style="display: none;">
+      <div id="storiesTray" class="stories-tray filter-collapse" role="group" aria-label="Destacados: ver la carta como historias" style="display: none;">
         <span class="stories-tray-title">📖 Historias</span>
         <div id="storiesTrayRings" class="stories-tray-rings"></div>
       </div>
 
       <!-- Filtro de Categorías con Acceso Rápido a Búsqueda y Lista -->
-      <div class="category-nav-wrapper">
+      <div class="category-nav-wrapper filter-collapse">
         <button type="button" class="cat-nav-icon-btn" data-js-click="focusSearchInput" aria-label="Buscar en la carta" title="Buscar plato">🔍</button>
         <button type="button" class="cat-nav-icon-btn" data-js-click="openCategoriesMenuModal" aria-label="Ver todas las categorías" title="Categorías">☰</button>
         <button type="button" id="btnStoriesToggle" class="cat-nav-icon-btn" data-js-click="toggleStoriesMode" aria-label="Ver carta como historias" title="Ver como historias">📖</button>
@@ -175,7 +175,7 @@
       </div>
 
       <!-- Filtros Dietéticos Rápidos -->
-      <div id="dietaryFilterPills" role="group" aria-label="Filtros dietéticos" style="display: flex; gap: 6px; overflow-x: auto; padding-top: 6px; scrollbar-width: none;">
+      <div id="dietaryFilterPills" class="filter-collapse" role="group" aria-label="Filtros dietéticos" style="display: flex; gap: 6px; overflow-x: auto; padding-top: 6px; scrollbar-width: none;">
         <button class="cat-pill active" aria-pressed="true" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|ALL">Todos los estilos</button>
         <button class="cat-pill" aria-pressed="false" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|veggie">🥬 Vegetariano</button>
         <button class="cat-pill" aria-pressed="false" style="font-size: 0.72rem; padding: 3px 8px;" data-js-click="selectDietFilter|vegan">🌱 Vegano</button>
@@ -185,9 +185,10 @@
       </div>
     </div>
 
-    <!-- Accessibility Audio Assistance -->
+    <!-- Accessibility Audio Assistance (discreta: el texto vive para lectores) -->
     <div class="a11y-bar">
-      <span>👁️ Menú adaptado para lectores de pantalla y accesibilidad visual</span>
+      <span class="sr-only">Menú adaptado para lectores de pantalla y accesibilidad visual</span>
+      <span aria-hidden="true" title="Menú adaptado para lectores de pantalla y accesibilidad visual">👁️</span>
       <button class="btn-a11y-tts" data-js-click="readSelectedCategoryTTS">🔊 Escuchar categoría</button>
     </div>
 
@@ -729,7 +730,7 @@
     <a href="/cookies" style="color:inherit; text-decoration:underline;">Cookies</a>
   </footer>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0"></script>
   <script src="/js/cookieConsent.js"></script>
   <script src="/js/pwa.js" defer></script>
   <script type="module" src="/js/menu.js"></script>

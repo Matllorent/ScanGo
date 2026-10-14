@@ -75,16 +75,22 @@ window.menuBundle = menuBundle;
 
     // Ice Cream Wizard Handler
     window.openIceCreamWizard = function() {
+      // Vitrina: el CTA ya está oculto; esto frena invocaciones directas.
+      if (typeof window.areMenuOrdersEnabled === 'function' && !window.areMenuOrdersEnabled()) return;
       const curr = window.i18nManager ? window.i18nManager.getCurrencySymbol() : (window.restaurantData ? window.restaurantData.currency : '$');
 
       // Sabores REALES del local (nunca demo para un local real). La heurística
       // vive en public/js/menu/iceCreamHeuristics.js (pura y testeada).
       const flavors = buildCustomFlavors(window.restaurantData || {});
       const customFlavors = flavors.length > 0 ? flavors : null;
+      // Tamaños y toppings del dueño (null = defaults del wizard).
+      const rest = window.restaurantData || {};
 
       window.iceCreamWizardInstance = new IceCreamWizard({
         currency: curr,
         customFlavors: customFlavors,
+        customContainers: Array.isArray(rest.iceCreamContainers) ? rest.iceCreamContainers : null,
+        customToppings: Array.isArray(rest.iceCreamToppings) ? rest.iceCreamToppings : null,
         onAddToCart: (customItem) => {
           if (!window.cart) window.cart = {};
           if (!window.cart[customItem.id]) {

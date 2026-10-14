@@ -270,6 +270,44 @@ async function runTests() {
     });
     assert.strictEqual(idor.status, 403, 'IDOR bloqueado en analytics');
     console.log('✓ IDOR: tenant ajeno rechazado (403)');
+
+    // ── Consentimiento (Ley 18.331): 'necessary' descarta lo analítico ──
+    // Local separado para no alterar los conteos de arriba.
+    const userC = await db.createUser({
+      email: `analytics-consent-${Date.now()}@example.com`,
+      password: 'test_password',
+      email_confirmed_at: new Date().toISOString()
+    });
+    const restC = await db.saveRestaurant(userC.id, {
+      name: 'Consent QA', bizName: 'Consent QA',
+      slug: `consent-qa-${Date.now()}`,
+      dishes: [{ id: 'd_1', name: 'Burger QA', price: 490 }]
+    });
+    const tele = require('../api/services/telemetry');
+    const countEvents = async () => (await tele.getEvents(restC.id, { since: new Date(Date.now() - 3600 * 1000).toISOString() })).length;
+    const before = await countEvents();
+    // Analíticos con consentimiento mínimo → 200 honesto sin persistir.
+    for (const ev of ['visit', 'dish_click', 'dish_like', 'google_review_click']) {
+      const body = { slug: restC.slug, event: ev, consent: 'necessary' };
+      if (ev === 'dish_click' || ev === 'dish_like') body.dishId = 'd_1';
+      const r = await postEvent(body);
+      assert.strictEqual(r.status, 200, `${ev} con necessary → 200`);
+      const rb = await r.json();
+      assert.strictEqual(rb.recorded, false, `${ev} no se persiste`);
+      assert.strictEqual(rb.reason, 'CONSENT_NECESSARY', `${ev} declara el motivo`);
+    }
+    assert.strictEqual(await countEvents(), before, 'nada analítico persistido con necessary');
+    // Contractual con mínimo → se registra (el local necesita operar) con metadata mínima.
+    const ordMin = await postEvent({ slug: restC.slug, event: 'order_placed', amount: 9999, consent: 'necessary', items: [{ dishId: 'd_1', qty: 5 }] });
+    assert.strictEqual(ordMin.status, 200, 'order contractual con necessary → 200');
+    assert.strictEqual((await ordMin.json()).recorded, undefined, 'el contractual no declara descarte');
+    const after = await tele.getEvents(restC.id, { since: new Date(Date.now() - 3600 * 1000).toISOString() });
+    assert.strictEqual(after.length, before + 1, 'solo el contractual persistido');
+    assert.deepStrictEqual(after[after.length - 1].metadata_json, { source: 'public_menu' }, 'metadata mínima (sin montos ni ítems)');
+    // Sin consentimiento declarado → comportamiento actual (fail-open).
+    const visitOpen = await postEvent({ slug: restC.slug, event: 'visit' });
+    assert.strictEqual((await visitOpen.json()).telemetry, true, 'sin consent se registra como siempre');
+    console.log('✓ Consentimiento: necessary descarta analítica, conserva lo contractual con metadata mínima');
   } finally {
     await new Promise(resolve => server.close(resolve));
   }

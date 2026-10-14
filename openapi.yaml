@@ -1676,6 +1676,20 @@ components:
                 type: array
                 items:
                   type: object
+              customIceCream:
+                type: object
+                description: Helado a medida (armador). El servidor recomputa el total contra la config del dueño; el precio del cliente se ignora
+                properties:
+                  containerId:
+                    type: string
+                  flavorIds:
+                    type: array
+                    items:
+                      type: string
+                  toppingIds:
+                    type: array
+                    items:
+                      type: string
               options:
                 type: object
         currency:

@@ -182,6 +182,17 @@ import {
 } from './studio/aiMenuImport.js';
 
 import {
+  renderIceCreamConfigRows as renderIceCreamConfigRowsMod,
+  updateIceCreamContainerField as updateIceCreamContainerFieldMod,
+  addIceCreamContainer as addIceCreamContainerMod,
+  removeIceCreamContainer as removeIceCreamContainerMod,
+  updateIceCreamToppingField as updateIceCreamToppingFieldMod,
+  addIceCreamTopping as addIceCreamToppingMod,
+  removeIceCreamTopping as removeIceCreamToppingMod,
+  resetIceCreamConfig as resetIceCreamConfigMod
+} from './studio/iceCreamConfig.js';
+
+import {
   populateCatFilter as populateCatFilterMod,
   renderDishesList as renderDishesListMod,
   deleteDish as deleteDishMod,
@@ -440,7 +451,7 @@ async function initDemoMode(demoType) {
   reloadPreviewIframe();
 }
 
-export const HELADERIA_THEMES = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora'];
+export const HELADERIA_THEMES = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora', 'helado-crema'];
 export const ICE_CREAM_BUTTON_STYLES = ['clasico', 'fiesta', 'premium', 'tropical', 'nube', 'noche'];
 
 export function resolveIceCreamButtonStyle(value) {
@@ -449,10 +460,12 @@ export function resolveIceCreamButtonStyle(value) {
 }
 
 /**
- * Filtra el selector de estética por rubro: una heladería SOLO ve sus 11
- * temas propios (los 14 de restaurante se ocultan + disabled). Otros rubros
- * ven todo. Si el valor actual quedó oculto (cuenta vieja), se corrige a
- * helado-fiesta para que el Studio nunca muestre un theme imposible.
+ * Filtra el selector de estética por rubro (simétrico): una heladería SOLO ve
+ * sus 11 temas propios, y el resto de los rubros SOLO ve los 17 clásicos (los
+ * de heladería se ocultan + disabled: un confeti rosa no es una parrilla). Si
+ * el valor actual quedó del otro lado (cuenta vieja o cambio de rubro), se
+ * corrige a helado-fiesta / emerald para que el Studio nunca muestre un theme
+ * imposible.
  */
 export function filterThemeOptionsByBusinessType() {
   const themeSelect = document.getElementById('inputThemeBg');
@@ -463,14 +476,10 @@ export function filterThemeOptionsByBusinessType() {
   Array.from(themeSelect.options).forEach(opt => {
     if (!opt.value) return; // optgroup labels no son options reales
     const isHela = HELADERIA_THEMES.includes(opt.value);
-    if (isHeladeria) {
-      const hide = !isHela;
-      opt.hidden = hide;
-      opt.disabled = hide;
-    } else {
-      opt.hidden = false;
-      opt.disabled = false;
-    }
+    // Cada rubro ve solo lo suyo: heladería ↔ clásicos, nunca mezclados.
+    const hide = isHeladeria ? !isHela : isHela;
+    opt.hidden = hide;
+    opt.disabled = hide;
   });
   // Corrección automática: heladería con theme de restaurante → fiesta.
   if (isHeladeria && restaurant && !HELADERIA_THEMES.includes(restaurant.theme)) {
@@ -489,7 +498,7 @@ export function filterThemeOptionsByBusinessType() {
   const hint = document.getElementById('themeHeladeriaHint');
   if (hint) hint.style.display = isHeladeria ? 'block' : 'none';
   const countHint = document.getElementById('themeCountHint');
-  if (countHint) countHint.textContent = isHeladeria ? '(11 estéticas exclusivas de heladería)' : '(17 clásicas + 11 de heladería)';
+  if (countHint) countHint.textContent = isHeladeria ? '(12 estéticas exclusivas de heladería)' : '(17 estéticas clásicas)';
   if (corrected) triggerAutoSave();
 }
 
@@ -1016,6 +1025,12 @@ export function updateLiveState() {
 
   const layoutSelect = el('inputMenuLayout');
   if (layoutSelect) restaurant.layout = layoutSelect.value || 'classic';
+  // Barra de filtros: allowlist, default fija.
+  const filterBarSelect = el('inputFilterBarMode');
+  if (filterBarSelect) {
+    const v = String(filterBarSelect.value || 'fixed');
+    restaurant.filterBarMode = ['fixed', 'autohide', 'compact'].includes(v) ? v : 'fixed';
+  }
   if (el('inputThemeBg')) {
     let nextTheme = el('inputThemeBg').value;
     // Cambio de rubro a heladería con theme de restaurante: corrección
@@ -1244,6 +1259,11 @@ export function renderStudioUI() {
 
   const layoutSelect = el('inputMenuLayout');
   if (layoutSelect) layoutSelect.value = restaurant.layout || 'classic';
+  if (el('inputFilterBarMode')) {
+    el('inputFilterBarMode').value = ['fixed', 'autohide', 'compact'].includes(restaurant.filterBarMode)
+      ? restaurant.filterBarMode
+      : 'fixed';
+  }
   if (el('inputThemeBg')) el('inputThemeBg').value = restaurant.theme || 'emerald';
   if (el('inputThemeFont')) el('inputThemeFont').value = restaurant.themeFont || 'serif';
   if (el('inputNeonAccent')) el('inputNeonAccent').value = restaurant.neonAccent || 'mint';
@@ -1851,6 +1871,52 @@ function removeWeddingItineraryItem(index) {
   if (!it) return;
   it.items.splice(index, 1);
   renderWeddingItineraryRows();
+  triggerAutoSave();
+}
+
+// ── Heladería: tamaños, precios y toppings del dueño ─────────────────────
+// Viven en restaurant.iceCreamContainers / restaurant.iceCreamToppings y se
+// guardan con el save normal (sanitizadas en el backend; vacías = defaults
+// del wizard). Mismo patrón que las filas del itinerario de boda.
+export function openIceCreamConfigModal() {
+  renderIceCreamConfigRows();
+  document.getElementById('iceCreamConfigModal')?.classList.add('active');
+}
+export function closeIceCreamConfigModal() {
+  document.getElementById('iceCreamConfigModal')?.classList.remove('active');
+}
+export function renderIceCreamConfigRows() {
+  renderIceCreamConfigRowsMod(restaurant, escapeHtml);
+}
+export function updateIceCreamContainerField(index, field, value) {
+  updateIceCreamContainerFieldMod(restaurant, index, field, value);
+}
+export function addIceCreamContainer() {
+  addIceCreamContainerMod(restaurant);
+  renderIceCreamConfigRows();
+  triggerAutoSave();
+}
+export function removeIceCreamContainer(index) {
+  removeIceCreamContainerMod(restaurant, index);
+  renderIceCreamConfigRows();
+  triggerAutoSave();
+}
+export function updateIceCreamToppingField(index, field, value) {
+  updateIceCreamToppingFieldMod(restaurant, index, field, value);
+}
+export function addIceCreamTopping() {
+  addIceCreamToppingMod(restaurant);
+  renderIceCreamConfigRows();
+  triggerAutoSave();
+}
+export function removeIceCreamTopping(index) {
+  removeIceCreamToppingMod(restaurant, index);
+  renderIceCreamConfigRows();
+  triggerAutoSave();
+}
+export function resetIceCreamConfig() {
+  resetIceCreamConfigMod(restaurant);
+  renderIceCreamConfigRows();
   triggerAutoSave();
 }
 
@@ -2820,6 +2886,9 @@ const globalExports = {
   solicitarPushPermiso,
   addLoyaltyReward, removeLoyaltyReward, updateLoyaltyRewardField, validateLoyaltyCode, handleRedeemCodeEnter,
   addWeddingItineraryItem, removeWeddingItineraryItem, updateWeddingItineraryField, renderWeddingItineraryRows,
+  openIceCreamConfigModal, closeIceCreamConfigModal, renderIceCreamConfigRows,
+  updateIceCreamContainerField, addIceCreamContainer, removeIceCreamContainer,
+  updateIceCreamToppingField, addIceCreamTopping, removeIceCreamTopping, resetIceCreamConfig,
   addEventGuest, removeEventGuest, updateEventGuestField, renderEventGuestRows, sendGuestInvite, copyGuestInviteLink,
   validateGoogleReviewLink, testGoogleReviewLink, copyReviewLink, loadReviewFunnel,
   loadNotificationEvents, markNotificationEventRead, sendPromoPush,

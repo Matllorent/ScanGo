@@ -105,6 +105,9 @@ export function buildCustomFlavors(restaurantData = {}) {
       categoryName: resolveFlavorCategoryName(cat ? cat.name : ''),
       name: d.name,
       price: d.price,
+      // Recargo premium del gusto (0 = sin recargo). Lo fija el dueño por plato.
+      surcharge: Math.max(0, Number(d.iceCreamSurcharge) || 0),
+      photoUrl: typeof d.photoUrl === 'string' ? d.photoUrl : '',
       description: d.description || '',
       tags: d.tags || [],
       outOfStock: Boolean(d.outOfStock)

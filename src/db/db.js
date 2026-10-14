@@ -75,20 +75,41 @@ async function writeJson(file, data, retries = 3, delay = 100) {
   return false;
 }
 
-function hasMeaningfulRecords(rows) {
-  return Array.isArray(rows) && rows.some(row => row && typeof row === 'object' && Object.keys(row).length > 0);
+// Compara instantes ISO (null/inválido = -infinito: siempre pierde).
+function tsOf(value) {
+  const t = new Date(value || 0).getTime();
+  return Number.isFinite(t) ? t : -1;
+}
+
+/**
+ * Fusión cloud ↔ local por id (last-writer-wins por updatedAt, empate → local).
+ * NUNCA clobbera: antes, si la nube tenía filas "con sentido", se DESCARTABA
+ * todo lo local — incluyendo filas creadas hace milisegundos por el request en
+ * curso (la hidratación corre en background al boot mientras los handlers ya
+ * escriben) → 401 USER_NOT_FOUND fantasma en tests y, en prod, pérdida de
+ * altas concurrentes al arranque. La unión solo suma; el conflicto se resuelve
+ * por fecha, nunca por borrado.
+ */
+function mergeById(localRows, cloudRows) {
+  const byId = new Map();
+  for (const row of (Array.isArray(cloudRows) ? cloudRows : [])) {
+    if (row && typeof row === 'object' && row.id) byId.set(String(row.id), row);
+  }
+  for (const row of (Array.isArray(localRows) ? localRows : [])) {
+    if (!row || typeof row !== 'object' || !row.id) continue;
+    const key = String(row.id);
+    const prev = byId.get(key);
+    if (!prev || tsOf(row.updatedAt || row.createdAt) >= tsOf(prev.updatedAt || prev.createdAt)) {
+      byId.set(key, row);
+    }
+  }
+  return [...byId.values()];
 }
 
 function resolveHydrationData(cloudUsers, localUsers, cloudRestaurants, localRestaurants) {
-  const resolvedUsers = hasMeaningfulRecords(cloudUsers) || !hasMeaningfulRecords(localUsers)
-    ? (Array.isArray(cloudUsers) ? cloudUsers : [])
-    : (Array.isArray(localUsers) ? localUsers : []);
-
-  const resolvedRestaurants = hasMeaningfulRecords(cloudRestaurants) || !hasMeaningfulRecords(localRestaurants)
-    ? (Array.isArray(cloudRestaurants) ? cloudRestaurants : [])
-    : (Array.isArray(localRestaurants) ? localRestaurants : []);
-
-  return { users: resolvedUsers, restaurants: resolvedRestaurants };
+  const users = mergeById(localUsers, cloudUsers);
+  const restaurants = mergeById(localRestaurants, cloudRestaurants).map(normalizeRestaurantBusinessType);
+  return { users, restaurants };
 }
 
 function normalizeBusinessType(value) {
@@ -186,6 +207,13 @@ function findRestaurantBranch(restaurant, branchId) {
 // Supabase Cloud PostgreSQL Dual-Mode Adapter
 let supabase = null;
 const pendingSupabaseWrites = new Set();
+// Hook de invalidación de caché ante cambios de suscripción (lo registra la
+// capa HTTP al boot; db.js no puede requerir api/middleware por el guard D).
+// Se dispara en updateSubscription (webhooks, cron, admin, cancel): un flip
+// active↔past_due cambia el menú público, así que invalida igual que /save.
+let subscriptionChangeHook = null;
+// Mutex en proceso para addOrder (read-modify-write sin transacción).
+let orderWriteLock = Promise.resolve();
 let databaseReady = Promise.resolve({ ready: true, mode: 'json' });
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
 
@@ -240,12 +268,97 @@ function trackSupabaseWrite(operation, context) {
       if (result?.error) throw result.error;
     })
     .catch(error => {
-      if (isExpectedSupabaseSchemaWarning(error)) return;
+      if (isExpectedSupabaseSchemaWarning(error)) {
+        // Antes esto era SILENCIO total: así se perdió que la nube rechazaba
+        // TODOS los inserts de users/restaurants (columna inexistente,
+        // PGRST204) y las tablas quedaron vacías sin que nadie lo notara.
+        // Ahora se loguea una vez por mensaje (sin spam) para que el drift
+        // de schema sea visible en logs/healthz en vez de invisible.
+        warnOnce(`[Supabase schema drift] ${context}: ${error.message || String(error)}`);
+        return;
+      }
       console.warn(`[Supabase ${context}]`, error.message || String(error));
     })
     .finally(() => pendingSupabaseWrites.delete(trackedWrite));
   pendingSupabaseWrites.add(trackedWrite);
   return trackedWrite;
+}
+
+// Warn deduplicado por mensaje (un drift de schema genera un error por
+// escritura; sin dedup inundaría el log en cada request).
+const warnedSchemaDrifts = new Set();
+function warnOnce(message) {
+  if (warnedSchemaDrifts.has(message)) return;
+  warnedSchemaDrifts.add(message);
+  if (warnedSchemaDrifts.size > 200) {
+    warnedSchemaDrifts.delete(warnedSchemaDrifts.keys().next().value);
+  }
+  console.warn(message);
+}
+
+// Extrae la columna de un PGRST204 ("Could not find the 'X' column...").
+function parseUnknownColumn(message) {
+  const m = String(message || '').match(/could not find the '([^']+)' column/i);
+  return m ? m[1] : null;
+}
+
+function toCamelCase(col) {
+  return String(col).replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+}
+
+// Columnas que la nube ya rechazó (drift conocido): se quitan ANTES del
+// primer intento para no pagar un roundtrip fallido en cada escritura.
+const knownMissingColumns = {};
+
+function stripKnownMissing(table, row) {
+  const missing = knownMissingColumns[table];
+  if (!missing || !missing.size) return row;
+  const clean = { ...row };
+  for (const col of missing) {
+    delete clean[col];
+    delete clean[toCamelCase(col)];
+  }
+  return clean;
+}
+
+// Escritura cloud tolerante a drift de schema: si PostgREST rechaza una
+// columna inexistente (nube anterior al schema.sql), la quita y reintenta
+// (máx 4 columnas). La escritura JAMÁS se pierde por una columna de más;
+// lo quitado se loguea (dedup) para que la migración pendiente sea visible.
+// `match` ({col: val}) usa UPDATE en vez de insert/upsert.
+// Devuelve { ok, dropped[] } | { ok:false, error } | { ok:false, skipped }.
+async function cloudWriteTolerant(table, rows, { onConflict, match } = {}) {
+  if (!supabase) return { ok: false, skipped: true };
+  const dropped = [];
+  let current = rows.map((r) => stripKnownMissing(table, r));
+  for (let attempt = 0; attempt < 5; attempt++) {
+    let builder = supabase.from(table);
+    if (match) {
+      const [matchCol, matchVal] = Object.entries(match)[0];
+      builder = builder.update(current[0]).eq(matchCol, matchVal);
+    } else if (onConflict) {
+      builder = builder.upsert(current, { onConflict });
+    } else {
+      builder = builder.insert(current);
+    }
+    const { error } = await builder;
+    if (!error) {
+      if (dropped.length) warnOnce(`[Supabase schema drift] ${table}: columnas quitadas [${dropped.join(', ')}] (aplicar migraciones pendientes)`);
+      return { ok: true, dropped };
+    }
+    const col = parseUnknownColumn(error.message);
+    if (!col) return { ok: false, error: error.message };
+    dropped.push(col);
+    if (!knownMissingColumns[table]) knownMissingColumns[table] = new Set();
+    knownMissingColumns[table].add(col);
+    current = current.map((r) => {
+      const c = { ...r };
+      delete c[col];
+      delete c[toCamelCase(col)];
+      return c;
+    });
+  }
+  return { ok: false, error: 'column-drop retries exhausted' };
 }
 
 if (process.env.SUPABASE_URL && supabaseKey) {
@@ -314,8 +427,29 @@ if (process.env.SUPABASE_URL && supabaseKey) {
           console.warn('[DB] Snapshot de Supabase vacío para restaurantes; conservando datos locales válidos.');
         }
 
-        if (!await writeJson(USERS_FILE, hydrated.users) || !await writeJson(RESTAURANTS_FILE, hydrated.restaurants)) {
+        // Re-lectura antes de escribir: entre el read de arriba y este write
+        // pueden haber entrado altas locales (createUser/saveRestaurant directos
+        // que no esperan db.ready, como hacen los tests). Sin esto, el write
+        // pisaría esas filas → 401 USER_NOT_FOUND fantasma. La fusión final
+        // une lo hidratado con lo que haya AHORA en disco (disco gana empates).
+        const freshUsers = readJson(USERS_FILE, []);
+        const freshRestaurants = readJson(RESTAURANTS_FILE, []);
+        const finalUsers = mergeById(freshUsers, hydrated.users);
+        const finalRestaurants = mergeById(freshRestaurants, hydrated.restaurants);
+
+        if (!await writeJson(USERS_FILE, finalUsers) || !await writeJson(RESTAURANTS_FILE, finalRestaurants)) {
           throw new Error('No se pudo hidratar el snapshot local desde Supabase.');
+        }
+
+        // Reparación outbox: pedidos que quedaron solo en local (insert cloud
+        // fallido en caliente) se suben ahora. Best-effort, nunca rompe el boot.
+        try {
+          const repair = await db.repairCloudPendingOrders();
+          if (repair && (repair.repaired > 0 || repair.remaining > 0)) {
+            console.log(`[DB] Pedidos pendientes reparados: ${repair.repaired} subidos, ${repair.remaining} restantes.`);
+          }
+        } catch (e) {
+          console.warn('[DB] Reparación de pedidos pendientes falló (best-effort):', e.message);
         }
 
         // Sonda del esquema operacional (7 tablas realtime/operaciones).
@@ -383,16 +517,23 @@ const db = {
     users.push(newUser);
     await writeJson(USERS_FILE, users);
 
-    // Sync to Supabase in background if connected
+    // Sync to Supabase in background if connected (tolerante a drift: si la
+    // nube es anterior al schema.sql, se quitan las columnas que rechace).
     if (supabase) {
-      trackSupabaseWrite(supabase.from('users').insert([{
-        id: newUser.id,
-        email: newUser.email,
-        password: newUser.password,
-        name: newUser.name,
-        email_confirmed_at: newUser.email_confirmed_at || null,
-        created_at: newUser.createdAt
-      }]), 'Insert User');
+      trackSupabaseWrite(
+        cloudWriteTolerant('users', [{
+          id: newUser.id,
+          email: newUser.email,
+          password: newUser.password,
+          name: newUser.name,
+          email_confirmed_at: newUser.email_confirmed_at || null,
+          created_at: newUser.createdAt
+        }]).then((r) => {
+          if (!r.ok && !r.skipped) throw new Error(r.error || 'users insert failed');
+          return r;
+        }),
+        'Insert User'
+      );
     }
     return newUser;
   },
@@ -498,35 +639,41 @@ const db = {
     }
     await writeJson(RESTAURANTS_FILE, rests);
 
-    // Sync to Supabase in background if connected
+    // Sync to Supabase in background if connected (tolerante a drift).
     if (supabase) {
-      trackSupabaseWrite(supabase.from('restaurants').upsert([{
-        id: rest.id,
-        user_id: rest.userId,
-        slug: rest.slug,
-        name: rest.name || rest.bizName,
-        biz_name: rest.bizName || rest.name,
-        slogan: rest.slogan,
-        currency: rest.currency,
-        phone: rest.phone,
-        city: rest.city || '',
-        smart_weather_enabled: Boolean(rest.smartWeatherEnabled),
-        theme: rest.theme,
-        logo_url: rest.logoUrl,
-        banner_url: rest.bannerUrl || null,
-        business_type: rest.businessType,
-        layout: rest.layout || 'classic',
-        wifi: rest.wifi,
-        categories: rest.categories,
-        dishes: rest.dishes,
-        modifier_groups: rest.modifierGroups || [],
-        delivery_zones: rest.deliveryZones,
-        branches: rest.branches || [],
-        subscription: rest.subscription,
-        profile: rest,
-        created_at: rest.createdAt,
-        updated_at: new Date().toISOString()
-      }], { onConflict: 'id' }), 'Save Restaurant');
+      trackSupabaseWrite(
+        cloudWriteTolerant('restaurants', [{
+          id: rest.id,
+          user_id: rest.userId,
+          slug: rest.slug,
+          name: rest.name || rest.bizName,
+          biz_name: rest.bizName || rest.name,
+          slogan: rest.slogan,
+          currency: rest.currency,
+          phone: rest.phone,
+          city: rest.city || '',
+          smart_weather_enabled: Boolean(rest.smartWeatherEnabled),
+          theme: rest.theme,
+          logo_url: rest.logoUrl,
+          banner_url: rest.bannerUrl || null,
+          business_type: rest.businessType,
+          layout: rest.layout || 'classic',
+          wifi: rest.wifi,
+          categories: rest.categories,
+          dishes: rest.dishes,
+          modifier_groups: rest.modifierGroups || [],
+          delivery_zones: rest.deliveryZones,
+          branches: rest.branches || [],
+          subscription: rest.subscription,
+          profile: rest,
+          created_at: rest.createdAt,
+          updated_at: new Date().toISOString()
+        }], { onConflict: 'id' }).then((r) => {
+          if (!r.ok && !r.skipped) throw new Error(r.error || 'restaurants upsert failed');
+          return r;
+        }),
+        'Save Restaurant'
+      );
     }
     return rest;
   },
@@ -696,15 +843,36 @@ const db = {
     rest.subscription = { ...rest.subscription, ...subData, updatedAt: new Date().toISOString() };
     await writeJson(RESTAURANTS_FILE, rests);
 
-    // Sync to Supabase in background if connected
+    // Sync to Supabase in background if connected (tolerante a drift).
     if (supabase) {
-      trackSupabaseWrite(supabase.from('restaurants').update({
-        subscription: rest.subscription,
-        profile: rest,
-        updated_at: new Date().toISOString()
-      }).eq('id', restaurantId), 'Update Subscription');
+      trackSupabaseWrite(
+        cloudWriteTolerant('restaurants', [{
+          subscription: rest.subscription,
+          profile: rest,
+          updated_at: new Date().toISOString()
+        }], { match: { id: restaurantId } }).then((r) => {
+          if (!r.ok && !r.skipped) throw new Error(r.error || 'subscription update failed');
+          return r;
+        }),
+        'Update Subscription'
+      );
+    }
+    // Hook de invalidación (lo registra la capa HTTP al boot): un flip de
+    // suscripción por webhook/cron cambia lo que ve el comensal (menú
+    // pausado ↔ online), así que la caché debe caer igual que en /save.
+    // Fire-and-forget: nunca rompe la escritura.
+    if (subscriptionChangeHook) {
+      try {
+        const out = subscriptionChangeHook({ restaurantId, slug: rest.slug });
+        if (out && typeof out.catch === 'function') out.catch(() => {});
+      } catch { /* best-effort */ }
     }
     return rest.subscription;
+  },
+
+  // Registra el hook de invalidación (una sola vez, al boot del server).
+  onSubscriptionChange(fn) {
+    if (typeof fn === 'function') subscriptionChangeHook = fn;
   },
 
   // Webhooks idempotency (prevent duplicate billing actions)
@@ -859,12 +1027,20 @@ const db = {
   // Orders — espejo local para desarrollo/offline. En modo cloud la fuente de
   // verdad sigue siendo la tabla `orders` de Supabase (escriben el router y el
   // seguimiento); esto permite que el seguimiento funcione también sin cloud.
+  // Mutex en proceso: addOrder es read-modify-write (lee todo, unshift,
+  // escribe todo) y dos POST / concurrentes intercalados pisaban un pedido.
+  // writeJson ya es atómico por archivo, pero eso no hace transaccional el
+  // read-modify-write. (Cross-instancia lo cubre la nube con ids únicos.)
   async addOrder(order) {
     if (!order || !order.id) return null;
-    const orders = readJson(ORDERS_FILE, []);
-    orders.unshift(order);
-    await writeJson(ORDERS_FILE, orders);
-    return order;
+    const run = async () => {
+      const orders = readJson(ORDERS_FILE, []);
+      orders.unshift(order);
+      await writeJson(ORDERS_FILE, orders);
+      return order;
+    };
+    orderWriteLock = orderWriteLock.then(run, run);
+    return orderWriteLock;
   },
   getOrders() {
     return readJson(ORDERS_FILE, []);
@@ -881,6 +1057,86 @@ const db = {
     order.status_updated_at = updatedAt || new Date().toISOString();
     await writeJson(ORDERS_FILE, orders);
     return order;
+  },
+
+  // Mapeo canónico local → fila cloud de `orders` (misma forma que usa
+  // POST /api/orders; fuente única para no diverger).
+  toCloudOrder(orderRecord) {
+    return {
+      id: orderRecord.id,
+      restaurant_id: orderRecord.restaurant_id,
+      table_number: orderRecord.table_number,
+      items_snapshot: orderRecord.items_snapshot,
+      amount: orderRecord.amount,
+      amount_in_cents: orderRecord.amount_in_cents,
+      currency: orderRecord.currency,
+      status: orderRecord.status,
+      customer_name: orderRecord.customer_name,
+      customer_phone: orderRecord.customer_phone,
+      created_at: orderRecord.created_at
+    };
+  },
+
+  // Insert cloud con reintento tolerante a drift (misma vía que el resto del
+  // dual-write; reemplaza el fallback manual de `tip_amount`).
+  // { ok:true } | { ok:false, error } | { ok:false, skipped:true } sin cliente.
+  async insertCloudOrder(orderRecord) {
+    if (!supabase) return { ok: false, skipped: true };
+    try {
+      // Coalesce a 0: la columna es NOT NULL DEFAULT 0 en la nube con la 005.
+      // Insertar null explícito (tip ausente en pedidos viejos/sintéticos)
+      // violaría el NOT NULL aunque el default cubriría la omisión. Si la nube
+      // NO tiene la columna (005 sin aplicar), cloudWriteTolerant la quita.
+      const tip = Number(orderRecord.tip_amount ?? orderRecord.tipAmount ?? 0) || 0;
+      const res = await cloudWriteTolerant('orders', [{ ...this.toCloudOrder(orderRecord), tip_amount: tip }]);
+      if (res.ok) return res;
+      return { ok: false, error: res.error };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  },
+
+  // Pedidos que quedaron SOLO en local porque el insert cloud falló (outbox
+  // mínima). Se responden 201 igual (el comensal no debe sufrirlo), pero se
+  // marcan para reparar y para que el dueño los vea igual.
+  async markOrderCloudPending(id) {
+    const orders = readJson(ORDERS_FILE, []);
+    const order = orders.find(o => o.id === id);
+    if (!order || order.cloudPending) return order || null;
+    order.cloudPending = true;
+    order.cloudPendingAt = new Date().toISOString();
+    await writeJson(ORDERS_FILE, orders);
+    return order;
+  },
+  async clearOrderCloudPending(id) {
+    const orders = readJson(ORDERS_FILE, []);
+    const order = orders.find(o => o.id === id);
+    if (!order || !order.cloudPending) return order || null;
+    delete order.cloudPending;
+    delete order.cloudPendingAt;
+    await writeJson(ORDERS_FILE, orders);
+    return order;
+  },
+  getCloudPendingOrders() {
+    return readJson(ORDERS_FILE, []).filter(o => o && o.cloudPending);
+  },
+
+  // Reparación al boot: sube los pendientes locales a la nube (best-effort,
+  // nunca rompe el arranque). Cierra la divergencia local-only → cloud.
+  async repairCloudPendingOrders() {
+    if (!supabase) return { repaired: 0, remaining: 0 };
+    const pending = this.getCloudPendingOrders();
+    let repaired = 0;
+    for (const order of pending) {
+      try {
+        const res = await this.insertCloudOrder(order);
+        if (res.ok) {
+          await this.clearOrderCloudPending(order.id);
+          repaired++;
+        }
+      } catch { /* best-effort: queda pendiente para el próximo boot */ }
+    }
+    return { repaired, remaining: this.getCloudPendingOrders().length };
   },
 
   // Global Settings (Pricing & Promotional Banner)

@@ -263,6 +263,10 @@ export function editDish(restaurant, dishId) {
   if (el('modalDishPrice')) el('modalDishPrice').value = dish.price || 0;
   if (el('modalDishOriginalPrice')) el('modalDishOriginalPrice').value = (dish.originalPrice !== null && dish.originalPrice !== undefined) ? dish.originalPrice : '';
   if (el('modalDishDesc')) el('modalDishDesc').value = dish.description || '';
+  // Recargo premium del armador (solo heladería): visible solo en ese rubro.
+  const surchargeGroup = document.getElementById('dishSurchargeGroup');
+  if (surchargeGroup) surchargeGroup.style.display = restaurant.businessType === 'heladeria' ? 'block' : 'none';
+  if (el('modalDishSurcharge')) el('modalDishSurcharge').value = (dish.iceCreamSurcharge !== null && dish.iceCreamSurcharge !== undefined && Number(dish.iceCreamSurcharge) > 0) ? dish.iceCreamSurcharge : '';
 
   const existingPhoto = dish.photoUrl || dish.imageUrl || dish.image || dish.photo || '';
   if (el('modalDishPhoto')) el('modalDishPhoto').value = existingPhoto;
@@ -360,6 +364,9 @@ export function openNewDishModal(restaurant) {
   if (el('modalDishId')) el('modalDishId').value = '';
   if (el('modalDishPrice')) el('modalDishPrice').value = '';
   if (el('modalDishOriginalPrice')) el('modalDishOriginalPrice').value = '';
+  if (el('modalDishSurcharge')) el('modalDishSurcharge').value = '';
+  const surchargeGroup = document.getElementById('dishSurchargeGroup');
+  if (surchargeGroup) surchargeGroup.style.display = restaurant.businessType === 'heladeria' ? 'block' : 'none';
   if (el('modalDishPhoto')) el('modalDishPhoto').value = '';
   if (el('modalDishVideo')) el('modalDishVideo').value = '';
   clearDishVideo();
@@ -426,6 +433,8 @@ export function saveDishFromModal(restaurant, event, onSaved) {
   const price = parseFloat(document.getElementById('modalDishPrice')?.value) || 0;
   const originalPriceVal = parseFloat(document.getElementById('modalDishOriginalPrice')?.value);
   const originalPrice = isNaN(originalPriceVal) ? null : originalPriceVal;
+  const surchargeVal = parseFloat(document.getElementById('modalDishSurcharge')?.value);
+  const iceCreamSurcharge = isNaN(surchargeVal) ? 0 : Math.max(0, surchargeVal);
   const description = document.getElementById('modalDishDesc')?.value.trim();
   const photoUrl = document.getElementById('modalDishPhoto')?.value.trim();
   const videoUrl = document.getElementById('modalDishVideo')?.value.trim();
@@ -479,6 +488,7 @@ export function saveDishFromModal(restaurant, event, onSaved) {
       dish.name = name;
       dish.price = price;
       dish.originalPrice = originalPrice;
+      dish.iceCreamSurcharge = iceCreamSurcharge;
       dish.description = description;
       dish.photoUrl = photoUrl || null;
       dish.videoUrl = videoUrl || null;
@@ -502,6 +512,7 @@ export function saveDishFromModal(restaurant, event, onSaved) {
       name,
       price,
       originalPrice: originalPrice,
+      iceCreamSurcharge,
       description: description || 'Plato casero elaborado en el día',
       photoUrl: photoUrl || null,
       videoUrl: videoUrl || null,

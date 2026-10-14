@@ -36,6 +36,14 @@ export class IceCreamWizard {
     this.currency = options.currency || '$';
     this.onAddToCart = options.onAddToCart || (() => {});
     this.customFlavors = options.customFlavors || null; // Sabores reales cargados por el restaurante
+    // Tamaños y toppings del dueño (sanitizados por el backend). Sin ellos,
+    // el wizard usa los defaults de IceCreamPresets.js (nunca queda vacío).
+    this.customContainers = Array.isArray(options.customContainers) && options.customContainers.length
+      ? options.customContainers
+      : null;
+    this.customToppings = Array.isArray(options.customToppings) && options.customToppings.length
+      ? options.customToppings
+      : null;
 
     // Estado del armador. Arranca SIN tamaño ni sabores: el flujo es
     // "elegí el tamaño → recién ahí aparecen sabores y toppings" (menos ruido).
@@ -44,6 +52,7 @@ export class IceCreamWizard {
     this.selectedFlavors = {};   // { flavorId: 1 }
     this.selectedToppings = {};  // { toppingId: 1 }
     this.activeFlavorCat = 'ALL';
+    this.activeDietFilter = 'ALL'; // ALL | NOTACC | VEGAN
 
     this.initDOM();
   }
@@ -56,7 +65,25 @@ export class IceCreamWizard {
   }
 
   getContainers() {
-    return ICE_CREAM_CONTAINERS;
+    return this.customContainers || ICE_CREAM_CONTAINERS;
+  }
+
+  getToppingsList() {
+    return this.customToppings || ICE_CREAM_TOPPINGS;
+  }
+
+  findTopping(toppingId) {
+    return this.getToppingsList().find(t => t.id === toppingId);
+  }
+
+  /** Agrupación por kind ('salsa' aparte); los defaults viejos usan el prefijo del id. */
+  getToppingGroups() {
+    const list = this.getToppingsList();
+    const isSalsa = (t) => t.kind === 'salsa' || String(t.id || '').startsWith('salsa');
+    return [
+      { title: 'Toppings', items: list.filter(t => !isSalsa(t)) },
+      { title: 'Salsas', items: list.filter(isSalsa) }
+    ];
   }
 
   /** Baldes de categoría realmente presentes en la carta (nunca chips vacíos). */
@@ -72,12 +99,18 @@ export class IceCreamWizard {
   }
 
   calculateTotal() {
-    const basePrice = this.selectedContainer ? this.selectedContainer.price : 0;
+    const basePrice = this.selectedContainer ? Number(this.selectedContainer.price) || 0 : 0;
     const toppingsTotal = Object.keys(this.selectedToppings).reduce((sum, topId) => {
-      const top = ICE_CREAM_TOPPINGS.find(t => t.id === topId);
-      return sum + (top ? top.price : 0);
+      const top = this.findTopping(topId);
+      return sum + (top ? Number(top.price) || 0 : 0);
     }, 0);
-    return basePrice + toppingsTotal;
+    // Recargo premium de los gustos elegidos (el servidor lo recomputa igual).
+    const all = this.getFlavorsList();
+    const surchargeTotal = Object.keys(this.selectedFlavors).reduce((sum, fId) => {
+      const f = all.find(x => x.id === fId);
+      return sum + (f ? Math.max(0, Number(f.surcharge) || 0) : 0);
+    }, 0);
+    return basePrice + toppingsTotal + surchargeTotal;
   }
 
   initDOM() {
@@ -113,6 +146,7 @@ export class IceCreamWizard {
               <span class="icw-counter" id="iceCreamFlavorCounter">0 / 2</span>
             </h3>
             <div class="icw-chips" id="iceCreamFlavorChips"></div>
+            <div class="icw-chips" id="iceCreamDietChips" style="margin-top:6px;"></div>
             <div class="icw-flavors" id="iceCreamFlavors"></div>
             <p class="icw-hint" id="iceCreamFlavorHint"></p>
           </section>
@@ -170,6 +204,9 @@ export class IceCreamWizard {
       const chip = target.closest('[data-icw-cat]');
       if (chip) { this.setFlavorCategory(chip.getAttribute('data-icw-cat')); return; }
 
+      const diet = target.closest('[data-icw-diet]');
+      if (diet) { this.setDietFilter(diet.getAttribute('data-icw-diet')); return; }
+
       const flavorBtn = target.closest('[data-icw-flavor]');
       if (flavorBtn) { this.toggleFlavor(flavorBtn.getAttribute('data-icw-flavor')); return; }
 
@@ -207,7 +244,24 @@ export class IceCreamWizard {
   setFlavorCategory(category) {
     this.activeFlavorCat = category;
     this.renderFlavorChips();
+    this.renderDietChips();
     this.renderFlavors();
+  }
+
+  setDietFilter(filter) {
+    // Tocar el filtro activo lo apaga (vuelve a "Todos"), como los chips de categoría.
+    const next = ['NOTACC', 'VEGAN'].includes(filter) ? filter : 'ALL';
+    this.activeDietFilter = (next !== 'ALL' && this.activeDietFilter === next) ? 'ALL' : next;
+    this.renderDietChips();
+    this.renderFlavors();
+  }
+
+  matchesDiet(flavor) {
+    if (this.activeDietFilter === 'ALL') return true;
+    const tags = Array.isArray(flavor.tags) ? flavor.tags : [];
+    if (this.activeDietFilter === 'NOTACC') return tags.includes('celiac') || tags.includes('singluten');
+    if (this.activeDietFilter === 'VEGAN') return tags.includes('vegano') || tags.includes('vegan');
+    return true;
   }
 
   toggleFlavor(flavorId) {
@@ -246,6 +300,7 @@ export class IceCreamWizard {
   render() {
     this.renderSizes();
     this.renderFlavorChips();
+    this.renderDietChips();
     this.renderFlavors();
     this.renderToppings();
     this.renderSummary();
@@ -312,6 +367,28 @@ export class IceCreamWizard {
       + buckets.map(b => chip(b, `${FLAVOR_EMOJI[b] || '🍨'} ${escapeHtml(b)} (${countFor(b)})`)).join('');
   }
 
+  renderDietChips() {
+    const el = document.getElementById('iceCreamDietChips');
+    if (!el) return;
+    const all = this.getFlavorsList();
+    const hasTacc = all.some(f => (f.tags || []).some(t => t === 'celiac' || t === 'singluten'));
+    const hasVegan = all.some(f => (f.tags || []).some(t => t === 'vegano' || t === 'vegan'));
+    // Sin gustos marcados no hay nada que filtrar: fila oculta.
+    if (!hasTacc && !hasVegan) {
+      el.style.display = 'none';
+      el.innerHTML = '';
+      if (this.activeDietFilter !== 'ALL') this.activeDietFilter = 'ALL';
+      return;
+    }
+    el.style.display = 'flex';
+    const pill = (key, label) => `
+      <button type="button" class="cat-pill${this.activeDietFilter === key ? ' active' : ''}"
+              data-icw-diet="${key}" aria-pressed="${this.activeDietFilter === key}">${label}</button>`;
+    el.innerHTML = pill('ALL', 'Todos')
+      + (hasTacc ? pill('NOTACC', '🌾 Sin TACC') : '')
+      + (hasVegan ? pill('VEGAN', '🌱 Vegano') : '');
+  }
+
   renderFlavors() {
     const el = document.getElementById('iceCreamFlavors');
     if (!el) return;
@@ -323,9 +400,9 @@ export class IceCreamWizard {
     }
 
     const all = this.getFlavorsList();
-    const list = this.activeFlavorCat === 'ALL'
-      ? all
-      : all.filter(f => (f.categoryName || 'Carta de la Casa') === this.activeFlavorCat);
+    const list = all
+      .filter(f => this.activeFlavorCat === 'ALL' || (f.categoryName || 'Carta de la Casa') === this.activeFlavorCat)
+      .filter(f => this.matchesDiet(f));
 
     if (!list.length) {
       el.innerHTML = '<p class="icw-hint">No hay sabores en esta categoría.</p>';
@@ -340,13 +417,18 @@ export class IceCreamWizard {
       const out = Boolean(f.outOfStock);
       const disabled = out || (!selected && count >= max);
       const tags = this.renderFlavorTags(f);
+      const surcharge = Math.max(0, Number(f.surcharge) || 0);
+      const photo = typeof f.photoUrl === 'string' && /^https?:\/\//i.test(f.photoUrl)
+        ? `<img src="${escapeHtml(f.photoUrl)}" alt="" loading="lazy" decoding="async" style="width:34px; height:34px; border-radius:8px; object-fit:cover; flex-shrink:0;" data-js-error-style-display="none">`
+        : '';
 
       return `
         <button type="button" class="icw-flavor${selected ? ' is-selected' : ''}${disabled ? ' is-disabled' : ''}"
                 data-icw-flavor="${escapeHtml(f.id)}" aria-pressed="${selected}" ${disabled ? 'disabled' : ''}>
           <span class="icw-flavor-check">${selected ? '✓' : ''}</span>
+          ${photo}
           <span class="icw-flavor-info">
-            <span class="icw-flavor-name">${escapeHtml(f.name)}</span>
+            <span class="icw-flavor-name">${escapeHtml(f.name)}${surcharge > 0 ? ` <span class="dish-badge" style="background:rgba(236,201,75,0.2); color:var(--chalk-gold); border:1px solid rgba(236,201,75,0.5);">+$${surcharge}</span>` : ''}</span>
             ${f.description ? `<span class="icw-flavor-desc">${escapeHtml(f.description)}</span>` : ''}
             ${tags ? `<span class="icw-flavor-tags">${tags}</span>` : ''}
           </span>
@@ -368,10 +450,7 @@ export class IceCreamWizard {
     const el = document.getElementById('iceCreamToppings');
     if (!el) return;
 
-    const groups = [
-      { title: 'Toppings', items: ICE_CREAM_TOPPINGS.filter(t => !t.id.startsWith('salsa')) },
-      { title: 'Salsas', items: ICE_CREAM_TOPPINGS.filter(t => t.id.startsWith('salsa')) }
-    ];
+    const groups = this.getToppingGroups();
 
     el.innerHTML = groups.filter(g => g.items.length).map(g => `
       <div class="icw-toppings-group">
@@ -453,7 +532,7 @@ export class IceCreamWizard {
     }).join(' + ');
 
     const toppingsDesc = Object.keys(this.selectedToppings).map(tId => {
-      const topping = ICE_CREAM_TOPPINGS.find(t => t.id === tId);
+      const topping = this.findTopping(tId);
       return topping ? topping.name : '';
     }).filter(Boolean).join(' + ');
 
@@ -484,6 +563,7 @@ export class IceCreamWizard {
     this.selectedFlavors = {};
     this.selectedToppings = {};
     this.activeFlavorCat = 'ALL';
+    this.activeDietFilter = 'ALL';
 
     this.render();
     const modal = document.getElementById('iceCreamWizardModal');

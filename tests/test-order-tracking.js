@@ -309,6 +309,122 @@ async function runTests() {
     assert.ok(studioJsSrc.includes('inputAllowMenuOrders'), 'Studio guarda/carga el flag de vitrina');
     console.log('✓ Frontend vitrina: carta sin +/carrito/grupo/stories-cart + toggle sin on*=');
 
+    // ── 9) Helado a medida punta a punta (el bug DISH_NOT_FOUND) ────────────
+    // Antes: el item sintético `icecream_*` moría en /quote y el armado no se
+    // podía pedir. Ahora el servidor recomputa contra la config del dueño.
+    const userC = await db.createUser({ email: `track-c-${Date.now()}@example.com`, password: 'test_password', email_confirmed_at: new Date().toISOString() });
+    const restC = await db.saveRestaurant(userC.id, {
+      name: 'Heladería Tracking', bizName: 'Heladería Tracking',
+      slug: `heladeria-${Date.now()}`,
+      businessType: 'heladeria',
+      allowIceCreamWizard: true,
+      phone: '59893333333',
+      currency: '$',
+      categories: [{ id: 'catH', name: 'Cremas' }],
+      dishes: [
+        { id: 'f-ddl', name: 'DDL', price: 0, categoryId: 'catH', iceCreamSurcharge: 0 },
+        { id: 'f-pist', name: 'Pistacho', price: 0, categoryId: 'catH', iceCreamSurcharge: 80 }
+      ],
+      iceCreamContainers: [{ id: 'cMio', name: 'Pote mío', price: 500, maxFlavors: 2, icon: '🍨' }],
+      iceCreamToppings: [{ id: 'tMia', name: 'Extra mía', price: 40, kind: 'topping' }]
+    });
+    const menuC = (await (await fetch(`${base}/api/menu/${restC.slug}`)).json()).restaurant;
+    assert.ok(Array.isArray(menuC.iceCreamContainers) && menuC.iceCreamContainers[0].id === 'cMio', '/api/menu expone los tamaños del dueño');
+    assert.ok(Array.isArray(menuC.iceCreamToppings) && menuC.iceCreamToppings[0].id === 'tMia', '/api/menu expone los toppings del dueño');
+    const iceBody = {
+      restaurantId: restC.id,
+      customerName: 'Heladero',
+      customerPhone: testPhone,
+      currency: '$',
+      items: [{
+        dishId: `icecream_${Date.now()}`,
+        quantity: 1,
+        customIceCream: { containerId: 'cMio', flavorIds: ['f-ddl', 'f-pist'], toppingIds: ['tMia'] }
+      }]
+    };
+    const iceQuote = await postJson('/api/orders/quote', iceBody);
+    assert.strictEqual(iceQuote.status, 200, '/quote cotiza el armado (ya no DISH_NOT_FOUND)');
+    assert.strictEqual((await iceQuote.json()).data.amount, 500 + 80 + 40, 'total autoritativo: tamaño + recargo + topping');
+    const iceOrder = await postJson('/api/orders', iceBody);
+    assert.strictEqual(iceOrder.status, 201, 'POST /api/orders acepta el armado');
+    assert.ok((await iceOrder.json()).data.trackingToken, 'el armado tiene tracking como cualquier pedido');
+    const iceBad = await postJson('/api/orders/quote', {
+      ...iceBody,
+      items: [{ dishId: 'icecream_x', quantity: 1, customIceCream: { containerId: 'nope', flavorIds: ['f-ddl'], toppingIds: [] } }]
+    });
+    assert.strictEqual(iceBad.status, 400, 'tamaño inválido → 400 honesto');
+    console.log('✓ Helado a medida punta a punta: quote + alta + tracking con precios del dueño');
+
+    // ── 10) Outbox mínima + idempotencia sin duplicar ───────────────────────
+    // Un pedido solo-local (insert cloud fallido) se marca cloudPending: el
+    // dueño lo ve fusionado en el listado y el boot lo repara. Y dos POST con
+    // la misma Idempotency-Key devuelven el MISMO pedido (el marcador ahora se
+    // persiste ANTES de responder, no en background).
+    const pendId = `ord_pend_${Date.now()}`;
+    const pendOrder = {
+      id: pendId, restaurant_id: restB.id, restaurantId: restB.id,
+      table_number: '9', tableNumber: '9', items_snapshot: [], itemsSnapshot: [],
+      amount: 100, total: 100, amount_in_cents: 10000, currency: '$', status: 'pending',
+      customer_name: 'Pen', customer_phone: '', created_at: new Date().toISOString()
+    };
+    await db.addOrder(pendOrder);
+    await db.markOrderCloudPending(pendId);
+    assert.ok(db.getCloudPendingOrders().some((o) => o.id === pendId), 'pedido marcado cloudPending');
+    // Mutex: 5 altas concurrentes no pierden escrituras en el espejo local.
+    const raceBase = Date.now();
+    await Promise.all([1, 2, 3, 4, 5].map((i) => db.addOrder({
+      ...pendOrder, id: `ord_race_${raceBase}_${i}`
+    })));
+    const raceRows = db.getOrders().filter((o) => String(o.id).startsWith(`ord_race_${raceBase}_`));
+    assert.strictEqual(raceRows.length, 5, '5 altas concurrentes = 5 filas (mutex)');
+    // El listado del dueño fusiona el pendiente aunque la nube tenga filas.
+    const listRes = await fetch(`${base}/api/orders/restaurant/${restB.id}`, { headers: authB });
+    assert.strictEqual(listRes.status, 200, 'listado del dueño responde 200');
+    const listBody = await listRes.json();
+    const merged = (listBody.data || []).find((o) => o.id === pendId);
+    assert.ok(merged && merged.cloudPending === true, 'pendiente fusionado y marcado en el listado');
+    console.log('✓ Outbox: pendiente visible para el dueño + altas concurrentes sin pérdida');
+    // Reparación: sube el pendiente a la nube (fila real, throwaway) y el
+    // listado lo muestra ya sin la marca.
+    const { getSupabaseClient } = require('../api/utils/supabase');
+    const repair = await db.repairCloudPendingOrders();
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      assert.ok(repair.repaired >= 1, 'reparación subió el pendiente a la nube');
+      const listRes2 = await fetch(`${base}/api/orders/restaurant/${restB.id}`, { headers: authB });
+      const merged2 = ((await listRes2.json()).data || []).find((o) => o.id === pendId);
+      assert.ok(merged2 && !merged2.cloudPending, 'reparado: fila cloud normal, sin marca');
+      await supabase.from('orders').delete().eq('id', pendId).then(() => {}, () => {});
+      console.log('✓ Reparación al boot: pendiente → fila cloud normal (throwaway limpiada)');
+    } else {
+      assert.deepStrictEqual(await db.repairCloudPendingOrders(), { repaired: 0, remaining: db.getCloudPendingOrders().length }, 'sin cloud: reparación no-op honesta');
+      console.log('✓ Reparación sin cloud: no-op honesto');
+    }
+    // Limpieza local de las filas throwaway (el guard de npm test también
+    // restaura data/, esto es para corridas individuales).
+    try {
+      const fsOrders = require('fs');
+      const ordersPath = path.join(__dirname, '..', 'data', 'orders.json');
+      const rows = JSON.parse(fsOrders.readFileSync(ordersPath, 'utf8'));
+      fsOrders.writeFileSync(ordersPath, JSON.stringify(rows.filter((o) => o.id !== pendId && !String(o.id).startsWith(`ord_race_${raceBase}_`)), null, 2));
+    } catch (e) { /* best-effort */ }
+    // Idempotencia: mismo key → mismo pedido, sin duplicar.
+    const idemKey = `idem-${Date.now()}`;
+    const idemBody = {
+      restaurantId: restA.id, customerName: 'Idem', customerPhone: testPhone,
+      currency: 'USD', items: [{ dishId: 'dish1', quantity: 1 }]
+    };
+    const idemHeaders = { 'Content-Type': 'application/json', 'X-Idempotency-Key': idemKey };
+    const idem1 = await postJson('/api/orders', idemBody, idemHeaders);
+    const idem2 = await postJson('/api/orders', idemBody, idemHeaders);
+    assert.strictEqual(idem1.status, 201, 'primer POST con key → 201');
+    assert.strictEqual(idem2.status, 201, 'retry con misma key → 201 (no error)');
+    const idemB1 = await idem1.json();
+    const idemB2 = await idem2.json();
+    assert.strictEqual(idemB2.data.id, idemB1.data.id, 'misma key = mismo pedido (sin duplicar)');
+    assert.strictEqual(idemB2.idempotent, true, 'el replay se declara idempotente');
+    console.log('✓ Idempotencia: retry con misma key devuelve el mismo pedido (marcador antes de responder)');
+
     console.log('\n🎉 ¡TODAS LAS VERIFICACIONES DE SEGUIMIENTO DEL PEDIDO PASARON!');
   } finally {
     // Limpieza real: el pedido acreditó fidelización para este teléfono único

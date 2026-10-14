@@ -10,7 +10,7 @@ const CLASSIC_THEMES = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'mode
 // Heladería: rubro de primera clase con estética propia (6 originales + 5 premium).
 // Un cliente heladería SOLO puede elegir estos 11 (el Studio los filtra y el
 // backend los impone: cualquier otro theme se corrige a helado-fiesta).
-const HELADERIA_THEMES = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora'];
+const HELADERIA_THEMES = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora', 'helado-crema'];
 const ALL_THEMES = [...CLASSIC_THEMES, ...HELADERIA_THEMES];
 // Estilos del botón "Armá tu helado artesanal" (CTA protagonista del menú).
 // 6 variantes premium, obviamente de heladería, elegibles por el dueño.
@@ -146,6 +146,9 @@ function sanitizeDish(d) {
     videoUrl: sanitizeVideoUrl(d.videoUrl || d.video || '', 500),
     outOfStock: Boolean(d.outOfStock),
     isChefSpecial: Boolean(d.isChefSpecial),
+    // Recargo premium en el armador de helado (ej: pistacho +$80). Solo lo usa
+    // la heladería; en el resto de la carta se ignora. Nunca negativo.
+    iceCreamSurcharge: Math.max(0, Math.min(1000000, parseFloat(d.iceCreamSurcharge) || 0)),
     weatherTags: Array.isArray(d.weatherTags)
       ? [...new Set(d.weatherTags.map(tag => String(tag)))].filter(tag => ALLOWED_WEATHER_TAGS.includes(tag))
       : [],
@@ -196,6 +199,56 @@ function sanitizeDeliveryZone(z) {
     name: sanitizeString(z.name || 'Zona', 60),
     fee: Math.max(0, parseFloat(z.fee) || 0)
   };
+}
+
+// Heladería: tamaños y toppings configurables por el dueño (el wizard cae a
+// los defaults de IceCreamPresets.js cuando el local no define los suyos).
+// Sin inventos: precios ≥ 0, maxFlavors entero 1..6, ids saneados.
+function sanitizeIceCreamContainer(c, idx) {
+  if (!c || typeof c !== 'object') return null;
+  const maxFlavors = parseInt(c.maxFlavors, 10);
+  return {
+    id: sanitizeString(c.id || generateId('cont_'), 40) || `cont_${idx}`,
+    name: sanitizeString(c.name || 'Tamaño', 40),
+    capacityLabel: sanitizeString(c.capacityLabel || '', 30),
+    maxFlavors: Number.isInteger(maxFlavors) ? Math.max(1, Math.min(6, maxFlavors)) : 1,
+    price: Math.max(0, Math.min(1000000, parseFloat(c.price) || 0)),
+    icon: sanitizeString(c.icon || '🍦', 8),
+    badge: sanitizeString(c.badge || '', 20)
+  };
+}
+
+function sanitizeIceCreamTopping(t, idx) {
+  if (!t || typeof t !== 'object') return null;
+  const kind = sanitizeString(t.kind || '', 10).toLowerCase();
+  return {
+    id: sanitizeString(t.id || generateId('top_'), 40) || `top_${idx}`,
+    name: sanitizeString(t.name || 'Topping', 60),
+    price: Math.max(0, Math.min(1000000, parseFloat(t.price) || 0)),
+    icon: sanitizeString(t.icon || '✨', 8),
+    kind: kind === 'salsa' ? 'salsa' : 'topping'
+  };
+}
+
+function sanitizeIceCreamContainers(arr) {
+  if (!Array.isArray(arr)) return undefined;
+  // Solo filas con nombre real: las vacías del editor se descartan.
+  const clean = arr
+    .filter(c => c && typeof c === 'object' && String(c.name || '').trim())
+    .slice(0, 12)
+    .map(sanitizeIceCreamContainer)
+    .filter(Boolean);
+  return clean.length ? clean : undefined;
+}
+
+function sanitizeIceCreamToppings(arr) {
+  if (!Array.isArray(arr)) return undefined;
+  const clean = arr
+    .filter(t => t && typeof t === 'object' && String(t.name || '').trim())
+    .slice(0, 30)
+    .map(sanitizeIceCreamTopping)
+    .filter(Boolean);
+  return clean.length ? clean : undefined;
 }
 
 function sanitizeEventConfigMenuSections(sections) {
@@ -350,6 +403,9 @@ function sanitizeRestaurantPayload(data) {
   // Layout
   const normLayout = sanitizeString(clean.layout, 20).toLowerCase().trim();
   clean.layout = ALLOWED_LAYOUTS.includes(normLayout) ? normLayout : 'classic';
+  // Barra de filtros del menú (fija / auto-oculta / compacta, default fija).
+  const normFilterBar = sanitizeString(clean.filterBarMode, 20).toLowerCase().trim();
+  clean.filterBarMode = ['fixed', 'autohide', 'compact'].includes(normFilterBar) ? normFilterBar : 'fixed';
   // Acento neón del layout Neon Nightbar (allowlist, default mint)
   const normNeon = sanitizeString(clean.neonAccent, 20).toLowerCase().trim();
   clean.neonAccent = NEON_ACCENT_KEYS.includes(normNeon) ? normNeon : 'mint';
@@ -368,6 +424,11 @@ function sanitizeRestaurantPayload(data) {
   // para que ningún payload viejo o manual cuele un theme de restaurante.)
   if (clean.businessType === 'heladeria' && !HELADERIA_THEMES.includes(clean.theme)) {
     clean.theme = 'helado-fiesta';
+  }
+  // Simétrico: un restaurante (o perfumería/evento) con theme de heladería
+  // vuelve a emerald (el Studio ya no los ofrece fuera de heladería).
+  if (clean.businessType !== 'heladeria' && HELADERIA_THEMES.includes(clean.theme)) {
+    clean.theme = 'emerald';
   }
   clean.eventDate = sanitizeString(clean.eventDate, 30);
   clean.eventType = sanitizeString(clean.eventType, 50);
@@ -415,6 +476,10 @@ function sanitizeRestaurantPayload(data) {
   // Coupons & Team
   clean.customCoupons = sanitizeCustomCoupons(clean.customCoupons);
   clean.teamMembers = sanitizeTeamMembers(clean.teamMembers);
+
+  // Heladería: tamaños y toppings del dueño (undefined = defaults del wizard).
+  clean.iceCreamContainers = sanitizeIceCreamContainers(clean.iceCreamContainers);
+  clean.iceCreamToppings = sanitizeIceCreamToppings(clean.iceCreamToppings);
 
   return clean;
 }

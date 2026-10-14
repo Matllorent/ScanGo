@@ -77,6 +77,20 @@ const ADMIN_KEY = process.env.ADMIN_KEY || 'pizarron_admin_master_key_2026';
 // Initialize Sentry for centralized error tracking (no-op if SENTRY_DSN not set)
 sentry.initSentry();
 
+// Un flip de suscripción (webhook/cron/admin) cambia el menú público
+// (pausado ↔ online): invalida la caché igual que POST /api/studio/save.
+// Registrado acá (capa HTTP) porque db.js no puede requerir api/middleware.
+if (db && typeof db.onSubscriptionChange === 'function') {
+  db.onSubscriptionChange(({ slug } = {}) => {
+    if (!slug) return;
+    try {
+      const { memoryCache } = require('./middleware/cache');
+      if (memoryCache) memoryCache.delete(slug);
+    } catch { /* best-effort */ }
+    invalidateMenuCache(slug).catch(() => {});
+  });
+}
+
 // Resolve public directory reliably across environments
 const fs = require('fs');
 let PUBLIC_DIR = path.resolve(__dirname, '..', 'public');
@@ -502,6 +516,8 @@ function buildDemoMenuResponse(typeOrSlug) {
     allowIceCreamWizard: demo.allowIceCreamWizard === true,
     iceCreamBuilderLabel: demo.iceCreamBuilderLabel || '',
     iceCreamButtonStyle: demo.iceCreamButtonStyle || 'fiesta',
+    iceCreamContainers: Array.isArray(demo.iceCreamContainers) ? demo.iceCreamContainers : null,
+    iceCreamToppings: Array.isArray(demo.iceCreamToppings) ? demo.iceCreamToppings : null,
     allowPerfumery: demo.allowPerfumery === true,
     wifi: demo.wifi || { ssid: '', password: '' },
     categories: demo.categories || [],
@@ -752,12 +768,16 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
         logoUrl: restaurant.logoUrl || null,
         bannerUrl: restaurant.bannerUrl || null,
         layout: restaurant.layout || 'classic',
+        filterBarMode: ['fixed', 'autohide', 'compact'].includes(restaurant.filterBarMode) ? restaurant.filterBarMode : 'fixed',
         // Verticales de negocio (no sensibles): el frontend las usa para el gating
         // de heladería/perfumería y la resolución de temas de eventos.
         businessType: restaurant.businessType || 'restaurant',
         allowIceCreamWizard: restaurant.allowIceCreamWizard === true,
         iceCreamBuilderLabel: restaurant.iceCreamBuilderLabel || '',
         iceCreamButtonStyle: restaurant.iceCreamButtonStyle || 'clasico',
+        // Heladería: tamaños y toppings del dueño (null = defaults del wizard).
+        iceCreamContainers: Array.isArray(restaurant.iceCreamContainers) ? restaurant.iceCreamContainers : null,
+        iceCreamToppings: Array.isArray(restaurant.iceCreamToppings) ? restaurant.iceCreamToppings : null,
         allowPerfumery: restaurant.allowPerfumery === true,
         wifi: restaurant.wifi || { ssid: '', password: '' },
         categories: publicCategories,
@@ -904,9 +924,10 @@ app.post('/api/billing/checkout', authMiddleware, checkSubscriptionKillSwitch, a
 app.post('/api/billing/webhook/:provider', async (req, res) => {
   try {
     const provider = req.params.provider;
-    // Mercado Pago entrega el secreto por query string (notification_url)
+    // Mercado Pago entrega el secreto por query string (notification_url).
+    // Comparación en tiempo constante (mismo criterio que ADMIN_KEY).
     const expectedSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
-    if (provider === 'mercadopago' && expectedSecret && req.query.secret !== expectedSecret) {
+    if (provider === 'mercadopago' && expectedSecret && !timingSafeEqualHex(req.query.secret, expectedSecret)) {
       return res.status(401).json({ error: 'Webhook secret inválido', code: 'WEBHOOK_SECRET_INVALID' });
     }
     // Fail-closed en prod: sin secreto configurado no se acepta nada de MP.
@@ -924,8 +945,9 @@ app.post('/api/billing/webhook/:provider', async (req, res) => {
     sentry.captureException(e, {
       source: 'webhooks.provider',
       level: 'error',
+      // Sin query en tags: el notification_url de MP trae ?secret= en la URL.
       tags: { provider: req.params.provider },
-      extra: { path: req.originalUrl }
+      extra: { path: String(req.originalUrl || '').split('?')[0] }
     });
     res.status(400).json({ error: e.message });
   }
@@ -954,7 +976,9 @@ function timingSafeEqualHex(a, b) {
 app.post('/api/admin/login', adminLimiter, (req, res) => {
   const { key, adminKey, totp } = req.body || {};
   const providedKey = key || adminKey || req.headers['x-admin-key'];
-  const adminTotpSecret = process.env.ADMIN_TOTP_SECRET || 'JBSWY3DPEHPK3PXP';
+  // Fail-closed: sin ADMIN_TOTP_SECRET no hay 2FA posible (nunca un secreto
+  // default: sería público y el "2FA" no autenticaría nada).
+  const adminTotpSecret = process.env.ADMIN_TOTP_SECRET || '';
 
   if (timingSafeEqualHex(providedKey, ADMIN_KEY)) {
     const cleanTotp = (totp ? String(totp) : '').trim();
@@ -1037,16 +1061,40 @@ app.get('/api/admin/overview', adminMiddleware, async (req, res) => {
       }
     }
 
-    // If Supabase wasn't connected or errored, use clean local store (no mocks)
-    if (!restaurants.length) {
+    // Fuente dual: la nube es eventualmente consistente (los writes van en
+    // background) y puede estar atrás de altas locales de hace ms; el local
+    // es sincrónico pero efímero en Vercel. Se fusionan por id (local gana
+    // conflictos) en vez de preferir una sola fuente. Antes: si la nube tenía
+    // filas se IGNORABA todo lo local → el overview daba plata/mes 0 para
+    // restaurantes creados hace ms (rompió test-admin-panel al reparar el
+    // dual-write, que llenó la nube con filas viejas).
+    {
       const localR = db.getAllRestaurants();
       if (Array.isArray(localR) && localR.length) {
+        const byId = new Map();
+        for (const r of restaurants) {
+          if (r && r.id) byId.set(String(r.id), r);
+        }
+        for (const r of localR) {
+          if (r && r.id) byId.set(String(r.id), r);
+        }
+        restaurants = [...byId.values()];
+      } else if (!restaurants.length && Array.isArray(localR)) {
         restaurants = localR;
       }
     }
-    if (!users.length) {
+    {
       const localU = db.getAllUsers();
       if (Array.isArray(localU) && localU.length) {
+        const byId = new Map();
+        for (const u of users) {
+          if (u && u.id) byId.set(String(u.id), u);
+        }
+        for (const u of localU) {
+          if (u && u.id) byId.set(String(u.id), u);
+        }
+        users = [...byId.values()];
+      } else if (!users.length && Array.isArray(localU)) {
         users = localU;
       }
     }
@@ -1315,7 +1363,7 @@ app.get('/api/public/captcha-config', (req, res) => {
 // proyección derivada que se recalcula acá, nunca se incrementan a mano.
 app.post('/api/public/analytics/event', publicAnalyticsLimiter, async (req, res) => {
   try {
-    const { slug, event, dishId, branchId, amount, items } = req.body || {};
+    const { slug, event, dishId, branchId, amount, items, consent } = req.body || {};
     if (!slug || !event) return res.status(400).json({ error: 'slug y event requeridos' });
     const validEvents = ['visit', 'order', 'reservation', 'waiter', 'dish_click', 'order_placed', 'google_review_click', 'private_feedback', 'review_nudge_accept', 'dish_like'];
     if (!validEvents.includes(event)) return res.status(400).json({ error: 'Evento inválido' });
@@ -1330,6 +1378,20 @@ app.post('/api/public/analytics/event', publicAnalyticsLimiter, async (req, res)
       if (isDemoSlug(slug)) return res.json({ success: true, demo: true });
       return res.status(404).json({ error: 'Restaurante no encontrado' });
     }
+    // Consentimiento (Ley 18.331 / cookies): con 'necessary' solo se registra
+    // lo contractual (el pedido/reserva/aviso que el local necesita operar);
+    // lo puramente analítico se descarta con 200 honesto (sin persistir).
+    // Sin consentimiento declarado se mantiene el comportamiento actual.
+    const CONTRACTUAL_EVENTS = new Set(['order_placed', 'reservation', 'waiter_call']);
+    const canonicalPre = event === 'order' || event === 'order_placed'
+      ? 'order_placed'
+      : event === 'waiter'
+        ? 'waiter_call'
+        : event;
+    const minimalConsent = consent === 'necessary';
+    if (minimalConsent && !CONTRACTUAL_EVENTS.has(canonicalPre)) {
+      return res.json({ success: true, recorded: false, reason: 'CONSENT_NECESSARY' });
+    }
     // dish_like de un plato que no es de la carta: voto fantasma (inflaría el
     // feed de otro local). Se valida pertenencia antes de persistir.
     if (event === 'dish_like') {
@@ -1340,12 +1402,16 @@ app.post('/api/public/analytics/event', publicAnalyticsLimiter, async (req, res)
     // Telemetría rica: alimenta ticket promedio, top platos y comparativa de
     // sucursales. Los valores se sanean (cadenas cortas; amount numérico 0..1e9;
     // items de pedidos con dishId ≤80 y qty 1..999, máximo 100 por pedido).
+    // Con consentimiento mínimo ('necessary') el metadata se reduce a la fuente
+    // (sin montos ni detalle de ítems): alcanza para operar, no para perfilar.
     const cleanAmount = Number(amount);
     const safeAmount = Number.isFinite(cleanAmount) && cleanAmount >= 0 && cleanAmount <= 1e9
       ? cleanAmount
       : undefined;
-    const metadata = { amount: safeAmount, source: 'public_menu' };
-    if (event === 'order_placed' && Array.isArray(items)) {
+    const metadata = minimalConsent
+      ? { source: 'public_menu' }
+      : { amount: safeAmount, source: 'public_menu' };
+    if (event === 'order_placed' && Array.isArray(items) && !minimalConsent) {
       const safeItems = items
         .slice(0, 100)
         .map(it => ({
@@ -1355,21 +1421,19 @@ app.post('/api/public/analytics/event', publicAnalyticsLimiter, async (req, res)
         .filter(it => it.dishId);
       if (safeItems.length) metadata.items = safeItems;
     }
-    const canonicalType = event === 'order' || event === 'order_placed'
-      ? 'order_placed'
-      : event === 'waiter'
-        ? 'waiter_call'
-        : event;
     await telemetryService.recordEventSync({
       restaurantId: restaurant.id,
-      eventType: canonicalType,
+      eventType: canonicalPre,
       dishId: dishId ? String(dishId).slice(0, 80) : undefined,
       branchId: branchId ? String(branchId).slice(0, 80) : undefined,
       metadata
     });
 
     // Proyección legacy derivada de la telemetría (queda sincronizada con todo
-    // lo que pasa por /track y por el menú público).
+    // lo que pasa por /track y por el menú público). Se recalcula por evento:
+    // los contadores del dueño deben estar frescos y los tests lo exigen.
+    // El control de carga de este camino es el rate-limit por slug (120/15min)
+    // + el scan acotado a la única columna que usa la proyección.
     const analytics = await telemetryService.countAnalytics(restaurant.id);
     await db.setAnalyticsSnapshot(slug, analytics);
 
@@ -1781,8 +1845,11 @@ app.get('/m/:slug', (req, res) => {
     );
     // ETag + CDN cache del SSR público: revalidación barata para crawlers/CDN
     // sin cambiar contenido ni CSP. La clave incluye updatedAt/createdAt para
-    // invalidar al editar la carta.
-    const menuEtag = 'W/"m-' + restaurant.slug + '-' + (restaurant.updatedAt || restaurant.createdAt || '') + '-' + html.length + '"';
+    // invalidar al editar la carta, MÁS subscription.updatedAt: un flip de
+    // suscripción por webhook/cron también cambia el HTML (menú pausado ↔
+    // online) y sin esto el navegador/CDN respondería 304 con lo viejo.
+    const subTs = (restaurant.subscription && restaurant.subscription.updatedAt) || '';
+    const menuEtag = 'W/"m-' + restaurant.slug + '-' + (restaurant.updatedAt || restaurant.createdAt || '') + '-' + subTs + '-' + html.length + '"';
     res.setHeader('ETag', menuEtag);
     res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
     if (req.headers['if-none-match'] === menuEtag) {

@@ -32,7 +32,7 @@ function tenantGuard(req, res, next) {
     logger.warn('[IDOR Attempt Blocked: orphan account]', {
       userId: req.user.userId,
       targetTenantId,
-      path: req.originalUrl
+      path: String(req.originalUrl || '').split('?')[0]
     });
     return res.status(403).json({
       success: false,
@@ -47,7 +47,7 @@ function tenantGuard(req, res, next) {
       userId: req.user.userId,
       userTenantId: userRestaurant.id,
       targetTenantId,
-      path: req.originalUrl
+      path: String(req.originalUrl || '').split('?')[0]
     });
     return res.status(403).json({
       success: false,

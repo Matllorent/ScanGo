@@ -76,7 +76,7 @@ async function idempotencyMiddleware(req, res, next) {
 
   // Intercept res.json to cache response payload for future retries
   const originalJson = res.json.bind(res);
-  res.json = function (body) {
+  res.json = async function (body) {
     if (res.statusCode >= 200 && res.statusCode < 300) {
       evictIdempotencyEntries();
       idempotencyStore.set(cleanKey, {
@@ -85,11 +85,17 @@ async function idempotencyMiddleware(req, res, next) {
         expiresAt: Date.now() + 24 * 3600 * 1000 // 24 hours TTL
       });
 
-      // Persistencia del marcador de idempotencia: el interceptor de res.json es
-      // síncrono, así que solo se puede lanzar en background con catch explícito
-      // (un rejection sin catch tumbaría el proceso durante un webhook de pago).
-      db.markWebhookProcessed(provider, cleanKey, 'idempotent_operation', req.body)
-        .catch((e) => logger.warn('[Idempotency] markWebhookProcessed failed', { details: e.message }));
+      // Persistencia del marcador de idempotencia: se espera ANTES de
+      // responder (no fire-and-forget). Si el proceso muere entre el 201 y
+      // el mark, el retry del cliente crearía un duplicado: esa es exactamente
+      // la ventana que esto cierra. La escritura local es ~ms; el cloud sigue
+      // en background dentro de markWebhookProcessed. Nunca rompe la
+      // respuesta: un fallo acá solo loguea.
+      try {
+        await db.markWebhookProcessed(provider, cleanKey, 'idempotent_operation', req.body);
+      } catch (e) {
+        logger.warn('[Idempotency] markWebhookProcessed failed', { details: e.message });
+      }
     }
     return originalJson(body);
   };

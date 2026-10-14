@@ -581,10 +581,20 @@
                   <span id="neonCustomHexLabel" style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">#00f5d4</span>
                 </div>
               </div>
+              <!-- Barra de filtros (buscador + pills): fija, auto-oculta o compacta -->
+              <div style="margin-top:10px;">
+                <label class="form-label" for="inputFilterBarMode">🎛️ Barra de Filtros del Menú</label>
+                <select id="inputFilterBarMode" class="form-select" data-js-change="updateLiveState" style="font-size:11px;">
+                  <option value="fixed">📌 Fija (siempre visible)</option>
+                  <option value="autohide">👻 Se oculta al bajar (reaparece al subir)</option>
+                  <option value="compact">🗜️ Compacta (pills chicos, una fila con scroll)</option>
+                </select>
+                <div class="input-hint" style="margin-top:4px;">Probala por link con <code>?filterbar=autohide</code> o <code>?filterbar=compact</code> sin guardar.</div>
+              </div>
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="inputThemeBg">Fondo y Paleta del Pizarrón <span id="themeCountHint" style="font-weight:400; opacity:.7;">(17 clásicas + 11 de heladería)</span></label>
+              <label class="form-label" for="inputThemeBg">Fondo y Paleta del Pizarrón <span id="themeCountHint" style="font-weight:400; opacity:.7;">(17 clásicas; las 11 de heladería solo en ese rubro)</span></label>
               <select id="inputThemeBg" class="form-select" data-js-change="updateLiveState">
                 <option value="classic">1. Pizarrón Clásico Negro Grafito (Tiza Blanca)</option>
                 <option value="emerald" selected>2. Pizarrón Verde Bistro Esmeralda (Bistró Pomelli)</option>
@@ -605,6 +615,7 @@
                 <option value="ticket">17. 🧾 Ticket Térmico (Recibo de mostrador: papel dentado, monoespaciada y sellos)</option>
                 <optgroup label="🍦 Heladería & Postres — Entretenidos y coloridos">
                   <option value="helado-fiesta">🍨 Fiesta de Helado (Confeti sobre blanco, familiar y alegre)</option>
+                  <option value="helado-crema">🍦 Gelato Crema (Crema, menta y rosa bottega, lluvia de dots)</option>
                   <option value="helado-menta">🍃 Menta Granizada (Verde menta + chips de chocolate)</option>
                   <option value="helado-tropical">🥭 Sorbete Tropical (Mango, coral y turquesa de verano)</option>
                   <option value="helado-fresa">🍓 Fresa & Crema (Rosa frutilla sobre chantilly)</option>
@@ -777,6 +788,10 @@
                   <option value="noche">🌙 Noche de Chocolate (cacao oscuro + brillo oro)</option>
                 </select>
                 <div class="input-hint">Cada estilo se ve al instante en el menú: elegí el que mejor combine con tu estética.</div>
+              </div>
+              <div>
+                <button type="button" class="btn-nav btn-nav-gold" data-js-click="openIceCreamConfigModal" style="font-size:11px; padding:6px 12px; margin-top:6px;">🍨 Tamaños, precios y toppings</button>
+                <div class="input-hint">Tus potes (1/4, 1/2, 1 kg…), cuánto sale cada uno y tus agregados con precio.</div>
               </div>
             </div>
 
@@ -1605,6 +1620,34 @@
     </div>
   </div>
 
+  <!-- Modal Tamaños, Precios y Toppings de Heladería (config del dueño) -->
+  <div id="iceCreamConfigModal" class="modal-overlay">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="iceCreamConfigTitle" style="max-width: 640px; text-align: left;">
+      <button class="modal-close" data-js-click="closeIceCreamConfigModal" aria-label="Cerrar">✕</button>
+      <h3 class="modal-title" id="iceCreamConfigTitle" style="display:flex; align-items:center; gap:8px;">
+        <span>🍨 Tamaños, Precios y Toppings</span>
+      </h3>
+      <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px;">
+        Lo que el comensal arma en "Armá tu helado". Vacío = valores originales. Se guarda con el local.
+      </p>
+
+      <h4 style="font-size:12px; color:#fff; margin:12px 0 6px;">🥣 Tamaños (precio + sabores que admite)</h4>
+      <div id="iceCreamContainersRows" style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;">
+        <!-- Renderizado dinámicamente con JS -->
+      </div>
+      <button type="button" class="btn-nav" data-js-click="addIceCreamContainer" style="font-size:11px; padding:4px 10px; margin-bottom:8px;">＋ Agregar tamaño</button>
+
+      <h4 style="font-size:12px; color:#fff; margin:12px 0 6px;">✨ Toppings y salsas (precio adicional)</h4>
+      <div id="iceCreamToppingsRows" style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;">
+        <!-- Renderizado dinámicamente con JS -->
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button type="button" class="btn-nav" data-js-click="addIceCreamTopping" style="font-size:11px; padding:4px 10px;">＋ Agregar topping</button>
+        <button type="button" class="btn-nav" data-js-click="resetIceCreamConfig" style="font-size:11px; padding:4px 10px; border-color:#E53E3E; color:#F87171;">↩ Volver a valores originales</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Catálogo de Perfumería & Cosmética -->
   <div id="perfumeryPresetsModal" class="modal-overlay" data-business-type="perfumery">
     <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="perfumeryPresetsTitle" style="max-width: 650px;">
@@ -1659,6 +1702,12 @@
             <label class="form-label" for="modalDishOriginalPrice">Precio Anterior (Tachado)</label>
             <input type="number" id="modalDishOriginalPrice" class="form-input" step="0.01" min="0" placeholder="Ej: 590 (Opcional)">
           </div>
+        </div>
+
+        <div class="form-group" id="dishSurchargeGroup" style="display:none; margin-bottom:14px;">
+          <label class="form-label" for="modalDishSurcharge">🍨 Recargo premium en el armador (heladería)</label>
+          <input type="number" id="modalDishSurcharge" class="form-input" step="1" min="0" placeholder="Ej: 80 (0 = sin recargo)">
+          <div class="input-hint">Solo para gustos: se suma al total cuando el comensal elige este sabor (ej: pistacho +$80). En el resto de la carta se ignora.</div>
         </div>
 
         <div class="form-group">

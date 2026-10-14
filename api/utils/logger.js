@@ -15,6 +15,9 @@ const logger = {
       ...(meta.statusCode ? { statusCode: meta.statusCode } : {}),
       ...(meta.responseTime ? { responseTime: `${meta.responseTime}ms` } : {}),
       ...(meta.tenantId ? { tenantId: meta.tenantId } : {}),
+      // Slug del menú (path param, nunca query): permite atribuir un pico de
+      // tráfico a un local sin exponer datos del comensal (noisy neighbor).
+      ...(meta.slug ? { slug: String(meta.slug).slice(0, 80) } : {}),
       ...(meta.details ? { details: meta.details } : {}),
       ...(meta.stack ? { stack: meta.stack } : {})
     });

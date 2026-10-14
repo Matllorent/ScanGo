@@ -244,6 +244,14 @@ async function runTests() {
     assert.ok(hzBody.latency.groups.api.count >= 1, 'los requests del test ya alimentaron percentiles reales');
     assert.ok(typeof hzBody.latency.groups.api.p95 === 'number', 'p95 tiene un valor numérico');
     console.log('✓ F: LatencyTracker (p50/p95/p99) + /api/healthz expone latency real');
+    // F2) Observabilidad por local: el log HTTP lleva el slug (path param, no
+    // PII) para atribuir picos sin exponer datos del comensal (noisy neighbor).
+    const logger = require('../api/utils/logger');
+    const withSlug = JSON.parse(logger.formatLog('info', 'HTTP Request', { path: '/api/menu/demo', slug: 'demo' }));
+    assert.strictEqual(withSlug.slug, 'demo', 'el slug viaja en el log');
+    const noSlug = JSON.parse(logger.formatLog('info', 'HTTP Request', { path: '/api/healthz' }));
+    assert.ok(!('slug' in noSlug), 'sin slug no hay campo fantasma');
+    console.log('✓ F2: logs HTTP con slug por local (atribución sin PII)');
 
     // ── B (cron): el endpoint de retención responde según el entorno real ────
     // Con CRON_SECRET configurado (como el .env del dueño) el cron falla
@@ -259,6 +267,7 @@ async function runTests() {
       const cronBody = await authed.json();
       assert.strictEqual(cronBody.success, true);
       assert.ok(cronBody.cutoff, 'con cutoff ISO presente');
+      assert.ok(cronBody.audit && typeof cronBody.audit.cutoff === 'string', 'purga de audit_logs reportada (dry-run)');
       console.log('✓ B: cron de retención fail-closed (401 sin secreto, 200 con x-cron-secret)');
     } else {
       const cron = await fetch(cronUrl);
@@ -266,6 +275,7 @@ async function runTests() {
       const cronBody = await cron.json();
       assert.strictEqual(cronBody.success, true);
       assert.ok(cronBody.cutoff, 'con cutoff ISO presente');
+      assert.ok(cronBody.audit && typeof cronBody.audit.cutoff === 'string', 'purga de audit_logs reportada (dry-run)');
       console.log('✓ B: cron /api/cron/telemetry-retention operativo (dry-run)');
     }
   } finally {

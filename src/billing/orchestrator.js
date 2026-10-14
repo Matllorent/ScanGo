@@ -292,7 +292,21 @@ const billingOrchestrator = {
     if (!provider) throw new AppError('Proveedor de pagos no soportado: ' + providerName, 400, 'PAYMENT_PROVIDER_UNSUPPORTED');
 
     const appUrl = (process.env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
-    const successUrl = returnUrl || `${appUrl}/studio?billing=success`;
+    // Anti open-redirect: el returnUrl solo puede ser misma-app (relativo o
+    // mismo origen que APP_URL). Hoy ninguna ruta lo manda (siempre default),
+    // pero si se expone, un valor atacante redirigiría al dueño tras pagar.
+    let successUrl = `${appUrl}/studio?billing=success`;
+    if (typeof returnUrl === 'string' && returnUrl) {
+      const clean = returnUrl.trim();
+      if (clean.startsWith('/')) {
+        successUrl = appUrl + clean;
+      } else {
+        try {
+          const appOrigin = new URL(appUrl).origin;
+          if (new URL(clean).origin === appOrigin) successUrl = clean;
+        } catch { /* URL inválida → default */ }
+      }
+    }
     const cancelUrl = `${appUrl}/studio?billing=canceled`;
     const restaurant = db.findRestaurantById(restaurantId);
 

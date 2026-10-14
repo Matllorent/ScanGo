@@ -419,8 +419,8 @@
       box-shadow: 0 12px 30px rgba(14, 154, 160, 0.5);
     }
     body.theme-smash-urban .a11y-bar {
-      background: rgba(14, 154, 160, 0.08);
-      border-color: rgba(14, 154, 160, 0.35);
+      background: transparent;
+      border: none;
       color: #0B6B70;
     }
     body.theme-smash-urban .btn-a11y-tts {
@@ -641,8 +641,8 @@
       box-shadow: 0 16px 50px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.30);
     }
     body.theme-glass-gastro .a11y-bar {
-      background: rgba(34, 211, 238, 0.10);
-      border-color: rgba(34, 211, 238, 0.35);
+      background: transparent;
+      border: none;
       color: #7DD3FC;
     }
     body.theme-glass-gastro .btn-a11y-tts { border-color: rgba(34, 211, 238, 0.45); color: #7DD3FC; }
@@ -829,8 +829,8 @@
       font-family: 'IBM Plex Mono', ui-monospace, monospace;
     }
     body.theme-ticket .a11y-bar {
-      background: #FFFFFF;
-      border: 1.5px dashed #1C1917;
+      background: transparent;
+      border: none;
       color: #57534E;
     }
     body.theme-ticket .btn-a11y-tts { border-color: #1C1917; color: #1C1917; }
@@ -895,6 +895,45 @@
         radial-gradient(circle at 86% 24%, rgba(76, 201, 240, 0.10) 0%, transparent 32%),
         radial-gradient(circle at 22% 82%, rgba(255, 210, 63, 0.12) 0%, transparent 30%),
         radial-gradient(circle at 80% 84%, rgba(184, 146, 240, 0.10) 0%, transparent 32%);
+    }
+
+    /* GELATO CREMA — crema, menta, rosa y chocolate (bottega artigianale):
+       claro cálido, serif expresiva, tarjetas redondeadas y lluvia de dots. */
+    body.theme-helado-crema {
+      --bg-chalkboard: #FAF3E0;
+      --surface-card: #FFFDF9;
+      --surface-card-hover: #FDF6E4;
+      --chalk-gold: #D9777F;
+      --chalk-gold-dim: rgba(217, 119, 127, 0.14);
+      --border-gold: rgba(217, 119, 127, 0.35);
+      --chalk-mint: #5FA98F;
+      --chalk-white: #3D2C29;
+      --chalk-muted: #7A5C50;
+      --chalk-dim: #97816F;
+      --chalk-gold-ink: #B44A52;
+      --border-chalk: rgba(61, 44, 41, 0.10);
+      background-color: #FAF3E0;
+    }
+    body.theme-helado-crema .restaurant-title { color: #B44A52; }
+    body.theme-helado-crema .dish-name { color: #3D2C29; }
+    body.theme-helado-crema .dish-badge { --chalk-gold: #D9777F; }
+    body.theme-helado-crema .category-title { color: #B44A52; }
+    body.theme-helado-crema .cat-pill { border-color: rgba(61, 44, 41, 0.12); }
+    body.theme-helado-crema .empty-state-card { border-color: rgba(61, 44, 41, 0.10); }
+    body.theme-helado-crema .empty-state-icon { color: #D9777F; }
+    body.theme-helado-crema .dish-card { border-radius: 18px; box-shadow: 0 2px 12px rgba(217, 119, 127, 0.08); }
+    body.theme-helado-crema::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      background-image:
+        radial-gradient(rgba(232, 165, 184, 0.35) 1px, transparent 1px),
+        radial-gradient(rgba(163, 217, 201, 0.35) 1px, transparent 1px),
+        radial-gradient(circle at 88% 12%, rgba(217, 119, 127, 0.10) 0%, transparent 30%),
+        radial-gradient(circle at 8% 88%, rgba(95, 169, 143, 0.10) 0%, transparent 30%);
+      background-size: 40px 40px, 40px 40px, auto, auto;
+      background-position: 0 0, 20px 20px, 0 0, 0 0;
     }
 
     /* MENTA GRANIZADA — verde menta con chips de chocolate: fresco y juguetón */
@@ -1938,14 +1977,14 @@
     .a11y-bar {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      background: rgba(236, 201, 75, 0.08);
-      border: 1px dashed var(--border-gold);
-      border-radius: 8px;
-      padding: 6px 12px;
+      justify-content: flex-end;
+      gap: 8px;
+      background: transparent;
+      border: none;
+      padding: 2px 0;
       font-size: 0.78rem;
-      color: var(--chalk-gold-ink, var(--chalk-gold));
-      margin-bottom: 16px;
+      color: var(--chalk-dim);
+      margin-bottom: 10px;
     }
     .btn-a11y-tts {
       background: transparent;
@@ -5077,9 +5116,9 @@
       box-shadow: 0 2px 8px rgba(17, 24, 39, 0.05);
     }
     body.layout-delivery .a11y-bar {
-      background: #FFFFFF !important;
-      border: 1px solid #EDEEF1 !important;
-      color: #374151 !important;
+      background: transparent !important;
+      border: none !important;
+      color: #6B7280 !important;
     }
     body.layout-delivery .empty-state-card {
       background: #FFFFFF !important;
@@ -5586,3 +5625,31 @@
     @media (prefers-reduced-motion: reduce) {
       .dish-card.st-flash { animation: none; }
     }
+    /* ── Barra de filtros configurable (fija / auto-oculta / compacta) ──
+       El dueño elige en Studio → Estética. `filter-collapse` marca los 4
+       bloques (buscador, historias, categorías, dieta). */
+    body.filter-autohide .filter-collapse {
+      max-height: 220px;
+      opacity: 1;
+      transition: max-height .32s ease, opacity .25s ease, margin .32s ease, padding .32s ease, visibility 0s;
+    }
+    body.filter-autohide.filter-hidden .filter-collapse {
+      max-height: 0;
+      opacity: 0;
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      visibility: hidden;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      body.filter-autohide .filter-collapse { transition: none; }
+    }
+    /* Compacta: todo más chico en una sola fila con scroll horizontal. */
+    body.filter-compact .category-nav-wrapper { margin-bottom: 6px; gap: 6px; }
+    body.filter-compact .cat-nav-icon-btn { width: 30px; height: 30px; font-size: 0.85rem; border-radius: 8px; }
+    body.filter-compact .cat-pill { padding: 3px 10px; font-size: 0.72rem; }
+    body.filter-compact #dietaryFilterPills { padding-top: 2px; gap: 4px; }
+    body.filter-compact .stories-tray { margin: 0 0 6px; gap: 6px; }
+    body.filter-compact .stories-tray-title { display: none; }
+    body.filter-compact .search-box { padding: 7px 12px; font-size: 0.82rem; }

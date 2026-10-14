@@ -314,6 +314,19 @@ async function runTests() {
   assert.strictEqual(renewedRes.status, 'active', 'evento posterior se aplica normal');
   console.log('✓ Guard de recency: un evento más nuevo sigue aplicándose normal');
 
+  // ── 8) Anti-fuga de secretos + anti open-redirect (revisión breaches) ────
+  const fs = require('fs');
+  const path = require('path');
+  const apiSrc = fs.readFileSync(path.join(__dirname, '../api/index.js'), 'utf8');
+  assert.ok(apiSrc.includes('timingSafeEqualHex(req.query.secret, expectedSecret)'), 'webhook MP compara el secreto en tiempo constante');
+  assert.ok(apiSrc.includes("split('?')[0]"), 'Sentry nunca recibe la query (?secret= del webhook MP)');
+  assert.ok(!/extra:\s*\{\s*path:\s*req\.originalUrl\s*\}/.test(apiSrc), 'ningún extra de Sentry lleva originalUrl cruda');
+  const orchSrc = fs.readFileSync(path.join(__dirname, '../src/billing/orchestrator.js'), 'utf8');
+  assert.ok(orchSrc.includes('new URL(clean).origin === appOrigin'), 'returnUrl solo misma-app (anti open-redirect tras pagar)');
+  const menuHtml = fs.readFileSync(path.join(__dirname, '../public/menu.html'), 'utf8');
+  assert.ok(menuHtml.includes('@supabase/supabase-js@2.116.0'), 'supabase-js con pin exacto (no flotante)');
+  console.log('✓ Webhook MP: secreto en tiempo constante + sin query en Sentry; returnUrl misma-app; CDN pinneado');
+
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE BILLING PASARON EXITOSAMENTE AL 100%!\n');
 }
 

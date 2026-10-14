@@ -418,6 +418,101 @@ async function runMenuComponentizationTests() {
   assert.ok(wizardSrc.includes("line.textContent = 'Elegí un tamaño para empezar'"), 'El resumen debe pedir el tamaño primero');
   console.log('✓ Armador de helado: sabores y toppings recién aparecen tras elegir el tamaño');
 
+  // 15b. Heladería: tamaños y toppings configurables por el dueño
+  const { sanitizeRestaurantPayload } = require('../api/utils/sanitizeRestaurant');
+  const cleanIce = sanitizeRestaurantPayload({
+    name: 'Heladería Test',
+    iceCreamContainers: [
+      { id: 'c1', name: 'Pote 1/2 kg', price: 520, maxFlavors: 3, icon: '🍨', badge: 'Familiar' },
+      { name: '', price: 999 }, // fila vacía del editor → descartada
+      { name: 'Vaso', price: -50, maxFlavors: 99 }, // precio negativo → 0, max clamp 6
+      null
+    ],
+    iceCreamToppings: [
+      { id: 't1', name: 'Granola sin TACC', price: 70, icon: '🌾', kind: 'topping' },
+      { name: 'Salsa de frutos', price: 50, kind: 'salsa' },
+      { name: '', price: 10 }, // vacía → descartada
+      { name: '<script>alert(1)</script>', price: 10 } // se escapa al renderizar, no acá
+    ]
+  });
+  assert.strictEqual(cleanIce.iceCreamContainers.length, 2, 'Filas vacías descartadas, válidas preservadas');
+  assert.strictEqual(cleanIce.iceCreamContainers[0].price, 520, 'Precio del dueño preservado');
+  assert.strictEqual(cleanIce.iceCreamContainers[1].price, 0, 'Precio negativo → 0');
+  assert.strictEqual(cleanIce.iceCreamContainers[1].maxFlavors, 6, 'maxFlavors clamp a 6');
+  assert.strictEqual(cleanIce.iceCreamToppings.length, 3, 'Toppings válidos (incluido el de nombre con HTML)');
+  assert.strictEqual(cleanIce.iceCreamToppings[1].kind, 'salsa', 'kind salsa preservado');
+  const cleanIceEmpty = sanitizeRestaurantPayload({ name: 'X' });
+  assert.strictEqual(cleanIceEmpty.iceCreamContainers, undefined, 'Sin config = undefined (el wizard usa defaults)');
+  assert.strictEqual(cleanIceEmpty.iceCreamToppings, undefined, 'Sin config = undefined (el wizard usa defaults)');
+  // Wizard con config del dueño: opciones + fallback (asserts de fuente, mismo
+  // estilo del §15: la clase toca DOM y su import absoluto '/js/...' solo
+  // resuelve en el navegador, no en Node).
+  assert.ok(wizardSrc.includes('customContainers'), 'El wizard acepta tamaños del dueño');
+  assert.ok(wizardSrc.includes('customToppings'), 'El wizard acepta toppings del dueño');
+  assert.ok(wizardSrc.includes('this.customContainers || ICE_CREAM_CONTAINERS'), 'Sin config: defaults originales');
+  assert.ok(wizardSrc.includes('getToppingGroups'), 'Agrupación por kind con fallback al prefijo');
+  assert.ok(wizardSrc.includes('Number(top.price) || 0'), 'Total con precios del dueño (sin NaN)');
+  assert.ok(menuModulesSrc.includes('customContainers') && menuModulesSrc.includes('rest.iceCreamContainers'), 'menu-modules pasa los tamaños del local');
+  assert.ok(menuModulesSrc.includes('customToppings') && menuModulesSrc.includes('rest.iceCreamToppings'), 'menu-modules pasa los toppings del local');
+  // Módulo puro del editor (importable en Node: sin DOM al importar).
+  const iceCfg = await import('../public/js/studio/iceCreamConfig.js');
+  const fakeRest = {};
+  iceCfg.addIceCreamContainer(fakeRest);
+  iceCfg.addIceCreamContainer(fakeRest);
+  assert.strictEqual(fakeRest.iceCreamContainers.length, 2, 'Agregar tamaños');
+  iceCfg.updateIceCreamContainerField(fakeRest, 0, 'name', 'Pote 1/2 kg');
+  iceCfg.updateIceCreamContainerField(fakeRest, 0, 'price', '520');
+  iceCfg.updateIceCreamContainerField(fakeRest, 0, 'maxFlavors', '99');
+  assert.strictEqual(fakeRest.iceCreamContainers[0].maxFlavors, 6, 'Editor: maxFlavors clamp a 6');
+  iceCfg.updateIceCreamContainerField(fakeRest, 0, 'price', '-10');
+  assert.strictEqual(fakeRest.iceCreamContainers[0].price, 0, 'Editor: precio negativo → 0');
+  iceCfg.removeIceCreamContainer(fakeRest, 1);
+  assert.strictEqual(fakeRest.iceCreamContainers.length, 1, 'Quitar tamaño');
+  iceCfg.addIceCreamTopping(fakeRest);
+  iceCfg.updateIceCreamToppingField(fakeRest, 0, 'name', 'Granola');
+  iceCfg.updateIceCreamToppingField(fakeRest, 0, 'kind', 'salsa');
+  assert.strictEqual(fakeRest.iceCreamToppings[0].kind, 'salsa', 'Editor: kind salsa');
+  iceCfg.updateIceCreamToppingField(fakeRest, 0, 'kind', 'trucho');
+  assert.strictEqual(fakeRest.iceCreamToppings[0].kind, 'topping', 'Editor: kind inválido → topping');
+  iceCfg.resetIceCreamConfig(fakeRest);
+  assert.deepStrictEqual([fakeRest.iceCreamContainers, fakeRest.iceCreamToppings], [[], []], 'Reset: vacíos (backend omite, wizard usa defaults)');
+  // Studio: modal + editor + wiring sin on*=.
+  const iceStudioHtml = fs.readFileSync(path.join(__dirname, '../public/studio.html'), 'utf8');
+  assert.ok(iceStudioHtml.includes('id="iceCreamConfigModal"'), 'Modal de config de heladería presente');
+  assert.ok(iceStudioHtml.includes('data-js-click="openIceCreamConfigModal"'), 'Botón de config sin on*=');
+  const iceStudioJs = fs.readFileSync(path.join(__dirname, '../public/js/studio.js'), 'utf8');
+  for (const fn of ['openIceCreamConfigModal', 'addIceCreamContainer', 'removeIceCreamTopping', 'resetIceCreamConfig']) {
+    assert.ok(iceStudioJs.includes(fn), `studio.js expone ${fn}`);
+  }
+  const iceCfgSrc = fs.readFileSync(path.join(__dirname, '../public/js/studio/iceCreamConfig.js'), 'utf8');
+  assert.ok(!/on(click|change|input|submit)=/i.test(iceCfgSrc), 'Editor sin atributos on*= (CSP)');
+  console.log('✓ Heladería configurable: sanitize + wizard con precios del dueño + editor del Studio');
+
+  // 15c. Heladería cliente: recargo premium, fotos, filtros de dieta y vitrina.
+  const iceHeu = await import('../public/js/menu/iceCreamHeuristics.js');
+  const flavorsBuilt = iceHeu.buildCustomFlavors({
+    businessType: 'heladeria',
+    categories: [{ id: 'c1', name: 'Cremas' }],
+    dishes: [
+      { id: 'f1', name: 'Pistacho', price: 0, categoryId: 'c1', iceCreamSurcharge: 80, photoUrl: 'https://cdn.example.com/pist.jpg', tags: ['star'] },
+      { id: 'f2', name: 'Limón', price: 0, categoryId: 'c1', tags: ['vegano', 'celiac'] }
+    ]
+  });
+  assert.strictEqual(flavorsBuilt[0].surcharge, 80, 'Recargo premium viaja al wizard');
+  assert.strictEqual(flavorsBuilt[0].photoUrl, 'https://cdn.example.com/pist.jpg', 'Foto del gusto viaja al wizard');
+  assert.strictEqual(flavorsBuilt[1].surcharge, 0, 'Sin recargo = 0');
+  assert.ok(wizardSrc.includes('activeDietFilter'), 'Filtro de dieta con estado');
+  assert.ok(wizardSrc.includes("data-icw-diet"), 'Chips Sin TACC/Vegano sin on*=');
+  assert.ok(wizardSrc.includes('f.photoUrl') && wizardSrc.includes('<img'), 'Foto del gusto en la tarjeta (con alt vacío decorativo)');
+  assert.ok(wizardSrc.includes('surcharge > 0') && wizardSrc.includes('+$'), 'Badge de recargo premium en el gusto');
+  assert.ok(wizardSrc.includes('matchesDiet'), 'Filtro dietético aplicado al listado');
+  const menuJsIce = fs.readFileSync(path.join(__dirname, '../public/js/menu.js'), 'utf8');
+  assert.ok(menuJsIce.includes("(isHeladeria && ordersOn) ? 'flex' : 'none'"), 'CTA del armador oculto en vitrina');
+  assert.ok(menuJsIce.includes('toOrderItemPayload'), 'Checkout declara el armado (nunca el precio)');
+  assert.ok(menuJsIce.includes('customIceCream'), 'Alta y quote viajan con customIceCream');
+  assert.ok(iceStudioHtml.includes('id="modalDishSurcharge"'), 'Modal de plato con recargo de heladería');
+  console.log('✓ Heladería cliente: recargo visible, fotos, Sin TACC/Vegano y vitrina sin armador');
+
   // 16. Itinerario visual de boda: módulo puro + render data-driven con escape
   const wedModule = await import('../public/js/menu/weddingItinerary.js');
   assert.strictEqual(typeof wedModule.sanitizeWeddingItinerary, 'function', 'sanitizeWeddingItinerary debe existir');
@@ -741,11 +836,58 @@ async function runMenuComponentizationTests() {
   assert.ok(notifRouteSrc.includes("z.enum(['owners', 'guests'])"), 'audience:all eliminado del contrato');
   console.log('✓ Batch B/C: multi-tracking, Studio honesto/en vivo, erase e inbox sin teléfono');
 
+  // 23b. Nudge con reloj inyectable: la decisión es pura y testeable en bordes
+  // (23:59 → 00:00) sin sleeps ni depender de la máquina.
+  const trackMod = await import('../public/js/menu/orderTracking.js');
+  assert.strictEqual(trackMod.billNudgeDayFor(Date.parse('2026-01-01T00:00:00Z')), '2026-01-01', 'día UTC del instante');
+  assert.strictEqual(trackMod.billNudgeDayFor('basura'), '', 'fecha inválida → vacío (nunca rompe)');
+  assert.strictEqual(trackMod.billNudgeDayFor(Date.parse('2026-01-01T23:59:59Z')), '2026-01-01', 'borde previo a medianoche');
+  assert.strictEqual(trackMod.billNudgeDayFor(Date.parse('2026-01-02T00:00:00Z')), '2026-01-02', 'medianoche exacta cambia de día');
+  const nudgeBase = { type: 'cuenta_efectivo', hasGoogleReview: true, lastNudgeDay: '2026-01-01', todayDay: '2026-01-01' };
+  assert.strictEqual(trackMod.shouldScheduleBillNudge(nudgeBase), false, 'ya mostrado hoy → no');
+  assert.strictEqual(trackMod.shouldScheduleBillNudge({ ...nudgeBase, todayDay: '2026-01-02' }), true, 'día nuevo → sí');
+  assert.strictEqual(trackMod.shouldScheduleBillNudge({ ...nudgeBase, todayDay: '2026-01-02', type: 'mozo' }), false, 'solo al pedir la cuenta');
+  assert.strictEqual(trackMod.shouldScheduleBillNudge({ ...nudgeBase, todayDay: '2026-01-02', hasGoogleReview: '' }), false, 'sin link de Google → no');
+  assert.strictEqual(trackMod.shouldScheduleBillNudge({ ...nudgeBase, todayDay: '2026-01-02', lastNudgeDay: null }), true, 'primera vez → sí');
+  console.log('✓ Nudge con reloj inyectable: decisión pura testeada en bordes de día');
+
   // 24. Seis mejoras de bajo esfuerzo (preview de tema, sonido, duplicados,
   //     banner de fotos, cierre manual y respaldo JSON).
   // 24.1 Preview ?theme=<clave>: mismo patrón que ?morph= y ?neon=.
   assert.ok(menuSrc.includes("get('theme')"), 'menu.js lee el preview ?theme=');
   assert.ok(menuSrc.includes('if (themeParam && validThemes.includes(themeParam))'), 'Solo claves válidas (nunca tema roto)');
+  // Barra de filtros configurable (fija / auto-oculta / compacta).
+  const { sanitizeRestaurantPayload: sanitizeBe2 } = require('../api/utils/sanitizeRestaurant');
+  assert.strictEqual(sanitizeBe2({ name: 'X' }).filterBarMode, 'fixed', 'Default: barra fija');
+  assert.strictEqual(sanitizeBe2({ name: 'X', filterBarMode: 'autohide' }).filterBarMode, 'autohide', 'autohide válido');
+  assert.strictEqual(sanitizeBe2({ name: 'X', filterBarMode: 'compact' }).filterBarMode, 'compact', 'compact válido');
+  assert.strictEqual(sanitizeBe2({ name: 'X', filterBarMode: 'trucho' }).filterBarMode, 'fixed', 'Inválido → fija');
+  assert.ok(menuSrc.includes('applyFilterBarMode'), 'menu.js aplica el modo de la barra');
+  assert.ok(menuSrc.includes("get('filterbar')"), 'Preview ?filterbar= por link (espejo de ?theme=)');
+  assert.ok(menuSrc.includes('filter-autohide') && menuSrc.includes('filter-compact') && menuSrc.includes('filter-hidden'), 'Clases de modo en body');
+  assert.ok(menuSrc.includes('updateFilterAutohide') && menuSrc.includes('requestAnimationFrame'), 'Auto-ocultado con scroll throttled por rAF');
+  assert.ok(menuSrc.includes("active.closest('.filter-collapse')"), 'Al ocultar con foco adentro se suelta el foco (a11y)');
+  assert.ok(menuSrc.includes('prefers-reduced-motion') || fs.readFileSync(path.join(__dirname, '../public/css/menu.css'), 'utf8').includes('filter-autohide'), 'Transición con respeto a reduced-motion (ver CSS)');
+  const menuCssBar = fs.readFileSync(path.join(__dirname, '../public/css/menu.css'), 'utf8');
+  assert.ok(menuCssBar.includes('body.filter-autohide.filter-hidden .filter-collapse'), 'CSS colapsa la barra al bajar');
+  assert.ok(menuCssBar.includes('body.filter-compact .cat-pill'), 'CSS compacta pills');
+  const menuHtmlBar = fs.readFileSync(path.join(__dirname, '../public/menu.html'), 'utf8');
+  for (const id of ['menuSearchWrap', 'storiesTray', 'dietaryFilterPills']) {
+    assert.ok(menuHtmlBar.includes(`id="${id}"`) && menuHtmlBar.includes('filter-collapse'), `Bloque #${id} colapsable`);
+  }
+  assert.ok(menuHtmlBar.includes('class="category-nav-wrapper filter-collapse"'), 'Nav de categorías colapsable');
+  // Barra a11y discreta: el texto vive para lectores (sr-only), visible solo 👁️ + botón.
+  assert.ok(menuHtmlBar.includes('class="a11y-bar"'), 'Barra a11y presente');
+  assert.ok(menuHtmlBar.includes('class="sr-only">Menú adaptado para lectores'), 'Texto a11y solo para lectores');
+  assert.ok(menuHtmlBar.includes('data-js-click="readSelectedCategoryTTS"'), 'Botón TTS intacto');
+  const menuCssA11y = fs.readFileSync(path.join(__dirname, '../public/css/menu.css'), 'utf8');
+  assert.ok(/\.a11y-bar\s*\{[^}]*justify-content:\s*flex-end[^}]*background:\s*transparent/s.test(menuCssA11y), 'Barra a11y discreta (sin caja)');
+  console.log('✓ Barra a11y discreta: texto para lectores + 👁️/🔊 sin cartel');
+  const studioHtmlBar = fs.readFileSync(path.join(__dirname, '../public/studio.html'), 'utf8');
+  assert.ok(studioHtmlBar.includes('id="inputFilterBarMode"'), 'Studio expone el selector de barra');
+  const studioJsBar = fs.readFileSync(path.join(__dirname, '../public/js/studio.js'), 'utf8');
+  assert.ok(studioJsBar.includes('inputFilterBarMode'), 'Studio guarda/carga el modo de barra');
+  console.log('✓ Barra de filtros configurable: fija / auto-oculta al bajar / compacta');
   // 24.2 Sonido de pedido nuevo: beep WebAudio + título + toggle + baseline.
   assert.ok(studioSrc.includes('function playOrderAlert('), 'Studio: beep de pedido nuevo');
   assert.ok(studioSrc.includes('AudioContext'), 'Beep por WebAudio, sin assets');
@@ -950,6 +1092,20 @@ async function runMenuComponentizationTests() {
   // Backend (CJS) y frontend (ESM) no pueden compartir módulo en runtime:
   // la guarda es el test — si alguien agrega un tema/estilo/acento de un
   // solo lado, esto falla en la próxima corrida.
+  // Tamaños y toppings originales del armador: idénticos en ambos lados
+  // (el servidor cotiza con ellos cuando el dueño no define los suyos).
+  const iceDefaultsBe = require('../api/utils/iceCreamDefaults');
+  const icePresetsFe = await import('../public/js/components/IceCreamPresets.js');
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(iceDefaultsBe.DEFAULT_CONTAINERS)),
+    icePresetsFe.ICE_CREAM_CONTAINERS,
+    'Tamaños originales backend == frontend (el servidor cotiza con ellos)'
+  );
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(iceDefaultsBe.DEFAULT_TOPPINGS)),
+    icePresetsFe.ICE_CREAM_TOPPINGS,
+    'Toppings originales backend == frontend (el servidor cotiza con ellos)'
+  );
   assert.deepStrictEqual(
     [...sanitizeBe.HELADERIA_THEMES],
     [...presModule.HELADERIA_THEMES],

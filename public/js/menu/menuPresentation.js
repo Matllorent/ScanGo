@@ -98,7 +98,7 @@ export function resolveIceCreamButtonStyle(value) {
  * Temas visuales exclusivos de heladería (11). El Studio los filtra y el
  * backend los impone: una heladería nunca viste un theme de restaurante.
  */
-export const HELADERIA_THEMES = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora'];
+export const HELADERIA_THEMES = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora', 'helado-crema'];
 
 /**
  * Copys del modal de notas por plato según el rubro del negocio.

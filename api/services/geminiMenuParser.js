@@ -63,65 +63,71 @@ function geminiCacheSet(key, result) {
 
 /**
  * Strict JSON schema matching the required menu output structure.
+ * Usa el enum `Type` del SDK (forma canónica documentada) + `propertyOrdering`
+ * para una salida estable entre llamadas.
  */
 const MENU_RESPONSE_SCHEMA = {
-  type: 'object',
+  type: Type.OBJECT,
   properties: {
     detectedStyle: {
-      type: 'object',
+      type: Type.OBJECT,
       properties: {
         primaryColor: {
-          type: 'string',
+          type: Type.STRING,
           description: 'Color primario predominante de la carta o marca en formato hexadecimal #RRGGBB (ej: #1F2937, #8B0000, #2D3748)'
         },
         accentColor: {
-          type: 'string',
+          type: Type.STRING,
           description: 'Color secundario o de acento llamativo en formato hexadecimal #RRGGBB (ej: #ECC94B, #E11D48, #38A169)'
         },
         vibe: {
-          type: 'string',
+          type: Type.STRING,
           description: 'Estilo estético detectado (ej: Rústico de Bodegón / Asador, Bistró Moderno, Cafetería Minimalista, Taquería Urbana, Bar Nocturno)'
         }
       },
+      propertyOrdering: ['primaryColor', 'accentColor', 'vibe'],
       required: ['primaryColor', 'accentColor', 'vibe']
     },
     categories: {
-      type: 'array',
+      type: Type.ARRAY,
       description: 'Lista de secciones o categorías encontradas a lo largo de todas las páginas del menú',
       items: {
-        type: 'object',
+        type: Type.OBJECT,
         properties: {
           name: {
-            type: 'string',
+            type: Type.STRING,
             description: 'Nombre de la categoría (ej: Entradas, Pastas Caseras, Carnes a las Brasas, Tragos Clásicos, Postres)'
           },
           items: {
-            type: 'array',
+            type: Type.ARRAY,
             description: 'Platos, bebidas o productos que pertenecen a esta categoría',
             items: {
-              type: 'object',
+              type: Type.OBJECT,
               properties: {
                 name: {
-                  type: 'string',
+                  type: Type.STRING,
                   description: 'Nombre claro del plato o producto'
                 },
                 description: {
-                  type: 'string',
+                  type: Type.STRING,
                   description: 'Ingredientes o descripción detallada del plato tal como figura en la carta (o texto vacío si no hay)'
                 },
                 price: {
-                  type: 'number',
+                  type: Type.NUMBER,
                   description: 'Precio numérico del plato (0 si no figura precio explícito)'
                 }
               },
+              propertyOrdering: ['name', 'description', 'price'],
               required: ['name', 'price']
             }
           }
         },
+        propertyOrdering: ['name', 'items'],
         required: ['name', 'items']
       }
     }
   },
+  propertyOrdering: ['detectedStyle', 'categories'],
   required: ['detectedStyle', 'categories']
 };
 
@@ -219,8 +225,9 @@ async function parseMenuWithGemini(images) {
       config: {
         systemInstruction: SYSTEM_PROMPT,
         responseMimeType: 'application/json',
-        responseJsonSchema: MENU_RESPONSE_SCHEMA,
-        responseSchema: MENU_RESPONSE_SCHEMA
+        // responseJsonSchema es la vía canónica (responseSchema era el alias
+        // legacy y ya no figura en la documentación del SDK).
+        responseJsonSchema: MENU_RESPONSE_SCHEMA
       }
     }));
 

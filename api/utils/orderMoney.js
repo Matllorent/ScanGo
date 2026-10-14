@@ -18,10 +18,83 @@
  */
 const { validateAndPriceOrderLine } = require('./menuOptions');
 const AppError = require('./AppError');
+const { effectiveIceCreamLists } = require('./iceCreamDefaults');
+
+/**
+ * Cotiza una línea de helado a medida (armador): el cliente manda
+ * `customIceCream: { containerId, flavorIds[], toppingIds[] }` y el servidor
+ * recomputa el total contra la config DEL DUEÑO (tamaños/toppings propios o
+ * defaults) + recargos premium por sabor. Nunca se confía en el precio que
+ * trae el cliente: el `dishId` sintético (`icecream_*`) no existe en la carta
+ * y sin esta rama /quote respondía DISH_NOT_FOUND (el armado no se podía pedir).
+ */
+function quoteIceCreamLine(restaurant, item, timestamp) {
+  const custom = item.customIceCream || {};
+  if (!/^icecream_[A-Za-z0-9_-]{1,64}$/.test(String(item.dishId || ''))) {
+    throw new AppError('Ítem personalizado con id inválido', 400, 'INVALID_DISH_OPTIONS');
+  }
+  const { containers, toppings } = effectiveIceCreamLists(restaurant);
+  const container = containers.find((c) => String(c.id) === String(custom.containerId));
+  if (!container) throw new AppError('Tamaño de helado inválido para este local', 400, 'INVALID_DISH_OPTIONS');
+
+  const flavorIds = Array.isArray(custom.flavorIds) ? custom.flavorIds : [];
+  const toppingIds = Array.isArray(custom.toppingIds) ? custom.toppingIds : [];
+  if (flavorIds.length < 1 || flavorIds.length > Number(container.maxFlavors || 1)) {
+    throw new AppError(`Este tamaño admite entre 1 y ${container.maxFlavors} sabores`, 400, 'INVALID_DISH_OPTIONS');
+  }
+  const dishes = Array.isArray(restaurant.dishes) ? restaurant.dishes : [];
+  const flavors = flavorIds.map((fid) => {
+    const dish = dishes.find((d) => String(d.id) === String(fid));
+    if (!dish) throw new AppError('Sabor de helado inválido para este local', 400, 'INVALID_DISH_OPTIONS');
+    if (dish.outOfStock) throw new AppError(`El sabor "${dish.name}" está agotado hoy`, 400, 'INVALID_DISH_OPTIONS');
+    return dish;
+  });
+  const picks = toppingIds.map((tid) => {
+    const top = toppings.find((t) => String(t.id) === String(tid));
+    if (!top) throw new AppError('Topping inválido para este local', 400, 'INVALID_DISH_OPTIONS');
+    return top;
+  });
+
+  const containerPrice = Math.max(0, Number(container.price) || 0);
+  const toppingsTotal = picks.reduce((sum, t) => sum + Math.max(0, Number(t.price) || 0), 0);
+  const surchargeTotal = flavors.reduce((sum, d) => sum + Math.max(0, Number(d.iceCreamSurcharge) || 0), 0);
+  const unitPrice = containerPrice + toppingsTotal + surchargeTotal;
+  const quantity = Math.max(1, parseInt(item.quantity, 10) || 1);
+  const totalItemAmountInCents = Math.round(unitPrice * 100) * quantity;
+
+  return {
+    dishId: item.dishId,
+    name: `${container.name} a medida`,
+    unitPrice,
+    unitPriceInCents: Math.round(unitPrice * 100),
+    quantity,
+    note: item.note || '',
+    orderedBy: item.orderedBy || '',
+    orderedById: item.orderedById || '',
+    totalItemAmount: totalItemAmountInCents / 100,
+    totalItemAmountInCents,
+    categoryName: 'Heladería',
+    optionsSnapshot: [{
+      groupId: 'icecream',
+      groupName: 'Armado a medida',
+      selections: [
+        { optionId: String(container.id), name: `Tamaño: ${container.name}` },
+        ...flavors.map((d) => ({ optionId: String(d.id), name: `Sabor: ${d.name}` })),
+        ...picks.map((t) => ({ optionId: String(t.id), name: `Agregado: ${t.name}` }))
+      ]
+    }],
+    snapshotTimestamp: timestamp
+  };
+}
 
 function quoteOrderItems(restaurant, items, timestamp = new Date().toISOString()) {
   let amountInCents = 0;
   const itemsSnapshot = items.map((item) => {
+    if (item && item.customIceCream) {
+      const snap = quoteIceCreamLine(restaurant, item, timestamp);
+      amountInCents += snap.totalItemAmountInCents;
+      return snap;
+    }
     const dish = (restaurant.dishes || []).find((candidate) => candidate.id === item.dishId);
     if (!dish) throw new AppError('Platillo no encontrado para el pedido', 400, 'DISH_NOT_FOUND');
 
@@ -85,4 +158,4 @@ function resolveCouponDiscount({ restaurant, subtotal, deliveryFee, coupon, orde
   return { discount: 0, coupon: null };
 }
 
-module.exports = { quoteOrderItems, resolveDeliveryFee, resolveCouponDiscount };
+module.exports = { quoteOrderItems, quoteIceCreamLine, resolveDeliveryFee, resolveCouponDiscount };

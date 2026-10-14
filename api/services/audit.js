@@ -127,3 +127,53 @@ const auditService = {
 module.exports = auditService;
 module.exports.AUDIT_ACTIONS = AUDIT_ACTIONS;
 module.exports.AUDIT_ENTITIES = AUDIT_ENTITIES;
+
+/**
+ * Retención de audit_logs (ciclo de vida): la tabla cloud crecía sin cota
+ * (el espejo local sí tiene cap 2000). Default 365 días, clamp [90, 1825]:
+ * la auditoría es registro de procesamiento/compliance y se conserva más que
+ * la telemetría. Nunca lanza; dryRun solo reporta.
+ */
+function auditRetentionCutoffIso(olderThanDays) {
+  const requested = Number(olderThanDays ?? process.env.AUDIT_RETENTION_DAYS);
+  const days = Number.isFinite(requested) && requested > 0 ? Math.min(1825, Math.max(90, requested)) : 365;
+  return new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
+}
+
+async function purgeOldAuditLogs({ olderThanDays, dryRun = false } = {}) {
+  const cutoff = auditRetentionCutoffIso(olderThanDays);
+  const result = { cutoff, mode: 'local', dryRun, scannedLocal: 0, prunedLocal: 0, scannedCloud: 0, prunedCloud: 0 };
+  try {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { count, error: countError } = await supabase
+        .from('audit_logs')
+        .select('id', { count: 'exact', head: true })
+        .lt('created_at', cutoff);
+      if (countError) throw new Error(`COUNT audit_logs: ${countError.message}`);
+      result.scannedCloud = count || 0;
+      if (!dryRun && (count || 0) > 0) {
+        const { error } = await supabase.from('audit_logs').delete().lt('created_at', cutoff);
+        if (error) throw new Error(`DELETE audit_logs: ${error.message}`);
+        result.prunedCloud = count;
+        result.mode = 'supabase';
+      }
+    }
+    const before = localAuditLogs.length;
+    const kept = localAuditLogs.filter((a) => !a.created_at || a.created_at >= cutoff);
+    result.scannedLocal = before;
+    result.prunedLocal = before - kept.length;
+    if (!dryRun) {
+      localAuditLogs.length = 0;
+      localAuditLogs.push(...kept);
+    }
+    return result;
+  } catch (e) {
+    logger.warn('[Audit Retention] falló parcialmente', { error: e.message, cutoff });
+    result.error = e.message;
+    return result;
+  }
+}
+
+module.exports.purgeOldAuditLogs = purgeOldAuditLogs;
+module.exports.auditRetentionCutoffIso = auditRetentionCutoffIso;

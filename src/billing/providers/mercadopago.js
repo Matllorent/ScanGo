@@ -108,6 +108,9 @@ const mpProvider = {
       payer: { email: customerEmail },
       externalReference: `${restaurantId}:${planId}`,
       notificationUrl,
+      // El checkout de suscripción expira en 24 h: un pago tardío no debe
+      // activar un período con precio/plan viejos.
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       autoReturn: 'approved',
       backUrls: {
         success: successUrl,

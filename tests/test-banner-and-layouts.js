@@ -135,6 +135,12 @@ async function runTests() {
     assert.ok(menuCss.includes(`body.theme-${theme}`), `menu.css debe incluir el tema de heladería ${theme}`);
   }
   console.log('✓ Los 6 temas de heladería (3 coloridos + 3 formales) presentes en menu.css');
+  // 3e2. Gelato Crema (bottega artesanal): paleta crema/menta/rosa/chocolate + lluvia de dots.
+  assert.ok(menuCss.includes('body.theme-helado-crema'), 'menu.css debe incluir el tema helado-crema');
+  assert.ok(menuCss.includes('--chalk-gold: #D9777F;') || menuCss.includes('--chalk-gold:#D9777F'), 'helado-crema tiñe el acento al rosa quemado de la bottega');
+  const studioHtmlThemes = fs.readFileSync(path.join(__dirname, '../public/studio.html'), 'utf8');
+  assert.ok(studioHtmlThemes.includes('<option value="helado-crema">'), 'studio.html debe ofrecer helado-crema en el selector');
+  console.log('✓ Tema Gelato Crema presente en menu.css y en el selector del Studio');
 
   // 3d. object-fit: cover y adaptaciones mobile < 360px
   assert.ok(menuCss.includes('object-fit: cover'), 'menu.css debe forzar object-fit: cover');
@@ -159,6 +165,24 @@ async function runTests() {
   assert.ok(schemaSql.includes("business_type TEXT NOT NULL DEFAULT 'restaurant'"), 'Supabase debe tener business_type con restaurant por defecto');
   assert.ok(studioHtml.includes('<option value="heladeria">'), 'studio.html debe exponer Heladería como rubro de primera clase');
   assert.ok(studioHtml.includes('value="helado-fiesta"') && studioHtml.includes('value="cioccolato"'), 'studio.html debe ofrecer los temas de heladería en el selector de estética');
+  // Filtro simétrico por rubro: heladería SOLO ve lo suyo y el resto SOLO ve
+  // clásicos (un confeti rosa no es una parrilla). Las options siguen en el
+  // HTML (se ocultan por JS); el server corrige lo que cuele por payload.
+  assert.ok(studioJs.includes('const hide = isHeladeria ? !isHela : isHela;'), 'el filtro de temas es simétrico por rubro');
+  assert.ok(studioJs.includes("restaurant.theme = 'emerald'"), 'restaurante con theme de heladería se corrige a emerald');
+  const { sanitizeRestaurantPayload } = require('../api/utils/sanitizeRestaurant');
+  assert.strictEqual(
+    sanitizeRestaurantPayload({ name: 'R', businessType: 'restaurant', theme: 'helado-fiesta' }).theme,
+    'emerald', 'server: restaurante con theme de heladería → emerald'
+  );
+  assert.strictEqual(
+    sanitizeRestaurantPayload({ name: 'H', businessType: 'heladeria', theme: 'emerald' }).theme,
+    'helado-fiesta', 'server: heladería con theme clásico → helado-fiesta'
+  );
+  assert.strictEqual(
+    sanitizeRestaurantPayload({ name: 'H', businessType: 'heladeria', theme: 'gelateria' }).theme,
+    'gelateria', 'server: heladería con theme propio se preserva'
+  );
 
   const landingHtml = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
   assert.ok(landingHtml.includes('<option value="heladeria">'), 'El registro debe ofrecer Heladería como rubro de primera clase');

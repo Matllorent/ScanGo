@@ -229,6 +229,71 @@ function run() {
     (e) => e.code === 'INVALID_DISH_OPTIONS', 'grupo quantity sin selecciones (minSelections 1)'
   );
 
+  // ── 1b) Helado a medida: el servidor recomputa contra la config del dueño ─
+  // (antes el item sintético `icecream_*` moría en DISH_NOT_FOUND y el helado
+  // armado no se podía pedir). El precio del cliente nunca viaja: no hay campo
+  // de precio en el payload, solo qué armó.
+  {
+    const HELA = {
+      dishes: [
+        { id: 'f-ddl', name: 'DDL', price: 0, iceCreamSurcharge: 0 },
+        { id: 'f-pist', name: 'Pistacho', price: 0, iceCreamSurcharge: 80 },
+        { id: 'f-out', name: 'Agotado', price: 0, outOfStock: true }
+      ]
+    };
+    const line = (over = {}) => ({
+      dishId: 'icecream_abc123',
+      quantity: 2,
+      customIceCream: {
+        containerId: 'container_cucurucho', // default 220, máx 2 sabores
+        flavorIds: ['f-ddl', 'f-pist'],     // 0 + 80 recargo
+        toppingIds: ['salsa_ddl']           // default 50
+      },
+      ...over
+    });
+    const { itemsSnapshot, amountInCents } = quoteOrderItems(HELA, [line()], 'ts-ice');
+    assert.strictEqual(amountInCents, (220 + 80 + 50) * 2 * 100, 'total = tamaño + recargo + topping, × cantidad');
+    assert.strictEqual(itemsSnapshot[0].name, 'Cucurucho Artesanal Especial a medida', 'snapshot con nombre del tamaño');
+    assert.strictEqual(itemsSnapshot[0].categoryName, 'Heladería', 'categoría del snapshot');
+    const selNames = itemsSnapshot[0].optionsSnapshot[0].selections.map((s) => s.name).join(' ');
+    assert.ok(selNames.includes('Pistacho') && selNames.includes('Cucurucho'), 'snapshot describe tamaño y sabores');
+    // Config propia del dueño manda sobre los defaults.
+    const HELA_OWN = {
+      ...HELA,
+      iceCreamContainers: [{ id: 'cX', name: 'Pote mío', price: 1000, maxFlavors: 1 }],
+      iceCreamToppings: [{ id: 'tX', name: 'Extra mío', price: 5, kind: 'topping' }]
+    };
+    const own = quoteOrderItems(HELA_OWN, [{
+      dishId: 'icecream_xyz', quantity: 1,
+      customIceCream: { containerId: 'cX', flavorIds: ['f-ddl'], toppingIds: ['tX'] }
+    }], 'ts-ice-own');
+    assert.strictEqual(own.amountInCents, (1000 + 0 + 5) * 100, 'precios del dueño, no defaults');
+    // Defaults viejos ya no valen con config propia.
+    assert.throws(() => quoteOrderItems(HELA_OWN, [line()], 'ts-ice-bad'),
+      (e) => e.code === 'INVALID_DISH_OPTIONS', 'container default con config propia → inválido');
+    // Errores honestos, todos INVALID_DISH_OPTIONS (nunca 500).
+    const badCases = [
+      [{ ...line().customIceCream, containerId: 'nope' }, 'tamaño inexistente'],
+      [{ ...line().customIceCream, flavorIds: ['f-ddl', 'f-pist', 'f-ddl'] }, 'más sabores que el máximo'],
+      [{ ...line().customIceCream, flavorIds: ['fantasma'] }, 'sabor inexistente'],
+      [{ ...line().customIceCream, flavorIds: ['f-out'] }, 'sabor agotado hoy'],
+      [{ ...line().customIceCream, toppingIds: ['top_falso'] }, 'topping inexistente'],
+      [{ ...line().customIceCream, flavorIds: [] }, 'sin sabores']
+    ];
+    for (const [custom, label] of badCases) {
+      assert.throws(() => quoteOrderItems(HELA, [{ dishId: 'icecream_abc123', quantity: 1, customIceCream: custom }], 'ts-ice-err'),
+        (e) => e.code === 'INVALID_DISH_OPTIONS', `helado inválido: ${label}`);
+    }
+    assert.throws(() => quoteOrderItems(HELA, [{ dishId: 'dish-comun', quantity: 1, customIceCream: line().customIceCream }], 'ts-ice-id'),
+      (e) => e.code === 'INVALID_DISH_OPTIONS', 'customIceCream exige id icecream_*');
+    // Recargo saneado a nivel plato (dueño): negativo → 0.
+    const cleanDish = sanitizeRestaurantPayload({ name: 'H', dishes: [{ name: 'Pistacho', price: 0, iceCreamSurcharge: -30 }] });
+    assert.strictEqual(cleanDish.dishes[0].iceCreamSurcharge, 0, 'recargo negativo → 0');
+    const cleanDish2 = sanitizeRestaurantPayload({ name: 'H', dishes: [{ name: 'Pistacho', price: 0, iceCreamSurcharge: 80 }] });
+    assert.strictEqual(cleanDish2.dishes[0].iceCreamSurcharge, 80, 'recargo válido se preserva');
+    console.log('✓ Helado a medida: total autoritativo (tamaño+toppings+recargos), config del dueño, errores honestos');
+  }
+
   // ── 2) Cotización: fuzz seeded (600 órdenes) ──────────────────────────────
   {
     const rng = makeRng(SEED);

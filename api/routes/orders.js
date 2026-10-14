@@ -255,31 +255,16 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
     // Espejo local (dev/offline). En cloud la fuente de verdad es Supabase.
     await db.addOrder(orderRecord);
 
-    // Save to Supabase Cloud PostgreSQL
+    // Save to Supabase Cloud PostgreSQL (mapeo canónico en db.toCloudOrder).
+    // Si el insert falla, el pedido queda marcado `cloudPending`: se responde
+    // 201 igual (el comensal no debe sufrir un hipo de red), pero el registro
+    // SE REPARA (boot) y el dueño lo ve igual (GET lo fusiona). Antes se
+    // respondía 201 y el pedido quedaba invisible para siempre.
     const supabase = getSupabaseClient();
     if (supabase) {
-      const cloudOrder = {
-        id: orderRecord.id,
-        restaurant_id: orderRecord.restaurant_id,
-        table_number: orderRecord.table_number,
-        items_snapshot: orderRecord.items_snapshot,
-        amount: orderRecord.amount,
-        amount_in_cents: orderRecord.amount_in_cents,
-        currency: orderRecord.currency,
-        status: orderRecord.status,
-        customer_name: orderRecord.customer_name,
-        customer_phone: orderRecord.customer_phone,
-        created_at: orderRecord.created_at
-      };
       try {
-        // `tip_amount` vive en la migración 005. Si la columna todavía no está
-        // aplicada en cloud, se reintenta SIN ella para no perder el pedido: la
-        // propina igual queda en el espejo local y en el mensaje de WhatsApp.
-        let { error } = await supabase.from('orders').insert([{ ...cloudOrder, tip_amount: orderRecord.tip_amount }]);
-        if (error) {
-          ({ error } = await supabase.from('orders').insert([cloudOrder]));
-        }
-        if (error) throw error;
+        const res = await db.insertCloudOrder(orderRecord);
+        if (!res.ok && !res.skipped) throw new Error(res.error || 'cloud insert failed');
       } catch (e) {
         sentry.captureException(e, {
           source: 'orders.insert',
@@ -287,6 +272,7 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
           tags: { restaurantId: restaurant.id },
           extra: { orderId: orderRecord.id }
         });
+        await db.markOrderCloudPending(orderRecord.id).catch(() => {});
       }
     }
 
@@ -496,7 +482,13 @@ router.get('/restaurant/:restaurantId', requireAuth, tenantGuard, async (req, re
           .order('created_at', { ascending: false });
 
         if (!error && data && data.length > 0) {
-          return successResponse(res, data, 'Pedidos del restaurante recuperados');
+          // Fusión outbox: pedidos solo-locales (insert cloud fallido) que la
+          // nube todavía no tiene. Van marcados para que el dueño los distinga.
+          const cloudIds = new Set(data.map(o => o && o.id));
+          const pending = db.getCloudPendingOrders()
+            .filter(o => (o.restaurant_id || o.restaurantId) === restaurantId && !cloudIds.has(o.id))
+            .map(o => ({ ...o, cloudPending: true }));
+          return successResponse(res, [...pending, ...data], 'Pedidos del restaurante recuperados');
         }
       } catch (e) {
         logger.warn('[Supabase Get Restaurant Orders]', { details: e.message, restaurantId });
@@ -613,6 +605,9 @@ router.post('/mercadopago/preference', validateBody(createOrderSchema), async (r
         email: 'pedido@scango.uy'
       },
       externalReference: externalRef,
+      // El pedido del comensal es perecedero: 45 min para pagar, después el
+      // link muere y no puede imputarse a un pedido viejo.
+      expiresAt: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
       backUrls: {
         success: `${returnBase}/m/${restaurant.slug}?payment=success&ref=${externalRef}`,
         failure: `${returnBase}/m/${restaurant.slug}?payment=failure&ref=${externalRef}`,

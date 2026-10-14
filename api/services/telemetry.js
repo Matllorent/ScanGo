@@ -93,10 +93,11 @@ const telemetryService = {
   /**
    * Cuenta los contadores legacy (visits/orders/reservations/waiterCalls) a
    * partir de los eventos de telemetría del restaurante. Proyección pura: solo
-   * lee la fuente de verdad, no incrementa nada.
+   * lee la fuente de verdad, no incrementa nada. Pide solo `event_type` (es
+   * lo único que cuenta): bajo un pico, el full-scan transfiere una fracción.
    */
   async countAnalytics(restaurantId) {
-    const events = await this.getEvents(restaurantId);
+    const events = await this.getEvents(restaurantId, { columns: 'event_type' });
     const counters = { visits: 0, orders: 0, reservations: 0, waiterCalls: 0, lastUpdated: new Date().toISOString() };
     for (const e of events) {
       const type = e.event_type;
@@ -109,16 +110,18 @@ const telemetryService = {
   },
 
   /**
-   * Get events with optional branch/event filtering
+   * Get events with optional branch/event filtering.
+   * `columns` acota el SELECT (default '*'): la proyección legacy solo
+   * necesita `event_type` y así el scan bajo carga transfiere mucho menos.
    */
-  async getEvents(restaurantId, { since, branchId, eventId, eventType } = {}) {
+  async getEvents(restaurantId, { since, branchId, eventId, eventType, columns } = {}) {
     let events = [];
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
         let query = supabase
           .from('telemetry_events')
-          .select('*')
+          .select(columns || '*')
           .eq('restaurant_id', restaurantId);
         
         if (since) query = query.gte('created_at', since);

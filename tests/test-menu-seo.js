@@ -79,6 +79,24 @@ async function runTests() {
     assert.strictEqual(notModified.status, 304, 'If-None-Match idéntico debe responder 304');
     assert.strictEqual(await notModified.text(), '', '304 sin body');
 
+    // §Suscripción — un flip por webhook/cron cambia el HTML (pausado ↔
+    // online): invalida la caché e invalida el ETag (incluye
+    // subscription.updatedAt). Sin esto el comensal vería 304 con lo viejo.
+    const restFlip = db.findRestaurantBySlug(slug);
+    await db.updateSubscription(restFlip.id, { status: 'past_due', provider: 'test' });
+    const afterFlip = await fetch(`http://localhost:${port}/m/${slug}`, {
+      headers: { 'If-None-Match': etag }
+    });
+    assert.strictEqual(afterFlip.status, 200, 'tras flip de suscripción el ETag viejo ya no vale 304');
+    const etag2 = afterFlip.headers.get('etag');
+    assert.ok(etag2 && etag2 !== etag, 'ETag versionado con la suscripción');
+    await afterFlip.text();
+    const stableAgain = await fetch(`http://localhost:${port}/m/${slug}`, {
+      headers: { 'If-None-Match': etag2 }
+    });
+    assert.strictEqual(stableAgain.status, 304, 'el ETag nuevo vuelve a 304');
+    console.log('✓ Flip de suscripción invalida caché + ETag (sin menú pausado fantasma)');
+
     const vercelConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '../vercel.json'), 'utf8'));
     const menuRoute = vercelConfig.routes.find(route => route.src === '/m/(.*)');
     assert.strictEqual(menuRoute.dest, '/api/index.js', 'Vercel routes public menus through Express');

@@ -392,12 +392,26 @@ function initOrderTracking(ctx) {
 // modal a los 90s, una vez por día. Lo llama sendWaiterCall (menu.js).
 const BILL_NUDGE_KEY = 'scango_review_nudge_bill';
 const BILL_NUDGE_DELAY_MS = 90000;
-function billNudgeDay() {
+// Día calendario UTC para un instante dado (reloj inyectable: permite
+// congelar el tiempo en tests sin sleeps ni depender de la máquina).
+function billNudgeDayFor(nowMs = Date.now()) {
   try {
-    return new Date().toISOString().slice(0, 10);
+    const t = new Date(Number(nowMs));
+    if (Number.isNaN(t.getTime())) return '';
+    return t.toISOString().slice(0, 10);
   } catch (e) {
     return '';
   }
+}
+// Decisión pura del nudge: solo al pedir la cuenta, solo con link de Google
+// configurado y solo si hoy todavía no se mostró. Sin DOM ni reloj real.
+function shouldScheduleBillNudge({ type, hasGoogleReview, lastNudgeDay, todayDay }) {
+  if (type !== 'cuenta_efectivo' && type !== 'cuenta_tarjeta') return false;
+  if (!hasGoogleReview) return false;
+  return lastNudgeDay !== todayDay;
+}
+function billNudgeDay() {
+  return billNudgeDayFor(Date.now());
 }
 function wasBillNudgedToday() {
   try {
@@ -413,9 +427,20 @@ function markBillNudgedToday() {
 }
 function scheduleBillNudge(type, ctx) {
   try {
-    if (type !== 'cuenta_efectivo' && type !== 'cuenta_tarjeta') return;
     const restaurantData = ctx && typeof ctx.getRestaurantData === 'function' ? ctx.getRestaurantData() : null;
-    if (!restaurantData || !restaurantData.googleReview || wasBillNudgedToday()) return;
+    let lastDay = null;
+    let storageOk = true;
+    try {
+      lastDay = localStorage.getItem(BILL_NUDGE_KEY);
+    } catch (e) { storageOk = false; }
+    // Sin storage no hay "una vez por día" posible: no spamear (igual que antes).
+    if (!storageOk) return;
+    if (!shouldScheduleBillNudge({
+      type,
+      hasGoogleReview: Boolean(restaurantData && restaurantData.googleReview),
+      lastNudgeDay: lastDay,
+      todayDay: billNudgeDay()
+    })) return;
     setTimeout(() => {
       try {
         markBillNudgedToday();
@@ -530,6 +555,8 @@ export {
   markReviewNudged,
   openReviewNudge,
   billNudgeDay,
+  billNudgeDayFor,
+  shouldScheduleBillNudge,
   wasBillNudgedToday,
   markBillNudgedToday,
   scheduleBillNudge,

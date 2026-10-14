@@ -25,6 +25,9 @@ function isConfigured() {
  * @param {Object} [options.backUrls] { success, failure, pending }
  * @param {string} [options.autoReturn] 'approved' | 'all'
  * @param {string} [options.notificationUrl]
+ * @param {string} [options.expiresAt] - ISO date: la preferencia expira y un
+ *   pago tardío no puede imputarse a un pedido viejo (sin esto, un link
+ *   pagado días después mapea igual al external_reference original).
  * @returns {Promise<{ id: string, init_point: string, sandbox_init_point: string }>}
  */
 async function createPreference(options) {
@@ -67,6 +70,15 @@ async function createPreference(options) {
 
   if (options.notificationUrl) {
     payload.notification_url = options.notificationUrl;
+  }
+
+  // Expiración de la preferencia (MP la rechaza pasada la fecha): evita que
+  // un pago tardío reactive un pedido/suscripción vieja.
+  if (options.expiresAt) {
+    const exp = new Date(options.expiresAt);
+    if (!Number.isNaN(exp.getTime()) && exp.getTime() > Date.now()) {
+      payload.date_of_expiration = exp.toISOString();
+    }
   }
 
   // Use native fetch (Node 18+) or fallback to HTTPS request

@@ -22,12 +22,16 @@ function requestIdMiddleware(req, res, next) {
     // u otros datos del comensal. La ruta sola alcanza para operar.
     const rawPath = req.originalUrl || req.url || '';
     const cleanPath = String(rawPath).split('?')[0];
+    // Slug del menú para atribuir picos por local (viene de path params ya
+    // matcheados por el router; nunca de query ni body: no es PII).
+    const slug = req.params && typeof req.params.slug === 'string' ? req.params.slug : undefined;
     logger.info('HTTP Request', {
       requestId,
       method: req.method,
       path: cleanPath,
       statusCode: res.statusCode,
-      responseTime
+      responseTime,
+      ...(slug ? { slug } : {})
     });
     // Percentiles de latencia por grupo (menú público /api / resto): alimenta
     // el campo `latency` de /api/healthz y los SLO documentados.
