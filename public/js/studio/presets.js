@@ -14,6 +14,7 @@ import { PRESETS } from './data/presetsData.js';
 import { ICE_CREAM_PRESETS_DATA } from './data/iceCreamPresets.js';
 import { PERFUMERY_PRESETS_STUDIO } from './data/perfumeryPresets.js';
 import { getRestaurantModifierGroups } from './modifierGroups.js';
+import { escapeHtml as escapeHtmlDefault } from '../utils/escapeHtmlBrowser.js';
 
 let currentPresetCategory = 'empanadas';
 let iceCreamSelectedIds = new Set(ICE_CREAM_PRESETS_DATA.map(f => f.id));
@@ -66,7 +67,7 @@ export function browsePresetCategory(key, escapeHtml) {
 
   const list = document.getElementById('presetDishesList');
   if (!list) return;
-  const safeEscape = typeof escapeHtml === 'function' ? escapeHtml : (str => String(str || ''));
+  const safeEscape = typeof escapeHtml === 'function' ? escapeHtml : escapeHtmlDefault;
 
   let html = '';
   preset.dishes.forEach((d, idx) => {

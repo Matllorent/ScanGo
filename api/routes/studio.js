@@ -3,6 +3,7 @@
  * Rutas para gestión de menú, sucursales, eventos, IA y QR de mesa
  */
 const express = require('express');
+const { z } = require('zod');
 const router = express.Router();
 const db = require('../../src/db/db');
 const billingOrchestrator = require('../../src/billing/orchestrator');
@@ -11,6 +12,7 @@ const { menuCacheMiddleware, invalidateMenuCache, memoryCache } = require('../mi
 const { authMiddleware } = require('../middleware/auth');
 const requireVerifiedEmail = require('../middleware/requireVerifiedEmail');
 const { requireActiveSubscription } = require('../middleware/subscriptionGuard');
+const { validateBody } = require('../middleware/validation');
 const { createGroupCartToken } = require('../utils/groupCartToken');
 const { stripPrivilegedFields } = require('../utils/stripPrivilegedFields');
 const aiRouter = require('./ai');
@@ -135,11 +137,30 @@ router.post('/ai-import', authMiddleware, requireActiveSubscription, (req, res, 
  * Body: { operation: 'add' | 'update' | 'delete', branch: {...}, branchId?: string, branchSlug?: string }
  */
 const processedBranchOperations = new Map(); // idempotencyKey -> response
+const BRANCH_IDEMPOTENCY_PROVIDER = 'studio_branches';
 router.patch('/branches', authMiddleware, requireVerifiedEmail, requireActiveSubscription, async (req, res, next) => {
   try {
     const idempotencyKey = req.headers['x-idempotency-key'] || req.headers['idempotency-key'];
     if (idempotencyKey && processedBranchOperations.has(idempotencyKey)) {
       return res.json(processedBranchOperations.get(idempotencyKey));
+    }
+    // Persistencia cross-instancia: el Map en memoria se pierde en Vercel
+    // (restart / otra réplica). El marcador vive además en la tabla `webhooks`
+    // (provider studio_branches, local + cloud) con la respuesta guardada.
+    if (idempotencyKey) {
+      const prior = await db.getProcessedWebhookAsync(BRANCH_IDEMPOTENCY_PROVIDER, idempotencyKey);
+      const priorResponse = prior && prior.data && prior.data.response;
+      if (priorResponse) {
+        processedBranchOperations.set(idempotencyKey, priorResponse);
+        return res.json(priorResponse);
+      }
+      if (prior) {
+        return res.json({
+          success: true,
+          message: 'Operación de sucursal ya procesada (idempotente)',
+          idempotent: true
+        });
+      }
     }
 
     const { operation, branch, branchId, branchSlug } = req.body || {};
@@ -183,6 +204,13 @@ router.patch('/branches', authMiddleware, requireVerifiedEmail, requireActiveSub
         const oldestKey = processedBranchOperations.keys().next().value;
         processedBranchOperations.delete(oldestKey);
       }
+      // Marcador persistente (local + cloud): un retry post-restart o en otra
+      // réplica devuelve la MISMA respuesta sin re-ejecutar la operación.
+      // Fire-and-forget: nunca rompe la respuesta al Studio.
+      db.markWebhookProcessed(BRANCH_IDEMPOTENCY_PROVIDER, idempotencyKey, result.action || operation, {
+        operation,
+        response: responsePayload
+      }).catch(() => {});
     }
 
     return res.json(responsePayload);
@@ -194,12 +222,26 @@ router.patch('/branches', authMiddleware, requireVerifiedEmail, requireActiveSub
 /**
  * POST /api/studio/events - Crear un nuevo evento (restaurante temporal con expiración)
  */
-router.post('/events', authMiddleware, requireVerifiedEmail, requireActiveSubscription, async (req, res, next) => {
+const createEventSchema = z.object({
+  name: z.string().min(1, { message: 'Nombre del evento requerido' }).max(80),
+  slug: z.string().max(60).optional().default(''),
+  eventDate: z.string().min(1, { message: 'Fecha del evento requerida' }).max(40),
+  eventType: z.string().max(30).optional().default('private'),
+  expiresAt: z.string().max(40).optional().default(''),
+  description: z.string().max(500).optional().default(''),
+  phone: z.string().max(30).optional().default(''),
+  currency: z.string().max(5).optional().default('$'),
+  theme: z.string().max(40).optional().default('neon'),
+  layout: z.string().max(40).optional().default('neon'),
+  dishes: z.array(z.record(z.any())).max(500).optional().default([]),
+  categories: z.array(z.record(z.any())).max(100).optional().default([])
+});
+router.post('/events', authMiddleware, requireVerifiedEmail, requireActiveSubscription, validateBody(createEventSchema), async (req, res, next) => {
   try {
-    const { name, slug, eventDate, eventType, expiresAt, description, phone, currency, theme, layout, dishes, categories } = req.body || {};
+    const { name, slug, eventDate, eventType, expiresAt, description, phone, currency, theme, layout, dishes, categories } = req.validatedBody;
 
-    if (!name || !eventDate) {
-      return res.status(400).json({ error: 'Nombre y fecha del evento son requeridos' });
+    if (Number.isNaN(new Date(eventDate).getTime())) {
+      return res.status(400).json({ success: false, error: 'Fecha del evento inválida', code: 'INVALID_EVENT_DATE' });
     }
 
     const userId = req.user.userId;

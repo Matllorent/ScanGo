@@ -484,6 +484,9 @@ function buildDemoMenuResponse(typeOrSlug) {
     allowReservations: demo.allowReservations !== false,
     allowCoupons: demo.allowCoupons !== false,
     allowBillSplitter: demo.allowBillSplitter === true,
+    allowWaiterCall: demo.allowWaiterCall !== false,
+    allowBillRequest: demo.allowBillRequest !== false,
+    allowMenuOrders: demo.allowMenuOrders !== false,
     announcement: demo.announcement || '',
     paymentLink: '',
     allowOnlinePayment: false,
@@ -723,6 +726,13 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
         allowReservations: restaurant.allowReservations !== false,
         allowCoupons: restaurant.allowCoupons !== false,
         allowBillSplitter: restaurant.allowBillSplitter !== false,
+        // Servicio de mesa: interruptores del dueño (defaults encendidos).
+        // "Pedir la cuenta" además solo tiene sentido en el local (el menú
+        // la oculta en DELIVERY/TAKEAWAY aunque esté habilitada).
+        allowWaiterCall: restaurant.allowWaiterCall !== false,
+        allowBillRequest: restaurant.allowBillRequest !== false,
+        // Vitrina vs con pedidos: el dueño decide si la carta lleva carrito.
+        allowMenuOrders: restaurant.allowMenuOrders !== false,
         announcement: restaurant.announcement || '',
         paymentLink: restaurant.paymentLink || '',
         // Pago online: el dueño decide si la opción aparece. `allowOnlinePayment`

@@ -8,6 +8,7 @@
  */
 
 import { state } from './state.js';
+import { escapeHtml } from '../utils/escapeHtmlBrowser.js';
 
 let selectedPages = []; // Array of { id, file, dataUrl, base64, mimeType, name }
 let parsedResult = null; // Store result from AI { detectedStyle, categories }
@@ -205,8 +206,8 @@ export function renderAiMenuPages() {
         <button type="button" class="btn-nav" style="padding:2px 6px; font-size:10px;" data-js-click="moveAiMenuPage|${index}|-1" ${index === 0 ? 'disabled' : ''} title="Mover a la izquierda">
           ◀
         </button>
-        <span style="font-size:9px; color:var(--text-dim); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:60px;" title="${page.name}">
-          ${page.name}
+        <span style="font-size:9px; color:var(--text-dim); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:60px;" title="${escapeHtml(page.name)}">
+          ${escapeHtml(page.name)}
         </span>
         <button type="button" class="btn-nav" style="padding:2px 6px; font-size:10px;" data-js-click="moveAiMenuPage|${index}|1" ${index === selectedPages.length - 1 ? 'disabled' : ''} title="Mover a la derecha">
           ▶
@@ -334,15 +335,20 @@ export function openAiMenuPreviewModal(result) {
     }
     if (result.detectedStyle) {
       const { primaryColor, accentColor, vibe } = result.detectedStyle;
+      // Los colores vienen de la IA: solo HEX válido llega al style attr
+      // (defensa en profundidad junto al backend); el resto va escapado.
+      const safeHex = (c, fallback) => (/^#[0-9A-Fa-f]{6}$/.test(String(c || '')) ? c : fallback);
+      const primary = safeHex(primaryColor, '#1F2937');
+      const accent = safeHex(accentColor, '#ECC94B');
       html += `
         <div style="display:flex; align-items:center; gap:12px; background:var(--bg-base); padding:10px 14px; border-radius:8px; border:1px solid var(--border);">
           <div style="display:flex; gap:6px;">
-            <span style="width:24px; height:24px; border-radius:50%; background:${primaryColor || '#1F2937'}; border:1px solid rgba(255,255,255,0.3); display:inline-block;" title="Color primario: ${primaryColor}"></span>
-            <span style="width:24px; height:24px; border-radius:50%; background:${accentColor || '#ECC94B'}; border:1px solid rgba(255,255,255,0.3); display:inline-block;" title="Color de acento: ${accentColor}"></span>
+            <span style="width:24px; height:24px; border-radius:50%; background:${primary}; border:1px solid rgba(255,255,255,0.3); display:inline-block;" title="Color primario: ${escapeHtml(primary)}"></span>
+            <span style="width:24px; height:24px; border-radius:50%; background:${accent}; border:1px solid rgba(255,255,255,0.3); display:inline-block;" title="Color de acento: ${escapeHtml(accent)}"></span>
           </div>
           <div>
-            <div style="font-size:12px; font-weight:700; color:#fff;">Estilo Sugerido: <span style="color:var(--accent-gold);">${vibe || 'Bistró Moderno'}</span></div>
-            <div style="font-size:10px; color:var(--text-dim);">Primario: <code>${primaryColor}</code> | Acento: <code>${accentColor}</code></div>
+            <div style="font-size:12px; font-weight:700; color:#fff;">Estilo Sugerido: <span style="color:var(--accent-gold);">${escapeHtml(vibe || 'Bistró Moderno')}</span></div>
+            <div style="font-size:10px; color:var(--text-dim);">Primario: <code>${escapeHtml(primary)}</code> | Acento: <code>${escapeHtml(accent)}</code></div>
           </div>
         </div>
       `;
@@ -367,19 +373,19 @@ export function openAiMenuPreviewModal(result) {
     categoriesList.innerHTML = result.categories.map((cat, cIdx) => `
       <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px;">
         <div style="font-size:12px; font-weight:700; color:var(--accent-gold); margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
-          <span>📁 ${cat.name}</span>
+          <span>📁 ${escapeHtml(cat.name)}</span>
           <span style="font-size:10px; color:var(--text-dim);">${cat.items?.length || 0} platos</span>
         </div>
         <div style="display:flex; flex-direction:column; gap:4px; max-height:160px; overflow-y:auto;">
           ${(cat.items || []).map((item, itemIdx) => `
             <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; padding:3px 0; border-bottom:1px dashed rgba(255,255,255,0.06);">
               <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:65%;">
-                <strong style="color:#fff;">${item.name}</strong>
-                ${item.description ? `<span style="color:var(--text-dim); font-size:10px; display:block; text-overflow:ellipsis; overflow:hidden;">${item.description}</span>` : ''}
+                <strong style="color:#fff;">${escapeHtml(item.name)}</strong>
+                ${item.description ? `<span style="color:var(--text-dim); font-size:10px; display:block; text-overflow:ellipsis; overflow:hidden;">${escapeHtml(item.description)}</span>` : ''}
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
                 <span style="color:#68D391; font-weight:700; font-family:var(--font-mono); white-space:nowrap;">
-                  $ ${item.price.toFixed(2)}
+                  $ ${(Number(item.price) || 0).toFixed(2)}
                 </span>
                 <button type="button" data-js-click="removeDetectedAiDish|${cIdx}|${itemIdx}" style="background:transparent; border:none; color:#E53E3E; cursor:pointer; font-size:12px; padding:2px 4px;" title="Descartar este plato">
                   ✕

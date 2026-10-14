@@ -10,7 +10,7 @@ const PUBLIC_JS = path.join(ROOT, 'public', 'js');
 /**
  * Bloque 4 — Guards de arquitectura.
  *
- * Tres invariantes estructurales que se rompen con intención, no por
+ * Cuatro invariantes estructurales que se rompen con intención, no por
  * accidente (cada uno documenta por qué existe y cómo pedir permiso):
  *
  *   A) La telemetría es la fuente única de verdad de analytics:
@@ -34,9 +34,17 @@ const PUBLIC_JS = path.join(ROOT, 'public', 'js');
  *      (root-relative `/js/...` o relativos `./` `../`); un specifier que
  *      escape (npm, abs, ../ por encima de public/js) viola la CSP
  *      (script-src 'self' + CDNs) y el bundling-less.
+ *
+ *   D) El dominio nunca importa transporte: src/**, api/services/** y
+ *      api/utils/** NO pueden requerir api/index, api/routes/**,
+ *      api/cron/** ni api/middleware/**. La dependencia va en un solo
+ *      sentido (transporte → dominio); invertirla acopla la lógica de
+ *      negocio al HTTP y rompe el testeo directo en Node. Los requires
+ *      cruzados dentro de la misma capa o hacia src están permitidos (misma
+ *      capa o hacia adentro).
  */
 
-console.log('🧪 Guards de arquitectura: analytics proyección, capas api/, frontend plano...');
+console.log('🧪 Guards de arquitectura: analytics proyección, capas api/, frontend plano, dirección dominio→transporte...');
 
 function rel(file) {
   return path.relative(ROOT, file).split(path.sep).join('/');
@@ -169,8 +177,51 @@ function guardPlainFrontend() {
   console.log(`✓ C: frontend plano — 0 require(), ${seen.size} specifiers internos verificados`);
 }
 
+// ── D) dominio nunca importa transporte ───────────────────────────────────
+// Dominios: src/**, api/services/**, api/utils/**. Destinos prohibidos:
+// api/index.js, api/routes/**, api/cron/**, api/middleware/**.
+// Solo se inspeccionan requires relativos (los de npm/builtins no cruzan
+// capas del repo).
+function guardLayerDirection() {
+  const domainDirs = [
+    path.join(SRC),
+    path.join(API, 'services'),
+    path.join(API, 'utils')
+  ];
+  const bannedPrefixes = [
+    path.join(API, 'index.js'),
+    path.join(API, 'routes') + path.sep,
+    path.join(API, 'cron') + path.sep,
+    path.join(API, 'middleware') + path.sep
+  ];
+  const requireRe = /require\(\s*['"]([^'"]+)['"]\s*\)/g;
+  const violations = [];
+  const hitsBanned = (resolved) => {
+    // El require omite extensión: se prueban las 3 resoluciones reales.
+    const candidates = [resolved, resolved + '.js', path.join(resolved, 'index.js')];
+    return candidates.some(c => bannedPrefixes.some(p => c === p || c.startsWith(p)));
+  };
+  for (const dir of domainDirs) {
+    for (const file of walk(dir)) {
+      const src = stripComments(fs.readFileSync(file, 'utf8'));
+      let m;
+      requireRe.lastIndex = 0;
+      while ((m = requireRe.exec(src)) !== null) {
+        const spec = m[1];
+        if (!spec.startsWith('.')) continue; // npm/builtin: no cruza capas
+        const resolved = path.normalize(path.join(path.dirname(file), spec));
+        if (hitsBanned(resolved)) violations.push(`${rel(file)} -> ${rel(resolved) || spec}`);
+      }
+    }
+  }
+  assert.deepStrictEqual(violations, [],
+    `D: el dominio (src, api/services, api/utils) no importa transporte (recibidas: ${violations.length})`);
+  console.log('✓ D: dirección única transporte → dominio (0 requires invertidos)');
+}
+
 guardAnalyticsProjection();
 guardUtilsLayer();
 guardPlainFrontend();
+guardLayerDirection();
 
 console.log('\n🎉 ¡ARQUITECTURA EN VERDE: guards estructurales sin violaciones activas!\n');

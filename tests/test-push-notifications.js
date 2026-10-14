@@ -119,6 +119,71 @@ async function runTests() {
     });
     assert.strictEqual(sendAnon.status, 401, '/send anónimo rechazado (401)');
     console.log('✓ 401 anónimo en /send + 404 en waiter-alert con slug inexistente');
+
+    // 3) Servicio de mesa configurable por el dueño (flags + gates 403)
+    const { sanitizeRestaurantPayload } = require('../api/utils/sanitizeRestaurant');
+    // Sanitizer: defaults encendidos (no cambia la experiencia actual).
+    const cleanDefault = sanitizeRestaurantPayload({ name: 'X' });
+    assert.strictEqual(cleanDefault.allowWaiterCall, true, 'allowWaiterCall default true');
+    assert.strictEqual(cleanDefault.allowBillRequest, true, 'allowBillRequest default true');
+    const cleanOff = sanitizeRestaurantPayload({ name: 'X', allowWaiterCall: false, allowBillRequest: false });
+    assert.strictEqual(cleanOff.allowWaiterCall, false, 'false explícito se preserva');
+    assert.strictEqual(cleanOff.allowBillRequest, false, 'false explícito se preserva');
+    console.log('✓ Sanitizer: servicio de mesa default ON, false explícito preservado');
+
+    // Menú público expone los flags (como allowOnlinePayment).
+    const menuRes = await fetch(`${base}/api/menu/${restaurant.slug}`);
+    assert.strictEqual(menuRes.status, 200, 'menú público responde 200');
+    const menuBody = await menuRes.json();
+    assert.strictEqual(menuBody.restaurant.allowWaiterCall, true, '/api/menu expone allowWaiterCall=true');
+    assert.strictEqual(menuBody.restaurant.allowBillRequest, true, '/api/menu expone allowBillRequest=true');
+    console.log('✓ /api/menu/:slug expone allowWaiterCall/allowBillRequest (default true)');
+
+    // Gate server-side: cuenta apagada → 403 BILL_REQUEST_DISABLED, mozo sigue OK.
+    await db.saveRestaurant(user.id, { allowBillRequest: false });
+    const billOff = await fetch(`${base}/api/notifications/waiter-alert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug: restaurant.slug, table: 'Mesa 1', type: 'cuenta_efectivo' })
+    });
+    assert.strictEqual(billOff.status, 403, 'cuenta con flag OFF → 403');
+    assert.strictEqual((await billOff.json()).code, 'BILL_REQUEST_DISABLED');
+    const mozoOn = await fetch(`${base}/api/notifications/waiter-alert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug: restaurant.slug, table: 'Mesa 1', type: 'mozo' })
+    });
+    assert.strictEqual(mozoOn.status, 200, 'mozo con flag ON → 200');
+    console.log('✓ Gate: BILL_REQUEST_DISABLED (403) con mozo intacto');
+
+    // Gate server-side: mozo apagado → 403 WAITER_CALL_DISABLED.
+    await db.saveRestaurant(user.id, { allowBillRequest: true, allowWaiterCall: false });
+    const mozoOff = await fetch(`${base}/api/notifications/waiter-alert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug: restaurant.slug, table: 'Mesa 2', type: 'mozo' })
+    });
+    assert.strictEqual(mozoOff.status, 403, 'mozo con flag OFF → 403');
+    assert.strictEqual((await mozoOff.json()).code, 'WAITER_CALL_DISABLED');
+    console.log('✓ Gate: WAITER_CALL_DISABLED (403)');
+
+    // Frontend: ids + regla "la cuenta solo en el local" + wiring del Studio.
+    const fs = require('fs');
+    const path = require('path');
+    const menuHtml = fs.readFileSync(path.join(__dirname, '../public/menu.html'), 'utf8');
+    for (const id of ['waiterFab', 'btnCallWaiter', 'btnBillCash', 'btnBillCard']) {
+      assert.ok(menuHtml.includes(`id="${id}"`), `menu.html expone #${id}`);
+    }
+    const menuJs = fs.readFileSync(path.join(__dirname, '../public/js/menu.js'), 'utf8');
+    assert.ok(menuJs.includes('updateTableServiceUI'), 'menu.js gobierna la UI de mesa');
+    assert.ok(menuJs.includes("return mode === 'LOCAL'"), 'la cuenta solo se muestra en modalidad LOCAL');
+    const studioHtml = fs.readFileSync(path.join(__dirname, '../public/studio.html'), 'utf8');
+    assert.ok(studioHtml.includes('id="inputAllowWaiterCall"'), 'Studio expone toggle de mozo');
+    assert.ok(studioHtml.includes('id="inputAllowBillRequest"'), 'Studio expone toggle de cuenta');
+    assert.ok(!/on(click|change|input|submit)=/i.test(studioHtml.match(/inputAllowWaiterCall[\s\S]{0,400}/)[0]), 'toggles sin on*= (CSP)');
+    const studioJs = fs.readFileSync(path.join(__dirname, '../public/js/studio.js'), 'utf8');
+    assert.ok(studioJs.includes('inputAllowWaiterCall') && studioJs.includes('inputAllowBillRequest'), 'Studio guarda/carga ambos flags');
+    console.log('✓ Frontend: FAB + botones con id, cuenta solo en LOCAL, toggles del Studio sin on*=');
   } finally {
     // Restauramos el entorno original
     if (origPublic) process.env.VAPID_PUBLIC_KEY = origPublic;

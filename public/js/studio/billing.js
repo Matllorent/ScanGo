@@ -173,12 +173,34 @@ export function openBillingModal(currentUser, restaurant) {
 
 /**
  * Da de baja la suscripción (efecto inmediato, reactivable).
- * Doble confirmación + aviso de cancelar también en la pasarela.
+ * Doble confirmación con el diálogo propio (no bloqueante, sin on*=) +
+ * aviso de cancelar también en la pasarela. Sin UI disponible el default
+ * seguro es NO dar de baja.
  */
 export async function cancelSubscription() {
-  const first = window.confirm('¿Dar de baja tu suscripción? Tu menú se pausará al instante.');
+  const ask = (opts) => {
+    if (typeof window.showConfirmDialog !== 'function') return Promise.resolve(false);
+    try {
+      return Promise.resolve(window.showConfirmDialog(opts)).then(Boolean);
+    } catch {
+      return Promise.resolve(false);
+    }
+  };
+  const first = await ask({
+    icon: '⚠️',
+    title: 'Dar de baja la suscripción',
+    message: 'Tu menú se pausará al instante hasta que reactives un plan. ¿Continuar?',
+    confirmText: 'Sí, dar de baja',
+    confirmClass: 'btn-danger'
+  });
   if (!first) return;
-  const second = window.confirm('Última confirmación: el menú dejará de estar online hasta que reactives un plan. ¿Continuar con la baja?');
+  const second = await ask({
+    icon: '🔴',
+    title: 'Última confirmación',
+    message: 'El menú dejará de estar online hasta que reactives un plan. ¿Confirmar la baja?',
+    confirmText: 'Confirmar baja',
+    confirmClass: 'btn-danger'
+  });
   if (!second) return;
   try {
     const headers = (window.AuthClient

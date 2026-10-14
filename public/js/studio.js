@@ -1092,6 +1092,26 @@ export function updateLiveState() {
     const sliderD = el('sliderDiscovery');
     if (sliderD) sliderD.style.backgroundColor = discoveryCheckbox.checked ? '#38A169' : '#2a3a33';
   }
+  // Servicio de mesa: interruptores del dueño (defaults encendidos).
+  const waiterCheckbox = el('inputAllowWaiterCall');
+  if (waiterCheckbox) {
+    restaurant.allowWaiterCall = waiterCheckbox.checked !== false;
+    const sliderW = el('sliderWaiterCall');
+    if (sliderW) sliderW.style.backgroundColor = waiterCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
+  const billCheckbox = el('inputAllowBillRequest');
+  if (billCheckbox) {
+    restaurant.allowBillRequest = billCheckbox.checked !== false;
+    const sliderB = el('sliderBillRequest');
+    if (sliderB) sliderB.style.backgroundColor = billCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
+  // Vitrina vs con pedidos (default encendido).
+  const ordersCheckbox = el('inputAllowMenuOrders');
+  if (ordersCheckbox) {
+    restaurant.allowMenuOrders = ordersCheckbox.checked !== false;
+    const sliderO = el('sliderMenuOrders');
+    if (sliderO) sliderO.style.backgroundColor = ordersCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
 
   const schedCheck = el('inputScheduleEnabled');
   if (schedCheck) {
@@ -1268,6 +1288,24 @@ export function renderStudioUI() {
     discoveryCheckbox.checked = restaurant.allowDiscovery === true;
     const sliderD = el('sliderDiscovery');
     if (sliderD) sliderD.style.backgroundColor = discoveryCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
+  const waiterLoad = el('inputAllowWaiterCall');
+  if (waiterLoad) {
+    waiterLoad.checked = restaurant.allowWaiterCall !== false;
+    const sliderW = el('sliderWaiterCall');
+    if (sliderW) sliderW.style.backgroundColor = waiterLoad.checked ? '#38A169' : '#2a3a33';
+  }
+  const billLoad = el('inputAllowBillRequest');
+  if (billLoad) {
+    billLoad.checked = restaurant.allowBillRequest !== false;
+    const sliderB = el('sliderBillRequest');
+    if (sliderB) sliderB.style.backgroundColor = billLoad.checked ? '#38A169' : '#2a3a33';
+  }
+  const ordersLoad = el('inputAllowMenuOrders');
+  if (ordersLoad) {
+    ordersLoad.checked = restaurant.allowMenuOrders !== false;
+    const sliderO = el('sliderMenuOrders');
+    if (sliderO) sliderO.style.backgroundColor = ordersLoad.checked ? '#38A169' : '#2a3a33';
   }
 
   const schedCheck = el('inputScheduleEnabled');
@@ -2644,10 +2682,24 @@ export function printOrderTicket(orderId) {
 
 async function setOrderStatus(orderId, status) {
   if (!orderId || !status) return;
-  // Cancelar es destructivo (el comensal lo ve al instante): confirmación.
-  if (ORDER_DANGER_STATES.includes(status)
-    && !window.confirm('¿Cancelar este pedido? El comensal lo verá como cancelado.')) {
-    return;
+  // Cancelar es destructivo (el comensal lo ve al instante): confirmación con
+  // el diálogo propio (no bloqueante). Sin UI, default seguro = no cancelar.
+  if (ORDER_DANGER_STATES.includes(status)) {
+    let ok = false;
+    if (typeof window.showConfirmDialog === 'function') {
+      try {
+        ok = Boolean(await Promise.resolve(window.showConfirmDialog({
+          icon: '⚠️',
+          title: 'Cancelar pedido',
+          message: 'El comensal lo verá como cancelado al instante. ¿Continuar?',
+          confirmText: 'Sí, cancelar',
+          confirmClass: 'btn-danger'
+        })));
+      } catch {
+        ok = false;
+      }
+    }
+    if (!ok) return;
   }
   try {
     const res = await studioApi(`/api/orders/status/${encodeURIComponent(orderId)}`, {

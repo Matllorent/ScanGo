@@ -334,6 +334,13 @@ function sanitizeRestaurantPayload(data) {
   clean.scheduleEnabled = Boolean(clean.scheduleEnabled);
   // Cierre manual del dueño (override del horario): estricto, default false.
   clean.forceClosed = clean.forceClosed === true;
+  // Servicio de mesa (QR de mesa): el dueño decide qué ofrece. Defaults
+  // encendidos para no cambiar la experiencia actual de ningún local.
+  clean.allowWaiterCall = clean.allowWaiterCall !== false;
+  clean.allowBillRequest = clean.allowBillRequest !== false;
+  // Carta vitrina: el dueño muestra los platos sin carrito ni pedidos
+  // (default encendido: sin cambios para los locales actuales).
+  clean.allowMenuOrders = clean.allowMenuOrders !== false;
   // Texto configurable del botón principal del armador de helado (vacío → default del frontend).
   clean.iceCreamBuilderLabel = sanitizeString(clean.iceCreamBuilderLabel, 60);
   // Estilo del botón del armador (6 variantes premium de heladería, default clasico).

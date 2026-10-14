@@ -8,6 +8,7 @@ const { authMiddleware } = require('../middleware/auth');
 const { tenantGuard } = require('../middleware/tenantGuard');
 const { loyaltyLimiter } = require('../middleware/rateLimits');
 const { requireActiveSubscription } = require('../middleware/subscriptionGuard');
+const auditService = require('../services/audit');
 
 const router = express.Router();
 
@@ -154,6 +155,21 @@ router.post('/validate', authMiddleware, tenantGuard, loyaltyLimiter, validateBo
       code: req.validatedBody.code,
       ownerRestaurantId: req.tenantId || null
     });
+    // Auditoría (fire-and-forget): qué código se canjeó en qué local.
+    // El código ya es de un solo uso y quedó spent: loguearlo es el rastro.
+    auditService.logAction({
+      tenantId: req.tenantId,
+      userId: req.user && req.user.userId,
+      requestId: req.requestId,
+      action: 'LOYALTY_REDEEM_VALIDATED',
+      entity: 'loyalty',
+      details: {
+        code: req.validatedBody.code,
+        rewardTitle: result.rewardTitle,
+        pointsCost: result.pointsCost,
+        redeemedAt: result.redeemedAt
+      }
+    });
     return successResponse(res, result, 'Código validado y marcado como canjeado');
   } catch (err) {
     next(err);
@@ -172,6 +188,19 @@ router.post('/credit', authMiddleware, tenantGuard, requireActiveSubscription, l
       phone: req.validatedBody.phone,
       points: req.validatedBody.points,
       reason: req.validatedBody.reason
+    });
+    // Auditoría (fire-and-forget): crédito manual con teléfono enmascarado.
+    auditService.logAction({
+      tenantId: req.tenantId,
+      userId: req.user && req.user.userId,
+      requestId: req.requestId,
+      action: 'LOYALTY_CREDIT',
+      entity: 'loyalty',
+      details: {
+        phone: loyaltyService.maskPhone(req.validatedBody.phone),
+        points: req.validatedBody.points,
+        reason: req.validatedBody.reason
+      }
     });
     return successResponse(res, result, 'Puntos acreditados manualmente');
   } catch (err) {

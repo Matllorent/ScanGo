@@ -7,6 +7,7 @@
  */
 
 import { cloneDishWithNewId as cloneDishWithNewIdUtil, cloneCategoryWithNewId as cloneCategoryWithNewIdUtil } from './cloneUtils.js';
+import { escapeHtml as escapeHtmlDefault } from '../utils/escapeHtmlBrowser.js';
 
 /**
  * Abre el diálogo rápido para crear una nueva categoría desde el modal de plato.
@@ -74,7 +75,7 @@ export function renderCategoryManagerList(restaurant, escapeHtml) {
     list.innerHTML = '<div style="font-size:11px; color:var(--text-dim); text-align:center; padding:12px;">No hay categorías creadas aún.</div>';
     return;
   }
-  const safeEscape = typeof escapeHtml === 'function' ? escapeHtml : (str => String(str || ''));
+  const safeEscape = typeof escapeHtml === 'function' ? escapeHtml : escapeHtmlDefault;
   list.innerHTML = cats.map((c, index) => `
     <div style="display:flex; justify-content:space-between; align-items:center; background:var(--surface-2); padding:8px 12px; border-radius:6px; border:1px solid var(--border);">
       <span style="font-size:12px; font-weight:600; color:#fff;">${safeEscape(c.name)}</span>

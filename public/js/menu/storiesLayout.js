@@ -481,6 +481,12 @@ function buildStory(st, idx, total, brand) {
     ev.stopPropagation();
     if (typeof window.openCartModal === 'function') window.openCartModal();
   });
+  // Vitrina: sin carrito (el dueño muestra la carta sin aceptar pedidos).
+  // window.restaurantData es el puente vivo de menu.js.
+  try {
+    const restData = window.restaurantData;
+    if (restData && restData.allowMenuOrders === false) cartBtn.style.display = 'none';
+  } catch (e) {}
   top.appendChild(cartBtn);
 
   const exitBtn = el('button', 'st-exit', '✕');
@@ -527,24 +533,40 @@ function buildStory(st, idx, total, brand) {
       toggleDishLike(likeKey, st, like);
     });
     row.appendChild(like);
-    const order = el('a', 'st-order', stT('storiesOrder', 'Pedir →'));
+    // Vitrina: el deep-link a la carta sigue valiendo, pero el botón dice
+    // "Ver carta" en vez de "Pedir" (en ese local no hay nada que pedir).
+    const canOrder = st.ordersEnabled !== false;
+    const orderLabel = canOrder ? stT('storiesOrder', 'Pedir →') : stT('storiesSeeInMenu', '📍 Ver en carta');
+    const order = el('a', 'st-order', orderLabel);
     order.setAttribute('href', '/m/' + st.slug + '?dish=' + encodeURIComponent(st.id));
-    order.setAttribute('aria-label', stT('storiesOrder', 'Pedir →') + ' ' + st.name);
+    order.setAttribute('aria-label', orderLabel + ' ' + st.name);
     row.appendChild(order);
   } else {
-    const add = el('button', 'st-add', st.soldout ? stT('storiesSoldOut', 'Agotado') : stT('storiesAdd', '+ Agregar'));
-    add.setAttribute('type', 'button');
-    if (st.soldout) {
-      add.setAttribute('disabled', 'true');
-      add.setAttribute('aria-disabled', 'true');
+    // Vitrina: la historia muestra sin "+ Agregar" (window.addToCart además
+    // lo ignora; el server responde 403 a cualquier pedido).
+    let ordersOn = true;
+    try {
+      const restData = window.restaurantData;
+      if (restData && restData.allowMenuOrders === false) ordersOn = false;
+    } catch (e) {}
+    if (!ordersOn) {
+      const badge = el('p', 'st-sold', stT('storiesShowcase', 'Solo carta · sin pedidos'));
+      info.appendChild(el('div', 'st-row')).appendChild(badge);
     } else {
-      add.setAttribute('aria-label', stT('storiesAdd', '+ Agregar') + ' ' + st.name);
-      add.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        if (typeof window.addToCart === 'function') window.addToCart(st.id);
-      });
+      const add = el('button', 'st-add', st.soldout ? stT('storiesSoldOut', 'Agotado') : stT('storiesAdd', '+ Agregar'));
+      add.setAttribute('type', 'button');
+      if (st.soldout) {
+        add.setAttribute('disabled', 'true');
+        add.setAttribute('aria-disabled', 'true');
+      } else {
+        add.setAttribute('aria-label', stT('storiesAdd', '+ Agregar') + ' ' + st.name);
+        add.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          if (typeof window.addToCart === 'function') window.addToCart(st.id);
+        });
+      }
+      row.appendChild(add);
     }
-    row.appendChild(add);
   }
   info.appendChild(row);
 
@@ -921,7 +943,8 @@ export function enterDiscoverMode(items, startIndex) {
       likeCount: Number(it.likeCount) || 0,
       brandTitle: String(rest.name || 'Local'),
       brandSub: where,
-      brandLogo: typeof rest.logoUrl === 'string' ? rest.logoUrl : ''
+      brandLogo: typeof rest.logoUrl === 'string' ? rest.logoUrl : '',
+      ordersEnabled: rest.ordersEnabled !== false
     };
   }).filter((st) => st.id && st.slug);
   if (!stories.length) return false;

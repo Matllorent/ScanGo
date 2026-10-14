@@ -375,6 +375,44 @@
               <div class="input-hint">Si lo dejás vacío y el servidor tiene Mercado Pago configurado, el menú genera un link de pago por pedido.</div>
             </div>
 
+            <!-- Servicio de mesa (QR de mesa): el dueño decide qué ofrece -->
+            <div class="form-group" style="margin-top:14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div>
+                  <strong style="font-size:12px; color:#fff;">🔔 Servicio de Mesa (QR)</strong>
+                  <div style="font-size:10px; color:var(--text-dim);">Qué botones ve el comensal en el menú. "Pedir la cuenta" además solo aparece comiendo en el local (en delivery/retiro no tiene sentido y se oculta solo).</div>
+                </div>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-top:1px dashed var(--border);">
+                <div style="font-size:11px; color:#fff;">🙋 Llamar al Mozo</div>
+                <label style="position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0;">
+                  <input type="checkbox" id="inputAllowWaiterCall" data-js-change="updateLiveState" style="opacity:0; width:0; height:0;" aria-label="Permitir llamar al mozo">
+                  <span id="sliderWaiterCall" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
+                </label>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-top:1px dashed var(--border);">
+                <div style="font-size:11px; color:#fff;">🧾 Pedir la Cuenta</div>
+                <label style="position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0;">
+                  <input type="checkbox" id="inputAllowBillRequest" data-js-change="updateLiveState" style="opacity:0; width:0; height:0;" aria-label="Permitir pedir la cuenta">
+                  <span id="sliderBillRequest" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Pedidos del menú: carrito completo o carta vitrina (solo mostrar) -->
+            <div class="form-group" style="margin-top:14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <strong style="font-size:12px; color:#fff;">🛒 Aceptar Pedidos en el Menú</strong>
+                  <div style="font-size:10px; color:var(--text-dim);">Apagado = carta vitrina: se ven los platos pero sin carrito, sin +Agregar y sin checkout (ideal QR de mesa solo para mostrar). El servidor también rechaza pedidos.</div>
+                </div>
+                <label style="position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0;">
+                  <input type="checkbox" id="inputAllowMenuOrders" data-js-change="updateLiveState" style="opacity:0; width:0; height:0;" aria-label="Aceptar pedidos en el menú">
+                  <span id="sliderMenuOrders" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
+                </label>
+              </div>
+            </div>
+
             <!-- Descubrir beta (opt-in): aparecer en el feed tipo tiktok de la zona -->
             <div class="form-group" style="margin-top:14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">

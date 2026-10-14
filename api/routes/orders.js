@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../../src/db/db');
 const { getSupabaseClient } = require('../utils/supabase');
 const { successResponse, errorResponse } = require('../utils/response');
-const { validateBody, createOrderSchema } = require('../middleware/validation');
+const { validateBody, validateRequest, createOrderSchema } = require('../middleware/validation');
 const idempotencyMiddleware = require('../middleware/idempotency');
 const { tenantGuard } = require('../middleware/tenantGuard');
 const { authenticateRequest } = require('../middleware/auth');
@@ -15,9 +15,11 @@ const { groupCartLimiter } = require('../middleware/rateLimits');
 const { verifyGroupCartToken } = require('../utils/groupCartToken');
 const { computeOpenStatus } = require('../utils/openStatus');
 const { quoteOrderItems, resolveDeliveryFee, resolveCouponDiscount } = require('../utils/orderMoney');
+const { z } = require('zod');
 const loyaltyService = require('../services/loyalty');
 const notificationsService = require('../services/notifications');
 const { signOrderToken, verifyOrderToken } = require('../utils/orderTrackingToken');
+const auditService = require('../services/audit');
 
 const router = express.Router();
 
@@ -136,6 +138,11 @@ function assertRestaurantOpen(restaurant, utcOffsetMinutes = 0, nowMs = Date.now
 }
 
 function enforceOrderBusinessRules({ restaurant, subtotal, orderMode, deliveryAddress, utcOffsetMinutes }) {
+  // Carta vitrina: el dueño muestra los platos sin aceptar pedidos (ni por
+  // WhatsApp ni online). Mismo patrón que ONLINE_PAYMENT_DISABLED.
+  if (restaurant.allowMenuOrders === false) {
+    throw new AppError('Este local muestra su carta sin aceptar pedidos por el momento.', 403, 'MENU_ORDERS_DISABLED');
+  }
   const minOrder = Number(restaurant.minOrder) || 0;
   if (minOrder > 0 && Number(subtotal) < minOrder) {
     throw new AppError(
@@ -366,10 +373,16 @@ router.get('/track/:token', async (req, res, next) => {
  * local + Supabase y avisa por push SOLO al comensal que hizo el pedido (por
  * teléfono). El push es best-effort: nunca rompe la actualización de estado.
  */
-router.patch('/status/:orderId', requireAuth, tenantGuard, async (req, res, next) => {
+const orderStatusParamsSchema = z.object({
+  orderId: z.string().min(1, { message: 'ID de pedido requerido' }).max(120)
+});
+const orderStatusBodySchema = z.object({
+  status: z.string().min(1, { message: 'Estado requerido' }).max(30)
+});
+router.patch('/status/:orderId', requireAuth, tenantGuard, validateRequest({ params: orderStatusParamsSchema, body: orderStatusBodySchema }), async (req, res, next) => {
   try {
-    const { orderId } = req.params;
-    const { status } = req.body || {};
+    const { orderId } = req.validatedParams;
+    const { status } = req.validatedBody;
 
     if (!ORDER_STATUSES.includes(status)) {
       return res.status(400).json({ success: false, error: 'Estado de pedido inválido', code: 'INVALID_ORDER_STATUS' });
@@ -434,6 +447,16 @@ router.patch('/status/:orderId', requireAuth, tenantGuard, async (req, res, next
     } catch (e) {
       notification = { sent: false, error: e.code || e.message };
     }
+
+    // Auditoría (fire-and-forget): quién movió qué pedido y de qué estado a cuál.
+    auditService.logAction({
+      tenantId: orderRestaurantId,
+      userId: req.user && req.user.userId,
+      requestId: req.requestId,
+      action: 'ORDER_STATUS_CHANGE',
+      entity: 'order',
+      details: { orderId, from: order.status, to: status }
+    });
 
     return successResponse(res, {
       orderId,
@@ -502,6 +525,12 @@ router.post('/mercadopago/preference', validateBody(createOrderSchema), async (r
     const restaurant = db.findRestaurantById(restaurantId) || db.findRestaurantBySlug(restaurantId);
     if (!restaurant) {
       throw new AppError('Restaurante no encontrado para el pago', 404, 'RESTAURANT_NOT_FOUND');
+    }
+
+    // Vitrina primero: sin pedidos no hay nada que cobrar (antes que el gate
+    // de pago online, para que el 403 sea el de vitrina aunque el pago esté OFF).
+    if (restaurant.allowMenuOrders === false) {
+      throw new AppError('Este local muestra su carta sin aceptar pedidos por el momento.', 403, 'MENU_ORDERS_DISABLED');
     }
 
     // El cobro online es SOLO una posibilidad que el dueño habilita. Sin el

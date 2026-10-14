@@ -3,6 +3,7 @@ const os = require('os');
 const path = require('path');
 const { getSupabaseClient } = require('../utils/supabase');
 const AppError = require('../utils/AppError');
+const { retryQueue } = require('../utils/retryQueue');
 const webpush = require('web-push');
 const db = require('../../src/db/db');
 const { signOrderToken } = require('../utils/orderTrackingToken');
@@ -68,12 +69,13 @@ function toEventCloudRow(ev) {
 function replicateEvent(rows) {
   const supabase = getSupabaseClient();
   if (!supabase) return;
-  try {
-    supabase.from('notification_events').upsert(rows.map(toEventCloudRow), { onConflict: 'id' })
-      .then(() => {}, (e) => console.warn('[Supabase notification_events Upsert Warning]', e.message));
-  } catch (e) {
-    console.warn('[Supabase notification_events Upsert Warning]', e.message);
-  }
+  // Con reintentos (misma filosofía que audit/telemetry): un aviso de mesa
+  // no puede perderse en la nube por un hipo de red. Falla en background con
+  // log, nunca rompe el flujo que lo disparó.
+  retryQueue.enqueue(async () => {
+    const { error } = await supabase.from('notification_events').upsert(rows.map(toEventCloudRow), { onConflict: 'id' });
+    if (error) throw new Error(error.message);
+  }, { taskName: 'notification_events_replicate' });
 }
 
 /**

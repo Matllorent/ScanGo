@@ -114,6 +114,7 @@ async function runTests() {
     assert.strictEqual(item.photoUrl, 'https://cdn.example.com/mila.jpg', 'foto real');
     assert.ok(item.restaurant && item.restaurant.slug === rOn.slug, 'restaurante con slug para deep-link');
     assert.ok(!('phone' in (item.restaurant || {})), 'restaurante sin teléfono');
+    assert.strictEqual(item.restaurant.ordersEnabled, true, 'feed expone ordersEnabled (vitrina → "Ver carta")');
     console.log('✓ Sin PII en el feed (teléfono/dirección/users afuera)');
 
     // ── 4) Me gusta: canal + conteo ───────────────────────────────────────

@@ -73,15 +73,26 @@ export async function saveStudioChanges(restaurant, showSaveFeedback, reloadPrev
     }
     if (res.status === 409) {
       // Concurrencia optimista: otra pestaña/empleado guardó desde nuestra
-      // última lectura. Opciones honestas: sobrescribir (confirm) o no guardar
-      // y recargar para ver la versión más reciente.
+      // última lectura. Opciones honestas: sobrescribir o no guardar y
+      // recargar para ver la versión más reciente. Diálogo propio no
+      // bloqueante (nunca window.confirm); sin UI disponible el default
+      // seguro es NO sobrescribir.
       const body = await res.json().catch(() => ({}));
       if (body.code === 'MENU_CONCURRENCY_CONFLICT') {
-        const overwrite = window.confirm(
-          'Tu menú fue actualizado en otra pestaña o por otro empleado.\n\n' +
-          '• Aceptar: sobrescribís los cambios ajenos con los tuyos.\n' +
-          '• Cancelar: no se guarda nada; recargá la página para ver la versión más reciente.'
-        );
+        let overwrite = false;
+        if (window.showConfirmDialog) {
+          try {
+            overwrite = await Promise.resolve(window.showConfirmDialog({
+              icon: '⚠️',
+              title: 'Edición en otro lado',
+              message: 'Tu menú fue actualizado en otra pestaña o por otro empleado. Si aceptás, sobrescribís los cambios ajenos con los tuyos. Si cancelás, no se guarda nada: recargá la página para ver la versión más reciente.',
+              confirmText: 'Sobrescribir igual',
+              confirmClass: 'btn-danger'
+            })) || false;
+          } catch {
+            overwrite = false;
+          }
+        }
         if (overwrite) {
           // Reconocer la versión ajena como base → el servidor nos deja guardar
           // (es el "sobrescribir" que el dueño eligió), y el próximo save ya

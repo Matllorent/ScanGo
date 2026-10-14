@@ -5,6 +5,61 @@
  */
 
 const { GoogleGenAI, Type } = require('@google/genai');
+const crypto = require('crypto');
+
+// El SDK de Gemini no expone timeout propio: una inferencia que acepta la
+// conexión y nunca responde colgaría el request del Studio. Se corre la
+// llamada en carrera con un timeout y, al agotarse, se degrada al fallback
+// demo (mismo trato que cuota agotada / imagen ilegible).
+const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS) || 25000;
+
+function withGeminiTimeout(promise) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const err = new Error(`Gemini agotó el timeout de ${GEMINI_TIMEOUT_MS}ms`);
+      err.code = 'GEMINI_TIMEOUT';
+      reject(err);
+    }, GEMINI_TIMEOUT_MS);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+// Cache en memoria por hash de las imágenes (best-effort, como el resto de
+// caches del repo): re-analizar las mismas páginas no quema cuota ni plata.
+// TTL 30 min, cap 20 entradas con evicción de la más vieja.
+const GEMINI_CACHE_TTL_MS = 30 * 60 * 1000;
+const GEMINI_CACHE_MAX = 20;
+const geminiResultCache = new Map(); // sha256 -> { at, result }
+
+function geminiCacheKey(images) {
+  const h = crypto.createHash('sha256');
+  for (const img of images) {
+    const raw = typeof img === 'string' ? img : (img.data || img || '');
+    const mime = (img && img.mimeType) || 'image/jpeg';
+    h.update(String(mime));
+    h.update(String(raw));
+  }
+  return h.digest('hex');
+}
+
+function geminiCacheGet(key) {
+  const hit = geminiResultCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > GEMINI_CACHE_TTL_MS) {
+    geminiResultCache.delete(key);
+    return null;
+  }
+  return hit.result;
+}
+
+function geminiCacheSet(key, result) {
+  geminiResultCache.delete(key);
+  geminiResultCache.set(key, { at: Date.now(), result });
+  while (geminiResultCache.size > GEMINI_CACHE_MAX) {
+    geminiResultCache.delete(geminiResultCache.keys().next().value);
+  }
+}
 
 /**
  * Strict JSON schema matching the required menu output structure.
@@ -103,21 +158,28 @@ async function parseMenuWithGemini(images) {
     return getFallbackDemoMenu();
   }
 
+  // Cache por hash de las imágenes: re-analizar las mismas páginas no quema
+  // cuota. Solo se cachean parseos REALES (nunca el fallback demo: si la cuota
+  // se recupera, el próximo intento debe pegar de verdad).
+  const cacheKey = geminiCacheKey(images);
+  const cached = geminiCacheGet(cacheKey);
+  if (cached) return cached;
+
   const ai = new GoogleGenAI({ apiKey });
   const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 
   const fallbackToDemo = (err, reason) => {
     const errText = [
       err?.message,
-      err?.status,
       err?.code,
+      err?.status,
       err?.error?.message,
       err?.body?.error?.message,
       err?.details,
       JSON.stringify(err)
     ].filter(Boolean).join(' ');
 
-    const hasTemporaryIssue = /UNAVAILABLE|RESOURCE_EXHAUSTED|quota|RATE_LIMIT|429|503|high demand|temporarily|too many requests|capacity|overloaded/i.test(errText);
+    const hasTemporaryIssue = /UNAVAILABLE|RESOURCE_EXHAUSTED|quota|RATE_LIMIT|429|503|high demand|temporarily|too many requests|capacity|overloaded|GEMINI_TIMEOUT|timeout/i.test(errText);
     const isUnprocessableImage = /400|INVALID_ARGUMENT|Unable to process input image|bad image|cannot process|unsupported image/i.test(errText);
     if (hasTemporaryIssue || isUnprocessableImage) {
       if (isUnprocessableImage) {
@@ -151,7 +213,7 @@ async function parseMenuWithGemini(images) {
   });
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await withGeminiTimeout(ai.models.generateContent({
       model,
       contents: formattedParts,
       config: {
@@ -160,7 +222,7 @@ async function parseMenuWithGemini(images) {
         responseJsonSchema: MENU_RESPONSE_SCHEMA,
         responseSchema: MENU_RESPONSE_SCHEMA
       }
-    });
+    }));
 
     let jsonString = response.text;
     if (!jsonString && response.candidates && response.candidates[0]?.content?.parts) {
@@ -172,7 +234,9 @@ async function parseMenuWithGemini(images) {
     }
 
     const parsed = JSON.parse(jsonString);
-    return sanitizeParsedMenu(parsed);
+    const result = sanitizeParsedMenu(parsed);
+    geminiCacheSet(cacheKey, result);
+    return result;
   } catch (err) {
     console.error('[GEMINI-MENU-PARSER-ERROR]', err);
 
@@ -199,7 +263,10 @@ function sanitizeParsedMenu(parsed) {
       accentColor: '#ECC94B',
       vibe: 'Bistró Clásico Artesanal'
     },
-    categories: []
+    categories: [],
+    // Los parseos reales NO son demo: el flag explícito evita que el caller
+    // confunda una carta real con el fallback (que trae true).
+    isDemoFallback: false
   };
 
   if (parsed.detectedStyle) {
@@ -275,5 +342,6 @@ module.exports = {
   sanitizeParsedMenu,
   getFallbackDemoMenu,
   MENU_RESPONSE_SCHEMA,
-  SYSTEM_PROMPT
+  SYSTEM_PROMPT,
+  GEMINI_TIMEOUT_MS
 };

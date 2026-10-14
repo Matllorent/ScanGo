@@ -712,6 +712,28 @@ const db = {
     const hooks = readJson(WEBHOOKS_FILE, []);
     return hooks.some(h => h.provider === provider && h.eventId === eventId);
   },
+  // Devuelve el marcador guardado (incluye `data.response` si se persistió
+  // una respuesta idempotente, como en PATCH /studio/branches).
+  getProcessedWebhook(provider, eventId) {
+    const hooks = readJson(WEBHOOKS_FILE, []);
+    return hooks.find(h => h.provider === provider && h.eventId === eventId) || null;
+  },
+  async getProcessedWebhookAsync(provider, eventId) {
+    const local = this.getProcessedWebhook(provider, eventId);
+    if (local) return local;
+    if (!supabase) return null;
+    try {
+      const { data } = await supabase
+        .from('webhooks')
+        .select('*')
+        .eq('provider', provider)
+        .eq('event_id', eventId)
+        .limit(1);
+      return Array.isArray(data) && data[0] ? data[0] : null;
+    } catch (e) {
+      return null;
+    }
+  },
   // Variante cross-instancia: el JSON local es efímero en serverless (/tmp),
   // así que ante un redelivery post-restart también se consulta Supabase.
   async hasProcessedWebhookAsync(provider, eventId) {

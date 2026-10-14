@@ -730,7 +730,8 @@ async function runMenuComponentizationTests() {
   assert.ok(studioSrc.includes('startOrdersPolling'), 'Pedidos en vivo con polling');
   assert.ok(studioSrc.includes('stopOrdersPolling'), 'Polling se detiene fuera de la pestaña');
   assert.ok(studioSrc.includes("'delayed', 'cancelled'") || studioSrc.includes('"delayed", "cancelled"') || studioSrc.includes('ORDER_EXTRA_STATES'), 'Demorar y cancelar disponibles');
-  assert.ok(studioSrc.includes('¿Cancelar este pedido?'), 'Cancelar pide confirmación');
+  assert.ok(studioSrc.includes('Cancelar pedido') && studioSrc.includes('showConfirmDialog'), 'Cancelar pide confirmación (diálogo propio, sin window.confirm)');
+  assert.ok(!studioSrc.includes('window.confirm'), 'Cero window.confirm en el Studio');
   assert.ok(studioSrc.includes('● NUEVO'), 'Pedidos nuevos destacados');
   const modalSrc = fs.readFileSync(path.join(__dirname, '../public/js/components/LoyaltyRewardsModal.js'), 'utf8');
   assert.ok(modalSrc.includes('if (!res.ok || !body.success)'), 'Erase solo limpia si el backend borró');

@@ -8,6 +8,7 @@ const { validateBody } = require('../middleware/validation');
 const { authMiddleware } = require('../middleware/auth');
 const { tenantGuard } = require('../middleware/tenantGuard');
 const { notificationLimiter, waiterAlertLimiter } = require('../middleware/rateLimits');
+const auditService = require('../services/audit');
 
 const router = express.Router();
 
@@ -46,6 +47,30 @@ const waiterAlertSchema = z.object({
   type: z.enum(['mozo', 'cuenta_efectivo', 'cuenta_tarjeta']).default('mozo')
 });
 
+// Idempotencia best-effort del aviso de mozo: el doble-tap en la mesa generaba
+// dos eventos en el inbox + dos push. Dos capas:
+// 1) Clave explícita `X-Idempotency-Key` (la manda el menú por click).
+// 2) Dedupe por payload (slug+mesa+tipo) dentro de 10s sin clave.
+// In-memory por instancia (igual que branches): en Vercel multi-instancia
+// puede duplicar entre réplicas, pero nunca dentro de la misma.
+const waiterDedupeByKey = new Map(); // `${slug}:${key}` -> { at, body }
+const waiterDedupeByPayload = new Map(); // `${slug}|${table}|${type}` -> at
+const WAITER_IDEMPOTENCY_TTL_MS = 60 * 1000;
+const WAITER_PAYLOAD_DEDUPE_MS = 10 * 1000;
+
+function pruneWaiterDedupe(now) {
+  for (const [k, v] of waiterDedupeByKey) {
+    if (now - v.at > WAITER_IDEMPOTENCY_TTL_MS) waiterDedupeByKey.delete(k);
+  }
+  for (const [k, at] of waiterDedupeByPayload) {
+    if (now - at > WAITER_PAYLOAD_DEDUPE_MS) waiterDedupeByPayload.delete(k);
+  }
+  if (waiterDedupeByKey.size > 1000) {
+    const oldest = waiterDedupeByKey.keys().next().value;
+    waiterDedupeByKey.delete(oldest);
+  }
+}
+
 /**
  * GET /api/notifications/vapid-public-key
  * Clave pública VAPID para que el navegador arme la suscripción.
@@ -73,6 +98,34 @@ router.post('/waiter-alert', waiterAlertLimiter, validateBody(waiterAlertSchema)
     if (!restaurant) {
       return res.status(404).json({ success: false, error: 'Restaurante no encontrado' });
     }
+
+    // Servicio de mesa configurable: el dueño decide qué ofrece (defaults
+    // encendidos). Mismo patrón que ONLINE_PAYMENT_DISABLED: el gate
+    // server-side respalda lo que el menú ya oculta en la UI.
+    if (type !== 'mozo' && restaurant.allowBillRequest === false) {
+      return res.status(403).json({ success: false, error: 'El local no tiene habilitado el pedido de cuenta', code: 'BILL_REQUEST_DISABLED' });
+    }
+    if (type === 'mozo' && restaurant.allowWaiterCall === false) {
+      return res.status(403).json({ success: false, error: 'El local no tiene habilitado el llamado al mozo', code: 'WAITER_CALL_DISABLED' });
+    }
+
+    const nowMs = Date.now();
+    pruneWaiterDedupe(nowMs);
+    const idempotencyKey = req.headers['x-idempotency-key'] || req.headers['idempotency-key'] || req.body.idempotencyKey;
+    if (idempotencyKey) {
+      const cacheKey = `${slug}:${String(idempotencyKey).slice(0, 120)}`;
+      const hit = waiterDedupeByKey.get(cacheKey);
+      if (hit) {
+        return successResponse(res, { ...hit.body, deduped: true }, 'Aviso ya registrado (idempotente)');
+      }
+    } else {
+      const payloadKey = `${slug}|${table}|${type}`;
+      const lastAt = waiterDedupeByPayload.get(payloadKey);
+      if (lastAt && nowMs - lastAt < WAITER_PAYLOAD_DEDUPE_MS) {
+        return successResponse(res, { configured: true, delivered: 0, checked: 0, deduped: true }, 'Aviso duplicado ignorado (doble tap)');
+      }
+    }
+
     const labels = {
       mozo: 'Quiere al mozo',
       cuenta_efectivo: 'Pide la cuenta (efectivo)',
@@ -100,12 +153,23 @@ router.post('/waiter-alert', waiterAlertLimiter, validateBody(waiterAlertSchema)
         restaurantId: restaurant.id,
         audience: 'owners'
       });
+      if (idempotencyKey) {
+        waiterDedupeByKey.set(`${slug}:${String(idempotencyKey).slice(0, 120)}`, { at: Date.now(), body: result });
+      } else {
+        waiterDedupeByPayload.set(`${slug}|${table}|${type}`, Date.now());
+      }
       return successResponse(res, result, 'Aviso enviado al dueño');
     } catch (err) {
       if (err instanceof AppError && err.code === 'PUSH_NOT_CONFIGURED') {
         // Degradación honesta: el aviso de mozo sigue existiendo por WhatsApp
         // y ahora también queda persistido en el inbox.
-        return successResponse(res, { configured: false, delivered: 0, checked: 0 }, 'Push no configurado; el aviso sigue por WhatsApp y quedó en el inbox');
+        const degraded = { configured: false, delivered: 0, checked: 0 };
+        if (idempotencyKey) {
+          waiterDedupeByKey.set(`${slug}:${String(idempotencyKey).slice(0, 120)}`, { at: Date.now(), body: degraded });
+        } else {
+          waiterDedupeByPayload.set(`${slug}|${table}|${type}`, Date.now());
+        }
+        return successResponse(res, degraded, 'Push no configurado; el aviso sigue por WhatsApp y quedó en el inbox');
       }
       throw err;
     }
@@ -187,6 +251,23 @@ router.post('/send', authMiddleware, tenantGuard, notificationLimiter, validateB
         data: { sent: result.delivered, checked: result.checked }
       });
     }
+
+    // Auditoría cross-cutting (fire-and-forget): quién disparó qué broadcast.
+    // El aviso de mozo (waiter-alert, alto volumen de comensales) queda fuera
+    // a propósito: ya persiste en el inbox y no es acción del dueño.
+    auditService.logAction({
+      tenantId: restaurantId || req.tenantId,
+      userId: req.user && req.user.userId,
+      requestId: req.requestId,
+      action: 'PROMO_SENT',
+      entity: 'notification',
+      details: {
+        audience: audience || 'owners',
+        title: String(title).slice(0, 100),
+        delivered: result.delivered,
+        checked: result.checked
+      }
+    });
 
     return successResponse(res, result, 'Notificaciones enviadas exitosamente');
   } catch (err) {

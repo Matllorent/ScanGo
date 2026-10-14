@@ -490,8 +490,8 @@
   <!-- Order Tracking Floating Button (aparece tras hacer un pedido) -->
   <button type="button" id="orderTrackingFab" class="waiter-fab" data-js-click="openOrderTracking" title="Seguir mi pedido" aria-label="Seguir mi pedido" style="display:none; bottom:146px; background:#63B3ED; box-shadow:0 6px 20px rgba(99, 179, 237, 0.5);">🧾</button>
 
-  <!-- Waiter Call / Bill Request Floating Button -->
-  <button type="button" class="waiter-fab" data-js-click="openWaiterModal" title="Llamar al Mozo o Pedir la Cuenta" aria-label="Llamar al mozo o pedir la cuenta">🔔</button>
+  <!-- Waiter Call / Bill Request Floating Button (el dueño decide qué ofrece; "cuenta" solo en el local) -->
+  <button type="button" id="waiterFab" class="waiter-fab" data-js-click="openWaiterModal" title="Llamar al Mozo o Pedir la Cuenta" aria-label="Llamar al mozo o pedir la cuenta">🔔</button>
 
   <!-- Waiter Call Modal -->
   <div id="waiterModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="waiterModalTitle">
@@ -506,13 +506,13 @@
       </div>
 
       <div style="display:flex; flex-direction:column; gap:10px; margin-top:12px;">
-        <button class="btn-wa-submit" style="background:#F6AD55; color:#0E1412;" data-js-click="sendWaiterCall|mozo">
+        <button id="btnCallWaiter" class="btn-wa-submit" style="background:#F6AD55; color:#0E1412;" data-js-click="sendWaiterCall|mozo">
           <span>🙋 Llamar al Mozo</span>
         </button>
-        <button class="btn-wa-submit" style="background:#63B3ED; color:#0E1412;" data-js-click="sendWaiterCall|cuenta_efectivo">
+        <button id="btnBillCash" class="btn-wa-submit" style="background:#63B3ED; color:#0E1412;" data-js-click="sendWaiterCall|cuenta_efectivo">
           <span>🧾 Pedir la Cuenta (Efectivo)</span>
         </button>
-        <button class="btn-wa-submit" style="background:#B794F4; color:#0E1412;" data-js-click="sendWaiterCall|cuenta_tarjeta">
+        <button id="btnBillCard" class="btn-wa-submit" style="background:#B794F4; color:#0E1412;" data-js-click="sendWaiterCall|cuenta_tarjeta">
           <span>💳 Pedir la Cuenta (Tarjeta)</span>
         </button>
       </div>

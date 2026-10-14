@@ -1,5 +1,6 @@
 const mpService = require('../../services/mercadopago');
 const { fetchWithTimeout } = require('../../../api/utils/fetchWithTimeout');
+const AppError = require('../../../api/utils/AppError');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -42,14 +43,14 @@ function toChargeAmount(amountUsd, chargeCurrency) {
  */
 async function getPayment(paymentId) {
   const accessToken = mpService.getAccessToken();
-  if (!accessToken) throw new Error('MERCADOPAGO_ACCESS_TOKEN no está configurado');
+  if (!accessToken) throw new AppError('MERCADOPAGO_ACCESS_TOKEN no está configurado', 500, 'MP_NOT_CONFIGURED');
 
   const res = await fetchWithTimeout(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}`, {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(`Mercado Pago devolvió ${res.status} al consultar el pago ${paymentId}: ${data.message || 'error'}`);
+    throw new AppError(`Mercado Pago devolvió ${res.status} al consultar el pago ${paymentId}: ${data.message || 'error'}`, 502, 'MP_PAYMENT_LOOKUP_FAILED', { status: res.status });
   }
   return data;
 }

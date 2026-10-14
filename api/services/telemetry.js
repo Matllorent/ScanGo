@@ -1,6 +1,7 @@
 const { getSupabaseClient } = require('../utils/supabase');
 const logger = require('../utils/logger');
 const { retryQueue } = require('../utils/retryQueue');
+const crypto = require('crypto');
 
 // Local dev memory cache for telemetry events
 const localTelemetryEvents = [];
@@ -38,7 +39,9 @@ const telemetryService = {
   // forma para el modo fire-and-forget y para el modo sincrónico).
   buildEventRecord({ restaurantId, eventType, dishId, branchId, eventId, metadata }) {
     return {
-      id: 'tel_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+      // UUID v4: sin colisiones entre réplicas (Date.now()+random podía
+      // repetirse en dos instancias de Vercel en el mismo milisegundo).
+      id: 'tel_' + crypto.randomUUID(),
       restaurant_id: restaurantId,
       event_type: eventType,
       dish_id: dishId || null,

@@ -9,6 +9,7 @@
 
 import { ensureDishModifierGroups, renderDishModifierAssignments, getDishOptionConfig } from './modifierGroups.js';
 import { cloneDishWithNewId as cloneDishWithNewIdUtil } from './cloneUtils.js';
+import { escapeHtml as escapeHtmlDefault } from '../utils/escapeHtmlBrowser.js';
 
 export function toggleDishesByIngredient(restaurant, isOut, onUpdated) {
   const input = document.getElementById('inputIngredientKeyword');
@@ -58,7 +59,7 @@ export function renderDishesList(restaurant, escapeHtml) {
   const dishes = restaurant?.dishes || [];
   const cats = restaurant?.categories || [];
   const currency = restaurant?.currency || '$';
-  const safeEscape = typeof escapeHtml === 'function' ? escapeHtml : (str => String(str || ''));
+  const safeEscape = typeof escapeHtml === 'function' ? escapeHtml : escapeHtmlDefault;
 
   const filtered = dishes.filter(d => filter === 'ALL' || d.categoryId === filter);
   if (!filtered.length) {

@@ -8,6 +8,7 @@
  */
 
 import { isFreePrice } from './menuPresentation.js';
+import { escapeHtml as escapeHtmlDefault } from '../utils/escapeHtmlBrowser.js';
 
 export const DEFAULT_UPSELL_KEYWORDS = {
   triggers: ['hamburguesa', 'burger', 'milanesa', 'plato', 'principal', 'carne', 'pollo', 'pizza', 'sandwich', 'wrap', 'taco', 'burrito', 'empanada', 'combo', 'chivito', 'lomo'],
@@ -134,7 +135,7 @@ export function renderUpsellSuggestions(params = {}) {
     restaurantData = {},
     containerId = 'virtualWaiterUpsellBox',
     onQuickAdd = () => {},
-    escapeHtmlFn = (s) => s
+    escapeHtmlFn = escapeHtmlDefault
   } = params;
 
   const box = document.getElementById(containerId);
@@ -177,10 +178,10 @@ export function renderUpsellSuggestions(params = {}) {
             ${escapeHtmlFn(dish.name)}
           </div>
           <div style="font-size:10px; color:var(--chalk-gold); font-weight:700; font-family:var(--font-mono);">
-            ${currency} ${dish.price}
+            ${escapeHtmlFn(currency)} ${(Number(dish.price) || 0).toFixed(0)}
           </div>
         </div>
-        <button type="button" class="btn-nav btn-quick-add-upsell" style="margin-top:6px; padding:3px 6px; font-size:10px; border-color:var(--chalk-gold); color:var(--chalk-gold); width:100%; justify-content:center;" data-js-click="quickAddUpsellItem|${dish.id}|this">
+        <button type="button" class="btn-nav btn-quick-add-upsell" style="margin-top:6px; padding:3px 6px; font-size:10px; border-color:var(--chalk-gold); color:var(--chalk-gold); width:100%; justify-content:center;" data-js-click="quickAddUpsellItem|${escapeHtmlFn(dish.id)}|this">
           + Agregar
         </button>
       </div>
@@ -253,6 +254,7 @@ export function renderCrossSellSection(cartItems = [], restaurantData = {}, call
     container.style.display = 'none';
     return;
   }
+  const esc = (callbacks && typeof callbacks.escapeHtmlFn === 'function') ? callbacks.escapeHtmlFn : escapeHtmlDefault;
   const curr = restaurantData.currency || '$';
   container.innerHTML = `
     <div style="background:rgba(0,0,0,0.25); border-radius:6px; padding:8px 10px; margin-top:10px;">
@@ -262,10 +264,10 @@ export function renderCrossSellSection(cartItems = [], restaurantData = {}, call
           // Sugerencia sin costo: sin cifra, solo nombre + botón agregar.
           const freeTag = isFreePrice(it.price)
             ? ''
-            : `<strong style="color:var(--chalk-gold);">${curr} ${it.price}</strong>`;
+            : `<strong style="color:var(--chalk-gold);">${esc(curr)} ${(Number(it.price) || 0).toFixed(0)}</strong>`;
           return `
-          <button type="button" class="btn-nav" style="flex:1; padding:4px 6px; font-size:10px; justify-content:space-between;" data-js-click="quickAddUpsellItem|${it.id}|this">
-            <span>${it.name}</span>
+          <button type="button" class="btn-nav" style="flex:1; padding:4px 6px; font-size:10px; justify-content:space-between;" data-js-click="quickAddUpsellItem|${esc(it.id)}|this">
+            <span>${esc(it.name)}</span>
             ${freeTag}
           </button>`;
         }).join('')}

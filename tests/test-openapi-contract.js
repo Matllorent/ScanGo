@@ -40,6 +40,8 @@ const SPEC_PATHS = [
   '/api/demos/{type}',
   '/api/discover/feed',
   '/api/studio/save',
+  '/api/studio/branches',
+  '/api/studio/events',
   '/api/studio/seo-audit',
   '/api/orders',
   '/api/orders/track/{token}',
@@ -79,7 +81,7 @@ async function runTests() {
   assert.ok(spec.includes('trackingToken'), 'el spec documenta trackingToken');
   assert.ok(spec.includes('tipAmount'), 'el spec documenta tipAmount');
   assert.ok(spec.includes('ONLINE_PAYMENT_DISABLED'), 'el spec documenta el gate 403 de pago online');
-  console.log('✓ openapi.yaml parseable: 24/24 paths + schemas (Restaurant/Order/LoyaltyCode/Error)');
+  console.log(`✓ openapi.yaml parseable: ${SPEC_PATHS.length}/${SPEC_PATHS.length} paths + schemas (Restaurant/Order/LoyaltyCode/Error)`);
 
   // ── Setup: dueño + restaurante real con un plato ─────────────────────────
   const stamp = Date.now();
@@ -267,6 +269,16 @@ async function runTests() {
     // cubre test-account-erasure.js).
     const accountDeleteAnon = await postJson('/api/account/delete-request', { confirm: true });
     assert.strictEqual(accountDeleteAnon.status, 401, 'account/delete sin auth → 401 (no 404)');
+
+    // Studio events/branches sin sesión → 401 real (no 404): paridad spec↔runtime.
+    const eventAnon = await postJson('/api/studio/events', { name: 'Fiesta', eventDate: new Date().toISOString() });
+    assert.strictEqual(eventAnon.status, 401, 'studio/events sin auth → 401 (no 404)');
+    const branchAnon = await fetch(`${base}/api/studio/branches`, {
+      method: 'PATCH',
+      headers: json,
+      body: JSON.stringify({ operation: 'add', branch: { name: 'X' } })
+    });
+    assert.strictEqual(branchAnon.status, 401, 'studio/branches sin auth → 401 (no 404)');
     console.log('✓ 11 rutas restantes: códigos reales (400/401/403/200) y ningún 404');
 
     console.log('\n🎉 ¡CONTRATO OPENAPI VERIFICADO CONTRA RUNTIME REAL!');

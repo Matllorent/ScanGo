@@ -420,6 +420,117 @@ paths:
                     type: string
                     format: date-time
                     example: '2026-10-12T18:00:00.000Z'
+  /api/studio/branches:
+    patch:
+      tags: [studio]
+      summary: Operación granular de sucursal (add/update/delete)
+      description: |-
+        `authMiddleware` (401) + `requireVerifiedEmail` + `requireActiveSubscription`.
+        Body `{ operation, branch?, branchId?, branchSlug? }`. Idempotente por
+        header `X-Idempotency-Key`: el marcador persiste en memoria (L1) y en la
+        tabla `webhooks` (`provider: studio_branches`, local + cloud) con la
+        respuesta guardada — un retry post-restart devuelve lo mismo sin re-ejecutar.
+      operationId: studioBranchOp
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operation]
+              properties:
+                operation:
+                  type: string
+                  enum: [add, update, delete]
+      responses:
+        '200':
+          description: Operación aplicada (o replay idempotente)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '400':
+          description: Operación inválida (`VALIDATION_ERROR` de forma o error de `updateBranches`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Restaurante no encontrado (`RESTAURANT_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/studio/events:
+    post:
+      tags: [studio]
+      summary: Crear evento (restaurante temporal con expiración)
+      description: |-
+        `authMiddleware` (401) + `requireVerifiedEmail` + `requireActiveSubscription`.
+        Body validado con zod (`name`, `eventDate` ISO; fecha inválida → 400
+        `INVALID_EVENT_DATE`). El evento nace en trial hasta `eventDate`/`expiresAt`
+        con plan `event_once` (pago único, sin renovación).
+      operationId: studioCreateEvent
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, eventDate]
+              properties:
+                name:
+                  type: string
+                eventDate:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Evento creado (`{ success, event, eventQRUrl }`)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '400':
+          description: Body inválido (`VALIDATION_ERROR` o `INVALID_EVENT_DATE`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/studio/seo-audit:
     get:
       tags: [studio]
@@ -498,7 +609,8 @@ paths:
         Valida con `createOrderSchema` (platos por `dishId` contra la carta real:
         inexistente → 400 `DISH_NOT_FOUND`). Reglas autoritativas: pedido mínimo
         del local → 400 `MIN_ORDER_NOT_MET`; `orderMode: DELIVERY` sin dirección
-        → 400 `DELIVERY_ADDRESS_REQUIRED`. Responde 201 con el pedido + `trackingToken`
+        → 400 `DELIVERY_ADDRESS_REQUIRED`. Carta vitrina (`allowMenuOrders=false`)
+        → 403 `MENU_ORDERS_DISABLED`. Responde 201 con el pedido + `trackingToken`
         (HMAC sin estado) y `tipAmount` (propina opcional, aparte del ticket promedio).
         Acredita fidelización en background sin romper el alta.
       operationId: createOrder
@@ -539,6 +651,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Restaurante no encontrado (`RESTAURANT_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Carta vitrina, sin pedidos (`MENU_ORDERS_DISABLED`)
           content:
             application/json:
               schema:
@@ -641,7 +759,7 @@ paths:
                         type: string
                         format: date-time
         '400':
-          description: Estado inválido (`INVALID_ORDER_STATUS`)
+          description: Estado inválido (`INVALID_ORDER_STATUS`) o body/params malformados (`VALIDATION_ERROR`)
           content:
             application/json:
               schema:
@@ -1012,7 +1130,8 @@ paths:
       summary: Preferencia de pago online (Checkout Pro)
       description: |-
         Valida con `createOrderSchema`. Gate real: sin `restaurant.allowOnlinePayment`
-        → 403 `ONLINE_PAYMENT_DISABLED` (default `false`). Sin credenciales MP en
+        → 403 `ONLINE_PAYMENT_DISABLED` (default `false`). Carta vitrina
+        (`allowMenuOrders=false`) → 403 `MENU_ORDERS_DISABLED`. Sin credenciales MP en
         el server → 500 `MP_NOT_CONFIGURED`. Restaurante inexistente → 404.
         Cobra el total COMPLETO: platos + envío (validado contra zonas,
         400 `INVALID_DELIVERY_FEE`) − cupón validado + propina; mínimo y
@@ -1069,7 +1188,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Pago online deshabilitado (`ONLINE_PAYMENT_DISABLED`)
+          description: Pago online deshabilitado (`ONLINE_PAYMENT_DISABLED`) o carta vitrina (`MENU_ORDERS_DISABLED`)
           content:
             application/json:
               schema:
@@ -1150,7 +1269,9 @@ paths:
         Pública (la llama el menú de la mesa), rate-limit por slug. Persiste el
         aviso en el inbox del dueño y dispara Web Push SOLO a suscripciones
         `role=owner`. Sin VAPID no rompe: 200 con `configured: false`. Slug
-        inexistente → 404.
+        inexistente → 404. Servicio configurable por el dueño: tipo `mozo` con
+        `allowWaiterCall=false` → 403 `WAITER_CALL_DISABLED`; `cuenta_*` con
+        `allowBillRequest=false` → 403 `BILL_REQUEST_DISABLED`.
       operationId: waiterAlert
       requestBody:
         required: true
@@ -1193,6 +1314,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Restaurante no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Servicio deshabilitado por el dueño (`WAITER_CALL_DISABLED` / `BILL_REQUEST_DISABLED`)
           content:
             application/json:
               schema:

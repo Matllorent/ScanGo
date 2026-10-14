@@ -96,6 +96,9 @@ router.get('/feed', discoverLimiter, async (req, res, next) => {
           logoUrl: typeof r.logoUrl === 'string' ? r.logoUrl.slice(0, 5000) : '',
           city: String(r.city || '').slice(0, 100),
           currency: String(r.currency || '$').slice(0, 5),
+          // Vitrina: el deep-link a la carta sigue valiendo, pero el botón
+          // dice "Ver carta" en vez de "Pedir" (no hay nada que pedir).
+          ordersEnabled: r.allowMenuOrders !== false,
           ...(distanceKm === null ? {} : { distanceKm })
         },
         restaurantId: r.id,

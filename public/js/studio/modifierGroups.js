@@ -9,6 +9,7 @@
  * handleModifierGroupModeChange, readModifierGroupOptions, addModifierGroupOption, removeModifierGroupOption,
  * saveModifierGroup, cancelModifierGroupEdit, deleteModifierGroup, getDishOptionConfig).
  */
+import { escapeHtml as escapeHtmlDefault } from '../utils/escapeHtmlBrowser.js';
 
 /**
  * Retorna el array de grupos de modificadores del restaurante asegurando un array.
@@ -87,7 +88,7 @@ export function renderDishModifierAssignments(restaurant, assignedIds = [], esca
     return;
   }
 
-  const safeEscape = typeof escapeHtml === 'function' ? escapeHtml : (str => String(str || ''));
+  const safeEscape = typeof escapeHtml === 'function' ? escapeHtml : escapeHtmlDefault;
   const assigned = new Set(assignedIds);
   const presentationIds = groups.filter(group => group.kind === 'presentation' && assigned.has(group.id)).map(group => group.id);
   const visibleAssigned = presentationIds.length > 1
@@ -131,7 +132,7 @@ export function renderModifierGroupList(restaurant, escapeHtml) {
   const container = document.getElementById('modifierGroupList');
   if (!container) return;
   const groups = getRestaurantModifierGroups(restaurant);
-  const safeEscape = typeof escapeHtml === 'function' ? escapeHtml : (str => String(str || ''));
+  const safeEscape = typeof escapeHtml === 'function' ? escapeHtml : escapeHtmlDefault;
   container.innerHTML = groups.length ? groups.map(group => `
     <div class="modifier-group-list-item">
       <div><strong>${safeEscape(group.name)}</strong><small>${safeEscape(group.kind)} · ${(group.options || []).length} opciones</small></div>
@@ -246,7 +247,7 @@ export function renderModifierGroupOptions(options, escapeHtml) {
   const headingMax = document.getElementById('modifierMaxHeading');
   if (headingMax) headingMax.hidden = !hasQuantities;
 
-  const safeEscape = typeof escapeHtml === 'function' ? escapeHtml : (str => String(str || ''));
+  const safeEscape = typeof escapeHtml === 'function' ? escapeHtml : escapeHtmlDefault;
   const listEl = document.getElementById('modifierGroupOptionsList');
   if (!listEl) return;
   listEl.innerHTML = (options || []).map((option, index) => `

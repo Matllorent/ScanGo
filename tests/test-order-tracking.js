@@ -255,6 +255,60 @@ async function runTests() {
     }
     console.log('✓ Push de estado dirigido por teléfono: solo el comensal del pedido, nunca todos');
 
+    // ── 8) Carta vitrina: el dueño muestra sin aceptar pedidos ─────────────
+    const { sanitizeRestaurantPayload } = require('../api/utils/sanitizeRestaurant');
+    assert.strictEqual(sanitizeRestaurantPayload({ name: 'X' }).allowMenuOrders, true, 'vitrina default ON');
+    assert.strictEqual(sanitizeRestaurantPayload({ name: 'X', allowMenuOrders: false }).allowMenuOrders, false, 'false explícito se preserva');
+    const menuB = (await (await fetch(`${base}/api/menu/${restB.slug}`)).json()).restaurant;
+    assert.strictEqual(menuB.allowMenuOrders, true, '/api/menu expone allowMenuOrders=true por defecto');
+
+    // Un pedido en restB ANTES de apagar (para probar que el dueño sigue operando).
+    const orderBRes = await postJson('/api/orders', {
+      restaurantId: restB.id,
+      customerName: 'Beto',
+      customerPhone: testPhone,
+      currency: 'USD',
+      items: [{ dishId: 'dish1', quantity: 1 }]
+    });
+    assert.strictEqual(orderBRes.status, 201, 'pedido en restB creado (vitrina ON)');
+    const orderB = (await orderBRes.json()).data;
+
+    await db.saveRestaurant(userB.id, { allowMenuOrders: false });
+    const vitrinaBody = {
+      restaurantId: restB.id,
+      customerName: 'Beto',
+      customerPhone: testPhone,
+      currency: 'USD',
+      items: [{ dishId: 'dish1', quantity: 1 }]
+    };
+    const offOrder = await postJson('/api/orders', vitrinaBody);
+    assert.strictEqual(offOrder.status, 403, 'POST /api/orders en vitrina → 403');
+    assert.strictEqual((await offOrder.json()).code, 'MENU_ORDERS_DISABLED');
+    const offQuote = await postJson('/api/orders/quote', vitrinaBody);
+    assert.strictEqual(offQuote.status, 403, '/quote en vitrina → 403');
+    assert.strictEqual((await offQuote.json()).code, 'MENU_ORDERS_DISABLED');
+    const offPref = await postJson('/api/orders/mercadopago/preference', vitrinaBody);
+    assert.strictEqual(offPref.status, 403, 'preferencia MP en vitrina → 403 (antes que el gate de pago)');
+    assert.strictEqual((await offPref.json()).code, 'MENU_ORDERS_DISABLED');
+    // El dueño SIGUE operando lo existente: avanzar estado no es pedir.
+    const stillOk = await patchJson(`/api/orders/status/${orderB.id}`, { status: 'confirmed' }, authB);
+    assert.strictEqual(stillOk.status, 200, 'PATCH estado en vitrina sigue 200 (operación del dueño)');
+    console.log('✓ Vitrina: POST/quote/preferencia → 403 MENU_ORDERS_DISABLED; el dueño sigue operando');
+
+    // Frontend: sin "+" ni carrito ni grupo en vitrina + toggle del Studio.
+    const fs = require('fs');
+    const path = require('path');
+    const menuJsSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu.js'), 'utf8');
+    assert.ok(menuJsSrc.includes('areMenuOrdersEnabled'), 'menu.js gobierna el modo vitrina');
+    assert.ok(menuJsSrc.includes('${!areMenuOrdersEnabled()'), 'platos sin botón + en vitrina (2 renders)');
+    const storiesSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/storiesLayout.js'), 'utf8');
+    assert.ok(storiesSrc.includes('allowMenuOrders'), 'stories oculta el carrito en vitrina');
+    const studioHtmlSrc = fs.readFileSync(path.join(__dirname, '../public/studio.html'), 'utf8');
+    assert.ok(studioHtmlSrc.includes('id="inputAllowMenuOrders"'), 'Studio expone el toggle de vitrina');
+    const studioJsSrc = fs.readFileSync(path.join(__dirname, '../public/js/studio.js'), 'utf8');
+    assert.ok(studioJsSrc.includes('inputAllowMenuOrders'), 'Studio guarda/carga el flag de vitrina');
+    console.log('✓ Frontend vitrina: carta sin +/carrito/grupo/stories-cart + toggle sin on*=');
+
     console.log('\n🎉 ¡TODAS LAS VERIFICACIONES DE SEGUIMIENTO DEL PEDIDO PASARON!');
   } finally {
     // Limpieza real: el pedido acreditó fidelización para este teléfono único

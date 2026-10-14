@@ -7,6 +7,7 @@
 
 import { PLANS } from './data/plans.js';
 import { getBranchDiscount, calculateMultiBranchPrice, getValidBranches } from './billing.js';
+import { escapeHtml as escapeHtmlDefault } from '../utils/escapeHtmlBrowser.js';
 
 /**
  * Renderiza la lista de sucursales en el Studio.
@@ -23,7 +24,7 @@ export function renderBranchesList(currentUser, restaurant, escapeHtml) {
   const planId = (sub?.plan && PLANS[sub.plan]) ? sub.plan : 'pro_monthly';
   const plan = PLANS[planId] || PLANS.pro_monthly;
   const basePrice = plan.priceUsd;
-  const safeEscape = typeof escapeHtml === 'function' ? escapeHtml : (str => String(str || ''));
+  const safeEscape = typeof escapeHtml === 'function' ? escapeHtml : escapeHtmlDefault;
 
   if (branches.length === 0) {
     container.innerHTML = `
@@ -293,7 +294,7 @@ export function editBranch(branchId, restaurant, escapeHtml, onUpdated) {
   BRANCH_EDIT.onUpdated = onUpdated || null;
 
   const isPrincipal = branches.findIndex(b => b.id === branchId) === 0;
-  const safeEscape = typeof escapeHtml === 'function' ? escapeHtml : (str => String(str || ''));
+  const safeEscape = typeof escapeHtml === 'function' ? escapeHtml : escapeHtmlDefault;
 
   const modal = document.getElementById('branchEditModal');
   if (!modal) return;
@@ -371,7 +372,7 @@ export function addBranchOverrideRow(dishId = '', price = '', restaurant, safeEs
   const rows = document.getElementById('branchOverridesRows');
   if (!rows) return;
   const rest = restaurant || BRANCH_EDIT.restaurant;
-  const esc = safeEscape || (str => String(str || ''));
+  const esc = safeEscape || escapeHtmlDefault;
 
   const dishes = Array.isArray(rest?.dishes) ? rest.dishes : [];
   const options = dishes.length
@@ -407,7 +408,7 @@ export function removeBranchOverrideRow(idx) {
 export function addBranchCustomDishRow(dish = null, restaurant, safeEscape) {
   const rows = document.getElementById('branchCustomDishesRows');
   if (!rows) return;
-  const esc = safeEscape || (str => String(str || ''));
+  const esc = safeEscape || escapeHtmlDefault;
   const d = dish || {};
 
   const idx = ++customDishRowSeq;

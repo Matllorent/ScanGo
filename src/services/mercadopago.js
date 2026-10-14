@@ -5,6 +5,7 @@
 
 const https = require('https');
 const { fetchWithTimeout } = require('../../api/utils/fetchWithTimeout');
+const AppError = require('../../api/utils/AppError');
 
 function getAccessToken() {
   return process.env.MERCADOPAGO_ACCESS_TOKEN || '';
@@ -29,7 +30,7 @@ function isConfigured() {
 async function createPreference(options) {
   const accessToken = getAccessToken();
   if (!accessToken) {
-    throw new Error('MERCADOPAGO_ACCESS_TOKEN no está configurado en las variables de entorno');
+    throw new AppError('MERCADOPAGO_ACCESS_TOKEN no está configurado en las variables de entorno', 500, 'MP_NOT_CONFIGURED');
   }
 
   const backUrls = options.backUrls || {
@@ -83,7 +84,7 @@ async function createPreference(options) {
     if (!res.ok) {
       const errorMsg = data.message || (data.cause && data.cause[0] && data.cause[0].description) || 'Error al crear preferencia en Mercado Pago';
       console.error('[MercadoPago Error]', data);
-      throw new Error(errorMsg);
+      throw new AppError(errorMsg, 502, 'MP_PREFERENCE_FAILED', { status: res.status });
     }
 
     return {
@@ -116,7 +117,7 @@ async function createPreference(options) {
               sandbox_init_point: parsed.sandbox_init_point
             });
           } else {
-            reject(new Error(parsed.message || 'Error en respuesta de Mercado Pago'));
+            reject(new AppError(parsed.message || 'Error en respuesta de Mercado Pago', 502, 'MP_PREFERENCE_FAILED', { status: res.statusCode }));
           }
         } catch (e) {
           reject(e);

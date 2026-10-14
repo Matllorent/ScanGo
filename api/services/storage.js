@@ -2,9 +2,27 @@ const path = require('path');
 const fs = require('fs');
 const { getSupabaseClient } = require('../utils/supabase');
 const AppError = require('../utils/AppError');
+const auditService = require('./audit');
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+// El SDK de Supabase Storage no expone timeout: un storage que acepta la
+// conexión y nunca responde colgaría el upload. Se envuelve cada llamada en
+// una carrera con timeout y se degrada al fallback local (misma filosofía
+// que el resto del servicio: el upload nunca rompe el flujo del dueño).
+const STORAGE_TIMEOUT_MS = Number(process.env.STORAGE_TIMEOUT_MS) || 15000;
+
+function withStorageTimeout(promise, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const err = new Error(`Timeout de storage (${label}, ${STORAGE_TIMEOUT_MS}ms)`);
+      err.code = 'STORAGE_TIMEOUT';
+      reject(err);
+    }, STORAGE_TIMEOUT_MS);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 
 // Resolve public uploads directory
 let PUBLIC_DIR = path.resolve(__dirname, '..', '..', 'public');
@@ -92,12 +110,15 @@ const storageService = {
 
     if (supabase) {
       try {
-        const { error: uploadError } = await supabase.storage
-          .from(bucket)
-          .upload(storagePath, buffer, {
-            contentType: detectedMimeType,
-            upsert: true
-          });
+        const { error: uploadError } = await withStorageTimeout(
+          supabase.storage
+            .from(bucket)
+            .upload(storagePath, buffer, {
+              contentType: detectedMimeType,
+              upsert: true
+            }),
+          'upload'
+        );
 
         if (uploadError) {
           console.warn('[Supabase Storage Upload Error]', uploadError.message);
@@ -107,6 +128,14 @@ const storageService = {
             .getPublicUrl(storagePath);
 
           const publicUrl = publicUrlData?.publicUrl || `${process.env.SUPABASE_URL}/storage/v1/object/public/${bucket}/${storagePath}`;
+
+          // Auditoría (fire-and-forget): qué se subió al bucket público.
+          auditService.logAction({
+            tenantId: cleanTenantId || undefined,
+            action: 'PHOTO_UPLOADED',
+            entity: 'restaurant',
+            details: { path: storagePath, bucket, bytes: buffer.length, via: 'cloud' }
+          });
 
           return {
             url: publicUrl,
@@ -125,6 +154,12 @@ const storageService = {
       fs.mkdirSync(targetDir, { recursive: true });
       fs.writeFileSync(path.join(targetDir, cleanFileName), buffer);
       const localUrl = `/uploads/${bucket}/${storagePath}`;
+      auditService.logAction({
+        tenantId: cleanTenantId || undefined,
+        action: 'PHOTO_UPLOADED',
+        entity: 'restaurant',
+        details: { path: storagePath, bucket, bytes: buffer.length, via: 'local' }
+      });
       return {
         url: localUrl,
         path: storagePath,
@@ -162,7 +197,10 @@ const storageService = {
     // Recorre carpetas anidadas (dishes/logos/reviews/general): en la API de
     // storage, las entradas-carpeta llegan con id === null.
     const walk = async (dir) => {
-      const { data, error } = await supabase.storage.from('photos').list(dir, { limit: 1000, offset: 0 });
+      const { data, error } = await withStorageTimeout(
+        supabase.storage.from('photos').list(dir, { limit: 1000, offset: 0 }),
+        'list'
+      );
       if (error && (error.statusCode === 404 || /not found/i.test(error.message))) return; // carpeta inexistente
       if (error) throw error;
       for (const f of data || []) {
@@ -174,7 +212,10 @@ const storageService = {
     try {
       await walk(prefix);
       if (collected.length) {
-        const { error } = await supabase.storage.from('photos').remove(collected);
+        const { error } = await withStorageTimeout(
+          supabase.storage.from('photos').remove(collected),
+          'remove'
+        );
         if (error) throw error;
       }
       return { removed: collected.length };

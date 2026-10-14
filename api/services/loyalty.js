@@ -32,6 +32,7 @@ const { getSupabaseClient } = require('../utils/supabase');
 const AppError = require('../utils/AppError');
 const sentry = require('../utils/sentry');
 const logger = require('../utils/logger');
+const { retryQueue } = require('../utils/retryQueue');
 
 const IS_VERCEL = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
 const DATA_DIR = IS_VERCEL
@@ -489,13 +490,22 @@ function refreshGlobalStatus(customer) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Acreditación automática por pedido (NUNCA rompe el pedido)
 // ─────────────────────────────────────────────────────────────────────────────
-async function creditOrder({ restaurant, customerPhone, customerName, orderId, amountInCents }) {
+async function creditOrder({ restaurant, customerPhone, customerName, orderId, amountInCents, isRetry = false }) {
   try {
     const config = getLoyaltyConfig(restaurant);
     if (!config.enabled) return { credited: false, reason: 'loyalty_disabled' };
     const normalized = normalizePhone(customerPhone);
     if (!normalized) return { credited: false, reason: 'no_phone' };
     if (!restaurant || !restaurant.id) return { credited: false, reason: 'no_restaurant' };
+
+    // Idempotencia por pedido: un reintento tras un fallo parcial (cuenta
+    // persistida pero ledger no) no duplica puntos ni sellos.
+    if (orderId) {
+      const already = readCollection('ledger').some(e =>
+        e && e.kind === 'order' && e.refId === orderId && e.restaurantId === restaurant.id
+      );
+      if (already) return { credited: false, reason: 'already_credited' };
+    }
 
     const customer = await findOrCreateCustomer({ phone: normalized, name: customerName || '' });
     if (!customer) return { credited: false, reason: 'no_phone' };
@@ -561,6 +571,12 @@ async function creditOrder({ restaurant, customerPhone, customerName, orderId, a
   } catch (err) {
     // La fidelización jamás debe romper el alta del pedido.
     sentry.captureException(err, { source: 'loyalty.creditOrder', level: 'warn' });
+    // Un reintento en background (una sola cadena: el retry no re-encola).
+    // Seguro por el guard de idempotencia de arriba.
+    if (orderId && !isRetry) {
+      const args = { restaurant, customerPhone, customerName, orderId, amountInCents, isRetry: true };
+      retryQueue.enqueue(() => creditOrder(args), { taskName: 'loyalty_credit_retry', maxRetries: 3 });
+    }
     return { credited: false, reason: 'error' };
   }
 }

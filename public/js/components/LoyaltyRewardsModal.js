@@ -54,6 +54,7 @@ export class LoyaltyRewardsModal {
     this.emailMode = false;   // pide email cuando el perfil no tiene
     this.emailInput = '';
     this.maskedEmail = '';
+    this.eraseArmed = false;  // doble toque para borrar (sin window.confirm)
 
     // Contrato con dom-bindings: el binder resuelve `activeLoyaltyModal.<método>`
     // contra window y llama con receiver = esta instancia.
@@ -77,6 +78,7 @@ export class LoyaltyRewardsModal {
   close() {
     const modal = document.getElementById('loyaltyRewardsModal');
     if (modal) modal.classList.remove('active');
+    this.eraseArmed = false;
   }
 
   destroy() {
@@ -304,7 +306,13 @@ export class LoyaltyRewardsModal {
 
   async eraseMyData() {
     if (!this.phone) return;
-    if (!window.confirm('Esto borra TODOS tus datos del Club ScanGo (puntos, sellos, premios e historial). ¿Continuar?')) return;
+    // Doble toque en vez de window.confirm: el primero arma, el segundo ejecuta.
+    if (!this.eraseArmed) {
+      this.eraseArmed = true;
+      this.render();
+      return;
+    }
+    this.eraseArmed = false;
     this.pendingPurpose = 'erase';
     // Con email registrado, el borrado exige OTP (evita borrado remoto por terceros).
     await this.requestOtp('erase');
@@ -624,12 +632,13 @@ export class LoyaltyRewardsModal {
   }
 
   buildDangerZone() {
+    const armed = this.eraseArmed === true;
     return `
       <div style="border-top: 1px solid var(--border-chalk); padding-top: 10px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
-        <span style="font-size:0.7rem; color:var(--chalk-dim);">¿Querés dejar de participar?</span>
+        <span style="font-size:0.7rem; color:var(--chalk-dim);">${armed ? 'Tocá de nuevo para borrar todo (puntos, sellos, premios e historial).' : '¿Querés dejar de participar?'}</span>
         <button type="button" class="btn-nav" data-js-click="activeLoyaltyModal.eraseMyData"
-                style="font-size:10px; padding:4px 10px; border-color:#E53E3E; color:#F87171;">
-          🗑️ Borrar mis datos del Club
+                style="font-size:10px; padding:4px 10px; border-color:#E53E3E; color:#F87171;${armed ? ' background:rgba(229,62,62,0.15); font-weight:700;' : ''}">
+          ${armed ? '⚠️ Confirmar borrado' : '🗑️ Borrar mis datos del Club'}
         </button>
       </div>
     `;

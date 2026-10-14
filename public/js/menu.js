@@ -94,20 +94,60 @@ Object.defineProperties(window, {
 
     // Waiter Call & Analytics Tracking
     function openWaiterModal() {
+      updateTableServiceUI();
       document.getElementById('waiterModal').classList.add('active');
     }
     function closeWaiterModal() {
       document.getElementById('waiterModal').classList.remove('active');
     }
+    // Servicio de mesa configurable: el dueño decide qué ofrece (flags
+    // allowWaiterCall/allowBillRequest, defaults encendidos). "Pedir la
+    // cuenta" además solo tiene sentido comiendo en el local: en DELIVERY o
+    // TAKEAWAY no hay mesa que cerrar y los botones se ocultan.
+    function isTableBillVisible() {
+      if (!restaurantData) return true; // antes de cargar: no ocultar nada
+      if (restaurantData.allowBillRequest === false) return false;
+      const modeEl = document.getElementById('orderMode');
+      const mode = modeEl ? modeEl.value : 'LOCAL';
+      return mode === 'LOCAL';
+    }
+    // Carta vitrina vs con pedidos: el dueño decide si el menú lleva carrito
+    // (default encendido). Sin pedidos no hay "+" en platos, ni barra, ni
+    // grupo, ni checkout: la carta solo muestra.
+    function areMenuOrdersEnabled() {
+      return !restaurantData || restaurantData.allowMenuOrders !== false;
+    }
+    function updateTableServiceUI() {
+      const allowWaiter = !restaurantData || restaurantData.allowWaiterCall !== false;
+      const showBill = isTableBillVisible();
+      const fab = document.getElementById('waiterFab');
+      if (fab) fab.style.display = (!allowWaiter && !showBill) ? 'none' : '';
+      const btnMozo = document.getElementById('btnCallWaiter');
+      if (btnMozo) btnMozo.style.display = allowWaiter ? '' : 'none';
+      const btnCash = document.getElementById('btnBillCash');
+      if (btnCash) btnCash.style.display = showBill ? '' : 'none';
+      const btnCard = document.getElementById('btnBillCard');
+      if (btnCard) btnCard.style.display = showBill ? '' : 'none';
+    }
     function sendWaiterCall(type) {
+      // Defensa en el cliente (el server responde 403 igual): un botón oculto
+      // no debería disparar nada aunque se invoque por consola.
+      if (type === 'mozo') {
+        if (restaurantData && restaurantData.allowWaiterCall === false) return;
+      } else if (!isTableBillVisible()) {
+        return;
+      }
       const mesa = document.getElementById('waiterTableNum').value.trim() || 'No especificada';
-      // Track analytics (fire-and-forget, canal unificado)
+      // Track analytics (fire-and-forget, canal unificado; una sola vez por click).
       trackPublicEvent('waiter');
+      // Clave de idempotencia por click: el doble-tap no duplica el evento en
+      // el inbox ni el push (el server la cachea 60s + dedupe 10s por payload).
+      const waiterKey = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : `w_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       // Aviso push+inbox al dueño (fire-and-forget: si el push está apagado,
       // igual queda en el inbox; no depende del WhatsApp del local).
       fetch('/api/notifications/waiter-alert', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Idempotency-Key': waiterKey },
         body: JSON.stringify({ slug: getSlug(), table: mesa, type })
       }).catch(() => {});
       if (!restaurantData || !restaurantData.phone) {
@@ -123,8 +163,6 @@ Object.defineProperties(window, {
       } else if (type === 'cuenta_tarjeta') {
         msg = `🧾 *CUENTA SOLICITADA*%0A📍 Mesa: ${mesa}%0A💳 Forma de pago: *Tarjeta*%0A🕐 ${new Date().toLocaleTimeString()}%0A%0A_Enviado desde el menú digital ScanGo_`;
       }
-      // Track analytics (fire-and-forget, canal unificado)
-      trackPublicEvent('waiter');
       window.open(`https://wa.me/${restaurantData.phone}?text=${msg}`, '_blank');
       closeWaiterModal();
       // 🧾 Nudge al pedir la cuenta (lógica en orderTracking.js).
@@ -201,6 +239,7 @@ Object.defineProperties(window, {
       try {
         window.dispatchEvent(new CustomEvent('scango:menu-ready'));
       } catch (e) {}
+      updateTableServiceUI();
       maybeOpenReviewFromLink();
       maybeOpenDishDeepLink();
     }
@@ -566,15 +605,11 @@ Object.defineProperties(window, {
         }
       }
 
-      // Auto-detect Mesa / Table Query Param (?mesa=N or ?table=N) & Control Table Service Buttons
+      // Auto-detect Mesa / Table Query Param (?mesa=N or ?table=N): prefill de
+      // mesa + auto-conexión al grupo. La visibilidad del FAB la gobierna
+      // updateTableServiceUI (contexto de mesa + flags del dueño).
       const urlParams = new URLSearchParams(window.location.search);
       const mesaParam = urlParams.get('mesa') || urlParams.get('table');
-      const hasTable = Boolean(mesaParam);
-      
-      const waiterBtn = document.querySelector('.waiter-fab');
-      if (waiterBtn) {
-        waiterBtn.style.display = hasTable ? 'flex' : 'none';
-      }
 
       if (mesaParam) {
         const orderTable = document.getElementById('orderTable');
@@ -583,10 +618,12 @@ Object.defineProperties(window, {
         if (waiterTableNum && !waiterTableNum.value) waiterTableNum.value = `Mesa ${mesaParam}`;
 
         // Auto-conectar dispositivos de la mesa al Pedido Grupal en Tiempo Real
-        if (typeof window.initGroupCartManager === 'function') {
+        // (solo con pedidos habilitados: en vitrina no hay nada que consolidar).
+        if (areMenuOrdersEnabled() && typeof window.initGroupCartManager === 'function') {
           window.initGroupCartManager();
         }
       }
+      updateTableServiceUI();
 
       // Loyalty Points Chip Visibility Control
       const loyaltyChip = document.getElementById('loyaltyChip');
@@ -1039,9 +1076,12 @@ Object.defineProperties(window, {
               <div class="chef-special-price">
                 ${originalPriceHtml}${formattedPrice}
               </div>
-              ${sched.isAvailable 
-                ? `<button class="btn-add" data-dish-id="${escapeHtml(d.id)}" data-js-click="addToCart|this.dataset.dishId" aria-label="Agregar ${escapeHtml(d.name)}" style="width:34px; height:34px; font-size:1.1rem;">+</button>`
-                : `<button class="btn-add" disabled style="width:34px; height:34px; font-size:0.9rem; background:#4A5568; cursor:not-allowed; opacity:0.6;" title="${sched.reason}">⏰</button>`
+              ${!areMenuOrdersEnabled()
+                ? ''
+                : (sched.isAvailable
+                  ? `<button class="btn-add" data-dish-id="${escapeHtml(d.id)}" data-js-click="addToCart|this.dataset.dishId" aria-label="Agregar ${escapeHtml(d.name)}" style="width:34px; height:34px; font-size:1.1rem;">+</button>`
+                  : `<button class="btn-add" disabled style="width:34px; height:34px; font-size:0.9rem; background:#4A5568; cursor:not-allowed; opacity:0.6;" title="${sched.reason}">⏰</button>`
+                )
               }
             </div>
             ${inCart > 0 ? `<div style="font-size:0.7rem; color:var(--chalk-gold); font-weight:700; margin-top:4px; text-align:right;">${inCart} ${t('inCart', 'en carrito')}</div>` : ''}
@@ -1355,12 +1395,15 @@ Object.defineProperties(window, {
             <div class="dish-price">${priceDisplay}</div>
           </div>
           <div class="dish-action">
-            ${isSold 
-              ? '<button class="btn-add" disabled style="background:#4A5568; cursor:not-allowed; opacity:0.6;">✕</button>' 
-              : (!sched.isAvailable 
-                  ? `<button class="btn-add" disabled style="background:#4A5568; cursor:not-allowed; opacity:0.6;" title="${sched.reason}">⏰</button>`
-                  : `<button class="btn-add" data-dish-id="${escapeHtml(d.id)}" data-js-click="addToCart|this.dataset.dishId" aria-label="Agregar ${escapeHtml(d.name)}">+</button>`
-                )
+            ${!areMenuOrdersEnabled()
+              ? ''
+              : (isSold
+                ? '<button class="btn-add" disabled style="background:#4A5568; cursor:not-allowed; opacity:0.6;">✕</button>'
+                : (!sched.isAvailable
+                    ? `<button class="btn-add" disabled style="background:#4A5568; cursor:not-allowed; opacity:0.6;" title="${sched.reason}">⏰</button>`
+                    : `<button class="btn-add" data-dish-id="${escapeHtml(d.id)}" data-js-click="addToCart|this.dataset.dishId" aria-label="Agregar ${escapeHtml(d.name)}">+</button>`
+                  )
+              )
             }
             ${inCart > 0 ? `<span class="qty-counter">${inCart} en carrito</span>` : ''}
           </div>
@@ -1496,6 +1539,7 @@ Object.defineProperties(window, {
 
     // Cart Handlers
     function addToCart(dishId) {
+      if (!areMenuOrdersEnabled()) return; // vitrina: la carta solo muestra
       const dish = restaurantData.dishes.find(d => d.id === dishId);
       if (!dish || dish.outOfStock) return;
       const sched = getDishScheduleStatus(dish);
@@ -1930,6 +1974,11 @@ Object.defineProperties(window, {
       const barIsFree = isFreePriceMod(subtotal);
 
       const bar = document.getElementById('floatingCart');
+      // Vitrina: la barra nunca aparece (no hay nada que pedir).
+      if (!areMenuOrdersEnabled()) {
+        bar.classList.remove('active');
+        return;
+      }
       if (totalCount > 0) {
         bar.classList.add('active');
         document.getElementById('cartCountBadge').textContent = `🛒 ${totalCount} ítems`;
@@ -1956,6 +2005,7 @@ Object.defineProperties(window, {
     }
 
     function openCartModal() {
+      if (!areMenuOrdersEnabled()) return; // vitrina: sin carrito
       document.getElementById('cartModal').classList.add('active');
       populateDeliveryZones();
       renderCartModalList();
@@ -2078,6 +2128,7 @@ Object.defineProperties(window, {
         deliveryField.style.display = 'none';
         deliveryFee = 0;
       }
+      updateTableServiceUI();
       updateTotals();
     }
 
@@ -2720,7 +2771,7 @@ Object.defineProperties(window, {
             <div class="mozo-item-info">
               <span class="mozo-badge-tag">${escapeHtml(analysis.badge || 'Sugerido')}</span>
               <div class="mozo-item-title">${escapeHtml(dish.name)}</div>
-              ${upsellIsFree ? '' : `<div class="mozo-item-price">${currency} ${(dish.price || 0).toFixed(0)}</div>`}
+              ${upsellIsFree ? '' : `<div class="mozo-item-price">${escapeHtml(currency)} ${(Number(dish.price) || 0).toFixed(0)}</div>`}
             </div>
             <button type="button" class="btn-mozo-quick-add" data-dish-id="${escapeHtml(dish.id)}" data-js-click="quickAddUpsellItem|${escapeHtml(dish.id)}|this">
               + Agregar
@@ -2743,6 +2794,7 @@ Object.defineProperties(window, {
     }
 
     function quickAddUpsellItem(dishId, btnEl) {
+      if (!areMenuOrdersEnabled()) return; // vitrina: sin agregados
       const dish = (restaurantData.dishes || []).find(d => d.id === dishId);
       if (!dish) return;
 
@@ -3372,6 +3424,8 @@ Object.defineProperties(window, {
       openWaiterModal,
       closeWaiterModal,
       sendWaiterCall,
+      updateTableServiceUI,
+      areMenuOrdersEnabled,
       isMozoVirtualEnabled,
       handleMozoVirtualToggle,
       quickAddUpsellItem,
