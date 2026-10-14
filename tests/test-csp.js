@@ -121,26 +121,41 @@ async function runTests() {
 
   // ---------------------------------------------------------------- estático 3
   // vercel.json debe replicar EXACTAMENTE el set del módulo (producción estática).
+  // Sin lookahead: Vercel rechaza `(?!...)` en `source`, así que hay UNA regla
+  // por página estática (lista canónica en scripts/regen-vercel-csp.js).
   const vercel = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'));
-  const headerRule = (vercel.headers || []).find(rule => rule.source.includes('(?!m/|api/)'));
-  assert.ok(headerRule, 'vercel.json debe tener una regla de headers con negative lookahead que excluya /m/ y /api/');
-  const ruleHeaderMap = Object.fromEntries(headerRule.headers.map(h => [h.key, h.value]));
-  assert.strictEqual(
-    ruleHeaderMap['Content-Security-Policy'],
-    transitionalCsp,
-    'vercel.json: la CSP estática debe ser IDÉNTICA a la transitional del módulo'
-  );
-  for (const key of ['Referrer-Policy', 'Permissions-Policy', 'Cross-Origin-Opener-Policy', 'Cross-Origin-Resource-Policy', 'X-Content-Type-Options', 'X-Frame-Options', 'Strict-Transport-Security']) {
-    assert.ok(ruleHeaderMap[key], `vercel.json: falta header ${key}`);
+  const { STATIC_SOURCES } = require('../scripts/regen-vercel-csp');
+  assert.ok(Array.isArray(STATIC_SOURCES) && STATIC_SOURCES.length >= 9, 'regen expone la lista canónica de páginas estáticas');
+  for (const rule of (vercel.headers || [])) {
+    assert.ok(!rule.source.includes('(?!'), `vercel.json: source sin lookahead (Vercel lo rechaza): ${rule.source}`);
   }
-  console.log('✓ vercel.json replica los headers del módulo (exit CS excluye /m/ y /api/)');
+  assert.strictEqual(
+    (vercel.headers || []).length,
+    STATIC_SOURCES.length,
+    `vercel.json: una regla por página estática (${STATIC_SOURCES.length}), ni más (pisaría /m/* y /api/*) ni menos`
+  );
+  for (const source of STATIC_SOURCES) {
+    const headerRule = (vercel.headers || []).find((rule) => rule.source === source);
+    assert.ok(headerRule, `vercel.json debe tener regla de headers para ${source}`);
+    const ruleHeaderMap = Object.fromEntries(headerRule.headers.map(h => [h.key, h.value]));
+    assert.strictEqual(
+      ruleHeaderMap['Content-Security-Policy'],
+      transitionalCsp,
+      `vercel.json [${source}]: la CSP estática debe ser IDÉNTICA a la transitional del módulo`
+    );
+    for (const key of ['Referrer-Policy', 'Permissions-Policy', 'Cross-Origin-Opener-Policy', 'Cross-Origin-Resource-Policy', 'X-Content-Type-Options', 'X-Frame-Options', 'Strict-Transport-Security']) {
+      assert.ok(ruleHeaderMap[key], `vercel.json [${source}]: falta header ${key}`);
+    }
+  }
+  console.log(`✓ vercel.json replica los headers del módulo (${STATIC_SOURCES.length} reglas explícitas, sin lookahead; /m/* y /api/* los pone Express)`);
 
   // ---------------------------------------------------------------- estático 3b
   // Permissions-Policy: el Studio usa WebUSB (impresora térmica ESC/POS, §27).
   // `usb=()` deshabilitaba la función en producción; debe ser `usb=(self)`.
   // `ambient-light-sensor` sobra: Chrome ya no la reconoce (ruido en consola).
   const modulePermissions = securityHeaders.getSecurityHeaders()['Permissions-Policy'];
-  for (const [label, policy] of [['módulo', modulePermissions], ['vercel.json', ruleHeaderMap['Permissions-Policy']]]) {
+  const firstRuleMap = Object.fromEntries(vercel.headers[0].headers.map(h => [h.key, h.value]));
+  for (const [label, policy] of [['módulo', modulePermissions], ['vercel.json', firstRuleMap['Permissions-Policy']]]) {
     assert.ok(policy.includes('usb=(self)'), `${label}: Permissions-Policy debe permitir usb=(self) para la impresora térmica del Studio`);
     assert.ok(!policy.includes('usb=()'), `${label}: Permissions-Policy NO debe deshabilitar usb=() (rompe la impresora)`);
     assert.ok(!policy.includes('ambient-light-sensor'), `${label}: Permissions-Policy no debe listar la feature obsoleta ambient-light-sensor`);
