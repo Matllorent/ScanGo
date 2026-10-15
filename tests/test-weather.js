@@ -14,12 +14,12 @@ async function runTests() {
   assert.strictEqual(classifyTemperature(30.1), 'muy_caluroso');
   assert.strictEqual(await getWeatherContext(''), null);
 
-  const apiSource = fs.readFileSync(path.join(__dirname, '../api/index.js'), 'utf8');
+  const menuRouterSrc = fs.readFileSync(path.join(__dirname, '../api/routes/menu.js'), 'utf8');
   const studioSource = fs.readFileSync(path.join(__dirname, '../public/js/studio.js'), 'utf8');
   const menuSource = fs.readFileSync(path.join(__dirname, '../public/js/menu.js'), 'utf8');
-  assert.ok(apiSource.includes('if (restaurant.smartWeatherEnabled && restaurant.city)'));
-  assert.ok(apiSource.includes("weatherContext: weather?.weatherContext || null"));
-  assert.ok(apiSource.includes('weatherContext: publicData.weatherContext'));
+  assert.ok(menuRouterSrc.includes('if (restaurant.smartWeatherEnabled && restaurant.city)'));
+  assert.ok(menuRouterSrc.includes("weatherContext: weather?.weatherContext || null"));
+  assert.ok(menuRouterSrc.includes('weatherContext: publicData.weatherContext'));
   assert.ok(studioSource.includes("'image/webp', 0.8"), 'Las imágenes deben convertirse a WebP con calidad 0.8');
   assert.ok(studioSource.includes('maxDimension = 1080'), 'La compresión debe limitar la dimensión a 1080 px');
   assert.ok(menuSource.includes("if (!context) return dishes"), 'El menú debe conservar el orden si el dueño lo desactiva');

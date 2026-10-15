@@ -58,10 +58,10 @@ async function runTests() {
   console.log('✓ Rubro Heladería de primera clase + bandera del asistente sobreviven al round-trip');
 
   // 2. Verificación de layouts permitidos e integridad en api/index.js
-  const apiFile = fs.readFileSync(path.join(__dirname, '../api/index.js'), 'utf8');
+  const menuRouterSrc = fs.readFileSync(path.join(__dirname, '../api/routes/menu.js'), 'utf8');
   const sanitizeFile = fs.readFileSync(path.join(__dirname, '../api/utils/sanitizeRestaurant.js'), 'utf8');
   assert.ok(sanitizeFile.includes("ALLOWED_LAYOUTS = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker', 'delivery', 'stories']"), 'allowedLayouts debe incluir classic, bento, minimalist, neon, billboard, ticker, sticker, delivery y stories');
-  assert.ok(apiFile.includes('bannerUrl:'), 'api/index.js debe sanitizar y devolver bannerUrl');
+  assert.ok(menuRouterSrc.includes('bannerUrl:'), 'routes/menu.js debe sanitizar y devolver bannerUrl');
   console.log('✓ Saneamiento y lista blanca de layouts en el backend verificados');
 
   // 3. Verificación de public/css/menu.css

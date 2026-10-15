@@ -51,10 +51,10 @@ function runTests() {
     'orders.js (broadcastToTableChannel) une canales de carrito con private:true'
   );
 
-  const index = fs.readFileSync(path.join(ROOT, 'api', 'index.js'), 'utf8');
+  const eventsRouterSrc = fs.readFileSync(path.join(ROOT, 'api', 'routes', 'events.js'), 'utf8');
   assert.ok(
-    /event_waiters_.+config:\s*\{\s*private:\s*true\s*\}/s.test(index),
-    'api/index.js une event_waiters_ con private:true'
+    /event_waiters_.+config:\s*\{\s*private:\s*true\s*\}/s.test(eventsRouterSrc),
+    'routes/events.js une event_waiters_ con private:true'
   );
 
   // 4) El MENÚ público carga supabase-js >= 2.44 (requisito de canales privados).
