@@ -43,10 +43,13 @@ jobs:
       # Auditoría de vulnerabilidades sobre el lockfile.
       # Pin exacto: el tag flotante `v2` fue eliminado por Google (rompió el CI
       # 2026-10-15: "unable to find version v2"); usar versión completa.
+      # v2.7.0 QUEDÓ PINNEADO ROTO: su action.yml no trae `runs:` (error
+      # upstream 2026-10-12/15, tumba todo el job). v2.6.0 hasta que Google
+      # publique el fix; re-bumpear y verificar con un push.
       # fail-on-vuln false: informa sin bloquear (riesgo aceptado
       # braces/CHOKIDAR documentado en AGENTS.md).
       - name: Auditoría OSV-Scanner
-        uses: google/osv-scanner-action@v2.7.0
+        uses: google/osv-scanner-action@v2.6.0
         with:
           scan-args: |-
             -L package-lock.json --format sarif --output osv-results.sarif
