@@ -4,6 +4,13 @@ const emailService = require('../api/services/email');
 console.log('🧪 Iniciando pruebas de notificaciones por email...');
 
 (async () => {
+  // HERMÉTICO: estos asserts describen el fallback local (sin red ni cuota
+  // de Resend). Con RESEND_API_KEY presente el envío real a test@example.com
+  // falla 403 en sandbox y el resultado depende de la red. Se fija el env.
+  const savedResendKey = Object.prototype.hasOwnProperty.call(process.env, 'RESEND_API_KEY')
+    ? process.env.RESEND_API_KEY
+    : undefined;
+  delete process.env.RESEND_API_KEY;
   // 1. Verificar que el servicio de email existe y tiene los métodos requeridos
   assert.strictEqual(typeof emailService.sendWelcomeEmail, 'function', 'sendWelcomeEmail debe ser una función');
   assert.strictEqual(typeof emailService.sendTrialWarningEmail, 'function', 'sendTrialWarningEmail debe ser una función');
@@ -115,4 +122,5 @@ console.log('🧪 Iniciando pruebas de notificaciones por email...');
   console.log('✓ sendEmailAsync encola correctamente (fire-and-forget)');
 
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE NOTIFICACIONES POR EMAIL PASARON AL 100%!\n');
+  if (savedResendKey !== undefined) process.env.RESEND_API_KEY = savedResendKey;
 })();
