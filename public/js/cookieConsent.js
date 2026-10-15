@@ -43,14 +43,30 @@
 
   function hideBanner() {
     var el = document.getElementById(BANNER_ID);
-    if (el) el.remove();
-    // El flotante de WhatsApp vuelve a su lugar (ver index.css).
-    try { document.body.classList.remove('has-cookie-banner'); } catch (e) {}
+    // Salida breve al elegir (entrada con animación, salida sin teatro).
+    var done = function () {
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+      // El flotante de WhatsApp vuelve a su lugar (ver index.css).
+      try { document.body.classList.remove('has-cookie-banner'); } catch (e) {}
+    };
+    var reduceMotion = false;
+    try {
+      reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch (e) {}
+    if (el && !reduceMotion) {
+      el.style.transition = 'opacity 180ms ease, transform 180ms ease';
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(8px)';
+      setTimeout(done, 190);
+    } else {
+      done();
+    }
   }
 
   function showBanner() {
     if (document.getElementById(BANNER_ID)) return;
     if (getConsent() !== null) return;
+    ensureEntranceStyle();
     var bar = document.createElement('div');
     bar.id = BANNER_ID;
     bar.setAttribute('role', 'dialog');
@@ -81,9 +97,27 @@
     bar.appendChild(text);
     bar.appendChild(btnAll);
     bar.appendChild(btnMin);
+    bar.className = 'scango-cookie-in';
     document.body.appendChild(bar);
-    // Corre el flotante de WhatsApp para que no tape los botones (ver index.css).
+    // Oculta el flotante de WhatsApp mientras se decide (ver index.css).
     try { document.body.classList.add('has-cookie-banner'); } catch (e) {}
+  }
+
+  // Una sola entrada orquestada (sube + aparece, 450ms, sin rebotes):
+  // el <style> se inyecta desde JS para que funcione en todas las páginas
+  // (style-src 'unsafe-inline' lo permite; sin archivos nuevos por página).
+  var STYLE_ID = 'scangoCookieAnim';
+  function ensureEntranceStyle() {
+    try {
+      if (document.getElementById(STYLE_ID)) return;
+      var st = document.createElement('style');
+      st.id = STYLE_ID;
+      st.textContent =
+        '@keyframes scangoCookieIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}' +
+        '#' + BANNER_ID + '.scango-cookie-in{animation:scangoCookieIn .45s cubic-bezier(.22,1,.36,1)}' +
+        '@media (prefers-reduced-motion: reduce){#' + BANNER_ID + '.scango-cookie-in{animation:none}}';
+      document.head.appendChild(st);
+    } catch (e) {}
   }
 
   function reshow() {
