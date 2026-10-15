@@ -50,7 +50,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 
 ### Backend
 - **Entrypoint**: `api/index.js` — rutas inline + routers modulares en `api/routes/`
-- **Routers modulares** (14 en `api/routes/`): auth, reviews, storage, webhooks, notifications, email, health, orders, analytics, **studio**, **ai**, **loyalty**, **admin** (login 2FA, overview, invitaciones, moderación, pricing, kill-switch; secretos compartidos en `api/utils/adminSession.js`, limiter en `api/middleware/rateLimits.js), **billing** (cancel, checkout, webhooks de pasarela, status; mount ANTES del guard `requireActiveSubscription` para no romper el checkout en trial)
+- **Routers modulares** (15 en `api/routes/`): auth, reviews, storage, webhooks, notifications, email, health, orders, analytics, **studio**, **ai**, **loyalty**, **admin** (login 2FA, overview, invitaciones, moderación, pricing, kill-switch; secretos compartidos en `api/utils/adminSession.js`, limiter en `api/middleware/rateLimits.js), **billing** (cancel, checkout, webhooks de pasarela, status; mount ANTES del guard `requireActiveSubscription` para no romper el checkout en trial), **menu** (`/api/demos*`, `/api/menu/:slug`; helpers de sucursales en `api/utils/menuResponse.js`, compartidos con el SSR)
 - **Cron**: `api/cron/billing-dunning.js` (montado como `/api/cron/billing-dunning`, requiere `CRON_SECRET`)
 - **Middleware**: `api/middleware/` (auth, validation, rateLimits, killSwitch, subscriptionGuard, tenantGuard, requireVerifiedEmail, idempotency, cache, errorHandler, requestId)
 - **Services**: `api/services/` (audit, email, geminiMenuParser, **loyalty**, notifications, storage, telemetry, weather). El servicio de Mercado Pago vive en `src/services/mercadopago.js`. **La telemetría es la fuente única de verdad de analytics**: `restaurant.analytics` es una proyección derivada (`telemetry.countAnalytics()` → `db.setAnalyticsSnapshot()`), nunca se incrementa a mano.
@@ -365,6 +365,8 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 - `api/middleware/killSwitch.js`: `checkSubscriptionKillSwitch` — bloquea features por plan
 - `api/middleware/cache.js`: `menuCacheMiddleware`, `invalidateMenuCache()` — cache menú público
 - `api/utils/sentry.js`: `captureMessage()`, `captureException()` — no-op si no hay DSN
+- `api/utils/adminSession.js`: secretos del panel maestro (fuente única con `routes/admin.js`)
+- `api/utils/menuResponse.js`: helpers puros de sucursales (usados por `routes/menu.js` y el SSR)
 
 > **Ojo**: `src/` solo contiene `db/`, `billing/` y `services/mercadopago.js`. Todo el código del runtime HTTP (helpers, middleware, utils) vive en **`api/utils/`** y **`api/middleware/`**.
 

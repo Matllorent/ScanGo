@@ -8,31 +8,24 @@ const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
 const db = require('../src/db/db');
 const billingOrchestrator = require('../src/billing/orchestrator');
-const mpService = require('../src/services/mercadopago');
 const emailService = require('./services/email');
 const telemetryService = require('./services/telemetry');
 const storageService = require('./services/storage');
 const auditService = require('./services/audit');
-const { getWeatherContext } = require('./services/weather');
-const { hashPassword, comparePassword } = require('./utils/hash');
-const { registerSchema, loginSchema, validateBody } = require('./middleware/validation');
-const { sanitizeModifierGroups, sanitizeDishOptionConfig } = require('./utils/menuOptions');
-const { sanitizeRestaurantPayload, sanitizeBranchPayload } = require('./utils/sanitizeRestaurant');
 const { requireActiveSubscription } = require('./middleware/subscriptionGuard');
 const errorHandler = require('./middleware/errorHandler');
 const { successResponse, errorResponse } = require('./utils/response');
 const requireVerifiedEmail = require('./middleware/requireVerifiedEmail');
 const requestIdMiddleware = require('./middleware/requestId');
-const { menuCacheMiddleware, invalidateMenuCache, getCachedMenu } = require('./middleware/cache');
+const { invalidateMenuCache } = require('./middleware/cache');
 const { authMiddleware, adminMiddleware } = require('./middleware/auth');
 const { publicAnalyticsLimiter, emailLimiter } = require('./middleware/rateLimits');
-const { createGroupCartToken } = require('./utils/groupCartToken');
 const sentry = require('./utils/sentry');
 const securityHeaders = require('./utils/securityHeaders');
 const seoDiscovery = require('./utils/seoDiscovery');
 const seoSolutions = require('./utils/seoSolutions');
 const indexNow = require('./utils/indexNow');
-const { getDemoRestaurant, listDemoRestaurants, normalizeDemoType, isDemoSlug } = require('./utils/demoRestaurants');
+const { getDemoRestaurant, normalizeDemoType, isDemoSlug } = require('./utils/demoRestaurants');
 const authRouter = require('./routes/auth');
 const reviewsRouter = require('./routes/reviews');
 const storageRouter = require('./routes/storage');
@@ -48,6 +41,7 @@ const loyaltyRouter = require('./routes/loyalty');
 const discoverRouter = require('./routes/discover');
 const adminRouter = require('./routes/admin');
 const billingRouter = require('./routes/billing');
+const menuRouter = require('./routes/menu');
 const loyaltyService = require('./services/loyalty');
 const billingDunningRouter = require('./cron/billing-dunning');
 const telemetryRetentionRouter = require('./cron/telemetry-retention');
@@ -222,61 +216,7 @@ const { timingSafeEqualHex } = require('./utils/adminSession');
 // api/utils/adminSession.js (fuente única, también usada por routes/admin.js).
 const { COOKIE_OPTIONS, ADMIN_SESSION_IDLE_TIMEOUT_SECONDS } = require('./utils/adminSession');
 
-/**
- * Coerce a per-branch override price value to a finite number.
- * overridePrices es Record<dishId, number>; datos legacy o payloads externos
- * pueden traer { price: n } — normalizar aquí evita filtrar objetos al frontend.
- * @returns {number|null} precio numérico o null si no hay override usable.
- */
-function resolveBranchOverridePrice(overrides, dishId, fallbackPrice) {
-  if (!overrides || typeof overrides !== 'object' || typeof dishId !== 'string') return fallbackPrice;
-  const raw = overrides[dishId];
-  if (raw === undefined || raw === null) return fallbackPrice;
-  let num = raw;
-  if (typeof raw === 'object' && !Array.isArray(raw)) {
-    num = raw.price ?? raw.value ?? raw.precio;
-  }
-  const parsed = Number(num);
-  return Number.isFinite(parsed) ? parsed : fallbackPrice;
-}
-
-/**
- * Normalize branch custom dishes so the SPA public menu can render them.
- * Los customDishes de una sucursal vienen con `category` (nombre) pero sin
- * `categoryId`; el menú público agrupa por `d.categoryId === cat.id`, así que
- * sin normalización quedan invisibles. Garantiza que cada custom dish tenga un
- * categoryId válido y que ese category exista en el array de categorías de la
- * respuesta (agregando una categoría sintética si hace falta).
- * @returns {{categories: Array, dishes: Array}} categorías con las extras + dishes normalizados
- */
-function normalizeBranchCustomDishes(baseCategories, baseDishes, customDishes) {
-  let categories = Array.isArray(baseCategories) ? baseCategories.map(c => ({ ...c })) : [];
-  if (!Array.isArray(customDishes) || customDishes.length === 0) {
-    return { categories, dishes: baseDishes };
-  }
-  const categoriesById = new Map(categories.map(c => [c.id, c]));
-  let dishes = Array.isArray(baseDishes) ? baseDishes.map(d => ({ ...d })) : [];
-  for (const cd of customDishes) {
-    if (!cd || typeof cd !== 'object') continue;
-    const dish = { ...cd, isBranchCustom: true };
-    const catName = String(dish.category || '').trim() || 'Especiales de la sucursal';
-    const sluggedCat = catName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 40);
-    const desiredId = dish.categoryId
-      ? String(dish.categoryId)
-      : `branch_cat_${sluggedCat || 'especiales'}`;
-    const cat = categoriesById.get(desiredId);
-    if (cat) {
-      dish.categoryId = cat.id;
-    } else {
-      const newCat = { id: desiredId, name: catName };
-      categories.push(newCat);
-      categoriesById.set(newCat.id, newCat);
-      if (dish.categoryId === undefined) dish.categoryId = newCat.id;
-    }
-    dishes.push({ ...dish, categoryId: dish.categoryId || desiredId });
-  }
-  return { categories, dishes };
-}
+const { resolveBranchOverridePrice, normalizeBranchCustomDishes } = require('./utils/menuResponse');
 
 
 // Static files (allow dotfiles because workspace path contains .gemini)
@@ -438,408 +378,7 @@ app.post('/api/events/:slug/waiter-call', async (req, res, next) => {
   }
 });
 
-// ==================== PUBLIC MENU VIEWER (WITH 800MS TIMEOUT RACE & STALE CACHE FALLBACK) ====================
-// ── Demos públicas por rubro (in-memory, sin persistencia) ─────────────────
-// Catálogo navegable: /m/demo-restaurante, /m/demo-heladeria,
-// /m/demo-perfumeria, /m/demo-evento. Siempre online (sin verifyAccess) y
-// con el MISMO shape público que /api/menu/:slug (incluye weddingItinerary
-// y neonAccent, que el menú usa para el timeline en vivo y el glow neón).
-function buildDemoMenuResponse(typeOrSlug) {
-  const demo = getDemoRestaurant(typeOrSlug);
-  if (!demo) return null;
-  const isEvent = demo.businessType === 'events';
-  const dishes = (demo.dishes || []).map(d => ({
-    ...d,
-    previous_price: d.previous_price || d.previousPrice || null,
-    is_chef_recommended: Boolean(d.is_chef_recommended || d.isChefRecommended)
-  }));
-  const publicData = {
-    id: demo.id,
-    organizationId: null,
-    slug: demo.slug,
-    name: demo.name,
-    bizName: demo.bizName || demo.name,
-    phone: demo.phone || '',
-    scheduleActiveHours: demo.scheduleActiveHours || '',
-    tableCount: demo.tableCount || 10,
-    activeBranch: null,
-    branches: [],
-    slogan: demo.slogan || '',
-    currency: demo.currency || '$',
-    city: demo.city || '',
-    smartWeatherEnabled: false,
-    weatherContext: null,
-    weatherTemperatureC: null,
-    theme: demo.theme || 'emerald',
-    themeFont: demo.themeFont || 'serif',
-    neonAccent: demo.neonAccent || 'mint',
-    neonCustomColor: demo.neonCustomColor || '',
-    forceClosed: demo.forceClosed === true,
-    instagram: demo.instagram || '',
-    facebook: demo.facebook || '',
-    tiktok: demo.tiktok || '',
-    x: demo.x || '',
-    googleReview: demo.googleReview || '',
-    allowReservations: demo.allowReservations !== false,
-    allowCoupons: demo.allowCoupons !== false,
-    allowBillSplitter: demo.allowBillSplitter === true,
-    allowWaiterCall: demo.allowWaiterCall !== false,
-    allowBillRequest: demo.allowBillRequest !== false,
-    allowMenuOrders: demo.allowMenuOrders !== false,
-    announcement: demo.announcement || '',
-    paymentLink: '',
-    allowOnlinePayment: false,
-    onlinePaymentReady: false,
-    scheduleEnabled: Boolean(demo.scheduleEnabled),
-    customCoupons: [],
-    allowLoyaltyPoints: false,
-    loyaltyConfig: loyaltyService.getPublicLoyaltyConfig(demo),
-    logoUrl: demo.logoUrl || null,
-    bannerUrl: demo.bannerUrl || null,
-    layout: demo.layout || 'classic',
-    businessType: demo.businessType || 'restaurant',
-    allowIceCreamWizard: demo.allowIceCreamWizard === true,
-    iceCreamBuilderLabel: demo.iceCreamBuilderLabel || '',
-    iceCreamButtonStyle: demo.iceCreamButtonStyle || 'fiesta',
-    iceCreamContainers: Array.isArray(demo.iceCreamContainers) ? demo.iceCreamContainers : null,
-    iceCreamToppings: Array.isArray(demo.iceCreamToppings) ? demo.iceCreamToppings : null,
-    allowPerfumery: demo.allowPerfumery === true,
-    wifi: demo.wifi || { ssid: '', password: '' },
-    categories: demo.categories || [],
-    modifierGroups: demo.modifierGroups || [],
-    dishes,
-    deliveryZones: demo.deliveryZones || [],
-    updatedAt: demo.updatedAt,
-    weddingItinerary: demo.weddingItinerary || null,
-    isEvent,
-    eventDate: demo.eventDate,
-    eventType: demo.eventType,
-    expiresAt: demo.expiresAt,
-    eventCustomQR: demo.eventCustomQR,
-    isDemo: true
-  };
-  const response = {
-    restaurant: publicData,
-    weatherContext: null,
-    weatherTemperatureC: null,
-    isDemo: true
-  };
-  if (isEvent) {
-    response.isEvent = true;
-    response.eventDate = demo.eventDate;
-    response.expiresAt = demo.expiresAt;
-  } else {
-    response.access = { inGracePeriod: false };
-  }
-  return response;
-}
-
-// Lista de demos (metadatos para la galería de la landing).
-app.get('/api/demos', (req, res) => {
-  return res.status(200).json({ demos: listDemoRestaurants() });
-});
-
-// Demo completa por tipo (lo que el Studio en modo demo carga en el editor).
-app.get('/api/demos/:type', (req, res) => {
-  const demo = getDemoRestaurant(req.params.type);
-  if (!demo) return res.status(404).json({ error: 'Demo no encontrada' });
-  return res.status(200).json({ demo, isDemo: true });
-});
-
-app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
-  const slug = (req.params.slug || '').toLowerCase();
-  // Demos públicas por rubro: catálogo in-memory, siempre online.
-  // Se sirve ANTES del cache single-flight para que la key demo:* nunca
-  // colisione con un restaurante real del mismo slug.
-  const demoType = normalizeDemoType(slug);
-  if (demoType) {
-    try {
-      return res.status(200).json(buildDemoMenuResponse(demoType));
-    } catch (e) {
-      return res.status(500).json({ error: 'No se pudo cargar la demo' });
-    }
-  }
-  try {
-    let timeoutId;
-    const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error('DB_TIMEOUT_800MS')), 800);
-    });
-
-    // Multi-Branch Hierarchy Support (?branch= or ?sucursal=)
-    // Resuelto ANTES del single-flight cache: la key incluye la sucursal para que
-    // ?branch=centro y el menú base no compartan entrada (5s TTL) y se contaminen.
-    const reqBranch = (req.query.branch || req.query.sucursal || '').toLowerCase().trim();
-    const activeBranchCacheKey = `${slug}:branch:${reqBranch}`;
-
-    const fetchPromise = getCachedMenu(activeBranchCacheKey, async () => {
-      const restaurant = db.findRestaurantBySlug(slug);
-      if (!restaurant) return null;
-
-      // Events mode: el corte duro es la fecha del evento (expiry), pero la
-      // suscripción también importa: el dueño paga un one-off (`event_once`)
-      // para que el menú esté online hasta eventDate. Sin pago tras el trial,
-      // verifyAccess pausa el evento como a cualquier restaurante.
-      const isEvent = restaurant.businessType === 'events' || restaurant.isEvent === true;
-      let access = null;
-      if (isEvent) {
-        const expiresAt = restaurant.expiresAt ? new Date(restaurant.expiresAt) : null;
-        const eventDate = restaurant.eventDate ? new Date(restaurant.eventDate) : null;
-        const expiryCheck = expiresAt || eventDate;
-        
-        if (expiryCheck && expiryCheck < new Date()) {
-          return {
-            inactive: true,
-            warning: 'Este evento ha finalizado. El menú ya no está disponible.',
-            isEvent: true,
-            expired: true
-          };
-        }
-        // El evento sigue dentro de la fecha: la suscripción decide si está online
-        access = billingOrchestrator.verifyAccess(restaurant.id);
-        if (!access.allowed) {
-          return {
-            inactive: true,
-            warning: access.warning,
-            isEvent: true
-          };
-        }
-      } else {
-        // Regular restaurant - verify subscription
-        access = billingOrchestrator.verifyAccess(restaurant.id);
-        if (!access.allowed) {
-          return {
-            inactive: true,
-            warning: access.warning
-          };
-        }
-      }
-
-      let weather = null;
-      if (restaurant.smartWeatherEnabled && restaurant.city) {
-        weather = await getWeatherContext(restaurant.city);
-      }
-
-      // Multi-Branch Hierarchy Support (?branch= or ?sucursal=)
-      let activeBranch = null;
-
-      if (reqBranch && Array.isArray(restaurant.branches)) {
-        activeBranch = restaurant.branches.find(b =>
-          (b.id || '').toLowerCase() === reqBranch || (b.slug || '').toLowerCase() === reqBranch
-        );
-      }
-
-      // Base dishes inheritance & price overrides for branch
-      let inheritedDishes = [...(restaurant.dishes || [])];
-      let publicCategories = Array.isArray(restaurant.categories) ? restaurant.categories.map(c => ({ ...c })) : [];
-      if (activeBranch) {
-        if (activeBranch.overridePrices && typeof activeBranch.overridePrices === 'object') {
-          inheritedDishes = inheritedDishes.map(d => ({
-            ...d,
-            price: resolveBranchOverridePrice(activeBranch.overridePrices, d.id, d.price),
-            previous_price: d.price
-          }));
-        }
-        // Normalizar customDishes: sintetizar categoryId y asegurar que su
-        // categoría exista en la respuesta (si no, el menú público los ignora).
-        const normalized = normalizeBranchCustomDishes(publicCategories, inheritedDishes, activeBranch.customDishes);
-        publicCategories = normalized.categories;
-        inheritedDishes = normalized.dishes;
-      }
-
-      // Smart Menu Sorting & Filtering
-      const reqHour = req.query.hour || req.query.mealTime || '';
-      const reqDay = typeof req.query.day !== 'undefined' ? parseInt(req.query.day) : new Date().getDay();
-      const reqLang = (req.query.lang || 'es').toLowerCase();
-
-      let dishes = inheritedDishes.map(d => {
-        const trans = d.translations?.[reqLang];
-        return {
-          ...d,
-          name: trans?.name || d.name,
-          description: trans?.description || d.description,
-          previous_price: d.previous_price || d.previousPrice || null,
-          is_chef_recommended: Boolean(d.is_chef_recommended || d.isChefRecommended)
-        };
-      });
-
-      // Priority sorting: Chef recommended on top, followed by matching hour & day slots
-      dishes.sort((a, b) => {
-        const aChef = a.is_chef_recommended ? 1 : 0;
-        const bChef = b.is_chef_recommended ? 1 : 0;
-        if (aChef !== bChef) return bChef - aChef;
-
-        if (reqHour) {
-          const aHours = Array.isArray(a.available_hours || a.availableHours) ? (a.available_hours || a.availableHours) : [];
-          const bHours = Array.isArray(b.available_hours || b.availableHours) ? (b.available_hours || b.availableHours) : [];
-          const aMatch = aHours.includes(reqHour) ? 1 : 0;
-          const bMatch = bHours.includes(reqHour) ? 1 : 0;
-          if (aMatch !== bMatch) return bMatch - aMatch;
-        }
-
-        const aDays = Array.isArray(a.available_days || a.availableDays) ? (a.available_days || a.availableDays) : [0, 1, 2, 3, 4, 5, 6];
-        const bDays = Array.isArray(b.available_days || b.availableDays) ? (b.available_days || b.availableDays) : [0, 1, 2, 3, 4, 5, 6];
-        const aDayMatch = aDays.includes(reqDay) ? 1 : 0;
-        const bDayMatch = bDays.includes(reqDay) ? 1 : 0;
-        if (aDayMatch !== bDayMatch) return bDayMatch - aDayMatch;
-
-        return 0;
-      });
-
-      // Sanitize public payload: exclude internal userId, billing identifiers, etc.
-      const publicData = {
-        id: restaurant.id,
-        organizationId: restaurant.organizationId || null,
-        slug: restaurant.slug,
-        name: activeBranch ? `${restaurant.name || restaurant.bizName} — ${activeBranch.name}` : (restaurant.name || restaurant.bizName),
-        bizName: restaurant.bizName || restaurant.name,
-        phone: activeBranch?.phone || restaurant.phone || '',
-        scheduleActiveHours: activeBranch?.scheduleActiveHours || restaurant.scheduleActiveHours || '',
-        tableCount: activeBranch?.tableCount || restaurant.tableCount || 10,
-        activeBranch: activeBranch ? {
-          id: activeBranch.id,
-          name: activeBranch.name,
-          slug: activeBranch.slug,
-          address: activeBranch.address || ''
-        } : null,
-        branches: (restaurant.branches || []).map(b => ({
-          id: b.id,
-          name: b.name,
-          slug: b.slug,
-          address: b.address || ''
-        })),
-        slogan: restaurant.slogan || '',
-        currency: restaurant.currency || '$',
-        phone: restaurant.phone || '',
-        city: restaurant.city || '',
-        smartWeatherEnabled: Boolean(restaurant.smartWeatherEnabled),
-        weatherContext: weather?.weatherContext || null,
-        weatherTemperatureC: weather?.temperatureC ?? null,
-        theme: restaurant.theme || 'emerald',
-        themeFont: restaurant.themeFont || 'serif',
-        neonAccent: restaurant.neonAccent || 'mint',
-        neonCustomColor: restaurant.neonCustomColor || '',
-        forceClosed: restaurant.forceClosed === true,
-        instagram: restaurant.instagram || '',
-        facebook: restaurant.facebook || '',
-        tiktok: restaurant.tiktok || '',
-        x: restaurant.x || '',
-        googleReview: restaurant.googleReview || '',
-        allowReservations: restaurant.allowReservations !== false,
-        allowCoupons: restaurant.allowCoupons !== false,
-        allowBillSplitter: restaurant.allowBillSplitter !== false,
-        // Servicio de mesa: interruptores del dueño (defaults encendidos).
-        // "Pedir la cuenta" además solo tiene sentido en el local (el menú
-        // la oculta en DELIVERY/TAKEAWAY aunque esté habilitada).
-        allowWaiterCall: restaurant.allowWaiterCall !== false,
-        allowBillRequest: restaurant.allowBillRequest !== false,
-        // Vitrina vs con pedidos: el dueño decide si la carta lleva carrito.
-        allowMenuOrders: restaurant.allowMenuOrders !== false,
-        announcement: restaurant.announcement || '',
-        paymentLink: restaurant.paymentLink || '',
-        // Pago online: el dueño decide si la opción aparece. `allowOnlinePayment`
-        // es el interruptor; `onlinePaymentReady` indica si hay con qué cobrar
-        // (link propio y/o Checkout Pro configurado en el servidor).
-        allowOnlinePayment: restaurant.allowOnlinePayment === true,
-        onlinePaymentReady: Boolean(
-          (restaurant.paymentLink && String(restaurant.paymentLink).trim()) ||
-          mpService.isConfigured()
-        ),
-        scheduleEnabled: Boolean(restaurant.scheduleEnabled),
-        scheduleActiveHours: restaurant.scheduleActiveHours || '',
-        tableCount: restaurant.tableCount || 10,
-        customCoupons: restaurant.customCoupons || [],
-        allowLoyaltyPoints: restaurant.allowLoyaltyPoints === true,
-        loyaltyConfig: loyaltyService.getPublicLoyaltyConfig(restaurant),
-        logoUrl: restaurant.logoUrl || null,
-        bannerUrl: restaurant.bannerUrl || null,
-        layout: restaurant.layout || 'classic',
-        filterBarMode: ['fixed', 'autohide', 'compact'].includes(restaurant.filterBarMode) ? restaurant.filterBarMode : 'fixed',
-        // Verticales de negocio (no sensibles): el frontend las usa para el gating
-        // de heladería/perfumería y la resolución de temas de eventos.
-        businessType: restaurant.businessType || 'restaurant',
-        allowIceCreamWizard: restaurant.allowIceCreamWizard === true,
-        iceCreamBuilderLabel: restaurant.iceCreamBuilderLabel || '',
-        iceCreamButtonStyle: restaurant.iceCreamButtonStyle || 'clasico',
-        // Heladería: tamaños y toppings del dueño (null = defaults del wizard).
-        iceCreamContainers: Array.isArray(restaurant.iceCreamContainers) ? restaurant.iceCreamContainers : null,
-        iceCreamToppings: Array.isArray(restaurant.iceCreamToppings) ? restaurant.iceCreamToppings : null,
-        allowPerfumery: restaurant.allowPerfumery === true,
-        wifi: restaurant.wifi || { ssid: '', password: '' },
-        categories: publicCategories,
-        modifierGroups: restaurant.modifierGroups || [],
-        dishes: dishes,
-        deliveryZones: restaurant.deliveryZones || [],
-        updatedAt: restaurant.updatedAt,
-        // Programa del evento e itinerario visual (público por diseño: es el
-        // programa de la fiesta; el menú lo renderiza como timeline en vivo).
-        weddingItinerary: restaurant.weddingItinerary || null,
-        // Events mode data
-        isEvent: isEvent,
-        eventDate: restaurant.eventDate,
-        eventType: restaurant.eventType,
-        expiresAt: restaurant.expiresAt,
-        eventCustomQR: restaurant.eventCustomQR
-      };
-
-      const response = {
-        restaurant: publicData,
-        weatherContext: publicData.weatherContext,
-        weatherTemperatureC: publicData.weatherTemperatureC
-      };
-
-      // Add event-specific fields to response
-      if (isEvent) {
-        response.isEvent = true;
-        response.eventDate = restaurant.eventDate;
-        response.eventType = restaurant.eventType;
-        response.expiresAt = restaurant.expiresAt;
-        response.eventCustomQR = restaurant.eventCustomQR || `${process.env.APP_URL || 'https://scango.app'}/m/${slug}?event=true`;
-      } else {
-        response.access = {
-          inGracePeriod: access.inGracePeriod,
-          daysRemaining: access.gracePeriodDaysRemaining
-        };
-      }
-
-      return response;
-    });
-
-    let data;
-    try {
-      data = await Promise.race([fetchPromise, timeoutPromise]);
-    } catch (raceErr) {
-      if (raceErr.message === 'DB_TIMEOUT_800MS') {
-        const { memoryCache } = require('./middleware/cache');
-        const stale = memoryCache.get(slug);
-        if (stale) {
-          res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300');
-          res.setHeader('Warning', '110 Response is Stale');
-          res.setHeader('X-Cache-Status', 'Stale-Fallback');
-          return res.status(200).json(stale);
-        }
-      }
-      data = await fetchPromise;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-
-    if (!data) {
-      return res.status(404).json({ error: 'Restaurante no encontrado' });
-    }
-    if (data.inactive) {
-      return res.status(402).json({
-        error: 'MenuTemporalmenteInactivo',
-        message: 'Este menú se encuentra temporalmente en pausa por renovación de suscripción.',
-        warning: data.warning
-      });
-    }
-
-    res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300');
-    res.json(data);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+// → movido a api/routes/menu.js + api/utils/menuResponse.js (misma ruta, mismo middleware)
 
 // ==================== BILLING ROUTES ====================
 // → movido a api/routes/billing.js (misma ruta, mismo middleware)
@@ -1729,6 +1268,7 @@ app.use('/api/loyalty', loyaltyRouter);
 app.use('/api/discover', discoverRouter);
 app.use('/api/email', emailRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api', menuRouter);
 app.use('/api/cron', billingDunningRouter);
 app.use('/api/cron', telemetryRetentionRouter);
 app.use('/api/cron', seoAuditCronRouter);
