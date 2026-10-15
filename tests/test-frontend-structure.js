@@ -211,9 +211,10 @@ function runFrontendStructureTests() {
     /id=["']iceCreamHeroCTA["']/.test(menuHtml) && /data-js-click=["']openIceCreamWizard["']/.test(menuHtml),
     'menu.html debe exponer el CTA protagonista #iceCreamHeroCTA cableado a openIceCreamWizard'
   );
+  const menuHeaderSrcF = read('public/js/menu/menuHeader.js');
   assert.ok(
-    /getElementById\(['"]iceCreamHeroCTA['"]\)/.test(menu),
-    'REGRESIÓN: menu.js debe mostrar el hero de heladería según el rubro (isHeladeria)'
+    /getElementById\(['"]iceCreamHeroCTA['"]\)/.test(menuHeaderSrcF),
+    'REGRESIÓN: menuHeader.js debe mostrar el hero de heladería según el rubro (isHeladeria)'
   );
 
   const iceCreamWizardSrc = read('public/js/components/IceCreamWizard.js');
@@ -237,8 +238,9 @@ function runFrontendStructureTests() {
     !/id=["']btnOpenIceCreamWizard["']/.test(menuHtml),
     'REGRESIÓN: no debe existir el botón duplicado #btnOpenIceCreamWizard (el hero es el único acceso al armador)'
   );
+  const menuHeaderF = read('public/js/menu/menuHeader.js');
   assert.ok(
-    /id=["']iceCreamHeroLabel["']/.test(menuHtml) && /iceCreamBuilderLabel/.test(menu),
+    /id=["']iceCreamHeroLabel["']/.test(menuHtml) && /iceCreamBuilderLabel/.test(menuHeaderF),
     'REGRESIÓN: el texto del botón del armador debe ser configurable por el dueño (iceCreamBuilderLabel)'
   );
   console.log('✓ Heladería: CTA protagonista + armador data-driven con resumen y total en vivo');
