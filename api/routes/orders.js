@@ -531,10 +531,6 @@ router.post('/mercadopago/preference', validateBody(createOrderSchema), async (r
       throw new AppError('El local no tiene habilitado el pago online', 403, 'ONLINE_PAYMENT_DISABLED');
     }
 
-    if (!mpService.isConfigured()) {
-      throw new AppError('Mercado Pago no está configurado en el servidor', 500, 'MP_NOT_CONFIGURED');
-    }
-
     const { itemsSnapshot, amountInCents } = quoteOrderItems(restaurant, items);
     const subtotal = amountInCents / 100;
 
@@ -597,6 +593,12 @@ router.post('/mercadopago/preference', validateBody(createOrderSchema), async (r
 
     const externalRef = `ord_${Date.now()}_${restaurant.id.slice(0, 8)}`;
     const returnBase = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+
+    // Recién acá se exige MP configurado: el pedido ya se validó (404/403/
+    // 400 honestos sin credenciales) y solo falta crearlo en Mercado Pago.
+    if (!mpService.isConfigured()) {
+      throw new AppError('Mercado Pago no está configurado en el servidor', 500, 'MP_NOT_CONFIGURED');
+    }
 
     const preference = await mpService.createPreference({
       items: mpItems,
