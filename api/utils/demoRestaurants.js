@@ -19,10 +19,10 @@
  *   (perfumeryHeuristics). Nada de catálogos inventados en el frontend.
  * - /api/menu/:slug y /m/:slug resuelven el slug demo ANTES de la DB y
  *   saltean verifyAccess (la demo siempre está online, no depende de trial).
- * - Imágenes 100% libres de derechos: fotos vía Picsum (seeds deterministas,
- *   `https://picsum.photos/seed/<id>/400/300`) y video CC0 de MDN. Nada
- *   hotlinkeado con copyright: el dueño reemplaza por sus fotos reales al
- *   importar (el banner de cobertura del Studio lo guía).
+ * - Imágenes 100% libres de derechos VERIFICADAS por API: fotos CC0/dominio
+ *   público de Wikimedia Commons (licencia chequeada una por una) y video CC0
+ *   de MDN. Nada hotlinkeado con copyright: el dueño reemplaza por sus
+ *   fotos reales al importar (el banner de cobertura del Studio lo guía).
  */
 
 const DEMO_VIDEO_CC0 = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'; // CC0, demo del video en Stories
@@ -84,8 +84,8 @@ function demoRestaurant() {
     allowPerfumery: false,
     theme: 'emerald',
     phone: '59899000111',
-    bannerUrl: 'https://picsum.photos/seed/scango-trattoria-banner/1200/400',
-    logoUrl: 'https://picsum.photos/seed/scango-trattoria-logo/300/300',
+    bannerUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Japanese-style_spaghetti_in_Shirokane.jpg/500px-Japanese-style_spaghetti_in_Shirokane.jpg',
+    logoUrl: null,
     scheduleActiveHours: '12:00-23:30',
     tableCount: 12,
     wifi: { ssid: 'Trattoria_Free', password: 'pasta2026' },
@@ -100,15 +100,15 @@ function demoRestaurant() {
       { id: 'cat_bebidas', name: 'Bebidas' }
     ],
     dishes: [
-      { id: 'dish_bruschetta', categoryId: 'cat_entradas', name: 'Bruschetta de la casa', description: 'Pan de masa madre, tomate confitado, albahaca y oliva', price: 320, tags: ['veggie'], is_chef_recommended: true, photoUrl: 'https://picsum.photos/seed/dish_bruschetta/400/300' },
-      { id: 'dish_rabas', categoryId: 'cat_entradas', name: 'Rabas del puerto', description: 'Calamares crocantes con limón y tártara artesanal', price: 580, tags: [], photoUrl: 'https://picsum.photos/seed/dish_rabas/400/300' },
-      { id: 'dish_milanga', categoryId: 'cat_principales', name: 'Milanesa napolitana clásica', description: 'Lomo empanado, salsa casera, jamón y muzzarella con fritas', price: 540, tags: ['star'], is_chef_recommended: true, photoUrl: 'https://picsum.photos/seed/dish_milanga/400/300' },
-      { id: 'dish_sorrentinos', categoryId: 'cat_principales', name: 'Sorrentinos de jamón y queso', description: 'Pasta fresca con salsa pomodoro y parmesano', price: 490, tags: [], photoUrl: 'https://picsum.photos/seed/dish_sorrentinos/400/300' },
-      { id: 'dish_salmon', categoryId: 'cat_principales', name: 'Salmón a la manteca de hierbas', description: 'Filet a la plancha con puré rústico de calabaza', price: 790, tags: [], photoUrl: 'https://picsum.photos/seed/dish_salmon/400/300' },
-      { id: 'dish_flan', categoryId: 'cat_postres', name: 'Flan casero con dulce de leche', description: 'Receta tradicional con crema batida', price: 260, tags: ['star'], photoUrl: 'https://picsum.photos/seed/dish_flan/400/300' },
-      { id: 'dish_volcan', categoryId: 'cat_postres', name: 'Volcán de chocolate', description: 'Bizcocho tibio con corazón fundente y helado de vainilla', price: 320, tags: [], photoUrl: 'https://picsum.photos/seed/dish_volcan/400/300', videoUrl: DEMO_VIDEO_CC0 },
-      { id: 'dish_limonada', categoryId: 'cat_bebidas', name: 'Limonada con menta y jengibre', description: 'Exprimido natural con miel', price: 180, tags: ['veggie'], photoUrl: 'https://picsum.photos/seed/dish_limonada/400/300' },
-      { id: 'dish_ipa', categoryId: 'cat_bebidas', name: 'IPA artesanal (pinta)', description: 'Lúpulo aromático, amargor balanceado', price: 240, tags: [], photoUrl: 'https://picsum.photos/seed/dish_ipa/400/300' }
+      { id: 'dish_bruschetta', categoryId: 'cat_entradas', name: 'Bruschetta de la casa', description: 'Pan de masa madre, tomate confitado, albahaca y oliva', price: 320, tags: ['veggie'], is_chef_recommended: true, photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8d/Bruschetta.jpg/500px-Bruschetta.jpg' },
+      { id: 'dish_rabas', categoryId: 'cat_entradas', name: 'Rabas del puerto', description: 'Calamares crocantes con limón y tártara artesanal', price: 580, tags: [], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/8/81/Lemon_Pepper_Squid_%40_Waterloo_Station_Hotel%2C_Paralowie_20241127-122908.jpg/500px-Lemon_Pepper_Squid_%40_Waterloo_Station_Hotel%2C_Paralowie_20241127-122908.jpg' },
+      { id: 'dish_milanga', categoryId: 'cat_principales', name: 'Milanesa napolitana clásica', description: 'Lomo empanado, salsa casera, jamón y muzzarella con fritas', price: 540, tags: ['star'], is_chef_recommended: true, photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b3/Pork_Schnitzel_With_Chips_%26_Gravy_%40_Cafe_De_Vili%27s_Elizabeth_-_RV90.jpg/500px-Pork_Schnitzel_With_Chips_%26_Gravy_%40_Cafe_De_Vili%27s_Elizabeth_-_RV90.jpg' },
+      { id: 'dish_sorrentinos', categoryId: 'cat_principales', name: 'Sorrentinos de jamón y queso', description: 'Pasta fresca con salsa pomodoro y parmesano', price: 490, tags: [], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/8/86/Ravioli_di_Faraona.JPG/500px-Ravioli_di_Faraona.JPG' },
+      { id: 'dish_salmon', categoryId: 'cat_principales', name: 'Salmón a la manteca de hierbas', description: 'Filet a la plancha con puré rústico de calabaza', price: 790, tags: [], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f1/Grilled_plated_salmon_fillet.jpg/500px-Grilled_plated_salmon_fillet.jpg' },
+      { id: 'dish_flan', categoryId: 'cat_postres', name: 'Flan casero con dulce de leche', description: 'Receta tradicional con crema batida', price: 260, tags: ['star'], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c9/Leche_flan_%28Philippines%29_01.jpg/500px-Leche_flan_%28Philippines%29_01.jpg' },
+      { id: 'dish_volcan', categoryId: 'cat_postres', name: 'Volcán de chocolate', description: 'Bizcocho tibio con corazón fundente y helado de vainilla', price: 320, tags: [], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e2/Vegan_chocolate_cake_with_sliced_strawberries.jpg/500px-Vegan_chocolate_cake_with_sliced_strawberries.jpg', videoUrl: DEMO_VIDEO_CC0 },
+      { id: 'dish_limonada', categoryId: 'cat_bebidas', name: 'Limonada con menta y jengibre', description: 'Exprimido natural con miel', price: 180, tags: ['veggie'], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0c/Lemonade_pitcher_and_glass.jpg/500px-Lemonade_pitcher_and_glass.jpg' },
+      { id: 'dish_ipa', categoryId: 'cat_bebidas', name: 'IPA artesanal (pinta)', description: 'Lúpulo aromático, amargor balanceado', price: 240, tags: [], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bc/Glass_of_Marmotte_Ambr%C3%A9e_beer%2C_Saint-Gervais-les-Bains%2C_2025.jpg/500px-Glass_of_Marmotte_Ambr%C3%A9e_beer%2C_Saint-Gervais-les-Bains%2C_2025.jpg' }
     ]
   });
 }
@@ -124,8 +124,8 @@ function demoHeladeria() {
     allowPerfumery: false,
     theme: 'helado-fiesta',
     layout: 'modern',
-    bannerUrl: 'https://picsum.photos/seed/scango-frescura-banner/1200/400',
-    logoUrl: 'https://picsum.photos/seed/scango-frescura-logo/300/300',
+    bannerUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/Gelato_ice_cream.jpg/500px-Gelato_ice_cream.jpg',
+    logoUrl: null,
     iceCreamBuilderLabel: 'Armá tu helado a medida',
     iceCreamButtonStyle: 'fiesta',
     iceCreamContainers: [
@@ -149,15 +149,15 @@ function demoHeladeria() {
       { id: 'cat_bebidas_frias', name: 'Bebidas Heladas' }
     ],
     dishes: [
-      { id: 'dish_choc_amargo', categoryId: 'cat_choco', name: 'Chocolate Amargo 70%', description: 'Cacao puro ecuatoriano, intenso y tostado', price: 320, tags: ['star'], photoUrl: 'https://picsum.photos/seed/dish_choc_amargo/400/300' },
-      { id: 'dish_choc_marroc', categoryId: 'cat_choco', name: 'Chocolate Marroc Praliné', description: 'Chocolate con leche y praliné suave de maní', price: 350, tags: [], photoUrl: 'https://picsum.photos/seed/dish_choc_marroc/400/300' },
-      { id: 'dish_ddl_tradi', categoryId: 'cat_ddl', name: 'Dulce de Leche Tradicional', description: 'Leche de campo, cocción lenta rioplatense', price: 310, tags: ['star'], photoUrl: 'https://picsum.photos/seed/dish_ddl_tradi/400/300' },
-      { id: 'dish_ddl_granizado', categoryId: 'cat_ddl', name: 'Dulce de Leche Granizado', description: 'Con escamas crujientes de chocolate amargo', price: 320, tags: [], photoUrl: 'https://picsum.photos/seed/dish_ddl_granizado/400/300' },
-      { id: 'dish_tramontana', categoryId: 'cat_cremas', name: 'Tramontana Clásica', description: 'Crema americana con dulce de leche y crocante', price: 330, tags: ['star'], photoUrl: 'https://picsum.photos/seed/dish_tramontana/400/300', videoUrl: DEMO_VIDEO_CC0 },
-      { id: 'dish_pistacho', categoryId: 'cat_cremas', name: 'Pistacho Siciliano', description: 'Pistachos tostados con pizca de sal marina', price: 380, tags: ['star'], photoUrl: 'https://picsum.photos/seed/dish_pistacho/400/300' },
-      { id: 'dish_maracuya', categoryId: 'cat_frutales', name: 'Maracuyá Tropical', description: 'Pulpa de maracuyá con acidez exótica natural', price: 310, tags: ['vegan'], photoUrl: 'https://picsum.photos/seed/dish_maracuya/400/300' },
-      { id: 'dish_limon', categoryId: 'cat_frutales', name: 'Limón Silvestre Natural', description: '100% zumo recién exprimido, liviano', price: 290, tags: ['vegan'], photoUrl: 'https://picsum.photos/seed/dish_limon/400/300' },
-      { id: 'dish_milkshake', categoryId: 'cat_bebidas_frias', name: 'Milkshake de dulce de leche', description: 'Batido cremoso para tomar (no es un sabor)', price: 350, tags: [], photoUrl: 'https://picsum.photos/seed/dish_milkshake/400/300' }
+      { id: 'dish_choc_amargo', categoryId: 'cat_choco', name: 'Chocolate Amargo 70%', description: 'Cacao puro ecuatoriano, intenso y tostado', price: 320, tags: ['star'], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/1/10/Righteously_Raw_chocolate.jpg/500px-Righteously_Raw_chocolate.jpg' },
+      { id: 'dish_choc_marroc', categoryId: 'cat_choco', name: 'Chocolate Marroc Praliné', description: 'Chocolate con leche y praliné suave de maní', price: 350, tags: [], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/0/00/Dark_chocolate_chip_ice_cream_cone_-_August_2025_-_Sarah_Stierch.jpg/500px-Dark_chocolate_chip_ice_cream_cone_-_August_2025_-_Sarah_Stierch.jpg' },
+      { id: 'dish_ddl_tradi', categoryId: 'cat_ddl', name: 'Dulce de Leche Tradicional', description: 'Leche de campo, cocción lenta rioplatense', price: 310, tags: ['star'], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7a/Condensed_milk_hard_waffles.jpg/500px-Condensed_milk_hard_waffles.jpg' },
+      { id: 'dish_ddl_granizado', categoryId: 'cat_ddl', name: 'Dulce de Leche Granizado', description: 'Con escamas crujientes de chocolate amargo', price: 320, tags: [], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a6/Apple_cake_with_vanilla_ice_cream_2.jpg/500px-Apple_cake_with_vanilla_ice_cream_2.jpg' },
+      { id: 'dish_tramontana', categoryId: 'cat_cremas', name: 'Tramontana Clásica', description: 'Crema americana con dulce de leche y crocante', price: 330, tags: ['star'], photoUrl: 'https://upload.wikimedia.org/wikipedia/commons/a/ae/StrawberrySundae.jpg', videoUrl: DEMO_VIDEO_CC0 },
+      { id: 'dish_pistacho', categoryId: 'cat_cremas', name: 'Pistacho Siciliano', description: 'Pistachos tostados con pizca de sal marina', price: 380, tags: ['star'], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2c/Salty_Snack_%28Unsplash%29.jpg/500px-Salty_Snack_%28Unsplash%29.jpg' },
+      { id: 'dish_maracuya', categoryId: 'cat_frutales', name: 'Maracuyá Tropical', description: 'Pulpa de maracuyá con acidez exótica natural', price: 310, tags: ['vegan'], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/3/35/Passion_fruit_lime_lemon_tea.jpg/500px-Passion_fruit_lime_lemon_tea.jpg' },
+      { id: 'dish_limon', categoryId: 'cat_frutales', name: 'Limón Silvestre Natural', description: '100% zumo recién exprimido, liviano', price: 290, tags: ['vegan'], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3a/Lemonade_and_teacup.jpg/500px-Lemonade_and_teacup.jpg' },
+      { id: 'dish_milkshake', categoryId: 'cat_bebidas_frias', name: 'Milkshake de dulce de leche', description: 'Batido cremoso para tomar (no es un sabor)', price: 350, tags: [], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/6/68/Strawberry_milk_shake_%28cropped%29.jpg/500px-Strawberry_milk_shake_%28cropped%29.jpg' }
     ]
   });
 }
@@ -173,8 +173,8 @@ function demoPerfumery() {
     allowPerfumery: true,
     theme: 'terracotta',
     phone: '59899000333',
-    bannerUrl: 'https://picsum.photos/seed/scango-aromas-banner/1200/400',
-    logoUrl: 'https://picsum.photos/seed/scango-aromas-logo/300/300',
+    bannerUrl: 'https://commons.wikimedia.org/wiki/Special:FilePath/Museo%20del%20Perfume%20de%20Barcelona.JPG?width=1200',
+    logoUrl: null,
     wifi: { ssid: '', password: '' },
     categories: [
       { id: 'cat_citricos', name: 'Cítricos Frescos' },
@@ -183,11 +183,11 @@ function demoPerfumery() {
       { id: 'cat_orientales', name: 'Orientales de Nicho' }
     ],
     dishes: [
-      { id: 'dish_aqua', categoryId: 'cat_citricos', name: 'Aqua Riviera Mandarine (EDT)', description: 'Salida: Mandarina Sicilia • Corazón: Neroli • Fondo: Vetiver', price: 1750, tags: [], photoUrl: 'https://picsum.photos/seed/dish_aqua/400/300' },
-      { id: 'dish_fleur', categoryId: 'cat_florales', name: 'Fleur Blanche de Soie (EDP)', description: 'Salida: Pera Nashi • Corazón: Jazmín Sambac • Fondo: Cachemira', price: 1950, tags: ['star'], is_chef_recommended: true, photoUrl: 'https://picsum.photos/seed/dish_fleur/400/300' },
-      { id: 'dish_santal', categoryId: 'cat_amaderados', name: 'Santal Majestueux (EDP)', description: 'Salida: Cardamomo • Corazón: Iris • Fondo: Sándalo Australiano', price: 2400, tags: ['star'], photoUrl: 'https://picsum.photos/seed/dish_santal/400/300' },
-      { id: 'dish_ambre', categoryId: 'cat_orientales', name: 'Ambre Nuit Nocturne (EDP)', description: 'Salida: Bergamota • Corazón: Rosa Damascena • Fondo: Ámbar Gris', price: 2200, tags: ['star'], photoUrl: 'https://picsum.photos/seed/dish_ambre/400/300' },
-      { id: 'dish_vanille', categoryId: 'cat_orientales', name: 'Vanille Noire & Praliné (Body Splash)', description: 'Salida: Almendra • Corazón: Toffee • Fondo: Vainilla Bourbon', price: 1250, tags: [], photoUrl: 'https://picsum.photos/seed/dish_vanille/400/300' }
+      { id: 'dish_aqua', categoryId: 'cat_citricos', name: 'Aqua Riviera Mandarine (EDT)', description: 'Salida: Mandarina Sicilia • Corazón: Neroli • Fondo: Vetiver', price: 1750, tags: [], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/3/37/Patent_drawing_for_a_bottle_for_%27Sleeping%27_perfume_by_Elsa_Schiaparelli%2C_1939._USD116055_crop_01.png/500px-Patent_drawing_for_a_bottle_for_%27Sleeping%27_perfume_by_Elsa_Schiaparelli%2C_1939._USD116055_crop_01.png' },
+      { id: 'dish_fleur', categoryId: 'cat_florales', name: 'Fleur Blanche de Soie (EDP)', description: 'Salida: Pera Nashi • Corazón: Jazmín Sambac • Fondo: Cachemira', price: 1950, tags: ['star'], is_chef_recommended: true, photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f0/Clear_Glass_Tube_Shaped_Perfume_Bottle_With_Flower_Design_and_to_stopper.jpg/500px-Clear_Glass_Tube_Shaped_Perfume_Bottle_With_Flower_Design_and_to_stopper.jpg' },
+      { id: 'dish_santal', categoryId: 'cat_amaderados', name: 'Santal Majestueux (EDP)', description: 'Salida: Cardamomo • Corazón: Iris • Fondo: Sándalo Australiano', price: 2400, tags: ['star'], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6c/Cologne_Bottle%2C_1893.png/500px-Cologne_Bottle%2C_1893.png' },
+      { id: 'dish_ambre', categoryId: 'cat_orientales', name: 'Ambre Nuit Nocturne (EDP)', description: 'Salida: Bergamota • Corazón: Rosa Damascena • Fondo: Ámbar Gris', price: 2200, tags: ['star'], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e9/Ambre_bleu_dominicain_21207.jpg/500px-Ambre_bleu_dominicain_21207.jpg' },
+      { id: 'dish_vanille', categoryId: 'cat_orientales', name: 'Vanille Noire & Praliné (Body Splash)', description: 'Salida: Almendra • Corazón: Toffee • Fondo: Vainilla Bourbon', price: 1250, tags: [], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6c/Saturnus_vaniljessens.jpg/500px-Saturnus_vaniljessens.jpg' }
     ]
   });
 }
@@ -204,8 +204,8 @@ function demoEvent() {
     theme: 'theme-wedding',
     layout: 'modern',
     phone: '59899000444',
-    bannerUrl: 'https://picsum.photos/seed/scango-boda-banner/1200/400',
-    logoUrl: 'https://picsum.photos/seed/scango-boda-logo/300/300',
+    bannerUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d7/Wedding_Supper_-_Martin_van_Meytens_-_Google_Cultural_Institute.jpg/500px-Wedding_Supper_-_Martin_van_Meytens_-_Google_Cultural_Institute.jpg',
+    logoUrl: null,
     eventDate: '2027-12-12T20:00:00.000Z',
     expiresAt: '2027-12-13T06:00:00.000Z',
     weddingItinerary: {
@@ -228,10 +228,10 @@ function demoEvent() {
       { id: 'cat_bebidas_evento', name: 'Bebidas' }
     ],
     dishes: [
-      { id: 'dish_recepcion', categoryId: 'cat_menu_fiesta', name: 'Recepción: bocados fríos y calientes', description: 'Selección del chef para el cocktail de bienvenida', price: 0, tags: ['star'], photoUrl: 'https://picsum.photos/seed/dish_recepcion/400/300' },
-      { id: 'dish_plato', categoryId: 'cat_menu_fiesta', name: 'Plato principal: lomo al malbec', description: 'Con papas rústicas y vegetales de estación', price: 0, tags: [], photoUrl: 'https://picsum.photos/seed/dish_plato/400/300' },
-      { id: 'dish_mesa_dulce', categoryId: 'cat_menu_fiesta', name: 'Mesa dulce', description: 'Mini postres, torta de bodas y café', price: 0, tags: [], photoUrl: 'https://picsum.photos/seed/dish_mesa_dulce/400/300' },
-      { id: 'dish_espumante', categoryId: 'cat_bebidas_evento', name: 'Espumante para el brindis', description: 'Copa de bienvenida incluida', price: 0, tags: [], photoUrl: 'https://picsum.photos/seed/dish_espumante/400/300' }
+      { id: 'dish_recepcion', categoryId: 'cat_menu_fiesta', name: 'Recepción: bocados fríos y calientes', description: 'Selección del chef para el cocktail de bienvenida', price: 0, tags: ['star'], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/3/37/WikiCon_2026_Wellington_evening_nibbles_PA01.jpg/500px-WikiCon_2026_Wellington_evening_nibbles_PA01.jpg' },
+      { id: 'dish_plato', categoryId: 'cat_menu_fiesta', name: 'Plato principal: lomo al malbec', description: 'Con papas rústicas y vegetales de estación', price: 0, tags: [], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/4/40/Vegetable_biryani_with_beef_roast.jpg/500px-Vegetable_biryani_with_beef_roast.jpg' },
+      { id: 'dish_mesa_dulce', categoryId: 'cat_menu_fiesta', name: 'Mesa dulce', description: 'Mini postres, torta de bodas y café', price: 0, tags: [], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cc/Wedding_cake_%28undecorated%29.JPG/500px-Wedding_cake_%28undecorated%29.JPG' },
+      { id: 'dish_espumante', categoryId: 'cat_bebidas_evento', name: 'Espumante para el brindis', description: 'Copa de bienvenida incluida', price: 0, tags: [], photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/1/12/Champagne_glasses_used_by_President_Ford.JPG/500px-Champagne_glasses_used_by_President_Ford.JPG' }
     ]
   });
 }
