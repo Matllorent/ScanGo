@@ -317,10 +317,11 @@ function renderDemoBanner(customText) {
   if (textEl) {
     textEl.textContent = customText || (demoMode.authenticated
       ? `✨ Plantilla demo «${demoMode.name}»: explorá el editor y tocá «Importar a mi local» para usarla (conserva tu slug y tu QR).`
-      : `✨ Demo «${demoMode.name}»: todo lo que edites queda como borrador en este navegador. Creá tu cuenta gratis para publicarlo con tu QR.`);
+      : `✨ Demo «${demoMode.name}» en modo vitrina: probá los temas visuales y mirá el menú. Creá tu cuenta gratis para tener tu propia carta editable.`);
   }
   const viewMenu = document.getElementById('demoBannerViewMenu');
   if (viewMenu) viewMenu.href = `/m/${demoMode.slug}`;
+  refreshDemoViewMenuLink();
   const importBtn = document.getElementById('demoBannerImport');
   if (importBtn) importBtn.style.display = demoMode.authenticated ? '' : 'none';
   const registerBtn = document.getElementById('demoBannerRegister');
@@ -331,7 +332,39 @@ function renderDemoBanner(customText) {
     if (document.getElementById('studioNavUserEmail')) {
       document.getElementById('studioNavUserEmail').textContent = 'Modo demo — sin sesión';
     }
+    lockDemoEditor();
   }
+}
+
+// Demo vitrina (solo prueba, sin edición): el invitado solo puede cambiar el
+// tema visual en vivo; todo lo demás queda deshabilitado. El link "Ver menú"
+// arrastra el tema elegido (?theme=) para previsualizar sin guardar nada.
+function refreshDemoViewMenuLink() {
+  if (!demoMode) return;
+  const viewMenu = document.getElementById('demoBannerViewMenu');
+  if (!viewMenu) return;
+  const themeSel = document.getElementById('inputThemeBg');
+  const theme = themeSel && themeSel.value ? themeSel.value : (restaurant && restaurant.theme) || '';
+  viewMenu.href = theme ? `/m/${demoMode.slug}?theme=${encodeURIComponent(theme)}` : `/m/${demoMode.slug}`;
+}
+
+function lockDemoEditor() {
+  const themeSel = document.getElementById('inputThemeBg');
+  if (themeSel) themeSel.addEventListener('change', refreshDemoViewMenuLink);
+  const keepIds = new Set(['inputThemeBg']);
+  document.querySelectorAll('.tab-pane input, .tab-pane select, .tab-pane textarea, .tab-pane button, .modal-overlay input, .modal-overlay select, .modal-overlay textarea, .modal-overlay button').forEach((el) => {
+    if (keepIds.has(el.id)) return;
+    if (el.closest && el.closest('#demoModeBanner')) return;
+    if (el.classList && el.classList.contains('modal-close')) return;
+    try { el.disabled = true; } catch (e) {}
+  });
+  for (const id of ['btnSaveStudio']) {
+    const el = document.getElementById(id);
+    if (el) { try { el.disabled = true; } catch (e) {} }
+  }
+  const billingBtn = document.querySelector('[data-js-click="openBillingModal"]');
+  if (billingBtn) { try { billingBtn.disabled = true; } catch (e) {} }
+  refreshDemoViewMenuLink();
 }
 
 /**
@@ -447,7 +480,7 @@ async function initDemoMode(demoType) {
   normalizeRestaurantBusinessType(restaurant);
   demoMode = { type: demoType, slug: template.slug, name: template.name, authenticated: false, template };
   renderStudioUI();
-  renderDemoBanner(draft ? `Borrador demo «${template.name}» recuperado de este navegador. Seguí editando o creá tu cuenta para publicarlo.` : null);
+  renderDemoBanner(draft ? `Vitrina demo «${template.name}»: probá los temas visuales o creá tu cuenta para tener tu propia carta.` : null);
   reloadPreviewIframe();
 }
 

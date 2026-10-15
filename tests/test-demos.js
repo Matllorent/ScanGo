@@ -1,7 +1,7 @@
 /**
  * tests/test-demos.js
  * ───────────────────
- * Demos navegables por rubro + edición en Studio.
+ * Demos navegables por rubro + vitrina en Studio.
  *
  * Cubre:
  *  1. GET /api/demos → 4 metadatos (tipo, slug, nombre).
@@ -18,6 +18,9 @@
  *  8. El catálogo es determinista y devuelve copias frescas (sin aliasing).
  *  9. Analytics de una demo: 200 no-op (`{demo:true}`, sin persistir) en vez del
  *     404 ruidoso; un slug desconocido real sigue siendo 404.
+ *  10. Demo vitrina: probador de temas en vivo en /m/demo-* (solo demos,
+ *     lockdown por rubro), editor del Studio bloqueado salvo tema, y nombres
+ *     cortos en el selector de estética.
  *
  * Cero mocks: server HTTP real + catálogo in-memory (sin data/*.json).
  */
@@ -182,13 +185,43 @@ async function runTests() {
   assert.ok(studioJs.includes('scango_demo_draft_'), 'el borrador demo persiste en localStorage');
   console.log('✓ Landing con galería (8 enlaces) + Studio con modo demo (banner + importar/salir)');
 
-  console.log('✅ 9/9 secciones de demos OK');
+  // ── 10) Demo vitrina: probador de temas en vivo + editor bloqueado ──
+  const menuHtml = fs.readFileSync(path.join(ROOT, 'public', 'menu.html'), 'utf8');
+  assert.ok(menuHtml.includes('id="demoThemeFab"'), 'menú trae FAB del probador de temas');
+  assert.ok(menuHtml.includes('data-js-click="toggleDemoThemeBar"'), 'FAB usa data-js-* (CSP)');
+  assert.ok(menuHtml.includes('aria-label="Probar otro tema visual"'), 'FAB con nombre accesible');
+  assert.ok(menuHtml.includes('id="demoThemePanel"'), 'menú trae panel de temas');
+  assert.ok(menuHtml.includes('aria-label="Temas visuales de la demo"'), 'panel como grupo con nombre');
+  assert.ok(menuHtml.includes('id="demoThemePills"'), 'panel trae contenedor de pastillas');
+  const menuJs = fs.readFileSync(path.join(ROOT, 'public', 'js', 'menu.js'), 'utf8');
+  assert.ok(menuJs.includes('THEME_SHORT_NAMES'), 'menu.js trae nombres cortos de temas');
+  assert.ok(menuJs.includes('function setDemoTheme('), 'menu.js implementa setDemoTheme');
+  assert.ok(menuJs.includes('function toggleDemoThemeBar('), 'menu.js implementa toggleDemoThemeBar');
+  assert.ok(menuJs.includes('function renderDemoThemeBar('), 'menu.js implementa renderDemoThemeBar');
+  assert.ok(menuJs.includes('toggleDemoThemeBar,'), 'toggle expuesto en window');
+  assert.ok(menuJs.includes('setDemoTheme,'), 'setDemoTheme expuesto en window');
+  assert.ok(menuJs.includes('restaurantData.isDemo !== true'), 'setDemoTheme solo corre en demos');
+  assert.ok(menuJs.includes('demoAllowedThemes'), 'allowlist de temas por rubro (lockdown heladería)');
+  // Nombres cortos: el selector de estética no explica, solo nombra.
+  assert.ok(studioHtml.includes('value="helado-fiesta">🍨 Fiesta de Helado</option>'), 'Studio: nombre corto de tema');
+  const themeSelect = studioHtml.match(/<select id="inputThemeBg"[\s\S]*?<\/select>/);
+  assert.ok(themeSelect, 'existe el select de estética');
+  const themeOptions = [...themeSelect[0].matchAll(/<option value="[a-z-]+">([^<]*)<\/option>/g)].map(m => m[1]);
+  const longOnes = themeOptions.filter(t => t.includes('('));
+  assert.deepStrictEqual(longOnes, [], 'ninguna opción de tema lleva paréntesis explicativo');
+  // Bloqueo de edición en demo invitada: solo el tema queda habilitado.
+  assert.ok(studioJs.includes('function lockDemoEditor('), 'studio.js implementa el bloqueo de demo');
+  assert.ok(studioJs.includes('lockDemoEditor();'), 'el bloqueo se aplica en modo demo');
+  assert.ok(studioJs.includes('function refreshDemoViewMenuLink('), 'el link Ver menú arrastra el ?theme=');
+  console.log('✓ Demo vitrina: probador de temas en el menú + editor bloqueado + nombres cortos');
+
+  console.log('✅ 10/10 secciones de demos OK');
 }
 
 module.exports = { runTests };
 
 if (require.main === module) {
   runTests()
-    .then(() => { console.log('\n✅ test-demos: demos por rubro + Studio OK (9/9)'); process.exit(0); })
+    .then(() => { console.log('\n✅ test-demos: demos por rubro + Studio OK (10/10)'); process.exit(0); })
     .catch(err => { console.error('\n❌ test-demos falló:', err.message); process.exit(1); });
 }

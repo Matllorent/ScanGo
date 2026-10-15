@@ -179,6 +179,77 @@ Object.defineProperties(window, {
       const btnCard = document.getElementById('btnBillCard');
       if (btnCard) btnCard.style.display = showBill ? '' : 'none';
     }
+    // Probador de temas en vivo (SOLO demos /m/demo-*): vitrina de prueba,
+    // nada se guarda. Respeta el mismo lockdown que ?theme= (heladería solo
+    // sus 12 temas). Nombres cortos = los del selector del Studio.
+    const THEME_SHORT_NAMES = {
+      classic: 'Pizarrón Clásico', emerald: 'Esmeralda Bistro', rustic: 'Café Rústico',
+      taqueria: 'Taquería Fiesta', bar: 'Bar Nocturno', moderna: 'Cafetería Moderna',
+      foodtruck: 'Food Truck', gamer: '🎮 Gamer & Arcade', otaku: '🌸 Otaku & Anime',
+      explosivo: '💥 Explosivo', infantil: '🎈 Infantil', alegre: '☀️ Alegre',
+      basketball: '🏀 Basketball', football: '⚽ Football', 'smash-urban': '🍔 Smash Urban',
+      'glass-gastro': '✨ Glass Gastro', ticket: '🧾 Ticket Térmico',
+      'helado-fiesta': '🍨 Fiesta de Helado', 'helado-crema': '🍦 Gelato Crema',
+      'helado-menta': '🍃 Menta Granizada', 'helado-tropical': '🥭 Sorbete Tropical',
+      'helado-fresa': '🍓 Fresa & Crema', 'helado-cielo': '☁️ Cielo Helado',
+      'helado-pastel': '🫧 Sorbete Pastel', gelateria: '🇮🇹 Gelateria',
+      'helado-pistacho': '🟢 Pistacchio', 'helado-dulce': '🍮 Dulce de Leche',
+      cioccolato: '🍫 Cioccolato', 'helado-mora': '🫐 Mora Noche'
+    };
+    const CLASSIC_THEMES = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football', 'smash-urban', 'glass-gastro', 'ticket'];
+    const HELADERIA_THEMES_MENU = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora', 'helado-crema'];
+    function demoAllowedThemes() {
+      if (!restaurantData) return [];
+      return restaurantData.businessType === 'heladeria' ? HELADERIA_THEMES_MENU : CLASSIC_THEMES;
+    }
+    function renderDemoThemeBar() {
+      const fab = document.getElementById('demoThemeFab');
+      const panel = document.getElementById('demoThemePanel');
+      if (!fab || !panel) return;
+      if (!restaurantData || restaurantData.isDemo !== true) {
+        fab.style.display = 'none';
+        panel.style.display = 'none';
+        return;
+      }
+      fab.style.display = '';
+      const pills = document.getElementById('demoThemePills');
+      if (!pills) return;
+      const current = document.body.className.match(/theme-([a-z0-9-]+)/);
+      const currentTheme = current ? current[1] : (restaurantData.theme || 'emerald');
+      pills.textContent = '';
+      for (const t of demoAllowedThemes()) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = THEME_SHORT_NAMES[t] || t;
+        b.setAttribute('aria-pressed', t === currentTheme ? 'true' : 'false');
+        b.setAttribute('aria-label', 'Probar tema ' + (THEME_SHORT_NAMES[t] || t));
+        b.style.cssText = 'padding:6px 10px; border-radius:16px; font-size:0.72rem; font-weight:700; cursor:pointer; border:1px solid ' + (t === currentTheme ? 'var(--border-gold, #D4A853)' : 'rgba(255,255,255,0.2)') + '; background:' + (t === currentTheme ? 'rgba(212,168,83,0.2)' : 'transparent') + '; color:inherit;';
+        b.setAttribute('data-js-click', 'setDemoTheme|' + t);
+        pills.appendChild(b);
+      }
+    }
+    function toggleDemoThemeBar() {
+      const fab = document.getElementById('demoThemeFab');
+      const panel = document.getElementById('demoThemePanel');
+      if (!panel) return;
+      const open = panel.style.display !== 'none';
+      panel.style.display = open ? 'none' : 'block';
+      if (fab) fab.setAttribute('aria-expanded', open ? 'false' : 'true');
+    }
+    function setDemoTheme(theme) {
+      if (!restaurantData || restaurantData.isDemo !== true) return;
+      const t = String(theme || '');
+      const allowed = demoAllowedThemes();
+      if (!allowed.includes(t)) return; // lockdown: misma allowlist que ?theme=
+      restaurantData.theme = t;
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('theme', t);
+        window.history.replaceState({}, '', url.toString());
+      } catch (e) {}
+      renderHeader();
+      renderDemoThemeBar();
+    }
     function sendWaiterCall(type) {
       // Defensa en el cliente (el server responde 403 igual): un botón oculto
       // no debería disparar nada aunque se invoque por consola.
@@ -297,6 +368,7 @@ Object.defineProperties(window, {
         window.dispatchEvent(new CustomEvent('scango:menu-ready'));
       } catch (e) {}
       updateTableServiceUI();
+      renderDemoThemeBar();
       applyFilterBarMode();
       maybeOpenReviewFromLink();
       maybeOpenDishDeepLink();
@@ -3520,6 +3592,8 @@ Object.defineProperties(window, {
       openWaiterModal,
       closeWaiterModal,
       sendWaiterCall,
+      toggleDemoThemeBar,
+      setDemoTheme,
       updateTableServiceUI,
       applyFilterBarMode,
       areMenuOrdersEnabled,
