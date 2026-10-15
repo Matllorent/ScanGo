@@ -17,30 +17,12 @@ const router = express.Router();
 router.use(authMiddleware);
 
 /**
- * Gate mínimo por plan para lectura de analíticas.
- * Solo bloquea cuando el plan es starter Y `analytics===false` en PLANS
- * (starter_monthly/annual). Pro/trialing/event_once pasan (next).
- * POST /track (ingesta) queda abierto a todos los planes.
+ * Lectura de analíticas: abierta a todos los planes activos (plan único).
+ * La ingesta POST /track nunca estuvo gateada; la lectura tampoco desde el
+ * plan único oct-2026 (antes: starter bloqueado con ANALYTICS_UPGRADE_REQUIRED).
  */
 function requireAnalyticsFeature(req, res, next) {
-  try {
-    const restaurantId = req.params.restaurantId
-      || req.body?.restaurantId
-      || req.tenantId
-      || req.user?.tenantId;
-    if (!restaurantId) return next();
-    const restaurant = db.findRestaurantById(restaurantId);
-    if (!restaurant) return next();
-    const plan = (restaurant.subscription && restaurant.subscription.plan) || '';
-    const access = billingOrchestrator.verifyAccess(restaurant.id);
-    const analyticsFlag = access && access.features && access.features.analytics;
-    if (analyticsFlag === false && String(plan).startsWith('starter')) {
-      return errorResponse(res, 'Las analíticas avanzadas requieren el plan Pro', 403, null, 'ANALYTICS_UPGRADE_REQUIRED');
-    }
-    return next();
-  } catch (e) {
-    return next(e);
-  }
+  return next();
 }
 
 /**

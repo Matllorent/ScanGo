@@ -893,8 +893,8 @@ app.post('/api/billing/checkout', authMiddleware, checkSubscriptionKillSwitch, a
     const { planId, plan, countryCode, currency } = req.body || {};
     const checkout = await billingOrchestrator.createCheckout({
       restaurantId: restaurant.id,
-      // Acepta planId ('pro_monthly') o el alias corto que manda la UI ('monthly' | 'annual')
-      planId: planId || plan || (restaurant.subscription && restaurant.subscription.plan) || 'pro_monthly',
+      // Acepta planId ('starter_monthly') o el alias corto que manda la UI ('monthly' | 'annual')
+      planId: planId || plan || (restaurant.subscription && restaurant.subscription.plan) || 'starter_monthly',
       customerEmail: req.user.email,
       countryCode: countryCode || req.headers['x-vercel-ip-country'] || req.headers['cf-ipcountry'] || 'UY',
       currency: currency || restaurant.currency || 'USD'
@@ -1109,15 +1109,13 @@ app.get('/api/admin/overview', adminMiddleware, async (req, res) => {
     };
 
     // ── Métricas en español llano (sin jerga de negocio) ──
+    // KNOWN_PLANS incluye los legacy pro_* (siguen contando plata: sus
+    // suscripciones viejas pagan hasta migrar al plan único).
     const DAY_MS = 24 * 60 * 60 * 1000;
     const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
     const KNOWN_PLANS = ['starter_monthly', 'starter_annual', 'pro_monthly', 'pro_annual'];
-    const PLAN_NAMES = {
-      starter_monthly: 'Starter Mensual',
-      starter_annual: 'Starter Anual',
-      pro_monthly: 'Pro Mensual',
-      pro_annual: 'Pro Anual'
-    };
+    // Nombres desde el orquestador (fuente única: legacy pro_* → Starter).
+    const planNameOf = (p) => { try { return billingOrchestrator.getPlanName(p); } catch { return p; } };
     // Cuánta plata entra al mes por un restaurante que paga (el plan anual se
     // reparte entre 12; el descuento multi-sucursal es el real del orquestador).
     const monthlyEquivalent = (r) => {
@@ -1144,7 +1142,7 @@ app.get('/api/admin/overview', adminMiddleware, async (req, res) => {
         name: r.name || r.bizName || 'Sin nombre',
         slug: r.slug,
         plan: r.subscription.plan,
-        planName: PLAN_NAMES[r.subscription.plan] || r.subscription.plan,
+        planName: planNameOf(r.subscription.plan),
         renewsAt: r.subscription.currentPeriodEnd,
         amountMonthly: monthlyEquivalent(r)
       }))
@@ -1323,7 +1321,7 @@ app.post('/api/admin/invite-restaurant', adminMiddleware, async (req, res, next)
       phone: req.body.phone || '59899123456',
       subscription: {
         status: 'active',
-        plan: 'pro_monthly',
+        plan: 'starter_monthly',
         provider: 'admin_invite',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()

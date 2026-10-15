@@ -24,8 +24,8 @@ ScanGo es una solución tecnológica integral diseñada para locales gastronómi
 - [Panel de Creación Studio](/studio)
 
 ## Planes y Contacto
-- Starter: USD $9/mes · USD $79/año. Pro: USD $19/mes · USD $159/año.
+- Plan único: USD $9/mes · USD $79/año (todo incluido).
 - Evento Único: USD $12 (pago único). Prueba gratis: 7 días con acceso total.
-- Analíticas avanzadas solo en plan Pro.
+- El plan incluye analíticas y métricas del local.
 - Descuento por sucursales: 2.ª al 80%, 3.ª al 65%, 4.ª+ al 50%.
-- Registro y acceso: /studio. Administración: /admin. Soporte prioritario por WhatsApp (planes Pro).
+- Registro y acceso: /studio. Administración: /admin. Soporte prioritario por WhatsApp.

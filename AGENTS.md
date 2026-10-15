@@ -118,7 +118,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 - **Resolución de proveedor** (`resolveProvider`): UY/AR + moneda `$|UYU|ARS|$U|USD` → **Mercado Pago**; resto → `DEFAULT_BILLING_PROVIDER` (`lemonsqueezy`), con fallback a la primera pasarela configurada.
 - **`createCheckout` es async** (MP/Stripe crean la sesión vía API). Acepta `planId` real o alias `monthly|annual` (`normalizePlanId()` → 400 `INVALID_PLAN`). Sin credenciales devuelve `checkoutUrl: null` + `configuration.missing` y la ruta responde **503 `PAYMENT_PROVIDER_NOT_CONFIGURED`** (nunca URL trucha).
 - **Lemon**: link `/buy/<variant_id>` con `LEMONSQUEEZY_VARIANT_<PLAN>` (fallback `LEMONSQUEEZY_PLAN_<PERIOD>_VARIANT_ID`). **Stripe**: Checkout Session real (`STRIPE_PRICE_<PLAN>`). **MP**: preferencia real con `external_reference = <restaurantId>:<planId>` y `notification_url` con `?secret=`; el webhook consulta `GET /v1/payments/:id` porque el IPN no trae `external_reference`.
-- Planes: `starter_monthly|annual` (9/79 USD), `pro_monthly|annual` (19/159 USD)
+- Planes: plan único `starter_monthly|annual` (9/79 USD) + `event_once` (12 USD). Los `pro_*` son alias legacy (oct-2026) que resuelven al Starter equivalente.
 - **Descuento escalonado por sucursales**: 1ª=100%, 2ª=80%, 3ª=65%, 4ª+=50% (`calculateMultiBranchPrice()`)
 - **Webhooks idempotentes**: `db.hasProcessedWebhook()` / `markWebhookProcessed()` evitan duplicados
 - **Smart Dunning**: `past_due` → 7 días de gracia antes de bloquear menú (`verifyAccess()`)

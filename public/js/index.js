@@ -70,6 +70,8 @@ const PRICING_COPY = {
         'Soporte para delivery por zonas',
         'Cartelería de mesa imprimible (PDF)',
         'Acceso para 1 local gastronómico',
+        'El Mozo Virtual + pedidos en vivo + pago online',
+        'Fidelización con puntos y analíticas del local',
         'Actualizaciones en tiempo real'
       ]
     },
@@ -97,6 +99,8 @@ const PRICING_COPY = {
         '<strong>Armador de helado a medida</strong>',
         'Catálogo de sabores en 1 clic',
         'Cartelería de mesa imprimible (PDF)',
+        'El Mozo Virtual + pedidos en vivo + pago online',
+        'Fidelización con puntos y analíticas del local',
         'Actualizaciones en tiempo real'
       ]
     },
@@ -124,6 +128,7 @@ const PRICING_COPY = {
         '<strong>Vista de pirámide olfativa</strong>',
         'Colecciones y lanzamientos',
         'Cartelería con QR imprimible (PDF)',
+        'Pedidos en vivo + analíticas del local',
         'Actualizaciones en tiempo real'
       ]
     },

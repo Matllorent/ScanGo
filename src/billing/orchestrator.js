@@ -26,25 +26,18 @@ function _planPrice(key, fallback) {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
+// Plan único: Starter Mensual/Anual con TODO incluido (sin tiers). Los planes
+// `pro_*` existieron hasta oct-2026 y se mantienen como alias legacy para no
+// romper suscripciones/webhooks ya cobrados: resuelven al Starter equivalente.
 const PLANS = {
   starter_monthly: {
     name: 'Starter Mensual',
     priceUsd: _planPrice('starter_monthly', 9),
-    features: { maxDishes: 30, themes: 3, zonesDelivery: true, waiterCall: false, analytics: false }
+    features: { maxDishes: 999, themes: 9, zonesDelivery: true, waiterCall: true, wifiCard: true, analytics: true }
   },
   starter_annual: {
     name: 'Starter Anual',
     priceUsd: _planPrice('starter_annual', 79),
-    features: { maxDishes: 30, themes: 3, zonesDelivery: true, waiterCall: false, analytics: false }
-  },
-  pro_monthly: {
-    name: 'Pro Mensual',
-    priceUsd: _planPrice('pro_monthly', 19),
-    features: { maxDishes: 999, themes: 9, zonesDelivery: true, waiterCall: true, wifiCard: true, analytics: true }
-  },
-  pro_annual: {
-    name: 'Pro Anual',
-    priceUsd: _planPrice('pro_annual', 159),
     features: { maxDishes: 999, themes: 9, zonesDelivery: true, waiterCall: true, wifiCard: true, analytics: true }
   },
   // Pago único por evento (one-off): el dueño paga una vez y el menú queda
@@ -76,18 +69,34 @@ const PAST_DUE_GRACE_DAYS = 7;
  * mapeados a las claves reales de plan.
  */
 const PLAN_ALIASES = {
-  monthly: 'pro_monthly',
-  mensual: 'pro_monthly',
-  pro: 'pro_monthly',
-  annual: 'pro_annual',
-  anual: 'pro_annual',
+  monthly: 'starter_monthly',
+  mensual: 'starter_monthly',
+  annual: 'starter_annual',
+  anual: 'starter_annual',
   starter: 'starter_monthly',
+  pro: 'starter_monthly',
   // Aliases del plan de evento one-off (la UI manda 'event_once' o el token
   // legacy 'event' de la creación de eventos)
   evento: 'event_once',
   fiesta: 'event_once',
   event: 'event_once'
 };
+
+// Planes legacy (pre plan-único oct-2026): suscripciones y webhooks viejos
+// traen `pro_monthly`/`pro_annual`; resuelven al Starter equivalente con los
+// mismos features, sin cobrar de más ni romper el acceso.
+const LEGACY_PLAN_ALIASES = {
+  pro_monthly: 'starter_monthly',
+  pro_annual: 'starter_annual'
+};
+
+// Resuelve cualquier clave de plan (real, alias UI o legacy) a una clave
+// válida de PLANS. Nunca devuelve un plan inexistente.
+function resolvePlanKey(planId) {
+  const raw = String(planId || '').trim().toLowerCase();
+  const key = PLAN_ALIASES[raw] || LEGACY_PLAN_ALIASES[raw] || raw;
+  return PLANS[key] ? key : 'starter_monthly';
+}
 
 const billingOrchestrator = {
   /**
@@ -97,7 +106,7 @@ const billingOrchestrator = {
    */
   normalizePlanId(planId) {
     const raw = String(planId || '').trim().toLowerCase();
-    const key = PLAN_ALIASES[raw] || raw;
+    const key = PLAN_ALIASES[raw] || LEGACY_PLAN_ALIASES[raw] || raw;
     if (!PLANS[key]) {
       throw new AppError(
         `Plan inválido "${planId}". Planes disponibles: ${Object.keys(PLANS).join(', ')}.`,
@@ -143,10 +152,10 @@ const billingOrchestrator = {
       return typeof mpProvider.isConfigured === 'function' ? mpProvider.isConfigured() : false;
     }
     if (name === 'stripe') {
-      return Boolean(process.env.STRIPE_SECRET_KEY && this.getProviderPlanId('stripe', 'pro_monthly'));
+      return Boolean(process.env.STRIPE_SECRET_KEY && this.getProviderPlanId('stripe', 'starter_monthly'));
     }
     if (name === 'lemonsqueezy') {
-      return Boolean(process.env.LEMONSQUEEZY_STORE_ID && this.getProviderPlanId('lemonsqueezy', 'pro_monthly'));
+      return Boolean(process.env.LEMONSQUEEZY_STORE_ID && this.getProviderPlanId('lemonsqueezy', 'starter_monthly'));
     }
     return false;
   },
@@ -156,7 +165,7 @@ const billingOrchestrator = {
    * Los IDs por plan tienen prioridad; si faltan caen a los genéricos por período.
    */
   getProviderPlanId(providerName, planId) {
-    const plan = PLANS[planId] ? planId : 'pro_monthly';
+    const plan = resolvePlanKey(planId);
     const period = plan.endsWith('_annual') ? 'ANNUAL' : 'MONTHLY';
     const planEnv = plan.toUpperCase();
 
@@ -185,20 +194,20 @@ const billingOrchestrator = {
     if (providerName === 'stripe') {
       const missing = [];
       if (!process.env.STRIPE_SECRET_KEY) missing.push('STRIPE_SECRET_KEY');
-      if (!this.getProviderPlanId('stripe', 'pro_monthly')) missing.push('STRIPE_PRICE_MONTHLY');
+      if (!this.getProviderPlanId('stripe', 'starter_monthly')) missing.push('STRIPE_PRICE_MONTHLY');
       return missing;
     }
     const missing = [];
     if (!process.env.LEMONSQUEEZY_STORE_ID) missing.push('LEMONSQUEEZY_STORE_ID');
-    if (!this.getProviderPlanId('lemonsqueezy', 'pro_monthly')) missing.push('LEMONSQUEEZY_PLAN_MONTHLY_VARIANT_ID');
+    if (!this.getProviderPlanId('lemonsqueezy', 'starter_monthly')) missing.push('LEMONSQUEEZY_PLAN_MONTHLY_VARIANT_ID');
     return missing;
   },
 
   /**
-   * Devuelve el nombre legible de un plan (ej: 'pro_monthly' -> 'Pro Mensual')
+   * Devuelve el nombre legible de un plan (ej: 'starter_monthly' -> 'Starter Mensual')
    */
   getPlanName(planId) {
-    return (PLANS[planId] || PLANS.pro_monthly).name;
+    return PLANS[resolvePlanKey(planId)].name;
   },
 
   /**
@@ -256,11 +265,11 @@ const billingOrchestrator = {
    * aplicando el descuento escalonado por volumen de sucursales.
    *
    * @param {object} restaurant
-   * @param {string} planId - Clave del plan (ej: 'pro_monthly')
+   * @param {string} planId - Clave del plan (ej: 'starter_monthly')
    * @returns {object} pricing { planId, planName, currency, basePrice, branchCount, totalPrice, totalDiscount, hasMultiBranchDiscount }
    */
   getPlanPricing(restaurant, planId) {
-    const planKey = PLANS[planId] ? planId : 'pro_monthly';
+    const planKey = resolvePlanKey(planId);
     const plan = PLANS[planKey];
     const branchCount = this.getBranchCount(restaurant);
     const totalPrice = this.calculateMultiBranchPrice(plan.priceUsd, branchCount);
@@ -456,7 +465,7 @@ const billingOrchestrator = {
           const restaurant = db.findRestaurantById(parsed.restaurantId);
           const user = restaurant ? db.findUserById(restaurant.userId) : null;
           if (user) {
-            const planName = (PLANS[parsed.plan] || PLANS.pro_monthly).name;
+            const planName = PLANS[resolvePlanKey(parsed.plan)].name;
             emailService.sendPaymentReceiptEmail({
               to: user.email,
               userName: user.name,
@@ -476,7 +485,7 @@ const billingOrchestrator = {
           const restaurant = db.findRestaurantById(parsed.restaurantId);
           const user = restaurant ? db.findUserById(restaurant.userId) : null;
           if (user) {
-            const planName = (PLANS[parsed.plan] || PLANS.pro_monthly).name;
+            const planName = PLANS[resolvePlanKey(parsed.plan)].name;
             emailService.sendPaymentFailedEmail({
               to: user.email,
               userName: user.name,
@@ -508,7 +517,7 @@ const billingOrchestrator = {
   buildTrialExpiredAccess(rest, sub, trialEnds, now) {
     const graceEnd = new Date(trialEnds.getTime() + TRIAL_GRACE_DAYS * DAY_MS);
     const inGrace = now <= graceEnd;
-    const planKey = PLANS[sub.plan] ? sub.plan : 'pro_monthly';
+    const planKey = resolvePlanKey(sub.plan);
 
     if (inGrace) {
       const daysLeft = Math.max(0, Math.ceil((graceEnd.getTime() - now.getTime()) / DAY_MS));
@@ -548,9 +557,9 @@ const billingOrchestrator = {
       return {
         allowed: true,
         status: 'active',
-        plan: sub.plan || 'pro_monthly',
-        features: (PLANS[sub.plan] || PLANS.pro_monthly).features,
-        pricing: this.getPlanPricing(rest, sub.plan || 'pro_monthly'),
+        plan: sub.plan || 'starter_monthly',
+        features: PLANS[resolvePlanKey(sub.plan)].features,
+        pricing: this.getPlanPricing(rest, sub.plan),
         inGracePeriod: false
       };
     }
@@ -566,9 +575,9 @@ const billingOrchestrator = {
           allowed: true,
           status: 'trialing',
           daysLeft,
-          plan: sub.plan || 'pro_monthly',
-          features: (PLANS[sub.plan] || PLANS.pro_monthly).features,
-          pricing: this.getPlanPricing(rest, sub.plan || 'pro_monthly'),
+          plan: sub.plan || 'starter_monthly',
+          features: PLANS[resolvePlanKey(sub.plan)].features,
+          pricing: this.getPlanPricing(rest, sub.plan),
           inGracePeriod: false
         };
       }
@@ -602,9 +611,9 @@ const billingOrchestrator = {
         status: 'past_due',
         inGracePeriod: isStillInGrace,
         gracePeriodDaysRemaining: daysLeft,
-        plan: sub.plan || 'pro_monthly',
-        features: (PLANS[sub.plan] || PLANS.pro_monthly).features,
-        pricing: this.getPlanPricing(rest, sub.plan || 'pro_monthly'),
+        plan: sub.plan || 'starter_monthly',
+        features: PLANS[resolvePlanKey(sub.plan)].features,
+        pricing: this.getPlanPricing(rest, sub.plan),
         warning: 'Cobro pendiente. Su menú se pausará en ' + daysLeft + ' días si no regulariza el pago.'
       };
     }

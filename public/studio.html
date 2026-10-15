@@ -49,7 +49,7 @@
         <span>🌐 Ver Menú Público</span>
       </a>
       <button class="btn-nav btn-nav-gold" data-js-click="openBillingModal">
-        <span>💎 Activar Plan Pro</span>
+        <span>💎 Ver Mi Plan</span>
       </button>
       <button id="btnSaveStudio" class="btn-nav btn-nav-green" data-js-click="saveStudioChanges">
         <span id="saveBtnText">💾 Guardar Cambios</span>
@@ -124,10 +124,6 @@
         <button class="tab-btn" data-js-click="switchTab|qr" title="QR & Mesas — Descargar e imprimir código QR">
           <span class="tab-icon">🖨️</span>
           <span>QR & Mesas</span>
-        </button>
-        <button class="tab-btn" data-js-click="switchTab|stats" title="Estadísticas — Visitas, pedidos y reservas">
-          <span class="tab-icon">📊</span>
-          <span>Métricas</span>
         </button>
         <button class="tab-btn" data-js-click="switchTab|branches" title="Sucursales — Gestión de locales y precios por volumen">
           <span class="tab-icon">🏢</span>
@@ -916,49 +912,12 @@
           </div>
         </div>
 
-        <!-- TAB 6: ESTADÍSTICAS & MÉTRICAS -->
-        <div id="tab-stats" class="tab-pane">
-          <div class="form-section">
-            <div class="section-title">📊 Métricas y Desempeño en Tiempo Real</div>
-            <p style="font-size:11px; color:var(--text-dim); margin-bottom:14px;">
-              Resumen acumulado del impacto de tu carta digital ScanGo.
-            </p>
-
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:14px;">
-              <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
-                <div style="font-size:24px;">👁️</div>
-                <div id="statVisits" style="font-size:22px; font-weight:800; color:var(--accent-gold); font-family:var(--font-mono);">0</div>
-                <div style="font-size:11px; color:var(--text-dim);">Visitas a la Carta</div>
-              </div>
-              <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
-                <div style="font-size:24px;">📲</div>
-                <div id="statOrders" style="font-size:22px; font-weight:800; color:var(--accent-green); font-family:var(--font-mono);">0</div>
-                <div style="font-size:11px; color:var(--text-dim);">Pedidos a WhatsApp</div>
-              </div>
-              <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
-                <div style="font-size:24px;">📅</div>
-                <div id="statReservations" style="font-size:22px; font-weight:800; color:#63B3ED; font-family:var(--font-mono);">0</div>
-                <div style="font-size:11px; color:var(--text-dim);">Solicitudes de Reserva</div>
-              </div>
-              <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
-                <div style="font-size:24px;">🔔</div>
-                <div id="statWaiterCalls" style="font-size:22px; font-weight:800; color:#F6AD55; font-family:var(--font-mono);">0</div>
-                <div style="font-size:11px; color:var(--text-dim);">Llamados al Mozo</div>
-              </div>
-            </div>
-
-            <div style="background:var(--surface-2); border-radius:8px; padding:12px; border:1px solid var(--border); font-size:11px; color:var(--text-muted);">
-              💡 <strong>Consejo ScanGo:</strong> Imprimir el código QR en cada mesa y en la barra aumenta tus pedidos directos un 42% frente al menú físico tradicional.
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 7: SUCURSALES & PRECIOS ESCALONADOS -->
+        <!-- TAB: SUCURSALES & PRECIOS ESCALONADOS -->
         <div id="tab-branches" class="tab-pane">
           <div class="form-section">
             <div class="section-title">🏢 Gestión de Sucursales</div>
             <p style="font-size:11px; color:var(--text-dim); margin-bottom:16px;">
-              Administrá las sedes de tu marca. Cada sucursal adicional tiene un descuento progresivo en el plan Pro:
+              Administrá las sedes de tu marca. Cada sucursal adicional tiene un descuento progresivo en el plan:
               <strong>1ª (Principal) 100%</strong> · <strong>2ª 80%</strong> · <strong>3ª 65%</strong> · <strong>4ª en adelante 50%</strong> del precio base.
             </p>
 
@@ -966,7 +925,7 @@
             <div id="branchesPricingBanner" style="background:linear-gradient(135deg, rgba(236,201,75,0.12), rgba(56,161,105,0.12)); border:1px solid var(--accent-gold); border-radius:10px; padding:16px; margin-bottom:16px; display:none;">
               <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;">
                 <div style="flex:1; min-width:200px;">
-                  <div style="font-size:11px; font-weight:700; color:var(--accent-gold); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Resumen de Precios del Plan Pro</div>
+                  <div style="font-size:11px; font-weight:700; color:var(--accent-gold); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Resumen de Precios del Plan</div>
                   <div id="branchesPricingSummary" style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; font-size:12px; color:#fff;"></div>
                 </div>
                 <div style="text-align:right; min-width:160px;">
@@ -1279,7 +1238,7 @@
         <!-- TAB 9: ANALÍTICAS AVANZADAS -->
         <div id="tab-analytics" class="tab-pane">
           <div class="form-section">
-            <div class="section-title">📈 Analíticas Avanzadas</div>
+            <div class="section-title">📈 Analíticas</div>
             <p style="font-size:11px; color:var(--text-dim); margin-bottom:16px;">
               Métricas en tiempo real por sucursal, eventos y horas pico. Los datos se actualizan automáticamente cada 5 minutos.
             </p>
@@ -1891,29 +1850,17 @@
 
       <div id="billingPlansGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
         <div style="background:var(--surface-3); padding:12px; border-radius:8px; border:1px solid var(--border);">
-          <div style="font-size:12px; font-weight:700;">Starter · Mensual</div>
+          <div style="font-size:12px; font-weight:700;">Plan · Mensual</div>
           <div style="font-size:18px; font-weight:700; color:#fff;">$9 <span style="font-size:10px;">USD/mes</span></div>
-          <div style="font-size:10px; color:var(--text-dim); margin-bottom:6px;">Hasta 1 local · anual $79</div>
-          <button class="btn-nav btn-nav-gold" style="width:100%;" data-js-click="startCheckout|starter_monthly|event">Elegir Starter</button>
+          <div style="font-size:10px; color:var(--text-dim); margin-bottom:6px;">Todo incluido · sin permanencia</div>
+          <button class="btn-nav btn-nav-gold" style="width:100%;" data-js-click="startCheckout|starter_monthly|event">Elegir Mensual</button>
         </div>
         <div style="background:var(--surface-3); padding:12px; border-radius:8px; border:1px solid var(--accent-gold);">
           <div style="font-size:10px; color:var(--accent-gold); font-weight:800;">RECOMENDADO</div>
-          <div style="font-size:12px; font-weight:700;">Pro · Mensual</div>
-          <div style="font-size:18px; font-weight:700; color:#fff;">$19 <span style="font-size:10px;">USD/mes</span></div>
-          <div style="font-size:10px; color:var(--text-dim); margin-bottom:6px;">Multi-sucursal · anual $159</div>
-          <button class="btn-nav btn-nav-gold" style="width:100%;" data-js-click="startCheckout|pro_monthly|event">Suscribirme</button>
-        </div>
-        <div style="background:var(--surface-3); padding:12px; border-radius:8px; border:1px solid var(--border);">
-          <div style="font-size:12px; font-weight:700;">Starter · Anual</div>
+          <div style="font-size:12px; font-weight:700;">Plan · Anual</div>
           <div style="font-size:18px; font-weight:700; color:#fff;">$79 <span style="font-size:10px;">USD/año</span></div>
           <div style="font-size:10px; color:var(--accent-green); margin-bottom:6px;">Ahorrá 27% vs. mensual</div>
           <button class="btn-nav btn-nav-gold" style="width:100%;" data-js-click="startCheckout|starter_annual|event">Activar Anual</button>
-        </div>
-        <div style="background:var(--surface-3); padding:12px; border-radius:8px; border:1px solid var(--border);">
-          <div style="font-size:12px; font-weight:700;">Pro · Anual</div>
-          <div style="font-size:18px; font-weight:700; color:#fff;">$159 <span style="font-size:10px;">USD/año</span></div>
-          <div style="font-size:10px; color:var(--accent-green); margin-bottom:6px;">Ahorrá 30% vs. mensual</div>
-          <button class="btn-nav btn-nav-gold" style="width:100%;" data-js-click="startCheckout|pro_annual|event">Activar Pro Anual</button>
         </div>
       </div>
 

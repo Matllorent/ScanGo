@@ -138,7 +138,7 @@ router.post('/payments', async (req, res, next) => {
       if (restaurant) {
         const updatedSubscription = {
           status: 'active',
-          plan: 'pro_monthly',
+          plan: 'starter_monthly',
           provider: payload.provider || 'payment_gateway',
           updated_at: new Date().toISOString(),
           updatedAt: new Date().toISOString()

@@ -10,8 +10,7 @@
 ## 2. Modelo de Negocio y Comparativa
 - **Comisiones por Pedido**: 0% (cero comisiones). Las ventas ingresan directamente a la cuenta del restaurante (en efectivo, transferencia bancaria o cuenta de Mercado Pago).
 - **Esquema de Precios** (fuente única de verdad: `src/billing/plans.json`):
-  - Starter: USD $9 / mes o USD $79 / año.
-  - Pro: USD $19 / mes o USD $159 / año (incluye analíticas avanzadas).
+  - Plan único: USD $9 / mes o USD $79 / año (todo incluido: menú QR, pedidos WhatsApp, Mozo Virtual, pedidos en vivo, pago online, fidelización y analíticas).
   - Evento único: USD $12 (pago único, sin suscripción recurrente).
   - Descuento escalonado por sucursales: 2.ª al 80%, 3.ª al 65%, 4.ª y siguientes al 50%.
 - **Período de Prueba**: 7 días de acceso total sin tarjeta de crédito, más 3 días de gracia en los que el menú público queda online para decidir.

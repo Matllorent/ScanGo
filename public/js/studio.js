@@ -437,7 +437,7 @@ async function initDemoMode(demoType) {
     email: '',
     subscription: {
       status: 'trialing',
-      plan: 'pro_monthly',
+      plan: 'starter_monthly',
       trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
     }
   };
@@ -657,15 +657,6 @@ export function removeLogo() {
 }
 
 // Stats & Quick Metrics
-export function renderStatsTab() {
-  const stats = restaurant?.analytics || { visits: 0, orders: 0, reservations: 0, waiterCalls: 0 };
-  const el = id => document.getElementById(id);
-  if (el('statVisits')) el('statVisits').textContent = stats.visits || 0;
-  if (el('statOrders')) el('statOrders').textContent = stats.orders || 0;
-  if (el('statReservations')) el('statReservations').textContent = stats.reservations || 0;
-  if (el('statWaiterCalls')) el('statWaiterCalls').textContent = stats.waiterCalls || 0;
-}
-
 export function renderQuickMetrics() {
   const analytics = restaurant?.analytics || {};
   const currency = restaurant?.currency || '$';
@@ -1589,7 +1580,6 @@ export function switchTab(tabId, btn) {
   if (tabId === 'branches') renderBranchesList();
   if (tabId === 'dishes') { populateCatFilter(); renderDishesList(); }
   if (tabId === 'qr') generateQrCode();
-  if (tabId === 'stats') renderStatsTab();
   if (tabId === 'notifications') { loadNotificationEvents(); loadRecentOrders(); }
   else { stopOrdersPolling(); }
 }

@@ -946,7 +946,7 @@
           pro_monthly: 'Pro Mensual', pro_annual: 'Pro Anual'
         };
         const providerNames = { trial: 'prueba', stripe: 'Stripe', mercadopago: 'Mercado Pago', lemonsqueezy: 'Lemon Squeezy' };
-        const cleanPlan = escapeHtml(planNames[sub.plan] || sub.plan || 'pro_monthly');
+        const cleanPlan = escapeHtml(planNames[sub.plan] || sub.plan || '—');
         const cleanProvider = escapeHtml(providerNames[sub.provider] || sub.provider || 'trial');
         const statusLabels = {
           active: 'Pagando', trialing: 'Prueba gratis', past_due: 'Pago atrasado',

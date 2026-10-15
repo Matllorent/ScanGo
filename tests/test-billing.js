@@ -98,30 +98,31 @@ async function runTests() {
   const accessMulti = billingOrchestrator.verifyAccess(rest.id);
   assert.strictEqual(accessMulti.allowed, true, 'Acceso multi-sucursal dentro de la gracia');
   assert.strictEqual(accessMulti.pricing.branchCount, 3, 'pricing detecta 3 sucursales');
-  assert.strictEqual(accessMulti.pricing.basePrice, 19, 'basePrice del plan Pro Mensual');
-  assert.strictEqual(accessMulti.pricing.totalPrice, 46.55, 'totalPrice con descuento escalonado');
-  assert.strictEqual(accessMulti.pricing.totalDiscount, 10.45, 'ahorro total: 57 - 46.55 = 10.45');
+  assert.strictEqual(accessMulti.pricing.basePrice, 9, 'basePrice del plan único');
+  assert.strictEqual(accessMulti.pricing.totalPrice, 22.05, 'totalPrice con descuento escalonado');
+  assert.strictEqual(accessMulti.pricing.totalDiscount, 4.95, 'ahorro total: 27 - 22.05 = 4.95');
   assert.strictEqual(accessMulti.pricing.hasMultiBranchDiscount, true, 'flag de descuento activo');
-  console.log('✓ verifyAccess aplica precio escalonado multi-sucursal (3 sucursales → $46.55 USD, ahorro $10.45)');
+  console.log('✓ verifyAccess aplica precio escalonado multi-sucursal (3 sucursales → $22.05 USD, ahorro $4.95)');
 
   // 5c. createCheckout expone el pricing efectivo del plan (async: MP/Stripe
   //     crean la sesión vía API)
   const checkout = await billingOrchestrator.createCheckout({
     restaurantId: rest.id,
-    planId: 'pro_monthly',
+    planId: 'starter_monthly',
     customerEmail: user.email
   });
   assert.strictEqual(checkout.pricing.branchCount, 3, 'checkout hereda el conteo de sucursales');
-  assert.strictEqual(checkout.pricing.totalPrice, 46.55, 'checkout calcula el total multi-sucursal');
-  assert.strictEqual(checkout.planId, 'pro_monthly', 'checkout normaliza el planId');
+  assert.strictEqual(checkout.pricing.totalPrice, 22.05, 'checkout calcula el total multi-sucursal');
+  assert.strictEqual(checkout.planId, 'starter_monthly', 'checkout normaliza el planId');
   assert.strictEqual(checkout.provider, 'lemonsqueezy', 'sin país se resuelve el proveedor por defecto');
   assert.ok(checkout.checkoutUrl === null || typeof checkout.checkoutUrl === 'string', 'checkoutUrl es null cuando no hay credenciales, o una URL válida');
   console.log('✓ createCheckout incluye pricing multi-sucursal (y resuelve proveedor)');
 
   // 5c'. Normalización de planes: la UI manda aliases cortos ('monthly'/'annual')
-  assert.strictEqual(billingOrchestrator.normalizePlanId('monthly'), 'pro_monthly', 'alias monthly → pro_monthly');
-  assert.strictEqual(billingOrchestrator.normalizePlanId('annual'), 'pro_annual', 'alias annual → pro_annual');
-  assert.strictEqual(billingOrchestrator.normalizePlanId('pro_monthly'), 'pro_monthly', 'plan real se conserva');
+  // y los planes legacy pro_* resuelven al Starter equivalente (plan único).
+  assert.strictEqual(billingOrchestrator.normalizePlanId('monthly'), 'starter_monthly', 'alias monthly → starter_monthly');
+  assert.strictEqual(billingOrchestrator.normalizePlanId('annual'), 'starter_annual', 'alias annual → starter_annual');
+  assert.strictEqual(billingOrchestrator.normalizePlanId('pro_monthly'), 'starter_monthly', 'legacy pro_monthly → starter_monthly');
   assert.throws(() => billingOrchestrator.normalizePlanId('gold_plan'), /Plan inválido/, 'plan desconocido debe rechazarse');
   assert.strictEqual(billingOrchestrator.resolveProvider('UY', '$'), 'mercadopago', 'UY + moneda $ → Mercado Pago');
   assert.strictEqual(billingOrchestrator.resolveProvider('AR', 'ARS'), 'mercadopago', 'AR → Mercado Pago');
@@ -132,9 +133,9 @@ async function runTests() {
   await db.saveRestaurant(user.id, { branches: [] });
   const accessSingle = billingOrchestrator.verifyAccess(rest.id);
   assert.strictEqual(accessSingle.pricing.branchCount, 1, 'sin branches se cuenta 1 sucursal principal');
-  assert.strictEqual(accessSingle.pricing.totalPrice, 19, 'sin descuento mantiene precio base');
+  assert.strictEqual(accessSingle.pricing.totalPrice, 9, 'sin descuento mantiene precio base');
   assert.strictEqual(accessSingle.pricing.hasMultiBranchDiscount, false, 'flag de descuento inactivo');
-  console.log('✓ Restaurante single-branch conserva el precio base ($19 USD)');
+  console.log('✓ Restaurante single-branch conserva el precio base ($9 USD)');
 
   // 6. Eventos: modelo one-off por fiesta (plan event_once, ~USD 12)
   // 6a. El plan existe y los aliases se normalizan

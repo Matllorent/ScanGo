@@ -208,7 +208,7 @@ router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
             try {
               const user = db.findUserById(restaurant.userId);
               if (user) {
-                const planName = (restaurant.subscription && restaurant.subscription.plan) || 'pro_monthly';
+                const planName = (restaurant.subscription && restaurant.subscription.plan) || 'starter_monthly';
                 emailService.sendDunningReminderEmail({
                   to: user.email,
                   userName: user.name,
@@ -238,7 +238,7 @@ router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
           status: 'expired',
           plan: FREE_PLAN,
           provider: sub.provider || 'dunning_cron',
-          previousPlan: sub.plan || 'pro_monthly',
+          previousPlan: sub.plan || 'starter_monthly',
           downgradedAt: now.toISOString(),
           downgradeReason: 'grace_period_expired',
           gracePeriodDaysRemaining: 0,
@@ -268,7 +268,7 @@ router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
         results.details.push({
           restaurantId,
           action: 'downgraded',
-          previousPlan: sub.plan || 'pro_monthly',
+          previousPlan: sub.plan || 'starter_monthly',
           newPlan: FREE_PLAN,
           graceExpiredAt: graceEnd.toISOString()
         });

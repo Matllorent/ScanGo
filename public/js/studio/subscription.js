@@ -34,7 +34,7 @@ export function normalizeSubscription(rawSub) {
   if (!rawSub || typeof rawSub !== 'object') {
     return {
       status: 'trialing',
-      plan: 'pro_monthly',
+      plan: 'starter_monthly',
       provider: 'trial',
       trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       currentPeriodEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
@@ -44,7 +44,7 @@ export function normalizeSubscription(rawSub) {
   return {
     ...rawSub,
     status: rawSub.status || 'trialing',
-    plan: rawSub.plan || 'pro_monthly'
+    plan: rawSub.plan || 'starter_monthly'
   };
 }
 
@@ -154,7 +154,7 @@ export function renderSubscriptionBadge(sub) {
   if (!badge) return;
 
   const status = resolveDisplayStatus(sub?.status, sub);
-  const plan = sub?.plan || 'pro_monthly';
+  const plan = sub?.plan || 'starter_monthly';
 
   if (status === 'trial' || status === 'trialing') {
     const trialEnd = sub?.trialEndsAt ? new Date(sub.trialEndsAt) : null;
@@ -165,7 +165,7 @@ export function renderSubscriptionBadge(sub) {
     badge.textContent = `⏳ Prueba (${days} días)`;
   } else if (status === 'active') {
     badge.className = 'sub-badge badge-active';
-    badge.textContent = `✓ PRO ACTIVO (${plan.toUpperCase()})`;
+    badge.textContent = `✓ ACTIVO (${plan.toUpperCase()})`;
   } else if (status === 'past_due') {
     badge.className = 'sub-badge badge-grace';
     badge.textContent = `⚠️ GRACIA`;
@@ -204,7 +204,7 @@ export function checkSubscriptionAlerts(sub) {
     if (daysLeft <= 2 && daysLeft > 0) {
       alertLevel = 'warning';
       alertMsg = `⚠️ Tu prueba gratuita expira en ${daysLeft} día${daysLeft === 1 ? '' : 's'}. Activá tu plan para mantener tu menú activo.`;
-      btnText = 'Activar Plan Pro';
+      btnText = 'Activar Plan';
       btnBg = '#f59e0b';
       btnColor = '#0d1312';
     }

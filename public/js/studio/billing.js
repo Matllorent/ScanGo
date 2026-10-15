@@ -64,8 +64,8 @@ export function openBillingModal(currentUser, restaurant) {
     || sub?.plan === 'event_once'
     || sub?.plan === 'event'
   );
-  const planId = (sub?.plan && PLANS[sub.plan]) ? sub.plan : 'pro_monthly';
-  const plan = PLANS[planId] || PLANS.pro_monthly;
+  const planId = (sub?.plan && PLANS[sub.plan]) ? sub.plan : 'starter_monthly';
+  const plan = PLANS[planId] || PLANS.starter_monthly;
   const basePrice = plan.priceUsd;
   const branches = getValidBranches(restaurant);
   const branchCount = Math.max(1, branches.length);
@@ -140,7 +140,7 @@ export function openBillingModal(currentUser, restaurant) {
 
     pricingContainer.innerHTML = `
       <div style="background:rgba(236,201,75,0.08); border:1px solid rgba(236,201,75,0.3); border-radius:8px; padding:12px; margin-bottom:16px;">
-        <div style="font-size:11px; font-weight:700; color:var(--accent-gold); text-transform:uppercase; margin-bottom:8px;">📊 Precio Pro por Sucursales (${branchCount} activa${branchCount > 1 ? 's' : ''})</div>
+        <div style="font-size:11px; font-weight:700; color:var(--accent-gold); text-transform:uppercase; margin-bottom:8px;">📊 Precio por Sucursales (${branchCount} activa${branchCount > 1 ? 's' : ''})</div>
         <div style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">Descuentos: 1ª 100% · 2ª 20% · 3ª 35% · 4ª+ 50%</div>
         ${breakdownHtml}
         <div style="display:flex; justify-content:space-between; margin-top:10px; padding-top:10px; border-top:1px solid rgba(236,201,75,0.3); font-size:13px; font-weight:700;">
@@ -288,7 +288,7 @@ export function handleBillingReturn() {
 /**
  * Inicia checkout redirigiendo a la pasarela en la MISMA pestaña
  * (window.open tras un await es bloqueado por los pop-up blockers).
- * @param {string} plan — clave real ('pro_monthly', 'starter_annual', …) o alias ('monthly'|'annual')
+ * @param {string} plan — clave real ('starter_monthly', 'starter_annual', …) o alias ('monthly'|'annual')
  * @param {Event} eventRef
  * @param {object} restaurant
  */

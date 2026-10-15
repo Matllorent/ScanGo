@@ -308,7 +308,7 @@ function deriveState(sub, now) {
 // (orchestrator.js:443-471) sin pricing/features (no hay acceso a db/rest).
 function trialExpiredReading(sub, trialEnds, now) {
   const plan = sub && sub.plan;
-  const planKey = plan || 'pro_monthly';
+  const planKey = plan || 'starter_monthly';
   const graceEnd = new Date(trialEnds.getTime() + TRIAL_GRACE_DAYS * DAY_MS);
   const inGrace = now <= graceEnd;
   if (inGrace) {
@@ -352,7 +352,7 @@ function computeStatus(sub, now) {
       state,
       allowed: true,
       status: 'active',
-      plan: s.plan || 'pro_monthly',
+      plan: s.plan || 'starter_monthly',
       inGracePeriod: false
     };
   }
@@ -367,7 +367,7 @@ function computeStatus(sub, now) {
         allowed: true,
         status: 'trialing',
         daysLeft: daysLeft(nowDate.getTime(), trialEnds.getTime()),
-        plan: s.plan || 'pro_monthly',
+        plan: s.plan || 'starter_monthly',
         inGracePeriod: false
       };
     }
@@ -398,7 +398,7 @@ function computeStatus(sub, now) {
       status: 'past_due',
       inGracePeriod: isStillInGrace,
       gracePeriodDaysRemaining: left,
-      plan: s.plan || 'pro_monthly',
+      plan: s.plan || 'starter_monthly',
       warning: 'Cobro pendiente. Su menú se pausará en ' + left + ' días si no regulariza el pago.'
     };
   }

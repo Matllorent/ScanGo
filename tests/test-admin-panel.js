@@ -36,7 +36,8 @@ async function runTests() {
   // ── Semilla: 4 restaurantes reales con estados distintos ──
   const now = Date.now();
 
-  // 1) Paga un plan anual con 2 sucursales → 159 + 159*0.8 = 286.2/año → 23.85/mes
+  // 1) Suscripción legacy pro_annual (pre plan-único): resuelve a Starter Anual
+  // con 2 sucursales → 79 + 79*0.8 = 142.2/año → 11.85/mes
   const payingUser = await db.createUser({ email: `admin-paying-${now}@example.com`, password: 'p', email_confirmed_at: iso(now) });
   const payingRest = await db.saveRestaurant(payingUser.id, {
     name: 'Admin Pagando Anual', bizName: 'Admin Pagando Anual', slug: `admin-paying-${now}`,
@@ -123,18 +124,18 @@ async function runTests() {
     const { metrics } = await authOverview.json();
 
     // ── Métricas en criollo ──
-    assert.ok(Number.isFinite(metrics.monthlyIncomeEstimate) && metrics.monthlyIncomeEstimate >= 23.85,
-      `Plata/mes debe incluir ≥ 23.85 del plan anual con 2 sucursales (era ${metrics.monthlyIncomeEstimate})`);
+    assert.ok(Number.isFinite(metrics.monthlyIncomeEstimate) && metrics.monthlyIncomeEstimate >= 11.85,
+      `Plata/mes debe incluir ≥ 11.85 del plan anual con 2 sucursales (era ${metrics.monthlyIncomeEstimate})`);
     console.log(`✓ Plata que entra al mes: $${metrics.monthlyIncomeEstimate}`);
 
     assert.ok(metrics.newThisWeek >= 4, `Clientes nuevos esta semana ≥ 4 (era ${metrics.newThisWeek})`);
 
-    // Renovaciones: el restaurante anual (periodo en 5 días) debe estar listado con 23.85/mes
+    // Renovaciones: el restaurante anual (periodo en 5 días) debe estar listado con 11.85/mes
     const renewals = metrics.renewalsList || [];
     const ourRenewal = renewals.find(r => r.id === payingRest.id);
     assert.ok(ourRenewal, 'El restaurante con pago a renovar en 5 días debe estar en la lista');
-    assert.strictEqual(ourRenewal.amountMonthly, 23.85, 'Su equivalente mensual (anual/12 con 2 sucursales) es 23.85');
-    assert.strictEqual(ourRenewal.planName, 'Pro Anual');
+    assert.strictEqual(ourRenewal.amountMonthly, 11.85, 'Su equivalente mensual (anual/12 con 2 sucursales) es 11.85');
+    assert.strictEqual(ourRenewal.planName, 'Starter Anual');
     assert.ok(metrics.renewalsCount >= 1);
     console.log('✓ Renovaciones en 7 días: lista con plan, fecha y plata/mes');
 

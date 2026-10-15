@@ -1630,7 +1630,7 @@ components:
           enum: [trialing, active, past_due, expired, canceled, paused]
         plan:
           type: string
-          enum: [starter_monthly, starter_annual, pro_monthly, pro_annual, event_once, free]
+          enum: [starter_monthly, starter_annual, event_once, free]
         provider:
           type: string
           example: trial

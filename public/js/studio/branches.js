@@ -21,8 +21,8 @@ export function renderBranchesList(currentUser, restaurant, escapeHtml) {
 
   const branches = getValidBranches(restaurant);
   const sub = currentUser ? currentUser.subscription : {};
-  const planId = (sub?.plan && PLANS[sub.plan]) ? sub.plan : 'pro_monthly';
-  const plan = PLANS[planId] || PLANS.pro_monthly;
+  const planId = (sub?.plan && PLANS[sub.plan]) ? sub.plan : 'starter_monthly';
+  const plan = PLANS[planId] || PLANS.starter_monthly;
   const basePrice = plan.priceUsd;
   const safeEscape = typeof escapeHtml === 'function' ? escapeHtml : escapeHtmlDefault;
 

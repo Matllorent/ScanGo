@@ -181,7 +181,7 @@ const emailService = {
         <p>Tu restaurante <strong>${restaurant}</strong> tiene <strong>1 día</strong> restante de prueba gratuita.</p>
         <p>Actualizá tu plan ahora para evitar que tu menú se pause:</p>
         <p style="margin: 24px 0;">
-          <a href="${link}" style="background: #ef4444; color: #fff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">Activar Plan Pro</a>
+          <a href="${link}" style="background: #ef4444; color: #fff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">Activar Plan</a>
         </p>
         <p style="font-size: 12px; color: #888;">Si no actualizás, tu menú sigue online 3 días más y después queda pausado.</p>
       </div>
@@ -193,7 +193,7 @@ const emailService = {
         <p>Tu restaurante <strong>${restaurant}</strong> tiene <strong>${daysLeft} días</strong> restantes de prueba gratuita.</p>
         <p>Para mantener tu menú digital activo, actualizá tu plan:</p>
         <p style="margin: 24px 0;">
-          <a href="${link}" style="background: #f59e0b; color: #111; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">Activar Plan Pro</a>
+          <a href="${link}" style="background: #f59e0b; color: #111; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">Activar Plan</a>
         </p>
         <p style="font-size: 12px; color: #888;">Si no actualizás, tu menú sigue online 3 días más y después queda pausado.</p>
       </div>
