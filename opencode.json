@@ -71,7 +71,7 @@
           "C:\\Users\\Flor Alcaraz\\AppData\\Local\\Programs\\Python\\Python312\\Scripts\\semgrep.exe",
           "mcp"
         ],
-        "disabled": false,
+        "disabled": true,
         "timeout": {
           "catalog": 60000
         }

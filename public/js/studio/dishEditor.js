@@ -184,15 +184,19 @@ export function clearDishPhoto() {
   if (previewContainer) previewContainer.style.display = 'none';
 }
 
-// Video del plato (solo Stories): link MP4 directo, sin subida de archivo
-// (un video en base64 inflaría el save y ciega la cuota del plan).
+// Video del plato (solo Stories): link MP4 directo o subida de archivo
+// (vía URL firmada: los bytes van directo a Storage, nunca al servidor).
 export function clearDishVideo() {
   const urlInput = document.getElementById('modalDishVideo');
+  const fileInput = document.getElementById('modalDishVideoFile');
+  const statusEl = document.getElementById('dishVideoUploadStatus');
   const clearBtn = document.getElementById('btnClearDishVideo');
   const previewContainer = document.getElementById('dishVideoPreviewContainer');
   const preview = document.getElementById('dishVideoPreview');
 
   if (urlInput) urlInput.value = '';
+  if (fileInput) fileInput.value = '';
+  if (statusEl) statusEl.textContent = '';
   if (clearBtn) clearBtn.style.display = 'none';
   if (previewContainer) previewContainer.style.display = 'none';
   if (preview) preview.removeAttribute('src');
@@ -213,6 +217,56 @@ export function previewDishVideo() {
     if (previewContainer) previewContainer.style.display = 'none';
     if (clearBtn) clearBtn.style.display = url ? 'inline' : 'none';
     if (preview) preview.removeAttribute('src');
+  }
+}
+
+export async function uploadDishVideoFile(input) {
+  const file = input?.files?.[0];
+  const statusEl = document.getElementById('dishVideoUploadStatus');
+  const say = (msg) => { if (statusEl) statusEl.textContent = msg; };
+  if (!file) return;
+  if (!/^video\/(mp4|webm)$/i.test(file.type || '')) {
+    say('Solo MP4 o WebM.');
+    input.value = '';
+    return;
+  }
+  if (file.size > 50 * 1024 * 1024) {
+    say('El video no debe superar los 50 MB.');
+    input.value = '';
+    return;
+  }
+  say('⏳ Pidiendo URL de subida…');
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (window.AuthClient && typeof window.AuthClient.getAuthHeaders === 'function') {
+      Object.assign(headers, window.AuthClient.getAuthHeaders());
+    }
+    const urlRes = await fetch('/api/storage/video-upload-url', {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({ fileName: file.name, mimeType: file.type, sizeBytes: file.size })
+    });
+    const urlBody = await urlRes.json().catch(() => ({}));
+    if (!urlRes.ok || !urlBody?.data?.uploadUrl) {
+      throw new Error((urlBody && (urlBody.error || urlBody.message)) || 'No se pudo generar la subida.');
+    }
+    say('⏳ Subiendo video…');
+    const putRes = await fetch(urlBody.data.uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type },
+      body: file
+    });
+    if (!putRes.ok) throw new Error('La subida falló (HTTP ' + putRes.status + ').');
+    const urlInput = document.getElementById('modalDishVideo');
+    if (urlInput) urlInput.value = urlBody.data.publicUrl;
+    previewDishVideo();
+    const left = (urlBody.data.videosMax ?? 10) - (urlBody.data.videosUsed ?? 0) - 1;
+    say(left > 0 ? `✓ Video subido (${left} libres en tu carta).` : '✓ Video subido.');
+    input.value = '';
+  } catch (error) {
+    say('⚠️ ' + (error.message || 'No se pudo subir el video.'));
+    input.value = '';
   }
 }
 

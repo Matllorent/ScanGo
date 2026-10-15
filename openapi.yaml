@@ -1411,6 +1411,49 @@ paths:
                     type: string
                   code:
                     type: string
+  /api/storage/video-upload-url:
+    post:
+      tags: [storage]
+      summary: URL firmada para subir un video de plato directo a Storage
+      description: |-
+        `authMiddleware` (401 sin sesión) + `storageLimiter`. Valida
+        mime (video/mp4|webm) y tamaño (≤50 MB) y aplica el cupo de producto
+        (`MAX_VIDEOS_PER_RESTAURANT` videos por carta, 403
+        `VIDEO_LIMIT_EXCEEDED`). Los bytes nunca tocan el servidor: el
+        navegador hace PUT al `uploadUrl` y guarda el `publicUrl` en
+        `dish.videoUrl` (Stories lo reproduce con la foto de póster).
+      operationId: storageVideoUploadUrl
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mimeType, sizeBytes]
+              properties:
+                fileName:
+                  type: string
+                mimeType:
+                  type: string
+                  enum: [video/mp4, video/webm]
+                sizeBytes:
+                  type: integer
+      responses:
+        '201':
+          description: URL de subida generada (`{ uploadUrl, publicUrl, path, bucket, videosUsed, videosMax }`)
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Cupo de videos por carta alcanzado (`VIDEO_LIMIT_EXCEEDED`)
+        '404':
+          description: Restaurante no encontrado
   /api/account/delete-request:
     post:
       tags: [account]

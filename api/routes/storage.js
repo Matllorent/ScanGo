@@ -5,6 +5,7 @@ const { successResponse } = require('../utils/response');
 const { validateBody } = require('../middleware/validation');
 const { authMiddleware } = require('../middleware/auth');
 const { storageLimiter } = require('../middleware/rateLimits');
+const db = require('../../src/db/db');
 
 const router = express.Router();
 
@@ -35,6 +36,46 @@ router.post('/upload', authMiddleware, storageLimiter, validateBody(uploadSchema
     });
 
     return successResponse(res, result, 'Imagen subida exitosamente', 201);
+  } catch (err) {
+    next(err);
+  }
+});
+
+const videoUploadSchema = z.object({
+  fileName: z.string().min(1).max(120).optional(),
+  mimeType: z.enum(['video/mp4', 'video/webm'], { message: 'Solo video/mp4 o video/webm' }),
+  // Tope pre-vuelo: el archivo nunca llega al servidor (subida directa).
+  sizeBytes: z.number().int().positive().max(52428800, { message: 'Máximo 50 MB por video' })
+});
+
+/**
+ * POST /api/storage/video-upload-url
+ * Emite una URL firmada para subir un video de plato DIRECTO a Storage (los
+ * bytes nunca tocan este servidor). Cupo de producto: MAX_VIDEOS_PER_RESTAURANT
+ * videos por carta (alojados o linkeados) para no fundir la transferencia.
+ */
+router.post('/video-upload-url', authMiddleware, storageLimiter, validateBody(videoUploadSchema), async (req, res, next) => {
+  try {
+    const { fileName, mimeType, sizeBytes } = req.body;
+    const restaurant = db.findRestaurantByUserId(req.user.userId);
+    if (!restaurant) {
+      return res.status(404).json({ success: false, error: 'Restaurante no encontrado', code: 'RESTAURANT_NOT_FOUND' });
+    }
+    const withVideo = (restaurant.dishes || []).filter(d => d && d.videoUrl).length;
+    if (withVideo >= storageService.MAX_VIDEOS_PER_RESTAURANT) {
+      return res.status(403).json({
+        success: false,
+        error: `Límite de ${storageService.MAX_VIDEOS_PER_RESTAURANT} videos por carta alcanzado. Quitá el video de un plato para subir otro.`,
+        code: 'VIDEO_LIMIT_EXCEEDED'
+      });
+    }
+    const result = await storageService.createVideoUploadUrl({
+      fileName,
+      mimeType,
+      sizeBytes,
+      tenantId: req.user.userId
+    });
+    return successResponse(res, { ...result, videosUsed: withVideo, videosMax: storageService.MAX_VIDEOS_PER_RESTAURANT }, 'URL de subida generada', 201);
   } catch (err) {
     next(err);
   }

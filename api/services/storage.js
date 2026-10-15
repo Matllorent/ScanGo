@@ -6,6 +6,16 @@ const auditService = require('./audit');
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+// Videos de plato (solo Stories): el archivo NUNCA pasa por el servidor (un
+// Base64 de 50 MB reventaría el límite del body y la memoria de la función).
+// El backend solo emite la URL firmada de subida; el navegador sube directo.
+const VIDEO_BUCKET = 'videos';
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB
+const ALLOWED_VIDEO_MIME_TYPES = ['video/mp4', 'video/webm'];
+// Tope de producto: max N videos por carta (alojados o linkeados). Cada video
+// pesa en transferencia y en el overlay de Stories; el carrusel recomienda
+// usarlos en platos estrella. Se controla en la ruta (cuenta real del local).
+const MAX_VIDEOS_PER_RESTAURANT = 10;
 // El SDK de Supabase Storage no expone timeout: un storage que acepta la
 // conexión y nunca responde colgaría el upload. Se envuelve cada llamada en
 // una carrera con timeout y se degrada al fallback local (misma filosofía
@@ -178,6 +188,75 @@ const storageService = {
   },
 
   /**
+   * Emite una URL firmada para que el navegador suba un video de plato
+   * DIRECTO a Supabase Storage (el archivo nunca pasa por este servidor).
+   * Reglas: solo video/mp4|webm, ≤50 MB, bucket público `videos` (mismo
+   * contrato que `photos`: solo contenido destinado al público).
+   * @param {object} options
+   * @param {string} [options.fileName] - Nombre original (se sanea)
+   * @param {string} options.mimeType - video/mp4 o video/webm
+   * @param {number} options.sizeBytes - Tamaño declarado (se valida)
+   * @param {string} [options.tenantId] - ID del dueño (userId)
+   * @returns {Promise<{ uploadUrl: string, publicUrl: string, path: string, bucket: string }>}
+   */
+  async createVideoUploadUrl({ fileName, mimeType, sizeBytes, tenantId }) {
+    const mime = String(mimeType || '').toLowerCase();
+    if (!ALLOWED_VIDEO_MIME_TYPES.includes(mime)) {
+      throw new AppError(`Formato de video no permitido (${mimeType}). Formatos aceptados: video/mp4, video/webm.`, 400, 'UNSUPPORTED_VIDEO_FORMAT');
+    }
+    const size = Number(sizeBytes);
+    if (!Number.isFinite(size) || size <= 0) {
+      throw new AppError('Tamaño de video inválido.', 400, 'INVALID_VIDEO_SIZE');
+    }
+    if (size > MAX_VIDEO_BYTES) {
+      throw new AppError(`El video excede el límite máximo permitido de 50 MB (tamaño declarado: ${(size / (1024 * 1024)).toFixed(2)} MB).`, 400, 'VIDEO_TOO_LARGE');
+    }
+    const ext = mime === 'video/webm' ? 'webm' : 'mp4';
+    const cleanFileName = fileName
+      ? String(fileName).replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.[a-zA-Z0-9]+$/, '') + `.${ext}`
+      : `vid_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    if (/^[.]+$/.test(cleanFileName)) {
+      throw new AppError('Nombre de archivo inválido.', 400, 'INVALID_FILE_NAME');
+    }
+    const cleanTenantId = tenantId ? String(tenantId).replace(/[^a-zA-Z0-9_-]/g, '_') : '';
+    const storagePath = [cleanTenantId ? `tenants/${cleanTenantId}` : '', 'dishes', cleanFileName]
+      .filter(Boolean)
+      .join('/');
+
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      throw new AppError('La subida de videos requiere almacenamiento en la nube (no disponible en este entorno). Pegá un link MP4/WebM directo.', 503, 'VIDEO_UPLOAD_NOT_AVAILABLE');
+    }
+    // El bucket es público por diseño (igual que `photos`): best-effort, si ya
+    // existe la creación falla silencioso y se sigue.
+    try {
+      await withStorageTimeout(
+        supabase.storage.createBucket(VIDEO_BUCKET, { public: true }),
+        'createBucket'
+      );
+    } catch (e) { /* ya existe o sin permiso: se intenta igual */ }
+    const { data, error } = await withStorageTimeout(
+      supabase.storage.from(VIDEO_BUCKET).createSignedUploadUrl(storagePath),
+      'signedUploadUrl'
+    );
+    if (error || !data || !data.signedUrl) {
+      throw new AppError(`No se pudo generar la URL de subida (${(error && error.message) || 'sin respuesta'}).`, 502, 'VIDEO_UPLOAD_URL_FAILED');
+    }
+    const { data: publicUrlData } = supabase.storage.from(VIDEO_BUCKET).getPublicUrl(storagePath);
+    const publicUrl = (publicUrlData && publicUrlData.publicUrl)
+      || `${process.env.SUPABASE_URL}/storage/v1/object/public/${VIDEO_BUCKET}/${storagePath}`;
+
+    auditService.logAction({
+      tenantId: cleanTenantId || undefined,
+      action: 'VIDEO_UPLOADED',
+      entity: 'restaurant',
+      details: { path: storagePath, bucket: VIDEO_BUCKET, bytes: size, via: 'signed-url' }
+    });
+
+    return { uploadUrl: data.signedUrl, publicUrl, path: storagePath, bucket: VIDEO_BUCKET };
+  },
+
+  /**
    * Borra TODOS los objetos del tenant dentro de `tenants/<tenantId>/` del
    * bucket `photos`. Se usa en el derecho al olvido (borrado de cuenta):
    * imágenes huérfanas no pueden quedar flotando en un bucket público.
@@ -192,33 +271,39 @@ const storageService = {
     const cleanTenantId = String(tenantId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
     if (!cleanTenantId) return { removed: 0 };
     const prefix = `tenants/${cleanTenantId}`;
-    const collected = [];
 
     // Recorre carpetas anidadas (dishes/logos/reviews/general): en la API de
-    // storage, las entradas-carpeta llegan con id === null.
-    const walk = async (dir) => {
+    // storage, las entradas-carpeta llegan con id === null. Se limpian los
+    // buckets `photos` y `videos` (un video huérfano es igual de público).
+    const walk = async (bucket, dir) => {
       const { data, error } = await withStorageTimeout(
-        supabase.storage.from('photos').list(dir, { limit: 1000, offset: 0 }),
+        supabase.storage.from(bucket).list(dir, { limit: 1000, offset: 0 }),
         'list'
       );
-      if (error && (error.statusCode === 404 || /not found/i.test(error.message))) return; // carpeta inexistente
+      if (error && (error.statusCode === 404 || /not found/i.test(error.message))) return []; // carpeta inexistente
       if (error) throw error;
+      const out = [];
       for (const f of data || []) {
-        if (f.id === null) await walk(`${dir}/${f.name}`);
-        else collected.push(`${dir}/${f.name}`);
+        if (f.id === null) out.push(...(await walk(bucket, `${dir}/${f.name}`)));
+        else out.push(`${dir}/${f.name}`);
       }
+      return out;
     };
 
     try {
-      await walk(prefix);
-      if (collected.length) {
-        const { error } = await withStorageTimeout(
-          supabase.storage.from('photos').remove(collected),
-          'remove'
-        );
-        if (error) throw error;
+      let removed = 0;
+      for (const bucket of ['photos', VIDEO_BUCKET]) {
+        const collected = await walk(bucket, prefix);
+        if (collected.length) {
+          const { error } = await withStorageTimeout(
+            supabase.storage.from(bucket).remove(collected),
+            'remove'
+          );
+          if (error) throw error;
+          removed += collected.length;
+        }
       }
-      return { removed: collected.length };
+      return { removed };
     } catch (e) {
       // Nunca rompe el borrado de cuenta: se loguea y se continúa.
       return { removed: 0, error: e.message };
@@ -227,3 +312,7 @@ const storageService = {
 };
 
 module.exports = storageService;
+module.exports.VIDEO_BUCKET = VIDEO_BUCKET;
+module.exports.MAX_VIDEO_BYTES = MAX_VIDEO_BYTES;
+module.exports.MAX_VIDEOS_PER_RESTAURANT = MAX_VIDEOS_PER_RESTAURANT;
+module.exports.ALLOWED_VIDEO_MIME_TYPES = ALLOWED_VIDEO_MIME_TYPES;

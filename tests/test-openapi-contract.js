@@ -28,7 +28,7 @@ const http = require('http');
 const app = require('../api/index');
 const db = require('../src/db/db');
 
-// Rutas que el spec DEBE documentar (las 24 del contrato).
+// Rutas que el spec DEBE documentar (contrato vivo: agregar acá cada endpoint nuevo).
 const SPEC_PATHS = [
   '/api/auth/register',
   '/api/auth/login',
@@ -58,6 +58,7 @@ const SPEC_PATHS = [
   '/api/admin/overview',
   '/api/billing/cancel',
   '/api/account/delete-request',
+  '/api/storage/video-upload-url',
 ];
 
 async function runTests() {
@@ -279,7 +280,9 @@ async function runTests() {
       body: JSON.stringify({ operation: 'add', branch: { name: 'X' } })
     });
     assert.strictEqual(branchAnon.status, 401, 'studio/branches sin auth → 401 (no 404)');
-    console.log('✓ 11 rutas restantes: códigos reales (400/401/403/200) y ningún 404');
+    const videoUrlAnon = await postJson('/api/storage/video-upload-url', { mimeType: 'video/mp4', sizeBytes: 1000 });
+    assert.strictEqual(videoUrlAnon.status, 401, 'storage/video-upload-url sin auth → 401 (no 404)');
+    console.log('✓ 12 rutas restantes: códigos reales (400/401/403/200) y ningún 404');
 
     console.log('\n🎉 ¡CONTRATO OPENAPI VERIFICADO CONTRA RUNTIME REAL!');
   } finally {
