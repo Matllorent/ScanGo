@@ -193,18 +193,19 @@ async function runTests() {
   assert.ok(menuHtml.includes('menuBannerHero'), 'menu.html debe tener el contenedor #menuBannerHero');
 
   const menuJs = fs.readFileSync(path.join(__dirname, '../public/js/menu.js'), 'utf8');
-  assert.ok(menuJs.includes("bannerEl.querySelector('.menu-banner-logo-slot').append(logoContainer)"), 'El logo debe superponerse al hero');
-  assert.ok(menuJs.includes("bannerEl.querySelector('.menu-banner-status-slot').append(heroStatusBadge)"), 'La insignia de estado debe superponerse al hero');
-  assert.ok(menuJs.includes('layoutClass'), 'menu.js debe computar layoutClass');
-  assert.ok(menuJs.includes("'bento'"), 'menu.js debe contemplar bento en validLayouts');
-  assert.ok(menuJs.includes("'minimalist'"), 'menu.js debe contemplar minimalist en validLayouts');
-  assert.ok(menuJs.includes("'neon'"), 'menu.js debe contemplar neon en validLayouts');
-  assert.ok(menuJs.includes("'billboard'"), 'menu.js debe contemplar billboard en validLayouts');
-  assert.ok(menuJs.includes("'ticker'"), 'menu.js debe contemplar ticker en validLayouts');
-  assert.ok(menuJs.includes("'sticker'"), 'menu.js debe contemplar sticker en validLayouts');
-  assert.ok(menuJs.includes("'delivery'"), 'menu.js debe contemplar delivery en validLayouts');
+  const headerModSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/menuHeader.js'), 'utf8');
+  assert.ok(headerModSrc.includes("bannerEl.querySelector('.menu-banner-logo-slot').append(logoContainer)"), 'El logo debe superponerse al hero');
+  assert.ok(headerModSrc.includes("bannerEl.querySelector('.menu-banner-status-slot').append(heroStatusBadge)"), 'La insignia de estado debe superponerse al hero');
+  assert.ok(headerModSrc.includes('layoutClass'), 'menuHeader.js debe computar layoutClass');
+  assert.ok(headerModSrc.includes("'bento'"), 'menuHeader.js debe contemplar bento en validLayouts');
+  assert.ok(headerModSrc.includes("'minimalist'"), 'menuHeader.js debe contemplar minimalist en validLayouts');
+  assert.ok(headerModSrc.includes("'neon'"), 'menuHeader.js debe contemplar neon en validLayouts');
+  assert.ok(headerModSrc.includes("'billboard'"), 'menuHeader.js debe contemplar billboard en validLayouts');
+  assert.ok(headerModSrc.includes("'ticker'"), 'menuHeader.js debe contemplar ticker en validLayouts');
+  assert.ok(headerModSrc.includes("'sticker'"), 'menuHeader.js debe contemplar sticker en validLayouts');
+  assert.ok(headerModSrc.includes("'delivery'"), 'menuHeader.js debe contemplar delivery en validLayouts');
   // Modo dual Stories: overlay de historias (mesa=carta clásica, casa=?morph=stories)
-  assert.ok(menuJs.includes("'stories'"), 'menu.js debe contemplar stories en validLayouts');
+  assert.ok(headerModSrc.includes("'stories'"), 'menuHeader.js debe contemplar stories en validLayouts');
   assert.ok(menuJs.includes('toggleStoriesMode'), 'menu.js debe exponer toggleStoriesMode (botón 📖 + binder)');
   assert.ok(menuJs.includes('maybeAutoEnterStoriesMod'), 'menu.js debe auto-entrar a stories con layout=stories tras renderizar');
   assert.ok(menuCss.includes('body.layout-stories'), 'menu.css debe definir body.layout-stories');
@@ -251,16 +252,16 @@ async function runTests() {
   assert.ok(menuCss.includes('body.theme-ticket'), 'menu.css debe definir body.theme-ticket');
   assert.ok(menuCss.includes('body.theme-ticket .menu-container::after'), 'ticket debe tener borde dentado inferior en el papel');
   assert.ok(menuCss.includes('body.theme-ticket .cat-pill'), 'ticket debe tener sellos por categoría');
-  assert.ok(menuJs.includes("'ticket'"), 'menu.js debe contemplar ticket en validThemes');
+  assert.ok(headerModSrc.includes("'ticket'"), 'menuHeader.js debe contemplar ticket en validThemes');
   assert.ok(studioHtml.includes('<option value="ticket">'), 'studio.html debe ofrecer el tema Ticket en el selector');
   assert.ok(menuCss.includes('body.stories-open #scangoCookieBanner'), 'stories debe diferir banners flotantes (cookies/PWA/loyalty) mientras está abierto');
   assert.ok(storiesMod.includes('ArrowDown') && storiesMod.includes('Escape'), 'stories debe navegar con teclado (flechas + Escape)');
   assert.ok(storiesMod.includes("ev.key === 'Tab'"), 'stories debe atrapar el Tab dentro del overlay (diálogo inmersivo)');
-  assert.ok(menuJs.includes("'helado-fiesta'") && menuJs.includes("'cioccolato'"), 'menu.js debe aceptar los temas de heladería en validThemes');
+  assert.ok(headerModSrc.includes("'helado-fiesta'") && headerModSrc.includes("'cioccolato'"), 'menuHeader.js debe aceptar los temas de heladería en validThemes');
   // El botón del asistente se ancla en el flag, no en el rubro: un `false` explícito del
   // dueño apaga el asistente aunque businessType sea 'heladeria'.
-  assert.ok(menuJs.includes('const isHeladeria = restaurantData.allowIceCreamWizard === true;'), 'menu.js debe respetar allowIceCreamWizard=false para no mostrar el asistente apagado');
-  assert.ok(!menuJs.includes("restaurantData.businessType === 'heladeria' || restaurantData.allowIceCreamWizard"), 'menu.js no debe forzar el asistente por rubro cuando el dueño lo apagó');
+  assert.ok(headerModSrc.includes('const isHeladeria = ctx.getRestaurantData().allowIceCreamWizard === true;'), 'menuHeader.js debe respetar allowIceCreamWizard=false para no mostrar el asistente apagado');
+  assert.ok(!headerModSrc.includes("ctx.getRestaurantData().businessType === 'heladeria' || ctx.getRestaurantData().allowIceCreamWizard"), 'menuHeader.js no debe forzar el asistente por rubro cuando el dueño lo apagó');
   assert.ok(renderSrc.includes('Los Mejores Platos de la Casa'), 'El carrusel superior debe mostrar Los Mejores Platos en las morfologías board');
   // Fase E pulido: overlay por clase condicional y títulos del carrusel traducibles
   assert.ok(renderSrc.includes("dish-has-photo"), 'menuRender.js debe marcar los cards con foto con la clase dish-has-photo');

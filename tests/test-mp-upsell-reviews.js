@@ -79,7 +79,7 @@ async function runTests() {
 
   // 7. JS logic for smart reviews filter
   assert.ok(menuJs.includes('openSmartReviewModal') || menuJs.includes('smartReview'), 'menu.js debe implementar lógica de Smart Reviews');
-  assert.ok(menuJs.includes('googleReview') || menuJs.includes('Google Review'), 'menu.js debe tener enlace a Google Reviews');
+  assert.ok(menuJs.includes('googleReview') || menuJs.includes('Google Review') || fs.readFileSync(path.join(__dirname, '../public/js/menu/menuHeader.js'), 'utf8').includes('googleReview'), 'menu.js debe tener enlace a Google Reviews');
   console.log('✓ Lógica JS del filtro inteligente de reseñas verificada en menu.js');
 
   // 8. API endpoint for private feedback

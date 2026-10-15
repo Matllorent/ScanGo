@@ -507,7 +507,8 @@ async function runMenuComponentizationTests() {
   assert.ok(wizardSrc.includes('surcharge > 0') && wizardSrc.includes('+$'), 'Badge de recargo premium en el gusto');
   assert.ok(wizardSrc.includes('matchesDiet'), 'Filtro dietético aplicado al listado');
   const menuJsIce = fs.readFileSync(path.join(__dirname, '../public/js/menu.js'), 'utf8');
-  assert.ok(menuJsIce.includes("(isHeladeria && ordersOn) ? 'flex' : 'none'"), 'CTA del armador oculto en vitrina');
+  const menuHeaderIce = fs.readFileSync(path.join(__dirname, '../public/js/menu/menuHeader.js'), 'utf8');
+  assert.ok(menuHeaderIce.includes("(isHeladeria && ordersOn) ? 'flex' : 'none'"), 'CTA del armador oculto en vitrina');
   assert.ok(menuJsIce.includes('toOrderItemPayload'), 'Checkout declara el armado (nunca el precio)');
   assert.ok(menuJsIce.includes('customIceCream'), 'Alta y quote viajan con customIceCream');
   assert.ok(iceStudioHtml.includes('id="modalDishSurcharge"'), 'Modal de plato con recargo de heladería');
@@ -741,9 +742,10 @@ async function runMenuComponentizationTests() {
   assert.ok(neonCss.includes('rgba(var(--neon-rgb)'), 'CSS: glows consumen la variable');
   assert.ok(!neonCss.includes('rgba(0, 245, 212'), 'CSS: sin menta hardcodeado fuera del default');
   // menu.js: clase neon-<x> solo con layout neon (+ preview ?neon=)
-  assert.ok(menuSrc.includes('resolveNeonAccentMod'), 'menu.js importa el resolver de acento');
-  assert.ok(menuSrc.includes("layoutClass === 'layout-neon'"), 'Acento solo con layout neon');
-  assert.ok(menuSrc.includes('neon-${baseKey}'), 'Clase neon-<acento> dinámica');
+  const headerModSrc24 = fs.readFileSync(path.join(__dirname, '../public/js/menu/menuHeader.js'), 'utf8');
+  assert.ok(headerModSrc24.includes('resolveNeonAccent('), 'menuHeader.js importa el resolver de acento');
+  assert.ok(headerModSrc24.includes("layoutClass === 'layout-neon'"), 'Acento solo con layout neon');
+  assert.ok(headerModSrc24.includes('neon-${baseKey}'), 'Clase neon-<acento> dinámica');
   // Studio: selector visible solo en neon + save/load + backend allowlist
   assert.ok(studioHtmlSrc.includes('id="inputNeonAccent"'), 'Studio: selector de acento');
   assert.ok(studioHtmlSrc.includes('value="magenta"') && studioHtmlSrc.includes('value="violet"'), 'Studio: las 6 opciones');
@@ -768,7 +770,7 @@ async function runMenuComponentizationTests() {
   assert.ok(menuSrc.includes('normalizeNeonHexMod'), 'menu.js importa el normalizador directo');
   assert.ok(!menuSrc.includes('resolveNeonCustomColorMod'), 'menu.js ya no usa el alias');
   assert.ok(menuSrc.includes('neonHexToRgbMod'), 'menu.js importa el conversor rgb');
-  assert.ok(menuSrc.includes("setProperty('--neon'"), 'menu.js pisa --neon inline con el libre');
+  assert.ok(headerModSrc24.includes("setProperty('--neon'"), 'menuHeader.js pisa --neon inline con el libre');
   assert.ok(studioHtmlSrc.includes('id="inputNeonCustomEnabled"'), 'Studio: toggle de color libre');
   assert.ok(studioHtmlSrc.includes('id="inputNeonCustomColor"'), 'Studio: picker de color libre');
   assert.ok(studioSrc.includes('restaurant.neonCustomColor'), 'Studio: guarda el libre');
@@ -861,8 +863,8 @@ async function runMenuComponentizationTests() {
   // 24. Seis mejoras de bajo esfuerzo (preview de tema, sonido, duplicados,
   //     banner de fotos, cierre manual y respaldo JSON).
   // 24.1 Preview ?theme=<clave>: mismo patrón que ?morph= y ?neon=.
-  assert.ok(menuSrc.includes("get('theme')"), 'menu.js lee el preview ?theme=');
-  assert.ok(menuSrc.includes('if (themeParam && validThemes.includes(themeParam))'), 'Solo claves válidas (nunca tema roto)');
+  assert.ok(headerModSrc24.includes("get('theme')"), 'menuHeader.js lee el preview ?theme=');
+  assert.ok(headerModSrc24.includes('if (themeParam && validThemes.includes(themeParam))'), 'Solo claves válidas (nunca tema roto)');
   // Barra de filtros configurable (fija / auto-oculta / compacta).
   const { sanitizeRestaurantPayload: sanitizeBe2 } = require('../api/utils/sanitizeRestaurant');
   assert.strictEqual(sanitizeBe2({ name: 'X' }).filterBarMode, 'fixed', 'Default: barra fija');
@@ -920,7 +922,7 @@ async function runMenuComponentizationTests() {
   // 24.5 Cierre manual forceClosed: badge + carta + submit + pago + backend.
   const renderModSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/menuRender.js'), 'utf8');
   assert.ok(renderModSrc.includes('ctx.getRestaurantData().forceClosed === true'), 'menuRender.js respeta el cierre manual');
-  assert.ok(menuSrc.includes('Cerrado por el momento'), 'Badge y avisos con copy propio (sin "undefined hs")');
+  assert.ok(headerModSrc24.includes('Cerrado por el momento'), 'Badge y avisos con copy propio (sin "undefined hs")');
   assert.ok(renderModSrc.includes('Local cerrado por el momento'), 'Carta pausada con mensaje dedicado');
   assert.ok(studioHtmlSrc.includes('id="inputForceClosed"'), 'Studio: toggle de cierre manual');
   assert.ok(studioSrc.includes('restaurant.forceClosed = forceClosedCheck.checked'), 'Studio: guarda el cierre');
@@ -1015,7 +1017,7 @@ async function runMenuComponentizationTests() {
   assert.ok(studioSrc.includes("getElementById('eventGuestsSection')"), 'Studio: la sección se muestra solo en eventos');
   // Endurecido tras revisión: el preview ?theme= respeta el lockdown y los
   // tokens se mintean con crypto (no adivinables por Math.random solo).
-  assert.ok(menuSrc.includes("!HELADERIA_ONLY.includes(themeParam)"), 'Preview ?theme= en heladería cae a fiesta (lockdown sin excepciones)');
+  assert.ok(headerModSrc24.includes("!HELADERIA_ONLY.includes(themeParam)"), 'Preview ?theme= en heladería cae a fiesta (lockdown sin excepciones)');
   assert.ok(studioSrc.includes('crypto.getRandomValues'), 'Tokens de invitado con entropía real');
   assert.ok(studioSrc.includes('mintGuestToken'), 'Helper único de tokens (alta + fallbacks)');
   const guestClean = sanitizeBe.sanitizeRestaurantPayload({ eventConfig: { guests: [{ name: 'Valeria', phone: '598 99 123 456' }] } });

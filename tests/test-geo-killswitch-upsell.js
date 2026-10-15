@@ -12,11 +12,12 @@ console.log('🧪 Iniciando verificación de GEO, Kill-Switch y Mozo Virtual Con
 // 1. Banner Superior: Contain + Backdrop Blur
 const menuCss = fs.readFileSync(path.join(__dirname, '../public/css/menu.css'), 'utf8');
 const menuJs = fs.readFileSync(path.join(__dirname, '../public/js/menu.js'), 'utf8');
+const headerModSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/menuHeader.js'), 'utf8');
 
 assert.ok(menuCss.includes('object-fit: cover;'), 'menu.css debe usar object-fit: cover en .menu-banner-img');
 assert.ok(menuCss.includes('.menu-banner-overlay'), 'menu.css debe superponer el degradado al banner');
-assert.ok(menuJs.includes('menu-banner-status-slot'), 'menu.js debe ubicar la insignia de estado sobre el banner');
-assert.ok(menuJs.includes('menu-banner-logo-slot'), 'menu.js debe ubicar el logo sobre el banner');
+assert.ok(menuJs.includes('menu-banner-status-slot') || headerModSrc.includes('menu-banner-status-slot'), 'menu.js debe ubicar la insignia de estado sobre el banner');
+assert.ok(menuJs.includes('menu-banner-logo-slot') || headerModSrc.includes('menu-banner-logo-slot'), 'menu.js debe ubicar el logo sobre el banner');
 console.log('Hero público con cover, degradado y logo/estado verificado');
 
 // 2. Kill-Switch de Emergencia para Suscripciones y Registro
