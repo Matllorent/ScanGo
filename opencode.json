@@ -12,7 +12,7 @@
           "npx",
           "-y",
           "@modelcontextprotocol/server-filesystem",
-          "C:\\Users\\Flor Alcaraz\\.gemini\\antigravity\\scratch\\menu-pizarron-saas"
+          "C:\\dev\\scango"
         ],
         "disabled": false
       },

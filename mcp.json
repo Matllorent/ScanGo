@@ -5,7 +5,7 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "C:\\Users\\Flor Alcaraz\\.gemini\\antigravity\\scratch\\menu-pizarron-saas"
+        "C:\\dev\\scango"
       ]
     },
     "supabase-db": {
@@ -21,7 +21,7 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-git",
-        "C:\\Users\\Flor Alcaraz\\.gemini\\antigravity\\scratch\\menu-pizarron-saas"
+        "C:\\dev\\scango"
       ]
     },
     "memory-graph": {
