@@ -793,11 +793,14 @@ async function runMenuComponentizationTests() {
   console.log('✓ Neón multi-acentos: 6 colores con variables CSS, selector en Studio, allowlist backend');
 
   // 22. Checkout blindado: local cerrado, delivery con datos, retorno MP
+  // (submit en menu/orderSubmit.js + wrapper en menu.js)
+  const orderSubmitSrc22 = fs.readFileSync(path.join(__dirname, '../public/js/menu/orderSubmit.js'), 'utf8');
   assert.ok(menuSrc.includes('function isRestaurantOpenNow()'), 'Helper de horario del local');
-  assert.ok(menuSrc.includes('El local está cerrado ahora'), 'Submit bloqueado con local cerrado');
-  assert.ok(menuSrc.includes('Elegí tu zona de entrega'), 'Delivery exige zona con foco');
-  assert.ok(menuSrc.includes('Escribí tu dirección de entrega'), 'Delivery exige dirección con foco');
-  assert.ok(menuSrc.includes('orderMode: mode'), 'Modo viaja al backend (quote/pedido/preferencia)');
+  assert.ok(orderSubmitSrc22.includes('El local está cerrado ahora'), 'Submit bloqueado con local cerrado');
+  assert.ok(orderSubmitSrc22.includes('Elegí tu zona de entrega'), 'Delivery exige zona con foco');
+  assert.ok(orderSubmitSrc22.includes('Escribí tu dirección de entrega'), 'Delivery exige dirección con foco');
+  assert.ok(orderSubmitSrc22.includes('orderMode: mode'), 'Modo viaja al backend (quote/pedido/preferencia)');
+  assert.ok(menuSrc.includes('function submitWhatsAppOrder()'), 'menu.js conserva el wrapper submitWhatsAppOrder');
   const trackingModSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/orderTracking.js'), 'utf8');
   assert.ok(trackingModSrc.includes("params.get('payment')"), 'initOrderTracking (módulo) lee el retorno de MP');
   assert.ok(menuSrc.includes('function initOrderTracking()'), 'menu.js conserva el wrapper initOrderTracking');

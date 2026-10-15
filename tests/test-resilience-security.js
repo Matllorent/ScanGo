@@ -149,7 +149,8 @@ async function runTests() {
     assert.deepStrictEqual(oversized, { ok: false, reason: 'CAPTCHA_INVALID' }, 'Token gigante → CAPTCHA_INVALID');
     // El menú expone la sitekey pública y el checkout adjunta el token.
     const menuSrc = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'menu.js'), 'utf8');
-    assert.ok(menuSrc.includes('captchaToken'), 'El checkout envía captchaToken');
+    const orderSubmitSrc = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'menu', 'orderSubmit.js'), 'utf8');
+    assert.ok(orderSubmitSrc.includes('captchaToken'), 'El checkout envía captchaToken');
     assert.ok(menuSrc.includes('/api/public/captcha-config'), 'El menú lee la sitekey pública');
     assert.ok(menuSrc.includes('challenges.cloudflare.com/turnstile'), 'Turnstile explícito invisible');
     console.log('✓ CAPTCHA: skip sin secreto, 403 sin red ante token ausente/sobredimensión, front cableado');

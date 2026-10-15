@@ -121,11 +121,13 @@ async function runTests() {
   assert.ok(menuHtml.includes('data-js-change="handleOrderPaymentChange"'), 'menu.html debe vincular data-js-change a handleOrderPaymentChange (CSP estricto: usa dom-bindings)');
   console.log('✓ Handler de método de pago con soporte MP Checkout Pro verificado');
 
-  // 12. WhatsApp message formatting still intact
-  assert.ok(menuJs.includes('*DETALLE DEL PEDIDO:*'), 'Formato de WhatsApp debe incluir DETALLE DEL PEDIDO');
-  assert.ok(menuJs.includes('*Subtotal:*'), 'Formato de WhatsApp debe incluir Subtotal');
-  assert.ok(menuJs.includes('*TOTAL A PAGAR:*'), 'Formato de WhatsApp debe incluir TOTAL A PAGAR');
-  assert.ok(menuJs.includes('optionsSnapshot'), 'Formato de WhatsApp debe incluir modificadores del snapshot');
+  // 12. WhatsApp message formatting still intact (módulo orderSubmit.js + wrapper)
+  const orderSubmitSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/orderSubmit.js'), 'utf8');
+  assert.ok(orderSubmitSrc.includes('*DETALLE DEL PEDIDO:*'), 'Formato de WhatsApp debe incluir DETALLE DEL PEDIDO');
+  assert.ok(orderSubmitSrc.includes('*Subtotal:*'), 'Formato de WhatsApp debe incluir Subtotal');
+  assert.ok(orderSubmitSrc.includes('*TOTAL A PAGAR:*'), 'Formato de WhatsApp debe incluir TOTAL A PAGAR');
+  assert.ok(orderSubmitSrc.includes('optionsSnapshot'), 'Formato de WhatsApp debe incluir modificadores del snapshot');
+  assert.ok(menuJs.includes('function submitWhatsAppOrder()'), 'menu.js conserva el wrapper submitWhatsAppOrder');
   console.log('✓ Formato de mensaje WhatsApp con subtotales y modificadores intacto');
 
   console.log('\n🎉 ¡TODAS LAS VERIFICACIONES DE MP CHECKOUT PRO, UPSELLING Y SMART REVIEWS PASARON AL 100%!');
