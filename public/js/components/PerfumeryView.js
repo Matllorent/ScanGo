@@ -25,7 +25,7 @@ export const PERFUMERY_PRESETS = [
     },
     defaultVolume: '50ml',
     tags: ['star', 'nicho'],
-    photoUrl: 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=400&q=80',
+    photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e9/Ambre_bleu_dominicain_21207.jpg/500px-Ambre_bleu_dominicain_21207.jpg', // PD: ámbar azul dominicano
     pyramid: {
       top: ['Bergamota de Calabria', 'Pomelo Rosado', 'Pimienta Rosa'],
       heart: ['Rosa Damascena de Grasse', 'Canela de Ceilán', 'Geranio Bourbon'],
@@ -47,7 +47,7 @@ export const PERFUMERY_PRESETS = [
     },
     defaultVolume: '100ml',
     tags: ['vegano'],
-    photoUrl: 'https://images.unsplash.com/photo-1547887537-6158d64c35b3?w=400&q=80',
+    photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/3/34/Scent_Bottle_SAAM-1929.8.245.47_1.jpg/500px-Scent_Bottle_SAAM-1929.8.245.47_1.jpg', // CC0: frasco Smithsonian
     pyramid: {
       top: ['Mandarina de Sicilia', 'Limón Amalfi', 'Albahaca Genovesa'],
       heart: ['Neroli de Túnez', 'Flor de Azahar', 'Brisa Marina Salina'],
@@ -69,7 +69,7 @@ export const PERFUMERY_PRESETS = [
     },
     defaultVolume: '50ml',
     tags: ['star'],
-    photoUrl: 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=400&q=80',
+    photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6c/Cologne_Bottle%2C_1893.png/500px-Cologne_Bottle%2C_1893.png', // PD: frasco colonia 1893
     pyramid: {
       top: ['Cardamomo de Guatemala', 'Violeta Silvestre', 'Papiro'],
       heart: ['Iris de Florencia', 'Incienso Olibanum', 'Cuero Suave'],
@@ -91,7 +91,7 @@ export const PERFUMERY_PRESETS = [
     },
     defaultVolume: '50ml',
     tags: ['star'],
-    photoUrl: 'https://images.unsplash.com/photo-1594035910387-fea47794261f?w=400&q=80',
+    photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f0/Clear_Glass_Tube_Shaped_Perfume_Bottle_With_Flower_Design_and_to_stopper.jpg/500px-Clear_Glass_Tube_Shaped_Perfume_Bottle_With_Flower_Design_and_to_stopper.jpg', // PD: tubo floral
     pyramid: {
       top: ['Pera Nashi Jugosa', 'Pimienta Rosa', 'Mandarina Verde'],
       heart: ['Jazmín Sambac Imperial', 'Tuberosa de la India', 'Flor de Naranjo'],
@@ -113,7 +113,7 @@ export const PERFUMERY_PRESETS = [
     },
     defaultVolume: '100ml',
     tags: ['star'],
-    photoUrl: 'https://images.unsplash.com/photo-1588405748880-12d1d2a59f75?w=400&q=80',
+    photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6c/Saturnus_vaniljessens.jpg/500px-Saturnus_vaniljessens.jpg', // CC0: esencia de vainilla
     pyramid: {
       top: ['Almendra Amarga', 'Granos de Café Tostado', 'Cacao Puro'],
       heart: ['Caramelo Toffee Suave', 'Haba Tonka de Brasil', 'Heliotropo'],
@@ -135,7 +135,7 @@ export const PERFUMERY_PRESETS = [
     },
     defaultVolume: '50ml',
     tags: [],
-    photoUrl: 'https://images.unsplash.com/photo-1527632984437-993ac409bb62?w=400&q=80',
+    photoUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/3/37/Patent_drawing_for_a_bottle_for_%27Sleeping%27_perfume_by_Elsa_Schiaparelli%2C_1939._USD116055_crop_01.png/500px-Patent_drawing_for_a_bottle_for_%27Sleeping%27_perfume_by_Elsa_Schiaparelli%2C_1939._USD116055_crop_01.png', // PD: patente Schiaparelli 1939
     pyramid: {
       top: ['Lavanda de Provenza', 'Menta Piperita', 'Romero Silvestre'],
       heart: ['Geranio Bourbon', 'Salvia Esclarea', 'Manzana Verde Crocante'],
