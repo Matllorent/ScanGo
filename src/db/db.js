@@ -1124,7 +1124,7 @@ const db = {
   // Reparación al boot: sube los pendientes locales a la nube (best-effort,
   // nunca rompe el arranque). Cierra la divergencia local-only → cloud.
   async repairCloudPendingOrders() {
-    if (!supabase) return { repaired: 0, remaining: 0 };
+    if (!supabase) return { repaired: 0, remaining: this.getCloudPendingOrders().length };
     const pending = this.getCloudPendingOrders();
     let repaired = 0;
     for (const order of pending) {
