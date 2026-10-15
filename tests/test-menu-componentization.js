@@ -579,7 +579,9 @@ async function runMenuComponentizationTests() {
   assert.ok(menuSrc.includes('const itemIsFree = isFreePriceMod(unitPrice)'), 'Carrito: línea sin cifras si es gratis');
   assert.ok(menuSrc.includes('Ver Pedido →'), 'Barra flotante: sin ($0) cuando el pedido es gratis');
   assert.ok(menuSrc.includes('formatTotalOrFree(total)'), 'Totales: "Sin costo" en vez de $0');
-  assert.ok(menuSrc.includes('const upsellIsFree = isFreePriceMod(dish.price)'), 'Upsell del menú: sin cifra si es gratis');
+  const cartUpsellSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/cartUpsell.js'), 'utf8');
+  assert.ok(cartUpsellSrc.includes('const upsellIsFree = isFreePrice(dish.price)'), 'Upsell del menú: sin cifra si es gratis (módulo cartUpsell.js)');
+  assert.ok(menuSrc.includes('function renderUpsellSuggestions()'), 'menu.js conserva el wrapper renderUpsellSuggestions');
   // WhatsApp: ítems gratis sin precio + pedido gratis sin Subtotal/TOTAL $0
   const freeMsg = checkoutModule.formatWhatsAppOrderMessage({
     restaurantName: 'Boda Mora & Alex', customerName: 'Invitado', mode: 'LOCAL',
@@ -919,8 +921,8 @@ async function runMenuComponentizationTests() {
   assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({ forceClosed: true }).forceClosed, true, 'Backend: true pasa');
   assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({ forceClosed: 'si' }).forceClosed, false, 'Backend: no-booleano → false');
   assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({}).forceClosed, false, 'Backend: ausente → false');
-  const apiIndexSrc = fs.readFileSync(path.join(__dirname, '../api/index.js'), 'utf8');
-  assert.ok(apiIndexSrc.includes('forceClosed:'), 'El menú público expone forceClosed');
+  const menuRouterSrc = fs.readFileSync(path.join(__dirname, '../api/routes/menu.js'), 'utf8');
+  assert.ok(menuRouterSrc.includes('forceClosed:'), 'El menú público expone forceClosed');
   // 24.6 Respaldo JSON: exportar descarga, importar conserva identidad.
   assert.ok(studioHtmlSrc.includes('data-js-click="exportMenuJson"'), 'Studio: botón exportar');
   assert.ok(studioHtmlSrc.includes('data-js-click="fireClick|menuJsonFileInput"'), 'Studio: botón importar dispara el file input');

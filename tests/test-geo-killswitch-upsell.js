@@ -67,9 +67,9 @@ assert.strictEqual(killSwitch.getSubscriptionKillSwitch(), true, 'Sin la env, vu
 console.log('✓ Middleware y lógica del Kill-Switch (HTTP 503 estructurado) verificados');
 
 // Check admin routes & UI
-const apiIndex = fs.readFileSync(path.join(__dirname, '../api/index.js'), 'utf8');
+const adminRouterSrc = fs.readFileSync(path.join(__dirname, '../api/routes/admin.js'), 'utf8');
 const adminHtml = fs.readFileSync(path.join(__dirname, '../public/admin.html'), 'utf8');
-assert.ok(apiIndex.includes('/api/admin/killswitch'), 'api/index.js debe tener endpoints /api/admin/killswitch');
+assert.ok(adminRouterSrc.includes("'/killswitch'"), 'routes/admin.js debe tener endpoints /api/admin/killswitch');
 assert.ok(adminHtml.includes('killswitch-badge'), 'admin.html debe tener el badge del killswitch');
 assert.ok(adminHtml.includes('btn-toggle-killswitch'), 'admin.html debe tener botón toggle de killswitch');
 assert.ok(adminHtml.includes('toggleKillSwitchAdmin'), 'admin.html debe tener la función JS toggleKillSwitchAdmin');
@@ -132,7 +132,7 @@ console.log('✓ Optimización para Modelos de IA (GEO: llms.txt, llms-full.txt 
 assert.ok(menuJs.includes('isMozoVirtualEnabled'), 'menu.js debe definir isMozoVirtualEnabled()');
 assert.ok(menuJs.includes('handleMozoVirtualToggle'), 'menu.js debe definir handleMozoVirtualToggle()');
 assert.ok(menuJs.includes('analyzeCartContextForUpsell'), 'menu.js debe definir analyzeCartContextForUpsell()');
-assert.ok(menuJs.includes('mozo-reason-banner'), 'menu.js y css deben incluir banner de razón persuasiva');
+assert.ok(menuJs.includes('mozo-reason-banner') || fs.readFileSync(path.join(__dirname, '../public/js/menu/cartUpsell.js'), 'utf8').includes('mozo-reason-banner'), 'menu/cartUpsell.js y css deben incluir banner de razón persuasiva');
 
 const menuHtml = fs.readFileSync(path.join(__dirname, '../public/menu.html'), 'utf8');
 assert.ok(menuHtml.includes('id="toggleMozoVirtual"'), 'menu.html debe tener checkbox #toggleMozoVirtual');
