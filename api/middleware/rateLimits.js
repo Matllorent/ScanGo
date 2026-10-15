@@ -48,5 +48,11 @@ module.exports = {
   discoverLimiter: createRateLimit(60, 'DISCOVER_RATE_LIMITED', 'Demasiadas consultas al Descubrir en poco tiempo.'),
   storageLimiter: createRateLimit(20, 'STORAGE_RATE_LIMITED', 'Límite de cargas excedido.'),
   groupCartLimiter: createRateLimit(90, 'GROUP_CART_RATE_LIMITED', 'Límite de sincronización de mesa excedido.'),
+  // Login maestro del panel /admin: exactamente 5 intentos por IP cada 15 min.
+  adminLimiter: createRateLimit(
+    5,
+    'ADMIN_RATE_LIMIT_EXCEEDED',
+    'Acceso temporalmente bloqueado por seguridad: has superado el límite de 5 intentos. Esperá 15 minutos antes de volver a intentar.'
+  ),
   publicEventKeyGenerator
 };

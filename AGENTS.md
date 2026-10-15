@@ -50,7 +50,7 @@ Ejecución de test individual: `node tests/test-billing.js` (más rápido que `n
 
 ### Backend
 - **Entrypoint**: `api/index.js` — rutas inline + routers modulares en `api/routes/`
-- **Routers modulares** (12 en `api/routes/`): auth, reviews, storage, webhooks, notifications, email, health, orders, analytics, **studio**, **ai**, **loyalty**
+- **Routers modulares** (13 en `api/routes/`): auth, reviews, storage, webhooks, notifications, email, health, orders, analytics, **studio**, **ai**, **loyalty**, **admin** (login 2FA, overview, invitaciones, moderación, pricing, kill-switch; secretos compartidos en `api/utils/adminSession.js`, limiter en `api/middleware/rateLimits.js`)
 - **Cron**: `api/cron/billing-dunning.js` (montado como `/api/cron/billing-dunning`, requiere `CRON_SECRET`)
 - **Middleware**: `api/middleware/` (auth, validation, rateLimits, killSwitch, subscriptionGuard, tenantGuard, requireVerifiedEmail, idempotency, cache, errorHandler, requestId)
 - **Services**: `api/services/` (audit, email, geminiMenuParser, **loyalty**, notifications, storage, telemetry, weather). El servicio de Mercado Pago vive en `src/services/mercadopago.js`. **La telemetría es la fuente única de verdad de analytics**: `restaurant.analytics` es una proyección derivada (`telemetry.countAnalytics()` → `db.setAnalyticsSnapshot()`), nunca se incrementa a mano.
@@ -341,8 +341,7 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 - `tsconfig.json` existe pero **el app corre JS puro** — no hay paso de compilación
 
 ### Trampas conocidas del codebase
-- **`data/*.json` está en `.gitignore` pero `restaurants.json`, `users.json` y `webhooks.json` están trackeados** (fueron `git add -f`). Con el guard de tests ya no llegan mutados al commit, pero igual conviene chequear `git status` antes de commitear.
-- **`node_modules` está trackeado PARCIALMENTE**: solo se force-addearon paquetes críticos históricos (zod, `@supabase/*`, semver, minimatch, nodemon, …). `@sentry/node` y `@opentelemetry/*` NO están trackeados. Consecuencia: un bump que toca paquetes no trackeados (p.ej. Sentry 8→11) deja diff solo en `package.json` + `package-lock.json` + `node_modules/.package-lock.json`; uno que toque paquetes trackeados (p.ej. zod) agranda el diff de verdad.
+- **`data/*.json` y `node_modules/` ya NO están trackeados** (se sacaron del índice en oct-2026 con `git rm --cached`; el `.gitignore` siempre los cubrió). Si ves `M data/*.json` en `git status`, son mutaciones de corridas de tests locales: revertir con `git checkout -- data/` antes de commitear (en CI el guard restaura solo).
 - **Auditoría de dependencias (Block 14)**: `@sentry/node` subió `^8.0.0` → `^11.5.0` para resolver 22 calamidades de OpenTelemetry (GHSA-8988-4f7v-96qf, GHSA-qqmp-wf37-98f9) **sin cambios de código** (API `init/captureException/captureMessage/withScope/addBreadcrumb` verificado contra v11; suite 24/24 en verde). Riesgo aceptado documentado: `braces@3.0.3` → `chokidar` → `nodemon` (dev-only) con GHSA-vfj7-8cjw-p6xm (CVE-2026-93687, HIGH 8.7, **sin versión corregida publicada**; npm sugiere `nodemon@1.14.10`, un downgrade absurdo — NO aplicarlo). Re-auditar con `osv-scanner scan source -L package-lock.json` o el MCP `osv-scanner`.
 - **Dos escapeHtml**: `public/js/utils/escapeHtml.js` es CommonJS legacy usado solo por `tests/test-escape-html.js`; el frontend importa `escapeHtmlBrowser.js`. No "unificar" a ciegas.
 - **Los archivos muertos se eliminaron (Block 6)**: `public/js/utils/eventThemes.js` y `src/menuRenderer.js` fueron removidos del repo (nadie los importaba). No buscarlos. La lógica real de temas en vivo vive en `public/js/menu/eventGuestMode.js`.
