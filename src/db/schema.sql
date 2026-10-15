@@ -1,5 +1,5 @@
 -- ==========================================================
--- MENÚ PIZARRÓN SAAS — ESQUEMA POSTGRESQL PARA SUPABASE
+-- SCANGO — ESQUEMA POSTGRESQL PARA SUPABASE
 -- Copiá y pegá este código en el SQL Editor de Supabase
 -- ==========================================================
 
@@ -340,6 +340,6 @@ GRANT ALL PRIVILEGES ON TABLE public.users, public.restaurants, public.webhooks,
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO service_role;
 
 -- Notificar éxito en Supabase
-COMMENT ON TABLE public.restaurants IS 'Tabla maestra de restaurantes, platos y suscripciones para Menú Pizarrón SaaS';
+COMMENT ON TABLE public.restaurants IS 'Tabla maestra de restaurantes, platos y suscripciones para ScanGo';
 COMMENT ON TABLE public.group_carts IS 'Carritos grupales en tiempo real para pedidos por mesa';
 COMMENT ON TABLE public.webhooks IS 'Eventos de pago e idempotencia; nombre canónico usado por el backend';

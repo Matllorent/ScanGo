@@ -68,7 +68,7 @@ async function runTests() {
   assert.ok(fs.existsSync(specPath), 'openapi.yaml existe en la raíz del repo');
   const spec = fs.readFileSync(specPath, 'utf8');
   assert.ok(spec.includes('openapi: 3.1'), 'spec declara `openapi: 3.1`');
-  assert.ok(spec.includes('title: Menú Pizarrón SaaS'), 'spec tiene el título real');
+  assert.ok(spec.includes('title: ScanGo'), 'spec tiene el título real');
   assert.ok(spec.includes('version: 2.0.0'), 'spec tiene la versión 2.0.0');
   for (const p of SPEC_PATHS) {
     assert.ok(spec.includes(p), `el spec documenta el path ${p}`);

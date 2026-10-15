@@ -9,7 +9,7 @@
 #
 # Variable (repo → Settings → Secrets and variables → Actions → Variables):
 #   HEALTH_URL → URL del health check en prod. Default:
-#   https://menu-pizarron-saas.vercel.app/api/healthz
+#   https://scango-rouge.vercel.app/api/healthz
 name: Uptime Check ($0 — fallback de monitoreo)
 
 on:
@@ -31,7 +31,7 @@ jobs:
           HEALTH_URL: ${{ vars.HEALTH_URL }}
         run: |
           set -euo pipefail
-          url="${HEALTH_URL:-https://menu-pizarron-saas.vercel.app/api/healthz}"
+          url="${HEALTH_URL:-https://scango-rouge.vercel.app/api/healthz}"
           echo "Golpeando $url"
           curl -fsS --max-time 20 "$url" > healthz.txt
           cat healthz.txt

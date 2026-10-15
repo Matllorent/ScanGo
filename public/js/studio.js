@@ -831,7 +831,7 @@ export async function submitOwnerReview(e) {
 export function sendOrderStateWA(stateName) {
   const phone = (document.getElementById('notifPhone')?.value || '').replace(/[^0-9]/g, '');
   const client = document.getElementById('notifClientName')?.value.trim() || 'Estimado/a cliente';
-  const restName = restaurant?.name || 'Menú Pizarrón';
+  const restName = restaurant?.name || 'ScanGo';
 
   if (!phone) {
     alert('Por favor ingresa el número de WhatsApp del cliente.');
@@ -1509,7 +1509,7 @@ export function downloadQrPng() {
     try {
       const a = document.createElement('a');
       a.href = canvas.toDataURL('image/png');
-      a.download = `QR-${restaurant?.slug || 'menu'}-menu-pizarron.png`;
+      a.download = `QR-${restaurant?.slug || 'menu'}-scango.png`;
       a.click();
       return;
     } catch (e) {}

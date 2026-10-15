@@ -231,7 +231,7 @@ function requestGeo() {
 }
 
 function paintTexts() {
-  document.title = `${dzT('title')} (beta) — Menú Pizarrón`;
+  document.title = `${dzT('title')} (beta) — ScanGo`;
   try {
     document.documentElement.lang = dzLang();
   } catch (e) {}

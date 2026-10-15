@@ -1,4 +1,4 @@
-# CI de Menú Pizarrón SaaS
+# CI de ScanGo
 # Corre la suite real (sin mocks) en Node 22 y 24 + auditoría de dependencias.
 name: CI
 

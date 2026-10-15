@@ -40,11 +40,11 @@ router.get('/test-email', async (req, res, next) => {
     const targetEmail = req.query.to || 'mat2001llorent@gmail.com';
     const result = await emailService.sendEmail({
       to: targetEmail,
-      subject: '🧪 Prueba de Correo Real con Resend — Menú Pizarrón SaaS',
+      subject: '🧪 Prueba de Correo Real con Resend — ScanGo',
       html: `
         <div style="font-family: sans-serif; padding: 24px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
           <h2 style="color: #10b981; margin-top: 0;">🚀 Confirmación de Integración de Resend</h2>
-          <p>Este es un correo electrónico de prueba enviado exitosamente desde el backend de <strong>Menú Pizarrón SaaS</strong> utilizando la API Key de Resend.</p>
+          <p>Este es un correo electrónico de prueba enviado exitosamente desde el backend de <strong>ScanGo</strong> utilizando la API Key de Resend.</p>
           <div style="background: #f8fafc; padding: 16px; border-left: 4px solid #10b981; border-radius: 4px; margin: 20px 0;">
             <p style="margin: 0; font-size: 14px; color: #334155;"><strong>Destinatario:</strong> ${targetEmail}</p>
             <p style="margin: 4px 0 0 0; font-size: 14px; color: #334155;"><strong>Remitente:</strong> onboarding@resend.dev</p>

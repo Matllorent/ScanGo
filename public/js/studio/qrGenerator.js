@@ -190,7 +190,7 @@ export function downloadQrPng(restaurant) {
   try {
     const a = document.createElement('a');
     a.href = canvas.toDataURL('image/png');
-    a.download = `QR-${restaurant?.slug || 'menu'}-menu-pizarron.png`;
+    a.download = `QR-${restaurant?.slug || 'menu'}-scango.png`;
     a.click();
   } catch (err) {
     console.error('[QR] Error al descargar imagen del QR (canvas tainted o bloqueado por CORS):', err);
@@ -235,7 +235,7 @@ export function printTableStand(restaurant) {
         <p>${restaurant?.slogan || 'Escaneá para ver la carta y pedir por WhatsApp'}</p>
         ${src ? `<img src="${src}" alt="QR Menú" />` : ''}
         ${wifiText ? `<div class="wifi">📶 ${wifiText}</div>` : ''}
-        <div class="badge-powered">Menú Digital • Menú Pizarrón Studio</div>
+        <div class="badge-powered">Menú Digital • ScanGo</div>
       </div>
       <script>setTimeout(() => window.print(), 300);<\/script>
     </body>
@@ -332,7 +332,7 @@ export function printReviewTent(restaurant) {
           <p>¿Te gustó? Dejá tu reseña en Google en 10 segundos</p>
           ${qrSrc ? `<img src="${qrSrc}" alt="QR Reseñas" />` : ''}
           <div class="step">1️⃣ Escaneá &nbsp; 2️⃣ Tocá tus estrellas &nbsp; 3️⃣ Publicá</div>
-          <div class="badge-powered">Menú Digital • Menú Pizarrón Studio</div>
+          <div class="badge-powered">Menú Digital • ScanGo</div>
         </div>
         <script>setTimeout(() => window.print(), 300);<\/script>
       </body>
@@ -469,7 +469,7 @@ export async function downloadAllTablesPDF(restaurant) {
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(26);
     pdf.setTextColor(...primaryColor);
-    pdf.text(restaurant?.name || 'Menú Pizarrón', 105, 42, { align: 'center' });
+    pdf.text(restaurant?.name || 'ScanGo', 105, 42, { align: 'center' });
 
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(12);
@@ -511,7 +511,7 @@ export async function downloadAllTablesPDF(restaurant) {
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(8);
     pdf.setTextColor(150, 155, 152);
-    pdf.text('Generado con ScanGo Menú Pizarrón • www.scango.app', 105, 270, { align: 'center' });
+    pdf.text('Generado con ScanGo', 105, 270, { align: 'center' });
   }
 
   pdf.save(`Carteles-Mesas-${restaurant?.slug || 'menu'}.pdf`);

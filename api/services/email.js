@@ -59,7 +59,7 @@ const emailService = {
           from: fromEmail,
           to: Array.isArray(to) ? to : [to],
           subject,
-          html: html || text || '<p>Menú Pizarrón</p>',
+          html: html || text || '<p>ScanGo</p>',
           text
         })
       });

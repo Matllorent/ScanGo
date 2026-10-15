@@ -45,7 +45,7 @@ async function runTests() {
     const html = await response.text();
     const appUrl = (process.env.APP_URL || 'https://scango.uy').replace(/\/+$/, '');
     assert.strictEqual(response.status, 200);
-    assert.ok(html.includes('<meta property="og:title" content="Schema Bistro — Menú Pizarrón"'), 'OG title identifies the restaurant');
+    assert.ok(html.includes('<meta property="og:title" content="Schema Bistro — ScanGo"'), 'OG title identifies the restaurant');
     assert.ok(html.includes('<meta property="og:description" content="Cocina &amp; pastas"'), 'OG description is HTML-escaped');
     assert.ok(html.includes('<meta property="og:image" content="https://example.com/schema-bistro.jpg"'), 'OG image uses the restaurant banner');
     assert.ok(html.includes(`<link rel="canonical" href="${appUrl}/m/${slug}"`), 'Canonical URL identifies the menu');
@@ -102,7 +102,7 @@ async function runTests() {
     assert.strictEqual(menuRoute.dest, '/api/index.js', 'Vercel routes public menus through Express');
 
     // §Evento — el preview OG debe contar la celebración (pareja/fecha/lugar),
-    // no el genérico "Menú Pizarrón" (invitaciones estéticas al compartir).
+    // no el genérico "ScanGo" (invitaciones estéticas al compartir).
     const evtUnique = `${unique}-evt`;
     const evtSlug = `evento-preview-${evtUnique}`;
     const evtUser = await db.createUser({ email: `evento-preview-${evtUnique}@example.com`, password: 'test_password' });
@@ -128,7 +128,7 @@ async function runTests() {
     const evtHtml = await evtResponse.text();
     assert.strictEqual(evtResponse.status, 200, 'SSR del evento responde 200');
     assert.ok(
-      evtHtml.includes('<meta property="og:title" content="Boda: Martina &amp; Santi — Estancia La Ribera — Menú Pizarrón"'),
+      evtHtml.includes('<meta property="og:title" content="Boda: Martina &amp; Santi — Estancia La Ribera — ScanGo"'),
       'Evento: OG title con pareja (y "&" escapado)'
     );
     assert.ok(

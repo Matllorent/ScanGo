@@ -1,5 +1,5 @@
 # Guía de Despliegue: Vercel y Google Play Store
-## Menú Pizarrón Studio SaaS
+## ScanGo Studio SaaS
 
 Esta guía detalla los pasos exactos para poner en producción la plataforma SaaS en **Vercel** y publicar la aplicación oficial de administración en **Google Play Store** (Android AAB/APK).
 
@@ -25,7 +25,7 @@ El proyecto ya incluye el archivo `vercel.json` configurado para enrutar tanto l
    ```
 4. **Configurar Variables de Entorno en el Dashboard de Vercel**:
    - `JWT_SECRET`: Llave secreta para tokens JWT (ej. `seguridad_menu_pizarron_saas_2026`).
-   - `APP_URL`: Dominio final en producción (ej. `https://menupizarron.com` o `https://tu-proyecto.vercel.app`).
+   - `APP_URL`: Dominio final en producción (ej. `https://scango.uy` o `https://tu-proyecto.vercel.app`).
    - `LEMONSQUEEZY_API_KEY` y `LEMONSQUEEZY_STORE_ID`: Claves de tu tienda Lemon Squeezy (Merchant of Record).
    - `LEMONSQUEEZY_WEBHOOK_SECRET`: Secreto configurado en el Webhook de Lemon Squeezy apuntando a `https://tu-dominio.vercel.app/api/billing/webhook/lemonsqueezy`.
    - `MERCADOPAGO_ACCESS_TOKEN`: Token de producción de Mercado Pago para cobros locales en Latam.
@@ -82,7 +82,7 @@ npx cap open android
 ### Paso 6: Subir a Google Play Console
 1. Entra a [Google Play Console](https://play.google.com/console/).
 2. Haz clic en **Crear app**:
-   - Nombre: `Menú Pizarrón Studio`
+   - Nombre: `ScanGo Studio`
    - Idioma predeterminado: `Español (Latinoamérica)`
    - Tipo: `Aplicación` / `Gratis`
 3. En la sección **Producción**, crea una nueva versión y sube el archivo `app-release.aab`.

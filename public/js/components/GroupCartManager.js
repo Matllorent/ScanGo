@@ -877,7 +877,7 @@ export class GroupCartManager {
       text += `💳 *Forma de pago:* [${metadata.paymentMethod.toUpperCase()}]\n`;
     }
     text += `🕒 *Hora:* ${new Date().toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' })}\n`;
-    text += `_Pedido colaborativo generado desde ScanGo Menú Pizarrón_`;
+    text += `_Pedido colaborativo generado desde ScanGo_`;
 
     return text;
   }

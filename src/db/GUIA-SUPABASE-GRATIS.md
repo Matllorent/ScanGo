@@ -17,7 +17,7 @@ Esta guía te explica cómo tener tu base de datos profesional en la nube **100%
 
 1. Entrá a [https://supabase.com](https://supabase.com) y hacé clic en **"Start your project"**.
 2. Podés iniciar sesión con tu cuenta de GitHub o con tu correo electrónico.
-3. Creá una nueva organización (ej: `Menú Pizarrón`).
+3. Creá una nueva organización (ej: `ScanGo`).
 
 ---
 
@@ -25,7 +25,7 @@ Esta guía te explica cómo tener tu base de datos profesional en la nube **100%
 
 1. Hacé clic en el botón verde **"New Project"**.
 2. Completá los datos:
-   - **Name:** `menu-pizarron-saas`
+   - **Name:** `scango-supabase`
    - **Database Password:** Creá una contraseña segura y anotala.
    - **Region:** Elegí **"São Paulo (South America)"** o **"East US"** (para máxima velocidad en Uruguay/Argentina/Latam).
    - **Pricing Plan:** Dejá seleccionado **Free ($0/month)**.
@@ -54,7 +54,7 @@ Esta guía te explica cómo tener tu base de datos profesional en la nube **100%
 
 ## Paso 5: Pegar las Claves en Vercel
 
-1. Entrá a tu panel de [Vercel](https://vercel.com) → Tu proyecto `menu-pizarron-saas`.
+1. Entrá a tu panel de [Vercel](https://vercel.com) → Tu proyecto `scango`.
 2. Andá a **Settings** → **Environment Variables**.
 3. Agregá estas dos variables:
    - `SUPABASE_URL`: Tu Project URL que copiaste en el paso anterior.

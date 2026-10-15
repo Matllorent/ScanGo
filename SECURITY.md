@@ -1,4 +1,4 @@
-# Política de Seguridad — Menú Pizarrón SaaS
+# Política de Seguridad — ScanGo
 
 ## Versiones soportadas
 
@@ -11,7 +11,7 @@ Solo la línea mayor `2.x` recibe correcciones de seguridad.
 
 ## Cómo reportar una vulnerabilidad
 
-- Escribí a **hola@menu-pizarron.com** (el mismo de `EMAIL_FROM` en `.env.example`).
+- Escribí a **hola@scango.uy** (el mismo de `EMAIL_FROM` en `.env.example`).
 - Asunto: **`[SECURITY]` + breve descripción** (ej. `[SECURITY] XSS en /m/:slug`).
 - **No abras un issue público** ni un PR con el exploit hasta que haya fix.
 

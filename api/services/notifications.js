@@ -89,7 +89,7 @@ function getVapidConfig() {
   return {
     publicKey,
     privateKey,
-    subject: process.env.VAPID_SUBJECT || 'mailto:soporte@menu-pizarron.com'
+    subject: process.env.VAPID_SUBJECT || 'mailto:soporte@scango.uy'
   };
 }
 

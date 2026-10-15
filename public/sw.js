@@ -128,7 +128,7 @@ self.addEventListener('push', (event) => {
       { action: 'close', title: 'Cerrar' }
     ];
   }
-  event.waitUntil(self.registration.showNotification(data.title || 'Menú Pizarrón', options));
+  event.waitUntil(self.registration.showNotification(data.title || 'ScanGo', options));
 });
 
 self.addEventListener('notificationclick', (event) => {

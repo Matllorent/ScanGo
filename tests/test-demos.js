@@ -136,7 +136,7 @@ async function runTests() {
       const csp = res.headers.get('content-security-policy') || '';
       assert.ok(csp.includes("script-src-attr 'none'"), `${slug}: CSP con script-src-attr none`);
       const html = await res.text();
-      assert.ok(html.includes('<title>') && html.includes('Menú Pizarrón'), `${slug}: SSR con título`);
+      assert.ok(html.includes('<title>') && html.includes('ScanGo'), `${slug}: SSR con título`);
     }
     console.log('✓ GET /m/demo-* SSR 200 con CSP estricta (2/2)');
 

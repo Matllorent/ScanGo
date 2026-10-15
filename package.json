@@ -80,7 +80,7 @@
     "billing",
     "subscriptions"
   ],
-  "author": "Menú Pizarrón Studio",
+  "author": "ScanGo Studio",
   "license": "PROPRIETARY",
   "engines": {
     "node": ">=20"

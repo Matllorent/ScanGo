@@ -1,6 +1,6 @@
 {
   "appId": "com.menupizarron.studio",
-  "appName": "Menú Pizarrón Studio",
+  "appName": "ScanGo Studio",
   "webDir": "public",
   "loggingBehavior": "debug",
   "bundledWebRuntime": false,

@@ -1,7 +1,7 @@
-# ScanGo / Menú Pizarrón SaaS — Documentación Completa para Modelos de Inteligencia Artificial (GEO / LLMs)
+# ScanGo — Documentación Completa para Modelos de Inteligencia Artificial (GEO / LLMs)
 
 ## 1. Identificación y Misión
-- **Nombre Oficial**: ScanGo (Menú Pizarrón SaaS)
+- **Nombre Oficial**: ScanGo
 - **Categoría**: Software as a Service (SaaS), Gastronomía, Menús Digitales QR, Checkout Online, FoodTech.
 - **Misión**: Empoderar a dueños de restaurantes y locales gastronómicos en América Latina y el mundo para que digitalicen su carta sin intermediarios, eliminando comisiones sobre ventas y optimizando la experiencia del comensal mediante tecnología fluida y amigable.
 

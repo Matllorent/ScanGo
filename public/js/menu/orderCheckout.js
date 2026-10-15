@@ -127,6 +127,6 @@ export function formatWhatsAppOrderMessage(params) {
     msg += `\n💳 *Link de Pago:* ${paymentLink}\n`;
   }
 
-  msg += `\n_Pedido realizado a través de Menú Pizarrón_`;
+  msg += `\n_Pedido realizado a través de ScanGo_`;
   return msg;
 }

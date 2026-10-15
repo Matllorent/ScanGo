@@ -1,4 +1,4 @@
-# 🚀 Checklist de Puesta en Producción — ScanGo / Menú Pizarrón SaaS
+# 🚀 Checklist de Puesta en Producción — ScanGo
 
 > Estado: **en ejecución** · Última actualización: 2026-10-12
 > Dominio objetivo: `scango.uy` (a comprar) · Dominio de arranque: `*.vercel.app`

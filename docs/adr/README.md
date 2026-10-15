@@ -1,4 +1,4 @@
-# ADRs — Menú Pizarrón SaaS
+# ADRs — ScanGo
 
 Registro de decisiones de arquitectura (formato: Contexto / Decisión /
 Consecuencias). Solo documentan decisiones **ya tomadas**, no propuestas.

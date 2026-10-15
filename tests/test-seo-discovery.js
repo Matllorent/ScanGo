@@ -232,7 +232,7 @@ async function runTests() {
     for (const token of [
       `<link rel="canonical" href="${appUrl}/m/${slug}?branch=centro"`,
       `<meta property="og:url" content="${appUrl}/m/${slug}?branch=centro"`,
-      '<title>SEO Bistró — Centro — Menú Pizarrón</title>',
+      '<title>SEO Bistró — Centro — ScanGo</title>',
       `"@id":"${appUrl}/m/${slug}?branch=centro#restaurant"`,
       '"name":"SEO Bistró — Centro"',
       '"telephone":"+59899123456"',

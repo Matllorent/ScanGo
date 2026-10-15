@@ -1,9 +1,9 @@
-# ScanGo (Menú Pizarrón SaaS)
+# ScanGo
 
 > Plataforma SaaS de cartas y menús digitales interactivos por código QR para gastronomía, con comandas organizadas por WhatsApp, 0% de comisiones por venta, "El Mozo Virtual" (motor de upselling contextual), filtro de reputación "Smart Google Reviews" y pasarelas de pago directas en Latinoamérica.
 
 ## Resumen Ejecutivo
-ScanGo (desarrollado bajo el ecosistema Menú Pizarrón) es una solución tecnológica integral diseñada para locales gastronómicos (restaurantes, bares, cervecerías, cafeterías, taquerías, pizzerías y food trucks). Permite reemplazar o complementar las cartas físicas con una experiencia web rápida, sin necesidad de descargas por parte del cliente, con control total de precios y disponibilidad en tiempo real.
+ScanGo es una solución tecnológica integral diseñada para locales gastronómicos (restaurantes, bares, cervecerías, cafeterías, taquerías, pizzerías y food trucks). Permite reemplazar o complementar las cartas físicas con una experiencia web rápida, sin necesidad de descargas por parte del cliente, con control total de precios y disponibilidad en tiempo real.
 
 ## Pilares Arquitectónicos y Diferenciales
 1. **0% Comisiones sobre Ventas**: A diferencia de las apps de delivery tradicionales (como PedidosYa, Uber Eats o Rappi) que cobran entre el 15% y el 30% por transacción, ScanGo opera con un modelo SaaS de suscripción fija plana. Todo el dinero de las ventas va directo al comerciante.
