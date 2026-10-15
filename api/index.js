@@ -7,10 +7,6 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
 const db = require('../src/db/db');
-const emailService = require('./services/email');
-const telemetryService = require('./services/telemetry');
-const storageService = require('./services/storage');
-const auditService = require('./services/audit');
 const { requireActiveSubscription } = require('./middleware/subscriptionGuard');
 const errorHandler = require('./middleware/errorHandler');
 const { successResponse, errorResponse } = require('./utils/response');
@@ -18,7 +14,6 @@ const requireVerifiedEmail = require('./middleware/requireVerifiedEmail');
 const requestIdMiddleware = require('./middleware/requestId');
 const { invalidateMenuCache } = require('./middleware/cache');
 const { authMiddleware, adminMiddleware } = require('./middleware/auth');
-const { publicAnalyticsLimiter, emailLimiter } = require('./middleware/rateLimits');
 const sentry = require('./utils/sentry');
 const securityHeaders = require('./utils/securityHeaders');
 const { normalizeDemoType, isDemoSlug } = require('./utils/demoRestaurants');
@@ -41,6 +36,8 @@ const menuRouter = require('./routes/menu');
 const menuSsrRouter = require('./routes/menuSsr');
 const eventsRouter = require('./routes/events');
 const discoveryRouter = require('./routes/discovery');
+const publicRouter = require('./routes/public');
+const accountRouter = require('./routes/account');
 const billingDunningRouter = require('./cron/billing-dunning');
 const telemetryRetentionRouter = require('./cron/telemetry-retention');
 const seoAuditCronRouter = require('./cron/seo-audit');
@@ -225,95 +222,12 @@ app.use(express.static(PUBLIC_DIR, { dotfiles: 'allow' }));
 // ==================== ANALYTICS ROUTES ====================
 // Sitekey pública de Turnstile (invisible). Vacía = captcha desactivado en
 // este despliegue y el menú no lo carga. La sitekey es pública por diseño.
-app.get('/api/public/captcha-config', (req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=300');
-  res.json({ sitekey: process.env.TURNSTILE_SITEKEY || '' });
-});
+// → movido a api/routes/public.js (misma ruta, mismo middleware)
 
 // Canal público unificado de analítica. Fuente única de verdad: telemetría
 // (telemetry_events). Los contadores legacy (restaurant.analytics) son una
 // proyección derivada que se recalcula acá, nunca se incrementan a mano.
-app.post('/api/public/analytics/event', publicAnalyticsLimiter, async (req, res) => {
-  try {
-    const { slug, event, dishId, branchId, amount, items, consent } = req.body || {};
-    if (!slug || !event) return res.status(400).json({ error: 'slug y event requeridos' });
-    const validEvents = ['visit', 'order', 'reservation', 'waiter', 'dish_click', 'order_placed', 'google_review_click', 'private_feedback', 'review_nudge_accept', 'dish_like'];
-    if (!validEvents.includes(event)) return res.status(400).json({ error: 'Evento inválido' });
-    // dish_like sin plato es ruido (inflaría lecturas del feed sin contar en
-    // ningún lado): se rechaza antes de persistir.
-    if (event === 'dish_like' && !dishId) return res.status(400).json({ error: 'dishId requerido' });
-    const restaurant = db.findRestaurantBySlug(slug);
-    if (!restaurant) {
-      // Los menús demo son públicos pero NO son restaurantes reales: no se
-      // persiste telemetría (cero datos falsos). Se responde 200 no-op para no
-      // llenar de 404 el panel de red / monitoreo de cada visita a una demo.
-      if (isDemoSlug(slug)) return res.json({ success: true, demo: true });
-      return res.status(404).json({ error: 'Restaurante no encontrado' });
-    }
-    // Consentimiento (Ley 18.331 / cookies): con 'necessary' solo se registra
-    // lo contractual (el pedido/reserva/aviso que el local necesita operar);
-    // lo puramente analítico se descarta con 200 honesto (sin persistir).
-    // Sin consentimiento declarado se mantiene el comportamiento actual.
-    const CONTRACTUAL_EVENTS = new Set(['order_placed', 'reservation', 'waiter_call']);
-    const canonicalPre = event === 'order' || event === 'order_placed'
-      ? 'order_placed'
-      : event === 'waiter'
-        ? 'waiter_call'
-        : event;
-    const minimalConsent = consent === 'necessary';
-    if (minimalConsent && !CONTRACTUAL_EVENTS.has(canonicalPre)) {
-      return res.json({ success: true, recorded: false, reason: 'CONSENT_NECESSARY' });
-    }
-    // dish_like de un plato que no es de la carta: voto fantasma (inflaría el
-    // feed de otro local). Se valida pertenencia antes de persistir.
-    if (event === 'dish_like') {
-      const belongs = (restaurant.dishes || []).some(d => d && String(d.id) === String(dishId).slice(0, 80));
-      if (!belongs) return res.status(400).json({ error: 'Plato no pertenece al local' });
-    }
-
-    // Telemetría rica: alimenta ticket promedio, top platos y comparativa de
-    // sucursales. Los valores se sanean (cadenas cortas; amount numérico 0..1e9;
-    // items de pedidos con dishId ≤80 y qty 1..999, máximo 100 por pedido).
-    // Con consentimiento mínimo ('necessary') el metadata se reduce a la fuente
-    // (sin montos ni detalle de ítems): alcanza para operar, no para perfilar.
-    const cleanAmount = Number(amount);
-    const safeAmount = Number.isFinite(cleanAmount) && cleanAmount >= 0 && cleanAmount <= 1e9
-      ? cleanAmount
-      : undefined;
-    const metadata = minimalConsent
-      ? { source: 'public_menu' }
-      : { amount: safeAmount, source: 'public_menu' };
-    if (event === 'order_placed' && Array.isArray(items) && !minimalConsent) {
-      const safeItems = items
-        .slice(0, 100)
-        .map(it => ({
-          dishId: it && it.dishId ? String(it.dishId).slice(0, 80) : undefined,
-          qty: it && Number.isFinite(Number(it.qty)) ? Math.max(1, Math.min(999, Math.floor(Number(it.qty)))) : 1
-        }))
-        .filter(it => it.dishId);
-      if (safeItems.length) metadata.items = safeItems;
-    }
-    await telemetryService.recordEventSync({
-      restaurantId: restaurant.id,
-      eventType: canonicalPre,
-      dishId: dishId ? String(dishId).slice(0, 80) : undefined,
-      branchId: branchId ? String(branchId).slice(0, 80) : undefined,
-      metadata
-    });
-
-    // Proyección legacy derivada de la telemetría (queda sincronizada con todo
-    // lo que pasa por /track y por el menú público). Se recalcula por evento:
-    // los contadores del dueño deben estar frescos y los tests lo exigen.
-    // El control de carga de este camino es el rate-limit por slug (120/15min)
-    // + el scan acotado a la única columna que usa la proyección.
-    const analytics = await telemetryService.countAnalytics(restaurant.id);
-    await db.setAnalyticsSnapshot(slug, analytics);
-
-    res.json({ success: true, analytics, telemetry: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+// → movido a api/routes/public.js (misma ruta, mismo middleware)
 
 app.get('/api/analytics/:slug', authMiddleware, (req, res) => {
   try {
@@ -349,26 +263,12 @@ app.post('/api/reviews', authMiddleware, async (req, res) => {
   }
 });
 
-app.get('/api/reviews/approved', (req, res) => {
-  try {
-    const reviews = db.getApprovedReviews();
-    res.json({ reviews });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+// → movido a api/routes/public.js (misma ruta, mismo middleware)
 
 // → movido a api/routes/admin.js (misma ruta, mismo middleware)
 
 // Dynamic Pricing & Promotional Banner Configuration
-app.get('/api/settings/pricing', (req, res) => {
-  try {
-    const settings = db.getSettings();
-    res.json({ success: true, settings });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
+// → movido a api/routes/public.js (misma ruta, mismo middleware)
 
 // → movido a api/routes/admin.js (misma ruta, mismo middleware)
 
@@ -417,80 +317,9 @@ app.get('/aviso-legal', (req, res) => {
 });
 
 // Client diagnostic logging endpoint (production-grade debugging)
-app.post('/api/logs', (req, res) => {
-  const { level, message, stack, url, ua } = req.body || {};
-  const timestamp = new Date().toISOString();
-  console.log(`[CLIENT-LOG] [${timestamp}] [${level || 'INFO'}] ${message || ''} | URL: ${url || ''}`);
-  if (stack) console.error(stack);
-  res.json({ received: true });
-});
+// → movido a api/routes/public.js (misma ruta, mismo middleware)
 
-// ==================== ACCOUNT ERASURE (RGPD / Ley 18.331 / Google Play) ====================
-// POST /api/account/delete-request — derecho al olvido. El "Eliminar cuenta"
-// del Studio quedaba huérfano (llamaba a esta ruta y el backend no existía →
-// 404 silencioso que mentía "solicitud registrada"). Ahora borra de verdad:
-// usuario + restaurante + datos asociados (local y nube), imágenes del bucket,
-// revoca la sesión y deja auditoría ANTES del borrado. Requiere `confirm: true`
-// explícito + sesión válida; limiter dedicado y estricto (10/15min).
-const accountDeleteLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    error: 'Demasiadas solicitudes de eliminación. Probá de nuevo en unos minutos.',
-    code: 'RATE_LIMITED'
-  }
-});
-app.post('/api/account/delete-request', accountDeleteLimiter, authMiddleware, async (req, res, next) => {
-  try {
-    const body = req.body || {};
-    if (body.confirm !== true) {
-      return res.status(400).json({
-        success: false,
-        error: 'Debés confirmar la eliminación definitiva con confirm: true.',
-        code: 'CONFIRMATION_REQUIRED'
-      });
-    }
-
-    const user = db.findUserById(req.user.userId);
-    if (!user) {
-      return res.status(404).json({ success: false, error: 'Cuenta no encontrada', code: 'ACCOUNT_NOT_FOUND' });
-    }
-    const restaurant = db.findRestaurantByUserId(user.id);
-
-    // Auditoría ANTES del borrado: queda como registro de procesamiento propio
-    // (tabla audit_logs, no se borra con la cuenta).
-    auditService.logAction({
-      tenantId: restaurant ? restaurant.id : undefined,
-      userId: user.id,
-      requestId: req.requestId,
-      action: 'ACCOUNT_DELETE',
-      entity: 'account',
-      details: {
-        reason: String(body.reason || '').slice(0, 200) || 'Sin motivo',
-        restaurantId: restaurant ? restaurant.id : null
-      }
-    });
-
-    // 1) Imágenes del tenant en el bucket público (no quedan huérfanas).
-    if (restaurant) {
-      await storageService.deleteTenantFiles(user.id).catch((e) => {
-        sentry.captureException(e, { source: 'account.delete.storage', tags: { userId: user.id } });
-        console.warn('[Account Delete] No se pudieron borrar archivos de storage:', e.message);
-      });
-      await invalidateMenuCache(restaurant.slug).catch(() => {});
-    }
-
-    // 2) Datos: usuario + restaurante + asociados (local JSON + Supabase).
-    await db.deleteRestaurantData(user.id, restaurant ? restaurant.id : null);
-
-    return res.json({ success: true, deleted: true });
-  } catch (e) {
-    return next(e);
-  }
-});
+// → movido a api/routes/account.js (misma ruta, mismo middleware)
 
 // Mount modular API routers with rate limiting
 app.use('/api/auth', authLimiter, authRouter);
@@ -518,6 +347,8 @@ app.use('/api/admin', adminRouter);
 app.use('/api', menuRouter);
 app.use('/m', menuSsrRouter);
 app.use('/api/events', eventsRouter);
+app.use('/api', publicRouter);
+app.use('/api/account', accountRouter);
 app.use('/', discoveryRouter);
 app.use('/api/cron', billingDunningRouter);
 app.use('/api/cron', telemetryRetentionRouter);
@@ -530,32 +361,7 @@ app.use('/api/cron', seoAuditCronRouter);
 app.use('/api/billing', billingRouter);
 app.use('/api/billing', requireActiveSubscription);
 
-// Test Email Endpoint
-app.get('/api/test-email', adminMiddleware, emailLimiter, async (req, res, next) => {
-  try {
-    const targetEmail = req.query.to || 'mat2001llorent@gmail.com';
-    const result = await emailService.sendEmail({
-      to: targetEmail,
-      subject: '🧪 Prueba de Correo Real con Resend — ScanGo',
-      html: `
-        <div style="font-family: sans-serif; padding: 24px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
-          <h2 style="color: #10b981; margin-top: 0;">🚀 Confirmación de Integración de Resend</h2>
-          <p>Este es un correo electrónico de prueba enviado exitosamente desde el backend de <strong>ScanGo</strong> utilizando la API Key de Resend.</p>
-          <div style="background: #f8fafc; padding: 16px; border-left: 4px solid #10b981; border-radius: 4px; margin: 20px 0;">
-            <p style="margin: 0; font-size: 14px; color: #334155;"><strong>Destinatario:</strong> ${targetEmail}</p>
-            <p style="margin: 4px 0 0 0; font-size: 14px; color: #334155;"><strong>Remitente:</strong> onboarding@resend.dev</p>
-            <p style="margin: 4px 0 0 0; font-size: 14px; color: #334155;"><strong>Fecha:</strong> ${new Date().toISOString()}</p>
-          </div>
-          <p style="font-size: 13px; color: #64748b; margin-bottom: 0;">Integración 100% activa y lista para producción.</p>
-        </div>
-      `
-    });
-
-    return successResponse(res, result, `Correo de prueba enviado a ${targetEmail} mediante Resend`);
-  } catch (err) {
-    next(err);
-  }
-});
+// (legacy) GET /api/test-email ELIMINADO: duplicaba GET /api/email/test-email de routes/email.js
 app.use('/api/orders', ordersLimiter, ordersRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api', healthRouter);
