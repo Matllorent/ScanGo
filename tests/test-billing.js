@@ -105,8 +105,18 @@ async function runTests() {
   console.log('✓ verifyAccess aplica precio escalonado multi-sucursal (3 sucursales → $22.05 USD, ahorro $4.95)');
 
   // 5c. createCheckout expone el pricing efectivo del plan (async: MP/Stripe
-  //     crean la sesión vía API)
-  const checkout = await billingOrchestrator.createCheckout({
+  //     crean la sesión vía API). HERMÉTICO: el proveedor por defecto depende
+  //     de las credenciales del entorno (con MP configurado resuelve
+  //     mercadopago; en CI sin credenciales, lemonsqueezy). Se fija el env
+  //     para que la aserción sea determinista en ambos mundos.
+  const BILLING_ENV_KEYS = ['MERCADOPAGO_ACCESS_TOKEN', 'STRIPE_SECRET_KEY', 'STRIPE_PRICE_MONTHLY', 'STRIPE_PRICE_ANNUAL', 'LEMONSQUEEZY_STORE_ID', 'LEMONSQUEEZY_API_KEY', 'LEMONSQUEEZY_PLAN_MONTHLY_VARIANT_ID', 'LEMONSQUEEZY_PLAN_ANNUAL_VARIANT_ID', 'DEFAULT_BILLING_PROVIDER'];
+  const billingEnvSaved = {};
+  for (const k of BILLING_ENV_KEYS) {
+    billingEnvSaved[k] = Object.prototype.hasOwnProperty.call(process.env, k) ? process.env[k] : undefined;
+    delete process.env[k];
+  }
+  let checkout;
+  checkout = await billingOrchestrator.createCheckout({
     restaurantId: rest.id,
     planId: 'starter_monthly',
     customerEmail: user.email
@@ -128,6 +138,10 @@ async function runTests() {
   assert.strictEqual(billingOrchestrator.resolveProvider('AR', 'ARS'), 'mercadopago', 'AR → Mercado Pago');
   assert.strictEqual(billingOrchestrator.resolveProvider('US', 'USD'), 'lemonsqueezy', 'resto del mundo → Lemon Squeezy');
   console.log('✓ Normalización de planes y resolución de proveedor por país/moneda');
+  for (const k of BILLING_ENV_KEYS) {
+    if (billingEnvSaved[k] === undefined) delete process.env[k];
+    else process.env[k] = billingEnvSaved[k];
+  }
 
   // 5d. Restaurante sin branches = 1 sucursal (sin descuento)
   await db.saveRestaurant(user.id, { branches: [] });

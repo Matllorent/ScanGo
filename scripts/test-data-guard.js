@@ -20,6 +20,7 @@ const path = require('path');
 
 const dataDir = path.join(__dirname, '..', 'data');
 const backupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'menu-data-backup-'));
+const { snapshotCloudSlugs, cleanupCloudTests } = require('./test-cloud-cleanup');
 
 /** Copia todos los archivos actuales de data/ al backup. */
 function snapshot() {
@@ -58,11 +59,26 @@ function restore(originalFiles) {
 }
 
 const originalFiles = snapshot();
-console.log(`[data-guard] Snapshot de data/ (${originalFiles.length} archivos) → ${backupDir}`);
 
-const result = spawnSync('npm', ['run', 'test:core'], { stdio: 'inherit', shell: true });
+async function main() {
+  // La suite escribe en la nube REAL si hay credenciales: se borran los
+  // restaurantes de prueba sembrados (el sitemap de prod los indexaba).
+  const cloudBefore = await snapshotCloudSlugs();
+  if (cloudBefore) console.log(`[data-guard] Snapshot cloud (${cloudBefore.size} slugs).`);
 
-restore(originalFiles);
-console.log(`[data-guard] Data restaurada (${originalFiles.length} archivos): la suite dejó data/ como estaba antes de correr.`);
+  console.log(`[data-guard] Snapshot de data/ (${originalFiles.length} archivos) → ${backupDir}`);
 
-process.exit(result.status === null ? 1 : result.status);
+  const result = spawnSync('npm', ['run', 'test:core'], { stdio: 'inherit', shell: true });
+
+  restore(originalFiles);
+  console.log(`[data-guard] Data restaurada (${originalFiles.length} archivos): la suite dejó data/ como estaba antes de correr.`);
+  await cleanupCloudTests(cloudBefore);
+
+  process.exit(result.status === null ? 1 : result.status);
+}
+
+main().catch((e) => {
+  console.error('[data-guard] Falló la guarda:', e.message);
+  try { restore(originalFiles); } catch (_) {}
+  process.exit(1);
+});
