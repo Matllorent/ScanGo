@@ -275,6 +275,33 @@ function runFrontendStructureTests() {
   );
   console.log('✓ sw.js: no intercepta cross-origin (imágenes/fuentes externas cargan con el CSP de la página)');
 
+  // ---------- H: banner de cookies con atraso + sin solape con WhatsApp ----------
+  // QA en navegador: el aviso aparecía en la primera pintura (sobrecarga al
+  // visitante) y el flotante de WhatsApp tapaba sus botones abajo a la derecha.
+  const consent = read('public/js/cookieConsent.js');
+  assert.ok(
+    /var SHOW_DELAY_MS = 2500;/.test(consent),
+    'REGRESIÓN: cookieConsent debe esperar 2,5s antes del primer aviso (SHOW_DELAY_MS)'
+  );
+  assert.ok(
+    /setTimeout\(showBanner,\s*SHOW_DELAY_MS\)/.test(consent),
+    'REGRESIÓN: el auto-aviso va con setTimeout (el show() manual sigue siendo inmediato)'
+  );
+  assert.ok(
+    consent.includes("classList.add('has-cookie-banner')") && consent.includes("classList.remove('has-cookie-banner')"),
+    'REGRESIÓN: cookieConsent debe marcar body.has-cookie-banner al mostrar/ocultar (corre el flotante de WhatsApp)'
+  );
+  const indexCss = read('public/css/index.css');
+  assert.ok(
+    /body\.has-cookie-banner\s+\.whatsapp-float-container\s*\{\s*bottom:\s*110px;/.test(indexCss),
+    'REGRESIÓN: index.css debe subir el flotante de WhatsApp con el banner visible (desktop)'
+  );
+  assert.ok(
+    /body\.has-cookie-banner\s+\.whatsapp-float-container\s*\{\s*bottom:\s*210px;/.test(indexCss),
+    'REGRESIÓN: index.css debe subir el flotante de WhatsApp con el banner visible (móvil, barra más alta)'
+  );
+  console.log('✓ Cookies: aviso con atraso de 2,5s y sin solape con el flotante de WhatsApp');
+
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE ESTRUCTURA FRONTEND PASARON AL 100%!');
 }
 

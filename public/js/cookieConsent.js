@@ -12,6 +12,10 @@
 
   var KEY = 'scango_cookie_consent';
   var BANNER_ID = 'scangoCookieBanner';
+  // El aviso NO interrumpe la primera pintura: espera a que el visitante
+  // asimile el hero antes de pedirle una decisión (nada de terceros carga
+  // antes del consentimiento de todos modos).
+  var SHOW_DELAY_MS = 2500;
 
   function getConsent() {
     try {
@@ -40,6 +44,8 @@
   function hideBanner() {
     var el = document.getElementById(BANNER_ID);
     if (el) el.remove();
+    // El flotante de WhatsApp vuelve a su lugar (ver index.css).
+    try { document.body.classList.remove('has-cookie-banner'); } catch (e) {}
   }
 
   function showBanner() {
@@ -76,6 +82,8 @@
     bar.appendChild(btnAll);
     bar.appendChild(btnMin);
     document.body.appendChild(bar);
+    // Corre el flotante de WhatsApp para que no tape los botones (ver index.css).
+    try { document.body.classList.add('has-cookie-banner'); } catch (e) {}
   }
 
   function reshow() {
@@ -91,8 +99,10 @@
   };
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', showBanner);
+    document.addEventListener('DOMContentLoaded', function () {
+      setTimeout(showBanner, SHOW_DELAY_MS);
+    });
   } else {
-    showBanner();
+    setTimeout(showBanner, SHOW_DELAY_MS);
   }
 })();

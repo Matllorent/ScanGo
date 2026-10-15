@@ -1159,6 +1159,14 @@
       .whatsapp-float-btn svg { width: 28px; height: 28px; }
     }
 
+    /* El aviso de cookies es una barra inferior full-width: mientras está
+       visible, el flotante de WhatsApp sube para no tapar sus botones
+       (cookieConsent.js pone/saca has-cookie-banner en body). */
+    body.has-cookie-banner .whatsapp-float-container { bottom: 110px; }
+    @media (max-width: 600px) {
+      body.has-cookie-banner .whatsapp-float-container { bottom: 210px; }
+    }
+
     /* Dynamic Promotional Discount Banner */
     .promo-discount-banner {
       background: linear-gradient(90deg, #16241F 0%, #30210B 50%, #16241F 100%);
