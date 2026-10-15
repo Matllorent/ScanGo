@@ -241,7 +241,8 @@ async function runTests() {
   assert.ok(sanitizeFile.includes("'.mp4'") && sanitizeFile.includes("'.webm'"), 'video: solo contenedores cross-browser (.mp4/.webm), .mov afuera');
   assert.ok(sanitizeFile.includes('videoUrl: sanitizeVideoUrl'), 'sanitizeDish debe persistir videoUrl saneado');
   assert.ok(studioHtml.includes('id="modalDishVideo"'), 'studio debe pedir el link MP4 en el editor del plato');
-  assert.ok(menuJs.includes('dish-videobadge'), 'la carta clásica debe señalizar con 🎬 los platos con video');
+  const renderSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/menuRender.js'), 'utf8');
+  assert.ok(renderSrc.includes('dish-videobadge'), 'la carta clásica debe señalizar con 🎬 los platos con video');
   assert.ok(storiesMod.includes('lookupDishVideo') && storiesMod.includes('window.restaurantData'), 'stories debe leer el video del puente vivo (sin duplicar estado)');
   assert.ok(storiesMod.includes("setAttribute('playsinline'") && storiesMod.includes('STORY_VIDEO_MAX_MS'), 'video: playsinline + avance atado a duración con tope 15s');
   assert.ok(storiesMod.includes('saveData') && storiesMod.includes('.catch('), 'video: respeta save-data y el play() con catch (iOS ahorro)');
@@ -260,10 +261,10 @@ async function runTests() {
   // dueño apaga el asistente aunque businessType sea 'heladeria'.
   assert.ok(menuJs.includes('const isHeladeria = restaurantData.allowIceCreamWizard === true;'), 'menu.js debe respetar allowIceCreamWizard=false para no mostrar el asistente apagado');
   assert.ok(!menuJs.includes("restaurantData.businessType === 'heladeria' || restaurantData.allowIceCreamWizard"), 'menu.js no debe forzar el asistente por rubro cuando el dueño lo apagó');
-  assert.ok(menuJs.includes('Los Mejores Platos de la Casa'), 'El carrusel superior debe mostrar Los Mejores Platos en las morfologías board');
+  assert.ok(renderSrc.includes('Los Mejores Platos de la Casa'), 'El carrusel superior debe mostrar Los Mejores Platos en las morfologías board');
   // Fase E pulido: overlay por clase condicional y títulos del carrusel traducibles
-  assert.ok(menuJs.includes("dish-has-photo"), 'menu.js debe marcar los cards con foto con la clase dish-has-photo');
-  assert.ok(menuJs.includes("t('topDishesCarousel', 'Los Mejores Platos de la Casa')"), 'El título del carrusel debe salir de i18n con fallback en español');
+  assert.ok(renderSrc.includes("dish-has-photo"), 'menuRender.js debe marcar los cards con foto con la clase dish-has-photo');
+  assert.ok(renderSrc.includes("t('topDishesCarousel', 'Los Mejores Platos de la Casa')"), 'El título del carrusel debe salir de i18n con fallback en español');
   console.log('✓ Inyección reactiva de banner y clases morfológicas comprobada en el menú público');
 
   // 5b. i18n de los títulos del carrusel Fase E en los 3 idiomas

@@ -573,9 +573,10 @@ async function runMenuComponentizationTests() {
   for (const v of [1, 490, '25.5', 0.01, -5]) {
     assert.strictEqual(presModule.isFreePrice(v), false, `isFreePrice(${JSON.stringify(v)}) debe ser false`);
   }
-  // Call sites en menu.js: carta, chef, carrito, barra, totales, upsell
-  assert.ok(menuSrc.includes('isFreePriceMod(effectivePrice)'), 'Chef specials: gate de precio sin costo');
-  assert.ok(menuSrc.includes('const isFreeDish = isFreePriceMod(effectivePrice)'), 'Dish card: gate de precio sin costo');
+  // Call sites: carta/chef en menuRender.js, carrito/barra/totales en menu.js, upsell en cartUpsell.js
+  const renderModSrc17 = fs.readFileSync(path.join(__dirname, '../public/js/menu/menuRender.js'), 'utf8');
+  assert.ok(renderModSrc17.includes('isFreePrice(effectivePrice)'), 'Chef specials: gate de precio sin costo');
+  assert.ok(renderModSrc17.includes('const isFreeDish = isFreePrice(effectivePrice)'), 'Dish card: gate de precio sin costo');
   assert.ok(menuSrc.includes('const itemIsFree = isFreePriceMod(unitPrice)'), 'Carrito: línea sin cifras si es gratis');
   assert.ok(menuSrc.includes('Ver Pedido →'), 'Barra flotante: sin ($0) cuando el pedido es gratis');
   assert.ok(menuSrc.includes('formatTotalOrFree(total)'), 'Totales: "Sin costo" en vez de $0');
@@ -694,8 +695,9 @@ async function runMenuComponentizationTests() {
   assert.ok(cdHtml.includes('Faltan 3 días'), 'Cuenta regresiva en el header');
   assert.ok(!cdHtml.includes('is-now'), 'Sin momento actual antes del evento');
   // Cableado del refresh: menu.js re-renderiza cada 30s + Studio pide el día + CSS de estados
-  assert.ok(menuSrc.includes('weddingItineraryTimer'), 'menu.js gestiona el intervalo de re-render');
-  assert.ok(menuSrc.includes('setInterval(renderWeddingItinerary, 30000)'), 'Refresh cada 30s');
+  const renderSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/menuRender.js'), 'utf8');
+  assert.ok(renderSrc.includes('weddingItineraryTimer'), 'menuRender.js gestiona el intervalo de re-render');
+  assert.ok(/setInterval\(.*renderWeddingItinerary.*30000\)/.test(renderSrc), 'Refresh cada 30s (con ctx preservado)');
   assert.ok(studioHtmlSrc.includes('id="inputWeddingDay"'), 'Studio: input de fecha del evento');
   assert.ok(menuCssSrc.includes('.wed-it-status'), 'CSS: píldora de estado');
   assert.ok(menuCssSrc.includes('.wed-it-progress'), 'CSS: barra de avance');
@@ -916,9 +918,10 @@ async function runMenuComponentizationTests() {
   assert.ok(dishEditorSrc.includes('updatePhotoCoverageBanner'), 'dishEditor: cómputo de cobertura');
   assert.ok(dishEditorSrc.includes('sin foto'), 'El banner cuenta platos sin imagen');
   // 24.5 Cierre manual forceClosed: badge + carta + submit + pago + backend.
-  assert.ok(menuSrc.includes('restaurantData.forceClosed === true'), 'menu.js respeta el cierre manual');
+  const renderModSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/menuRender.js'), 'utf8');
+  assert.ok(renderModSrc.includes('ctx.getRestaurantData().forceClosed === true'), 'menuRender.js respeta el cierre manual');
   assert.ok(menuSrc.includes('Cerrado por el momento'), 'Badge y avisos con copy propio (sin "undefined hs")');
-  assert.ok(menuSrc.includes('Local cerrado por el momento'), 'Carta pausada con mensaje dedicado');
+  assert.ok(renderModSrc.includes('Local cerrado por el momento'), 'Carta pausada con mensaje dedicado');
   assert.ok(studioHtmlSrc.includes('id="inputForceClosed"'), 'Studio: toggle de cierre manual');
   assert.ok(studioSrc.includes('restaurant.forceClosed = forceClosedCheck.checked'), 'Studio: guarda el cierre');
   assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({ forceClosed: true }).forceClosed, true, 'Backend: true pasa');
@@ -1022,9 +1025,9 @@ async function runMenuComponentizationTests() {
   // Hero de invitado en el menú: tarjeta de bienvenida con nombre/mesa del link.
   assert.ok(menuHtmlSrc.includes('id="guestInviteHero"'), 'menu.html: contenedor de la tarjeta de invitado');
   assert.ok(menuSrc.includes('parseGuestContext'), 'menu.js: importa parseGuestContext (nombre/mesa del link)');
-  assert.ok(menuSrc.includes('function renderGuestInvite'), 'menu.js: render de la tarjeta de invitado');
-  assert.ok(menuSrc.includes('nameEl.textContent = guestName'), 'menu.js: nombre con textContent (cero HTML inyectable)');
-  assert.ok(menuSrc.includes('Mesa ${tableNumber}'), 'menu.js: la mesa del link se suma a la tarjeta');
+  assert.ok(menuSrc.includes('function renderGuestInvite()'), 'menu.js: wrapper de la tarjeta de invitado');
+  assert.ok(renderModSrc.includes('nameEl.textContent = guestName'), 'menuRender.js: nombre con textContent (cero HTML inyectable)');
+  assert.ok(renderModSrc.includes('Mesa ${tableNumber}'), 'menuRender.js: la mesa del link se suma a la tarjeta');
   assert.ok(menuCssSrc.includes('.guest-invite-hero'), 'menu.css: estilos de la tarjeta (paleta del tema activo)');
   console.log('✓ Invitaciones por WhatsApp: link personal + mensaje + backend con teléfono');
 
