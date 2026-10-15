@@ -41,19 +41,22 @@ jobs:
       - run: npm run test:semgrep
 
       # Auditoría de vulnerabilidades sobre el lockfile.
-      # Pin exacto: el tag flotante `v2` fue eliminado por Google (rompió el CI
-      # 2026-10-15: "unable to find version v2"); usar versión completa.
-      # v2.7.0 QUEDÓ PINNEADO ROTO: su action.yml no trae `runs:` (error
-      # upstream 2026-10-12/15, tumba todo el job). v2.6.0 hasta que Google
-      # publique el fix; re-bumpear y verificar con un push.
-      # fail-on-vuln false: informa sin bloquear (riesgo aceptado
-      # braces/CHOKIDAR documentado en AGENTS.md).
-      - name: Auditoría OSV-Scanner
-        uses: google/osv-scanner-action@v2.6.0
-        with:
-          scan-args: |-
-            -L package-lock.json --format sarif --output osv-results.sarif
-          fail-on-vuln: false
+      # El action oficial `google/osv-scanner-action` quedó INUTILIZABLE:
+      # v2.7.0 y v2.6.0 traen action.yml sin `runs:` (error upstream que
+      # tumba el job en el setup, verificado 2026-10-15). Se usa el binario
+      # directo con el MISMO patrón del job secret-scan (pin + sha256 del
+      # release oficial). Informa sin bloquear (riesgo aceptado braces
+      # documentado en AGENTS.md).
+      - name: Auditoría OSV-Scanner (binario v2.6.0)
+        env:
+          OSV_VERSION: v2.6.0
+          OSV_SHA256: ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/google/osv-scanner/releases/download/${OSV_VERSION}/osv-scanner_linux_amd64" -o osv-scanner
+          echo "${OSV_SHA256}  osv-scanner" | sha256sum -c -
+          chmod +x osv-scanner
+          ./osv-scanner scan source -L package-lock.json --format sarif --output osv-results.sarif || true
 
       # Sube el SARIF si el escaneo lo generó (nunca rompe el build).
       - name: Subir SARIF de OSV

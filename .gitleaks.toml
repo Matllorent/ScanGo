@@ -1,7 +1,8 @@
 # Configuración de gitleaks para ScanGo.
 # Extiende las reglas por defecto del proyecto gitleaks y documenta los únicos
 # falsos positivos verificados con `gitleaks detect --source .` sobre TODO el
-# historial (132 commits, ~38 MB, 17 hallazgos — ninguno es un secreto real).
+# historial (172 commits, ~39 MB, 3 hallazgos 2026-10-15: 2 FP + 1 password
+# real YA ROTADA — ver regex `ScanGoMat2001`).
 #
 # El job `secret-scan` de CI (`.github/workflows/ci.yml`) corre con
 # `--config .gitleaks.toml` + `--exit-code 1`: si aparece un secreto real en
@@ -25,6 +26,14 @@ description = """Solo falsos positivos, verificados contra el historial completo
   3. Passwords de fixture de las suites de test (valor actual "test_password";
      versiones históricas de reset concurrente/device tokens usaron
      "otra_clave_123"). Cualquier otra password/secret SÍ queda marcado.
+  4. `tests/test-indexnow.js` → `VALID_KEY` es un UUID secuencial de fixture
+     (`01234567-89ab-...`), documentado en el propio test como patrón válido.
+  5. Docs con placeholders angulares (`<password>`, `<ref>`, `<region>` en
+     `docs/produccion-checklist.md`): nunca credenciales reales.
+  6. `mcp.json` histórico (commit bc9e91b, 2026-10-06) contenía la password
+     real de Postgres en texto plano. ROTADA el 2026-10-15 por el dueño; el
+     árbol actual ya usa `${SUPABASE_DB_PASSWORD}`. Esta entrada existe solo
+     para que el historial no rompa el CI — NO reutilizar esa password.
 """
 paths = [
   # Plantilla de entorno: solo placeholders; el .env real está en .gitignore.
@@ -38,13 +47,21 @@ regexes = [
   # históricas usaron "otra_clave_123"). Allowlist de nombre exacto: cualquier
   # otra password/secret en el historial o el working tree sigue marcándose.
   '''(test_password|otra_clave_123)''',
+  # UUID secuencial de fixture del test de IndexNow (ver §4).
+  '''01234567-89ab-cdef-0123-456789abcdef''',
+  # Placeholders angulares de la documentación (ver §5).
+  '''(<password>|<ref>|<region>)''',
+  # Password histórica de mcp.json, ROTADA 2026-10-15 (ver §6).
+  '''ScanGoMat2001''',
 ]
 
 # Regla propia: URL de Postgres con password real nunca va al repo (usar
 # ${...}/env; el backup usa SUPABASE_DB_URL como secret). El `{}` excluye
 # a propósito el placeholder ${SUPABASE_DB_PASSWORD} de mcp.json.
+# OJO: el grupo es NO-capturador `(?:...)`: gitleaks usa el grupo 1 como
+# secreto y con `(ql)` el secreto quedaba en "ql" (invisible al allowlist).
 [[rules]]
 id = "postgres-url-with-password"
 description = "Postgres connection string con password en texto plano"
-regex = '''postgres(ql)?://[^/\s:]+:[^/\s@{}]+@'''
+regex = '''postgres(?:ql)?://[^/\s:]+:[^/\s@{}]+@'''
 tags = ["postgres", "supabase", "database-url"]
