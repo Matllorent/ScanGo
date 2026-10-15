@@ -30,6 +30,11 @@
       localStorage.setItem(KEY, value);
     } catch (e) { /* storage bloqueado: se pregunta de nuevo */ }
     hideBanner();
+    // Avisa a los cargadores diferidos (Clarity, etc.): solo actúan con 'all'.
+    try {
+      window.dispatchEvent(new CustomEvent('scango:consent', { detail: { consent: value } }));
+      if (value === 'all') window.dispatchEvent(new CustomEvent('scango:consent-all'));
+    } catch (e) { /* CustomEvent no disponible: los loaders reintentan al cargar */ }
   }
 
   function hideBanner() {
@@ -50,7 +55,7 @@
       + 'box-shadow:0 12px 32px rgba(0,0,0,0.5); font-size:0.8rem; color:#D1DDD9;';
     var text = document.createElement('div');
     text.style.cssText = 'flex:1; min-width:220px;';
-    text.textContent = 'Usamos cookies necesarias para la sesión y, si aceptás, las de terceros (Google, control anti-robots). ';
+    text.textContent = 'Usamos cookies necesarias para la sesión y, si aceptás, las de terceros (Google, control anti-robots, medición de uso). ';
     var policy = document.createElement('a');
     policy.href = '/cookies';
     policy.textContent = 'Ver política';

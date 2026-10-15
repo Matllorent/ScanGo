@@ -162,6 +162,36 @@ async function runTests() {
   }
   console.log('✓ Permissions-Policy: usb=(self) para WebUSB del Studio + sin features obsoletas');
 
+  // ---------------------------------------------------------------- estático 3c
+  // Microsoft Clarity con consentimiento (Ley 18.331): el tag solo se inyecta
+  // con aceptación de terceros + ID real. Sin ID o sin aceptación → no-op
+  // (cero tráfico). La CSP de AMBAS variantes autoriza www.clarity.ms.
+  const clarityJs = fs.readFileSync(path.join(PUBLIC_DIR, 'js', 'clarity.js'), 'utf8');
+  assert.ok(!INLINE_EVENT_RE.test(clarityJs), 'clarity.js sin on*= (CSP script-src-attr none)');
+  for (const needle of ['scango:consent-all', 'scango_cookie_consent', 'scango-clarity-id', 'TU_CLARITY_ID', 'https://www.clarity.ms/tag/']) {
+    assert.ok(clarityJs.includes(needle), `clarity.js contiene ${needle}`);
+  }
+  const cookieJs = fs.readFileSync(path.join(PUBLIC_DIR, 'js', 'cookieConsent.js'), 'utf8');
+  assert.ok(cookieJs.includes('scango:consent-all'), 'cookieConsent avisa con el evento scango:consent-all');
+  for (const page of ['index.html', 'menu.html']) {
+    const html = fs.readFileSync(path.join(PUBLIC_DIR, page), 'utf8');
+    assert.ok(html.includes('name="scango-clarity-id"'), `${page} declara el meta scango-clarity-id`);
+    assert.ok(html.includes('src="/js/clarity.js"'), `${page} carga /js/clarity.js`);
+    // Ningún tag activo de Clarity con ID real fuera del loader (el bloque de
+    // ejemplo en index.html sigue comentado: cargarlo directo violaría /cookies §3).
+    const decommented = html.replace(/<!--[\s\S]*?-->/g, '');
+    assert.ok(!decommented.includes('clarity.ms/tag/'), `${page} sin tag Clarity activo (solo comentarios o el loader)`);
+  }
+  const cookiesHtml = fs.readFileSync(path.join(PUBLIC_DIR, 'legal', 'cookies.html'), 'utf8');
+  assert.ok(cookiesHtml.includes('Microsoft Clarity'), '/cookies §3 documenta Clarity como tercero con aceptación');
+  const strictDirs = securityHeaders.buildCspDirectives({ strictMenu: true });
+  const transDirs = securityHeaders.buildCspDirectives();
+  for (const [label, dirs] of [['estricta', strictDirs], ['transitional', transDirs]]) {
+    assert.ok(dirs['script-src'].includes('https://www.clarity.ms'), `CSP ${label}: script-src autoriza www.clarity.ms`);
+    assert.ok(dirs['connect-src'].some((h) => h.includes('clarity.ms')), `CSP ${label}: connect-src autoriza los beacons de Clarity`);
+  }
+  console.log('✓ Clarity con consentimiento: loader con gate, metas, /cookies §3 y CSP en ambas variantes');
+
   // ---------------------------------------------------------------- estático 4
   // Rutas legales: cada path público debe existir en Express (dev) Y en
   // vercel.json (prod estática) apuntando al MISMO archivo en disco.

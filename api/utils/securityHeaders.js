@@ -13,7 +13,8 @@
  * CSP por capas:
  *  - strictMenu (menú público /m/*): renderiza contenido del restaurante → es el
  *    mayor blanco XSS. script-src solo 'self' + supabase-js (jsdelivr) +
- *    Turnstile invisible (challenges.cloudflare.com, anti-spam del checkout).
+ *    Turnstile invisible (challenges.cloudflare.com, anti-spam del checkout) +
+ *    Clarity (www.clarity.ms, solo con consentimiento 'all').
  *  - transitional (resto de páginas): script-src-elem estricto ('self' + CDNs de
  *    confianza + SHA-256 de los scripts inline estáticos).
  *  - Ambas variantes usan script-src-attr 'none' (Etapa 2 completa): NO existe
@@ -82,7 +83,7 @@ function buildCspDirectives({ strictMenu = false } = {}) {
     // de img (nunca data:/blob: — un base64 de video inflaría filas y ciega
     // la cuota). El navegador igual exige gesto/política para autoplay.
     'media-src': ["'self'", 'https:'],
-    'connect-src': ["'self'", 'https://*.supabase.co', 'wss://*.supabase.co'],
+    'connect-src': ["'self'", 'https://*.supabase.co', 'wss://*.supabase.co', 'https://www.clarity.ms', 'https://*.clarity.ms'],
     'frame-ancestors': ["'self'"],
     'object-src': ["'none'"],
     'base-uri': ["'self'"],
@@ -91,8 +92,9 @@ function buildCspDirectives({ strictMenu = false } = {}) {
   if (strictMenu) {
     return {
       ...common,
-      // Turnstile invisible (anti-spam en el checkout del comensal).
-      'script-src': ["'self'", 'https://cdn.jsdelivr.net', 'https://challenges.cloudflare.com'],
+      // Turnstile invisible (anti-spam en el checkout del comensal) +
+      // Microsoft Clarity (medición de uso, solo con consentimiento 'all').
+      'script-src': ["'self'", 'https://cdn.jsdelivr.net', 'https://challenges.cloudflare.com', 'https://www.clarity.ms'],
       'script-src-attr': ["'none'"],
       'connect-src': [...common['connect-src'], 'https://challenges.cloudflare.com'],
       'frame-src': ["'self'", 'https://challenges.cloudflare.com']
@@ -100,7 +102,8 @@ function buildCspDirectives({ strictMenu = false } = {}) {
   }
   return {
     ...common,
-    'script-src': ["'self'", ...SCRIPT_EXTERNALS, ...computeInlineScriptHashes()],
+    // Microsoft Clarity (medición de uso, solo con consentimiento 'all').
+    'script-src': ["'self'", ...SCRIPT_EXTERNALS, 'https://www.clarity.ms', ...computeInlineScriptHashes()],
     'script-src-attr': ["'none'"], // Etapa 2 completa: cero handlers inline en TODO public/
     'frame-src': ["'self'", 'https://accounts.google.com']
   };

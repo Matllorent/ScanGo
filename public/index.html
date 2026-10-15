@@ -90,6 +90,12 @@
   }
   </script>
 
+  <!-- Microsoft Clarity (medición de uso: grabaciones + mapas de calor, SOLO con
+       aceptación de terceros vía public/js/clarity.js). ID real en content;
+       vacío = desactivado (cero tráfico a Microsoft). GA4/Search Console/Pixel
+       van con el dominio oficial, decisión documentada en AGENTS.md. -->
+  <meta name="scango-clarity-id" content="">
+
   <!-- Google Search Console Verification (Reemplazar con tu código) -->
   <!-- <meta name="google-site-verification" content="TU_CODIGO_GSC_AQUI"> -->
 
@@ -103,6 +109,9 @@
   </script> -->
 
   <!-- Microsoft Clarity (Reemplazar TU_CLARITY_ID con tu ID de proyecto) -->
+  <!-- NOTA: este bloque queda COMENTADO a propósito. El cableado real vive en
+       public/js/clarity.js (con consentimiento + meta scango-clarity-id):
+       descomentar esto cargaría el tag SIN pedir permiso (viola /cookies §3). -->
   <!-- <script type="text/javascript">
     (function(c,l,a,r,i,t,y){
       c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
@@ -888,6 +897,7 @@
        un punto de falla externo en la página de conversión. No re-agregar. -->
   <script defer src="/js/authClient.js"></script>
   <script defer src="/js/cookieConsent.js"></script>
+  <script defer src="/js/clarity.js"></script>
   <script defer src="/js/pwa.js"></script>
   <script defer src="/js/index.js"></script>
 
