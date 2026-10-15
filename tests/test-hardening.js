@@ -96,12 +96,16 @@ async function runTests() {
 
   const dry = await telemetryService.purgeOldTelemetry({ olderThanDays: 183, dryRun: true });
   assert.strictEqual(dry.prunedLocal, cloudActive ? 0 : 1, 'dry-run reporta lo que podaría');
-  assert.strictEqual(telemetryService.getLocalTelemetryCount(), countBefore, 'dry-run no toca el espejo');
+  assert.strictEqual(
+    telemetryService.getLocalTelemetryCount(),
+    countBefore + (cloudActive ? 0 : 1),
+    'dry-run no toca el espejo (solo reporta)'
+  );
 
   if (!cloudActive) {
     const purge = await telemetryService.purgeOldTelemetry({ olderThanDays: 183 });
     assert.strictEqual(purge.prunedLocal, 1, 'el evento backdated (400 días) se purga');
-    assert.strictEqual(telemetryService.getLocalTelemetryCount(), countBefore - 1, 'la purga quitó exactamente el evento viejo');
+    assert.strictEqual(telemetryService.getLocalTelemetryCount(), countBefore, 'la purga quitó exactamente el evento viejo');
     console.log('✓ B: purga real del espejo local (dry-run reporta, purge sí borra)');
   } else {
     console.log('✓ B: modo cloud — dry-run reporta 0 y no muta el espejo');
