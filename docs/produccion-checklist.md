@@ -1,14 +1,14 @@
 # 🚀 Checklist de Puesta en Producción — ScanGo
 
-> Estado: **en ejecución** · Última actualización: 2026-10-12
-> Dominio objetivo: `scango.uy` (a comprar) · Dominio de arranque: `*.vercel.app`
+> Estado: **en ejecución** · Última actualización: 2026-10-15
+> Dominio objetivo: `scango.uy` (a comprar) · Prod viva: `https://scango-rouge.vercel.app` (healthz healthy, DB cloud OK)
 > Pasarela global elegida: **Lemon Squeezy** · Latam: **Mercado Pago**
 
 ## Resumen de estado
 
 | Área | Estado |
 |---|---|
-| Suite de tests (46) | ✅ 46/46 en verde (incluye Realtime real, CSP 53/53 e IndexNow) |
+| Suite de tests (50) | ✅ 50/50 en verde en CI (Node 22+24, sin cloud) y local con cloud |
 | Semgrep | ✅ 0 hallazgos |
 | OSV-Scanner | ✅ re-auditado 2026-10-12: solo `braces@3.0.3` (dev-only, sin fix publicado, riesgo aceptado documentado) |
 | Supabase cloud | ✅ esquema completo, migraciones 001–006 aplicadas y verificadas en runtime |
@@ -21,7 +21,7 @@
 | Email real | ⛔ `EMAIL_FROM` usa `@resend.dev` — falta verificar dominio en Resend |
 | Pasarela global | ⛔ sin Lemon Squeezy (API key, store, webhook, variants) |
 | Google OAuth origin | ⛔ falta agregar el dominio de prod en Google Cloud Console |
-| Deploy en Vercel | ⛔ pendiente — verificado 2026-10-12: `https://menu-pizarron-saas.vercel.app/api/healthz` → **404** (sin deployment); CLI deslogueada |
+| Deploy en Vercel | ✅ `https://scango-rouge.vercel.app` viva (healthz 200, DB cloud, SSR, robots/sitemap dinámicos) — verificado 2026-10-15 |
 | Sentry DSN | ⛔ pendiente (recomendado) |
 | UptimeRobot | ⛔ pendiente (recomendado) |
 | Play Store | ⏸️ fase 2 (Capacitor no instalado aún) |
