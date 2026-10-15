@@ -318,10 +318,11 @@ async function runTests() {
   // ── 8) Anti-fuga de secretos + anti open-redirect (revisión breaches) ────
   const fs = require('fs');
   const path = require('path');
+  const billingSrc = fs.readFileSync(path.join(__dirname, '../api/routes/billing.js'), 'utf8');
   const apiSrc = fs.readFileSync(path.join(__dirname, '../api/index.js'), 'utf8');
-  assert.ok(apiSrc.includes('timingSafeEqualHex(req.query.secret, expectedSecret)'), 'webhook MP compara el secreto en tiempo constante');
-  assert.ok(apiSrc.includes("split('?')[0]"), 'Sentry nunca recibe la query (?secret= del webhook MP)');
-  assert.ok(!/extra:\s*\{\s*path:\s*req\.originalUrl\s*\}/.test(apiSrc), 'ningún extra de Sentry lleva originalUrl cruda');
+  assert.ok(billingSrc.includes('timingSafeEqualHex(req.query.secret, expectedSecret)'), 'webhook MP compara el secreto en tiempo constante');
+  assert.ok(billingSrc.includes("split('?')[0]"), 'Sentry nunca recibe la query (?secret= del webhook MP)');
+  assert.ok(!/extra:\s*\{\s*path:\s*req\.originalUrl\s*\}/.test(billingSrc + apiSrc), 'ningún extra de Sentry lleva originalUrl cruda');
   const orchSrc = fs.readFileSync(path.join(__dirname, '../src/billing/orchestrator.js'), 'utf8');
   assert.ok(orchSrc.includes('new URL(clean).origin === appOrigin'), 'returnUrl solo misma-app (anti open-redirect tras pagar)');
   const menuHtml = fs.readFileSync(path.join(__dirname, '../public/menu.html'), 'utf8');

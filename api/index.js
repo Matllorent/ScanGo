@@ -18,7 +18,6 @@ const { hashPassword, comparePassword } = require('./utils/hash');
 const { registerSchema, loginSchema, validateBody } = require('./middleware/validation');
 const { sanitizeModifierGroups, sanitizeDishOptionConfig } = require('./utils/menuOptions');
 const { sanitizeRestaurantPayload, sanitizeBranchPayload } = require('./utils/sanitizeRestaurant');
-const { checkSubscriptionKillSwitch, getSubscriptionKillSwitch, setSubscriptionKillSwitch } = require('./middleware/killSwitch');
 const { requireActiveSubscription } = require('./middleware/subscriptionGuard');
 const errorHandler = require('./middleware/errorHandler');
 const { successResponse, errorResponse } = require('./utils/response');
@@ -48,6 +47,7 @@ const studioRouter = require('./routes/studio');
 const loyaltyRouter = require('./routes/loyalty');
 const discoverRouter = require('./routes/discover');
 const adminRouter = require('./routes/admin');
+const billingRouter = require('./routes/billing');
 const loyaltyService = require('./services/loyalty');
 const billingDunningRouter = require('./cron/billing-dunning');
 const telemetryRetentionRouter = require('./cron/telemetry-retention');
@@ -842,112 +842,7 @@ app.get('/api/menu/:slug', menuCacheMiddleware, async (req, res) => {
 });
 
 // ==================== BILLING ROUTES ====================
-// POST /api/billing/cancel — baja voluntaria inmediata (derecho a dar de
-// baja, Ley 17.250). El menú se pausa al instante y se puede reactivar cuando
-// se quiera. Si el cobro es por pasarela recurrente, el dueño también debe
-// cancelarla en su cuenta de Mercado Pago/Stripe (se le indica en la respuesta).
-app.post('/api/billing/cancel', authMiddleware, async (req, res, next) => {
-  try {
-    const restaurant = db.findRestaurantByUserId(req.user.userId);
-    if (!restaurant) {
-      return res.status(404).json({ success: false, error: 'Restaurante no encontrado', code: 'RESTAURANT_NOT_FOUND' });
-    }
-    const current = restaurant.subscription || {};
-    if (current.status === 'canceled') {
-      return successResponse(res, { subscription: current }, 'La suscripción ya estaba dada de baja');
-    }
-    const updated = await db.updateSubscription(restaurant.id, {
-      status: 'canceled',
-      canceledAt: new Date().toISOString(),
-      previousPlan: current.plan || null
-    });
-    await invalidateMenuCache(restaurant.slug).catch(() => {});
-    return successResponse(res, {
-      subscription: updated,
-      gatewayNote: 'Si tu cobro es recurrente por Mercado Pago o Stripe, cancelá también la suscripción desde tu cuenta de la pasarela para no recibir más cargos. Ante cualquier duda escribinos por WhatsApp.'
-    }, 'Suscripción dada de baja. Tu menú quedó pausado y podés reactivarlo cuando quieras.');
-  } catch (err) {
-    next(err);
-  }
-});
-app.post('/api/billing/checkout', authMiddleware, checkSubscriptionKillSwitch, async (req, res, next) => {
-  try {
-    const restaurant = db.findRestaurantByUserId(req.user.userId);
-    if (!restaurant) return res.status(404).json({ error: 'Restaurante no encontrado', code: 'RESTAURANT_NOT_FOUND' });
-
-    const { planId, plan, countryCode, currency } = req.body || {};
-    const checkout = await billingOrchestrator.createCheckout({
-      restaurantId: restaurant.id,
-      // Acepta planId ('starter_monthly') o el alias corto que manda la UI ('monthly' | 'annual')
-      planId: planId || plan || (restaurant.subscription && restaurant.subscription.plan) || 'starter_monthly',
-      customerEmail: req.user.email,
-      countryCode: countryCode || req.headers['x-vercel-ip-country'] || req.headers['cf-ipcountry'] || 'UY',
-      currency: currency || restaurant.currency || 'USD'
-    });
-
-    if (!checkout.checkoutUrl) {
-      const missing = checkout.configuration && checkout.configuration.missing;
-      return res.status(503).json({
-        success: false,
-        error: checkout.error
-          || (missing && missing.length
-            ? `La pasarela de pagos (${checkout.provider}) no está configurada. Faltan variables: ${missing.join(', ')}.`
-            : 'No pudimos generar el enlace de pago. Intentá nuevamente en unos minutos.'),
-        code: checkout.error ? 'PAYMENT_PROVIDER_ERROR' : 'PAYMENT_PROVIDER_NOT_CONFIGURED',
-        provider: checkout.provider,
-        ...(missing ? { missing } : {}),
-        ...(checkout.pricing ? { pricing: checkout.pricing } : {})
-      });
-    }
-
-    res.json(checkout);
-  } catch (e) {
-    next(e);
-  }
-});
-
-app.post('/api/billing/webhook/:provider', async (req, res) => {
-  try {
-    const provider = req.params.provider;
-    // Mercado Pago entrega el secreto por query string (notification_url).
-    // Comparación en tiempo constante (mismo criterio que ADMIN_KEY).
-    const expectedSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
-    if (provider === 'mercadopago' && expectedSecret && !timingSafeEqualHex(req.query.secret, expectedSecret)) {
-      return res.status(401).json({ error: 'Webhook secret inválido', code: 'WEBHOOK_SECRET_INVALID' });
-    }
-    // Fail-closed en prod: sin secreto configurado no se acepta nada de MP.
-    // (En dev/tests se mantiene abierto para no romper el flujo local.)
-    if (provider === 'mercadopago' && !expectedSecret && process.env.NODE_ENV === 'production') {
-      return res.status(503).json({ error: 'Webhook de Mercado Pago sin configurar', code: 'MP_WEBHOOK_NOT_CONFIGURED' });
-    }
-
-    // IPN legado manda topic/id por query y el body viene vacío
-    const payload = { ...(req.query || {}), ...(req.body || {}) };
-    const rawBody = JSON.stringify(payload);
-    const result = await billingOrchestrator.processWebhook(provider, req.headers, rawBody, payload);
-    res.json(result);
-  } catch (e) {
-    sentry.captureException(e, {
-      source: 'webhooks.provider',
-      level: 'error',
-      // Sin query en tags: el notification_url de MP trae ?secret= en la URL.
-      tags: { provider: req.params.provider },
-      extra: { path: String(req.originalUrl || '').split('?')[0] }
-    });
-    res.status(400).json({ error: e.message });
-  }
-});
-
-app.get('/api/billing/status', authMiddleware, (req, res) => {
-  const restaurant = db.findRestaurantByUserId(req.user.userId);
-  if (!restaurant) return res.status(404).json({ error: 'No encontrado' });
-
-  const access = billingOrchestrator.verifyAccess(restaurant.id);
-  res.json({
-    subscription: restaurant.subscription,
-    access
-  });
-});
+// → movido a api/routes/billing.js (misma ruta, mismo middleware)
 
 // Comparación de secretos en tiempo constante: ver api/utils/adminSession.js
 // (timingSafeEqualHex, fuente única con routes/admin.js).
@@ -1840,8 +1735,9 @@ app.use('/api/cron', seoAuditCronRouter);
 
 // Protected routes: require active subscription (Billing operations)
 // IMPORTANTE: sólo aplica a rutas /api/billing montadas DESPUÉS de esta línea.
-// checkout/webhook/status (líneas 581/617/642) quedan ex a propósito: un usuario
-// con trial vencido DEBE poder llegar al checkout para pagarse.
+// checkout/webhook/status quedan fuera a propósito (ver routes/billing.js):
+// un usuario con trial vencido DEBE poder llegar al checkout para pagarse.
+app.use('/api/billing', billingRouter);
 app.use('/api/billing', requireActiveSubscription);
 
 // Test Email Endpoint
