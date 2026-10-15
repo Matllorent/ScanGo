@@ -300,7 +300,8 @@ async function runTests() {
     const path = require('path');
     const menuJsSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu.js'), 'utf8');
     assert.ok(menuJsSrc.includes('areMenuOrdersEnabled'), 'menu.js gobierna el modo vitrina');
-    assert.ok(menuJsSrc.includes('${!areMenuOrdersEnabled()'), 'platos sin botón + en vitrina (2 renders)');
+    const renderSrc8 = fs.readFileSync(path.join(__dirname, '../public/js/menu/menuRender.js'), 'utf8');
+    assert.ok(renderSrc8.includes('${!ctx.areMenuOrdersEnabled()'), 'platos sin botón + en vitrina (2 renders)');
     const storiesSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/storiesLayout.js'), 'utf8');
     assert.ok(storiesSrc.includes('allowMenuOrders'), 'stories oculta el carrito en vitrina');
     const studioHtmlSrc = fs.readFileSync(path.join(__dirname, '../public/studio.html'), 'utf8');

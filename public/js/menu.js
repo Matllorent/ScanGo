@@ -75,13 +75,6 @@ import {
   renderGuestInvite as renderGuestInviteMod,
   renderWeddingItinerary as renderWeddingItineraryMod
 } from './menu/menuRender.js';
-import {
-  getDishScheduleStatus as getDishScheduleStatusMod,
-  renderChefSpecials as renderChefSpecialsMod,
-  renderDishes as renderDishesMod,
-  renderSingleDishCard as renderSingleDishCardMod,
-  renderGuestInvite as renderGuestInviteMod
-} from './menu/menuRender.js';
 
 // State
 let restaurantData = null;
