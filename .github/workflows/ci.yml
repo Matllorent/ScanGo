@@ -41,10 +41,12 @@ jobs:
       - run: npm run test:semgrep
 
       # Auditoría de vulnerabilidades sobre el lockfile.
+      # Pin exacto: el tag flotante `v2` fue eliminado por Google (rompió el CI
+      # 2026-10-15: "unable to find version v2"); usar versión completa.
       # fail-on-vuln false: informa sin bloquear (riesgo aceptado
       # braces/CHOKIDAR documentado en AGENTS.md).
       - name: Auditoría OSV-Scanner
-        uses: google/osv-scanner-action@v2
+        uses: google/osv-scanner-action@v2.7.0
         with:
           scan-args: |-
             -L package-lock.json --format sarif --output osv-results.sarif
