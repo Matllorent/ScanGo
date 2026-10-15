@@ -75,6 +75,33 @@
         "timeout": {
           "catalog": 60000
         }
+      },
+      "github": {
+        "type": "local",
+        "command": [
+          "npx",
+          "-y",
+          "@modelcontextprotocol/server-github"
+        ],
+        "environment": {
+          "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_PERSONAL_ACCESS_TOKEN}"
+        },
+        "disabled": false,
+        "timeout": {
+          "startup": 60000,
+          "catalog": 60000
+        }
+      },
+      "git": {
+        "type": "local",
+        "command": [
+          "python",
+          "-m",
+          "mcp_server_git",
+          "--repository",
+          "C:\\dev\\scango"
+        ],
+        "disabled": false
       }
     }
   },
