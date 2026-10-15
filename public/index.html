@@ -171,7 +171,7 @@
         <div class="brand-name">Scan<span>Go</span></div>
       </a>
 
-      <nav class="main-nav">
+      <nav class="main-nav" id="mobileNav" aria-label="Navegación principal">
         <a href="#inicio" class="nav-link">Inicio</a>
         <a href="#funcionalidades" class="nav-link">Funcionalidades</a>
         <a href="/soluciones" class="nav-link">Soluciones</a>
@@ -183,6 +183,7 @@
       <div class="nav-actions">
         <button class="btn btn-outline btn-sm" data-js-click="openAuthModal|login">Iniciar Sesión</button>
         <button class="btn btn-gold btn-sm" data-js-click="openAuthModal|register">Comenzar 7 Días Gratis</button>
+        <button type="button" class="nav-burger" data-js-click="toggleMobileNav|this" aria-label="Abrir menú de navegación" aria-expanded="false" aria-controls="mobileNav">☰</button>
       </div>
     </div>
   </header>
@@ -201,7 +202,7 @@
 
           <div class="hero-actions">
             <button class="btn btn-gold" data-js-click="openAuthModal|register">Comenzar 7 Días Gratis →</button>
-            <button type="button" class="btn btn-google" data-js-click="startGoogleSignup"><span class="google-mark" aria-hidden="true">G</span> Comenzar 7 días gratis con Google</button>
+            <button type="button" class="hero-google-link" data-js-click="startGoogleSignup">o seguí con Google →</button>
           </div>
         </div>
 

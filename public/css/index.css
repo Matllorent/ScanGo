@@ -288,6 +288,64 @@
       gap: 16px;
       flex-wrap: wrap;
     }
+    /* Un solo CTA primario: Google es un link tranquilo debajo, no un
+       segundo botón compitiendo (el modal conserva su botón Google). */
+    .hero-google-link {
+      background: none;
+      border: none;
+      padding: 4px 2px;
+      color: var(--text-muted);
+      font-family: var(--font-body);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .hero-google-link:hover { color: #fff; }
+
+    /* Hamburguesa móvil: solo existe en ≤900px (el toggle vive en index.js,
+       sin on*= por la CSP script-src-attr 'none'). */
+    .nav-burger {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      font-size: 1.3rem;
+      color: #fff;
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    @media (max-width: 900px) {
+      .main-nav { display: none; }
+      .nav-actions .btn-outline { display: none; }
+      .nav-burger { display: inline-flex; }
+      .site-header.nav-open .main-nav {
+        display: flex;
+        position: fixed;
+        top: var(--header-height);
+        left: 12px;
+        right: 12px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 2px;
+        background: #141d1a;
+        border: 1px solid rgba(225, 169, 56, 0.4);
+        border-radius: 12px;
+        padding: 10px;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+        z-index: 501;
+      }
+      .site-header.nav-open .nav-link {
+        padding: 10px 12px;
+        font-size: 1rem;
+        border-radius: 8px;
+      }
+      .site-header.nav-open .nav-link:hover { background: rgba(225, 169, 56, 0.08); }
+    }
     .hero-guarantee {
       margin-top: 18px;
       display: flex;
@@ -1128,6 +1186,29 @@
     .wa-tooltip:hover {
       transform: translateY(-2px);
       border-color: #25D366;
+    }
+    /* El cartelito se retira solo a los 8s (index.js agrega .wa-rested):
+       colapsa dejando la burbuja y vuelve al hover/foco. */
+    .wa-tooltip {
+      max-width: 260px;
+      overflow: hidden;
+      transition: transform 0.2s, opacity 0.3s ease, max-width 0.3s ease, padding 0.3s ease;
+    }
+    .whatsapp-float-container.wa-rested .wa-tooltip {
+      opacity: 0;
+      max-width: 0;
+      padding-left: 0;
+      padding-right: 0;
+      border-width: 0;
+      pointer-events: none;
+    }
+    .whatsapp-float-container.wa-rested:hover .wa-tooltip,
+    .whatsapp-float-container.wa-rested:focus-within .wa-tooltip {
+      opacity: 1;
+      max-width: 260px;
+      padding: 8px 14px;
+      border-width: 1px;
+      pointer-events: auto;
     }
     .wa-tooltip-dot {
       width: 8px;

@@ -308,6 +308,61 @@ function runFrontendStructureTests() {
   );
   console.log('✓ Cookies: aviso con atraso de 2,5s, entrada única y chat sin solapes');
 
+  // ---------- I: landing — un CTA primario, simulador honesto, tooltip que se
+  // retira y nav hamburguesa móvil (QA en navegador + skill frontend-design) --
+  const landingHtml = read('public/index.html');
+  const landingJs = read('public/js/index.js');
+  const heroActions = (landingHtml.match(/<div class="hero-actions">[\s\S]*?<\/div>/) || [''])[0];
+  assert.ok(
+    (heroActions.match(/btn-gold/g) || []).length === 1 && !heroActions.includes('btn-google'),
+    'REGRESIÓN: el hero lleva UN solo CTA primario (Google es link secundario, no segundo botón)'
+  );
+  assert.ok(
+    landingHtml.includes('class="hero-google-link"') && landingHtml.includes('data-js-click="startGoogleSignup"'),
+    'REGRESIÓN: el acceso con Google sigue en el hero como link tranquilo (sin on*=)'
+  );
+  assert.ok(
+    landingJs.includes('Carrito vacío') && landingJs.includes('Tocá + para agregar'),
+    'REGRESIÓN: el simulador no muestra ($0) con el carrito vacío (indica agregar)'
+  );
+  assert.ok(
+    /DOMContentLoaded[\s\S]*?updateSimUI\(\)/.test(landingJs),
+    'REGRESIÓN: updateSimUI corre al cargar (el HTML estático trae el texto viejo con $0)'
+  );
+  assert.ok(
+    consent.includes('pwaInstallBanner'),
+    'REGRESIÓN: el instalador PWA también se oculta mientras decide (tapaba las cookies en móvil)'
+  );
+  assert.ok(
+    landingJs.includes('wa-rested') && landingJs.includes('8000'),
+    'REGRESIÓN: el cartelito de WhatsApp se retira solo a los 8s (vuelve al hover)'
+  );
+  assert.ok(
+    /wa-rested:hover/.test(indexCss) && /wa-rested:focus-within/.test(indexCss),
+    'REGRESIÓN: el cartelito retirado vuelve al hover/foco (no desaparece para siempre)'
+  );
+  assert.ok(
+    landingHtml.includes('class="nav-burger"') && landingHtml.includes('data-js-click="toggleMobileNav|this"'),
+    'REGRESIÓN: la landing tiene botón hamburguesa con data-js-* (sin on*=)'
+  );
+  assert.ok(
+    landingHtml.includes('aria-controls="mobileNav"') || landingHtml.includes('aria-expanded="false"'),
+    'REGRESIÓN: la hamburguesa expone estado accesible (aria-expanded)'
+  );
+  assert.ok(
+    landingJs.includes('function toggleMobileNav') && landingJs.includes("key === 'Escape'"),
+    'REGRESIÓN: toggleMobileNav existe y Escape cierra el panel móvil'
+  );
+  assert.ok(
+    /@media\s*\(max-width:\s*900px\)[\s\S]*?\.nav-burger\s*\{\s*display:\s*inline-flex;/.test(indexCss),
+    'REGRESIÓN: la hamburguesa solo aparece en ≤900px'
+  );
+  assert.ok(
+    /\.site-header\.nav-open\s+\.main-nav\s*\{/.test(indexCss),
+    'REGRESIÓN: el panel móvil muestra los links con .nav-open'
+  );
+  console.log('✓ Landing: un CTA primario, simulador sin ($0), tooltip que se retira y nav hamburguesa móvil');
+
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE ESTRUCTURA FRONTEND PASARON AL 100%!');
 }
 

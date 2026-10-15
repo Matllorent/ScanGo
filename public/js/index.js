@@ -522,8 +522,12 @@ function updateSimUI() {
   const totalSpan = document.getElementById('simCartTotal');
   const total = simCart.reduce((sum, it) => sum + it.price, 0);
 
-  if (countSpan) countSpan.textContent = `🛒 ${simCart.length} ítems en el carrito`;
-  if (totalSpan) totalSpan.textContent = `Pedir por WhatsApp ($${total.toLocaleString('es-UY')}) →`;
+  if (countSpan) countSpan.textContent = simCart.length === 0
+    ? '🛒 Carrito vacío'
+    : `🛒 ${simCart.length} ítems en el carrito`;
+  if (totalSpan) totalSpan.textContent = simCart.length === 0
+    ? 'Tocá + para agregar →'
+    : `Pedir por WhatsApp ($${total.toLocaleString('es-UY')}) →`;
 }
 
 let simToastTimer = null;
@@ -724,6 +728,51 @@ function toggleFaq(btn) {
   }
 }
 
+// Menú móvil: el panel con los links solo existe en ≤900px (ver index.css).
+// Sin on*= (CSP script-src-attr 'none'): se invoca por data-js-click.
+function toggleMobileNav(btn) {
+  const header = document.querySelector('.site-header');
+  if (!header) return;
+  const open = header.classList.toggle('nav-open');
+  const burger = (btn && btn.setAttribute) ? btn : document.querySelector('.nav-burger');
+  if (burger && burger.setAttribute) {
+    burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    burger.setAttribute('aria-label', open ? 'Cerrar menú de navegación' : 'Abrir menú de navegación');
+  }
+}
+
+function closeMobileNav(restoreFocus) {
+  const header = document.querySelector('.site-header.nav-open');
+  if (!header) return;
+  header.classList.remove('nav-open');
+  const burger = document.querySelector('.nav-burger');
+  if (burger) {
+    burger.setAttribute('aria-expanded', 'false');
+    burger.setAttribute('aria-label', 'Abrir menú de navegación');
+    if (restoreFocus && burger.focus) burger.focus();
+  }
+}
+
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') closeMobileNav(true);
+});
+document.addEventListener('click', function (e) {
+  const link = e.target && e.target.closest ? e.target.closest('.site-header.nav-open .nav-link') : null;
+  if (link) closeMobileNav(false);
+});
+
+// El cartelito de WhatsApp se retira solo a los 8s (vuelve al hover/foco).
+// Con reduced-motion se queda visible: menos movimiento, no más.
+try {
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!reduceMotion) {
+    setTimeout(function () {
+      const wa = document.getElementById('waFloatContainer');
+      if (wa) wa.classList.add('wa-rested');
+    }, 8000);
+  }
+} catch (e) {}
+
 // Helper to sanitize HTML
 function escapeHtml(str) {
   if (!str) return '';
@@ -810,6 +859,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   loadPublicTestimonials();
   loadPricingSettings();
   initMagneticWhatsApp();
+  updateSimUI(); // pinta el estado vacío honesto (sin $0) desde la primera carga
 
   // Landings /soluciones: el CTA enlaza con ?registro=1 para llevar directo al
   // alta (sin que el visitante tenga que buscar el botón).

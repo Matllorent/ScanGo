@@ -115,7 +115,10 @@
       st.textContent =
         '@keyframes scangoCookieIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}' +
         '#' + BANNER_ID + '.scango-cookie-in{animation:scangoCookieIn .45s cubic-bezier(.22,1,.36,1)}' +
-        '@media (prefers-reduced-motion: reduce){#' + BANNER_ID + '.scango-cookie-in{animation:none}}';
+        '@media (prefers-reduced-motion: reduce){#' + BANNER_ID + '.scango-cookie-in{animation:none}}' +
+        // Mientras se decide, ni WhatsApp ni el instalador PWA compiten abajo
+        // (!important: el banner PWA trae display:flex inline y si no, gana).
+        'body.has-cookie-banner #pwaInstallBanner{display:none !important}';
       document.head.appendChild(st);
     } catch (e) {}
   }
