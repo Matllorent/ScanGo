@@ -501,34 +501,67 @@
       max-width: 760px;
       margin: 0 auto 60px auto;
     }
+    /* --- FUNCIONALIDADES · bento asimétrico con iconos ---
+       Gramática propia: 1 tarjeta héroe 2x2 a la izquierda + 3 tarjetas
+       de apoyo en un bloque 2x2 a la derecha. Rompe el "grid de 4
+       iguales" con jerarquía visual real y sin huecos. */
     .features-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 30px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-auto-rows: minmax(150px, auto);
+      gap: 20px;
     }
     .feature-card {
       min-width: 0;
       background-color: var(--bg-dark);
       border: 1px solid var(--border-subtle);
-      border-radius: 12px;
-      padding: 38px 32px;
-      transition: all 0.3s ease;
+      border-radius: 14px;
+      padding: 28px 26px;
+      transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
       position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
     .feature-card:hover {
       transform: translateY(-4px);
       border-color: var(--border-gold);
       box-shadow: 0 12px 30px rgba(0,0,0,0.4);
     }
-    .feature-icon-num {
-      font-family: var(--font-heading);
-      font-size: 2.2rem;
-      font-weight: 700;
-      color: var(--accent-gold);
-      margin-bottom: 14px;
-      line-height: 1;
+    /* Placement explícito: héroe 2x2 izq., apoyos der. sin huecos */
+    .feature-card--hero {
+      grid-column: 1 / 3;
+      grid-row: 1 / 3;
+      justify-content: flex-end;
+      padding: 40px 36px;
+      background:
+        radial-gradient(120% 120% at 12% 8%, rgba(225,169,56,0.12) 0%, transparent 55%),
+        var(--bg-dark);
+      border-color: var(--border-gold);
     }
-    .feature-title { font-size: 1.35rem; margin-bottom: 12px; }
+    .features-grid .feature-card:nth-child(2) { grid-column: 3; grid-row: 1; }
+    .features-grid .feature-card:nth-child(3) { grid-column: 4; grid-row: 1; }
+    .features-grid .feature-card:nth-child(4) { grid-column: 3 / 5; grid-row: 2; }
+    .feature-card--hero .feature-title { font-size: 1.7rem; }
+    .feature-card--hero p { font-size: 0.98rem; max-width: 46ch; }
+    .feature-icon {
+      font-size: 1.9rem;
+      line-height: 1;
+      margin-bottom: 14px;
+      width: 54px;
+      height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      background: rgba(225,169,56,0.10);
+      border: 1px solid var(--border-gold);
+    }
+    .feature-card--hero .feature-icon {
+      width: 64px; height: 64px; font-size: 2.3rem;
+    }
+    .feature-title { font-size: 1.2rem; margin-bottom: 10px; }
+    .feature-card p { font-size: 0.9rem; margin: 0; color: var(--text-dim); line-height: 1.55; }
 
     /* Demos por rubro: galería de menús de ejemplo (sin registro) */
     .demos-section {
@@ -573,6 +606,10 @@
       margin-top: 18px;
     }
 
+    /* --- CÓMO FUNCIONA · stepper horizontal con línea conectora ---
+       Gramática propia: es una SECUENCIA, no una lista de tarjetas. Los
+       números viven en nodos circulares unidos por una línea que marca el
+       recorrido 1→4. En móvil se vuelve vertical. */
     .how-it-works-section {
       padding: 100px 0;
       background-color: var(--bg-dark);
@@ -583,22 +620,36 @@
       grid-template-columns: repeat(4, 1fr);
       gap: 24px;
       margin-top: 40px;
+      position: relative;
+    }
+    /* Línea conectora horizontal que atraviesa el centro de los nodos */
+    .steps-grid::before {
+      content: "";
+      position: absolute;
+      top: 22px;
+      left: 12.5%;
+      right: 12.5%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--border-gold) 12%, var(--border-gold) 88%, transparent);
+      opacity: 0.5;
+      z-index: 0;
     }
     .step-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: 12px;
-      padding: 28px 20px;
-      text-align: left;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 0;
+      text-align: center;
       position: relative;
-      transition: border-color 0.2s;
+      z-index: 1;
+      transition: transform 0.3s ease;
     }
-    .step-card:hover { border-color: var(--border-gold); }
+    .step-card:hover { transform: translateY(-4px); }
     .step-badge {
-      width: 44px;
-      height: 44px;
-      background: var(--bg-dark);
-      border: 1px solid var(--border-gold);
+      width: 46px;
+      height: 46px;
+      background: var(--bg-surface);
+      border: 2px solid var(--border-gold);
       color: var(--accent-gold);
       font-family: var(--font-heading);
       font-weight: 700;
@@ -606,11 +657,12 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 8px;
-      margin-bottom: 18px;
+      border-radius: 50%;
+      margin: 0 auto 20px auto;
+      box-shadow: 0 0 0 6px var(--bg-dark);
     }
     .step-card h3 { font-size: 1.15rem; margin-bottom: 8px; }
-    .step-card p { font-size: 0.9rem; margin: 0; color: var(--text-dim); }
+    .step-card p { font-size: 0.9rem; margin: 0; color: var(--text-dim); line-height: 1.55; }
 
     .pricing-section {
       padding: 100px 0;
@@ -719,30 +771,65 @@
     }
     .plan-features li span.check { color: var(--accent-green); font-weight: bold; font-size: 1.1rem; }
 
+    /* --- VALORES · fila editorial dividida (barra de confianza) ---
+       Gramática propia: NO hay tarjetas ni bordes. Son 4 principios en
+       una fila continua separados por filetes verticales — lenguaje
+       editorial/manifesto, más ligero que los grids de arriba. */
     .values-section {
       padding: 90px 0;
-      background-color: var(--bg-dark);
+      background-color: var(--bg-surface);
       border-bottom: 1px solid var(--border-subtle);
     }
     .values-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 20px;
+      gap: 0;
+      border-top: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
     }
     .value-card {
-      background-color: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: 10px;
-      padding: 28px 20px;
-      text-align: center;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 34px 26px;
+      text-align: left;
+      position: relative;
+      transition: background-color 0.3s ease;
+    }
+    /* Filete vertical entre columnas (salvo la primera) */
+    .value-card + .value-card::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 20px;
+      bottom: 20px;
+      width: 1px;
+      background: var(--border-subtle);
+    }
+    .value-card:hover { background-color: rgba(225, 169, 56, 0.04); }
+    .value-card:hover + .value-card::before,
+    .value-card:hover::before { background: var(--border-gold); }
+    .value-icon {
+      font-size: 1.5rem;
+      line-height: 1;
+      margin-bottom: 16px;
+      display: inline-flex;
+      width: 46px;
+      height: 46px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(225, 169, 56, 0.10);
+      border: 1px solid var(--border-gold);
     }
     .value-tag {
       font-family: var(--font-heading);
-      font-size: 1.2rem;
+      font-size: 1.12rem;
       color: var(--accent-gold);
-      margin-bottom: 8px;
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
     }
-    .value-card p { font-size: 0.88rem; margin: 0; }
+    .value-card p { font-size: 0.88rem; margin: 0; color: var(--text-dim); line-height: 1.6; }
 
     .site-footer {
       background-color: #0C1210;
@@ -1101,14 +1188,31 @@
     @media (max-width: 992px) {
       .hero-grid, .pricing-grid, .footer-grid, .testimonials-grid { grid-template-columns: 1fr; }
       .demo-grid { grid-template-columns: repeat(2, 1fr); }
-      .steps-grid { grid-template-columns: repeat(2, 1fr); }
+      /* Bento de funcionalidades: héroe ocupa todo el ancho, sin placement fijo */
+      .features-grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: auto; }
+      .feature-card--hero,
+      .features-grid .feature-card:nth-child(2),
+      .features-grid .feature-card:nth-child(3),
+      .features-grid .feature-card:nth-child(4) { grid-column: auto; grid-row: auto; }
+      .feature-card--hero { grid-column: span 2; }
+      /* Stepper: la línea conectora pasa a vertical */
+      .steps-grid { grid-template-columns: repeat(2, 1fr); gap: 36px 24px; }
+      .steps-grid::before { display: none; }
       .values-grid { grid-template-columns: repeat(2, 1fr); }
+      .value-card:nth-child(odd)::before { display: none; }
       .main-nav { display: none; }
     }
     @media (max-width: 600px) {
       .steps-grid, .values-grid { grid-template-columns: 1fr; }
       .demo-grid { grid-template-columns: 1fr; }
       .features-grid { grid-template-columns: 1fr; }
+      .feature-card--hero { grid-column: span 1; padding: 30px 26px; }
+      .feature-card--hero .feature-title { font-size: 1.35rem; }
+      /* Separadores: en 1 columna van horizontales */
+      .value-card + .value-card::before {
+        top: 0; left: 26px; right: 26px; bottom: auto;
+        width: auto; height: 1px;
+      }
       .compare-row { grid-template-columns: 1fr; gap: 4px; text-align: left; }
       .compare-row span:not(:first-child) { text-align: left; }
       .hero-actions > .btn { width: 100%; }
@@ -1371,4 +1475,138 @@
     }
     .toggle-pass-btn:hover {
       color: var(--accent-gold);
+    }
+
+    /* ============================================================
+       VIDA DE LANDING · Motion elegante (Dark Artisanal Chic)
+       ------------------------------------------------------------
+       Seguridad de accesibilidad: TODO el estado oculto va detrás de
+       `.motion-ready`, una clase que solo agrega index.js cuando NO hay
+       `prefers-reduced-motion`. Sin JS (o con motion reducido) las
+       secciones permanecen 100% visibles: nunca hay contenido oculto.
+       Cero `on*=` (CSP script-src-attr 'none'); estado ARIA en JS.
+       ============================================================ */
+
+    /* --- 1 · Entrada escalonada del hero (solo si motion listo) --- */
+    .motion-ready .hero-content > *,
+    .motion-ready .hero-mockup-wrapper {
+      opacity: 0;
+      animation: heroRise 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+    }
+    .motion-ready .hero-content > *:nth-child(1) { animation-delay: 0.05s; }
+    .motion-ready .hero-content > *:nth-child(2) { animation-delay: 0.14s; }
+    .motion-ready .hero-content > *:nth-child(3) { animation-delay: 0.23s; }
+    .motion-ready .hero-content > *:nth-child(4) { animation-delay: 0.32s; }
+    .motion-ready .hero-mockup-wrapper { animation-delay: 0.24s; }
+
+    @keyframes heroRise {
+      from { opacity: 0; transform: translateY(22px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* --- 2 · Aurora ambiental: el fondo del hero respira despacio --- */
+    @keyframes heroAuroraA {
+      0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.9; }
+      50% { transform: translate(-3%, 2%) scale(1.06); opacity: 1; }
+    }
+    @keyframes heroAuroraB {
+      0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.85; }
+      50% { transform: translate(3%, -2%) scale(1.08); opacity: 1; }
+    }
+    .motion-ready .hero-section::before,
+    .motion-ready .hero-section::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+      filter: blur(10px);
+    }
+    .motion-ready .hero-section::before {
+      width: 46vw; height: 46vw;
+      top: -12%; right: 4%;
+      background: radial-gradient(circle, rgba(225, 169, 56, 0.10) 0%, transparent 62%);
+      animation: heroAuroraA 16s ease-in-out infinite;
+    }
+    .motion-ready .hero-section::after {
+      width: 40vw; height: 40vw;
+      bottom: -14%; left: -4%;
+      background: radial-gradient(circle, rgba(56, 161, 105, 0.10) 0%, transparent 60%);
+      animation: heroAuroraB 20s ease-in-out infinite;
+    }
+    .motion-ready .hero-grid { position: relative; z-index: 1; }
+
+    /* --- 3 · CTA dorado con halo que respira (llama la conversión) --- */
+    @keyframes ctaHalo {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(225, 169, 56, 0.34); }
+      50% { box-shadow: 0 0 0 12px rgba(225, 169, 56, 0); }
+    }
+    .motion-ready .hero-actions .btn-gold {
+      animation: ctaHalo 2.8s ease-out infinite;
+    }
+
+    /* --- 4 · Reveal on-scroll para secciones y tarjetas --- */
+    .motion-ready .section-header,
+    .motion-ready .feature-card,
+    .motion-ready .step-card,
+    .motion-ready .value-card,
+    .motion-ready .compare-row,
+    .motion-ready .demo-card,
+    .motion-ready .plan-card,
+    .motion-ready .testimonial-card,
+    .motion-ready .faq-item {
+      opacity: 0;
+      transform: translateY(26px);
+      transition: opacity 0.6s ease, transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+      will-change: opacity, transform;
+    }
+    .motion-ready .reveal-in {
+      opacity: 1 !important;
+      transform: none !important;
+    }
+
+    /* --- 5 · Header congelado con vidrio esmerilado al hacer scroll --- */
+    .site-header {
+      transition: background-color 0.3s ease, box-shadow 0.3s ease,
+                  border-color 0.3s ease, backdrop-filter 0.3s ease;
+    }
+    .site-header.is-scrolled {
+      background-color: rgba(18, 26, 24, 0.82);
+      backdrop-filter: saturate(140%) blur(12px);
+      -webkit-backdrop-filter: saturate(140%) blur(12px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      border-bottom-color: var(--border-gold);
+    }
+
+    /* --- 6 · Contador numérico (la cifra respira al terminar) --- */
+    @keyframes countPulse {
+      0% { transform: scale(1); color: var(--accent-gold); }
+      40% { transform: scale(1.08); color: var(--accent-gold-hover); }
+      100% { transform: scale(1); color: var(--accent-gold); }
+    }
+    .stat-counted {
+      display: inline-block;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-counted.count-done { animation: countPulse 0.5s ease; }
+
+    /* --- 7 · Respeta la preferencia del sistema: sin motion --- */
+    @media (prefers-reduced-motion: reduce) {
+      .motion-ready .hero-content > *,
+      .motion-ready .hero-mockup-wrapper,
+      .motion-ready .section-header,
+      .motion-ready .feature-card,
+      .motion-ready .step-card,
+      .motion-ready .value-card,
+      .motion-ready .compare-row,
+      .motion-ready .demo-card,
+      .motion-ready .plan-card,
+      .motion-ready .testimonial-card,
+      .motion-ready .faq-item {
+        opacity: 1 !important;
+        transform: none !important;
+        animation: none !important;
+        transition: none !important;
+      }
+      .site-header.is-scrolled { backdrop-filter: none; -webkit-backdrop-filter: none; }
     }

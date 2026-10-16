@@ -70,7 +70,7 @@
     <!-- Status & Schedule Tagline -->
     <div class="status-pill-row">
       <span id="statusOpenClosedBadge" class="status-pill open">
-        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#4ade80;"></span> Abierto
+        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#E1A938;"></span> Abierto
       </span>
       <span id="statusOrderLaterBadge" class="status-pill order-later" style="display:none;">
         🕒 Pedir para luego
@@ -90,7 +90,7 @@
       <span id="minOrderChip" class="meta-chip" style="display:none;">
         🛒 Pedido mínimo <strong id="minOrderText">$U 300</strong>
       </span>
-      <button type="button" id="reservationChip" class="meta-chip" data-js-click="openReservationModal" style="display:none; background: rgba(56, 161, 105, 0.2); border-color: rgba(56, 161, 105, 0.5); color: #68D391; font-weight: 700;">
+      <button type="button" id="reservationChip" class="meta-chip meta-chip-reserve" data-js-click="openReservationModal" style="display:none;">
         📅 Reservar Mesa
       </button>
       <button type="button" id="wifiChip" class="meta-chip" data-js-click="openWifiModal" style="display:none;">
@@ -162,7 +162,6 @@
 
       <!-- Anillos de destacados 📖 (los rellena storiesLayout.js; tap = historias en esa categoría) -->
       <div id="storiesTray" class="stories-tray filter-collapse" role="group" aria-label="Destacados: ver la carta como historias" style="display: none;">
-        <span class="stories-tray-title">📖 Historias</span>
         <div id="storiesTrayRings" class="stories-tray-rings"></div>
       </div>
 

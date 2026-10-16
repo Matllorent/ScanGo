@@ -733,6 +733,131 @@ function toggleFaq(btn) {
   }
 }
 
+/* ============================================================
+   VIDA DE LANDING · Motion elegante (Dark Artisanal Chic)
+   ------------------------------------------------------------
+   Seguridad: todo el motion va gateado detrás de `.motion-ready`, que
+   SOLO se agrega si el sistema NO pide prefers-reduced-motion. Si el
+   usuario pide menos movimiento (o el JS falla), las secciones quedan
+   100% visibles — nunca hay contenido oculto. Cero `on*=`.
+   ============================================================ */
+
+// Devuelve true si el usuario NO pidió menos movimiento.
+function motionAllowed() {
+  return !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+
+// Marca los elementos que se animan al entrar en viewport (reveal).
+function tagRevealTargets() {
+  const sel = [
+    '.section-header', '.feature-card', '.step-card', '.value-card',
+    '.compare-row', '.demo-card', '.plan-card', '.testimonial-card', '.faq-item'
+  ].join(',');
+  return Array.from(document.querySelectorAll(sel));
+}
+
+// Revela con stagger: cada elemento entra con un pequeño delay en cascada.
+function initScrollReveal() {
+  if (!motionAllowed() || !('IntersectionObserver' in window)) return;
+  const targets = tagRevealTargets();
+  if (!targets.length) return;
+
+  // Agrupa por contenedor para dar un stagger natural por fila/sección.
+  const io = new IntersectionObserver((entries, obs) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      const el = entry.target;
+      const parent = el.parentElement;
+      const siblings = parent ? Array.from(parent.children).filter(c => targets.includes(c)) : [el];
+      const idx = Math.max(0, siblings.indexOf(el));
+      el.style.transitionDelay = (Math.min(idx, 6) * 70) + 'ms';
+      el.classList.add('reveal-in');
+      obs.unobserve(el);
+    });
+  }, { rootMargin: '0px 0px -8% 0px', threshold: 0.1 });
+
+  targets.forEach(t => io.observe(t));
+}
+
+// Congela el header con vidrio esmerilado al hacer scroll.
+function initStickyHeader() {
+  const header = document.querySelector('.site-header');
+  if (!header) return;
+  let ticking = false;
+  const update = () => {
+    header.classList.toggle('is-scrolled', window.scrollY > 24);
+    ticking = false;
+  };
+  window.addEventListener('scroll', () => {
+    if (!ticking) { window.requestAnimationFrame(update); ticking = true; }
+  }, { passive: true });
+  update();
+}
+
+// Contador animado para una cifra con destino (ej: 20 → 30 en la comparativa,
+// 99.9 en uptime). Lee data-count-to y conserva el sufijo data-count-suffix.
+function animateCount(el) {
+  const target = parseFloat(el.dataset.countTo);
+  if (Number.isNaN(target)) return;
+  const suffix = el.dataset.countSuffix || '';
+  const prefix = el.dataset.countPrefix || '';
+  const decimals = (el.dataset.countTo.split('.')[1] || '').length;
+  const duration = 1100;
+  const start = performance.now();
+
+  function frame(now) {
+    const p = Math.min(1, (now - start) / duration);
+    // ease-out cúbico: arranca rápido y frena suave
+    const eased = 1 - Math.pow(1 - p, 3);
+    const val = (target * eased).toFixed(decimals);
+    el.textContent = prefix + val + suffix;
+    if (p < 1) {
+      window.requestAnimationFrame(frame);
+    } else {
+      el.textContent = prefix + target.toFixed(decimals) + suffix;
+      el.classList.add('count-done');
+      setTimeout(() => el.classList.remove('count-done'), 520);
+    }
+  }
+  window.requestAnimationFrame(frame);
+}
+
+// Observa las cifras y las anima cuando entran en pantalla.
+function initCounters() {
+  if (!motionAllowed()) return;
+  const counters = Array.from(document.querySelectorAll('[data-count-to]'));
+  if (!counters.length) return;
+
+  // Prepara el texto en 0 para que no salte el layout (se pinta al entrar).
+  counters.forEach((el) => {
+    el.classList.add('stat-counted');
+    const decimals = (el.dataset.countTo.split('.')[1] || '').length;
+    el.textContent = (el.dataset.countPrefix || '') + (0).toFixed(decimals) + (el.dataset.countSuffix || '');
+  });
+
+  if (!('IntersectionObserver' in window)) {
+    counters.forEach(animateCount);
+    return;
+  }
+  const io = new IntersectionObserver((entries, obs) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      animateCount(entry.target);
+      obs.unobserve(entry.target);
+    });
+  }, { threshold: 0.6 });
+  counters.forEach(c => io.observe(c));
+}
+
+// Punto de entrada del motion de la landing.
+function initLandingMotion() {
+  if (!motionAllowed()) return;   // sin motion: todo queda visible, sin tocar nada
+  document.documentElement.classList.add('motion-ready');
+  initStickyHeader();
+  initScrollReveal();
+  initCounters();
+}
+
 // Menú móvil: el panel con los links solo existe en ≤900px (ver index.css).
 // Sin on*= (CSP script-src-attr 'none'): se invoca por data-js-click.
 function toggleMobileNav(btn) {
@@ -864,6 +989,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   loadPublicTestimonials();
   loadPricingSettings();
   initMagneticWhatsApp();
+  initLandingMotion(); // vida de la landing (reveal + contadores + header), respeta reduced-motion
   updateSimUI(); // pinta el estado vacío honesto (sin $0) desde la primera carga
 
   // Landings /soluciones: el CTA enlaza con ?registro=1 para llevar directo al

@@ -457,7 +457,7 @@ let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
       if (d.tags && d.tags.includes('star')) badgeHtml += '<span class="dish-badge badge-star">⭐ Destacado</span> ';
       if (d.videoUrl) badgeHtml += '<span class="dish-badge dish-videobadge">🎬 Video</span> ';
       // Happy Hour badge
-      if (sched.isHappyHour) badgeHtml += '<span class="dish-badge" style="background:rgba(72,187,120,0.2); color:#48BB78; border:1px solid rgba(72,187,120,0.4);">🕐 Happy Hour</span> ';
+      if (sched.isHappyHour) badgeHtml += '<span class="dish-badge" style="background:rgba(225,169,56,0.16); color:var(--chalk-gold, #E1A938); border:1px solid rgba(225,169,56,0.4);">🕐 Happy Hour</span> ';
 
       const photoHtml = d.photoUrl 
         ? `<img src="${escapeHtml(d.photoUrl)}" alt="${escapeHtml(d.name)}" class="dish-thumb" loading="lazy" decoding="async" style="aspect-ratio:16/9">` 

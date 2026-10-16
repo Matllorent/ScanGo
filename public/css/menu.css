@@ -411,7 +411,7 @@
     }
     body.theme-smash-urban .qty-counter { color: #0E9AA0; }
     body.theme-smash-urban .dish-badge.badge-star { background: rgba(185, 28, 28, 0.12); color: #B91C1C; border-color: rgba(185, 28, 28, 0.32); }
-    body.theme-smash-urban .dish-badge.badge-veggie { background: rgba(22, 101, 52, 0.12); color: #166534; border-color: rgba(22, 101, 52, 0.30); }
+    body.theme-smash-urban .dish-badge.badge-veggie { background: rgba(133, 77, 14, 0.12); color: #854D0E; border-color: rgba(133, 77, 14, 0.30); }
     body.theme-smash-urban .dish-badge.badge-celiac { background: rgba(133, 77, 14, 0.14); color: #854D0E; border-color: rgba(133, 77, 14, 0.32); }
     body.theme-smash-urban .floating-cart-bar {
       background: #0E9AA0;
@@ -811,7 +811,7 @@
     body.theme-ticket .dish-desc { color: #57534E; }
     body.theme-ticket .dish-price { color: #1C1917; }
     body.theme-ticket .dish-badge.badge-star { background: rgba(185, 28, 28, 0.12); color: #B91C1C; border-color: rgba(185, 28, 28, 0.40); }
-    body.theme-ticket .dish-badge.badge-veggie { background: rgba(22, 101, 52, 0.12); color: #166534; border-color: rgba(22, 101, 52, 0.35); }
+    body.theme-ticket .dish-badge.badge-veggie { background: rgba(133, 77, 14, 0.12); color: #854D0E; border-color: rgba(133, 77, 14, 0.35); }
     body.theme-ticket .dish-badge.badge-celiac { background: rgba(133, 77, 14, 0.14); color: #854D0E; border-color: rgba(133, 77, 14, 0.35); }
     body.theme-ticket .btn-add {
       background: transparent;
@@ -1775,6 +1775,19 @@
       color: var(--chalk-gold);
       background: var(--chalk-gold-dim);
     }
+    /* Chip de Reserva: destacado pero con el ACENTO DEL TEMA (dorado),
+       nunca verde hardcodeado — así respeta los 17+ temas visuales. */
+    .meta-chip-reserve {
+      background: var(--chalk-gold-dim, rgba(236, 201, 75, 0.10));
+      border-color: var(--chalk-gold, #E1A938);
+      color: var(--chalk-gold, #E1A938);
+      font-weight: 700;
+    }
+    .meta-chip-reserve:hover {
+      background: var(--chalk-gold, #E1A938);
+      color: var(--bg, #121A18);
+      border-color: var(--chalk-gold, #E1A938);
+    }
 
     /* Announcement Banner */
     .announcement-banner {
@@ -2065,13 +2078,13 @@
       border-radius: 4px;
       text-transform: uppercase;
     }
-    .badge-veggie { background: rgba(72, 187, 120, 0.2); color: #68D391; border: 1px solid rgba(72, 187, 120, 0.4); }
+    .badge-veggie { background: rgba(225, 169, 56, 0.16); color: var(--chalk-gold, #E1A938); border: 1px solid rgba(225, 169, 56, 0.4); }
     .badge-celiac { background: rgba(236, 201, 75, 0.2); color: #F6E05E; border: 1px solid rgba(236, 201, 75, 0.4); }
     .badge-star { background: rgba(229, 62, 62, 0.2); color: #FC8181; border: 1px solid rgba(229, 62, 62, 0.4); }
     /* Los colores de insignia de arriba están pensados para fondos oscuros; en los
        temas claros de heladería el contraste cae a ~1.8. Los oscurecemos ahí. */
     body:is(.theme-helado-fiesta,.theme-helado-menta,.theme-helado-tropical,.theme-helado-pastel,.theme-gelateria,.theme-helado-fresa,.theme-helado-dulce,.theme-helado-pistacho,.theme-helado-cielo) .dish-badge.badge-star { background: rgba(185, 28, 28, 0.12); color: #B91C1C; border-color: rgba(185, 28, 28, 0.32); }
-    body:is(.theme-helado-fiesta,.theme-helado-menta,.theme-helado-tropical,.theme-helado-pastel,.theme-gelateria,.theme-helado-fresa,.theme-helado-dulce,.theme-helado-pistacho,.theme-helado-cielo) .dish-badge.badge-veggie { background: rgba(22, 101, 52, 0.12); color: #166534; border-color: rgba(22, 101, 52, 0.30); }
+    body:is(.theme-helado-fiesta,.theme-helado-menta,.theme-helado-tropical,.theme-helado-pastel,.theme-gelateria,.theme-helado-fresa,.theme-helado-dulce,.theme-helado-pistacho,.theme-helado-cielo) .dish-badge.badge-veggie { background: rgba(133, 77, 14, 0.12); color: #854D0E; border-color: rgba(133, 77, 14, 0.30); }
     body:is(.theme-helado-fiesta,.theme-helado-menta,.theme-helado-tropical,.theme-helado-pastel,.theme-gelateria,.theme-helado-fresa,.theme-helado-dulce,.theme-helado-pistacho,.theme-helado-cielo) .dish-badge.badge-celiac { background: rgba(133, 77, 14, 0.14); color: #854D0E; border-color: rgba(133, 77, 14, 0.32); }
 
     .dish-desc {
@@ -2095,7 +2108,7 @@
       gap: 6px;
     }
     .btn-add {
-      background: var(--chalk-green);
+      background: var(--chalk-gold);
       color: #0E1412;
       border: none;
       width: 36px;
@@ -2113,7 +2126,7 @@
     .qty-counter {
       font-family: var(--font-mono);
       font-size: 0.8rem;
-      color: var(--chalk-green);
+      color: var(--chalk-gold);
       font-weight: 700;
     }
 
@@ -2710,7 +2723,7 @@
     .icw-size-badge {
       position: absolute;
       top: -8px; left: 10px;
-      background: var(--chalk-green);
+      background: var(--chalk-gold);
       color: #0E1412;
       font-size: 0.62rem;
       font-weight: 800;
@@ -3192,7 +3205,7 @@
       align-items: center;
       gap: 5px;
     }
-    .status-pill.open { background: rgba(34, 197, 94, 0.18); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); }
+    .status-pill.open { background: rgba(225, 169, 56, 0.18); color: #E1A938; border: 1px solid rgba(225, 169, 56, 0.4); }
     .status-pill.closed { background: rgba(239, 68, 68, 0.18); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
     .status-pill.order-later { background: rgba(255, 255, 255, 0.08); color: var(--chalk-muted); border: 1px solid var(--border-chalk); }
 
@@ -5519,13 +5532,6 @@
       gap: 10px;
       margin: 2px 0 10px;
     }
-    .stories-tray-title {
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.4px;
-      color: var(--chalk-dim);
-      white-space: nowrap;
-    }
     .stories-tray-rings {
       display: flex;
       gap: 10px;
@@ -5651,5 +5657,4 @@
     body.filter-compact .cat-pill { padding: 3px 10px; font-size: 0.72rem; }
     body.filter-compact #dietaryFilterPills { padding-top: 2px; gap: 4px; }
     body.filter-compact .stories-tray { margin: 0 0 6px; gap: 6px; }
-    body.filter-compact .stories-tray-title { display: none; }
     body.filter-compact .search-box { padding: 7px 12px; font-size: 0.82rem; }

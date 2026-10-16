@@ -968,8 +968,6 @@ export function renderStoriesTray() {
       tray.style.display = 'none';
       return;
     }
-    const trayTitle = tray.querySelector('.stories-tray-title');
-    if (trayTitle) trayTitle.textContent = stT('storiesTrayTitle', '📖 Historias');
     const stories = collectStories();
     // Limpia anillos previos (re-render por filtros/búsqueda).
     while (rings.firstChild) rings.removeChild(rings.firstChild);

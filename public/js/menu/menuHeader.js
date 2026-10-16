@@ -238,10 +238,10 @@ import { computeOpenStatus } from './openStatus.js';
           const st = computeOpenStatus(ctx.getRestaurantData(), -new Date().getTimezoneOffset());
           statusBadge.style.display = 'inline-flex';
           if (st.open) {
-            statusBadge.style.background = 'rgba(72,187,120,0.15)';
-            statusBadge.style.borderColor = 'rgba(72,187,120,0.4)';
-            statusBadge.style.color = '#48BB78';
-            statusBadge.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#48BB78; margin-right:6px; box-shadow:0 0 6px #48BB78;"></span> Abierto (${ctx.getRestaurantData().scheduleActiveHours} hs)`;
+            statusBadge.style.background = 'rgba(225,169,56,0.15)';
+            statusBadge.style.borderColor = 'rgba(225,169,56,0.4)';
+            statusBadge.style.color = '#E1A938';
+            statusBadge.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#E1A938; margin-right:6px; box-shadow:0 0 6px #E1A938;"></span> Abierto (${ctx.getRestaurantData().scheduleActiveHours} hs)`;
           } else {
             statusBadge.style.background = 'rgba(229,62,62,0.15)';
             statusBadge.style.borderColor = 'rgba(229,62,62,0.4)';
@@ -250,10 +250,10 @@ import { computeOpenStatus } from './openStatus.js';
           }
         } else {
           statusBadge.style.display = 'inline-flex';
-          statusBadge.style.background = 'rgba(72,187,120,0.15)';
-          statusBadge.style.borderColor = 'rgba(72,187,120,0.4)';
-          statusBadge.style.color = '#48BB78';
-          statusBadge.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#48BB78; margin-right:6px; box-shadow:0 0 6px #48BB78;"></span> Abierto para pedidos`;
+          statusBadge.style.background = 'rgba(225,169,56,0.15)';
+          statusBadge.style.borderColor = 'rgba(225,169,56,0.4)';
+          statusBadge.style.color = '#E1A938';
+          statusBadge.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#E1A938; margin-right:6px; box-shadow:0 0 6px #E1A938;"></span> Abierto para pedidos`;
         }
       }
 
