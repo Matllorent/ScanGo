@@ -244,8 +244,11 @@ let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
      * Tarjeta de bienvenida al invitado (solo eventos con ?invitado= + tema
      * de evento). Data-driven desde weddingItinerary (pareja/fecha/lugar) y
      * mesa del link del invitado. Todo con textContent: cero HTML inyectable.
+     * `ctx` llega por parámetro (es Module/strict mode: un `ctx` sin declarar
+     * lanza ReferenceError y, al correr dentro de renderHeader, rompía el
+     * render de TODA la carta).
      */
-    function renderGuestInvite() {
+    function renderGuestInvite(ctx) {
       const host = document.getElementById('guestInviteHero');
       if (!host || !ctx.getRestaurantData()) return;
       const { guestName, tableNumber } = parseGuestContext(window.location.search);

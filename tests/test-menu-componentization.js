@@ -1155,6 +1155,62 @@ async function runMenuComponentizationTests() {
   assert.ok(catManagerSrc28.includes('cloneDishWithNewIdUtil') && catManagerSrc28.includes('cloneCategoryWithNewIdUtil'), 'categoryManager delega el clonado');
   console.log('✓ Listas backend↔frontend sin drift + clonado único en cloneUtils');
 
+  // 29. Guard de regresión: ninguna función de public/js puede USAR `ctx.`
+  //     sin declararlo (parámetro propio, variable local o parámetro de una
+  //     función envolvente). Bug real cazado en producción: al extraer
+  //     renderHeader a menu/menuHeader.js, renderGuestInvite() quedó SIN el
+  //     parámetro `ctx` → ReferenceError en modo estricto (ES Module) DENTRO
+  //     de renderHeader → loadMenu() lo tragaba en su catch y la carta entera
+  //     se quedaba en skeleton (0 platos, sin pills de categoría, sin chips)
+  //     en TODOS los menús /m/*.
+  const jsRoot = path.join(__dirname, '../public/js');
+  const jsFiles = [];
+  (function walkJs(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walkJs(full);
+      else if (entry.name.endsWith('.js')) jsFiles.push(full);
+    }
+  })(jsRoot);
+  assert.ok(jsFiles.length > 20, 'Se escanean todos los JS de public/js');
+
+  const fnRe = /function\s+(\w+)\s*\(([^)]*)\)\s*\{/g;
+  const ctxLessFunctions = [];
+  for (const file of jsFiles) {
+    const src = fs.readFileSync(file, 'utf8');
+    const matches = [];
+    let m;
+    while ((m = fnRe.exec(src)) !== null) {
+      const open = src.indexOf('{', m.index);
+      let depth = 0;
+      let close = -1;
+      for (let i = open; i < src.length; i++) {
+        if (src[i] === '{') depth++;
+        else if (src[i] === '}') { depth--; if (depth === 0) { close = i; break; } }
+      }
+      matches.push({ name: m[1], params: m[2], start: m.index, open, close });
+    }
+    fnRe.lastIndex = 0;
+    for (const fn of matches) {
+      if (fn.close <= fn.open) continue;
+      const body = src.slice(fn.open, fn.close);
+      if (!/\bctx\./.test(body)) continue;                  // no usa ctx
+      if (/\bctx\b/.test(fn.params)) continue;              // lo recibe por parámetro
+      if (/(?:const|let|var)\s+ctx\b/.test(body)) continue; // lo declara local (canvas/audio)
+      const ancestorCtx = matches.some(outer =>
+        outer !== fn && outer.start < fn.start && outer.close > fn.close && /\bctx\b/.test(outer.params)
+      );
+      if (ancestorCtx) continue;                            // lo toma por cierre léxico
+      ctxLessFunctions.push(`${path.relative(jsRoot, file)} :: ${fn.name}()`);
+    }
+  }
+  assert.deepStrictEqual(
+    ctxLessFunctions,
+    [],
+    `Funciones que usan ctx sin declararlo (ReferenceError en runtime): ${ctxLessFunctions.join(', ')}`
+  );
+  console.log('🛡️ Ninguna función de public/js usa `ctx` sin declararlo (regresión de renderHeader)');
+
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE COMPONENTIZACIÓN DE MENU PASARON AL 100%!');
 }
 
