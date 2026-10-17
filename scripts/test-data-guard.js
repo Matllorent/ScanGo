@@ -10,6 +10,11 @@
  *   1. Las mutaciones de QA jamás lleguen al commit.
  *   2. La suite sea repetible: cada corrida empieza desde el mismo estado.
  *   3. No haya que revertir a mano antes de commitear.
+ * Además, tras el restore PURGA los residuos de prueba preexistentes
+ * (`purgeLocalFixtures`, mismas reglas que la nube): las corridas
+ * standalone (`node tests/test-x.js`) dejan basura que ni el restore ni
+ * las corridas en CI deshacen. Protegidos por definición: `demo`
+ * (fixture del preview del Studio), dueños con email real y settings.
  *
  * Uso: `npm test` → este guard → spawn de `npm run test:core` (la cadena real).
  */
@@ -20,7 +25,7 @@ const path = require('path');
 
 const dataDir = path.join(__dirname, '..', 'data');
 const backupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'menu-data-backup-'));
-const { snapshotCloudSlugs, cleanupCloudTests } = require('./test-cloud-cleanup');
+const { snapshotCloudSlugs, cleanupCloudTests, isTestSlug, isTestEmail, isTestWebhookEventId } = require('./test-cloud-cleanup');
 
 /** Copia todos los archivos actuales de data/ al backup. */
 function snapshot() {
@@ -58,9 +63,154 @@ function restore(originalFiles) {
   }
 }
 
+/** Lee data/<file> como JSON; `fallback` si no existe o no parsea. */
+function readData(file, fallback) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(dataDir, file), 'utf8'));
+  } catch (e) {
+    return fallback;
+  }
+}
+
+/** Escribe data/<file> (2 espacios, igual que db.writeJson) solo si cambió. */
+function writeDataIfChanged(file, value) {
+  const p = path.join(dataDir, file);
+  let before = null;
+  try {
+    before = fs.readFileSync(p, 'utf8');
+  } catch (e) {
+    /* no existía: no lo creamos */
+  }
+  if (before === null) return false;
+  const next = JSON.stringify(value, null, 2);
+  if (before === next) return false;
+  fs.writeFileSync(p, next, 'utf8');
+  return true;
+}
+
+/**
+ * Purga local de residuos de tests (espejo de las reglas de la nube en
+ * scripts/test-cloud-cleanup.js). Corre DESPUÉS del restore: además de
+ * deshacer la corrida actual, saca la basura que dejaron corridas
+ * standalone, que no pasan por este guard y que se acumulaba sin límite
+ * (219 webhooks, 37 perfiles y 20 restaurantes de prueba al oct-2026).
+ *
+ * Nunca toca: settings.json, revoked_tokens.json (solo `jti`, sin enlace
+ * verificable) ni nada que pertenezca a un dueño con email real.
+ */
+function purgeLocalFixtures() {
+  const users = readData('users.json', null);
+  const restaurants = readData('restaurants.json', null);
+  if (!Array.isArray(users) || !Array.isArray(restaurants)) return;
+
+  const isTestUser = (u) => u && isTestEmail(u.email);
+  const keptUsers = users.filter((u) => !isTestUser(u));
+  const emailById = new Map(users.map((u) => [u.id, u.email]));
+  // Dueño real ⇒ intacto (incluso con slug de QA); solo los huérfanos
+  // (sin email resoluble) caen por patrón de slug — igual que en la nube.
+  const keptRestaurants = restaurants.filter((r) => {
+    const email = emailById.get(r.userId || r.user_id);
+    if (email) return !isTestEmail(email);
+    return !isTestSlug(r.slug);
+  });
+  const keptRestIds = new Set(keptRestaurants.map((r) => r.id));
+
+  // Fidelización: cuentas solo sobreviven en restaurantes conservados; los
+  // perfiles sin cuenta viva son residuo (un perfil real legítimo siempre
+  // tiene su cuenta en un local conservado).
+  const accounts = readData('loyalty_accounts.json', []);
+  const keptAccounts = Array.isArray(accounts)
+    ? accounts.filter((a) => a && keptRestIds.has(a.restaurantId))
+    : [];
+  const keptProfileIds = new Set(keptAccounts.map((a) => a.customerId).filter(Boolean));
+  const profiles = readData('customer_profiles.json', []);
+  const keptProfiles = Array.isArray(profiles)
+    ? profiles.filter((p) => p && keptProfileIds.has(p.id))
+    : [];
+  const ledger = readData('loyalty_ledger.json', []);
+  const keptLedger = Array.isArray(ledger)
+    ? ledger.filter((e) => e
+      && keptProfileIds.has(e.customerId)
+      && (e.restaurantId == null || keptRestIds.has(e.restaurantId)))
+    : [];
+  const redemptions = readData('loyalty_redemptions.json', []);
+  const keptRedemptions = Array.isArray(redemptions)
+    ? redemptions.filter((r) => r
+      && keptRestIds.has(r.restaurantId)
+      && (r.customerId == null || keptProfileIds.has(r.customerId)))
+    : [];
+
+  const keptUserIds = new Set(keptUsers.map((u) => u.id));
+
+  // Semántica de conservación: una fila solo sobrevive si su entidad
+  // enlazada se conserva. Así también caen los HUÉRFANOS de purgas
+  // anteriores (rid/userId que ya no existe en ningún archivo), no solo
+  // lo purgado en esta corrida.
+  const notifs = readData('notification_events.json', []);
+  const keptNotifs = Array.isArray(notifs)
+    ? notifs.filter((n) => n && (n.restaurantId == null || keptRestIds.has(n.restaurantId)))
+    : [];
+  const devTokens = readData('device_tokens.json', []);
+  const keptDevTokens = Array.isArray(devTokens)
+    ? devTokens.filter((t) => t && keptUserIds.has(t.userId))
+    : [];
+  const resetTokens = readData('reset_tokens.json', []);
+  const keptResetTokens = Array.isArray(resetTokens)
+    ? resetTokens.filter((t) => t && keptUserIds.has(t.userId))
+    : [];
+  const hooks = readData('webhooks.json', []);
+  const keptHooks = Array.isArray(hooks)
+    ? hooks.filter((h) => h && !isTestWebhookEventId(h.eventId || h.event_id))
+    : [];
+
+  const writes = [];
+  const add = (file, before, after, label) => {
+    if (Array.isArray(before) && before.length !== after.length) {
+      writes.push([file, after, before.length - after.length, label]);
+    }
+  };
+  add('users.json', users, keptUsers, 'usuarios');
+  add('restaurants.json', restaurants, keptRestaurants, 'restaurantes');
+  add('loyalty_accounts.json', accounts, keptAccounts, 'cuentas de fidelización');
+  add('customer_profiles.json', profiles, keptProfiles, 'perfiles de cliente');
+  add('loyalty_ledger.json', ledger, keptLedger, 'movimientos de ledger');
+  add('loyalty_redemptions.json', redemptions, keptRedemptions, 'canjes');
+  add('notification_events.json', notifs, keptNotifs, 'notificaciones');
+  add('device_tokens.json', devTokens, keptDevTokens, 'device tokens');
+  add('reset_tokens.json', resetTokens, keptResetTokens, 'reset tokens');
+  add('webhooks.json', hooks, keptHooks, 'webhooks');
+
+  // Pedidos/reseñas/feedback: mismo criterio (solo sobreviven los de
+  // restaurantes conservados; hoy vacíos, pero las corridas standalone
+  // también los acumulan).
+  for (const f of ['orders.json', 'reviews.json', 'feedback.json']) {
+    const rows = readData(f, null);
+    if (!Array.isArray(rows) || rows.length === 0) continue;
+    const kept = rows.filter((r) => r
+      && ((r.restaurantId || r.restaurant_id) == null
+        || keptRestIds.has(r.restaurantId || r.restaurant_id)));
+    add(f, rows, kept, f);
+  }
+
+  if (writes.length === 0) {
+    console.log('[data-guard] Purga local: sin residuos de prueba.');
+    return;
+  }
+  const parts = [];
+  for (const [file, rows, n, label] of writes) {
+    if (writeDataIfChanged(file, rows)) parts.push(`${n} ${label}`);
+  }
+  console.log(`[data-guard] Purga local: ${parts.join(', ')}.`);
+}
+
 const originalFiles = snapshot();
 
 async function main() {
+  // Corte "creado durante esta corrida" para el barrido de auditoría
+  // huérfana (5 min de margen: el `created_at` lo pone Postgres y el reloj
+  // local puede correr unos segundos; las filas reales tienen entidades
+  // vivas y se conservan igual).
+  const runStartedAt = new Date(Date.now() - 5 * 60 * 1000).toISOString();
   // La suite escribe en la nube REAL si hay credenciales: se borran los
   // restaurantes de prueba sembrados (el sitemap de prod los indexaba).
   const cloudBefore = await snapshotCloudSlugs();
@@ -72,13 +222,18 @@ async function main() {
 
   restore(originalFiles);
   console.log(`[data-guard] Data restaurada (${originalFiles.length} archivos): la suite dejó data/ como estaba antes de correr.`);
-  await cleanupCloudTests(cloudBefore);
+  purgeLocalFixtures();
+  await cleanupCloudTests(cloudBefore, { runStartedAt });
 
   process.exit(result.status === null ? 1 : result.status);
 }
 
-main().catch((e) => {
-  console.error('[data-guard] Falló la guarda:', e.message);
-  try { restore(originalFiles); } catch (_) {}
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((e) => {
+    console.error('[data-guard] Falló la guarda:', e.message);
+    try { restore(originalFiles); } catch (_) { /* best-effort */ }
+    process.exit(1);
+  });
+}
+
+module.exports = { purgeLocalFixtures };

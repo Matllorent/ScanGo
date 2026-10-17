@@ -62,6 +62,14 @@ async function runAiImportTests() {
   console.log('✓ Sanitización y validación defensiva de platos, precios y estilos validada');
 
   // 4. Verify parseMenuWithGemini accepts multi-page array
+  //    Llamada REAL si hay GEMINI_API_KEY. Las páginas de prueba son un PNG
+  //    1x1 en blanco: un modelo honesto devuelve `categories: []` con
+  //    detectedStyle ("sin contenido legible") — exigir categorías acá sería
+  //    exigirle alucinación a un modelo externo (y el test solo pasaría los
+  //    días en que la API falla y cae al fallback demo). Lo que este paso
+  //    prueba es el CONTRATO multi-página: acepta el array, no lanza y
+  //    devuelve la forma saneada. La extracción POSITIVA ya está cubierta en
+  //    §2 (fallback demo con categorías) y §3 (filtros del sanitizer).
   const samplePages = [
     { data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', mimeType: 'image/png' },
     { data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', mimeType: 'image/png' }
@@ -70,8 +78,16 @@ async function runAiImportTests() {
   const parsed = await parseMenuWithGemini(samplePages);
   assert(parsed.detectedStyle, 'El resultado debe incluir detectedStyle');
   assert(Array.isArray(parsed.categories), 'El resultado debe incluir categories');
-  assert(parsed.categories.length > 0, 'Debe extraer categorías de las páginas');
-  console.log(`✓ Procesamiento multi-página con ${samplePages.length} imágenes verificado exitosamente`);
+  const badCategory = parsed.categories.find(
+    (c) => !c || typeof c.name !== 'string' || !c.name.trim() || !Array.isArray(c.items)
+      || c.items.some((it) => !it || typeof it.name !== 'string' || !it.name.trim() || typeof it.price !== 'number' || it.price < 0)
+  );
+  assert(!badCategory, 'Cada categoría debe cumplir la forma saneada {name, items:[{name, price≥0}]}');
+  console.log(
+    parsed.categories.length > 0
+      ? `✓ Procesamiento multi-página con ${samplePages.length} imágenes verificado exitosamente`
+      : `✓ Multi-página: contrato {detectedStyle, categories[]} cumplido con 0 categorías (imagen en blanco: el modelo no inventa carta)`
+  );
 
   // 5. Verify router and endpoint registration
   const apiIndexSrc = fs.readFileSync(path.join(__dirname, '../api/index.js'), 'utf8');

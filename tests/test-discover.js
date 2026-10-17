@@ -53,20 +53,20 @@ async function runTests() {
       { id: 'dd4', name: 'Happy Hour Solo', price: 300, categoryId: 'c1', schedule: { enabled: true, days: [1, 2, 3, 4, 5], timeStart: '18:00', timeEnd: '20:00', behavior: 'hide' } }
     ]
   });
-  await db.saveRestaurant(u2.id, {
+  const rOff = await db.saveRestaurant(u2.id, {
     name: 'Descubrir QA 2', slug: `discover-qa2-${stamp}`, city: 'Montevideo',
     subscription: activeSub, phone: '59899000111', address: 'Calle Falsa 123',
     categories: [{ id: 'c1', name: 'Platos' }],
     dishes: [{ id: 'dd9', name: 'Oculto', price: 10, categoryId: 'c1' }]
   });
-  await db.saveRestaurant(u3.id, {
+  const rCanceled = await db.saveRestaurant(u3.id, {
     name: 'Descubrir QA 3', slug: `discover-qa3-${stamp}`, city: 'Montevideo',
     subscription: { status: 'canceled', plan: 'pro_monthly' }, allowDiscovery: true,
     categories: [{ id: 'c1', name: 'Platos' }],
     dishes: [{ id: 'dd8', name: 'Cancelado', price: 10, categoryId: 'c1' }]
   });
   const u4 = await mkUser('far');
-  await db.saveRestaurant(u4.id, {
+  const rFar = await db.saveRestaurant(u4.id, {
     name: 'Descubrir QA Lejos', slug: `discover-far-${stamp}`, city: 'Punta del Este',
     latitude: -34.96, longitude: -54.94,
     subscription: activeSub, allowDiscovery: true,
@@ -74,7 +74,7 @@ async function runTests() {
     dishes: [{ id: 'dd7', name: 'Lejano', price: 10, categoryId: 'c1' }]
   });
   const u5 = await mkUser('nogeo');
-  await db.saveRestaurant(u5.id, {
+  const rNoGeo = await db.saveRestaurant(u5.id, {
     name: 'Descubrir QA Sin Geo', slug: `discover-nogeo-${stamp}`, city: 'Montevideo',
     subscription: activeSub, allowDiscovery: true,
     categories: [{ id: 'c1', name: 'Platos' }],
@@ -201,6 +201,29 @@ async function runTests() {
     console.log('✓ /descubrir 200, CSP-safe y honesta');
   } finally {
     await new Promise(resolve => server.close(resolve));
+    // Limpieza propia: las corridas standalone NO pasan por test-data-guard,
+    // así que estos locales QA sobrevivirían en data/ y la PRÓXIMA corrida los
+    // encontraría en el feed (los ids dd1..dd9 son fijos y colisionan).
+    // Best-effort: si el fallo fue antes de crear algo, no hay nada que borrar.
+    for (const pair of [[u1, rOn], [u2, rOff], [u3, rCanceled], [u4, rFar], [u5, rNoGeo]]) {
+      const [user, rest] = pair;
+      if (!user || !rest) continue;
+      try { await db.deleteRestaurantData(user.id, rest.id); } catch (e) { /* limpieza nunca rompe el test */ }
+    }
+    // Barrido final por stamp: red de seguridad. Borra de los espejos locales
+    // cualquier fila de ESTA corrida que el delete por id haya dejado (carrera
+    // de escritura, EPERM transitorio de Windows, hidratación cloud→local).
+    // Sin esto, una corrida standalone deja 5 locales QA en data/ y la próxima
+    // corrida los encuentra en el feed (ids dd1..dd9 fijos) y falla.
+    try {
+      const rf = path.join(ROOT, 'data/restaurants.json');
+      const rows = JSON.parse(fs.readFileSync(rf, 'utf8'));
+      fs.writeFileSync(rf, JSON.stringify(rows.filter((r) => !r || !String(r.slug || '').endsWith(`-${stamp}`)), null, 2));
+      const uf = path.join(ROOT, 'data/users.json');
+      const urs = JSON.parse(fs.readFileSync(uf, 'utf8'));
+      fs.writeFileSync(uf, JSON.stringify(urs.filter((u) => !u || !String(u.email || '').includes(`-${stamp}@`)), null, 2));
+    } catch (e) { /* la higiene nunca rompe el test */ }
+    console.log('✓ Limpiados los locales QA de esta corrida (sin dejar polución en data/)');
   }
 
   // ── 7) Studio: toggle + entradas ────────────────────────────────────────

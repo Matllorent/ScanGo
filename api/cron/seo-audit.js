@@ -25,7 +25,7 @@ router.get('/seo-audit', verifyCronAuth, async (req, res) => {
   try {
     const restaurants = db.getAllRestaurants ? db.getAllRestaurants() : [];
     const results = restaurants
-      .map((r) => ({ userId: r.userId, slug: String(r.slug || ''), ...runSeoAudit(r, { allRestaurants: restaurants }) }))
+      .map((r) => ({ id: r.id, userId: r.userId, slug: String(r.slug || ''), ...runSeoAudit(r, { allRestaurants: restaurants }) }))
       .filter((r) => r.slug);
 
     const alerts = results
@@ -40,7 +40,10 @@ router.get('/seo-audit', verifyCronAuth, async (req, res) => {
     for (const alert of alerts) {
       const owner = results.find((r) => r.slug === alert.slug);
       auditService.logAction({
-        tenantId: owner ? owner.userId : null,
+        // tenant = el RESTAURANTE auditado (entidad de la alerta); el dueño
+        // viaja como userId. Antes tenant=userId, lo que rompía el purge por
+        // tenant del guard de tests y mezclaba entidades en audit_logs.
+        tenantId: owner ? owner.id : null,
         userId: owner ? owner.userId : null,
         requestId: req.headers['x-request-id'] || 'cron-seo-audit',
         action: 'SEO_AUDIT_ALERT',
