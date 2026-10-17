@@ -90,8 +90,10 @@ router.post('/public/analytics/event', publicAnalyticsLimiter, async (req, res) 
     // lo que pasa por /track y por el menú público). Se recalcula por evento:
     // los contadores del dueño deben estar frescos y los tests lo exigen.
     // El control de carga de este camino es el rate-limit por slug (120/15min)
-    // + el scan acotado a la única columna que usa la proyección.
-    const analytics = await telemetryService.countAnalytics(restaurant.id);
+    // + el scan acotado a la columna que usa la proyección. Con sizing por
+    // popularidad activo arrastra además `dishPopularity` (throttled 10 min);
+    // el resto de locales no paga una query extra.
+    const analytics = await telemetryService.projectAnalytics(restaurant);
     await db.setAnalyticsSnapshot(slug, analytics);
 
     res.json({ success: true, analytics, telemetry: true });

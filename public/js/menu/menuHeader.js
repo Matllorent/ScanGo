@@ -22,25 +22,29 @@ import {
 } from './menuPresentation.js';
 import { resolveEventTheme } from './eventGuestMode.js';
 import { computeOpenStatus } from './openStatus.js';
+// Morfologías y paletas: espejo ESM generado del manifest canónico del
+// backend (api/utils/themeManifest.js). La paridad la garantiza
+// tests/test-theme-manifest.js; jamás editar este listado a mano.
+import { LAYOUTS, LAYOUT_IDS, IMAGE_MODES, CLASSIC_THEME_IDS, HELADERIA_THEME_IDS } from './themeManifest.js';
 
     function renderHeader(ctx) {
       document.title = `${ctx.getRestaurantData().name} — Menú Digital`;
       document.getElementById('restaurantName').textContent = ctx.getRestaurantData().name;
       document.getElementById('restaurantSlogan').textContent = ctx.getRestaurantData().slogan || 'Carta Gastronómica';
 
-      // Apply Layout Morphology & 14 Authentic Classic Themes + 6 Heladería themes & Fonts to body
-      const validLayouts = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker', 'delivery', 'stories'];
+      // Apply Layout Morphology & Themes & Fonts to body
+      const validLayouts = LAYOUT_IDS;
       const morphParam = new URLSearchParams(window.location.search).get('morph');
       let layout = ctx.getRestaurantData().layout;
       if (morphParam && validLayouts.includes(morphParam)) {
         layout = morphParam;
       }
       const layoutClass = validLayouts.includes(layout) ? `layout-${layout}` : 'layout-classic';
-      const validThemes = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football', 'smash-urban', 'glass-gastro', 'ticket', 'helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora', 'helado-crema'];
+      const validThemes = [...CLASSIC_THEME_IDS, ...HELADERIA_THEME_IDS];
       // Heladería SOLO viste sus 12 temas: si el dato viene con un theme de
       // restaurante (cuenta vieja o payload manual), se corrige a fiesta en el
       // render para que el comensal siempre vea estética de heladería.
-      const HELADERIA_ONLY = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora', 'helado-crema'];
+      const HELADERIA_ONLY = HELADERIA_THEME_IDS;
       let effectiveTheme = ctx.getRestaurantData().theme;
       if (ctx.getRestaurantData().businessType === 'heladeria' && !HELADERIA_ONLY.includes(effectiveTheme)) {
         effectiveTheme = 'helado-fiesta';
@@ -59,6 +63,25 @@ import { computeOpenStatus } from './openStatus.js';
       }
       const themeClass = validThemes.includes(effectiveTheme) ? `theme-${effectiveTheme}` : 'theme-emerald';
       document.body.className = `${themeClass} font-${ctx.getRestaurantData().themeFont || 'serif'} ${layoutClass}`;
+
+      // === MOTOR DE PLANTILLAS: modo de imagen + sizing por popularidad
+      // `?img=none|hero|grid` y `?sizing=popularity` los previsualizan sin
+      // guardar (espejo de ?theme=/?morph=/?neon=). Solo se muta el objeto
+      // local de vista: es preview del navegador, nunca toca el dato guardado.
+      const dimParams = new URLSearchParams(window.location.search);
+      const dimRestaurant = ctx.getRestaurantData();
+      const imgParam = dimParams.get('img');
+      if (IMAGE_MODES.includes(imgParam)) dimRestaurant.imageMode = imgParam;
+      if (dimParams.get('sizing') === 'popularity') dimRestaurant.menuSizing = 'popularity';
+      // Clases SOLO cuando el valor difiere del default de la morfología: el
+      // default no agrega clases (cero regresión para los menús existentes).
+      const layoutEntry = LAYOUTS.find((l) => l.id === layout) || LAYOUTS[0];
+      if (IMAGE_MODES.includes(dimRestaurant.imageMode) && dimRestaurant.imageMode !== layoutEntry.defaultImageMode) {
+        document.body.classList.add(`image-${dimRestaurant.imageMode}`);
+      }
+      if (dimRestaurant.menuSizing === 'popularity' && layoutEntry.menuSizing.includes('popularity')) {
+        document.body.classList.add('sizing-popularity');
+      }
 
       // === NEON ACCENT: color elegible del layout Neon Nightbar (?neon= para previsualizar)
       // El preset pone la clase neon-<clave>; el color libre (picker HEX del

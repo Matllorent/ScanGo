@@ -24,6 +24,12 @@ const LEGACY_COUNTER_TYPES = {
   waiterCalls: new Set(['waiter', 'waiter_call'])
 };
 
+// Popularidad por plato (sizing del menú): ventana 90 días y throttle de
+// refresh de 10 minutos por local (la proyección corre en el camino público
+// de eventos; el rate-limit por slug + este throttle acotan el costo extra).
+const DISH_POPULARITY_WINDOW_DAYS = 90;
+const DISH_POPULARITY_MIN_INTERVAL_MS = 10 * 60 * 1000;
+
 const telemetryService = {
   /**
    * Non-blocking Fire-and-Forget telemetry recording
@@ -107,6 +113,72 @@ const telemetryService = {
       else if (LEGACY_COUNTER_TYPES.waiterCalls.has(type)) counters.waiterCalls++;
     }
     return counters;
+  },
+
+  /**
+   * Proyección de popularidad por plato para el sizing del menú
+   * (`restaurant.analytics.dishPopularity`). Ventana 90 días, basada en
+   * señales reales de la telemetría: clicks de plato (dish_click, 1 por
+   * evento) y unidades pedidas (order_placed con metadata.items[].qty).
+   * Normaliza contra el plato más clickeado (score 0..1, 2 decimales):
+   * el payload público NUNCA ve estas scores, solo el tier 2/1/0 que deriva
+   * de ellas (api/utils/popularityTiers.js).
+   */
+  async computeDishPopularity(restaurantId, { windowDays = DISH_POPULARITY_WINDOW_DAYS } = {}) {
+    const since = new Date(Date.now() - windowDays * 24 * 3600 * 1000).toISOString();
+    const events = await this.getEvents(restaurantId, {
+      since,
+      columns: 'event_type,dish_id,metadata_json,created_at'
+    });
+    const counts = {};
+    let samples = 0;
+    for (const e of events) {
+      if (e.event_type === 'dish_click' && e.dish_id) {
+        counts[e.dish_id] = (counts[e.dish_id] || 0) + 1;
+        samples += 1;
+      } else if (e.event_type === 'order_placed' && Array.isArray(e.metadata_json && e.metadata_json.items)) {
+        for (const it of e.metadata_json.items) {
+          if (!it || !it.dishId) continue;
+          const qty = Math.max(1, Math.min(999, Math.floor(Number(it.qty) || 1)));
+          counts[it.dishId] = (counts[it.dishId] || 0) + qty;
+          samples += qty;
+        }
+      }
+    }
+    const max = Math.max(0, ...Object.values(counts));
+    const scores = {};
+    if (max > 0) {
+      for (const [dishId, count] of Object.entries(counts)) {
+        scores[dishId] = Math.round((count / max) * 100) / 100;
+      }
+    }
+    return {
+      scores,
+      samples,
+      windowDays,
+      computedAt: new Date().toISOString()
+    };
+  },
+
+  /**
+   * Proyección COMPLETA del snapshot legacy: contadores + (solo para locales
+   * que eligieron `menuSizing: 'popularity'`) la proyección de popularidad
+   * con throttle de 10 minutos. El resto de locales no paga ni una query
+   * extra: `dishPopularity` simplemente no se agrega al snapshot.
+   * @param {object} restaurant registro completo del local (lee su snapshot
+   *        previo para heredar dishPopularity cuando no corresponde refrescar)
+   */
+  async projectAnalytics(restaurant) {
+    const counters = await this.countAnalytics(restaurant.id);
+    const prev = restaurant && restaurant.analytics ? restaurant.analytics.dishPopularity : null;
+    const sizingWanted = Boolean(restaurant && restaurant.menuSizing === 'popularity');
+    if (!sizingWanted) return counters;
+    const stale = !prev || !prev.computedAt ||
+      (Date.now() - Date.parse(prev.computedAt)) > DISH_POPULARITY_MIN_INTERVAL_MS;
+    const dishPopularity = stale
+      ? await this.computeDishPopularity(restaurant.id)
+      : prev;
+    return { ...counters, dishPopularity };
   },
 
   /**

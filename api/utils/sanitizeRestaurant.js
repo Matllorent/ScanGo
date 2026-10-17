@@ -3,14 +3,25 @@
  * Centraliza validación y saneamiento para /api/studio/save, /api/studio/events, /api/studio/branches
  */
 const { sanitizeModifierGroups, sanitizeDishOptionConfig } = require('./menuOptions');
+const {
+  IMAGE_MODES,
+  MENU_SIZING_MODES,
+  LAYOUT_IDS,
+  CLASSIC_THEME_IDS,
+  HELADERIA_THEME_IDS
+} = require('./themeManifest');
 
-const ALLOWED_LAYOUTS = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker', 'delivery', 'stories'];
+// Morfologías y paletas vienen del MANIFEST CANÓNICO (api/utils/themeManifest.js):
+// una sola lista para el backend, el frontend (espejo ESM generado por
+// scripts/regen-theme-manifest.js) y el Studio. La paridad la garantiza
+// tests/test-theme-manifest.js (mismo patrón que CSP ↔ vercel.json).
+const ALLOWED_LAYOUTS = LAYOUT_IDS;
 const NEON_ACCENT_KEYS = ['mint', 'cyan', 'magenta', 'amber', 'lime', 'violet'];
-const CLASSIC_THEMES = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football', 'smash-urban', 'glass-gastro', 'ticket'];
-// Heladería: rubro de primera clase con estética propia (6 originales + 5 premium).
-// Un cliente heladería SOLO puede elegir estos 11 (el Studio los filtra y el
+const CLASSIC_THEMES = CLASSIC_THEME_IDS;
+// Heladería: rubro de primera clase con estética propia (12 paletas).
+// Un cliente heladería SOLO puede elegir estas (el Studio los filtra y el
 // backend los impone: cualquier otro theme se corrige a helado-fiesta).
-const HELADERIA_THEMES = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora', 'helado-crema'];
+const HELADERIA_THEMES = HELADERIA_THEME_IDS;
 const ALL_THEMES = [...CLASSIC_THEMES, ...HELADERIA_THEMES];
 // Estilos del botón "Armá tu helado artesanal" (CTA protagonista del menú).
 // 6 variantes premium, obviamente de heladería, elegibles por el dueño.
@@ -403,6 +414,15 @@ function sanitizeRestaurantPayload(data) {
   // Layout
   const normLayout = sanitizeString(clean.layout, 20).toLowerCase().trim();
   clean.layout = ALLOWED_LAYOUTS.includes(normLayout) ? normLayout : 'classic';
+  // Motor de plantillas: modo de imagen y sizing por popularidad. Se guardan
+  // como INTENCIÓN del dueño (allowlist) y se resuelven contra las
+  // capacidades del layout en el payload público (resolveImageMode /
+  // resolveMenuSizing en el manifest): cambiar de morfología no borra la
+  // elección, solo la apaga mientras no sea compatible con la nueva.
+  const normImageMode = sanitizeString(clean.imageMode, 10).toLowerCase().trim();
+  clean.imageMode = normImageMode === 'auto' || IMAGE_MODES.includes(normImageMode) ? normImageMode : 'auto';
+  const normSizing = sanitizeString(clean.menuSizing, 12).toLowerCase().trim();
+  clean.menuSizing = MENU_SIZING_MODES.includes(normSizing) ? normSizing : 'uniform';
   // Barra de filtros del menú (fija / auto-oculta / compacta, default fija).
   const normFilterBar = sanitizeString(clean.filterBarMode, 20).toLowerCase().trim();
   clean.filterBarMode = ['fixed', 'autohide', 'compact'].includes(normFilterBar) ? normFilterBar : 'fixed';

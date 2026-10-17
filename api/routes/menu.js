@@ -15,18 +15,33 @@ const { getWeatherContext } = require('../services/weather');
 const { menuCacheMiddleware, getCachedMenu } = require('../middleware/cache');
 const { getDemoRestaurant, listDemoRestaurants, normalizeDemoType } = require('../utils/demoRestaurants');
 const { resolveBranchOverridePrice, normalizeBranchCustomDishes } = require('../utils/menuResponse');
+const { resolveImageMode, resolveMenuSizing, layoutSupportsMenuSizing } = require('../utils/themeManifest');
+const { computePopTiers } = require('../utils/popularityTiers');
 
 const router = express.Router();
 
-function buildDemoMenuResponse(typeOrSlug) {
+function buildDemoMenuResponse(typeOrSlug, opts = {}) {
   const demo = getDemoRestaurant(typeOrSlug);
   if (!demo) return null;
   const isEvent = demo.businessType === 'events';
+  const demoLayout = demo.layout || 'classic';
   const dishes = (demo.dishes || []).map(d => ({
     ...d,
     previous_price: d.previous_price || d.previousPrice || null,
     is_chef_recommended: Boolean(d.is_chef_recommended || d.isChefRecommended)
   }));
+  // Motor de plantillas (paridad con la ruta real): `?sizing=popularity` es
+  // preview aunque la demo no lo tenga guardado, si la morfología lo soporta.
+  const sizingPreview = opts.sizing === 'popularity';
+  const effectiveMenuSizing = (sizingPreview && layoutSupportsMenuSizing(demoLayout, 'popularity'))
+    ? 'popularity'
+    : resolveMenuSizing(demoLayout, demo.menuSizing);
+  const demoDishes = effectiveMenuSizing === 'popularity'
+    ? (() => {
+        const tiers = computePopTiers(dishes, demo.analytics && demo.analytics.dishPopularity);
+        return dishes.map(d => ({ ...d, popTier: tiers.has(d.id) ? tiers.get(d.id) : 1 }));
+      })()
+    : dishes;
   const publicData = {
     id: demo.id,
     organizationId: null,
@@ -70,7 +85,9 @@ function buildDemoMenuResponse(typeOrSlug) {
     loyaltyConfig: loyaltyService.getPublicLoyaltyConfig(demo),
     logoUrl: demo.logoUrl || null,
     bannerUrl: demo.bannerUrl || null,
-    layout: demo.layout || 'classic',
+    layout: demoLayout,
+    imageMode: resolveImageMode(demoLayout, demo.imageMode),
+    menuSizing: effectiveMenuSizing,
     businessType: demo.businessType || 'restaurant',
     allowIceCreamWizard: demo.allowIceCreamWizard === true,
     iceCreamBuilderLabel: demo.iceCreamBuilderLabel || '',
@@ -81,7 +98,7 @@ function buildDemoMenuResponse(typeOrSlug) {
     wifi: demo.wifi || { ssid: '', password: '' },
     categories: demo.categories || [],
     modifierGroups: demo.modifierGroups || [],
-    dishes,
+    dishes: demoDishes,
     deliveryZones: demo.deliveryZones || [],
     updatedAt: demo.updatedAt,
     weddingItinerary: demo.weddingItinerary || null,
@@ -128,7 +145,7 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
   const demoType = normalizeDemoType(slug);
   if (demoType) {
     try {
-      return res.status(200).json(buildDemoMenuResponse(demoType));
+      return res.status(200).json(buildDemoMenuResponse(demoType, { sizing: req.query.sizing }));
     } catch (e) {
       return res.status(500).json({ error: 'No se pudo cargar la demo' });
     }
@@ -142,8 +159,11 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
     // Multi-Branch Hierarchy Support (?branch= or ?sucursal=)
     // Resuelto ANTES del single-flight cache: la key incluye la sucursal para que
     // ?branch=centro y el menú base no compartan entrada (5s TTL) y se contaminen.
+    // ?sizing=popularity también cambia la respuesta (menuSizing + popTier), así
+    // que entra en la key por la misma razón que la sucursal.
     const reqBranch = (req.query.branch || req.query.sucursal || '').toLowerCase().trim();
-    const activeBranchCacheKey = `${slug}:branch:${reqBranch}`;
+    const reqSizing = req.query.sizing === 'popularity' ? ':sizing:popularity' : '';
+    const activeBranchCacheKey = `${slug}:branch:${reqBranch}${reqSizing}`;
 
     const fetchPromise = getCachedMenu(activeBranchCacheKey, async () => {
       const restaurant = db.findRestaurantBySlug(slug);
@@ -259,6 +279,23 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
         return 0;
       });
 
+      // Motor de plantillas: resolución del modo de imagen y del sizing contra
+      // las capacidades del layout (manifest canónico). `?sizing=popularity`
+      // es preview (espejo de ?morph=/?theme=): sirve el sizing aunque el
+      // dueño no lo haya guardado, siempre que la morfología lo soporte.
+      const sizingPreview = req.query.sizing === 'popularity';
+      const layoutId = restaurant.layout || 'classic';
+      const effectiveImageMode = resolveImageMode(layoutId, restaurant.imageMode);
+      const effectiveMenuSizing = (sizingPreview && layoutSupportsMenuSizing(layoutId, 'popularity'))
+        ? 'popularity'
+        : resolveMenuSizing(layoutId, restaurant.menuSizing);
+      if (effectiveMenuSizing === 'popularity') {
+        const tiers = computePopTiers(dishes, restaurant.analytics && restaurant.analytics.dishPopularity);
+        // Tier por plato (2 grande / 1 normal / 0 chico): el payload público
+        // NUNCA ve scores crudas ni conteos, solo este derivado acotado.
+        dishes = dishes.map(d => ({ ...d, popTier: tiers.has(d.id) ? tiers.get(d.id) : 1 }));
+      }
+
       // Sanitize public payload: exclude internal userId, billing identifiers, etc.
       const publicData = {
         id: restaurant.id,
@@ -327,6 +364,8 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
         logoUrl: restaurant.logoUrl || null,
         bannerUrl: restaurant.bannerUrl || null,
         layout: restaurant.layout || 'classic',
+        imageMode: effectiveImageMode,
+        menuSizing: effectiveMenuSizing,
         filterBarMode: ['fixed', 'autohide', 'compact'].includes(restaurant.filterBarMode) ? restaurant.filterBarMode : 'fixed',
         // Verticales de negocio (no sensibles): el frontend las usa para el gating
         // de heladería/perfumería y la resolución de temas de eventos.

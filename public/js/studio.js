@@ -17,6 +17,10 @@ import {
   buildGuestInviteMessage as buildGuestInviteMessageMod,
   buildGuestInviteUrl as buildGuestInviteUrlMod
 } from './menu/eventInvitations.js';
+// Manifest del motor de plantillas (espejo ESM generado del canónico del
+// backend): capacidades por morfología para mostrar/ocultar las filas de
+// imageMode y menuSizing. Paridad garantizada por tests/test-theme-manifest.js.
+import { LAYOUTS, IMAGE_MODES, MENU_SIZING_MODES } from './menu/themeManifest.js';
 import { state } from './studio/state.js';
 import { PLANS } from './studio/data/plans.js';
 import { PRESETS } from './studio/data/presetsData.js';
@@ -948,6 +952,23 @@ export async function confirmAccountDeletion() {
 }
 
 // Live State Synchronization
+/**
+ * Muestra/oculta las filas del motor de plantillas según las capacidades de
+ * la morfología elegida (manifest generado): `imageMode` solo donde el layout
+ * implementa más de un modo; `menuSizing` solo donde soporta popularidad.
+ * Las options del selector de layout llevan data-image-modes/data-sizing
+ * como documentación viva; la fuente de verdad es el manifest importado.
+ */
+export function updateLayoutCapabilityRows() {
+  const layoutSel = document.getElementById('inputMenuLayout');
+  const layoutId = layoutSel ? layoutSel.value : 'classic';
+  const layout = LAYOUTS.find((l) => l.id === layoutId) || LAYOUTS[0];
+  const imgRow = document.getElementById('imageModeRow');
+  if (imgRow) imgRow.style.display = layout.imageModes.length > 1 ? 'block' : 'none';
+  const sizingRow = document.getElementById('menuSizingRow');
+  if (sizingRow) sizingRow.style.display = layout.menuSizing.includes('popularity') ? 'block' : 'none';
+}
+
 export function updateLiveState() {
   if (!restaurant) return;
   const el = id => document.getElementById(id);
@@ -1056,6 +1077,13 @@ export function updateLiveState() {
     const v = String(filterBarSelect.value || 'fixed');
     restaurant.filterBarMode = ['fixed', 'autohide', 'compact'].includes(v) ? v : 'fixed';
   }
+  // Motor de plantillas: modo de imagen y sizing por popularidad (allowlist;
+  // el server además resuelve contra las capacidades del layout al publicar).
+  const imgModeSel = el('inputImageMode');
+  if (imgModeSel) restaurant.imageMode = IMAGE_MODES.includes(imgModeSel.value) ? imgModeSel.value : 'auto';
+  const sizingSel = el('inputMenuSizing');
+  if (sizingSel) restaurant.menuSizing = MENU_SIZING_MODES.includes(sizingSel.value) ? sizingSel.value : 'uniform';
+  updateLayoutCapabilityRows();
   if (el('inputThemeBg')) {
     let nextTheme = el('inputThemeBg').value;
     // Cambio de rubro a heladería con theme de restaurante: corrección
@@ -1289,6 +1317,13 @@ export function renderStudioUI() {
       ? restaurant.filterBarMode
       : 'fixed';
   }
+  if (el('inputImageMode')) {
+    el('inputImageMode').value = IMAGE_MODES.includes(restaurant.imageMode) ? restaurant.imageMode : 'auto';
+  }
+  if (el('inputMenuSizing')) {
+    el('inputMenuSizing').value = restaurant.menuSizing === 'popularity' ? 'popularity' : 'uniform';
+  }
+  updateLayoutCapabilityRows();
   if (el('inputThemeBg')) el('inputThemeBg').value = restaurant.theme || 'emerald';
   if (el('inputThemeFont')) el('inputThemeFont').value = restaurant.themeFont || 'serif';
   if (el('inputNeonAccent')) el('inputNeonAccent').value = restaurant.neonAccent || 'mint';

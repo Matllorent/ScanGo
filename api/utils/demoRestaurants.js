@@ -123,7 +123,7 @@ function demoHeladeria() {
     allowIceCreamWizard: true,
     allowPerfumery: false,
     theme: 'helado-fiesta',
-    layout: 'modern',
+    layout: 'classic',
     bannerUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/Gelato_ice_cream.jpg/500px-Gelato_ice_cream.jpg',
     logoUrl: null,
     iceCreamBuilderLabel: 'Armá tu helado a medida',

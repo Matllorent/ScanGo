@@ -544,13 +544,14 @@
               <select id="inputMenuLayout" class="form-select" data-js-change="updateLiveState" style="font-weight:600;">
                 <option value="classic" selected>📜 Classic Artisanal (Por Defecto — Pizarrón tradicional con sus 16 paletas)</option>
                 <option value="bento">🍱 Bento Grid (Moderna cuadrícula modular — Cafeterías de especialidad & Fast-Good)</option>
-                <option value="minimalist">🍷 Minimalist Luxury (Alta cocina & Fine-dining — Tipografía serif y fondos marfil/carbón)</option>
+                <option value="minimalist">🍷 Fine Dining (Alta cocina — retícula editorial sobre marfil, tipografía serif y foto protagonista por categoría)</option>
                 <option value="neon">🍸 Neon Nightbar (Modo ultra-oscuro #090D0E — Acentos de neón sutiles para tragos y 2x1)</option>
                 <option value="billboard">#️⃣ Billboard QSR (Menú board estilo McDonald's — Índices, fotos grandes y precios display para hamburgueserías & fast food)</option>
                 <option value="ticker">••• Ticker Tipográfico (Carta lista estilo Five Guys/Starbucks — Nombre, puntitos y precio, sin fotos ni tarjetas)</option>
                 <option value="sticker">🏷️ Sticker Artesanal (Board masonry tipo In-N-Out — Foto con nombre encima y precio en sticker para heladerías & panaderías)</option>
                 <option value="delivery">🛵 Delivery App (Estilo app de delivery — Hero con card superpuesta, lista horizontal con foto y botón + circular)</option>
                 <option value="stories">📖 Stories (Modo dual: carta clásica en MESA, historias full-screen en CASA — link delivery con ?morph=stories)</option>
+                <option value="brutalist">🧱 Brutalista (Neo-brutalismo tipográfico — bordes duros, sombras sólidas y alto contraste para marcas rompedoras)</option>
               </select>
               <div class="input-hint" style="margin-top:6px;">
                 "Classic Artisanal" conserva al 100% las 17 paletas auténticas. Las nuevas morfologías aplican un diseño estructural exclusivo de vanguardia.<br>
@@ -586,6 +587,28 @@
                   <option value="compact">🗜️ Compacta (pills chicos, una fila con scroll)</option>
                 </select>
                 <div class="input-hint" style="margin-top:4px;">Probala por link con <code>?filterbar=autohide</code> o <code>?filterbar=compact</code> sin guardar.</div>
+              </div>
+
+              <!-- Motor de plantillas: modo de imagen (la fila se muestra solo si el layout implementa más de un modo) -->
+              <div id="imageModeRow" style="display:none; margin-top:10px;">
+                <label class="form-label" for="inputImageMode">🖼️ Imágenes de los Platos</label>
+                <select id="inputImageMode" class="form-select" data-js-change="updateLiveState" style="font-size:11px;">
+                  <option value="auto">✨ Estilo del layout (recomendado)</option>
+                  <option value="grid">🖼️ Miniatura por plato (cuadrícula / lista)</option>
+                  <option value="none">✒️ Sin fotos (solo tipografía)</option>
+                  <option value="hero">🖼️ Una foto protagonista por categoría</option>
+                </select>
+                <div class="input-hint" style="margin-top:4px;">Previsualizá por link con <code>?img=none</code>, <code>?img=hero</code> o <code>?img=grid</code> sin guardar.</div>
+              </div>
+
+              <!-- Motor de plantillas: tamaño de las cartas (fila solo en layouts que soportan popularidad) -->
+              <div id="menuSizingRow" style="display:none; margin-top:10px;">
+                <label class="form-label" for="inputMenuSizing">📈 Tamaño de las Cartas</label>
+                <select id="inputMenuSizing" class="form-select" data-js-change="updateLiveState" style="font-size:11px;">
+                  <option value="uniform">📏 Uniforme (todas iguales — por defecto)</option>
+                  <option value="popularity">🔥 Popularidad (los más pedidos, más grandes)</option>
+                </select>
+                <div class="input-hint" style="margin-top:4px;">Se agrandan según clics y pedidos reales (90 días). Sin datos suficientes manda la sugerencia del chef. Probá con <code>?sizing=popularity</code>.</div>
               </div>
             </div>
 

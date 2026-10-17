@@ -391,8 +391,18 @@ let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
               <span>${escapeHtml(cat.name)}</span>
               <span class="category-badge-count">${catDishes.length} platos</span>
             </div>
-            <div class="dishes-grid">
         `;
+        // Foto protagonista por categoría (image-hero): una sola imagen
+        // editorial arriba de la sección (prefiere la sugerencia del chef) y
+        // sin miniaturas por plato. Si la categoría no tiene fotos, se omite.
+        if (ctx.getRestaurantData().imageMode === 'hero') {
+          const heroDish = catDishes.find(d => d.photoUrl && (d.is_chef_recommended || d.isChefSpecial))
+            || catDishes.find(d => d.photoUrl);
+          if (heroDish) {
+            html += `<img src="${escapeHtml(heroDish.photoUrl)}" alt="${escapeHtml(heroDish.name)}" class="category-hero-img" loading="lazy" decoding="async">`;
+          }
+        }
+        html += `<div class="dishes-grid">`;
 
         catDishes.forEach(d => { html += renderSingleDishCard(ctx, d, currency); });
 
@@ -444,6 +454,11 @@ let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
       const sched = getDishScheduleStatus(d);
       const isUnavailable = isSold || !sched.isAvailable;
       const effectivePrice = sched.effectivePrice !== undefined ? sched.effectivePrice : d.price;
+      // Tier de popularidad (menuSizing=popularity): 2 grande / 1 normal /
+      // 0 chico. El server emite solo el tier acotado (nunca scores crudas).
+      const popTierAttr = Number.isFinite(Number(d.popTier))
+        ? ` data-pop-tier="${Math.max(0, Math.min(2, Math.floor(Number(d.popTier))))}"`
+        : '';
 
       let badgeHtml = '';
       if (isSold) badgeHtml += '<span class="dish-badge" style="background:#E53E3E; color:#fff;">✕ AGOTADO HOY</span> ';
@@ -495,7 +510,7 @@ let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
       }
 
       return `
-        <div class="dish-card ${isUnavailable ? 'dish-sold' : ''} ${d.photoUrl ? 'dish-has-photo' : ''}" id="dish_card_${d.id}" style="${isUnavailable ? 'opacity:0.6; filter:grayscale(0.5);' : ''}">
+        <div class="dish-card ${isUnavailable ? 'dish-sold' : ''} ${d.photoUrl ? 'dish-has-photo' : ''}"${popTierAttr} id="dish_card_${d.id}" style="${isUnavailable ? 'opacity:0.6; filter:grayscale(0.5);' : ''}">
           ${photoHtml}
           <div class="dish-body">
             <div class="dish-title-line">

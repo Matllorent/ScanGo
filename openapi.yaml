@@ -1642,7 +1642,22 @@ components:
           type: string
         layout:
           type: string
-          enum: [classic, bento, minimalist, neon, billboard, ticker, sticker, delivery, stories]
+          enum: [classic, bento, minimalist, neon, billboard, ticker, sticker, delivery, stories, brutalist]
+        imageMode:
+          type: string
+          enum: [auto, grid, none, hero]
+          description: |-
+            Motor de plantillas — modo de imagen elegido por el dueño ('auto' = default de la
+            morfología). En GET /api/menu se emite ya RESUELTO contra las capacidades del layout
+            (grid | none | hero; ver api/utils/themeManifest.js). Aditivo: no cambia el resto.
+        menuSizing:
+          type: string
+          enum: [uniform, popularity]
+          description: |-
+            Motor de plantillas — tamaño de las cartas. En GET /api/menu se emite resuelto
+            ('popularity' solo si la morfología lo soporta; si no, 'uniform'). Cuando es
+            'popularity', cada plato de `dishes` suma `popTier` (2 grande / 1 normal / 0 chico):
+            derivado acotado de la popularidad real, nunca scores crudas ni conteos.
         allowOnlinePayment:
           type: boolean
           description: Interruptor del dueño para el pago online (default false)
@@ -1659,6 +1674,9 @@ components:
           type: array
           items:
             type: object
+            description: |-
+              Plato de la carta. Aditivos del motor de plantillas: `popTier` (2|1|0) solo cuando
+              `menuSizing` es 'popularity' (tamaño visual por popularidad; ver popularityTiers.js).
         branches:
           type: array
           items:

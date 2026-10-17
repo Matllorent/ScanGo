@@ -60,7 +60,16 @@ async function runTests() {
   // 2. Verificación de layouts permitidos e integridad en api/index.js
   const menuRouterSrc = fs.readFileSync(path.join(__dirname, '../api/routes/menu.js'), 'utf8');
   const sanitizeFile = fs.readFileSync(path.join(__dirname, '../api/utils/sanitizeRestaurant.js'), 'utf8');
-  assert.ok(sanitizeFile.includes("ALLOWED_LAYOUTS = ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker', 'delivery', 'stories']"), 'allowedLayouts debe incluir classic, bento, minimalist, neon, billboard, ticker, sticker, delivery y stories');
+  // La lista blanca vive en el MANIFEST CANÓNICO (api/utils/themeManifest.js) y
+  // el sanitizer la importa; la paridad completa (incluido el espejo ESM del
+  // frontend) la garantiza npm run test:theme-manifest.
+  const { LAYOUT_IDS } = require('../api/utils/themeManifest');
+  assert.deepStrictEqual(
+    LAYOUT_IDS,
+    ['classic', 'bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker', 'delivery', 'stories', 'brutalist'],
+    'el manifest canónico declara las 10 morfologías (incluye brutalist)'
+  );
+  assert.ok(sanitizeFile.includes("require('./themeManifest')") && sanitizeFile.includes('LAYOUT_IDS'), 'sanitizeRestaurant debe derivar ALLOWED_LAYOUTS del manifest canónico');
   assert.ok(menuRouterSrc.includes('bannerUrl:'), 'routes/menu.js debe sanitizar y devolver bannerUrl');
   console.log('✓ Saneamiento y lista blanca de layouts en el backend verificados');
 
@@ -91,6 +100,13 @@ async function runTests() {
   assert.ok(menuCss.includes('body.layout-delivery .btn-add'), 'delivery debe tener botón + circular propio');
   assert.ok(menuCss.includes('counter-increment: board'), 'billboard debe numerar los platos con CSS counters');
   assert.ok(menuCss.includes('scroll-snap-type: x mandatory'), 'El carrusel superior debe ser táctil con scroll-snap para móviles');
+  // 3b2b. Fine Dining (minimalist reconstruido) + Brutalista (10ª morfología)
+  assert.ok(menuCss.includes('--bg-chalkboard: #F7F4ED'), 'minimalist (Fine Dining) debe usar la paleta marfil, no la lista oscura con dorado');
+  assert.ok(menuCss.includes('body.layout-brutalist'), 'menu.css debe definir body.layout-brutalist');
+  const studioHtmlLayouts = fs.readFileSync(path.join(__dirname, '../public/studio.html'), 'utf8');
+  assert.ok(studioHtmlLayouts.includes('<option value="brutalist">'), 'studio.html debe ofrecer el layout Brutalista en el selector');
+  assert.ok(menuCss.includes('body.image-none') && menuCss.includes('body.image-hero'), 'menu.css debe estilizar los modos de imagen image-none/image-hero');
+  assert.ok(menuCss.includes('body.sizing-popularity'), 'menu.css debe estilizar el sizing por popularidad (body.sizing-popularity)');
   // 3b3. Overlay sticker por clase condicional dish-has-photo (sin :has(), robusto en WebViews)
   assert.ok(menuCss.includes('.dish-card.dish-has-photo .dish-body'), 'El overlay del sticker debe usar la clase condicional dish-has-photo');
   assert.ok(!menuCss.includes('.dish-card:has('), 'Fase E no debe depender de :has() — se usa la clase dish-has-photo (compat Capacitor/WebViews)');
@@ -197,15 +213,17 @@ async function runTests() {
   assert.ok(headerModSrc.includes("bannerEl.querySelector('.menu-banner-logo-slot').append(logoContainer)"), 'El logo debe superponerse al hero');
   assert.ok(headerModSrc.includes("bannerEl.querySelector('.menu-banner-status-slot').append(heroStatusBadge)"), 'La insignia de estado debe superponerse al hero');
   assert.ok(headerModSrc.includes('layoutClass'), 'menuHeader.js debe computar layoutClass');
-  assert.ok(headerModSrc.includes("'bento'"), 'menuHeader.js debe contemplar bento en validLayouts');
-  assert.ok(headerModSrc.includes("'minimalist'"), 'menuHeader.js debe contemplar minimalist en validLayouts');
-  assert.ok(headerModSrc.includes("'neon'"), 'menuHeader.js debe contemplar neon en validLayouts');
-  assert.ok(headerModSrc.includes("'billboard'"), 'menuHeader.js debe contemplar billboard en validLayouts');
-  assert.ok(headerModSrc.includes("'ticker'"), 'menuHeader.js debe contemplar ticker en validLayouts');
-  assert.ok(headerModSrc.includes("'sticker'"), 'menuHeader.js debe contemplar sticker en validLayouts');
-  assert.ok(headerModSrc.includes("'delivery'"), 'menuHeader.js debe contemplar delivery en validLayouts');
+  // Las morfologías viven en el MANIFEST generado (frontend): menuHeader.js las
+  // importa en vez de duplicar el listado. La paridad canónico↔espejo↔CSS↔Studio
+  // es de npm run test:theme-manifest; acá verificamos que el espejo exista y
+  // que el header lo consuma (así el listado duplicado no puede volver).
+  const feManifestSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/themeManifest.js'), 'utf8');
+  assert.ok(headerModSrc.includes("from './themeManifest.js'"), 'menuHeader.js debe importar el manifest generado');
+  for (const id of ['bento', 'minimalist', 'neon', 'billboard', 'ticker', 'sticker', 'delivery']) {
+    assert.ok(feManifestSrc.includes(`"id": "${id}"`), `el manifest generado debe declarar la morfología ${id}`);
+  }
   // Modo dual Stories: overlay de historias (mesa=carta clásica, casa=?morph=stories)
-  assert.ok(headerModSrc.includes("'stories'"), 'menuHeader.js debe contemplar stories en validLayouts');
+  assert.ok(feManifestSrc.includes('"id": "stories"'), 'el manifest generado debe declarar la morfología stories');
   assert.ok(menuJs.includes('toggleStoriesMode'), 'menu.js debe exponer toggleStoriesMode (botón 📖 + binder)');
   assert.ok(menuJs.includes('maybeAutoEnterStoriesMod'), 'menu.js debe auto-entrar a stories con layout=stories tras renderizar');
   assert.ok(menuCss.includes('body.layout-stories'), 'menu.css debe definir body.layout-stories');
@@ -252,12 +270,12 @@ async function runTests() {
   assert.ok(menuCss.includes('body.theme-ticket'), 'menu.css debe definir body.theme-ticket');
   assert.ok(menuCss.includes('body.theme-ticket .menu-container::after'), 'ticket debe tener borde dentado inferior en el papel');
   assert.ok(menuCss.includes('body.theme-ticket .cat-pill'), 'ticket debe tener sellos por categoría');
-  assert.ok(headerModSrc.includes("'ticket'"), 'menuHeader.js debe contemplar ticket en validThemes');
+  assert.ok(feManifestSrc.includes('"ticket"'), 'el manifest generado debe contemplar el tema ticket en validThemes');
   assert.ok(studioHtml.includes('<option value="ticket">'), 'studio.html debe ofrecer el tema Ticket en el selector');
   assert.ok(menuCss.includes('body.stories-open #scangoCookieBanner'), 'stories debe diferir banners flotantes (cookies/PWA/loyalty) mientras está abierto');
   assert.ok(storiesMod.includes('ArrowDown') && storiesMod.includes('Escape'), 'stories debe navegar con teclado (flechas + Escape)');
   assert.ok(storiesMod.includes("ev.key === 'Tab'"), 'stories debe atrapar el Tab dentro del overlay (diálogo inmersivo)');
-  assert.ok(headerModSrc.includes("'helado-fiesta'") && headerModSrc.includes("'cioccolato'"), 'menuHeader.js debe aceptar los temas de heladería en validThemes');
+  assert.ok(feManifestSrc.includes('"helado-fiesta"') && feManifestSrc.includes('"cioccolato"'), 'el manifest generado debe aceptar los temas de heladería en validThemes');
   // El botón del asistente se ancla en el flag, no en el rubro: un `false` explícito del
   // dueño apaga el asistente aunque businessType sea 'heladeria'.
   assert.ok(headerModSrc.includes('const isHeladeria = ctx.getRestaurantData().allowIceCreamWizard === true;'), 'menuHeader.js debe respetar allowIceCreamWizard=false para no mostrar el asistente apagado');

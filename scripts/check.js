@@ -13,6 +13,7 @@
  *   test-money-properties.js   propiedades del dinero, PRNG seed fijo (Bloque 2)
  *   test-differential.js       differential escapeHtml/máquina/telemetría (Bloque 3)
  *   test-business-hours.js     tabla de decisión ejecutable de horarios (Bloque 1)
+ *   test-theme-manifest.js     manifest del motor de plantillas (paridad CJS↔ESM, Suite 52)
  *
  * SOFT (no bloquean; avisan en el resumen):
  *   test-semgrep.js            estático Semgrep (hace SKIP exit 0 si no está instalado)
@@ -97,7 +98,8 @@ const hard = [
   { key: 'architecture', label: 'guards de arquitectura', args: ['tests/test-architecture-guards.js'] },
   { key: 'money', label: 'propiedades del dinero', args: ['tests/test-money-properties.js'] },
   { key: 'differential', label: 'differential testing', args: ['tests/test-differential.js'] },
-  { key: 'hours', label: 'tabla de horarios (Bloque 1)', args: ['tests/test-business-hours.js'] }
+  { key: 'hours', label: 'tabla de horarios (Bloque 1)', args: ['tests/test-business-hours.js'] },
+  { key: 'theme-manifest', label: 'manifest de plantillas (Suite 52)', args: ['tests/test-theme-manifest.js'] }
 ];
 for (const s of hard) {
   steps.push({ ...s, cmd: node, soft: false });

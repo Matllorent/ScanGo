@@ -115,7 +115,19 @@ async function runTests() {
     const menuBody = await menuRes.json();
     assert.ok(menuBody.restaurant, 'el menú expone restaurant');
     assert.strictEqual(typeof menuBody.restaurant.allowOnlinePayment, 'boolean', 'allowOnlinePayment es boolean');
-    console.log('✓ GET /api/menu/:slug 200 con allowOnlinePayment boolean');
+    // Motor de plantillas: las dimensiones viajan RESUELTAS contra el layout
+    // (nunca 'auto') y con su enum acotado — contrato documentado en openapi.yaml.
+    assert.ok(['grid', 'none', 'hero'].includes(menuBody.restaurant.imageMode), 'imageMode resuelto (grid|none|hero)');
+    assert.ok(['uniform', 'popularity'].includes(menuBody.restaurant.menuSizing), 'menuSizing resuelto (uniform|popularity)');
+    // Preview por query (espejo de ?morph=/?theme=): ?sizing=popularity sirve
+    // el sizing y sus tiers sin que el dueño lo haya guardado.
+    const previewRes = await fetch(`${base}/api/menu/${rest.slug}?sizing=popularity`);
+    assert.strictEqual(previewRes.status, 200, 'preview ?sizing= responde 200');
+    const previewBody = await previewRes.json();
+    assert.strictEqual(previewBody.restaurant.menuSizing, 'popularity', '?sizing=popularity activa el sizing por preview');
+    const tiered = (previewBody.restaurant.dishes || []).find((d) => Number.isFinite(Number(d.popTier)));
+    assert.ok(tiered, 'con sizing por popularidad cada plato expone popTier');
+    console.log('✓ GET /api/menu/:slug 200 con allowOnlinePayment boolean + motor de plantillas (imageMode/menuSizing/popTier)');
 
     // Slug inexistente → 404 real (no inventado: el handler lo devuelve).
     const menu404 = await fetch(`${base}/api/menu/no-existe-${stamp}`);

@@ -3716,103 +3716,189 @@
     }
 
     /* ==========================================================================
-       MORFOLOGÍA 2: MINIMALIST LUXURY (EDITORIAL & ALTA COCINA)
-       Ideal para Fine-Dining, Bistró de Autor y Restaurantes Premium
+       MORFOLOGÍA 2: MINIMALIST → FINE DINING (EDITORIAL DE ALTA COCINA)
+       Marfil editorial para alta cocina: el layout MANDA sobre los themes
+       (redefine sus variables: los themes solo tiñen acentos puntuales).
+       Filetes finos, serif Playfair, mono para precios y mucho aire, en una
+       sola columna (max 760px) tipo carta impresa.
+       Fotos: default `hero` (una foto protagonista por categoría); el dueño
+       puede volver a `grid` (miniaturas) o `none` (pura tipografía).
+       Ver imageMode en api/utils/themeManifest.js.
        ========================================================================== */
     body.layout-minimalist {
-      --bg-chalkboard: #0E1211;
+      --bg-chalkboard: #F7F4ED;
       --surface-card: transparent;
-      --chalk-gold: #D4AF37;
-      --chalk-white: #F8F9FA;
-      background-color: #0E1211;
+      --surface-card-hover: rgba(25, 23, 19, 0.04);
+      --chalk-white: #191713;
+      --chalk-muted: #4A463D;
+      --chalk-dim: #6E6A5F;
+      --chalk-gold: #8A6D3B;
+      --border-chalk: rgba(25, 23, 19, 0.16);
+      background-color: #F7F4ED !important;
+      color: #191713;
     }
+    body.layout-minimalist .menu-container { max-width: 760px; }
     body.layout-minimalist .menu-header {
-      padding: 32px 18px 24px;
-      border-bottom: 1px solid rgba(212, 175, 55, 0.2);
-      margin-bottom: 24px;
+      padding: 44px 20px 26px;
+      border-bottom: 1px solid rgba(25, 23, 19, 0.16);
+      margin-bottom: 30px;
+      background: transparent !important;
+      /* El base re-scopea las tintas a claro asumiendo header oscuro; acá el
+         header va en papel → vuelven a tinta (Información y controles genéricos) */
+      --chalk-white: #191713;
+      --chalk-muted: #4A463D;
+      --chalk-dim: #6E6A5F;
     }
     body.layout-minimalist .restaurant-title {
-      font-family: 'Playfair Display', serif !important;
-      font-weight: 700;
-      letter-spacing: 0.8px;
-      color: #F8F9FA;
+      font-family: 'Playfair Display', Georgia, serif !important;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: #191713 !important;
     }
     body.layout-minimalist .restaurant-slogan {
-      font-family: 'Playfair Display', serif;
+      font-family: 'Playfair Display', Georgia, serif !important;
       font-style: italic;
-      letter-spacing: 0.4px;
-      color: #CBD5E0;
+      letter-spacing: 0.02em;
+      color: #6E6A5F !important;
     }
-    body.layout-minimalist .category-block {
-      margin-bottom: 34px;
+    /* Estado abierto/cerrado legible sobre papel (los themes usan tinta clara) */
+    body.layout-minimalist .status-pill.open {
+      background: rgba(31, 111, 74, 0.1);
+      color: #1F6F4A;
+      border-color: rgba(31, 111, 74, 0.35);
     }
+    body.layout-minimalist .status-pill.closed {
+      background: rgba(160, 53, 53, 0.08);
+      color: #A03535;
+      border-color: rgba(160, 53, 53, 0.35);
+    }
+    body.layout-minimalist .status-pill.order-later {
+      background: rgba(25, 23, 19, 0.06);
+      color: #4A463D;
+      border-color: rgba(25, 23, 19, 0.2);
+    }
+    /* Buscador y pills: papel con tinta (el base es oscuro pensando en pizarrón) */
+    body.layout-minimalist .controls-wrapper {
+      background: rgba(247, 244, 237, 0.96);
+      border-bottom-color: rgba(25, 23, 19, 0.16);
+    }
+    body.layout-minimalist .search-box {
+      background: #FFFDF8 !important;
+      border: 1px solid rgba(25, 23, 19, 0.18) !important;
+      color: #191713 !important;
+    }
+    body.layout-minimalist .search-box:focus { border-color: #191713 !important; }
+    body.layout-minimalist .cat-pill {
+      background: transparent !important;
+      border: 1px solid rgba(25, 23, 19, 0.25) !important;
+      color: #4A463D !important;
+      border-radius: 999px;
+    }
+    body.layout-minimalist .cat-pill.active {
+      background: #191713 !important;
+      border-color: #191713 !important;
+      color: #F7F4ED !important;
+    }
+    /* Botón Información: el base usa --chalk-white claro (temas oscuros) y
+       vive DIRECTO sobre el papel de la cabecera → ilegible en marfil */
+    body.layout-minimalist .btn-info-modal {
+      background: rgba(25, 23, 19, 0.05);
+      border: 1px solid rgba(25, 23, 19, 0.25);
+      color: #4A463D;
+    }
+    body.layout-minimalist .btn-info-modal:hover {
+      background: rgba(25, 23, 19, 0.1);
+      border-color: #191713;
+      color: #191713;
+    }
+    /* Stories y accesibilidad: el texto base es blanco (barra "pizarrón") */
+    body.layout-minimalist .st-ring { color: #191713; }
+    body.layout-minimalist .btn-a11y-tts { color: #6E6A5F; }
+    body.layout-minimalist .i18n-currency-select { color: #6E6A5F; }
+    body.layout-minimalist .category-block { margin-bottom: 36px; }
     body.layout-minimalist .category-header-row {
-      border-bottom: 1px solid rgba(212, 175, 55, 0.25);
+      border-bottom: 1px solid rgba(25, 23, 19, 0.28);
       padding-bottom: 8px;
-      margin-bottom: 16px;
+      margin-bottom: 4px;
     }
     body.layout-minimalist .category-title {
-      font-family: 'Playfair Display', serif !important;
-      font-size: 1.3rem;
-      letter-spacing: 1px;
-      color: #D4AF37 !important;
-      text-transform: uppercase;
+      font-family: 'Playfair Display', Georgia, serif !important;
+      font-size: 1.4rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      color: #191713 !important;
+      text-transform: none;
     }
+    body.layout-minimalist .category-badge-count {
+      color: #6E6A5F !important;
+      font-weight: 400;
+      letter-spacing: 0;
+    }
+    body.layout-minimalist .dishes-grid { gap: 0; }
     body.layout-minimalist .dish-card {
       background: transparent !important;
       border: none !important;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+      border-bottom: 1px solid rgba(25, 23, 19, 0.1) !important;
       border-radius: 0 !important;
-      padding: 16px 0 !important;
+      padding: 18px 2px !important;
       box-shadow: none !important;
-      align-items: flex-start !important;
-      transition: background-color 0.2s ease;
+      align-items: center !important;
+      transition: background-color 0.2s ease, border-color 0.2s ease;
     }
     body.layout-minimalist .dish-card:hover {
-      background: rgba(255, 255, 255, 0.02) !important;
-      border-bottom-color: rgba(212, 175, 55, 0.4) !important;
+      background: rgba(25, 23, 19, 0.04) !important;
+      border-bottom-color: rgba(25, 23, 19, 0.3) !important;
     }
     body.layout-minimalist .dish-thumb {
-      width: 58px !important;
-      height: 58px !important;
-      border-radius: 50% !important;
-      border: 1px solid rgba(212, 175, 55, 0.35) !important;
+      width: 64px !important;
+      height: 64px !important;
+      border-radius: 4px !important;
+      border: 1px solid rgba(25, 23, 19, 0.14) !important;
       object-fit: cover !important;
       margin-right: 4px;
+      filter: none;
     }
     body.layout-minimalist .dish-name {
-      font-family: 'Playfair Display', serif !important;
-      font-size: 1.05rem;
+      font-family: 'Playfair Display', Georgia, serif !important;
+      font-size: 1.08rem;
       font-weight: 600;
-      letter-spacing: 0.4px;
-      color: #F8F9FA;
+      letter-spacing: 0;
+      color: #191713 !important;
     }
     body.layout-minimalist .dish-desc {
-      font-size: 0.82rem;
-      line-height: 1.5;
-      color: #A0AEC0;
+      font-size: 0.85rem;
+      line-height: 1.55;
+      color: #6E6A5F !important;
       margin-top: 3px;
+      font-style: italic;
     }
     body.layout-minimalist .dish-price {
-      font-family: 'Playfair Display', serif !important;
-      font-size: 1.15rem;
-      color: #D4AF37;
+      font-family: 'IBM Plex Mono', monospace !important;
+      font-size: 0.98rem;
       font-weight: 600;
-      letter-spacing: 0.5px;
+      color: #191713 !important;
+      letter-spacing: 0.02em;
     }
     body.layout-minimalist .btn-add {
       background: transparent !important;
-      border: 1px solid rgba(212, 175, 55, 0.6) !important;
-      color: #D4AF37 !important;
+      border: 1px solid rgba(25, 23, 19, 0.45) !important;
+      color: #191713 !important;
       border-radius: 50% !important;
       width: 32px !important;
       height: 32px !important;
       font-size: 1rem;
-      transition: background-color 0.2s ease, color 0.2s ease;
+      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
     }
     body.layout-minimalist .btn-add:hover {
-      background: #D4AF37 !important;
-      color: #0E1211 !important;
+      background: #191713 !important;
+      border-color: #191713 !important;
+      color: #F7F4ED !important;
+    }
+    /* Chips de contacto (reserva/wifi/social): filete fino, sin glass oscuro */
+    body.layout-minimalist .meta-chip {
+      background: transparent !important;
+      border: 1px solid rgba(25, 23, 19, 0.2) !important;
+      color: #4A463D !important;
     }
 
     /* ==========================================================================
@@ -5658,3 +5744,305 @@
     body.filter-compact #dietaryFilterPills { padding-top: 2px; gap: 4px; }
     body.filter-compact .stories-tray { margin: 0 0 6px; gap: 6px; }
     body.filter-compact .search-box { padding: 7px 12px; font-size: 0.82rem; }
+
+    /* ==========================================================================
+       MORFOLOGÍA 10: BRUTALISTA (NEO-BRUTALISMO TIPOGRÁFICO)
+       Papel crudo, tinta plana, bordes duros de 3px, sombras sólidas sin
+       difuminar y mayúsculas. Sin fuentes nuevas: Montserrat (ya en
+       menu.html) para titulares e IBM Plex Mono para precios. El layout manda
+       sobre los themes (misma estrategia que Fine Dining): los themes solo
+       tiñen el acento (--chalk-gold) y paletas puntuales.
+       ========================================================================== */
+    body.layout-brutalist {
+      --bg-chalkboard: #F2EFE4;
+      --surface-card: #FFFFFF;
+      --surface-card-hover: #FFF9EC;
+      --chalk-white: #141414;
+      --chalk-muted: #2E2B24;
+      --chalk-dim: #6B675C;
+      --chalk-gold: #FF4D00;
+      --border-chalk: #141414;
+      background-color: #F2EFE4 !important;
+      color: #141414;
+      font-family: 'Montserrat', 'Helvetica Neue', Arial, sans-serif;
+    }
+    body.layout-brutalist .menu-container { max-width: 860px; }
+    body.layout-brutalist .menu-header {
+      padding: 34px 18px 22px;
+      border-bottom: 4px solid #141414;
+      margin-bottom: 26px;
+      background: transparent !important;
+      /* El base re-scopea las tintas a claro asumiendo header oscuro; acá el
+         header va en papel → vuelven a tinta (Información y controles genéricos) */
+      --chalk-white: #141414;
+      --chalk-muted: #2E2B24;
+      --chalk-dim: #6B675C;
+    }
+    body.layout-brutalist .btn-info-modal {
+      background: #FFFFFF;
+      border: 2px solid #141414;
+      color: #141414;
+      box-shadow: 3px 3px 0 #141414;
+    }
+    body.layout-brutalist .btn-info-modal:hover {
+      background: var(--chalk-gold, #FF4D00);
+      border-color: #141414;
+      color: #141414;
+    }
+    body.layout-brutalist .btn-a11y-tts { color: #141414; }
+    body.layout-brutalist .i18n-currency-select { color: #141414; }
+    body.layout-brutalist .restaurant-title {
+      font-family: 'Montserrat', 'Helvetica Neue', Arial, sans-serif !important;
+      font-weight: 700 !important;
+      text-transform: uppercase;
+      letter-spacing: -0.02em;
+      color: #141414 !important;
+    }
+    body.layout-brutalist .restaurant-slogan {
+      font-family: 'IBM Plex Mono', monospace !important;
+      font-style: normal;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.78rem;
+      color: #2E2B24 !important;
+    }
+    body.layout-brutalist .status-pill {
+      border-radius: 0 !important;
+      font-family: 'IBM Plex Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.7rem;
+    }
+    body.layout-brutalist .status-pill.open {
+      background: #C6F24E !important;
+      color: #141414 !important;
+      border: 2px solid #141414 !important;
+    }
+    body.layout-brutalist .status-pill.closed {
+      background: #FF8FA3 !important;
+      color: #141414 !important;
+      border: 2px solid #141414 !important;
+    }
+    body.layout-brutalist .status-pill.order-later {
+      background: #FFFFFF !important;
+      color: #141414 !important;
+      border: 2px solid #141414 !important;
+    }
+    body.layout-brutalist .search-box {
+      background: #FFFFFF !important;
+      border: 3px solid #141414 !important;
+      border-radius: 0 !important;
+      color: #141414 !important;
+      font-weight: 600;
+      box-shadow: 6px 6px 0 #141414;
+    }
+    body.layout-brutalist .search-box:focus {
+      border-color: #141414 !important;
+      box-shadow: 6px 6px 0 var(--chalk-gold, #FF4D00);
+    }
+    body.layout-brutalist .cat-pill {
+      background: #FFFFFF !important;
+      border: 2px solid #141414 !important;
+      border-radius: 0 !important;
+      color: #141414 !important;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      box-shadow: 3px 3px 0 #141414;
+    }
+    body.layout-brutalist .cat-pill.active {
+      background: var(--chalk-gold, #FF4D00) !important;
+      color: #141414 !important;
+      border-color: #141414 !important;
+      box-shadow: 1px 1px 0 #141414;
+    }
+    body.layout-brutalist .category-header-row {
+      border-bottom: 4px solid #141414;
+      padding-bottom: 6px;
+      margin-bottom: 14px;
+    }
+    body.layout-brutalist .category-title {
+      font-family: 'Montserrat', 'Helvetica Neue', Arial, sans-serif !important;
+      font-weight: 700 !important;
+      text-transform: uppercase;
+      letter-spacing: -0.01em;
+      font-size: 1.35rem;
+      color: #141414 !important;
+    }
+    body.layout-brutalist .category-badge-count {
+      background: #141414;
+      color: #F2EFE4 !important;
+      border-radius: 0;
+      padding: 2px 8px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 600;
+    }
+    body.layout-brutalist .dish-card {
+      background: #FFFFFF !important;
+      border: 3px solid #141414 !important;
+      border-radius: 0 !important;
+      box-shadow: 6px 6px 0 #141414 !important;
+      padding: 14px 16px !important;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    body.layout-brutalist .dish-card:hover {
+      background: #FFFDF4 !important;
+      transform: translate(-2px, -2px);
+      box-shadow: 8px 8px 0 #141414 !important;
+    }
+    body.layout-brutalist .dish-name {
+      font-family: 'Montserrat', 'Helvetica Neue', Arial, sans-serif !important;
+      font-weight: 700 !important;
+      text-transform: uppercase;
+      letter-spacing: -0.01em;
+      color: #141414 !important;
+    }
+    body.layout-brutalist .dish-desc {
+      color: #4A463D !important;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.78rem;
+    }
+    body.layout-brutalist .dish-price {
+      font-family: 'IBM Plex Mono', monospace !important;
+      font-weight: 700;
+      color: #141414 !important;
+      background: var(--chalk-gold, #FF4D00);
+      padding: 2px 8px;
+      border: 2px solid #141414;
+    }
+    body.layout-brutalist .btn-add {
+      background: #141414 !important;
+      color: #F2EFE4 !important;
+      border: 3px solid #141414 !important;
+      border-radius: 0 !important;
+      font-weight: 700;
+      width: 36px !important;
+      height: 36px !important;
+      box-shadow: 4px 4px 0 var(--chalk-gold, #FF4D00);
+    }
+    body.layout-brutalist .btn-add:hover {
+      background: var(--chalk-gold, #FF4D00) !important;
+      color: #141414 !important;
+    }
+    body.layout-brutalist .dish-thumb {
+      border: 3px solid #141414 !important;
+      border-radius: 0 !important;
+      box-shadow: 4px 4px 0 #141414;
+    }
+    body.layout-brutalist .meta-chip {
+      background: #FFFFFF !important;
+      border: 2px solid #141414 !important;
+      border-radius: 0 !important;
+      color: #141414 !important;
+      box-shadow: 3px 3px 0 #141414;
+    }
+    body.layout-brutalist .dish-badge {
+      border-radius: 0 !important;
+      border: 2px solid #141414;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    body.layout-brutalist .floating-cart-bar {
+      background: #141414 !important;
+      color: #F2EFE4 !important;
+      border-radius: 0 !important;
+      border-top: 4px solid var(--chalk-gold, #FF4D00);
+    }
+    body.layout-brutalist .empty-state-card {
+      background: #FFFFFF !important;
+      border: 3px dashed #141414 !important;
+      border-radius: 0 !important;
+    }
+
+    /* ==========================================================================
+       MOTOR DE PLANTILLAS · IMAGE-MODE (api/utils/themeManifest.js)
+       'grid' NO agrega clase (las miniaturas ya las da cada layout: cero
+       regresión para los menús existentes). Estas clases solo aparecen cuando
+       el modo difiere del default de la morfología (resuelve menuHeader.js).
+       ========================================================================== */
+    /* Sin fotos: miniaturas, carrusel de especialidades del chef y bandeja de
+       stories ocultos — la carta queda puramente tipográfica. */
+    body.image-none .dish-thumb,
+    body.image-none .chef-specials-section,
+    body.image-none .stories-tray { display: none !important; }
+
+    /* Foto protagonista por categoría: sin miniatura por plato; el render
+       inyecta UN <img class="category-hero-img"> por sección (prefer chef). */
+    body.image-hero .dish-thumb,
+    body.image-hero .chef-specials-section { display: none !important; }
+
+    .category-hero-img {
+      display: block;
+      width: 100%;
+      height: clamp(180px, 30vw, 320px);
+      object-fit: cover;
+      border-radius: 12px;
+      border: 1px solid rgba(128, 128, 128, 0.35);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+      margin: 0 0 16px;
+      background: rgba(128, 128, 128, 0.12);
+    }
+    body.layout-minimalist .category-hero-img {
+      border-radius: 0 !important;
+      border-color: rgba(25, 23, 19, 0.2) !important;
+      box-shadow: none !important;
+      margin-bottom: 10px;
+    }
+    body.layout-brutalist .category-hero-img {
+      border: 3px solid #141414 !important;
+      border-radius: 0 !important;
+      box-shadow: 6px 6px 0 #141414 !important;
+    }
+
+    /* image-grid sobre un layout cuyo default NO es grid (Fine Dining): las
+       miniaturas cuadradas vuelven con el estilo propio del layout. */
+    body.layout-minimalist.image-grid .dish-thumb { display: block !important; }
+
+    /* ==========================================================================
+       MOTOR DE PLANTILLAS · SIZING POR POPULARIDAD (menuSizing=popularity)
+       El server adjunta data-pop-tier (2 grande / 1 normal / 0 chico) y solo
+       agrega body.sizing-popularity si la morfología lo soporta (manifest;
+       ticker/sticker/delivery/stories quedan afuera). El tier lo define el
+       server: acá solo hay reglas de ancho, cero animación de layout.
+       ========================================================================== */
+    /* Énfasis de jerarquía a cualquier anchura (en móvil no hay span, así que
+       esto es lo que hace visible la diferencia): el destacado respira más,
+       el tier 0 se apiña. Nada de opacidad: no se toca contraste WCAG. */
+    body.sizing-popularity.layout-classic .dishes-grid .dish-card[data-pop-tier="2"],
+    body.sizing-popularity.layout-neon .dishes-grid .dish-card[data-pop-tier="2"],
+    body.sizing-popularity.layout-minimalist .dishes-grid .dish-card[data-pop-tier="2"],
+    body.sizing-popularity.layout-brutalist .dishes-grid .dish-card[data-pop-tier="2"] {
+      padding-top: 22px !important;
+      padding-bottom: 22px !important;
+    }
+    body.sizing-popularity.layout-classic .dishes-grid .dish-card[data-pop-tier="2"] .dish-name,
+    body.sizing-popularity.layout-neon .dishes-grid .dish-card[data-pop-tier="2"] .dish-name,
+    body.sizing-popularity.layout-brutalist .dishes-grid .dish-card[data-pop-tier="2"] .dish-name {
+      font-size: 1.12em;
+      font-weight: 700;
+    }
+    body.sizing-popularity.layout-classic .dishes-grid .dish-card[data-pop-tier="0"],
+    body.sizing-popularity.layout-neon .dishes-grid .dish-card[data-pop-tier="0"],
+    body.sizing-popularity.layout-minimalist .dishes-grid .dish-card[data-pop-tier="0"],
+    body.sizing-popularity.layout-brutalist .dishes-grid .dish-card[data-pop-tier="0"] {
+      padding-top: 8px !important;
+      padding-bottom: 8px !important;
+    }
+    /* ≥700px: los grids de una columna pasan a 2 y el tier 2 ocupa ambas.
+       En 1 columna móvil NO se hace grid (span 2 crearía una columna
+       implícita); en bento/billboard (ya son grids) solo aplica el span. */
+    @media (min-width: 700px) {
+      body.sizing-popularity.layout-classic .dishes-grid,
+      body.sizing-popularity.layout-neon .dishes-grid,
+      body.sizing-popularity.layout-minimalist .dishes-grid,
+      body.sizing-popularity.layout-brutalist .dishes-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+      body.sizing-popularity.layout-minimalist .dishes-grid { gap: 0 28px; }
+      body.sizing-popularity .dishes-grid .dish-card[data-pop-tier="2"] {
+        grid-column: span 2;
+      }
+    }

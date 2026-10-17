@@ -71,10 +71,11 @@ router.post('/track', tenantGuard, validateBody(trackEventSchema), async (req, r
     metadata
   });
 
-  // Proyección legacy derivada de la telemetría (mismo origen que el menú público)
+  // Proyección legacy derivada de la telemetría (mismo origen que el menú
+  // público; con menuSizing=popularity arrastra dishPopularity, throttled).
   const restaurant = db.findRestaurantById(restaurantId);
   if (restaurant) {
-    const analytics = await telemetryService.countAnalytics(restaurantId);
+    const analytics = await telemetryService.projectAnalytics(restaurant);
     await db.setAnalyticsSnapshot(restaurant.slug, analytics);
   }
 
