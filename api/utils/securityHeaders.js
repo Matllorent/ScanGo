@@ -94,7 +94,10 @@ function buildCspDirectives({ strictMenu = false } = {}) {
       ...common,
       // Turnstile invisible (anti-spam en el checkout del comensal) +
       // Microsoft Clarity (medición de uso, solo con consentimiento 'all').
-      'script-src': ["'self'", 'https://cdn.jsdelivr.net', 'https://challenges.cloudflare.com', 'https://www.clarity.ms'],
+      // La cadena de Clarity es www.clarity.ms/tag/... que DESPUÉS carga el
+      // loader real desde scripts.clarity.ms: sin ese host la CSP bloqueaba
+      // el loader y el tag quedaba mudo (bug cazado en QA con navegador).
+      'script-src': ["'self'", 'https://cdn.jsdelivr.net', 'https://challenges.cloudflare.com', 'https://www.clarity.ms', 'https://scripts.clarity.ms'],
       'script-src-attr': ["'none'"],
       'connect-src': [...common['connect-src'], 'https://challenges.cloudflare.com'],
       'frame-src': ["'self'", 'https://challenges.cloudflare.com']
@@ -102,8 +105,9 @@ function buildCspDirectives({ strictMenu = false } = {}) {
   }
   return {
     ...common,
-    // Microsoft Clarity (medición de uso, solo con consentimiento 'all').
-    'script-src': ["'self'", ...SCRIPT_EXTERNALS, 'https://www.clarity.ms', ...computeInlineScriptHashes()],
+    // Microsoft Clarity (medición de uso, solo con consentimiento 'all'):
+    // www.clarity.ms/tag carga el loader real desde scripts.clarity.ms.
+    'script-src': ["'self'", ...SCRIPT_EXTERNALS, 'https://www.clarity.ms', 'https://scripts.clarity.ms', ...computeInlineScriptHashes()],
     'script-src-attr': ["'none'"], // Etapa 2 completa: cero handlers inline en TODO public/
     'frame-src': ["'self'", 'https://accounts.google.com']
   };
