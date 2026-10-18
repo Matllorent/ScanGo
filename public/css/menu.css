@@ -118,13 +118,483 @@
       --border-gold: rgba(226, 160, 63, 0.4);
       background-color: #1E1815;
     }
+    /* ============================================================
+       TAQUERÍA — cálido artesanal moderno (tema CLARO)
+       Crema de maíz, terracota profunda y óxido. Tarjetas limpias
+       con micro-sombras, títulos editoriales, precios en óxido y
+       cabecera oscura de contraste (marco de la escena).
+       Regla de la paleta:
+         · --chalk-gold  (maíz #E39B3C)  → FONDO de CTA/bordes, con
+           tinta oscura encima (≈7.9:1). Nunca texto sobre crema.
+         · --chalk-gold-ink (óxido #A3410F) → texto de acento sobre
+           superficies claras (≈6.2:1 sobre tarjeta, ≈5.7:1 sobre
+           el fondo). Los componentes base que pintan texto con
+           --chalk-gold directo se re-apuntan abajo.
+       ============================================================ */
     body.theme-taqueria {
-      --bg-chalkboard: #2B1515;
-      --surface-card: #3A1D1D;
-      --surface-card-hover: #482525;
-      --chalk-gold: #F6AD55;
-      --border-gold: rgba(246, 173, 85, 0.4);
-      background-color: #2B1515;
+      color-scheme: light;
+      --bg-chalkboard: #FAF2E3;
+      --surface-card: #FFFDF8;
+      --surface-card-hover: #FBF3E6;
+      --chalk-white: #2B1812;
+      --chalk-muted: #6A4A3B;
+      --chalk-dim: #7C5B4A;
+      --chalk-gold: #E39B3C;
+      --chalk-gold-ink: #A3410F;
+      --chalk-gold-dim: rgba(163, 65, 15, 0.10);
+      --chalk-green: #58994F;
+      --border-chalk: rgba(163, 65, 15, 0.16);
+      --border-gold: rgba(163, 65, 15, 0.34);
+      background-color: var(--bg-chalkboard);
+      /* Luz de horno: dos halos suaves + estampado artesanal de fondo
+         (taco, chile, limón y banderín en line-art óxido, sutil) */
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cg fill='none' stroke='%23A3410F' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round' stroke-opacity='0.11'%3E%3Cg transform='translate(14 16) rotate(-10 12 12)'%3E%3Cpath d='M4.3 15.9a7.7 7.5 0 0 1 15.4 0z'/%3E%3Cpath d='M7 12.2q1.3-1.8 2.6 0t2.6 0t2.6 0t2.6 0'/%3E%3C/g%3E%3Cg transform='translate(100 28) rotate(14 12 12)'%3E%3Cpath d='M13.6 4.1C15 8.2 13.4 12.6 9.4 15.5C8.2 16.4 7.2 16.9 6.2 17.1C9.6 18.8 14 16.6 15.6 12.8C16.9 9.7 16.2 6.4 13.6 4.1'/%3E%3Cpath d='M13.6 4.1C13.8 2.9 14.6 2.1 15.7 1.8'/%3E%3C/g%3E%3Cg transform='translate(28 98) rotate(-6 12 12)'%3E%3Ccircle cx='12' cy='12' r='7.6'/%3E%3Cpath d='M12 12L12 4.4M12 12L18.6 8.2M12 12L18.6 15.8M12 12L12 19.6M12 12L5.4 15.8M12 12L5.4 8.2'/%3E%3C/g%3E%3Cg transform='translate(108 110) rotate(10 12 12)'%3E%3Cpath d='M2 3h20v5.4l-3.33 3.4-3.34-3.4-3.33 3.4-3.34-3.4-3.33 3.4-3.33-3.4z'/%3E%3Cpath d='M12 5.6l1.7 2.1-1.7 2.1-1.7-2.1z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"),
+        radial-gradient(circle at 12% 8%, rgba(227, 155, 60, 0.10) 0%, transparent 42%),
+        radial-gradient(circle at 88% 92%, rgba(163, 65, 15, 0.06) 0%, transparent 42%);
+      background-size: 160px 160px, auto, auto;
+    }
+    /* Foco visible en óxido: el maíz no alcanza 3:1 sobre crema */
+    body.theme-taqueria *:focus-visible {
+      outline-color: var(--chalk-gold-ink);
+    }
+
+    /* ── Cabecera: terracota profunda con hilo de maíz ────────── */
+    body.theme-taqueria .menu-header {
+      /* Tejido sutil (chevron cálido) sobre el gradiente terracota */
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='46' height='12'%3E%3Cpath d='M0 10L5.75 2L11.5 10L17.25 2L23 10L28.75 2L34.5 10L40.25 2L46 10' fill='none' stroke='%23F6CB8D' stroke-width='1' stroke-linecap='round' stroke-opacity='0.06'/%3E%3C/svg%3E"),
+        linear-gradient(178deg, #2A1310 0%, #6E2A18 58%, #8A3A1C 100%);
+      background-size: 46px 12px, auto;
+      background-repeat: repeat, no-repeat;
+      border-bottom: 3px solid var(--chalk-gold);
+      box-shadow: 0 6px 26px rgba(58, 24, 14, 0.28);
+      /* Tintas claras re-scopeadas a la gama cálida (todas ≥4.5:1
+         sobre el punto más claro del gradiente, #8A3A1C) */
+      --chalk-white: #FFF6EA;
+      --chalk-muted: #E7C9B4;
+      --chalk-dim: #DCC0AA;
+      --chalk-gold: #F6CB8D;
+      /* Sobre el header el tinte de los chips es OSCURO (no claro):
+         aclararlo bajaba el ámbar a ~3.2:1. Así queda ≥7:1. */
+      --chalk-gold-dim: rgba(42, 19, 16, 0.45);
+      --border-chalk: rgba(255, 214, 170, 0.20);
+      --border-gold: rgba(240, 180, 94, 0.45);
+    }
+    /* Borde de papel picado: banderines alternados (maíz/miel) con
+       calados reales (even-odd) que cuelgan del hilo de la cabecera. */
+    body.theme-taqueria .menu-header::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -12px;
+      height: 12px;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='12'%3E%3Cpath fill='%23E39B3C' fill-rule='evenodd' d='M0 0h18L9 12zM7.55 4a1.45 1.45 0 1 0 2.9 0a1.45 1.45 0 1 0-2.9 0z'/%3E%3Cpath fill='%23C9801F' fill-rule='evenodd' d='M18 0h18L27 12zM25.55 4a1.45 1.45 0 1 0 2.9 0a1.45 1.45 0 1 0-2.9 0z'/%3E%3C/svg%3E") repeat-x;
+      background-size: 36px 12px;
+      pointer-events: none;
+    }
+    body.theme-taqueria .menu-header .btn-info-modal:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #FFE2B8;
+    }
+    /* Chips de contacto (ubicación/Wi-Fi/teléfono): el 6% blanco base
+       aclaraba el chip y dejaba el texto a ~3.9:1 sobre el gradiente.
+       Chip oscuro cálido: ≥7:1 y mejor jerarquía con el de Reservar. */
+    body.theme-taqueria .menu-header .meta-chip {
+      background: rgba(42, 19, 16, 0.55);
+      border-color: rgba(255, 214, 170, 0.22);
+    }
+    body.theme-taqueria .restaurant-slogan {
+      font-family: 'Permanent Marker', 'Caveat', cursive, sans-serif;
+      color: #F6CB8D;
+      letter-spacing: 0.02em;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+    }
+    body.theme-taqueria .restaurant-logo {
+      background: #3A1B12;
+      box-shadow: 0 3px 14px rgba(20, 8, 5, 0.35);
+    }
+    body.theme-taqueria .restaurant-cover-banner {
+      background: linear-gradient(180deg, rgba(42, 19, 16, 0.35), #2A1310), url('/logo-scango.png') center/cover no-repeat;
+    }
+
+    /* ── Portada (hero): se funde con la cabecera, sin franja ──── */
+    body.theme-taqueria .menu-banner-media { background: #2A1310; }
+    body.theme-taqueria .menu-banner-overlay {
+      background: linear-gradient(to bottom, rgba(42, 19, 16, 0.15) 0%, #2A1310 100%);
+    }
+    body.theme-taqueria.has-hero-banner .menu-banner-hero { margin-bottom: 0; }
+    /* Festón de entrada: guirnalda colgando sobre la portada — cuerda
+       curvada (crema + sombra para leerse sobre cualquier foto) con los
+       mismos banderines calados, contorno tenue para fondos claros.
+       z-index 2: pasa por detrás de la píldora de estado (z 3). */
+    body.theme-taqueria.has-hero-banner .menu-banner-hero::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 30px;
+      z-index: 2;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='30'%3E%3Cpath d='M0 6Q160 34 320 6' fill='none' stroke='%23FFF6EA' stroke-opacity='0.65' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M0 6Q160 34 320 6' fill='none' stroke='%232A1310' stroke-opacity='0.4' stroke-width='0.9'/%3E%3Cpath fill='%23E39B3C' fill-rule='evenodd' stroke='%232A1310' stroke-opacity='0.28' stroke-width='0.7' d='M20.2 10.3h13l-6.5 8zM25.55 13a1.15 1.15 0 1 0 2.3 0a1.15 1.15 0 1 0-2.3 0z'/%3E%3Cpath fill='%23C9801F' fill-rule='evenodd' stroke='%232A1310' stroke-opacity='0.28' stroke-width='0.7' d='M73.5 16.5h13l-6.5 8zM78.85 19.2a1.15 1.15 0 1 0 2.3 0a1.15 1.15 0 1 0-2.3 0z'/%3E%3Cpath fill='%23E39B3C' fill-rule='evenodd' stroke='%232A1310' stroke-opacity='0.28' stroke-width='0.7' d='M126.8 19.6h13l-6.5 8zM132.15 22.3a1.15 1.15 0 1 0 2.3 0a1.15 1.15 0 1 0-2.3 0z'/%3E%3Cpath fill='%23C9801F' fill-rule='evenodd' stroke='%232A1310' stroke-opacity='0.28' stroke-width='0.7' d='M180.2 19.6h13l-6.5 8zM185.55 22.3a1.15 1.15 0 1 0 2.3 0a1.15 1.15 0 1 0-2.3 0z'/%3E%3Cpath fill='%23E39B3C' fill-rule='evenodd' stroke='%232A1310' stroke-opacity='0.28' stroke-width='0.7' d='M233.5 16.5h13l-6.5 8zM238.85 19.2a1.15 1.15 0 1 0 2.3 0a1.15 1.15 0 1 0-2.3 0z'/%3E%3Cpath fill='%23C9801F' fill-rule='evenodd' stroke='%232A1310' stroke-opacity='0.28' stroke-width='0.7' d='M286.8 10.3h13l-6.5 8zM292.15 13a1.15 1.15 0 1 0 2.3 0a1.15 1.15 0 1 0-2.3 0z'/%3E%3C/svg%3E") repeat-x;
+      background-size: 320px 30px;
+      pointer-events: none;
+    }
+    /* Píldora de estado (hero con foto Y cabecera): el JS pinta fondo,
+       borde y color inline según el estado (abierto/cerrado), por eso el
+       override del tema necesita !important. Chip cálido sólido: el tinte
+       ámbar translúcido base caía a ~1.9:1 sobre fotos claras del hero. */
+    body.theme-taqueria .menu-banner-status-slot .status-pill,
+    body.theme-taqueria .status-pill-row .status-pill {
+      background: rgba(42, 19, 16, 0.82) !important;
+      border-color: rgba(240, 180, 94, 0.45) !important;
+    }
+    body.theme-taqueria .menu-banner-status-slot .status-pill.open,
+    body.theme-taqueria .status-pill-row .status-pill.open { color: #F6CB8D !important; }
+    body.theme-taqueria .menu-banner-status-slot .status-pill.closed,
+    body.theme-taqueria .status-pill-row .status-pill.closed { color: #FFB4A8 !important; }
+    body.theme-taqueria .menu-banner-status-slot .status-pill.order-later,
+    body.theme-taqueria .status-pill-row .status-pill.order-later { color: #E7C9B4 !important; }
+    body.theme-taqueria .menu-banner-logo-slot .restaurant-logo {
+      border-width: 3px;
+      box-shadow: 0 6px 20px rgba(20, 8, 5, 0.45);
+    }
+
+    /* ── Barra de búsqueda y filtros ───────────────────────────── */
+    body.theme-taqueria .controls-wrapper {
+      background: rgba(250, 242, 227, 0.94);
+      border-bottom: 1px solid var(--border-chalk);
+      box-shadow: 0 8px 20px rgba(88, 40, 18, 0.06);
+    }
+    body.theme-taqueria .search-box {
+      background: var(--surface-card);
+      border-color: var(--border-chalk);
+      border-radius: 12px;
+      color: var(--chalk-white);
+      box-shadow: inset 0 1px 2px rgba(88, 40, 18, 0.04);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    body.theme-taqueria .search-box::placeholder { color: #8A6A57; }
+    body.theme-taqueria .search-box:focus {
+      border-color: var(--chalk-gold);
+      box-shadow: 0 0 0 3px rgba(227, 155, 60, 0.22);
+    }
+    body.theme-taqueria .cat-pill { box-shadow: 0 1px 2px rgba(88, 40, 18, 0.05); }
+    body.theme-taqueria .cat-pill.active { box-shadow: 0 2px 8px rgba(163, 65, 15, 0.22); }
+
+    /* ── Títulos de categoría: editorial + hilo de maíz ────────── */
+    body.theme-taqueria .category-title {
+      color: var(--chalk-gold-ink);
+      font-size: 1.16rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding-bottom: 9px;
+      border-bottom: 1px solid var(--border-chalk);
+      background: linear-gradient(90deg, var(--chalk-gold) 0 54px, transparent 54px) left bottom / 100% 3px no-repeat;
+    }
+    body.theme-taqueria .category-badge-count {
+      color: var(--chalk-dim);
+      letter-spacing: normal;
+      text-transform: none;
+    }
+
+    /* ── Tarjetas de plato: papel con micro-sombra ─────────────── */
+    body.theme-taqueria .dish-card {
+      box-shadow: 0 1px 2px rgba(88, 40, 18, 0.04), 0 6px 18px rgba(88, 40, 18, 0.06);
+      transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    }
+    @media (hover: hover) {
+      body.theme-taqueria .dish-card:hover {
+        border-color: var(--border-gold);
+        box-shadow: 0 3px 8px rgba(88, 40, 18, 0.06), 0 14px 30px rgba(88, 40, 18, 0.10);
+        transform: translateY(-1px);
+      }
+    }
+    body.theme-taqueria .dish-thumb {
+      background: #F3E2C9;
+      border-radius: 12px;
+    }
+    body.theme-taqueria .dish-badge.badge-star { background: rgba(179, 38, 30, 0.10); color: #B3261E; border-color: rgba(179, 38, 30, 0.32); }
+    body.theme-taqueria .dish-badge.badge-veggie { background: rgba(88, 153, 79, 0.12); color: #35702F; border-color: rgba(88, 153, 79, 0.34); }
+    body.theme-taqueria .dish-badge.badge-celiac { background: rgba(138, 90, 0, 0.10); color: #8A5A00; border-color: rgba(138, 90, 0, 0.28); }
+    body.theme-taqueria .qty-counter { color: var(--chalk-gold-ink); }
+    body.theme-taqueria .btn-add {
+      box-shadow: 0 2px 8px rgba(163, 65, 15, 0.35);
+      transition: transform 0.15s, box-shadow 0.2s, background-color 0.2s;
+    }
+    @media (hover: hover) {
+      body.theme-taqueria .btn-add:hover {
+        background: #D98A2B;
+        box-shadow: 0 4px 14px rgba(163, 65, 15, 0.42);
+      }
+    }
+    body.theme-taqueria .btn-add:active { transform: scale(0.92); box-shadow: 0 1px 4px rgba(163, 65, 15, 0.30); }
+
+    /* ── Especiales del chef: recorte de recetario ─────────────── */
+    body.theme-taqueria .chef-specials-section {
+      background: linear-gradient(135deg, rgba(227, 155, 60, 0.16) 0%, var(--surface-card) 60%);
+      border-color: rgba(163, 65, 15, 0.35);
+    }
+    body.theme-taqueria .chef-specials-title {
+      font-family: 'Permanent Marker', 'Caveat', cursive, sans-serif;
+      color: var(--chalk-gold-ink);
+      text-shadow: none;
+    }
+    body.theme-taqueria .chef-badge-gold {
+      background: rgba(163, 65, 15, 0.10);
+      border-color: rgba(163, 65, 15, 0.30);
+      color: var(--chalk-gold-ink);
+    }
+    body.theme-taqueria .chef-special-card {
+      background: var(--surface-card);
+      border-color: var(--border-chalk);
+      box-shadow: 0 2px 6px rgba(88, 40, 18, 0.05), 0 10px 24px rgba(88, 40, 18, 0.06);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+    body.theme-taqueria .chef-special-thumb { border-color: var(--border-chalk); }
+    body.theme-taqueria .chef-special-tag-ribbon { background: #E39B3C; }
+    @media (hover: hover) {
+      body.theme-taqueria .chef-special-card:hover { border-color: var(--chalk-gold); }
+    }
+    /* Contador "N en carrito": el render lo pinta inline con
+       var(--chalk-gold) (maíz sobre tarjeta clara ≈ 2.3:1) → óxido. */
+    body.theme-taqueria .chef-special-card > div[style*="--chalk-gold"] {
+      color: var(--chalk-gold-ink) !important;
+    }
+    body.theme-taqueria .chef-special-footer { border-top-color: var(--border-chalk); }
+    body.theme-taqueria .chef-special-price { color: var(--chalk-gold-ink); font-family: var(--font-mono); }
+    body.theme-taqueria .chef-specials-carousel { scrollbar-color: rgba(163, 65, 15, 0.35) transparent; }
+    body.theme-taqueria .chef-specials-carousel::-webkit-scrollbar-thumb { background: rgba(163, 65, 15, 0.35); }
+
+    /* ── Estado vacío y carga ──────────────────────────────────── */
+    body.theme-taqueria .empty-state-card {
+      background: var(--surface-card);
+      border-color: rgba(163, 65, 15, 0.28);
+      box-shadow: 0 6px 20px rgba(88, 40, 18, 0.05);
+    }
+    body.theme-taqueria .empty-state-title { color: var(--chalk-gold-ink); }
+    body.theme-taqueria .empty-state-btn { border-color: var(--chalk-gold-ink); color: var(--chalk-gold-ink); }
+    body.theme-taqueria .empty-state-btn:hover { background: var(--chalk-gold); border-color: var(--chalk-gold); color: #2B1812; }
+    body.theme-taqueria .loading-spinner { color: var(--chalk-gold-ink); }
+
+    /* ── Modales: superficie de papel, backdrop cálido ─────────── */
+    body.theme-taqueria .modal-overlay { background: rgba(30, 13, 9, 0.78); }
+    body.theme-taqueria .modal-box {
+      border-color: var(--border-gold);
+      box-shadow: 0 18px 50px rgba(43, 24, 18, 0.30);
+    }
+    body.theme-taqueria .form-select,
+    body.theme-taqueria .form-input,
+    body.theme-taqueria .form-textarea {
+      background: var(--surface-card);
+      color: var(--chalk-white);
+      border-color: var(--border-chalk);
+    }
+    body.theme-taqueria .form-input::placeholder,
+    body.theme-taqueria .form-textarea::placeholder { color: #8A6A57; }
+    body.theme-taqueria .form-select:focus,
+    body.theme-taqueria .form-input:focus,
+    body.theme-taqueria .form-textarea:focus {
+      border-color: var(--chalk-gold);
+      box-shadow: 0 0 0 3px rgba(227, 155, 60, 0.20);
+    }
+    body.theme-taqueria .total-summary { background: #FBF3E6; border-color: var(--border-chalk); }
+    body.theme-taqueria .summary-row.total-row { color: var(--chalk-white); }
+    body.theme-taqueria .summary-row.total-row span.total-amount { color: var(--chalk-gold-ink); }
+    body.theme-taqueria .cart-item-price { color: var(--chalk-gold-ink); }
+    body.theme-taqueria .cart-note-edit { color: var(--chalk-gold-ink); }
+    body.theme-taqueria .bill-splitter-box { background: rgba(163, 65, 15, 0.04); }
+    body.theme-taqueria .dish-note-dish-name { color: var(--chalk-gold-ink); }
+    body.theme-taqueria .dish-choice-price { color: var(--chalk-gold-ink); }
+    body.theme-taqueria .dish-variant-total.invalid,
+    body.theme-taqueria .dish-choice-error { color: #C0392B; }
+    body.theme-taqueria .cart-item-ordered-by.is-own {
+      color: #276749;
+      background: rgba(56, 161, 105, 0.12);
+      border-color: rgba(56, 161, 105, 0.30);
+    }
+
+    /* ── Modal de Información (horarios, servicios, señas) ─────── */
+    body.theme-taqueria .info-modal-box {
+      background: var(--surface-card);
+      border-color: var(--border-gold);
+      box-shadow: 0 18px 50px rgba(43, 24, 18, 0.35);
+    }
+    body.theme-taqueria .info-modal-title,
+    body.theme-taqueria .info-section-title,
+    body.theme-taqueria .service-title-group { color: var(--chalk-white); }
+    body.theme-taqueria .info-action-btn {
+      background: rgba(163, 65, 15, 0.07);
+      color: var(--chalk-white);
+    }
+    body.theme-taqueria .info-address-box,
+    body.theme-taqueria .service-card { background: rgba(163, 65, 15, 0.045); }
+    body.theme-taqueria .info-directions-link {
+      color: var(--chalk-gold-ink);
+      background: rgba(163, 65, 15, 0.06);
+    }
+    body.theme-taqueria .info-modal-body { scrollbar-color: rgba(163, 65, 15, 0.35) transparent; }
+    body.theme-taqueria .service-check { color: #276749; }
+    body.theme-taqueria .service-subnote { color: #8A5A00; }
+    body.theme-taqueria .schedule-day-row.today {
+      background: rgba(163, 65, 15, 0.10);
+      border-color: rgba(163, 65, 15, 0.30);
+      color: var(--chalk-gold-ink);
+    }
+    body.theme-taqueria .schedule-day-hours.closed,
+    body.theme-taqueria .schedule-closed { color: #C0392B; }
+
+    /* ── Aviso push y mozo virtual ─────────────────────────────── */
+    body.theme-taqueria .push-prompt-banner {
+      background: rgba(255, 253, 248, 0.97);
+      border-color: var(--border-gold);
+      box-shadow: 0 10px 30px rgba(88, 40, 18, 0.25);
+    }
+    body.theme-taqueria .mozo-reason-banner {
+      color: var(--chalk-gold-ink);
+      background: rgba(163, 65, 15, 0.08);
+      border-left-color: var(--chalk-gold);
+    }
+    body.theme-taqueria .mozo-header-text h4 { color: var(--chalk-gold-ink); }
+    body.theme-taqueria .mozo-item-card {
+      background: var(--surface-card);
+      border-color: var(--border-chalk);
+    }
+    body.theme-taqueria .mozo-item-card:hover {
+      background: var(--surface-card-hover);
+      border-color: var(--border-gold);
+    }
+    body.theme-taqueria .mozo-item-thumb { background: #F3E2C9; }
+    body.theme-taqueria .mozo-item-title { color: var(--chalk-white); }
+    body.theme-taqueria .mozo-item-price { color: var(--chalk-gold-ink); }
+    body.theme-taqueria .dish-modal-upsell-box {
+      background: rgba(163, 65, 15, 0.05);
+      border-color: rgba(163, 65, 15, 0.28);
+    }
+    body.theme-taqueria .dish-modal-upsell-title { color: var(--chalk-gold-ink); }
+
+    /* ── Reseñas inteligentes ──────────────────────────────────── */
+    body.theme-taqueria .smart-review-modal-box {
+      background: var(--surface-card);
+      border-color: var(--border-gold);
+      box-shadow: 0 18px 50px rgba(43, 24, 18, 0.35);
+    }
+    body.theme-taqueria .star-btn { color: #7A6252; }
+    body.theme-taqueria .star-btn:hover,
+    body.theme-taqueria .star-btn.hover-active,
+    body.theme-taqueria .star-btn.active {
+      color: #B9691A;
+      text-shadow: 0 0 12px rgba(185, 105, 26, 0.40);
+    }
+    body.theme-taqueria .review-success-banner,
+    body.theme-taqueria .review-constructive-banner {
+      background: rgba(163, 65, 15, 0.06);
+      border-color: rgba(163, 65, 15, 0.25);
+    }
+    body.theme-taqueria .btn-feedback-dismiss { border-color: var(--border-chalk); }
+    body.theme-taqueria .btn-feedback-dismiss:hover { background: rgba(163, 65, 15, 0.06); }
+
+    /* ── Controles sueltos (switch, carrito flotante, avisos) ──── */
+    body.theme-taqueria .slider-round {
+      background-color: #E2C9A9;
+      border-color: rgba(163, 65, 15, 0.28);
+    }
+    body.theme-taqueria .slider-round:before {
+      background-color: #FFFDF8;
+      box-shadow: 0 1px 3px rgba(88, 40, 18, 0.35);
+    }
+    body.theme-taqueria .switch-ui input:checked + .slider-round {
+      background-color: var(--chalk-gold);
+      border-color: var(--chalk-gold);
+    }
+    body.theme-taqueria .switch-ui input:checked + .slider-round:before { background-color: #2B1812; }
+    body.theme-taqueria .floating-cart-bar { box-shadow: 0 10px 28px rgba(88, 40, 18, 0.35); }
+    body.theme-taqueria .announcement-banner {
+      background: linear-gradient(90deg, #E39B3C, #D98A2B);
+      color: #2B1812;
+      box-shadow: 0 2px 10px rgba(163, 65, 15, 0.18);
+    }
+    body.theme-taqueria .loyalty-top-bar {
+      background: linear-gradient(90deg, #C9801F, #E39B3C);
+      color: #2B1812;
+      box-shadow: 0 2px 10px rgba(88, 40, 18, 0.20);
+    }
+    body.theme-taqueria .loyalty-user-btn { color: #2B1812; }
+    body.theme-taqueria .waiter-fab {
+      background: #E39B3C;
+      color: #2B1812;
+      box-shadow: 0 6px 20px rgba(163, 65, 15, 0.35);
+    }
+    body.theme-taqueria .waiter-fab:hover { box-shadow: 0 8px 28px rgba(163, 65, 15, 0.45); }
+
+    /* ── Pedido grupal + Destacados ────────────────────────────── */
+    body.theme-taqueria .group-toast-notification {
+      background: rgba(43, 24, 18, 0.96);
+      box-shadow: 0 8px 24px rgba(43, 24, 18, 0.45);
+    }
+    body.theme-taqueria .group-table-top-bar { background: linear-gradient(90deg, #3A1810, #8A3A1C); }
+    body.theme-taqueria .btn-group-consolidate {
+      background: rgba(163, 65, 15, 0.07);
+      border-color: #A3410F;
+      color: var(--chalk-gold-ink);
+    }
+    body.theme-taqueria .btn-group-consolidate:hover { background: rgba(163, 65, 15, 0.14); }
+    body.theme-taqueria .destacado-img-wrap { background: #F3E2C9; }
+
+    /* ── Propina, Mozo Virtual y cross-sell (colores inline) ─────
+       El HTML/JS pinta estos controles con colores para superficie
+       oscura (#fff, verde claro) → acá van a tinta/verde oscuro.
+       Los textos inline con color:var(--chalk-gold) se corrigen
+       re-scopando la variable en su subárbol (sin !important). */
+    body.theme-taqueria #mozoToggleBar { --chalk-gold: var(--chalk-gold-ink); }
+    body.theme-taqueria #mozoToggleBar .switch-ui input:checked + .slider-round {
+      background-color: #E39B3C;
+      border-color: #E39B3C;
+    }
+    body.theme-taqueria #crossSellSection { --chalk-gold: var(--chalk-gold-ink); }
+    body.theme-taqueria .cross-sell-card {
+      background: rgba(227, 155, 60, 0.10) !important;
+      border-color: rgba(163, 65, 15, 0.28) !important;
+    }
+    body.theme-taqueria .cross-sell-card > div > div:nth-child(2) { color: var(--chalk-white) !important; }
+    body.theme-taqueria .mozo-virtual-upsell-box {
+      background: linear-gradient(135deg, rgba(227, 155, 60, 0.14) 0%, var(--surface-card) 65%);
+      border-color: rgba(163, 65, 15, 0.35);
+      box-shadow: 0 6px 18px rgba(88, 40, 18, 0.06);
+    }
+    body.theme-taqueria .mozo-badge-tag {
+      color: #276749;
+      background: rgba(56, 161, 105, 0.12);
+      border-color: rgba(56, 161, 105, 0.30);
+    }
+    body.theme-taqueria .btn-mozo-quick-add { background: #2F855A; }
+    body.theme-taqueria .btn-mozo-quick-add:hover { background: #276749; }
+    body.theme-taqueria .btn-mozo-quick-add.added { background: #2B6CB0; }
+    body.theme-taqueria [data-tip-pill] { color: var(--chalk-white) !important; }
+    body.theme-taqueria #tipAmountDisplay,
+    body.theme-taqueria #summaryDiscountRow,
+    body.theme-taqueria #summaryTipRow { color: #276749 !important; }
+    body.theme-taqueria #groupConsolidatedContainer {
+      background: rgba(163, 65, 15, 0.05) !important;
+      border-color: rgba(163, 65, 15, 0.28) !important;
+    }
+
+    /* ── Detalles decorativos ──────────────────────────────────── */
+    /* Divisor del pie: taco flanqueado por hairlines y puntos. */
+    body.theme-taqueria footer::before {
+      content: '';
+      display: block;
+      width: 220px;
+      height: 26px;
+      margin: 0 auto 12px;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='26'%3E%3Cg stroke='%23A3410F' stroke-width='1.3' fill='none' stroke-linecap='round' opacity='0.5'%3E%3Cline x1='4' y1='13' x2='88' y2='13'/%3E%3Cline x1='132' y1='13' x2='216' y2='13'/%3E%3Cg transform='translate(98 1)'%3E%3Cpath d='M4.3 15.9a7.7 7.5 0 0 1 15.4 0z'/%3E%3Cpath d='M7 12.2q1.3-1.8 2.6 0t2.6 0t2.6 0t2.6 0'/%3E%3C/g%3E%3C/g%3E%3Cg fill='%23A3410F' opacity='0.5'%3E%3Ccircle cx='92' cy='13' r='1.5'/%3E%3Ccircle cx='128' cy='13' r='1.5'/%3E%3C/g%3E%3C/svg%3E") no-repeat center / contain;
+    }
+
+    /* ── Escritorio: carta más aireada ─────────────────────────── */
+    @media (min-width: 900px) {
+      body.theme-taqueria .menu-container { max-width: 840px; }
     }
     body.theme-bar {
       --bg-chalkboard: #121422;
