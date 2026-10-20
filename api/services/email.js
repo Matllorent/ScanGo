@@ -1,6 +1,42 @@
 const AppError = require('../utils/AppError');
 const { retryQueue } = require('../utils/retryQueue');
 const { fetchWithTimeout } = require('../utils/fetchWithTimeout');
+const { buildEmailFooterHtml, signUnsubscribeToken } = require('../utils/emailFooter');
+const fs = require('fs');
+const path = require('path');
+
+/**
+ * Lista de baja comercial (CAN-SPAM): correos que pidieron no recibir más
+ * mensajes. Persistencia local atómica best-effort (mismo patrón que data/*.json);
+ * en Vercel el espejo cae a /tmp — para una lista grande, replicar a cloud.
+ */
+const OPTOUTS_FILE = path.join(process.env.DATA_DIR || path.join(process.cwd(), 'data'), 'email_optouts.json');
+const optedOut = new Set((() => {
+  try { return JSON.parse(fs.readFileSync(OPTOUTS_FILE, 'utf8')); } catch { return []; }
+})());
+
+function persistOptOuts() {
+  try {
+    fs.mkdirSync(path.dirname(OPTOUTS_FILE), { recursive: true });
+    const tmp = OPTOUTS_FILE + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify([...optedOut], null, 2));
+    fs.renameSync(tmp, OPTOUTS_FILE);
+  } catch (e) {
+    console.warn('[Email] optout persist fail:', e.message);
+  }
+}
+
+function isOptedOut(to) {
+  const arr = Array.isArray(to) ? to : [to];
+  return arr.some(x => optedOut.has(String(x || '').toLowerCase()));
+}
+
+/** Marca una dirección como "no comercial" (idempotente, persiste). */
+function markOptOut(email) {
+  if (!email) return;
+  optedOut.add(String(email).trim().toLowerCase());
+  persistOptOuts();
+}
 
 /**
  * Enmascara una dirección de email para logs: conserva la primera letra del
@@ -37,6 +73,15 @@ const emailService = {
   async sendEmail({ to, subject, html, text }) {
     if (!to || !subject) {
       throw new AppError('El destinatario (to) y asunto (subject) son requeridos', 400, 'MISSING_EMAIL_FIELDS');
+    }
+
+    // CAN-SPAM §5: dirección postal física + motivo + enlace de baja en TODO email.
+    // (La baja se procesa a nivel comercial: los transaccionales puntuales —recibo
+    // de un pago— siguen saliendo, como permite la ley; el bloqueo duro es en promos.)
+    if (typeof html === 'string' && !html.includes('ScanGo &middot;')) {
+      html += Array.isArray(to)
+        ? buildEmailFooterHtml()
+        : buildEmailFooterHtml({ unsubscribeToken: signUnsubscribeToken(to) });
     }
 
     const resendApiKey = process.env.RESEND_API_KEY;
@@ -142,6 +187,12 @@ const emailService = {
    * Send Promotional Campaign Email to Clients
    */
   async sendPromotionalEmail({ to, subject, body, restaurantName, promoCode, promoLink }) {
+    // CAN-SPAM §5(4)+(5): honoring opt-outs no es opcional. Quien pidió la baja
+    // no recibe NINGÚN envío comercial, aunque llegue por otra campaña.
+    if (isOptedOut(to)) {
+      console.log(`[Email] Promo skipped (opt-out): ${maskEmailList(to)}`);
+      return { provider: 'local_mock', success: true, skipped: true, reason: 'OPT_OUT' };
+    }
     const html = `
       <div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
         <h2>Especiales de ${restaurantName || 'Tu Restaurante Favorito'}</h2>
@@ -416,3 +467,6 @@ emailService.maskEmail = maskEmail;
 emailService.maskEmailList = maskEmailList;
 
 module.exports = emailService;
+// CAN-SPAM: helpers de opt-out comercial (usados por la ruta de baja y tests).
+module.exports.markOptOut = markOptOut;
+module.exports.isOptedOut = isOptedOut;

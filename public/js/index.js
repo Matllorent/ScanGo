@@ -372,12 +372,13 @@ async function handleRegister(e) {
   const businessType = document.getElementById('regBusinessType')?.value || 'restaurant';
   const email = document.getElementById('regEmail').value.trim();
   const password = document.getElementById('regPassword').value;
+  const ageConfirmed = document.getElementById('regAgeConfirm')?.checked === true;
 
   try {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, restaurantName, businessType, email, password })
+      body: JSON.stringify({ name, restaurantName, businessType, email, password, ageConfirmed })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Error al crear la cuenta');

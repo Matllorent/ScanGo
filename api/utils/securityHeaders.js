@@ -65,7 +65,7 @@ function computeInlineScriptHashes() {
 // Hosts externos de script autorizados en TODAS las páginas (transaccional).
 const SCRIPT_EXTERNALS = [
   'https://cdn.jsdelivr.net', // supabase-js, qrcodejs, jspdf, Chart.js
-  'https://cdnjs.cloudflare.com', // Font Awesome (studio)
+  'https://cdnjs.cloudflare.com', // qrcodejs, jspdf y Chart.js del Studio (scripts)
   'https://accounts.google.com' // GIS / Sign In with Google (landing)
 ];
 
@@ -76,8 +76,8 @@ const SCRIPT_EXTERNALS = [
 function buildCspDirectives({ strictMenu = false } = {}) {
   const common = {
     'default-src': ["'self'"],
-    'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'], // cdnjs: Font Awesome (admin)
-    'font-src': ["'self'", 'data:', 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'], // cdnjs: webfonts FA
+    'style-src': ["'self'", "'unsafe-inline'"], // fuentes auto-hospedadas en /fonts (cero requests a Google/cdnjs: RGPD, sentencia Múnich)
+    'font-src': ["'self'", 'data:'], // woff2 locales + fuentes decorativas; FA local en /fonts/fa
     'img-src': ["'self'", 'data:', 'blob:', 'https:'],
     // Video de Stories por plato (link MP4 directo del dueño): media separado
     // de img (nunca data:/blob: — un base64 de video inflaría filas y ciega

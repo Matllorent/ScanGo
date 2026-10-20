@@ -506,6 +506,7 @@
           </div>
 
           <button class="btn btn-outline" data-js-click="openAuthModal|register">Comenzar 7 Días Gratis</button>
+          <div class="plan-renewal-note" style="font-size:10px; color:var(--text-dim); margin-top:8px; text-align:center; line-height:1.5;">Renovación automática hasta que la canceles. Sin permanencia: cancelás cuando quieras desde tu Studio.</div>
         </div>
 
         <!-- Plan Anual (Featured) -->
@@ -528,6 +529,7 @@
           </div>
 
           <button class="btn btn-gold" data-js-click="openAuthModal|register">Activar Plan Anual</button>
+          <div class="plan-renewal-note" style="font-size:10px; color:var(--text-dim); margin-top:8px; text-align:center; line-height:1.5;">Renovación automática hasta que la canceles. Sin permanencia: cancelás cuando quieras desde tu Studio.</div>
         </div>
       </div>
 
@@ -775,6 +777,14 @@
             <input type="password" id="regPassword" class="form-input" placeholder="Mínimo 6 caracteres" minlength="6" required autocomplete="new-password">
             <button type="button" class="toggle-pass-btn" data-js-click="togglePasswordVisibility|regPassword|this" aria-label="Mostrar u ocultar contraseña" title="Mostrar/ocultar contraseña">👁️</button>
           </div>
+        </div>
+
+        <!-- Confirmación de edad (COPPA/RGPD: sólo adultos registran su negocio) -->
+        <div class="form-group" style="margin-top: 2px;">
+          <label style="display:flex; gap:10px; align-items:flex-start; font-size:12px; color:var(--text-dim); cursor:pointer;">
+            <input type="checkbox" id="regAgeConfirm" required style="margin-top:2px; accent-color:var(--accent-gold);">
+            <span>Confirmo que soy mayor de 18 años y que registro este negocio como su responsable legal.</span>
+          </label>
         </div>
 
         <button type="submit" id="btnSubmitRegister" class="btn btn-gold" style="width: 100%; margin-top: 8px;">

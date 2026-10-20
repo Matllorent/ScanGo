@@ -44,7 +44,8 @@ async function runTests() {
         email: testEmail,
         password: 'password123',
         name: 'Carlos Alberto',
-        restaurantName: 'Bistro Don Alberto'
+        restaurantName: 'Bistro Don Alberto',
+        ageConfirmed: true
       }
     });
 

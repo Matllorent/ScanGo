@@ -1569,6 +1569,11 @@ components:
           type: string
           enum: [restaurant, heladeria, perfumery, events]
           default: restaurant
+        # COPPA/RGPD: el registro lo hace un adulto responsable del negocio
+        ageConfirmed:
+          type: boolean
+          enum: [true]
+          description: Debe ser exactamente `true`; sin confirmación el registro responde 400
     LoginRequest:
       type: object
       required: [email, password]

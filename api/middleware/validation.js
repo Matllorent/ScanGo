@@ -8,7 +8,10 @@ const registerSchema = z.object({
   name: z.string().max(80).optional(),
   restaurantName: z.string().max(80).optional(),
   bizName: z.string().max(80).optional(),
-  businessType: z.enum(['restaurant', 'heladeria', 'perfumery', 'events']).optional().default('restaurant')
+  businessType: z.enum(['restaurant', 'heladeria', 'perfumery', 'events']).optional().default('restaurant'),
+  // COPPA/RGPD: el registro lo hace un adulto responsable del negocio.
+  // Checkbox obligatorio en el formulario; sin el, el registro rechaza 400.
+  ageConfirmed: z.literal(true, { message: 'Debes confirmar que eres mayor de 18 anos' })
 });
 
 // Schema for login payload

@@ -226,8 +226,15 @@ async function runTests() {
     const registerDup = await postJson('/api/auth/register', {
       email: `contract-${stamp}@example.com`,
       password: 'otra_clave_123',
+      ageConfirmed: true
     });
     assert.strictEqual(registerDup.status, 200, 'register duplicado → 200 genérico anti-enumeración (no 400 revelador)');
+    // COPPA/RGPD: sin confirmación de edad el registro rechaza (400)
+    const registerNoAge = await postJson('/api/auth/register', {
+      email: `contract-age-${stamp}@example.com`,
+      password: 'otra_clave_123'
+    });
+    assert.strictEqual(registerNoAge.status, 400, 'register sin ageConfirmed → 400');
     const dupBody = await registerDup.json();
     assert.ok(!('token' in (dupBody.data || dupBody)), 'sin JWT en el duplicado');
     assert.strictEqual(dupBody.data?.requiresEmailVerification ?? dupBody.requiresEmailVerification, true, 'pantalla revisá-tu-correo');
