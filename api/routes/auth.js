@@ -221,6 +221,14 @@ router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
         menuUrl: `${appUrl}/m/${restaurant.slug}`,
         studioUrl: `${appUrl}/studio`
       }).catch((err) => console.error('❌ [WelcomeEmail]', err.message));
+      emailService.sendNewClientNotification({
+        source: 'google',
+        clientEmail: user.email,
+        clientName: user.name,
+        restaurantName: restaurant.name || restaurant.bizName,
+        slug: restaurant.slug,
+        menuUrl: `${appUrl}/m/${restaurant.slug}`
+      }).catch((err) => console.error('[NewClientNotification]', err.message));
     }
 
     const { password: _, ...safeUser } = user;
@@ -503,6 +511,18 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
     }).catch((err) => {
       // Fire-and-forget: un fallo de email jamás debe tumbar el proceso
       console.error('❌ [WelcomeEmail]', err.message);
+    });
+
+    // Notify owner of new client (fire-and-forget)
+    emailService.sendNewClientNotification({
+      source: 'register',
+      clientEmail: user.email,
+      clientName: user.name,
+      restaurantName: restaurant.name || restaurant.bizName,
+      slug: restaurant.slug,
+      menuUrl: `${appUrl}/m/${restaurant.slug}`
+    }).catch((err) => {
+      console.error('[NewClientNotification]', err.message);
     });
 
     const { password: _, ...safeUser } = user;

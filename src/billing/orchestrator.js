@@ -473,6 +473,15 @@ const billingOrchestrator = {
               planName,
               renewsAt: parsed.renewsAt
             }).catch(e => console.warn('[Billing] Failed to send receipt email:', e.message));
+            emailService.sendNewClientNotification({
+              source: 'subscription',
+              clientEmail: user.email,
+              clientName: user.name,
+              restaurantName: restaurant.name || restaurant.bizName,
+              slug: restaurant.slug,
+              planName,
+              menuUrl: `${process.env.APP_URL || ''}/m/${restaurant.slug}`
+            }).catch(e => console.warn('[Billing] Failed to send new-client notification:', e.message));
           }
         } catch (e) {
           console.warn('[Billing] Failed to send receipt email:', e.message);

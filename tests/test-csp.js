@@ -126,18 +126,27 @@ async function runTests() {
   const vercel = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'));
   const { STATIC_SOURCES } = require('../scripts/regen-vercel-csp');
   assert.ok(Array.isArray(STATIC_SOURCES) && STATIC_SOURCES.length >= 9, 'regen expone la lista canónica de páginas estáticas');
-  for (const rule of (vercel.headers || [])) {
-    assert.ok(!rule.source.includes('(?!'), `vercel.json: source sin lookahead (Vercel lo rechaza): ${rule.source}`);
+  // Con la config legacy (builds + routes) los headers van como reglas dentro
+  // de routes (continue:true): el bloque top-level "headers" NO se aplica.
+  // Una regla de header legacy = { src, headers: objeto plano, continue: true }.
+  const headerRules = (vercel.routes || []).filter((r) => r.continue === true && r.headers && !r.dest);
+  for (const rule of headerRules) {
+    assert.ok(!rule.src.includes('(?!'), `vercel.json: src sin lookahead (Vercel lo rechaza): ${rule.src}`);
   }
+  // Sin bloque top-level headers muerto (con builds+routes Vercel lo ignora).
+  assert.ok(!vercel.headers, 'vercel.json: NO debe existir el bloque top-level headers (se ignora con builds+routes)');
   assert.strictEqual(
-    (vercel.headers || []).length,
+    headerRules.length,
     STATIC_SOURCES.length,
-    `vercel.json: una regla por página estática (${STATIC_SOURCES.length}), ni más (pisaría /m/* y /api/*) ni menos`
+    `vercel.json: una regla de header por página estática (${STATIC_SOURCES.length}), ni más (pisaría /m/* y /api/*) ni menos`
   );
+  // Las reglas de headers deben ir AL FRENTE de routes (antes de cualquier dest).
+  const firstNonHeaderIdx = (vercel.routes || []).findIndex((r) => !(r.continue === true && r.headers && !r.dest));
+  assert.ok(firstNonHeaderIdx >= headerRules.length, 'vercel.json: reglas de headers al frente de routes (antes de los dest)');
   for (const source of STATIC_SOURCES) {
-    const headerRule = (vercel.headers || []).find((rule) => rule.source === source);
+    const headerRule = headerRules.find((rule) => rule.src === source);
     assert.ok(headerRule, `vercel.json debe tener regla de headers para ${source}`);
-    const ruleHeaderMap = Object.fromEntries(headerRule.headers.map(h => [h.key, h.value]));
+    const ruleHeaderMap = headerRule.headers;
     assert.strictEqual(
       ruleHeaderMap['Content-Security-Policy'],
       transitionalCsp,
@@ -154,7 +163,7 @@ async function runTests() {
   // `usb=()` deshabilitaba la función en producción; debe ser `usb=(self)`.
   // `ambient-light-sensor` sobra: Chrome ya no la reconoce (ruido en consola).
   const modulePermissions = securityHeaders.getSecurityHeaders()['Permissions-Policy'];
-  const firstRuleMap = Object.fromEntries(vercel.headers[0].headers.map(h => [h.key, h.value]));
+  const firstRuleMap = headerRules[0].headers;
   for (const [label, policy] of [['módulo', modulePermissions], ['vercel.json', firstRuleMap['Permissions-Policy']]]) {
     assert.ok(policy.includes('usb=(self)'), `${label}: Permissions-Policy debe permitir usb=(self) para la impresora térmica del Studio`);
     assert.ok(!policy.includes('usb=()'), `${label}: Permissions-Policy NO debe deshabilitar usb=() (rompe la impresora)`);
@@ -209,7 +218,8 @@ async function runTests() {
       fs.existsSync(path.join(ROOT, relFile)),
       `${relFile} existe en disco`
     );
-    const route = vercelRoutes.find(r => r.src === urlPath);
+    // La regla de headers (continue:true, sin dest) también matchea src: buscar la regla con dest.
+    const route = vercelRoutes.find(r => r.src === urlPath && r.dest);
     assert.ok(route, `vercel.json rutea ${urlPath} en producción`);
     assert.strictEqual(
       route.dest,

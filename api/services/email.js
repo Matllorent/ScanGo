@@ -372,8 +372,44 @@ const emailService = {
     `;
 
     return this.sendEmail({ to, subject, html });
-  }
+  },
+  async sendNewClientNotification({ to, source, clientEmail, clientName, restaurantName, slug, planName, menuUrl } = {}) {
+    const recipients = to
+      ? (Array.isArray(to) ? to : String(to).split(',').map(x => x.trim()).filter(Boolean))
+      : String(process.env.OWNER_NOTIFICATION_EMAIL || process.env.ADMIN_NOTIFICATION_EMAIL || process.env.NOTIFICATION_EMAIL || '')
+          .split(',')
+          .map(x => x.trim())
+          .filter(Boolean);
+
+    if (!recipients.length) {
+      console.log('[NewClientNotification] No recipient configured (OWNER_NOTIFICATION_EMAIL); skipped.');
+      return { provider: 'skipped', success: true, skipped: true };
+    }
+
+    const srcLabel = source === 'subscription' ? 'Nueva suscripcion' : source === 'google' ? 'Nuevo registro (Google)' : 'Nuevo registro';
+    const subject = '[ScanGo] ' + srcLabel + ': ' + (restaurantName || clientEmail || 'cliente');
+    const html = '<div style="font-family:sans-serif;padding:20px;color:#1e293b;max-width:600px;margin:0 auto;">'
+      + '<h2 style="color:#10b981;">' + srcLabel + '</h2>'
+      + '<p><strong>Cliente:</strong> ' + (clientName || '-') + '</p>'
+      + '<p><strong>Email:</strong> ' + (clientEmail || '-') + '</p>'
+      + '<p><strong>Restaurante:</strong> ' + (restaurantName || '-') + '</p>'
+      + (slug ? '<p><strong>Slug:</strong> ' + slug + '</p>' : '')
+      + (planName ? '<p><strong>Plan:</strong> ' + planName + '</p>' : '')
+      + (menuUrl ? '<p><strong>Menu:</strong> <a href="' + menuUrl + '">' + menuUrl + '</a></p>' : '')
+      + '<p style="font-size:12px;color:#888;">Fuente: ' + (source || 'register') + ' | ' + new Date().toISOString() + '</p>'
+      + '</div>';
+    return this.sendEmail({ to: recipients, subject, html });
+  },
+
 };
+
+/**
+   * Send internal notification to the owner/admin when a new client registers
+   * or subscribes successfully. Recipient comes from OWNER_NOTIFICATION_EMAIL
+   * (comma-separated supported) or ADMIN_NOTIFICATION_EMAIL env vars. If none
+   * is configured, the call is a safe no-op (never throws, never blocks).
+   */
+
 
 // Helpers puros exportados (testeables): ocultan PII de destinatarios en logs.
 emailService.maskEmail = maskEmail;
