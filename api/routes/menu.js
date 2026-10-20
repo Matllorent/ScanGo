@@ -80,6 +80,8 @@ function buildDemoMenuResponse(typeOrSlug, opts = {}) {
     allowOnlinePayment: false,
     onlinePaymentReady: false,
     scheduleEnabled: Boolean(demo.scheduleEnabled),
+    // Contador de cierre en el badge (default encendido cuando el campo falta).
+    showClosingCountdown: demo.showClosingCountdown !== false,
     customCoupons: [],
     allowLoyaltyPoints: false,
     loyaltyConfig: loyaltyService.getPublicLoyaltyConfig(demo),
@@ -357,6 +359,8 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
         ),
         scheduleEnabled: Boolean(restaurant.scheduleEnabled),
         scheduleActiveHours: restaurant.scheduleActiveHours || '',
+        // Contador de cierre en el badge del menú (default encendido).
+        showClosingCountdown: restaurant.showClosingCountdown !== false,
         tableCount: restaurant.tableCount || 10,
         customCoupons: restaurant.customCoupons || [],
         allowLoyaltyPoints: restaurant.allowLoyaltyPoints === true,

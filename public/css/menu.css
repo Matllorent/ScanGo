@@ -991,21 +991,742 @@
     }
     body.theme-otaku .dish-card { border-radius: 16px; }
 
+    /* ============================================================
+       EXPLOSIVO — fanzine punk / neobrutalismo explosivo
+       Energía de afiche de rock, no una paleta pastel.
+
+       body.theme-explosivo          → paleta y personalidad (cualquier layout)
+       body.theme-explosivo.layout-classic → morfología estructural (sólo classic)
+
+       Paleta (WCAG AA verificada):
+         · negro tinta   #0B0B0B  (fondo, slab header, trazos, texto sobre crema)
+         · papel crema   #FFF9E6  (tarjetas, papel, fondos de tarjeta)
+         · amarillo ácido #FFE600 (acento, subrayados, sticker precio, texto sobre rojo)
+         · rojo explosión #FF3344 (bordes, sombras, franjas decorativas — NUNCA fondo de texto pequeño)
+         · rojo profundo #C81E2E (fondos con texto pequeño: pills activas, badges, botones)
+         · azul eléctrico #00C2FF (sombra offset dura, acento secundario)
+
+       Tipografía (auto-hospedadas, sin fuentes nuevas):
+         · Montserrat 900 uppercase + skew/rotate + sombra dura offset rojo/azul (títulos)
+         · IBM Plex Mono (precios, metadatos, descripción chica)
+         · Nombres de platos: tracking agresivo
+       ============================================================ */
+
+    /* ── Paleta base del tema (aplica a cualquier layout) ────── */
     body.theme-explosivo {
-      --bg-chalkboard: #170E0B;
-      --surface-card: #26150F;
-      --surface-card-hover: #381E16;
+      --bg-chalkboard: #0B0B0B;
       --chalk-gold: #FFE600;
       --chalk-green: #FF3344;
-      --chalk-muted: #FEE2E2;
-      --border-chalk: rgba(255, 230, 0, 0.35);
-      --border-gold: rgba(255, 230, 0, 0.75);
-      background-color: #170E0B;
-      background-image: 
-        radial-gradient(circle at 50% 10%, rgba(255,230,0,0.06) 0%, transparent 40%),
-        radial-gradient(circle at 80% 90%, rgba(255,51,68,0.05) 0%, transparent 40%);
+      --chalk-muted: #E8E0C8;
+      --chalk-dim: #B8B0A0;
+      --chalk-white: #FFF9E6;
+      --border-gold: #00C2FF;
+      --explosivo-red-deep: #C81E2E;
+      background-color: #0B0B0B;
+      background-image:
+        linear-gradient(135deg, #0B0B0B 0%, #151515 55%, #0B0B0B 100%),
+        radial-gradient(circle at 20% 20%, rgba(255, 230, 0, 0.10) 0%, transparent 45%),
+        radial-gradient(circle at 80% 80%, rgba(0, 194, 255, 0.08) 0%, transparent 45%),
+        radial-gradient(circle at 50% 50%, rgba(200, 30, 46, 0.06) 0%, transparent 50%);
+      color: #FFF9E6;
     }
-    body.theme-explosivo .dish-badge { box-shadow: 0 0 8px rgba(255, 230, 0, 0.3); }
+    /* Superficies/bordes de papel solo en classic: billboard, sticker y stories
+       usan su propia superficie oscura; si el tema les impusiera crema, el
+       texto claro de esos layouts quedaría ilegible sobre crema. */
+    body.theme-explosivo.layout-classic {
+      --surface-card: #FFF9E6;
+      --surface-card-hover: #FFF3B0;
+      --border-chalk: #0B0B0B;
+    }
+    /* color de texto solo en classic (los otros layouts llevan su propia paleta) */
+    body.theme-explosivo.layout-classic .menu-header,
+    body.theme-explosivo.layout-classic .controls-wrapper,
+    body.theme-explosivo.layout-classic .modal-box,
+    body.theme-explosivo.layout-classic .floating-cart-bar,
+    body.theme-explosivo.layout-classic .chef-specials-section {
+      color: #FFF9E6;
+    }
+
+    /* ── Header: slab negro + franjas de peligro diagonales (solo classic) ── */
+    body.theme-explosivo.layout-classic .menu-header {
+      background: #0B0B0B;
+      border-bottom: 7px solid #FF3344;
+      box-shadow: 0 9px 0 #00C2FF, 0 14px 28px rgba(0,0,0,0.7);
+      position: relative;
+      overflow: hidden;
+    }
+    body.theme-explosivo.layout-classic .menu-header::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -60%; right: -60%; bottom: 0;
+      background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 14px,
+        #FF3344 14px,
+        #FF3344 28px
+      );
+      opacity: 0.12;
+      pointer-events: none;
+      z-index: 0;
+    }
+    body.theme-explosivo.layout-classic .menu-header > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Logo en sticker rotado con borde negro grueso y esquinas cortadas */
+    body.theme-explosivo.layout-classic .restaurant-logo {
+      border: 5px solid #0B0B0B;
+      border-radius: 0;
+      clip-path: polygon(14% 4%, 86% 3%, 98% 22%, 96% 82%, 80% 98%, 24% 96%, 4% 78%, 6% 28%);
+      background: #FFF9E6;
+      box-shadow: 7px 7px 0 #00C2FF;
+      transform: rotate(-7deg);
+      display: block;
+      margin: 0 auto 14px auto;
+      width: 62px;
+      height: 62px;
+      object-fit: cover;
+    }
+
+    /* Título: Montserrat 900 uppercase, skew/rotate, doble sombra rojo/azul, subrayado amarillo */
+    body.theme-explosivo.layout-classic .restaurant-title {
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-weight: 900;
+      text-transform: uppercase;
+      font-size: clamp(1.9rem, 6vw, 2.8rem);
+      color: #FFF9E6;
+      letter-spacing: 0.08em;
+      transform: skew(-3deg) rotate(-1.5deg);
+      text-shadow:
+        4px 4px 0 #FF3344,
+        8px 8px 0 #00C2FF,
+        0 0 16px rgba(255, 51, 68, 0.5);
+      margin-bottom: 8px;
+      position: relative;
+      display: inline-block;
+      line-height: 1.05;
+    }
+    body.theme-explosivo.layout-classic .restaurant-title::after {
+      content: '';
+      position: absolute;
+      left: -5px; right: -5px; bottom: -7px; height: 9px;
+      background: #FFE600;
+      transform: skew(-3deg);
+      z-index: -1;
+    }
+
+    /* Slogan en cinta amarilla con texto negro */
+    body.theme-explosivo.layout-classic .restaurant-slogan {
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-weight: 800;
+      text-transform: uppercase;
+      font-size: clamp(0.9rem, 2.5vw, 1.15rem);
+      color: #0B0B0B;
+      background: #FFE600;
+      letter-spacing: 0.18em;
+      padding: 5px 16px;
+      display: inline-block;
+      clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+      box-shadow: 5px 5px 0 #00C2FF;
+      transform: rotate(-2deg);
+      margin-bottom: 16px;
+    }
+
+    /* ── Estado y meta chips ── */
+    body.theme-explosivo.layout-classic .status-pill {
+      background: var(--explosivo-red-deep, #C81E2E);
+      color: #FFF9E6;
+      border: 4px solid #0B0B0B;
+      box-shadow: 5px 5px 0 #00C2FF;
+      text-transform: uppercase;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      border-radius: 0;
+    }
+    body.theme-explosivo.layout-classic .status-pill.open { background: var(--explosivo-red-deep, #C81E2E); }
+    body.theme-explosivo.layout-classic .status-pill span { background: #FFF9E6 !important; }
+
+    body.theme-explosivo.layout-classic .meta-chip {
+      background: #FFF9E6;
+      border: 4px solid #0B0B0B;
+      box-shadow: 5px 5px 0 #00C2FF;
+      color: #0B0B0B;
+      text-transform: uppercase;
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 800;
+      font-size: 0.8rem;
+      border-radius: 0;
+      padding: 7px 14px;
+    }
+    body.theme-explosivo.layout-classic .meta-chip:hover {
+      background: var(--explosivo-red-deep, #C81E2E);
+      color: #FFE600;
+      border-color: var(--explosivo-red-deep, #C81E2E);
+      box-shadow: 3px 3px 0 #00C2FF;
+    }
+    body.theme-explosivo.layout-classic .meta-chip-reserve {
+      background: #FFE600;
+      border-color: #0B0B0B;
+      color: #0B0B0B;
+      box-shadow: 5px 5px 0 #FF3344;
+    }
+    body.theme-explosivo.layout-classic .meta-chip-reserve:hover {
+      background: #00C2FF;
+      color: #0B0B0B;
+      border-color: #00C2FF;
+    }
+
+    /* ── Controles: buscador y pills ── */
+    body.theme-explosivo.layout-classic .controls-wrapper {
+      background: #0B0B0B;
+      border-bottom: 7px solid #FF3344;
+      box-shadow: 0 9px 0 #00C2FF;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+
+    body.theme-explosivo.layout-classic .search-box {
+      background: #FFF9E6;
+      border: 5px solid #0B0B0B;
+      box-shadow: 6px 6px 0 #00C2FF;
+      color: #0B0B0B;
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 800;
+      border-radius: 0;
+      padding: 11px 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    body.theme-explosivo.layout-classic .search-box::placeholder {
+      color: #555555;
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 800;
+      opacity: 0.75;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    body.theme-explosivo.layout-classic .search-box:focus {
+      outline: none;
+      border-color: #FF3344;
+      box-shadow: 6px 6px 0 #FF3344;
+    }
+
+    /* Pills rectangulares chunky, borde negro 4px, sombra dura, rotaciones alternadas */
+    body.theme-explosivo.layout-classic .cat-pill {
+      background: #FFF9E6;
+      border: 4px solid #0B0B0B;
+      box-shadow: 5px 5px 0 #00C2FF;
+      color: #0B0B0B;
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.82rem;
+      border-radius: 0;
+      padding: 9px 18px;
+      transition: translate 0.12s, box-shadow 0.12s;
+    }
+    body.theme-explosivo.layout-classic .cat-pill:nth-child(odd) { rotate: -2deg; }
+    body.theme-explosivo.layout-classic .cat-pill:nth-child(even) { rotate: 2deg; }
+    body.theme-explosivo.layout-classic .cat-pill:active {
+      translate: 3px 3px;
+      box-shadow: 2px 2px 0 #00C2FF;
+    }
+
+    /* Activo: rojo profundo con texto amarillo (WCAG AA ~5.4:1) y sombra "presionada" */
+    body.theme-explosivo.layout-classic .cat-pill.active {
+      background: var(--explosivo-red-deep, #C81E2E);
+      border-color: var(--explosivo-red-deep, #C81E2E);
+      color: #FFE600;
+      box-shadow: 4px 4px 0 #0B0B0B, inset 3px 3px 0 rgba(0,0,0,0.35);
+      rotate: 0deg;
+    }
+
+    /* ── Grilla asimétrica de 12 columnas (solo ≥700px, solo classic) ── */
+    body.theme-explosivo.layout-classic .dishes-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    @media (min-width: 700px) {
+      body.theme-explosivo.layout-classic .dishes-grid {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        grid-auto-rows: auto;
+        gap: 22px 18px;
+        overflow-x: clip;
+      }
+    }
+
+    /* ── Tarjetas: papel crema consistente en todos los viewports ── */
+    body.theme-explosivo.layout-classic .dish-card {
+      background: #FFF9E6;
+      border: 4px solid #0B0B0B;
+      box-shadow: 7px 7px 0 #FF3344, 13px 13px 0 #00C2FF;
+      border-radius: 0;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+      transition: translate 0.12s, box-shadow 0.12s;
+    }
+    body.theme-explosivo.layout-classic .dish-card:hover {
+      translate: -3px -3px;
+      box-shadow: 10px 10px 0 #FF3344, 16px 16px 0 #00C2FF;
+    }
+
+    /* Asimetría 12 columnas: spans 7/5, 5/7, 4/4/4 con rotaciones individuales (no transform) */
+    @media (min-width: 700px) {
+      body.theme-explosivo.layout-classic .dishes-grid .dish-card:nth-child(4n+1) {
+        grid-column: span 7;
+        grid-row: span 2;
+        rotate: -2deg;
+      }
+      body.theme-explosivo.layout-classic .dishes-grid .dish-card:nth-child(4n+2) {
+        grid-column: span 5;
+        rotate: 2deg;
+      }
+      body.theme-explosivo.layout-classic .dishes-grid .dish-card:nth-child(4n+3) {
+        grid-column: span 4;
+        grid-row: span 2;
+        rotate: -1deg;
+      }
+      body.theme-explosivo.layout-classic .dishes-grid .dish-card:nth-child(4n+4) {
+        grid-column: span 4;
+        rotate: 1deg;
+      }
+      body.theme-explosivo.layout-classic .dishes-grid .dish-card:nth-child(8n+5) {
+        grid-column: span 4;
+        rotate: 1.5deg;
+      }
+      body.theme-explosivo.layout-classic .dishes-grid .dish-card:nth-child(8n+6) {
+        grid-column: span 8;
+        rotate: -1.5deg;
+      }
+    }
+
+    /* ── Imagen: duotono + clip-path diagonal ── */
+    body.theme-explosivo.layout-classic .dish-thumb,
+    body.theme-explosivo.layout-classic .dish-image {
+      width: 100%;
+      height: 170px;
+      object-fit: cover;
+      border: 4px solid #0B0B0B;
+      box-shadow: 6px 6px 0 #FF3344;
+      border-radius: 0;
+      clip-path: polygon(0 0, 100% 0, 88% 100%, 0 100%);
+      background: #FF3344;
+      display: block;
+      filter: contrast(1.3) saturate(1.5) hue-rotate(-8deg);
+    }
+
+    /* ── Nombres y descripción ── */
+    body.theme-explosivo.layout-classic .dish-name {
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-weight: 900;
+      text-transform: uppercase;
+      font-size: 1.15rem;
+      color: #0B0B0B;
+      letter-spacing: 0.14em;
+      line-height: 1.05;
+      margin: 0;
+    }
+    body.theme-explosivo.layout-classic .dish-desc {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.7rem;
+      color: #333333;
+      line-height: 1.25;
+      margin: 2px 0 0 0;
+    }
+
+    /* ── Precio: cinta/etiqueta rotada ── */
+    body.theme-explosivo.layout-classic .dish-price {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #0B0B0B;
+      background: #FFE600;
+      border: 4px solid #0B0B0B;
+      box-shadow: 6px 6px 0 #00C2FF;
+      display: inline-block;
+      padding: 5px 12px;
+      clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+      rotate: -3deg;
+      margin-top: 6px;
+      white-space: nowrap;
+    }
+
+    /* ── Botones + / −: discos rojo profundo con borde negro y sombra dura ── */
+    body.theme-explosivo.layout-classic .btn-add {
+      background: var(--explosivo-red-deep, #C81E2E);
+      color: #FFE600;
+      border: 5px solid #0B0B0B;
+      box-shadow: 7px 7px 0 #00C2FF;
+      width: 48px;
+      height: 48px;
+      border-radius: 0;
+      font-size: 1.5rem;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: translate 0.1s, box-shadow 0.1s;
+      font-family: 'Montserrat', system-ui, sans-serif;
+      text-transform: uppercase;
+    }
+    body.theme-explosivo.layout-classic .btn-add:active,
+    body.theme-explosivo.layout-classic .btn-add:focus-visible {
+      translate: 3px 3px;
+      box-shadow: 4px 4px 0 #00C2FF;
+    }
+
+    /* Qty counter y stepper − */
+    body.theme-explosivo.layout-classic .qty-counter {
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 900;
+      color: #0B0B0B;
+      background: #FFE600;
+      border: 4px solid #0B0B0B;
+      box-shadow: 5px 5px 0 #00C2FF;
+      padding: 3px 10px;
+      display: inline-block;
+    }
+    body.theme-explosivo.layout-classic .btn-qty {
+      background: var(--explosivo-red-deep, #C81E2E);
+      border: 5px solid #0B0B0B;
+      box-shadow: 6px 6px 0 #00C2FF;
+      color: #FFE600;
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 900;
+      width: 40px;
+      height: 40px;
+      border-radius: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    body.theme-explosivo.layout-classic .btn-qty:active {
+      translate: 3px 3px;
+      box-shadow: 4px 4px 0 #00C2FF;
+    }
+
+    /* ── Badges: rojo profundo con texto amarillo (WCAG AA) ── */
+    body.theme-explosivo.layout-classic .dish-badge {
+      background: var(--explosivo-red-deep, #C81E2E);
+      color: #FFE600;
+      border: 4px solid #0B0B0B;
+      box-shadow: 6px 6px 0 #00C2FF;
+      text-transform: uppercase;
+      font-weight: 900;
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-size: 0.68rem;
+      padding: 4px 10px;
+      border-radius: 0;
+      clip-path: polygon(8px 0, 100% 0, 100% 100%, 0 100%, 0 8px);
+    }
+
+    /* ── Chef Specials: tarjeta amarillo tipo afiche con ribbon negro ── */
+    body.theme-explosivo.layout-classic .chef-specials-section {
+      background: #FFE600;
+      border: 6px solid #0B0B0B;
+      box-shadow: 10px 10px 0 #FF3344;
+      border-radius: 0;
+      position: relative;
+      overflow: hidden;
+      rotate: -1.5deg;
+    }
+    body.theme-explosivo.layout-classic .chef-specials-section::before {
+      content: 'ESPECIAL';
+      position: absolute;
+      top: -18px; left: -50px;
+      background: #0B0B0B;
+      color: #FFE600;
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-weight: 900;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      padding: 8px 40px;
+      rotate: -45deg;
+      box-shadow: 4px 4px 0 #FF3344;
+      z-index: 2;
+    }
+    body.theme-explosivo.layout-classic .chef-specials-title {
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-weight: 900;
+      text-transform: uppercase;
+      color: #0B0B0B;
+      font-size: 1.8rem;
+      letter-spacing: 0.15em;
+      text-shadow: 4px 4px 0 #00C2FF;
+    }
+    body.theme-explosivo.layout-classic .chef-badge-gold {
+      background: var(--explosivo-red-deep, #C81E2E);
+      color: #FFE600;
+      border: 4px solid #0B0B0B;
+      box-shadow: 5px 5px 0 #00C2FF;
+      text-transform: uppercase;
+      font-weight: 900;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.75rem;
+      padding: 5px 12px;
+      clip-path: polygon(8px 0, 100% 0, 100% 100%, 0 100%, 0 8px);
+    }
+
+    /* ── Barra flotante del carrito ── */
+    body.theme-explosivo.layout-classic .floating-cart-bar {
+      background: #FFF9E6;
+      border: 5px solid #0B0B0B;
+      box-shadow: 10px 10px 0 #FF3344;
+      color: #0B0B0B;
+      border-radius: 0;
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    body.theme-explosivo.layout-classic .floating-cart-bar #cartTotalBadge {
+      color: var(--explosivo-red-deep, #C81E2E);
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 900;
+    }
+
+    /* ── Modales ── */
+    body.theme-explosivo.layout-classic .modal-overlay {
+      background: rgba(11, 11, 11, 0.92);
+    }
+    body.theme-explosivo.layout-classic .modal-box {
+      background: #FFF9E6;
+      border: 6px solid #0B0B0B;
+      box-shadow: 12px 12px 0 #FF3344;
+      border-radius: 0;
+      color: #0B0B0B;
+    }
+    body.theme-explosivo.layout-classic .modal-close {
+      background: var(--explosivo-red-deep, #C81E2E);
+      border: 4px solid #0B0B0B;
+      box-shadow: 5px 5px 0 #00C2FF;
+      color: #FFE600;
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-weight: 900;
+      width: 40px;
+      height: 40px;
+      border-radius: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      line-height: 1;
+    }
+    body.theme-explosivo.layout-classic .modal-title {
+      color: #0B0B0B;
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      border-bottom: 5px solid #FFE600;
+      text-shadow: 3px 3px 0 #00C2FF;
+    }
+
+    /* Los modales son de papel crema: las variables del tema (pensadas para
+       el fondo negro del menú) dejarían títulos, labels y precios invisibles.
+       Se re-scopean SOLO dentro del modal; los inputs oscuros no las usan. */
+    body.theme-explosivo.layout-classic .modal-box {
+      --chalk-white: #0B0B0B;
+      --chalk-muted: #333333;
+      --chalk-dim: #4A4A4A;
+      --chalk-gold: #C81E2E;
+      --border-chalk: rgba(11, 11, 11, 0.3);
+    }
+    /* El modal de Información tiene su propia superficie oscura y textos
+       claros hardcodeados: se conserva tal cual (sobre el papel quedarían
+       invisibles). */
+    body.theme-explosivo.layout-classic .modal-box.info-modal-box {
+      background: #16201C;
+      border: 6px solid #0B0B0B;
+      box-shadow: 12px 12px 0 #FF3344;
+      color: #FFF9E6;
+      --chalk-muted: #E8E0C8;
+      --chalk-dim: #B8B0A0;
+      --chalk-gold: #FFE600;
+      --border-chalk: rgba(255, 249, 230, 0.25);
+    }
+    /* El panel del Mozo Virtual conserva su superficie oscura propia: el
+       gradiente original es translúcido y sobre el papel crema dejaba el
+       texto claro casi invisible. */
+    body.theme-explosivo.layout-classic .modal-box .mozo-virtual-upsell-box {
+      --chalk-gold: #FFE600;
+      --chalk-muted: #E8E0C8;
+      --chalk-dim: #B8B0A0;
+      background: #141C19;
+      border: 4px solid #0B0B0B;
+      box-shadow: 5px 5px 0 #00C2FF;
+    }
+    body.theme-explosivo.layout-classic .modal-box .btn-mozo-quick-add {
+      background: #2F855A;
+    }
+    /* El resumen conserva su caja oscura en el resto de temas; acá va en
+       blanco para que los totales en tinta se lean. */
+    body.theme-explosivo.layout-classic .modal-box .total-summary {
+      background: #FFFFFF;
+      border: 4px solid #0B0B0B;
+      border-radius: 0;
+      box-shadow: 5px 5px 0 #00C2FF;
+    }
+    body.theme-explosivo.layout-classic .modal-box #tipSectionBox {
+      --chalk-gold: #FFE600;
+    }
+    body.theme-explosivo.layout-classic .modal-box [data-tip-pill] {
+      color: #0B0B0B !important;
+    }
+    body.theme-explosivo.layout-classic .modal-box .btn-group-consolidate {
+      background: #E8F4FF;
+      border-color: #005A8C;
+      color: #004E78;
+    }
+    body.theme-explosivo.layout-classic .modal-box .star-btn {
+      color: #6B7280;
+    }
+    body.theme-explosivo.layout-classic .modal-box .star-btn:hover,
+    body.theme-explosivo.layout-classic .modal-box .star-btn.hover-active,
+    body.theme-explosivo.layout-classic .modal-box .star-btn.active {
+      color: #A16207;
+      text-shadow: none;
+    }
+    body.theme-explosivo.layout-classic .modal-box #tipAmountDisplay,
+    body.theme-explosivo.layout-classic .modal-box #summaryDiscountRow,
+    body.theme-explosivo.layout-classic .modal-box #summaryTipRow,
+    body.theme-explosivo.layout-classic .modal-box #reviewSuccessTitle {
+      color: #1E6B3A !important;
+    }
+    body.theme-explosivo.layout-classic .modal-box #reviewPrivateTitle {
+      color: #9A4D00 !important;
+    }
+    body.theme-explosivo.layout-classic .modal-box #wifiSsidDisplay {
+      color: #0B0B0B !important;
+    }
+    body.theme-explosivo.layout-classic .modal-box #btnExternalPay {
+      color: #002B3D !important;
+    }
+    body.theme-explosivo.layout-classic .modal-box .res-form-error {
+      color: #B00020 !important;
+    }
+
+    /* ── Summary / Total ── */
+    body.theme-explosivo.layout-classic .summary-row {
+      color: #333333;
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 800;
+    }
+    body.theme-explosivo.layout-classic .summary-row.total-row {
+      color: #0B0B0B;
+      border-top: 5px solid #0B0B0B;
+    }
+    body.theme-explosivo.layout-classic .summary-row.total-row span.total-amount {
+      color: var(--explosivo-red-deep, #C81E2E);
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 900;
+      font-size: 1.5rem;
+    }
+
+    /* ── Botones de acción generales (WhatsApp, etc.) ── */
+    body.theme-explosivo.layout-classic .btn-wa-submit {
+      background: var(--explosivo-red-deep, #C81E2E);
+      color: #FFE600;
+      border: 5px solid #0B0B0B;
+      box-shadow: 7px 7px 0 #00C2FF;
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    body.theme-explosivo.layout-classic .btn-wa-submit:hover {
+      background: #00C2FF;
+      color: #0B0B0B;
+      border-color: #00C2FF;
+      box-shadow: 5px 5px 0 #FF3344;
+    }
+
+    /* ── Animaciones de entrada: slam con escala/rotación y stagger por nth-child ── */
+    @keyframes explosivoSlam {
+      0%   { opacity: 0; transform: scale(0.55) rotate(14deg) translateY(50px); }
+      55%  { transform: scale(1.1) rotate(-3deg) translateY(-8px); }
+      100% { opacity: 1; transform: scale(1) rotate(0) translateY(0); }
+    }
+
+    body.theme-explosivo.layout-classic .dish-card {
+      animation: explosivoSlam 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;
+    }
+    body.theme-explosivo.layout-classic .dish-card:nth-child(1)  { animation-delay: 0.06s; }
+    body.theme-explosivo.layout-classic .dish-card:nth-child(2)  { animation-delay: 0.14s; }
+    body.theme-explosivo.layout-classic .dish-card:nth-child(3)  { animation-delay: 0.22s; }
+    body.theme-explosivo.layout-classic .dish-card:nth-child(4)  { animation-delay: 0.30s; }
+    body.theme-explosivo.layout-classic .dish-card:nth-child(5)  { animation-delay: 0.38s; }
+    body.theme-explosivo.layout-classic .dish-card:nth-child(6)  { animation-delay: 0.46s; }
+    body.theme-explosivo.layout-classic .dish-card:nth-child(7)  { animation-delay: 0.54s; }
+    body.theme-explosivo.layout-classic .dish-card:nth-child(8)  { animation-delay: 0.62s; }
+    body.theme-explosivo.layout-classic .dish-card:nth-child(9)  { animation-delay: 0.70s; }
+    body.theme-explosivo.layout-classic .dish-card:nth-child(10) { animation-delay: 0.78s; }
+    body.theme-explosivo.layout-classic .dish-card:nth-child(11) { animation-delay: 0.86s; }
+    body.theme-explosivo.layout-classic .dish-card:nth-child(12) { animation-delay: 0.94s; }
+
+    /* ── prefers-reduced-motion: apagar animaciones, transiciones y rotaciones ── */
+    @media (prefers-reduced-motion: reduce) {
+      body.theme-explosivo.layout-classic .dish-card,
+      body.theme-explosivo.layout-classic .cat-pill,
+      body.theme-explosivo.layout-classic .cat-pill.active,
+      body.theme-explosivo.layout-classic .restaurant-title,
+      body.theme-explosivo.layout-classic .restaurant-slogan,
+      body.theme-explosivo.layout-classic .chef-specials-section,
+      body.theme-explosivo.layout-classic .dish-price,
+      body.theme-explosivo.layout-classic .btn-add,
+      body.theme-explosivo.layout-classic .btn-qty,
+      body.theme-explosivo.layout-classic .dish-badge,
+      body.theme-explosivo.layout-classic .floating-cart-bar,
+      body.theme-explosivo.layout-classic .modal-box,
+      body.theme-explosivo.layout-classic .meta-chip,
+      body.theme-explosivo.layout-classic .search-box {
+        animation: none !important;
+        transition: none !important;
+        transform: none !important;
+        rotate: none !important;
+        translate: none !important;
+      }
+      body.theme-explosivo.layout-classic .dish-card { opacity: 1; }
+    }
+
+    /* ── Mobile: 1 columna, rotaciones/translate nulas, sin overflow horizontal ── */
+    @media (max-width: 699px) {
+      body.theme-explosivo.layout-classic .dishes-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      body.theme-explosivo.layout-classic .dish-card { rotate: none !important; translate: none !important; transform: none !important; }
+      body.theme-explosivo.layout-classic .dish-thumb,
+      body.theme-explosivo.layout-classic .dish-image {
+        height: 130px;
+        clip-path: none;
+        border-radius: 0;
+      }
+      body.theme-explosivo.layout-classic .cat-pill,
+      body.theme-explosivo.layout-classic .cat-pill.active {
+        rotate: none !important;
+        transform: none !important;
+      }
+      body.theme-explosivo.layout-classic .restaurant-title { rotate: none !important; transform: none !important; }
+      body.theme-explosivo.layout-classic .restaurant-slogan { rotate: none !important; transform: none !important; }
+      body.theme-explosivo.layout-classic .chef-specials-section { rotate: none !important; transform: none !important; }
+      body.theme-explosivo.layout-classic .dish-price { rotate: none !important; transform: none !important; }
+    }
 
     body.theme-infantil {
       --bg-chalkboard: #121D24;
@@ -2120,7 +2841,7 @@
       --font-heading: 'Playfair Display', Georgia, serif;
     }
     body.theme-wedding .restaurant-title {
-      color: #101614;
+      color: var(--chalk-white);
       text-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
     body.theme-wedding .dish-name { color: #101614; }
@@ -2409,7 +3130,7 @@
       --border-chalk: rgba(244, 194, 194, 0.12);
       --font-heading: 'Playfair Display', Georgia, serif;
     }
-    body.theme-cumple15 .restaurant-title { color: #7D5A70; }
+    body.theme-cumple15 .restaurant-title { color: var(--chalk-white); }
     body.theme-cumple15 .dish-name { color: #7D5A70; }
     body.theme-cumple15 .dish-badge { --chalk-gold: #D4A853; --chalk-pink: #F4C2C2; }
     body.theme-cumple15 .cat-pill { border-color: rgba(244, 194, 194, 0.12); }
@@ -2441,7 +3162,7 @@
       --border-chalk: rgba(168, 213, 199, 0.12);
       --font-heading: 'Playfair Display', Georgia, serif;
     }
-    body.theme-birthday .restaurant-title { color: #6B7A85; }
+    body.theme-birthday .restaurant-title { color: var(--chalk-white); }
     body.theme-birthday .dish-name { color: #6B7A85; }
     body.theme-birthday .dish-badge { --chalk-gold: #C9A867; --chalk-mint: #A8D5C7; }
     body.theme-birthday .cat-pill { border-color: rgba(168, 213, 199, 0.12); }
@@ -2472,7 +3193,7 @@
       --border-chalk: rgba(164, 117, 60, 0.10);
       --font-heading: 'Playfair Display', Georgia, serif;
     }
-    body.theme-catering .restaurant-title { color: #A4753C; }
+    body.theme-catering .restaurant-title { color: var(--chalk-white); }
     body.theme-catering .dish-name { color: #A4753C; }
     body.theme-catering .dish-badge { --chalk-gold: #C49A4A; --chalk-umber: #A4753C; }
     body.theme-catering .cat-pill { border-color: rgba(164, 117, 60, 0.10); }

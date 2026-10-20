@@ -1669,6 +1669,20 @@ components:
         onlinePaymentReady:
           type: boolean
           description: Solo en GET /api/menu — hay con qué cobrar (solo lectura)
+        scheduleEnabled:
+          type: boolean
+          description: Horario de atención activo del dueño (la franja vive en scheduleActiveHours)
+        scheduleActiveHours:
+          type: string
+          description: |-
+            Franja de atención HH:MM-HH:MM. Un rango invertido (inicio > fin, p.ej. 18:00-02:00)
+            es una ventana nocturna que cruza medianoche. Bordes inclusivos.
+        showClosingCountdown:
+          type: boolean
+          description: |-
+            Interruptor del dueño para el contador de cierre en el badge del menú (default true).
+            Cuando el local está abierto por horario y faltan menos de 60 minutos, el badge
+            muestra "Abierto · Cierra en N min" en vez de la franja horaria.
         allowIceCreamWizard:
           type: boolean
         categories:

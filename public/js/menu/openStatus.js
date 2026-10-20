@@ -53,3 +53,44 @@ export function computeOpenStatus(restaurant, utcOffsetMinutes = 0, nowMs = Date
 export function isRestaurantOpenNow(restaurant, utcOffsetMinutes = 0, nowMs = Date.now()) {
   return computeOpenStatus(restaurant, utcOffsetMinutes, nowMs).open;
 }
+
+/**
+ * Minutos COMPLETOS que faltan para el fin de la franja vigente (Math.floor),
+ * o `null` cuando no corresponde el contador: sin restaurante, `forceClosed`,
+ * horario deshabilitado, sin franja, formato inválido o local cerrado AHORA.
+ * Ventana nocturna: en el tramo inicio (antes de medianoche) el cierre es al
+ * día siguiente; en el tramo fin es hoy. Borde de cierre → 0 (nunca negativo).
+ * Espejo idéntico de api/utils/openStatus.js (paridad en test-business-hours).
+ */
+export function minutesUntilClose(restaurant, utcOffsetMinutes = 0, nowMs = Date.now()) {
+  if (!restaurant || restaurant.forceClosed === true) return null;
+  if (!restaurant.scheduleEnabled || !restaurant.scheduleActiveHours) return null;
+  const range = parseScheduleRange(restaurant.scheduleActiveHours);
+  if (!range) return null;
+  if (!computeOpenStatus(restaurant, utcOffsetMinutes, nowMs).open) return null;
+
+  const DAY_MS = 86400000;
+  // Instante del día local en ms (misma aritmética de offset que
+  // computeOpenStatus, aquí con segundos: el countdown es fino).
+  const offsetMs = (Number(utcOffsetMinutes) || 0) * 60000;
+  const nowLocalMs = (((nowMs + offsetMs) % DAY_MS) + DAY_MS) % DAY_MS;
+  const startMs = Math.round(range.startH * 3600000);
+  const endMs = Math.round(range.endH * 3600000);
+  // Normal → fin hoy. Nocturna en el tramo inicio (>= inicio) → fin mañana.
+  const closeLocalMs = (startMs > endMs && nowLocalMs >= startMs) ? endMs + DAY_MS : endMs;
+  const minutes = Math.floor((closeLocalMs - nowLocalMs) / 60000);
+  return minutes > 0 ? minutes : 0;
+}
+
+/**
+ * Contador de cierre para el badge del menú: `null` si el dueño lo apagó
+ * (`showClosingCountdown === false`; default encendido), si no hay franja
+ * vigente (null/0) o si falta una hora o más (>= 60). Si corresponde →
+ * `{ minutes, label }` con N entero 1..59.
+ */
+export function getClosingCountdown(restaurant, utcOffsetMinutes = 0, nowMs = Date.now()) {
+  if (!restaurant || restaurant.showClosingCountdown === false) return null;
+  const minutes = minutesUntilClose(restaurant, utcOffsetMinutes, nowMs);
+  if (!minutes || minutes >= 60) return null;
+  return { minutes, label: `Cierra en ${minutes} min` };
+}

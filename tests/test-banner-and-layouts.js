@@ -301,6 +301,29 @@ async function runTests() {
   }
   console.log('✓ Las 39 keys i18n de stories/reseñas existen en los 3 idiomas (es/en/pt)');
 
+  // 3f. Tema Explosivo — morfología + personalidad (neobrutalismo / fanzine punk)
+  assert.ok(menuCss.includes('body.theme-explosivo.layout-classic .dishes-grid'),
+    'menu.css debe definir el bloque body.theme-explosivo.layout-classic .dishes-grid');
+  assert.ok(menuCss.includes('grid-template-columns: repeat(12, 1fr)'),
+    'el tema explosivo en classic debe usar grilla asimétrica de 12 columnas');
+  assert.ok(menuCss.includes('grid-column: span'),
+    'la grilla asimétrica explosiva debe usar grid-column: span');
+  assert.ok(/@keyframes\s+explosivoSlam/.test(menuCss),
+    'debe existir al menos una animación @keyframes (explosivoSlam)');
+  assert.ok(menuCss.includes('@media (prefers-reduced-motion: reduce)'),
+    'prefers-reduced-motion debe desactivar las animaciones del tema explosivo');
+  assert.ok(menuCss.includes('--explosivo-red-deep: #C81E2E'),
+    'debe definir --explosivo-red-deep para fondos con texto pequeño');
+  assert.ok(menuCss.includes('background: #FFF9E6') || menuCss.includes("background: '#FFF9E6'") || /background:\s*#FFF9E6/.test(menuCss),
+    'las tarjetas del tema explosivo deben ser papel crema #FFF9E6');
+  assert.ok(/box-shadow:\s*7px 7px 0 #FF3344, 13px 13px 0 #00C2FF/.test(menuCss),
+    'las tarjetas explosivas deben tener doble sombra dura (rojo + azul)');
+  assert.ok(menuCss.includes('position: sticky') && menuCss.includes('top: 0'),
+    '.controls-wrapper del tema explosivo debe mantener position: sticky');
+  assert.ok(menuCss.includes('rotate: -2deg') || menuCss.includes('rotate: 2deg') || menuCss.includes('rotate: 1deg') || menuCss.includes('rotate: -1deg') || menuCss.includes('rotate: 1.5deg') || menuCss.includes('rotate: -1.5deg'),
+    'la grilla asimétrica explosiva debe usar rotate: (propiedad individual) en nth-child');
+  console.log('✓ Tema Explosivo: bloque layout-classic .dishes-grid, grilla asimétrica span, keyframes, reduced-motion, rojo profundo, tarjetas crema, sticky controls y rotate individuales verificados');
+
   console.log('\n🎉 ¡TODAS LAS VERIFICACIONES DE BANNER Y MORFOLOGÍAS PASARON AL 100%!');
 }
 

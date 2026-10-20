@@ -547,7 +547,7 @@ function updateSimUI() {
 
   if (countSpan) countSpan.textContent = simCart.length === 0
     ? '🛒 Carrito vacío'
-    : `🛒 ${simCart.length} ítems en el carrito`;
+    : `🛒 ${simCart.length} ${simCart.length === 1 ? 'ítem' : 'ítems'} en el carrito`;
   if (totalSpan) totalSpan.textContent = simCart.length === 0
     ? 'Tocá + para agregar →'
     : `Pedir por WhatsApp ($${total.toLocaleString('es-UY')}) →`;

@@ -398,6 +398,9 @@ function sanitizeRestaurantPayload(data) {
   clean.scheduleEnabled = Boolean(clean.scheduleEnabled);
   // Cierre manual del dueño (override del horario): estricto, default false.
   clean.forceClosed = clean.forceClosed === true;
+  // Contador de cierre en el badge del menú ("Cierra en N min"): default
+  // encendido (ausente = activado), el dueño puede apagarlo con un false.
+  clean.showClosingCountdown = clean.showClosingCountdown !== false;
   // Servicio de mesa (QR de mesa): el dueño decide qué ofrece. Defaults
   // encendidos para no cambiar la experiencia actual de ningún local.
   clean.allowWaiterCall = clean.allowWaiterCall !== false;

@@ -1198,6 +1198,14 @@ export function updateLiveState() {
     if (sliderFC) sliderFC.style.backgroundColor = forceClosedCheck.checked ? '#E53E3E' : '#2a3a33';
   }
 
+  // Contador "Cierra en…" en el badge del menú (default encendido).
+  const closingCdCheck = el('inputShowClosingCountdown');
+  if (closingCdCheck) {
+    restaurant.showClosingCountdown = closingCdCheck.checked !== false;
+    const sliderCd = el('sliderShowClosingCountdown');
+    if (sliderCd) sliderCd.style.backgroundColor = closingCdCheck.checked ? '#38A169' : '#2a3a33';
+  }
+
   if (el('inputTableCount')) restaurant.tableCount = parseInt(el('inputTableCount').value) || 10;
 
   if (el('studioNavRestaurantName')) el('studioNavRestaurantName').textContent = restaurant.name;
@@ -1400,6 +1408,12 @@ export function renderStudioUI() {
     forceClosedLoad.checked = restaurant.forceClosed === true;
     const sliderFC = el('sliderForceClosed');
     if (sliderFC) sliderFC.style.backgroundColor = forceClosedLoad.checked ? '#E53E3E' : '#2a3a33';
+  }
+  const closingCdLoad = el('inputShowClosingCountdown');
+  if (closingCdLoad) {
+    closingCdLoad.checked = restaurant.showClosingCountdown !== false;
+    const sliderCd = el('sliderShowClosingCountdown');
+    if (sliderCd) sliderCd.style.backgroundColor = closingCdLoad.checked ? '#38A169' : '#2a3a33';
   }
   if (el('inputTableCount')) el('inputTableCount').value = restaurant.tableCount || 10;
 

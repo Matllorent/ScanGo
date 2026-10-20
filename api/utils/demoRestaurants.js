@@ -62,7 +62,7 @@ function baseDemo(overrides) {
     allowLoyaltyPoints: false,
     allowOnlinePayment: false,
     paymentLink: '',
-    announcement: '✨ Esta es una demo navegable — podés editarla en el Studio sin registrarte.',
+    announcement: '✨ Esta es una demo navegable — mirá la carta como la vería un comensal.',
     deliveryZones: [],
     branches: [],
     modifierGroups: [],

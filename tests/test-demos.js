@@ -13,7 +13,8 @@
  *     interno, y con weddingItinerary/neonAccent expuestos.
  *  5. GET /m/demo-* → 200 HTML con CSP estricta del menú público.
  *  6. openapi.yaml documenta /api/demos y /api/demos/{type}.
- *  7. Landing enlaza las 4 demos (ver menú + editar en Studio) y Studio trae
+ *  7. Landing enlaza las 4 demos SOLO para ver el menú (ya NO ofrece
+ *     "Editar en Studio") y Studio trae
  *     el banner de modo demo con handlers data-js-* (cero on*=).
  *  8. El catálogo es determinista y devuelve copias frescas (sin aliasing).
  *  9. Analytics de una demo: 200 no-op (`{demo:true}`, sin persistir) en vez del
@@ -125,6 +126,12 @@ async function runTests() {
       assert.ok(!('userId' in body.restaurant), `${meta.slug}: sin userId interno`);
       assert.ok('weddingItinerary' in body.restaurant, `${meta.slug}: expone weddingItinerary`);
       assert.ok('neonAccent' in body.restaurant, `${meta.slug}: expone neonAccent`);
+      // La vista pública ya no ofrece editar en Studio: el announcement solo
+      // avisa que es una demo navegable.
+      const announcement = String(body.restaurant.announcement || '');
+      assert.ok(announcement.length > 0, `${meta.slug}: announcement presente`);
+      assert.ok(!/studio|editarla/i.test(announcement),
+        `${meta.slug}: el announcement no invita a editar en Studio`);
     }
     const demoMenu = await (await fetch(`${base}/api/menu/demo-evento`)).json();
     assert.ok(demoMenu.restaurant.weddingItinerary && demoMenu.restaurant.weddingItinerary.enabled === true,
@@ -173,8 +180,12 @@ async function runTests() {
   const landing = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
   for (const meta of listDemoRestaurants()) {
     assert.ok(landing.includes(`/m/${meta.slug}`), `landing enlaza /m/${meta.slug}`);
-    assert.ok(landing.includes(`/studio?demo=${meta.type}`), `landing enlaza /studio?demo=${meta.type}`);
   }
+  // La vista pública de demos ya NO ofrece editar: solo mirar el menú.
+  assert.ok(
+    !landing.includes('/studio?demo='),
+    'la landing no ofrece "Editar en Studio" en la galería de demos'
+  );
   assert.ok(landing.includes('id="demosTitle"'), 'la galería tiene heading accesible');
   const studioHtml = fs.readFileSync(path.join(ROOT, 'public', 'studio.html'), 'utf8');
   assert.ok(studioHtml.includes('id="demoModeBanner"'), 'Studio trae el banner de modo demo');
@@ -183,7 +194,7 @@ async function runTests() {
   const studioJs = fs.readFileSync(path.join(ROOT, 'public', 'js', 'studio.js'), 'utf8');
   assert.ok(studioJs.includes('initDemoMode'), 'studio.js implementa el modo demo');
   assert.ok(studioJs.includes('scango_demo_draft_'), 'el borrador demo persiste en localStorage');
-  console.log('✓ Landing con galería (8 enlaces) + Studio con modo demo (banner + importar/salir)');
+  console.log('✓ Landing con galería (4 enlaces, sin "Editar en Studio") + Studio con modo demo (banner + importar/salir)');
 
   // ── 10) Demo vitrina: probador de temas en vivo + editor bloqueado ──
   const menuHtml = fs.readFileSync(path.join(ROOT, 'public', 'menu.html'), 'utf8');

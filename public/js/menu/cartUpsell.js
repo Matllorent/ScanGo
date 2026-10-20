@@ -344,7 +344,7 @@ import { isFreePrice } from './menuPresentation.js';
             ${thumbHtml}
             <div style="flex:1; min-width:0;">
               <div style="font-size:0.72rem; color:var(--chalk-gold); font-weight:700; text-transform:uppercase; margin-bottom:2px;">${opp.type === 'postre' ? '🍰 Sugerencia Dulce' : '🥤 Sugerencia para Acompañar'}</div>
-              <div style="font-weight:600; font-size:0.88rem; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(topPick.name)}</div>
+              <div style="font-weight:600; font-size:0.88rem; color:var(--chalk-white); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(topPick.name)}</div>
               <div style="font-size:0.78rem; color:var(--chalk-dim);">${currency} ${ctx.formatMenuPrice(topPick.price)}</div>
             </div>
             <button type="button" class="btn-mozo-quick-add" data-dish-id="${escapeHtml(topPick.id)}" data-js-click="quickAddUpsellItem|${escapeHtml(topPick.id)}|this" aria-label="Agregar ${escapeHtml(topPick.name)} al carrito">+ Agregar</button>

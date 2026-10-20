@@ -290,7 +290,7 @@ function openOrderTracking(ctx) {
       listHost.innerHTML = tracked.map(o => {
         const isActive = o.token === active.token;
         const label = [o.restaurantName, o.tableNumber ? `Mesa ${o.tableNumber}` : ''].filter(Boolean).join(' · ') || 'Pedido';
-        return `<button type="button" data-js-click="selectTrackedOrder|${escapeHtml(o.token)}" style="display:flex; justify-content:space-between; align-items:center; gap:8px; width:100%; text-align:left; background:${isActive ? 'rgba(236,201,75,0.12)' : 'transparent'}; border:1px solid ${isActive ? 'var(--border-gold)' : 'var(--border-chalk)'}; color:#fff; border-radius:8px; padding:8px 10px; margin-bottom:6px; cursor:pointer; font-size:0.8rem;">`
+        return `<button type="button" data-js-click="selectTrackedOrder|${escapeHtml(o.token)}" style="display:flex; justify-content:space-between; align-items:center; gap:8px; width:100%; text-align:left; background:${isActive ? 'rgba(236,201,75,0.12)' : 'transparent'}; border:1px solid ${isActive ? 'var(--border-gold)' : 'var(--border-chalk)'}; color:var(--chalk-white); border-radius:8px; padding:8px 10px; margin-bottom:6px; cursor:pointer; font-size:0.8rem;">`
           + `<span>${escapeHtml(label)}${o.done ? ' ✓' : ''}</span>`
           + `<span style="color:var(--chalk-gold); font-weight:700;">${isActive ? 'Viéndolo' : 'Ver →'}</span>`
           + `</button>`;

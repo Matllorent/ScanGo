@@ -923,7 +923,7 @@ export class GroupCartManager {
         <span class="group-pulse-dot" title="En vivo"></span>
         <span class="group-table-title">Mesa ${escapeHtml(this.tableNumber)} • 👥 Pedido Grupal</span>
         <span class="group-user-tag" title="Tu nombre en la mesa">👤 <strong>${escapeHtml(this.userName || 'Comensal')}</strong></span>
-        <span class="group-counter-tag">🛒 ${totalCount} ítems</span>
+        <span class="group-counter-tag">🛒 ${totalCount} ${totalCount === 1 ? 'ítem' : 'ítems'}</span>
         <button type="button" class="btn-group-name-edit" data-js-click="groupCartManagerInstance?.promptUserNameModal" title="Cambiar mi nombre">✏️</button>
       </div>
     `;

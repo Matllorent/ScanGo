@@ -1400,7 +1400,7 @@ Object.defineProperties(window, {
       }
       if (totalCount > 0) {
         bar.classList.add('active');
-        document.getElementById('cartCountBadge').textContent = `🛒 ${totalCount} ítems`;
+        document.getElementById('cartCountBadge').textContent = `🛒 ${totalCount} ${totalCount === 1 ? 'ítem' : 'ítems'}`;
         const badge = document.getElementById('cartTotalBadge');
         if (barIsFree) {
           badge.textContent = '';

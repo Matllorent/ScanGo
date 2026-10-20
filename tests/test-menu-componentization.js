@@ -1245,6 +1245,53 @@ async function runMenuComponentizationTests() {
   assert.ok(/@media \(max-width: 480px\)[\s\S]*?\.mozo-item-card\s*\{[^}]*display:\s*grid/.test(mozoCss), 'en celular el botón Agregar del mozo baja a su propia fila');
   console.log('✓ Carrito: − tras el + en carta/chef, accesos sin duplicados y Mozo Virtual sin scroll horizontal en celular');
 
+  // 31. Contador dinámico de cierre: flag del dueño `showClosingCountdown`,
+  //     payload público, badge en tiempo real (30 s + visibilitychange) y
+  //     toggle en Studio — todo sin on*= (CSP script-src-attr 'none').
+  const openStatusBe31 = require('../api/utils/openStatus');
+  const openStatusFe31 = await import('../public/js/menu/openStatus.js');
+  assert.strictEqual(typeof openStatusBe31.minutesUntilClose, 'function', 'backend exporta minutesUntilClose');
+  assert.strictEqual(typeof openStatusBe31.getClosingCountdown, 'function', 'backend exporta getClosingCountdown');
+  assert.strictEqual(typeof openStatusFe31.minutesUntilClose, 'function', 'frontend exporta minutesUntilClose');
+  assert.strictEqual(typeof openStatusFe31.getClosingCountdown, 'function', 'frontend exporta getClosingCountdown');
+  // Sanitizer: default encendido, el dueño puede apagarlo con false explícito.
+  const sanSrc31 = fs.readFileSync(path.join(__dirname, '../api/utils/sanitizeRestaurant.js'), 'utf8');
+  assert.ok(
+    sanSrc31.includes('clean.showClosingCountdown = clean.showClosingCountdown !== false'),
+    'sanitizer: showClosingCountdown default encendido (ausente = activado)'
+  );
+  // Sanitización real: ausente → true; false explícito se respeta.
+  assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({}).showClosingCountdown, true, 'sanitize: flag ausente = encendido');
+  assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({ showClosingCountdown: false }).showClosingCountdown, false, 'sanitize: false explícito se respeta');
+  // Payload público: rama demo y rama real lo exponen con !== false.
+  const menuRouteSrc31 = fs.readFileSync(path.join(__dirname, '../api/routes/menu.js'), 'utf8');
+  assert.ok(menuRouteSrc31.includes('showClosingCountdown: demo.showClosingCountdown !== false'), 'payload demo expone showClosingCountdown');
+  assert.ok(menuRouteSrc31.includes('showClosingCountdown: restaurant.showClosingCountdown !== false'), 'payload real expone showClosingCountdown');
+  // Studio: toggle en el bloque de horario con aria-label + save/load sin on*=.
+  assert.ok(studioHtmlSrc.includes('id="inputShowClosingCountdown"'), 'Studio: toggle del contador de cierre');
+  assert.ok(studioHtmlSrc.includes('aria-label="Mostrar contador de cierre en el menú"'), 'Studio: toggle con nombre accesible');
+  assert.ok(studioHtmlSrc.includes('id="sliderShowClosingCountdown"'), 'Studio: slider del toggle');
+  assert.ok(studioSrc.includes('restaurant.showClosingCountdown = closingCdCheck.checked !== false'), 'Studio: guarda el flag en updateLiveState');
+  assert.ok(studioSrc.includes('closingCdLoad.checked = restaurant.showClosingCountdown !== false'), 'Studio: load respeta default encendido');
+  assert.ok(studioSrc.includes("el('sliderShowClosingCountdown')"), 'Studio: pinta el slider en save y load');
+  // Badge en tiempo real: usa getClosingCountdown, timer de 30 s y visibilitychange.
+  const menuHeaderSrc31 = fs.readFileSync(path.join(__dirname, '../public/js/menu/menuHeader.js'), 'utf8');
+  assert.ok(menuHeaderSrc31.includes('getClosingCountdown('), 'menuHeader usa getClosingCountdown');
+  assert.ok(menuHeaderSrc31.includes('function updateOpenStatusBadge('), 'badge extraído a función re-ejecutable');
+  assert.ok(menuHeaderSrc31.includes('scheduleOpenStatusBadgeRefresh(ctx)'), 'renderHeader arma el refresh del badge');
+  assert.ok(/setInterval\([\s\S]{0,200}?30000\)/.test(menuHeaderSrc31), 'refresh con setInterval de 30 s');
+  assert.ok(menuHeaderSrc31.includes("addEventListener('visibilitychange'"), 'refresca al volver visible');
+  assert.ok(menuHeaderSrc31.includes('if (badgeRefreshTimer) clearInterval(badgeRefreshTimer)'), 'limpia el timer anterior (sin duplicar)');
+  assert.ok(menuHeaderSrc31.includes('Abierto · '), 'badge muestra "Abierto · Cierra en N min"');
+  assert.ok(
+    /escapeHtml\(\s*(?:ctx\.getRestaurantData\(\)|restaurant)\.scheduleActiveHours\s*\)/.test(menuHeaderSrc31),
+    'la franja del dueño se escapa antes de innerHTML (XSS latente cerrado)'
+  );
+  // Cero handlers inline en los archivos tocados (requisito CSP duro).
+  assert.ok(!/on[a-z]+=["']/.test(menuHeaderSrc31), 'menuHeader.js sin on*=');
+  assert.ok(!/ on[a-z]+="/.test(studioHtmlSrc.slice(studioHtmlSrc.indexOf('id="inputShowClosingCountdown"') - 800, studioHtmlSrc.indexOf('id="inputShowClosingCountdown"'))), 'bloque del toggle sin on*=');
+  console.log('✓ Contador de cierre: flag del dueño, payload demo+real, badge en vivo (30 s + visibilitychange) y toggle del Studio');
+
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE COMPONENTIZACIÓN DE MENU PASARON AL 100%!');
 }
 

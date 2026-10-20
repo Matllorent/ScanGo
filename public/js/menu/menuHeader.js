@@ -21,11 +21,81 @@ import {
   resolveIceCreamButtonStyle
 } from './menuPresentation.js';
 import { resolveEventTheme } from './eventGuestMode.js';
-import { computeOpenStatus } from './openStatus.js';
+import { computeOpenStatus, getClosingCountdown } from './openStatus.js';
 // Morfologías y paletas: espejo ESM generado del manifest canónico del
 // backend (api/utils/themeManifest.js). La paridad la garantiza
 // tests/test-theme-manifest.js; jamás editar este listado a mano.
 import { LAYOUTS, LAYOUT_IDS, IMAGE_MODES, CLASSIC_THEME_IDS, HELADERIA_THEME_IDS } from './themeManifest.js';
+
+    // === Open / Closed Real-time Status Badge (fuera de renderHeader) ===
+    // Extraído del header para poder re-ejecutarse SIN re-renderizar todo:
+    // el contador "Cierra en N min" debe bajar solo mientras el comensal
+    // mira la carta. `renderHeader` lo llama y además arma el refresh.
+    let latestBadgeCtx = null;
+    let badgeRefreshTimer = null;
+    let badgeVisibilityBound = false;
+
+    function updateOpenStatusBadge(ctx) {
+      latestBadgeCtx = ctx;
+      const restaurant = ctx.getRestaurantData();
+      const statusBadge = document.getElementById('statusOpenClosedBadge');
+      if (!statusBadge) return;
+      // El override manual `forceClosed` del dueño gana siempre: ni el horario
+      // configurado lo reabre (feriados e imprevistos sin tocar la franja).
+      if (restaurant.forceClosed === true) {
+        statusBadge.style.display = 'inline-flex';
+        statusBadge.style.background = 'rgba(229,62,62,0.15)';
+        statusBadge.style.borderColor = 'rgba(229,62,62,0.4)';
+        statusBadge.style.color = '#FC8181';
+        statusBadge.innerHTML = '<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#E53E3E; margin-right:6px;"></span> Cerrado por el momento';
+      } else if (restaurant.scheduleEnabled && restaurant.scheduleActiveHours) {
+        // Badge con la MISMA regla del checkout (espejo ESM openStatus):
+        // rango invertido = ventana nocturna, forceClosed ya se cubrió arriba.
+        const st = computeOpenStatus(restaurant, -new Date().getTimezoneOffset());
+        // La franja del dueño va ESCAPADA: se inyecta en innerHTML (XSS latente cerrado).
+        const hoursText = escapeHtml(restaurant.scheduleActiveHours);
+        statusBadge.style.display = 'inline-flex';
+        if (st.open) {
+          statusBadge.style.background = 'rgba(225,169,56,0.15)';
+          statusBadge.style.borderColor = 'rgba(225,169,56,0.4)';
+          statusBadge.style.color = '#E1A938';
+          // Contador de cierre (< 60 min y no apagado por el dueño): dice
+          // "Abierto · Cierra en N min" en vez de la franja estática.
+          const countdown = getClosingCountdown(restaurant, -new Date().getTimezoneOffset());
+          const openText = countdown ? `Abierto · ${countdown.label}` : `Abierto (${hoursText} hs)`;
+          statusBadge.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#E1A938; margin-right:6px; box-shadow:0 0 6px #E1A938;"></span> ${openText}`;
+        } else {
+          statusBadge.style.background = 'rgba(229,62,62,0.15)';
+          statusBadge.style.borderColor = 'rgba(229,62,62,0.4)';
+          statusBadge.style.color = '#FC8181';
+          statusBadge.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#E53E3E; margin-right:6px;"></span> Cerrado (${hoursText} hs)`;
+        }
+      } else {
+        statusBadge.style.display = 'inline-flex';
+        statusBadge.style.background = 'rgba(225,169,56,0.15)';
+        statusBadge.style.borderColor = 'rgba(225,169,56,0.4)';
+        statusBadge.style.color = '#E1A938';
+        statusBadge.innerHTML = '<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#E1A938; margin-right:6px; box-shadow:0 0 6px #E1A938;"></span> Abierto para pedidos';
+      }
+    }
+
+    function scheduleOpenStatusBadgeRefresh(ctx) {
+      updateOpenStatusBadge(ctx);
+      // Un solo timer: si renderHeader vuelve a correr (recarga de datos),
+      // se limpia el anterior y no se acumulan intervals.
+      if (badgeRefreshTimer) clearInterval(badgeRefreshTimer);
+      badgeRefreshTimer = setInterval(() => {
+        if (latestBadgeCtx) updateOpenStatusBadge(latestBadgeCtx);
+      }, 30000);
+      // Una sola vez (sin duplicar listeners): al volver a la pestaña visible,
+      // el badge se refresca al instante (puede haber estado horas en background).
+      if (!badgeVisibilityBound && typeof document !== 'undefined') {
+        badgeVisibilityBound = true;
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden && latestBadgeCtx) updateOpenStatusBadge(latestBadgeCtx);
+        });
+      }
+    }
 
     function renderHeader(ctx) {
       document.title = `${ctx.getRestaurantData().name} — Menú Digital`;
@@ -244,41 +314,9 @@ import { LAYOUTS, LAYOUT_IDS, IMAGE_MODES, CLASSIC_THEME_IDS, HELADERIA_THEME_ID
         billSplitterSection.style.display = (ctx.getRestaurantData().allowBillSplitter !== false) ? 'block' : 'none';
       }
 
-      // Open / Closed Real-time Status Badge
-      // El override manual `forceClosed` del dueño gana siempre: ni el horario
-      // configurado lo reabre (feriados e imprevistos sin tocar la franja).
-      const statusBadge = document.getElementById('statusOpenClosedBadge');
-      if (statusBadge) {
-        if (ctx.getRestaurantData().forceClosed === true) {
-          statusBadge.style.display = 'inline-flex';
-          statusBadge.style.background = 'rgba(229,62,62,0.15)';
-          statusBadge.style.borderColor = 'rgba(229,62,62,0.4)';
-          statusBadge.style.color = '#FC8181';
-          statusBadge.innerHTML = '<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#E53E3E; margin-right:6px;"></span> Cerrado por el momento';
-        } else if (ctx.getRestaurantData().scheduleEnabled && ctx.getRestaurantData().scheduleActiveHours) {
-          // Badge con la MISMA regla del checkout (espejo ESM openStatus):
-          // rango invertido = ventana nocturna, forceClosed ya se cubrió arriba.
-          const st = computeOpenStatus(ctx.getRestaurantData(), -new Date().getTimezoneOffset());
-          statusBadge.style.display = 'inline-flex';
-          if (st.open) {
-            statusBadge.style.background = 'rgba(225,169,56,0.15)';
-            statusBadge.style.borderColor = 'rgba(225,169,56,0.4)';
-            statusBadge.style.color = '#E1A938';
-            statusBadge.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#E1A938; margin-right:6px; box-shadow:0 0 6px #E1A938;"></span> Abierto (${ctx.getRestaurantData().scheduleActiveHours} hs)`;
-          } else {
-            statusBadge.style.background = 'rgba(229,62,62,0.15)';
-            statusBadge.style.borderColor = 'rgba(229,62,62,0.4)';
-            statusBadge.style.color = '#FC8181';
-            statusBadge.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#E53E3E; margin-right:6px;"></span> Cerrado (${ctx.getRestaurantData().scheduleActiveHours} hs)`;
-          }
-        } else {
-          statusBadge.style.display = 'inline-flex';
-          statusBadge.style.background = 'rgba(225,169,56,0.15)';
-          statusBadge.style.borderColor = 'rgba(225,169,56,0.4)';
-          statusBadge.style.color = '#E1A938';
-          statusBadge.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#E1A938; margin-right:6px; box-shadow:0 0 6px #E1A938;"></span> Abierto para pedidos`;
-        }
-      }
+      // Open / Closed Real-time Status Badge (función propia: se re-ejecuta
+      // cada 30 s y al volver visible sin re-renderizar todo el header).
+      scheduleOpenStatusBadgeRefresh(ctx);
 
       // Auto-detect Mesa / Table Query Param (?mesa=N or ?table=N): prefill de
       // mesa + auto-conexión al grupo. La visibilidad del FAB la gobierna
