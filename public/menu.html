@@ -490,21 +490,10 @@
   </div>
 
   <!-- Order Tracking Floating Button (aparece tras hacer un pedido) -->
-  <button type="button" id="orderTrackingFab" class="waiter-fab" data-js-click="openOrderTracking" title="Seguir mi pedido" aria-label="Seguir mi pedido" style="display:none; bottom:146px; background:#63B3ED; box-shadow:0 6px 20px rgba(99, 179, 237, 0.5);">🧾</button>
+  <button type="button" id="orderTrackingFab" class="waiter-fab" data-js-click="openOrderTracking" title="Seguir mi pedido" aria-label="Seguir mi pedido" style="display:none; background:#63B3ED; box-shadow:0 6px 20px rgba(99, 179, 237, 0.5);">🧾</button>
 
   <!-- Waiter Call / Bill Request Floating Button (el dueño decide qué ofrece; "cuenta" solo en el local) -->
   <button type="button" id="waiterFab" class="waiter-fab" data-js-click="openWaiterModal" title="Llamar al Mozo o Pedir la Cuenta" aria-label="Llamar al mozo o pedir la cuenta">🔔</button>
-
-  <!-- Demo: probador de temas en vivo (solo /m/demo-*; el resto no lo ve) -->
-  <button type="button" id="demoThemeFab" class="waiter-fab" data-js-click="toggleDemoThemeBar" title="Probar otro tema visual" aria-label="Probar otro tema visual" aria-expanded="false" aria-controls="demoThemePanel" style="display:none; bottom:86px; background:#B794F4; box-shadow:0 6px 20px rgba(183,148,244,0.5);">🎨</button>
-  <div id="demoThemePanel" role="group" aria-label="Temas visuales de la demo" style="display:none; position:fixed; bottom:150px; right:12px; z-index:9000; max-width:min(320px, calc(100vw - 24px)); max-height:46vh; overflow-y:auto; background:var(--surface-card, #16201b); border:1px solid var(--border-gold, #D4A853); border-radius:14px; padding:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-      <strong style="font-size:0.85rem;">🎨 Probá otro tema</strong>
-      <button type="button" data-js-click="toggleDemoThemeBar" aria-label="Cerrar probador de temas" style="background:none; border:none; color:inherit; font-size:1rem; cursor:pointer;">✕</button>
-    </div>
-    <div id="demoThemePills" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
-    <div style="font-size:0.7rem; opacity:0.7; margin-top:8px;">Demo de prueba: solo cambia la estética, nada se guarda.</div>
-  </div>
 
   <!-- Waiter Call Modal -->
   <div id="waiterModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="waiterModalTitle">

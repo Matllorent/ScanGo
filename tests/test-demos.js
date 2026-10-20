@@ -187,12 +187,17 @@ async function runTests() {
 
   // ── 10) Demo vitrina: probador de temas en vivo + editor bloqueado ──
   const menuHtml = fs.readFileSync(path.join(ROOT, 'public', 'menu.html'), 'utf8');
-  assert.ok(menuHtml.includes('id="demoThemeFab"'), 'menú trae FAB del probador de temas');
-  assert.ok(menuHtml.includes('data-js-click="toggleDemoThemeBar"'), 'FAB usa data-js-* (CSP)');
-  assert.ok(menuHtml.includes('aria-label="Probar otro tema visual"'), 'FAB con nombre accesible');
-  assert.ok(menuHtml.includes('id="demoThemePanel"'), 'menú trae panel de temas');
-  assert.ok(menuHtml.includes('aria-label="Temas visuales de la demo"'), 'panel como grupo con nombre');
-  assert.ok(menuHtml.includes('id="demoThemePills"'), 'panel trae contenedor de pastillas');
+  const i18nSrc = fs.readFileSync(path.join(ROOT, 'public', 'js', 'components', 'I18nCurrencyManager.js'), 'utf8');
+  // El disparador vive DENTRO de la barra de controles (sticky), no como FAB
+  // flotante: así no se superpone con la moneda ni con el botón del mozo.
+  assert.ok(i18nSrc.includes('id="demoThemeFab"'), 'la barra de controles trae el disparador del probador de temas');
+  assert.ok(i18nSrc.includes('data-js-click="toggleDemoThemeBar"'), 'disparador usa data-js-* (CSP)');
+  assert.ok(i18nSrc.includes('aria-label="Probar otro tema visual"'), 'disparador con nombre accesible');
+  assert.ok(i18nSrc.includes('restaurant.isDemo === true'), 'el disparador solo se renderiza en demos');
+  assert.ok(!menuHtml.includes('id="demoThemeFab"'), 'el menú ya no tiene el FAB flotante de temas');
+  assert.ok(i18nSrc.includes('id="demoThemePanel"'), 'la barra trae el panel de temas');
+  assert.ok(i18nSrc.includes('aria-label="Temas visuales de la demo"'), 'panel como grupo con nombre');
+  assert.ok(i18nSrc.includes('id="demoThemePills"'), 'panel trae contenedor de pastillas');
   const menuJs = fs.readFileSync(path.join(ROOT, 'public', 'js', 'menu.js'), 'utf8');
   assert.ok(menuJs.includes('THEME_SHORT_NAMES'), 'menu.js trae nombres cortos de temas');
   assert.ok(menuJs.includes('function setDemoTheme('), 'menu.js implementa setDemoTheme');

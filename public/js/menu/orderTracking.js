@@ -82,6 +82,7 @@ function markTrackedOrderDone(token, status) {
   if (list.length && list.every(o => o.done)) {
     const fab = document.getElementById('orderTrackingFab');
     if (fab) fab.style.display = 'none';
+    if (typeof window !== 'undefined' && typeof window.updateFabVisibility === 'function') window.updateFabVisibility();
   }
 }
 
@@ -138,6 +139,7 @@ function clearOrderTracking() {
   stopOrderTrackingPolling();
   const fab = document.getElementById('orderTrackingFab');
   if (fab) fab.style.display = 'none';
+  if (typeof window !== 'undefined' && typeof window.updateFabVisibility === 'function') window.updateFabVisibility();
 }
 
 function showOrderTrackingFab() {
@@ -147,6 +149,7 @@ function showOrderTrackingFab() {
   if (!pending && !(active && !active.done)) return;
   const fab = document.getElementById('orderTrackingFab');
   if (fab) fab.style.display = 'flex';
+  if (typeof window !== 'undefined' && typeof window.updateFabVisibility === 'function') window.updateFabVisibility();
 }
 
 function stopOrderTrackingPolling() {
@@ -276,6 +279,7 @@ function openOrderTracking(ctx) {
     // Sin pedido guardado: no abrimos una vista vacía.
     const fab = document.getElementById('orderTrackingFab');
     if (fab) fab.style.display = 'none';
+    if (typeof window !== 'undefined' && typeof window.updateFabVisibility === 'function') window.updateFabVisibility();
     return;
   }
   modal.classList.add('active');
@@ -321,6 +325,7 @@ function forgetOrderTracking() {
     if (!rest.some(o => !o.done)) {
       const fab = document.getElementById('orderTrackingFab');
       if (fab) fab.style.display = 'none';
+      if (typeof window !== 'undefined' && typeof window.updateFabVisibility === 'function') window.updateFabVisibility();
     }
   } else {
     clearOrderTracking();

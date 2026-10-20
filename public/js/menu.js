@@ -190,6 +190,79 @@ Object.defineProperties(window, {
       if (btnCash) btnCash.style.display = showBill ? '' : 'none';
       const btnCard = document.getElementById('btnBillCard');
       if (btnCard) btnCard.style.display = showBill ? '' : 'none';
+      updateFabVisibility();
+    }
+    // Los FAB flotantes (mozo / seguimiento) no deben quedar encima de la barra
+    // de controles cuando ésta cae cerca del borde inferior de la pantalla al
+    // abrir el menú (tapa moneda, categorías o buscador). Mientras se superponen
+    // se ocultan; al scrollear y dejar la barra arriba, reaparecen.
+    let fabVisibilityTicking = false;
+    let fabVisibilityBound = false;
+    function isElementShown(el) {
+      return Boolean(el) && el.style.display !== 'none';
+    }
+    function updateFabVisibility() {
+      const wrapper = document.querySelector('.controls-wrapper');
+      if (!wrapper) return;
+      const fab = document.getElementById('waiterFab');
+      const trackingFab = document.getElementById('orderTrackingFab');
+      if (!isElementShown(fab) && !isElementShown(trackingFab)) {
+        document.body.classList.remove('fab-blocked');
+        return;
+      }
+      // Página sin scroll: no hay forma de correr la barra, dejamos los FAB.
+      const canScroll = document.documentElement.scrollHeight > window.innerHeight + 8;
+      if (!canScroll) {
+        document.body.classList.remove('fab-blocked');
+        return;
+      }
+      const offset = isElementShown(trackingFab) ? 146 : 80;
+      const fabTop = window.innerHeight - offset - 56;
+      const fabBottom = window.innerHeight - offset;
+      const wr = wrapper.getBoundingClientRect();
+      const vertical = wr.top < fabBottom + 8 && wr.bottom > fabTop - 8;
+      const horizontal = wr.right > window.innerWidth - 88;
+      document.body.classList.toggle('fab-blocked', vertical && horizontal);
+    }
+    function bindFabVisibility() {
+      if (fabVisibilityBound) return;
+      fabVisibilityBound = true;
+      window.addEventListener('scroll', () => {
+        if (fabVisibilityTicking) return;
+        fabVisibilityTicking = true;
+        requestAnimationFrame(() => {
+          fabVisibilityTicking = false;
+          updateFabVisibility();
+        });
+      }, { passive: true });
+      window.addEventListener('resize', updateFabVisibility);
+      window.addEventListener('load', updateFabVisibility);
+      const wrapper = document.querySelector('.controls-wrapper');
+      if (wrapper && typeof ResizeObserver === 'function') {
+        const ro = new ResizeObserver(updateFabVisibility);
+        ro.observe(wrapper);
+        const header = document.querySelector('.menu-header');
+        if (header) ro.observe(header);
+      }
+      // Cerrar el probador de temas al hacer click afuera o con Escape.
+      const closeDemoThemeBar = () => {
+        const panel = document.getElementById('demoThemePanel');
+        const fab = document.getElementById('demoThemeFab');
+        if (!panel || panel.style.display === 'none') return;
+        panel.style.display = 'none';
+        panel.classList.remove('opens-up');
+        if (fab) fab.setAttribute('aria-expanded', 'false');
+      };
+      document.addEventListener('click', (e) => {
+        const panel = document.getElementById('demoThemePanel');
+        const fab = document.getElementById('demoThemeFab');
+        if (!panel || panel.style.display === 'none') return;
+        if ((fab && fab.contains(e.target)) || panel.contains(e.target)) return;
+        closeDemoThemeBar();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeDemoThemeBar();
+      });
     }
     // Probador de temas en vivo (SOLO demos /m/demo-*): vitrina de prueba,
     // nada se guarda. Respeta el mismo lockdown que ?theme= (heladería solo
@@ -217,13 +290,18 @@ Object.defineProperties(window, {
     function renderDemoThemeBar() {
       const fab = document.getElementById('demoThemeFab');
       const panel = document.getElementById('demoThemePanel');
-      if (!fab || !panel) return;
+      if (!panel) return;
       if (!restaurantData || restaurantData.isDemo !== true) {
-        fab.style.display = 'none';
+        if (fab) fab.style.display = 'none';
         panel.style.display = 'none';
         return;
       }
-      fab.style.display = '';
+      // El disparador 🎨 lo renderiza la barra de controles (I18nCurrencyManager):
+      // puede no existir todavía en el primer render, pero el panel sí.
+      if (fab) {
+        fab.style.display = '';
+        fab.setAttribute('aria-expanded', panel.style.display === 'none' ? 'false' : 'true');
+      }
       const pills = document.getElementById('demoThemePills');
       if (!pills) return;
       const current = document.body.className.match(/theme-([a-z0-9-]+)/);
@@ -245,7 +323,17 @@ Object.defineProperties(window, {
       const panel = document.getElementById('demoThemePanel');
       if (!panel) return;
       const open = panel.style.display !== 'none';
-      panel.style.display = open ? 'none' : 'block';
+      if (open) {
+        panel.style.display = 'none';
+        panel.classList.remove('opens-up');
+      } else {
+        panel.style.display = 'block';
+        // Si la barra está cerca del borde inferior, el panel se abre hacia
+        // arriba para que se vean las opciones (en vez de quedar bajo el fold).
+        const fabRect = fab ? fab.getBoundingClientRect() : null;
+        const spaceBelow = fabRect ? window.innerHeight - fabRect.bottom - 12 : 0;
+        panel.classList.toggle('opens-up', panel.offsetHeight > spaceBelow);
+      }
       if (fab) fab.setAttribute('aria-expanded', open ? 'false' : 'true');
     }
     function setDemoTheme(theme) {
@@ -2204,6 +2292,7 @@ Object.defineProperties(window, {
       toggleDemoThemeBar,
       setDemoTheme,
       updateTableServiceUI,
+      updateFabVisibility,
       applyFilterBarMode,
       areMenuOrdersEnabled,
       isMozoVirtualEnabled,
@@ -2231,12 +2320,14 @@ Object.defineProperties(window, {
     // Init
     if (typeof document !== 'undefined' && document.readyState === 'loading') {
       window.addEventListener('DOMContentLoaded', () => {
+        bindFabVisibility();
         loadMenu().then(initLoyalty).then(initOrderTracking);
         initPushPrompt();
         initModalA11y();
         initGlobalModalDismissMod();
       });
     } else {
+      bindFabVisibility();
       loadMenu().then(initLoyalty).then(initOrderTracking);
       initPushPrompt();
       initModalA11y();

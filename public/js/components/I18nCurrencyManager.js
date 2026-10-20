@@ -429,9 +429,8 @@ export class I18nCurrencyManager {
     const container = document.getElementById(targetElementId);
     if (!container) return;
 
-    const langs = detectAvailableLanguages(
-      (typeof window !== 'undefined' && window.restaurantData) || {}
-    );
+    const restaurant = (typeof window !== 'undefined' && window.restaurantData) || {};
+    const langs = detectAvailableLanguages(restaurant);
     const showLang = langs.length > 1;
     // Si el dueño no configuró traducciones, el menú queda en su idioma base:
     // ocultamos por completo el selector (evita ofrecer un cambio que no traduce).
@@ -439,6 +438,25 @@ export class I18nCurrencyManager {
       this.currentLang = 'es';
       if (typeof document !== 'undefined' && document.documentElement) document.documentElement.lang = 'es';
     }
+
+    // Probador de temas en vivo: solo en demos (/m/demo-*). Vive DENTRO de la
+    // barra de controles (sticky) en vez de ser un FAB flotante: antes se
+    // superponía con el botón del mozo y con el selector de moneda.
+    const demoHTML = restaurant.isDemo === true ? `
+        <button type="button" id="demoThemeFab" class="i18n-demo-theme"
+                data-js-click="toggleDemoThemeBar"
+                title="Probar otro tema visual" aria-label="Probar otro tema visual"
+                aria-expanded="false" aria-controls="demoThemePanel">
+          <span aria-hidden="true">🎨</span><span>Temas</span>
+        </button>
+        <div id="demoThemePanel" role="group" aria-label="Temas visuales de la demo" style="display:none;">
+          <div class="i18n-demo-theme-head">
+            <strong>🎨 Probá otro tema</strong>
+            <button type="button" data-js-click="toggleDemoThemeBar" aria-label="Cerrar probador de temas">✕</button>
+          </div>
+          <div id="demoThemePills"></div>
+          <div class="i18n-demo-theme-foot">Demo de prueba: solo cambia la estética, nada se guarda.</div>
+        </div>` : '';
 
     const langHTML = showLang ? `
         <div class="i18n-lang" id="i18nLangSelector">
@@ -462,6 +480,7 @@ export class I18nCurrencyManager {
 
     container.innerHTML = `
       <div class="i18n-currency-bar">
+        ${demoHTML}
         ${langHTML}
         <div class="i18n-currency">
           <span class="i18n-currency-icon" aria-hidden="true">💵</span>

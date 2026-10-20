@@ -2974,8 +2974,18 @@
       box-shadow: 0 6px 20px rgba(246, 173, 85, 0.5);
       cursor: pointer;
       z-index: 199;
-      transition: transform 0.2s, box-shadow 0.2s;
+      transition: transform 0.2s, box-shadow 0.2s, opacity 0.18s ease;
       animation: slideUp 0.3s ease;
+    }
+    /* Seguimiento del pedido: por encima del mozo. */
+    #orderTrackingFab { bottom: 146px; }
+    /* Mientras la barra de controles (sticky) cae en la zona del FAB al abrir
+       el menú, el FAB se oculta para no tapar moneda/categorías/buscador.
+       Al scrollear y dejar la barra arriba, vuelve a aparecer. */
+    body.fab-blocked .waiter-fab {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
     }
     .waiter-fab:hover { transform: scale(1.1); box-shadow: 0 8px 28px rgba(246, 173, 85, 0.7); }
     .waiter-fab:active { transform: scale(0.95); }
@@ -3372,6 +3382,63 @@
       padding: 4px 12px;
     }
     .i18n-currency { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+    /* Probador de temas de la demo: pastilla dentro de la barra sticky (no un
+       FAB flotante), para no tapar el buscador, la moneda ni el botón del mozo. */
+    .i18n-demo-theme {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      flex: 0 0 auto;
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border-gold);
+      background: var(--chalk-gold-dim);
+      color: var(--chalk-gold-ink, var(--chalk-gold));
+      font-family: inherit;
+      font-size: 0.72rem;
+      font-weight: 700;
+      line-height: 1.4;
+      cursor: pointer;
+    }
+    .i18n-demo-theme:hover { filter: brightness(1.08); }
+    .i18n-demo-theme:focus-visible {
+      outline: 2px solid var(--chalk-gold-ink, var(--chalk-gold));
+      outline-offset: 2px;
+    }
+    .i18n-currency-bar { position: relative; }
+    #demoThemePanel {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      z-index: 9000;
+      width: min(320px, calc(100vw - 24px));
+      max-height: 46vh;
+      overflow-y: auto;
+      background: var(--surface-card, #16201b);
+      border: 1px solid var(--border-gold, #D4A853);
+      border-radius: 14px;
+      padding: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    .i18n-demo-theme-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .i18n-demo-theme-head strong { font-size: 0.85rem; }
+    .i18n-demo-theme-head button {
+      background: none;
+      border: none;
+      color: inherit;
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 2px 4px;
+    }
+    #demoThemePills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .i18n-demo-theme-foot { font-size: 0.7rem; opacity: 0.7; margin-top: 8px; }
+    #demoThemePanel.opens-up { top: auto; bottom: calc(100% + 6px); }
     .i18n-currency-icon { color: var(--chalk-dim); }
     .i18n-currency-select {
       background: transparent;
