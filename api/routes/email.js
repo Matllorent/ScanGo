@@ -12,6 +12,37 @@ const router = express.Router();
 // archivo, antes del module.exports: arriba en esta línea viven las rutas de
 // envío protegidas por admin + limiter)
 
+/**
+ * GET /api/email/unsubscribe/:token
+ * Baja comercial con un clic (CAN-SPAM §5(4)): el pie de TODO email lleva esta
+ * URL firmada con HMAC (email oculto en el token). Sin token válido → 400;
+ * con token válido marca la lista de opt-out y confirma con una página simple.
+ */
+router.get('/unsubscribe/:token', (req, res) => {
+  const { verifyUnsubscribeToken } = require('../utils/emailFooter');
+  const page = (title, body) => `<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,follow">
+<title>${title}</title></head>
+<body style="font-family:sans-serif; background:#0f172a; color:#e2e8f0; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0;">
+  <div style="max-width:420px; padding:28px; text-align:center;">${body}</div>
+</body></html>`;
+
+  const parsed = verifyUnsubscribeToken(req.params.token);
+  if (!parsed) {
+    return res.status(400).send(page('Enlace inválido', '<h2>Enlace de baja no válido</h2><p>El enlace es inválido o ya no está vigente. Podés escribirnos respondiendo a cualquier correo anterior.</p>'));
+  }
+  try {
+    emailService.markOptOut(parsed.email);
+  } catch (e) {
+    // Fail-closed en la página pero honesto: la baja se registra best-effort.
+    console.warn('[Email] optout write fail:', e.message);
+  }
+  // logueamos el email MASCARADO (PII nunca cruda en logs)
+  console.log(`[Email] Opt-out registrado: ${emailService.maskEmail(parsed.email)}`);
+  res.status(200).send(page('Baja confirmada', '<div style="font-size:2.4rem;">✉️</div><h2>Ya no te enviaremos más correos</h2><p>La dirección quedó fuera de nuestras campañas comerciales. Los avisos puntuales de tu cuenta (recibos, seguridad) pueden continuar mientras la uses.</p>'));
+});
 router.use(adminMiddleware, emailLimiter);
 const welcomeEmailSchema = z.object({
   to: z.string().email({ message: 'Email inválido' }),
@@ -113,36 +144,6 @@ router.post('/promotions', validateBody(promotionalEmailSchema), async (req, res
   }
 });
 
-/**
- * GET /api/email/unsubscribe/:token
- * Baja comercial con un clic (CAN-SPAM §5(4)): el pie de TODO email lleva esta
- * URL firmada con HMAC (email oculto en el token). Sin token válido → 400;
- * con token válido marca la lista de opt-out y confirma con una página simple.
- */
-router.get('/unsubscribe/:token', (req, res) => {
-  const { verifyUnsubscribeToken } = require('../utils/emailFooter');
-  const page = (title, body) => `<!DOCTYPE html>
-<html lang="es"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex,follow">
-<title>${title}</title></head>
-<body style="font-family:sans-serif; background:#0f172a; color:#e2e8f0; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0;">
-  <div style="max-width:420px; padding:28px; text-align:center;">${body}</div>
-</body></html>`;
 
-  const parsed = verifyUnsubscribeToken(req.params.token);
-  if (!parsed) {
-    return res.status(400).send(page('Enlace inválido', '<h2>Enlace de baja no válido</h2><p>El enlace es inválido o ya no está vigente. Podés escribirnos respondiendo a cualquier correo anterior.</p>'));
-  }
-  try {
-    emailService.markOptOut(parsed.email);
-  } catch (e) {
-    // Fail-closed en la página pero honesto: la baja se registra best-effort.
-    console.warn('[Email] optout write fail:', e.message);
-  }
-  // logueamos el email MASCARADO (PII nunca cruda en logs)
-  console.log(`[Email] Opt-out registrado: ${emailService.maskEmail(parsed.email)}`);
-  res.status(200).send(page('Baja confirmada', '<div style="font-size:2.4rem;">✉️</div><h2>Ya no te enviaremos más correos</h2><p>La dirección quedó fuera de nuestras campañas comerciales. Los avisos puntuales de tu cuenta (recibos, seguridad) pueden continuar mientras la uses.</p>'));
-});
 
 module.exports = router;
