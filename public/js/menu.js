@@ -318,7 +318,9 @@ Object.defineProperties(window, {
         b.textContent = THEME_SHORT_NAMES[t] || t;
         b.setAttribute('aria-pressed', t === currentTheme ? 'true' : 'false');
         b.setAttribute('aria-label', 'Probar tema ' + (THEME_SHORT_NAMES[t] || t));
-        b.style.cssText = 'padding:6px 10px; border-radius:16px; font-size:0.72rem; font-weight:700; cursor:pointer; border:1px solid ' + (t === currentTheme ? 'var(--border-gold, #D4A853)' : 'rgba(255,255,255,0.2)') + '; background:' + (t === currentTheme ? 'rgba(212,168,83,0.2)' : 'transparent') + '; color:inherit;';
+        // Estados (hover/focus/activo) en la clase .demo-theme-pill del CSS
+        // del panel: superficie fija tema-agnóstica, nunca crema-sobre-crema.
+        b.className = 'demo-theme-pill';
         b.setAttribute('data-js-click', 'setDemoTheme|' + t);
         pills.appendChild(b);
       }

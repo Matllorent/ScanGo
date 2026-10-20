@@ -222,6 +222,7 @@ async function runTests() {
   assert.ok(menuJs.includes('function setDemoTheme('), 'menu.js implementa setDemoTheme');
   assert.ok(menuJs.includes('function toggleDemoThemeBar('), 'menu.js implementa toggleDemoThemeBar');
   assert.ok(menuJs.includes('function renderDemoThemeBar('), 'menu.js implementa renderDemoThemeBar');
+  assert.ok(menuJs.includes("b.className = 'demo-theme-pill'"), 'pills del probador usan clase CSS (estados hover/focus/activo vivían inline sin trayecto)');
   assert.ok(menuJs.includes('toggleDemoThemeBar,'), 'toggle expuesto en window');
   assert.ok(menuJs.includes('setDemoTheme,'), 'setDemoTheme expuesto en window');
   assert.ok(menuJs.includes('restaurantData.isDemo !== true'), 'setDemoTheme solo corre en demos');

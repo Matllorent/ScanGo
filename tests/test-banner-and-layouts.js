@@ -324,6 +324,26 @@ async function runTests() {
     'la grilla asimétrica explosiva debe usar rotate: (propiedad individual) en nth-child');
   console.log('✓ Tema Explosivo: bloque layout-classic .dishes-grid, grilla asimétrica span, keyframes, reduced-motion, rojo profundo, tarjetas crema, sticky controls y rotate individuales verificados');
 
+  // 3g. Panel del probador de temas tema-agnóstico + tema "Cafetería Moderna"
+  //     (bug oct-2026: con explosivo activo, el panel resolvía
+  //     background=var(--surface-card)=crema #FFF9E6 y los pills heredaban el
+  //     color crema del body ⇒ crema sobre crema, solo se leía el pill activo).
+  const panelStart = menuCss.indexOf('#demoThemePanel {');
+  const panelCss = menuCss.slice(panelStart, menuCss.indexOf('}', panelStart) + 1);
+  assert.ok(panelCss.length > 0, 'menu.css define el panel #demoThemePanel');
+  assert.ok(!panelCss.includes('var(--surface-card'), 'el panel NO depende de --surface-card (sin crema-sobre-crema con explosivo)');
+  assert.ok(/background:\s*#131B17/.test(panelCss), 'el panel usa superficie carbón propia (fija)');
+  assert.ok(/color:\s*#EAF2EC/.test(panelCss), 'el panel fija color de texto legible (no hereda el crema del body)');
+  assert.ok(/\.demo-theme-pill\[aria-pressed="true"\]/.test(menuCss), 'pill activa por estado aria-pressed (a11y-driven)');
+  assert.ok(/\.demo-theme-pill:hover/.test(menuCss), 'pill con hover visible independiente del tema');
+  assert.ok(/\.demo-theme-pill:focus-visible/.test(menuCss), 'pill con focus-visible (navegación por teclado)');
+  assert.ok(/body\.theme-moderna\s*\{[^}]*--bg-chalkboard:\s*#171310/.test(menuCss), 'Cafetería Moderna: fondo carbón negro mate #171310');
+  assert.ok(/body\.theme-moderna\s*\{[^}]*--surface-card:\s*#241B15/.test(menuCss), 'Cafetería Moderna: cards espresso #241B15');
+  assert.ok(/body\.theme-moderna\s*\{[^}]*--chalk-gold:\s*#D6A171/.test(menuCss), 'Cafetería Moderna: acento cobre suave #D6A171');
+  assert.ok(/body\.theme-moderna\s*\{[^}]*--chalk-white:\s*#F3EADD/.test(menuCss), 'Cafetería Moderna: texto crema latte #F3EADD');
+  assert.ok(/body\.theme-moderna\s*\{[^}]*--chalk-gold-ink:\s*#E5B078/.test(menuCss), 'Cafetería Moderna: precio reforzado #E5B078 (mayor contraste sobre card)');
+  console.log('✓ Panel de temas tema-agnóstico (fix crema-sobre-crema en explosivo) + Cafetería Moderna café de especialidad (cobre/carbón, AA)');
+
   console.log('\n🎉 ¡TODAS LAS VERIFICACIONES DE BANNER Y MORFOLOGÍAS PASARON AL 100%!');
 }
 

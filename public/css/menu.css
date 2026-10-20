@@ -936,14 +936,67 @@
       --border-gold: rgba(183, 148, 244, 0.4);
       background-color: #121422;
     }
+    /* ============================================================
+       MODERNA — "Cafetería Moderna" (especialidad, redesign oct-2026)
+       Elegante y contemporánea: carbón negro mate con vena espresso,
+       texto latte, acento cobre/bronce tenue. Minimalista y de venta
+       rápida: CTA integrado, foto protagonista, radios suaves.
+
+       Paleta (contraste verificado a mano, AA):
+         · carbón mate  #171310 (fondo; latte encima ≈ 15.5:1)
+         · espresso     #241B15 (cards; latte encima ≈ 13.9:1, cobre ≈ 5.7:1)
+         · crema latte  #F3EADD (texto principal ≈ 15.5:1 bg / 13.9:1 card)
+         · leche espuma #DCCDBB (secundario ≈ 9.6:1 bg / 8.6:1 card)
+         · taza grande  #A99883 (terciario/dim ≈ 6.8:1 bg / 6.1:1 card)
+         · cobre suave  #D6A171 (acento ≈ 8.1:1 bg / 7.3:1 card / 4.9:1 sobre tintes compuestos)
+       NUNCA fuerza tipografía: el selector de fuente del dueño manda.
+       ============================================================ */
     body.theme-moderna {
-      --bg-chalkboard: #1A202C;
-      --surface-card: #2D3748;
-      --surface-card-hover: #4A5568;
-      --chalk-gold: #63B3ED;
-      --border-gold: rgba(99, 179, 237, 0.4);
-      background-color: #1A202C;
+      --bg-chalkboard: #171310;
+      --surface-card: #241B15;
+      --surface-card-hover: #2F241D;
+      --chalk-white: #F3EADD;
+      --chalk-muted: #DCCDBB;
+      --chalk-dim: #A99883;
+      --chalk-gold: #D6A171;
+      --chalk-gold-ink: #E5B078;
+      --chalk-leaf: #A3B18A;
+      --border-chalk: rgba(243, 234, 221, 0.12);
+      --border-gold: rgba(214, 161, 113, 0.45);
+      background-color: #171310;
+      /* Luz cálida tenue: reflejo de vitrina, no un gradiente decorativo */
+      background-image:
+        radial-gradient(ellipse 60% 40% at 18% 6%, rgba(201, 138, 84, 0.05), transparent 70%),
+        radial-gradient(ellipse 55% 45% at 85% 92%, rgba(120, 72, 40, 0.07), transparent 75%),
+        linear-gradient(160deg, rgba(255, 255, 255, 0.012) 0%, transparent 40%);
     }
+    /* Tarjetas: radios suaves + sombra profunda sutil (rounded-2xl feel) */
+    body.theme-moderna .dish-card {
+      border-radius: 16px;
+      border-color: rgba(243, 234, 221, 0.08);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    }
+    body.theme-moderna .dish-card:hover {
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+      border-color: rgba(201, 138, 84, 0.35);
+    }
+    /* Foto del producto protagonista dentro de la card */
+    body.theme-moderna .dish-image {
+      border-radius: 12px;
+      border: 1px solid rgba(201, 138, 84, 0.2);
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+    }
+    /* CTA de venta rápido: pill moderna (antes círculo) */
+    body.theme-moderna .btn-add { border-radius: 12px; }
+    body.theme-moderna .btn-add:hover { filter: brightness(1.08); }
+    /* Header: espresso con luz de barra, sin slab ruidoso */
+    body.theme-moderna .menu-header {
+      background: linear-gradient(180deg, #211813 0%, #171310 100%);
+      border-bottom: 1px solid rgba(201, 138, 84, 0.25);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    }
+    body.theme-moderna .restaurant-title { letter-spacing: 0.02em; }
+    body.theme-moderna .cat-pill { border-radius: 999px; }
     body.theme-foodtruck {
       --bg-chalkboard: #141414;
       --surface-card: #202020;
@@ -4146,13 +4199,19 @@
       width: min(320px, calc(100vw - 24px));
       max-height: 46vh;
       overflow-y: auto;
-      background: var(--surface-card, #16201b);
-      border: 1px solid var(--border-gold, #D4A853);
+      background: #131B17;
+      border: 1px solid rgba(255, 255, 255, 0.16);
       border-radius: 14px;
       padding: 12px;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      color: #EAF2EC;
     }
-    /* glass-gastro usa surface-card translúcido: el panel necesita base sólida. */
+    /* Superficie PROPIA del panel (no var(--surface-card)): los temas que
+       re-escopean esa variable a superficies claras (explosivo en classic =
+       crema #FFF9E6) dejaban el panel crema-con-texto-crema (pills
+       invisibles, bug oct-2026). El panel es de la APP, no del tema:
+       fondo carbón fijo + texto claro explícito, tema-agnóstico.
+       glass-gastro: base sólida propia (su overlay es translúcido). */
     body.theme-glass-gastro #demoThemePanel { background: #0C1626; }
     .i18n-demo-theme-head {
       display: flex;
@@ -4171,6 +4230,28 @@
       padding: 2px 4px;
     }
     #demoThemePills { display: flex; flex-wrap: wrap; gap: 6px; }
+    /* Pills del probador: clase propia (antes era 100% inline, sin trayecto
+       de hover). Estados garantizados sobre la superficie fija del panel:
+       inactivo = borde tenue claro; activo = estado a11y [aria-pressed] con
+       el acento dorado del tema. Hover/focus siempre visibles. */
+    .demo-theme-pill {
+      padding: 6px 10px;
+      border-radius: 16px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: transparent;
+      color: inherit;
+      transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    }
+    .demo-theme-pill:hover { background: rgba(255, 255, 255, 0.08); }
+    .demo-theme-pill:active { transform: translateY(1px); }
+    .demo-theme-pill:focus-visible { outline: 2px solid #EAF2EC; outline-offset: 2px; }
+    .demo-theme-pill[aria-pressed="true"] {
+      border-color: var(--border-gold, #D4A853);
+      background: rgba(212, 168, 83, 0.2);
+    }
     .i18n-demo-theme-foot { font-size: 0.7rem; opacity: 0.7; margin-top: 8px; }
     .i18n-currency-icon { color: var(--chalk-dim); }
     .i18n-currency-select {
