@@ -489,7 +489,11 @@ const billingOrchestrator = {
       }
 
       // Send payment failed email on past_due (single consolidated block)
-      if (parsed.status === 'past_due') {
+      // Excepción refund: cuando el evento que causó past_due es un reembolso
+      // procesado en la pasarela, "no pudimos cobrar" confundiria al cliente
+      // (el dinero ya volvio a pedido del CLIENTE: reembolso, no fallo).
+      const isRefundEvent = /refund/i.test(String(parsed.eventName || ''));
+      if (parsed.status === 'past_due' && !isRefundEvent) {
         try {
           const restaurant = db.findRestaurantById(parsed.restaurantId);
           const user = restaurant ? db.findUserById(restaurant.userId) : null;

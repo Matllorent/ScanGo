@@ -51,7 +51,11 @@ const lemonProvider = {
     const renewsAt = dataObj.renews_at || dataObj.ends_at;
 
     let normalizedStatus = 'active';
-    if (status === 'past_due') normalizedStatus = 'past_due';
+    // Reembolso procesado en el dashboard de Lemon: la suscripción deja de
+    // estar paga → past_due (mismo tratamiento que un cobro fallido, así el
+    // menú se pausa coherente con la devolución real del dinero).
+    if (eventName && /refund/i.test(String(eventName))) normalizedStatus = 'past_due';
+    else if (status === 'past_due') normalizedStatus = 'past_due';
     else if (status === 'cancelled' || status === 'expired') normalizedStatus = 'canceled';
     else if (status === 'on_trial') normalizedStatus = 'trialing';
 

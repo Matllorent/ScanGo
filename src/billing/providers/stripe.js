@@ -1,8 +1,21 @@
 const crypto = require('crypto');
 const { fetchWithTimeout } = require('../../../api/utils/fetchWithTimeout');
 
+// Eventos de reembolso/disputa perdida de Stripe → la suscripción deja de
+// estar paga: el orchestrator la lleva a past_due (menú pausado tras gracia),
+// alineado con Mercado Pago (rawStatus refunded → past_due) y Lemon.
+const REFUND_EVENT_TYPES = new Set([
+  'charge.refunded',
+  'refund.created',
+  'refund.updated',
+  'invoice.refunded',
+  'charge.dispute.funds_withdrawn'
+]);
+
 const stripeProvider = {
   name: 'stripe',
+
+  REFUND_EVENT_TYPES,
 
   verifyWebhookSignature(rawBody, signatureHeader, secret) {
     if (!secret || !signatureHeader) return false;
@@ -73,6 +86,7 @@ const stripeProvider = {
     let normalizedStatus = 'active';
     if (eventType === 'invoice.payment_failed') normalizedStatus = 'past_due';
     else if (eventType === 'customer.subscription.deleted') normalizedStatus = 'canceled';
+    else if (REFUND_EVENT_TYPES.has(eventType)) normalizedStatus = 'past_due';
     else if (dataObj.status === 'trialing') normalizedStatus = 'trialing';
     else if (dataObj.status === 'past_due' || dataObj.status === 'unpaid') normalizedStatus = 'past_due';
 

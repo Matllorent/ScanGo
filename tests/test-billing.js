@@ -343,6 +343,88 @@ async function runTests() {
   assert.ok(menuHtml.includes('@supabase/supabase-js@2.116.0'), 'supabase-js con pin exacto (no flotante)');
   console.log('✓ Webhook MP: secreto en tiempo constante + sin query en Sentry; returnUrl misma-app; CDN pinneado');
 
+    // ▲▲ 9) Reembolsos: evento de refund en pasarela → suscripción deja de estar paga ▲▲
+  const emailService = require('../api/services/email');
+  const stripeProvider = require('../src/billing/providers/stripe');
+  const lemonProvider = require('../src/billing/providers/lemonsqueezy');
+
+  // Spy de emails (reemplazo temporal, se restaura siempre)
+  const calls = { failed: 0, receipt: 0 };
+  const origFailed = emailService.sendPaymentFailedEmail;
+  const origReceipt = emailService.sendPaymentReceiptEmail;
+  emailService.sendPaymentFailedEmail = async () => { calls.failed += 1; return { provider: 'test', success: true, skipped: true }; };
+  emailService.sendPaymentReceiptEmail = async () => { calls.receipt += 1; return { provider: 'test', success: true, skipped: true }; };
+
+  try {
+    // 9a. Stripe: charge.refunded → past_due
+    const stripeRefund = stripeProvider.parseWebhookPayload({
+      id: 'evt_ref_stripe_' + Date.now(),
+      type: 'charge.refunded',
+      created: Math.floor(Date.now() / 1000),
+      data: { object: {
+        metadata: { restaurant_id: 'rest_referrer_stripe', plan_id: 'starter_monthly' },
+        refunded: true
+      } }
+    });
+    assert.strictEqual(stripeRefund.status, 'past_due', 'Stripe refund → past_due (suscripción deja de estar paga)');
+    assert.strictEqual(stripeRefund.eventName, 'charge.refunded');
+
+    // dispute perdida (funds_withdrawn) TAMBIÉN pausa
+    const stripeDispute = stripeProvider.parseWebhookPayload({
+      id: 'evt_dispute_' + Date.now(),
+      type: 'charge.dispute.funds_withdrawn',
+      created: Math.floor(Date.now() / 1000),
+      data: { object: { metadata: { restaurant_id: 'rest_referrer_stripe' } } }
+    });
+    assert.strictEqual(stripeDispute.status, 'past_due', 'disputa perdida (funds_withdrawn) → past_due');
+
+    // dispute ganada NO pausa (charge.dispute.closed NO está en la lista)
+    const stripeDisputeWon = stripeProvider.parseWebhookPayload({
+      id: 'evt_dispute_won_' + Date.now(),
+      type: 'charge.dispute.closed',
+      created: Math.floor(Date.now() / 1000),
+      data: { object: { metadata: { restaurant_id: 'rest_referrer_stripe' }, status: 'won' } }
+    });
+    assert.strictEqual(stripeDisputeWon.status, 'active', 'disputa ganada NO debe pausar la suscripcion');
+
+    // 9b. Lemon Squeezy: subscription_payment_refunded full webhook → past_due
+    const refundUser = await db.createUser({ email: 'refund-owner_' + Date.now() + '@pizarron.com', password: 'x' });
+    const refundRest = await db.saveRestaurant(refundUser.id, { bizName: 'Refund Test', slug: 'refund-test-' + Date.now() });
+    const refundEventId = 'evt_refund_' + Date.now();
+    const refundPayload = {
+      meta: {
+        event_name: 'subscription_payment_refunded',
+        custom_data: { restaurant_id: refundRest.id, event_id: refundEventId }
+      },
+      data: {
+        id: refundEventId,
+        attributes: {
+          status: 'active',
+          user_email: refundUser.email,
+          renews_at: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString()
+        }
+      }
+    };
+    // El evento refund, aun con attributes.status active (estado de la sub), pausa por eventName.
+    const lemonParsed = lemonProvider.parseWebhookPayload(refundPayload);
+    assert.strictEqual(lemonParsed.status, 'past_due', 'Lemon refund → past_due (por eventName, no por attributes.status)');
+    const refundRes = await billingOrchestrator.processWebhook('lemonsqueezy', {}, JSON.stringify(refundPayload), refundPayload);
+    assert.strictEqual(refundRes.success, true);
+    assert.strictEqual(refundRes.status, 'past_due');
+    const refundRestAfter = db.findRestaurantById(refundRest.id);
+    assert.strictEqual(refundRestAfter.subscription.status, 'past_due', 'suscripción en past_due tras refund (menú se pausa tras gracia)');
+
+    // 9c. El refund NO disparó el email de "no pudimos procesar tu pago"
+    assert.strictEqual(calls.failed, 0, 'refund no debe enviar el email de pago fallido');
+    const refundFromState = billingOrchestrator.verifyAccess(refundRest.id);
+    assert.strictEqual(refundFromState.allowed, true, 'gracia de 7 días: el menú sigue online (mismo flujo que cobro fallido)');
+  } finally {
+    // Restaurar SIEMPRE los spies (pase o falle)
+    emailService.sendPaymentFailedEmail = origFailed;
+    emailService.sendPaymentReceiptEmail = origReceipt;
+  }
+  console.log('✓ Reembolsos: Stripe/Lemon refund → past_due + sin email de fallo de pago + gracia aplicada');
+
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE BILLING PASARON EXITOSAMENTE AL 100%!\n');
 }
 
