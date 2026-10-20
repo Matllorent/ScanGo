@@ -24,6 +24,16 @@ assert.ok(!client.includes('sales * 0.2'), 'Sin matemática de comisiones en el 
 
 assert.ok(html.includes('id="demo-interactiva"'));
 assert.ok(html.includes('data-js-click="simAddDish|Burger Criolla|490"')); // handler migrado a data-js-* (CSP script-src-attr none)
+// El simulador también ofrece quitar: el botón − nace oculto y aparece recién
+// cuando ese plato está en el carrito (mismo comportamiento que la carta real).
+assert.ok(html.includes('data-sim-dish="Burger Criolla"'), 'cada plato del simulador se identifica por nombre');
+assert.ok(html.includes('data-js-click="simRemoveDish|Burger Criolla"'), 'el simulador tiene botón − por plato');
+assert.ok(/class="sim-btn-remove" hidden/.test(html), 'el botón − del simulador nace oculto (solo tras agregar)');
+assert.ok(client.includes('function simRemoveDish('), 'simRemoveDish implementado en el cliente');
+assert.ok(client.includes('function syncSimRemoveButtons('), 'el estado de los botones − se sincroniza con el carrito');
+assert.ok(client.includes('syncSimRemoveButtons();'), 'updateSimUI sincroniza los botones −');
+assert.ok(css.includes('.sim-btn-remove'), 'estilo propio del botón − del simulador');
+assert.ok(css.includes('.sim-btn-remove[hidden]'), 'el botón − oculto no ocupa espacio');
 assert.ok(css.includes('@media (max-width: 600px)'));
 assert.ok(!html.includes('monthlySalesSlider'), 'Calculadora de ahorro eliminada del HTML');
 assert.ok(!html.includes('savings-section'), 'Sin rastro de la sección eliminada');

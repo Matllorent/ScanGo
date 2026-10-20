@@ -582,13 +582,6 @@ export class I18nCurrencyManager {
     const a11yBtn = document.querySelector('.btn-a11y-tts');
     if (a11yBtn) a11yBtn.textContent = this.t('listenCategory');
 
-    // Conmutador 📖 Stories (solo si existe en esta página)
-    const storiesToggle = document.getElementById('btnStoriesToggle');
-    if (storiesToggle) {
-      storiesToggle.setAttribute('title', this.t('storiesViewMenu'));
-      storiesToggle.setAttribute('aria-label', this.t('storiesViewMenu'));
-    }
-
     // Modal de reseñas (títulos estáticos; el resto lo setea smartReviews.js)
     const reviewTitle = document.getElementById('smartReviewTitle');
     if (reviewTitle) reviewTitle.textContent = this.t('reviewTitle');

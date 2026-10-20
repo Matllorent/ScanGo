@@ -2909,6 +2909,12 @@
       align-items: center;
       gap: 6px;
     }
+    .dish-qty-controls {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
     .btn-add {
       background: var(--chalk-gold);
       color: #0E1412;
@@ -5046,15 +5052,11 @@
     }
     .mozo-cards-carousel {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr));
       gap: 8px;
     }
-    @media (max-width: 480px) {
-      .mozo-cards-carousel {
-        grid-template-columns: 1fr;
-      }
-    }
     .mozo-item-card {
+      min-width: 0;
       display: flex;
       align-items: center;
       gap: 10px;
@@ -5063,6 +5065,31 @@
       border-radius: 10px;
       padding: 8px 10px;
       transition: border-color 0.2s, transform 0.2s, background 0.2s;
+    }
+    @media (max-width: 480px) {
+      .mozo-cards-carousel {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .mozo-item-card {
+        display: grid;
+        grid-template-columns: 44px minmax(0, 1fr);
+        align-items: center;
+        column-gap: 10px;
+        row-gap: 6px;
+      }
+      .mozo-item-thumb {
+        grid-column: 1;
+        grid-row: 1;
+      }
+      .mozo-item-info {
+        grid-column: 2;
+        grid-row: 1;
+      }
+      .btn-mozo-quick-add {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        justify-content: center;
+      }
     }
     .mozo-item-card:hover {
       border-color: rgba(236, 201, 75, 0.4);

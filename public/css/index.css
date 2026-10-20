@@ -464,6 +464,18 @@
       cursor: pointer;
       font-weight: bold;
     }
+    .sim-btn-remove {
+      background: transparent;
+      color: var(--accent-gold);
+      border: 1px solid var(--accent-gold);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-weight: bold;
+      line-height: 1;
+    }
+    .sim-btn-remove[hidden] { display: none; }
     .sim-cart-bar {
       margin-top: 14px;
       background: linear-gradient(135deg, #38f29a 0%, #22c55e 100%);

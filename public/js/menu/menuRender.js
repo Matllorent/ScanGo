@@ -186,10 +186,14 @@ let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
               </div>
               ${!ctx.areMenuOrdersEnabled()
                 ? ''
-                : (sched.isAvailable
-                  ? `<button class="btn-add" data-dish-id="${escapeHtml(d.id)}" data-js-click="addToCart|this.dataset.dishId" aria-label="Agregar ${escapeHtml(d.name)}" style="width:34px; height:34px; font-size:1.1rem;">+</button>`
-                  : `<button class="btn-add" disabled style="width:34px; height:34px; font-size:0.9rem; background:#4A5568; cursor:not-allowed; opacity:0.6;" title="${sched.reason}">⏰</button>`
-                )
+                : `<div class="dish-qty-controls">
+                    ${inCart > 0
+                      ? `<button type="button" class="btn-add" data-dish-id="${escapeHtml(d.id)}" data-js-click="removeFromCart|this.dataset.dishId" aria-label="Quitar uno de ${escapeHtml(d.name)}" style="width:34px; height:34px; font-size:1.1rem;">−</button>`
+                      : ''}
+                    ${sched.isAvailable
+                      ? `<button type="button" class="btn-add" data-dish-id="${escapeHtml(d.id)}" data-js-click="addToCart|this.dataset.dishId" aria-label="Agregar ${escapeHtml(d.name)}" style="width:34px; height:34px; font-size:1.1rem;">+</button>`
+                      : `<button type="button" class="btn-add" disabled style="width:34px; height:34px; font-size:0.9rem; background:#4A5568; cursor:not-allowed; opacity:0.6;" title="${escapeHtml(sched.reason || '')}">⏰</button>`}
+                  </div>`
               }
             </div>
             ${inCart > 0 ? `<div style="font-size:0.7rem; color:var(--chalk-gold); font-weight:700; margin-top:4px; text-align:right;">${inCart} ${t('inCart', 'en carrito')}</div>` : ''}
@@ -523,13 +527,18 @@ let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
           <div class="dish-action">
             ${!ctx.areMenuOrdersEnabled()
               ? ''
-              : (isSold
-                ? '<button class="btn-add" disabled style="background:#4A5568; cursor:not-allowed; opacity:0.6;">✕</button>'
-                : (!sched.isAvailable
-                    ? `<button class="btn-add" disabled style="background:#4A5568; cursor:not-allowed; opacity:0.6;" title="${sched.reason}">⏰</button>`
-                    : `<button class="btn-add" data-dish-id="${escapeHtml(d.id)}" data-js-click="addToCart|this.dataset.dishId" aria-label="Agregar ${escapeHtml(d.name)}">+</button>`
-                  )
-              )
+              : `<div class="dish-qty-controls">
+                  ${inCart > 0
+                    ? `<button type="button" class="btn-add" data-dish-id="${escapeHtml(d.id)}" data-js-click="removeFromCart|this.dataset.dishId" aria-label="Quitar uno de ${escapeHtml(d.name)}">−</button>`
+                    : ''}
+                  ${isSold
+                    ? '<button type="button" class="btn-add" disabled style="background:#4A5568; cursor:not-allowed; opacity:0.6;">✕</button>'
+                    : (!sched.isAvailable
+                        ? `<button type="button" class="btn-add" disabled style="background:#4A5568; cursor:not-allowed; opacity:0.6;" title="${escapeHtml(sched.reason || '')}">⏰</button>`
+                        : `<button type="button" class="btn-add" data-dish-id="${escapeHtml(d.id)}" data-js-click="addToCart|this.dataset.dishId" aria-label="Agregar ${escapeHtml(d.name)}">+</button>`
+                      )
+                  }
+                </div>`
             }
             ${inCart > 0 ? `<span class="qty-counter">${inCart} en carrito</span>` : ''}
           </div>

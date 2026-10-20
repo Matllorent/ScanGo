@@ -518,12 +518,29 @@ function simAddDish(name, price) {
   updateSimUI();
 }
 
+function simRemoveDish(name) {
+  const index = simCart.map(item => item.name).lastIndexOf(name);
+  if (index === -1) return;
+  simCart.splice(index, 1);
+  updateSimUI();
+}
+
+// El botón − de cada plato aparece sólo cuando ese plato está en el carrito.
+function syncSimRemoveButtons() {
+  document.querySelectorAll('[data-sim-dish]').forEach(card => {
+    const removeBtn = card.querySelector('.sim-btn-remove');
+    if (!removeBtn) return;
+    removeBtn.hidden = !simCart.some(item => item.name === card.dataset.simDish);
+  });
+}
+
 function simResetCart() {
   simCart = [];
   updateSimUI();
 }
 
 function updateSimUI() {
+  syncSimRemoveButtons();
   const countSpan = document.getElementById('simCartCount');
   const totalSpan = document.getElementById('simCartTotal');
   const total = simCart.reduce((sum, it) => sum + it.price, 0);

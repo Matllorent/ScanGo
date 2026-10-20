@@ -197,7 +197,7 @@ async function runMenuComponentizationTests() {
   assert.ok(menuModulesSrc.includes('window.togglePerfumeryMode = function()'), 'menu-modules.js debe registrar el interruptor de perfumería en window');
   assert.ok(menuModulesSrc.includes('window.toggleGroupConsolidatedView = function()'), 'menu-modules.js debe registrar la vista consolidada grupal en window');
   assert.ok(!/^[\t ]*togglePerfumeryMode,$/m.test(menuMainSrc), 'menu.js no debe exponer como local una función registrada solo en window');
-  assert.ok(!/^[\t ]*removeFromCart,$/m.test(menuMainSrc), 'menu.js no debe exponer funciones de carrito inexistentes');
+  assert.ok(/^[\t ]*removeFromCart,$/m.test(menuMainSrc), 'menu.js debe exponer removeFromCart (botón − de la tarjeta, tras agregar)');
   assert.ok(!/^[\t ]*toggleGroupConsolidatedView,$/m.test(menuMainSrc), 'menu.js no debe exponer como local una función registrada solo en window');
   console.log('✓ Enlace de todos los módulos en menu-modules.js verificado');
 
@@ -1210,6 +1210,40 @@ async function runMenuComponentizationTests() {
     `Funciones que usan ctx sin declararlo (ReferenceError en runtime): ${ctxLessFunctions.join(', ')}`
   );
   console.log('🛡️ Ninguna función de public/js usa `ctx` sin declararlo (regresión de renderHeader)');
+
+  // 30. Carrito en la carta: el botón − aparece recién cuando el plato está
+  //     en el carrito (después de tocar +), tanto en la grilla como en las
+  //     sugerencias del chef. La barra de accesos ya no duplica buscador,
+  //     categorías ni historias, y el Mozo Virtual del carrito entra en
+  //     celular sin scroll horizontal.
+  const menuRenderSrc30 = fs.readFileSync(path.join(__dirname, '../public/js/menu/menuRender.js'), 'utf8');
+  assert.ok(menuRenderSrc30.includes('class="dish-qty-controls"'), 'la tarjeta agrupa + y − en .dish-qty-controls');
+  assert.ok(
+    (menuRenderSrc30.match(/data-js-click="removeFromCart\|this\.dataset\.dishId"/g) || []).length >= 2,
+    'carta y sugerencias del chef ofrecen quitar (−)'
+  );
+  assert.ok(
+    /inCart > 0\s*\?\s*`<button[^`]*removeFromCart/.test(menuRenderSrc30),
+    'el − se renderiza condicionado a inCart > 0 (no antes de agregar)'
+  );
+  assert.ok(menuMainSrc.includes('function removeFromCart(dishId)'), 'menu.js implementa removeFromCart');
+  assert.ok(menuMainSrc.includes('manager.canEditItem(item)'), 'en mesa grupal el − respeta la autoría del plato');
+  assert.ok(!menuHtmlSrc.includes('data-js-click="focusSearchInput"'), 'sin botón Buscar (arriba está el buscador)');
+  assert.ok(!menuHtmlSrc.includes('data-js-click="openCategoriesMenuModal"'), 'sin botón Categorías (las pills están en la misma barra)');
+  assert.ok(!menuHtmlSrc.includes('id="btnStoriesToggle"'), 'sin botón Ver como historias (los anillos ya abren historias)');
+  const menuCssSrc30 = fs.readFileSync(path.join(__dirname, '../public/css/menu.css'), 'utf8');
+  assert.ok(/\.dish-qty-controls\s*\{[^}]*display:\s*inline-flex/.test(menuCssSrc30), 'los botones + y − comparten fila');
+  const cartUpsellSrc30 = fs.readFileSync(path.join(__dirname, '../public/js/menu/cartUpsell.js'), 'utf8');
+  assert.ok(
+    cartUpsellSrc30.includes('detectCrossSellOpportunity(items, restaurantData)'),
+    'el cross-sell recibe el restaurante (sin TypeError al abrir el carrito)'
+  );
+  const mozoStart = menuCssSrc30.indexOf('.mozo-cards-carousel');
+  const mozoCss = menuCssSrc30.slice(mozoStart, menuCssSrc30.indexOf('.mozo-item-thumb', mozoStart));
+  assert.ok(mozoCss.includes('minmax(min(210px, 100%), 1fr)'), 'el carrusel del mozo nunca excede su contenedor');
+  assert.ok(/\.mozo-item-card\s*\{[^}]*min-width:\s*0/.test(mozoCss), 'las tarjetas del mozo pueden encogerse');
+  assert.ok(/@media \(max-width: 480px\)[\s\S]*?\.mozo-item-card\s*\{[^}]*display:\s*grid/.test(mozoCss), 'en celular el botón Agregar del mozo baja a su propia fila');
+  console.log('✓ Carrito: − tras el + en carta/chef, accesos sin duplicados y Mozo Virtual sin scroll horizontal en celular');
 
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE COMPONENTIZACIÓN DE MENU PASARON AL 100%!');
 }

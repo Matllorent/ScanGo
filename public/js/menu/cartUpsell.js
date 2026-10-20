@@ -248,6 +248,7 @@ import { isFreePrice } from './menuPresentation.js';
 
       ctx.addDishToCart(dish, '', []);
       ctx.updateCartUI();
+      if (typeof ctx.renderDishes === 'function') ctx.renderDishes();
       ctx.renderCartModalList();
 
       // Feedback táctil instantáneo
@@ -303,7 +304,7 @@ import { isFreePrice } from './menuPresentation.js';
         return;
       }
 
-      const opportunities = detectCrossSellOpportunity(items);
+      const opportunities = detectCrossSellOpportunity(items, restaurantData);
       if (!opportunities.length) {
         section.style.display = 'none';
         section.innerHTML = '';

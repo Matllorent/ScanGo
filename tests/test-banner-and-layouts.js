@@ -224,7 +224,7 @@ async function runTests() {
   }
   // Modo dual Stories: overlay de historias (mesa=carta clásica, casa=?morph=stories)
   assert.ok(feManifestSrc.includes('"id": "stories"'), 'el manifest generado debe declarar la morfología stories');
-  assert.ok(menuJs.includes('toggleStoriesMode'), 'menu.js debe exponer toggleStoriesMode (botón 📖 + binder)');
+  assert.ok(menuJs.includes('toggleStoriesMode'), 'menu.js debe conservar toggleStoriesMode (anillos/overlay + binder)');
   assert.ok(menuJs.includes('maybeAutoEnterStoriesMod'), 'menu.js debe auto-entrar a stories con layout=stories tras renderizar');
   assert.ok(menuCss.includes('body.layout-stories'), 'menu.css debe definir body.layout-stories');
   assert.ok(menuCss.includes('#storiesOverlay'), 'menu.css debe estilizar el overlay #storiesOverlay (snap + segmentos + glass)');
@@ -235,7 +235,7 @@ async function runTests() {
   assert.ok(!/\.innerHTML\s*=(?!=)/.test(storiesMod), 'storiesLayout.js debe construir solo con DOM API (cero innerHTML con data, CSP-safe)');
   assert.ok(!storiesMod.includes('onClick') && !storiesMod.includes('onclick'), 'storiesLayout.js no debe usar handlers inline (CSP script-src-attr none)');
   assert.ok(storiesMod.includes("window.addToCart"), 'stories debe reutilizar window.addToCart (flujo real de notas/modificadores)');
-  assert.ok(menuHtml.includes('data-js-click="toggleStoriesMode"'), 'menu.html debe tener el botón 📖 conmutador de historias');
+  assert.ok(!menuHtml.includes('data-js-click="toggleStoriesMode"'), 'menu.html ya no tiene el botón 📖 suelto: las historias se abren desde los anillos de destacados');
   assert.ok(menuHtml.includes('id="storiesTray"'), 'menu.html debe tener la bandeja de destacados #storiesTray (anillos por categoría)');
   assert.ok(storiesMod.includes('renderStoriesTray'), 'stories debe renderizar anillos de destacados que abren en esa categoría');
   assert.ok(storiesMod.includes('scango_stories_pos_'), 'stories debe reanudar donde quedó (índice por slug, sin PII)');

@@ -951,6 +951,28 @@ Object.defineProperties(window, {
       openDishNoteModal({ mode: 'add', dishId });
     }
 
+    /**
+     * Quita una unidad de un plato desde la tarjeta de la carta (botón −).
+     * Sólo aparece en la tarjeta cuando el plato ya está en el carrito.
+     * En mesa grupal respeta la autoría: cada comensal quita lo suyo.
+     */
+    function removeFromCart(dishId) {
+      if (!areMenuOrdersEnabled() || !dishId) return;
+      const entries = Object.entries(cart)
+        .filter(([, item]) => item && item.dish && item.dish.id === dishId);
+      if (!entries.length) return;
+
+      const manager = window.groupCartManagerInstance;
+      const isGroup = Boolean(manager && manager.isGroupActive());
+      const editable = isGroup && typeof manager.canEditItem === 'function'
+        ? entries.filter(([, item]) => manager.canEditItem(item))
+        : entries;
+      const pool = editable.length ? editable : entries;
+      // Última línea agregada de ese plato (la más reciente).
+      const [cartItemId] = pool[pool.length - 1];
+      changeCartQty(cartItemId, -1);
+    }
+
     function openDishNoteModal(action) {
       pendingDishNoteAction = action;
       const dish = action.mode === 'edit'
@@ -1782,6 +1804,7 @@ Object.defineProperties(window, {
       areMenuOrdersEnabled,
       addDishToCart,
       updateCartUI,
+      renderDishes,
       renderCartModalList,
       formatMenuPrice
     };
@@ -2255,6 +2278,7 @@ Object.defineProperties(window, {
       closeDishNoteModal,
       confirmDishNote,
       addToCart,
+      removeFromCart,
       openCartModal,
       closeCartModal,
       handleOrderModeChange,
