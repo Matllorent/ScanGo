@@ -195,11 +195,19 @@ async function runTests() {
   assert.ok(i18nSrc.includes('aria-label="Probar otro tema visual"'), 'disparador con nombre accesible');
   assert.ok(i18nSrc.includes('restaurant.isDemo === true'), 'el disparador solo se renderiza en demos');
   assert.ok(!menuHtml.includes('id="demoThemeFab"'), 'el menú ya no tiene el FAB flotante de temas');
-  assert.ok(i18nSrc.includes('id="demoThemePanel"'), 'la barra trae el panel de temas');
-  assert.ok(i18nSrc.includes('aria-label="Temas visuales de la demo"'), 'panel como grupo con nombre');
+  assert.ok(i18nSrc.includes("panel.id = 'demoThemePanel'"), 'la barra crea el panel de temas');
+  assert.ok(i18nSrc.includes("'Temas visuales de la demo'"), 'panel como grupo con nombre');
   assert.ok(i18nSrc.includes('id="demoThemePills"'), 'panel trae contenedor de pastillas');
+  // El panel cuelga del body con position:fixed: dentro de la barra/quedaba
+  // detrás del header en temas con stacking contexts propios (glass-gastro).
+  assert.ok(i18nSrc.includes('document.body.appendChild(panel)'), 'panel montado en body (fuera del stacking context del tema)');
+  const menuCss = fs.readFileSync(path.join(ROOT, 'public', 'css', 'menu.css'), 'utf8');
+  assert.ok(/body\.theme-glass-gastro #demoThemePanel\s*\{[^}]*background/.test(menuCss), 'panel con fondo sólido en glass-gastro');
+  assert.ok(/\.i18n-demo-theme\s*\{[^}]*background:\s*var\(--chalk-gold\)/.test(menuCss), 'disparador con acento sólido (visible)');
   const menuJs = fs.readFileSync(path.join(ROOT, 'public', 'js', 'menu.js'), 'utf8');
   assert.ok(menuJs.includes('THEME_SHORT_NAMES'), 'menu.js trae nombres cortos de temas');
+  const themeNamesBlock = menuJs.slice(menuJs.indexOf('const THEME_SHORT_NAMES'), menuJs.indexOf('const CLASSIC_THEMES'));
+  assert.ok(!/\p{Extended_Pictographic}/u.test(themeNamesBlock), 'nombres de tema sin emojis');
   assert.ok(menuJs.includes('function setDemoTheme('), 'menu.js implementa setDemoTheme');
   assert.ok(menuJs.includes('function toggleDemoThemeBar('), 'menu.js implementa toggleDemoThemeBar');
   assert.ok(menuJs.includes('function renderDemoThemeBar('), 'menu.js implementa renderDemoThemeBar');
@@ -208,7 +216,7 @@ async function runTests() {
   assert.ok(menuJs.includes('restaurantData.isDemo !== true'), 'setDemoTheme solo corre en demos');
   assert.ok(menuJs.includes('demoAllowedThemes'), 'allowlist de temas por rubro (lockdown heladería)');
   // Nombres cortos: el selector de estética no explica, solo nombra.
-  assert.ok(studioHtml.includes('value="helado-fiesta">🍨 Fiesta de Helado</option>'), 'Studio: nombre corto de tema');
+  assert.ok(studioHtml.includes('value="helado-fiesta">Fiesta de Helado</option>'), 'Studio: nombre corto de tema');
   const themeSelect = studioHtml.match(/<select id="inputThemeBg"[\s\S]*?<\/select>/);
   assert.ok(themeSelect, 'existe el select de estética');
   const themeOptions = [...themeSelect[0].matchAll(/<option value="[a-z-]+">([^<]*)<\/option>/g)].map(m => m[1]);

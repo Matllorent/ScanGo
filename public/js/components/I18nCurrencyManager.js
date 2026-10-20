@@ -439,24 +439,17 @@ export class I18nCurrencyManager {
       if (typeof document !== 'undefined' && document.documentElement) document.documentElement.lang = 'es';
     }
 
-    // Probador de temas en vivo: solo en demos (/m/demo-*). Vive DENTRO de la
-    // barra de controles (sticky) en vez de ser un FAB flotante: antes se
-    // superponía con el botón del mozo y con el selector de moneda.
+    // Probador de temas en vivo: solo en demos (/m/demo-*). El disparador vive
+    // DENTRO de la barra de controles (sticky) en vez de ser un FAB flotante:
+    // antes se superponía con el botón del mozo y con el selector de moneda.
+    // El panel se cuelga del <body> con position:fixed para que ningún stacking
+    // context del tema lo tape (p.ej. glass-gastro pone el header por encima
+    // del contenedor del menú).
     const demoHTML = restaurant.isDemo === true ? `
         <button type="button" id="demoThemeFab" class="i18n-demo-theme"
                 data-js-click="toggleDemoThemeBar"
                 title="Probar otro tema visual" aria-label="Probar otro tema visual"
-                aria-expanded="false" aria-controls="demoThemePanel">
-          <span aria-hidden="true">🎨</span><span>Temas</span>
-        </button>
-        <div id="demoThemePanel" role="group" aria-label="Temas visuales de la demo" style="display:none;">
-          <div class="i18n-demo-theme-head">
-            <strong>🎨 Probá otro tema</strong>
-            <button type="button" data-js-click="toggleDemoThemeBar" aria-label="Cerrar probador de temas">✕</button>
-          </div>
-          <div id="demoThemePills"></div>
-          <div class="i18n-demo-theme-foot">Demo de prueba: solo cambia la estética, nada se guarda.</div>
-        </div>` : '';
+                aria-expanded="false" aria-controls="demoThemePanel">Temas</button>` : '';
 
     const langHTML = showLang ? `
         <div class="i18n-lang" id="i18nLangSelector">
@@ -493,6 +486,27 @@ export class I18nCurrencyManager {
         </div>
       </div>
     `;
+
+    // Panel del probador de temas: fuera de la barra (body + position:fixed)
+    // para que ningún stacking context del tema lo deje detrás del header
+    // (glass-gastro pone el header por encima del contenedor del menú).
+    const previousPanel = document.getElementById('demoThemePanel');
+    if (previousPanel) previousPanel.remove();
+    if (restaurant.isDemo === true) {
+      const panel = document.createElement('div');
+      panel.id = 'demoThemePanel';
+      panel.setAttribute('role', 'group');
+      panel.setAttribute('aria-label', 'Temas visuales de la demo');
+      panel.style.display = 'none';
+      panel.innerHTML = `
+        <div class="i18n-demo-theme-head">
+          <strong>Probá otro tema</strong>
+          <button type="button" data-js-click="toggleDemoThemeBar" aria-label="Cerrar probador de temas">✕</button>
+        </div>
+        <div id="demoThemePills"></div>
+        <div class="i18n-demo-theme-foot">Demo de prueba: solo cambia la estética, nada se guarda.</div>`;
+      document.body.appendChild(panel);
+    }
 
     window.i18nManager = this;
     this.bindLanguageMenu();

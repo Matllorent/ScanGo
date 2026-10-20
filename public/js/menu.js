@@ -227,7 +227,18 @@ Object.defineProperties(window, {
     function bindFabVisibility() {
       if (fabVisibilityBound) return;
       fabVisibilityBound = true;
+      // Cerrar el probador de temas al hacer click afuera, con Escape, o al
+      // scrollear/redimensionar (el panel es fixed: si no, quedaría flotando
+      // lejos de su disparador).
+      const closeDemoThemeBar = () => {
+        const panel = document.getElementById('demoThemePanel');
+        const fab = document.getElementById('demoThemeFab');
+        if (!panel || panel.style.display === 'none') return;
+        panel.style.display = 'none';
+        if (fab) fab.setAttribute('aria-expanded', 'false');
+      };
       window.addEventListener('scroll', () => {
+        closeDemoThemeBar();
         if (fabVisibilityTicking) return;
         fabVisibilityTicking = true;
         requestAnimationFrame(() => {
@@ -235,7 +246,10 @@ Object.defineProperties(window, {
           updateFabVisibility();
         });
       }, { passive: true });
-      window.addEventListener('resize', updateFabVisibility);
+      window.addEventListener('resize', () => {
+        closeDemoThemeBar();
+        updateFabVisibility();
+      });
       window.addEventListener('load', updateFabVisibility);
       const wrapper = document.querySelector('.controls-wrapper');
       if (wrapper && typeof ResizeObserver === 'function') {
@@ -244,15 +258,6 @@ Object.defineProperties(window, {
         const header = document.querySelector('.menu-header');
         if (header) ro.observe(header);
       }
-      // Cerrar el probador de temas al hacer click afuera o con Escape.
-      const closeDemoThemeBar = () => {
-        const panel = document.getElementById('demoThemePanel');
-        const fab = document.getElementById('demoThemeFab');
-        if (!panel || panel.style.display === 'none') return;
-        panel.style.display = 'none';
-        panel.classList.remove('opens-up');
-        if (fab) fab.setAttribute('aria-expanded', 'false');
-      };
       document.addEventListener('click', (e) => {
         const panel = document.getElementById('demoThemePanel');
         const fab = document.getElementById('demoThemeFab');
@@ -270,16 +275,16 @@ Object.defineProperties(window, {
     const THEME_SHORT_NAMES = {
       classic: 'Pizarrón Clásico', emerald: 'Esmeralda Bistro', rustic: 'Café Rústico',
       taqueria: 'Taquería Fiesta', bar: 'Bar Nocturno', moderna: 'Cafetería Moderna',
-      foodtruck: 'Food Truck', gamer: '🎮 Gamer & Arcade', otaku: '🌸 Otaku & Anime',
-      explosivo: '💥 Explosivo', infantil: '🎈 Infantil', alegre: '☀️ Alegre',
-      basketball: '🏀 Basketball', football: '⚽ Football', 'smash-urban': '🍔 Smash Urban',
-      'glass-gastro': '✨ Glass Gastro', ticket: '🧾 Ticket Térmico',
-      'helado-fiesta': '🍨 Fiesta de Helado', 'helado-crema': '🍦 Gelato Crema',
-      'helado-menta': '🍃 Menta Granizada', 'helado-tropical': '🥭 Sorbete Tropical',
-      'helado-fresa': '🍓 Fresa & Crema', 'helado-cielo': '☁️ Cielo Helado',
-      'helado-pastel': '🫧 Sorbete Pastel', gelateria: '🇮🇹 Gelateria',
-      'helado-pistacho': '🟢 Pistacchio', 'helado-dulce': '🍮 Dulce de Leche',
-      cioccolato: '🍫 Cioccolato', 'helado-mora': '🫐 Mora Noche'
+      foodtruck: 'Food Truck', gamer: 'Gamer & Arcade', otaku: 'Otaku & Anime',
+      explosivo: 'Explosivo', infantil: 'Infantil', alegre: 'Alegre',
+      basketball: 'Basketball', football: 'Football', 'smash-urban': 'Smash Urban',
+      'glass-gastro': 'Glass Gastro', ticket: 'Ticket Térmico',
+      'helado-fiesta': 'Fiesta de Helado', 'helado-crema': 'Gelato Crema',
+      'helado-menta': 'Menta Granizada', 'helado-tropical': 'Sorbete Tropical',
+      'helado-fresa': 'Fresa & Crema', 'helado-cielo': 'Cielo Helado',
+      'helado-pastel': 'Sorbete Pastel', gelateria: 'Gelateria',
+      'helado-pistacho': 'Pistacchio', 'helado-dulce': 'Dulce de Leche',
+      cioccolato: 'Cioccolato', 'helado-mora': 'Mora Noche'
     };
     const CLASSIC_THEMES = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football', 'smash-urban', 'glass-gastro', 'ticket'];
     const HELADERIA_THEMES_MENU = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora', 'helado-crema'];
@@ -296,7 +301,7 @@ Object.defineProperties(window, {
         panel.style.display = 'none';
         return;
       }
-      // El disparador 🎨 lo renderiza la barra de controles (I18nCurrencyManager):
+      // El disparador lo renderiza la barra de controles (I18nCurrencyManager):
       // puede no existir todavía en el primer render, pero el panel sí.
       if (fab) {
         fab.style.display = '';
@@ -321,20 +326,30 @@ Object.defineProperties(window, {
     function toggleDemoThemeBar() {
       const fab = document.getElementById('demoThemeFab');
       const panel = document.getElementById('demoThemePanel');
-      if (!panel) return;
+      if (!panel || !fab) return;
       const open = panel.style.display !== 'none';
       if (open) {
         panel.style.display = 'none';
-        panel.classList.remove('opens-up');
       } else {
         panel.style.display = 'block';
-        // Si la barra está cerca del borde inferior, el panel se abre hacia
-        // arriba para que se vean las opciones (en vez de quedar bajo el fold).
-        const fabRect = fab ? fab.getBoundingClientRect() : null;
-        const spaceBelow = fabRect ? window.innerHeight - fabRect.bottom - 12 : 0;
-        panel.classList.toggle('opens-up', panel.offsetHeight > spaceBelow);
+        // El panel cuelga del <body> con position:fixed (ningún stacking
+        // context del tema lo tapa) y se ubica junto al disparador.
+        const rect = fab.getBoundingClientRect();
+        const margin = 8;
+        const width = panel.offsetWidth;
+        const height = panel.offsetHeight;
+        const spaceBelow = window.innerHeight - rect.bottom - margin;
+        const openUp = height > spaceBelow && rect.top - margin > spaceBelow;
+        let left = rect.left;
+        if (left + width > window.innerWidth - margin) left = window.innerWidth - width - margin;
+        if (left < margin) left = margin;
+        let top = openUp ? rect.top - height - margin : rect.bottom + margin;
+        if (top < margin) top = margin;
+        if (top + height > window.innerHeight - margin) top = Math.max(margin, window.innerHeight - height - margin);
+        panel.style.left = left + 'px';
+        panel.style.top = top + 'px';
       }
-      if (fab) fab.setAttribute('aria-expanded', open ? 'false' : 'true');
+      fab.setAttribute('aria-expanded', open ? 'false' : 'true');
     }
     function setDemoTheme(theme) {
       if (!restaurantData || restaurantData.isDemo !== true) return;

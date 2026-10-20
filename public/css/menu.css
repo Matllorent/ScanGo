@@ -3387,29 +3387,34 @@
     .i18n-demo-theme {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      justify-content: center;
       flex: 0 0 auto;
-      padding: 3px 10px;
+      padding: 7px 16px;
       border-radius: 999px;
-      border: 1px solid var(--border-gold);
-      background: var(--chalk-gold-dim);
-      color: var(--chalk-gold-ink, var(--chalk-gold));
+      border: 1px solid rgba(0, 0, 0, 0.25);
+      background: var(--chalk-gold);
+      color: #101614;
       font-family: inherit;
-      font-size: 0.72rem;
-      font-weight: 700;
-      line-height: 1.4;
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      line-height: 1.2;
       cursor: pointer;
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.32);
+      transition: transform 0.15s ease, filter 0.15s ease;
     }
-    .i18n-demo-theme:hover { filter: brightness(1.08); }
+    .i18n-demo-theme:hover { filter: brightness(1.07); transform: translateY(-1px); }
+    .i18n-demo-theme:active { transform: translateY(0); }
     .i18n-demo-theme:focus-visible {
-      outline: 2px solid var(--chalk-gold-ink, var(--chalk-gold));
+      outline: 2px solid var(--chalk-white);
       outline-offset: 2px;
     }
-    .i18n-currency-bar { position: relative; }
+    /* Ticket térmico: su acento es rojo oscuro → texto claro encima. */
+    body.theme-ticket .i18n-demo-theme { color: #FFF8F0; }
+    /* El panel cuelga del <body> con position:fixed (lo posiciona menu.js):
+       así ningún stacking context del tema lo tapa. */
     #demoThemePanel {
-      position: absolute;
-      top: calc(100% + 6px);
-      left: 0;
+      position: fixed;
       z-index: 9000;
       width: min(320px, calc(100vw - 24px));
       max-height: 46vh;
@@ -3420,6 +3425,8 @@
       padding: 12px;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     }
+    /* glass-gastro usa surface-card translúcido: el panel necesita base sólida. */
+    body.theme-glass-gastro #demoThemePanel { background: #0C1626; }
     .i18n-demo-theme-head {
       display: flex;
       justify-content: space-between;
@@ -3438,7 +3445,6 @@
     }
     #demoThemePills { display: flex; flex-wrap: wrap; gap: 6px; }
     .i18n-demo-theme-foot { font-size: 0.7rem; opacity: 0.7; margin-top: 8px; }
-    #demoThemePanel.opens-up { top: auto; bottom: calc(100% + 6px); }
     .i18n-currency-icon { color: var(--chalk-dim); }
     .i18n-currency-select {
       background: transparent;
