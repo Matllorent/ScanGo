@@ -5190,6 +5190,51 @@
       padding: 2px 4px;
     }
     #demoThemePills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .demo-theme-section { margin-top: 10px; }
+    .demo-theme-section-label {
+      font-size: 9.5px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.75;
+      margin-bottom: 6px;
+      color: #EAF2EC;
+    }
+    .demo-neon-swatches { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+    .demo-neon-swatch {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      cursor: pointer;
+      padding: 0;
+      background: none;
+      transition: transform 0.15s ease;
+    }
+    .demo-neon-swatch:hover { transform: scale(1.12); }
+    .demo-neon-swatch[aria-pressed="true"] {
+      border: 2px solid #EAF2EC;
+      box-shadow: 0 0 0 3px rgba(234, 242, 236, 0.18);
+    }
+    .demo-neon-hexrow { display: flex; gap: 6px; align-items: center; }
+    .demo-neon-hexrow input[type="color"] {
+      width: 34px;
+      height: 30px;
+      padding: 2px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: transparent;
+      cursor: pointer;
+    }
+    .demo-neon-hexrow input[type="text"] {
+      width: 92px;
+      background: #131B17;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: #EAF2EC;
+      font-family: var(--font-mono, monospace);
+      font-size: 11px;
+      padding: 6px 8px;
+    }
     /* Pills del probador: clase propia (antes era 100% inline, sin trayecto
        de hover). Estados garantizados sobre la superficie fija del panel:
        inactivo = borde tenue claro; activo = estado a11y [aria-pressed] con

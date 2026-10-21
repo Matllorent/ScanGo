@@ -57,6 +57,7 @@ import {
   maybeOpenReviewFromLink as maybeOpenReviewFromLinkMod,
   flashDishCard as flashDishCardMod
 } from './menu/index.js';
+import { LAYOUT_IDS } from './menu/themeManifest.js';
 import { initModalA11y } from './modalA11y.js';
 import {
   analyzeCartContextForUpsell as analyzeCartContextForUpsellMod,
@@ -292,6 +293,19 @@ Object.defineProperties(window, {
       if (!restaurantData) return [];
       return restaurantData.businessType === 'heladeria' ? HELADERIA_THEMES_MENU : CLASSIC_THEMES;
     }
+    // Probador de temas del panel (nuevo): nombres cortos de morfología
+    // (ids SIEMPRE del espejo del manifest — cero drift) + los 6 presets
+    // de neón con su hex (el hex vive en el CSS del tema; acá es display).
+    const DEMO_LAYOUT_NAMES = {
+      classic: 'Clásica', bento: 'Bento', minimalist: 'Minimalista', neon: 'Neon Nightbar',
+      billboard: 'Billboard', ticker: 'Ticker', sticker: 'Sticker', delivery: 'Delivery',
+      stories: 'Stories', brutalist: 'Brutalista'
+    };
+    const DEMO_NEON_PRESETS = [
+      { key: 'mint', hex: '#00F5D4' }, { key: 'cyan', hex: '#38BDF8' },
+      { key: 'magenta', hex: '#FF3EA5' }, { key: 'amber', hex: '#FBBF24' },
+      { key: 'lime', hex: '#A3E635' }, { key: 'violet', hex: '#A78BFA' }
+    ];
     function renderDemoThemeBar() {
       const fab = document.getElementById('demoThemeFab');
       const panel = document.getElementById('demoThemePanel');
@@ -323,6 +337,88 @@ Object.defineProperties(window, {
         b.className = 'demo-theme-pill';
         b.setAttribute('data-js-click', 'setDemoTheme|' + t);
         pills.appendChild(b);
+      }
+      // Morfologías: el ?morph= es el mismo preview del dueño — la demo
+      // solo dispara el param en la URL y renderHeader() aplica.
+      const morphs = document.getElementById('demoMorphPills');
+      if (morphs) {
+        morphs.textContent = '';
+        let currentMorph = new URLSearchParams(window.location.search).get('morph');
+        if (!currentMorph || !LAYOUT_IDS.includes(currentMorph)) currentMorph = restaurantData.layout || 'classic';
+        for (const m of LAYOUT_IDS) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = DEMO_LAYOUT_NAMES[m] || m;
+          b.className = 'demo-theme-pill';
+          b.setAttribute('aria-pressed', m === currentMorph ? 'true' : 'false');
+          b.setAttribute('aria-label', 'Probar estilo de carta ' + (DEMO_LAYOUT_NAMES[m] || m));
+          b.setAttribute('data-js-click', 'setDemoMorph|' + m);
+          morphs.appendChild(b);
+        }
+      }
+      // Neón del Nightbar: 6 presets (pisia ?morph=neon + ?neon=key) y el
+      // HEX libre (mismos params; el normalizeNeonHex ya filtra lo invalido).
+      const swatches = document.getElementById('demoNeonSwatches');
+      if (swatches) {
+        swatches.textContent = '';
+        const params = new URLSearchParams(window.location.search);
+        const activeMain = (params.get('morph') || restaurantData.layout) === 'neon';
+        const activeHex = (normalizeNeonHexMod(params.get('neon')) || '').toUpperCase();
+        const inNeonLayout = document.body.classList.contains('layout-neon');
+        for (const p of DEMO_NEON_PRESETS) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'demo-neon-swatch';
+          b.style.background = p.hex;
+          b.setAttribute('aria-pressed', (inNeonLayout && activeMain && !activeHex && registryAccent(params.get('neon') || restaurantData.neonAccent) === p.key) ? 'true' : 'false');
+          b.title = 'Neón ' + p.key;
+          b.setAttribute('aria-label', 'Neón ' + p.key);
+          b.setAttribute('data-js-click', 'setDemoNeon|' + p.key);
+          swatches.appendChild(b);
+        }
+      }
+    }
+    function registryAccent(val) {
+      // Acepta la clave elegida; vacío resuelve lo guardado del local (demo → mint).
+      return resolveNeonAccentMod(String(val || restaurantData.neonAccent || 'mint'));
+    }
+    function applyDemoPreviewParam(param) {
+      try {
+        const url = new URL(window.location.href);
+        param(url.searchParams);
+        window.history.replaceState({}, '', url.toString());
+      } catch (e) {}
+      renderHeader();
+      renderDemoThemeBar();
+    }
+    function setDemoMorph(morph) {
+      if (!restaurantData || restaurantData.isDemo !== true) return;
+      const m = String(morph || '');
+      if (!LAYOUT_IDS.includes(m)) return; // lockdown: ids del manifest espejo
+      applyDemoPreviewParam((q) => q.set('morph', m));
+    }
+    function setDemoNeon(key) {
+      if (!restaurantData || restaurantData.isDemo !== true) return;
+      const k = registryAccent(String(key || ''));
+      if (!k) return;
+      const hex = (DEMO_NEON_PRESETS.find((p) => p.key === k) || {}).hex;
+      // Preset param + limpiar el color libre del panel (el preset manda).
+      const picker = document.getElementById('demoNeonHexPicker');
+      const text = document.getElementById('demoNeonHexText');
+      if (picker) picker.value = (hex || '#00F5D4').toLowerCase();
+      if (text) text.value = '';
+      applyDemoPreviewParam((q) => { q.set('morph', 'neon'); q.set('neon', k); });
+    }
+    function setDemoNeonHex(raw) {
+      if (!restaurantData || restaurantData.isDemo !== true) return;
+      const hex = normalizeNeonHexMod(raw);
+      const text = document.getElementById('demoNeonHexText');
+      const picker = document.getElementById('demoNeonHexPicker');
+      if (hex) {
+        if (text && text.value.toLowerCase() !== hex.toLowerCase()) text.value = hex.toUpperCase();
+        if (picker) picker.value = hex.toLowerCase();
+        // Hex vuelve a manda encima del preset (menuHeader pisa --neon inline).
+        applyDemoPreviewParam((q) => { q.set('morph', 'neon'); q.set('neon', hex); });
       }
     }
     function toggleDemoThemeBar() {
@@ -2334,6 +2430,9 @@ Object.defineProperties(window, {
       sendWaiterCall,
       toggleDemoThemeBar,
       setDemoTheme,
+      setDemoMorph,
+      setDemoNeon,
+      setDemoNeonHex,
       updateTableServiceUI,
       updateFabVisibility,
       applyFilterBarMode,
