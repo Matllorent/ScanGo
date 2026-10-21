@@ -589,6 +589,10 @@
     }
     .demo-card {
       min-width: 0;
+      /* Flex column: los párrafos tienen largos distintos por rubro, así el CTA
+         queda anclado a la BASE de la tarjeta y las 4 acciones empatan. */
+      display: flex;
+      flex-direction: column;
       background-color: var(--bg-dark);
       border: 1px solid var(--border-subtle);
       border-radius: 12px;
@@ -615,7 +619,8 @@
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
-      margin-top: 18px;
+      margin-top: auto; /* ancla el CTA a la base: alineación entre tarjetas */
+      padding-top: 18px;
     }
 
     /* --- CÓMO FUNCIONA · stepper horizontal con línea conectora ---
