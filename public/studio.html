@@ -566,7 +566,7 @@
                 "Classic Artisanal" conserva al 100% las 17 paletas auténticas. Las nuevas morfologías aplican un diseño estructural exclusivo de vanguardia.<br>
                 📖 <b>Modo dual Stories:</b> el QR de la mesa abre la carta clásica; compartí el link con <b>?morph=stories</b> (Instagram/WhatsApp) para que en casa vean las historias. El comensal también puede alternar con el botón 📖 de la carta.
               </div>
-              <!-- Acento Neón (sólo layout Neon Nightbar): 6 colores de glow + libre -->
+              <!-- Acento Neón (sólo layout Neon Nightbar): 6 colores de glow + HEX libre -->
               <div id="neonAccentRow" style="display:none; margin-top:10px;">
                 <label class="form-label" for="inputNeonAccent">🎨 Color Neón del Nightbar</label>
                 <select id="inputNeonAccent" class="form-select" data-js-change="updateLiveState">
@@ -576,14 +576,13 @@
                   <option value="amber">🥃 Ámbar Whisky</option>
                   <option value="lime">🍋 Lima Sour</option>
                   <option value="violet">🍇 Violeta Uva</option>
+                  <option value="custom">🎨 Color libre (HEX)</option>
                 </select>
                 <div class="input-hint" style="margin-top:4px;">Tiñe precios, títulos, bordes y botones del modo neón.</div>
-                <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:11px; color:var(--text-dim); cursor:pointer;">
-                  <input type="checkbox" id="inputNeonCustomEnabled" data-js-change="updateLiveState" style="width:16px; height:16px; accent-color:#00F5D4;">
-                  🎨 Usar color libre personalizado (pisa al preset)
-                </label>
                 <div id="neonCustomRow" style="display:none; margin-top:8px; align-items:center; gap:10px;">
-                  <input type="color" id="inputNeonCustomColor" value="#00F5D4" data-js-input="updateLiveState" style="width:44px; height:32px; padding:2px; border:1px solid var(--border); border-radius:8px; background:var(--bg-base); cursor:pointer;" aria-label="Elegir color neón libre">
+                  <input type="color" id="inputNeonCustomColor" value="#00F5D4" data-js-input="updateLiveState" style="width:44px; height:32px; padding:2px; border:1px solid var(--border); border-radius:8px; background:var(--bg-base); cursor:pointer;" aria-label="Elegir color neón libre (HEX)">
+                  <label for="inputNeonCustomText" class="sr-only" style="font-size:11px;">Color neón libre en hexadecimal</label>
+                  <input type="text" id="inputNeonCustomText" maxlength="7" placeholder="#00F5D4" data-js-input="updateLiveState" style="width:96px; font-family:var(--font-mono); font-size:11px; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--bg-base); color:var(--text);" aria-label="Color neón libre en hexadecimal (ej. #00F5D4)">
                   <span id="neonCustomHexLabel" style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">#00f5d4</span>
                 </div>
               </div>

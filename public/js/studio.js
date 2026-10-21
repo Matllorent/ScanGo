@@ -1095,23 +1095,32 @@ export function updateLiveState() {
     restaurant.theme = nextTheme;
   }
   if (el('inputThemeFont')) restaurant.themeFont = el('inputThemeFont').value;
-  // Acento neón (sólo layout neon; el backend valida el allowlist)
+  // Acento neón (sólo layout neon; el backend valida el allowlist).
+  // 'custom' NO se persiste como accent (el allowlist exige un preset):
+  // se guarda el preset previo/base 'mint' + neonCustomColor con el HEX.
   const neonSelect = el('inputNeonAccent');
-  if (neonSelect) restaurant.neonAccent = neonSelect.value || 'mint';
-  // Color neón libre (picker HEX): solo persiste marcado + #RRGGBB válido.
-  // Apagado o inválido → '' (manda el preset, sin override inline).
-  const neonCustomEnabled = el('inputNeonCustomEnabled');
+  const neonIsCustom = Boolean(neonSelect && neonSelect.value === 'custom');
+  if (neonSelect) restaurant.neonAccent = neonIsCustom ? 'mint' : (neonSelect.value || 'mint');
+  // Color neón libre (picker HEX + input de texto aún más rápido):
+  // solo persiste #RRGGBB válido con la opción custom activa.
   const neonPicker = el('inputNeonCustomColor');
+  const neonHexText = el('inputNeonCustomText');
+  // El text input manda editable: si escribe un HEX válido ahí, el picker lo sigue.
+  const textRaw = neonHexText ? String(neonHexText.value || '').trim() : '';
+  const textHex = /^#[0-9a-fA-F]{6}$/.test(textRaw) ? `#${textRaw.slice(1).toLowerCase()}` : '';
   const pickerRaw = neonPicker ? String(neonPicker.value || '').trim() : '';
   const pickerHex = /^#[0-9a-fA-F]{6}$/.test(pickerRaw) ? `#${pickerRaw.slice(1).toLowerCase()}` : '';
-  restaurant.neonCustomColor = (neonCustomEnabled && neonCustomEnabled.checked && pickerHex) ? pickerHex : '';
+  const neonHex = textHex || pickerHex;
+  if (textHex && neonPicker && neonPicker.value.toLowerCase() !== textHex) neonPicker.value = textHex;
+  if (neonPicker && !textHex && pickerHex) neonHexText && (neonHexText.value = pickerHex);
+  restaurant.neonCustomColor = (neonIsCustom && neonHex) ? neonHex : '';
   const hexLabel = document.getElementById('neonCustomHexLabel');
-  if (hexLabel) hexLabel.textContent = pickerHex || (neonPicker ? String(neonPicker.value || '') : '');
+  if (hexLabel) hexLabel.textContent = neonHex || '#00f5d4';
   const neonRow = document.getElementById('neonAccentRow');
   const isNeonLayout = Boolean(layoutSelect && layoutSelect.value === 'neon');
   if (neonRow) neonRow.style.display = isNeonLayout ? 'block' : 'none';
   const neonCustomRow = document.getElementById('neonCustomRow');
-  if (neonCustomRow) neonCustomRow.style.display = (isNeonLayout && neonCustomEnabled && neonCustomEnabled.checked) ? 'flex' : 'none';
+  if (neonCustomRow) neonCustomRow.style.display = (isNeonLayout && neonIsCustom) ? 'flex' : 'none';
 
   const bannerInput = el('inputBannerUrl');
   if (bannerInput && bannerInput.value.trim() && !restaurant.bannerUrl?.startsWith('data:')) {
@@ -1334,12 +1343,12 @@ export function renderStudioUI() {
   updateLayoutCapabilityRows();
   if (el('inputThemeBg')) el('inputThemeBg').value = restaurant.theme || 'emerald';
   if (el('inputThemeFont')) el('inputThemeFont').value = restaurant.themeFont || 'serif';
-  if (el('inputNeonAccent')) el('inputNeonAccent').value = restaurant.neonAccent || 'mint';
-  // Color libre: checkbox marcado + picker con el hex guardado (o menta default).
+  // Color libre: opción 'custom' del select + picker/text con el hex guardado.
   const storedCustomRaw = String(restaurant.neonCustomColor || '').trim();
   const storedCustom = /^#[0-9a-fA-F]{6}$/.test(storedCustomRaw) ? `#${storedCustomRaw.slice(1).toLowerCase()}` : '';
-  if (el('inputNeonCustomEnabled')) el('inputNeonCustomEnabled').checked = Boolean(storedCustom);
+  if (el('inputNeonAccent')) el('inputNeonAccent').value = storedCustom ? 'custom' : (restaurant.neonAccent || 'mint');
   if (el('inputNeonCustomColor')) el('inputNeonCustomColor').value = storedCustom || '#00F5D4';
+  if (el('inputNeonCustomText')) el('inputNeonCustomText').value = storedCustom || '';
   const storedHexLabel = document.getElementById('neonCustomHexLabel');
   if (storedHexLabel) storedHexLabel.textContent = storedCustom || '#00f5d4';
   const neonRowLoad = document.getElementById('neonAccentRow');

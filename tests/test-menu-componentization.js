@@ -749,8 +749,8 @@ async function runMenuComponentizationTests() {
   // Studio: selector visible solo en neon + save/load + backend allowlist
   assert.ok(studioHtmlSrc.includes('id="inputNeonAccent"'), 'Studio: selector de acento');
   assert.ok(studioHtmlSrc.includes('value="magenta"') && studioHtmlSrc.includes('value="violet"'), 'Studio: las 6 opciones');
-  assert.ok(studioSrc.includes("restaurant.neonAccent = neonSelect.value || 'mint'"), 'Studio: guarda el acento');
-  assert.ok(studioSrc.includes("el('inputNeonAccent').value = restaurant.neonAccent"), 'Studio: pobla el acento');
+  assert.ok(studioSrc.includes("restaurant.neonAccent = neonIsCustom ? 'mint' : (neonSelect.value || 'mint')"), 'Studio: guarda el acento (custom no se persiste como accent, el allowlist exige preset)');
+  assert.ok(studioSrc.includes("el('inputNeonAccent').value = storedCustom ? 'custom' : (restaurant.neonAccent"), 'Studio: pobla el acento (custom si hay HEX guardado)');
   assert.ok(studioSrc.includes("layoutSelect.value === 'neon'"), 'Studio: fila visible solo en neon');
   const sanitizeBe = require('../api/utils/sanitizeRestaurant.js');
   assert.strictEqual(sanitizeBe.sanitizeRestaurantPayload({ name: 'T', neonAccent: 'amber' }).neonAccent, 'amber', 'Backend: ámbar pasa');
@@ -771,7 +771,7 @@ async function runMenuComponentizationTests() {
   assert.ok(!menuSrc.includes('resolveNeonCustomColorMod'), 'menu.js ya no usa el alias');
   assert.ok(menuSrc.includes('neonHexToRgbMod'), 'menu.js importa el conversor rgb');
   assert.ok(headerModSrc24.includes("setProperty('--neon'"), 'menuHeader.js pisa --neon inline con el libre');
-  assert.ok(studioHtmlSrc.includes('id="inputNeonCustomEnabled"'), 'Studio: toggle de color libre');
+  assert.ok(studioHtmlSrc.includes('<option value="custom">'), 'Studio: opción "Color libre (HEX)" directa en el select (sin checkbox intermedio)');
   assert.ok(studioHtmlSrc.includes('id="inputNeonCustomColor"'), 'Studio: picker de color libre');
   assert.ok(studioSrc.includes('restaurant.neonCustomColor'), 'Studio: guarda el libre');
   assert.ok(studioSrc.includes("el('inputNeonCustomColor')"), 'Studio: puebla el picker');
