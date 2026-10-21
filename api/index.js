@@ -41,6 +41,7 @@ const accountRouter = require('./routes/account');
 const billingDunningRouter = require('./cron/billing-dunning');
 const telemetryRetentionRouter = require('./cron/telemetry-retention');
 const seoAuditCronRouter = require('./cron/seo-audit');
+const reviewNudgeCronRouter = require('./cron/review-nudge');
 
 const app = express();
 // Detrás de Vercel (proxy) el req.ip real llega por X-Forwarded-For (Vercel lo
@@ -364,6 +365,7 @@ app.use('/', discoveryRouter);
 app.use('/api/cron', billingDunningRouter);
 app.use('/api/cron', telemetryRetentionRouter);
 app.use('/api/cron', seoAuditCronRouter);
+app.use('/api/cron', reviewNudgeCronRouter);
 
 // Protected routes: require active subscription (Billing operations)
 // IMPORTANTE: sólo aplica a rutas /api/billing montadas DESPUÉS de esta línea.

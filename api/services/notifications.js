@@ -1,6 +1,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 const { getSupabaseClient } = require('../utils/supabase');
 const AppError = require('../utils/AppError');
 const { retryQueue } = require('../utils/retryQueue');
@@ -419,6 +420,65 @@ const notificationsService = {
   async unreadNotificationCount(restaurantId) {
     const events = await this.listNotificationEvents({ restaurantId, limit: 500 });
     return events.filter(e => !e.isRead).length;
+  },
+
+  /**
+   * Dedupe del nudge de reseña (R2): ¿ya se le pidió reseña a este pedido?
+   * Marca en notification_events (type `review_nudge_request`, data.orderId).
+   * Consulta nube + espejo local: el cron diario puede correr en cualquier
+   * réplica de Vercel, el dedupe debe ser global, no memoria de proceso.
+   */
+  async hasOrderReviewNudge(orderId) {
+    if (!orderId) return false;
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('notification_events')
+          .select('id')
+          .eq('type', 'review_nudge_request')
+          .eq('data->>orderId', String(orderId))
+          .limit(1);
+        if (!error && data && data.length > 0) return true;
+        if (error) console.warn('[Supabase Review Nudge Dedupe Warning]', error.message);
+      } catch (e) {
+        console.warn('[Supabase Review Nudge Dedupe Exception]', e.message);
+      }
+    }
+    return readNotificationEvents().some(
+      e => e && e.type === 'review_nudge_request' && e.data && e.data.orderId === orderId
+    );
+  },
+
+  /** Graba el marcador de reseña pedida (espejo local + nube best-effort). */
+  async recordOrderReviewNudge({ restaurantId, orderId }) {
+    if (!orderId) return null;
+    // El marcador se persiste LOCAL siempre (cierre de ventana dedupe);
+    // la nube viaja por retryQueue como el resto de los eventos.
+    const events = readNotificationEvents();
+    if (events.some(e => e && e.type === 'review_nudge_request' && e.data && e.data.orderId === orderId)) {
+      return events.find(e => e.type === 'review_nudge_request' && e.data && e.data.orderId === orderId);
+    }
+    const ev = {
+      id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : `rn_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+      restaurantId: restaurantId || null,
+      branchId: null,
+      type: 'review_nudge_request',
+      title: 'Solicitud de reseña enviada',
+      body: 'Email post-entrega (day-after).',
+      data: { orderId: String(orderId) },
+      isRead: true, // marcador de dedupe, no es un aviso para el inbox del dueño
+      createdAt: new Date().toISOString()
+    };
+    await writeNotificationEvents([...events, ev]);
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      retryQueue.enqueue(async () => {
+        const { error } = await supabase.from('notification_events').upsert([toEventCloudRow(ev)], { onConflict: 'id' });
+        if (error) throw new Error(error.message);
+      }, { taskName: 'review_nudge_record_replicate' });
+    }
+    return ev;
   },
 
   /** Marca un evento como leído (solo del propio restaurante). */

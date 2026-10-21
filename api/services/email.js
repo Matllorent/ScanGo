@@ -186,8 +186,38 @@ const emailService = {
   /**
    * Send Promotional Campaign Email to Clients
    */
-  async sendPromotionalEmail({ to, subject, body, restaurantName, promoCode, promoLink }) {
-    // CAN-SPAM §5(4)+(5): honoring opt-outs no es opcional. Quien pidió la baja
+  /**
+   * Send Review Request Email (R2 — "el día siguiente")
+   * Email CONDUCTUAL post-entrega: se envía ~24h después de un pedido
+   * entregado vía cron /api/cron/review-nudge. El link SIEMPRE apunta al
+   * EMBUDO NEUTRAL de reseñas (4-5★ → Google, 1-3★ → feedback privado):
+   * jamás pide "una reseña de 5 estrellas" (Google penaliza pedir solo
+   * positivas y es la política del producto). Respeta opt-outs como toda
+   * campaña: pidió la baja no recibe ni esto.
+   */
+  async sendReviewRequestEmail({ to, customerName, restaurantName, reviewUrl }) {
+    if (!to || !reviewUrl) {
+      throw new AppError('El destinatario (to) y el link (reviewUrl) son requeridos', 400, 'MISSING_EMAIL_FIELDS');
+    }
+    if (isOptedOut(to)) {
+      console.log(`[Email] Review request skipped (opt-out): ${maskEmailList(to)}`);
+      return { provider: 'local_mock', success: true, skipped: true, reason: 'OPT_OUT' };
+    }
+    const place = restaurantName || 'tu local favorito';
+    const who = customerName ? `${customerName}, ` : '';
+    const html = `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
+        <h2>¿Cómo estuvo tu experiencia en ${place}?</h2>
+        <p>Hola ${who}pediste en ${place} y queremos saber cómo te fue.</p>
+        <p>Si salió rico, contanos; si algo falló, contanos también. Tu opinión llega directo al dueño.</p>
+        <p><a href="${reviewUrl}" style="background: #059669; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Contar mi experiencia</a></p>
+        <p style="font-size: 12px; color: #64748b;">Tu opinión ayuda a ${place} a mejorar cada semana.</p>
+      </div>
+    `;
+    return this.sendEmail({ to, subject: `¿Cómo estuvo tu experiencia en ${place}?`, html });
+  },
+
+  async sendPromotionalEmail({ to, subject, body, restaurantName, promoCode, promoLink }) {    // CAN-SPAM §5(4)+(5): honoring opt-outs no es opcional. Quien pidió la baja
     // no recibe NINGÚN envío comercial, aunque llegue por otra campaña.
     if (isOptedOut(to)) {
       console.log(`[Email] Promo skipped (opt-out): ${maskEmailList(to)}`);
