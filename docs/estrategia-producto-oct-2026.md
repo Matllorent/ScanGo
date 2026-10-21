@@ -95,3 +95,4 @@ Orden por impacto/esfuerzo. Todo apalancado en infra existente.
 3. **Agotados con memoria** (small) → autonomía del dueño.
 4. **Footer viral del QR + kit impreso** (small) → canal de adquisición perpetuo.
 5. Plan $19 "Crece" DESPUÉS: cuando KDS + Reservas estén, el bundle se vende solo.
+6. Cola F5–F8 (post F4, ver `docs/inspiracion-robos-oct-2026.md`): tendencia honesta (chip de me&u sobre nuestro popTier), estaciones de cocina (chips del KDS), estimación honesta de preparación (data real de `status_updated_at`) y cupón de recupero (R1 + motor de cupones existente).
