@@ -971,32 +971,332 @@
         linear-gradient(160deg, rgba(255, 255, 255, 0.012) 0%, transparent 40%);
     }
     /* Tarjetas: radios suaves + sombra profunda sutil (rounded-2xl feel) */
-    body.theme-moderna .dish-card {
-      border-radius: 16px;
-      border-color: rgba(243, 234, 221, 0.08);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    /* ============================================================
+       MODERNA — "Cafetería Moderna" · concepto "LA CARTA DE LA BARRA"
+       Rediseño morfológico oct-2026: la carta es TIPOGRAFÍA, no tarjetas.
+       Referente: la lista corrida de las cafeterías de especialidad de
+       barra fina (Wendelboe, Onibus, La Cabra): nombre + línea de puntos
+       + precio tabular alineado en la misma línea, descripción en tinta
+       calma debajo, meta-divisas como texto mínimo, y las fotos fuera de
+       la fila (viven en el detalle/chef/stories). Cabeceras de categoría
+       como palabras display con regla fina. El cobre queda RESERVADO a
+       estados interactivos (activo de categoría, hover del CTA): nada de
+       precios dorados — todos los demás temas son dorados.
+
+       Paleta (contraste verificado a mano, AA):
+         · carbón mate  #171310 (fondo; latte encima ~15.5:1)
+         · espresso     #241B15 (modals/superficies; latte 13.9:1)
+         · crema latte  #F3EADD (texto principal ~15.5:1 bg / 13.9:1 card)
+         · leche espuma #DCCDBB (secundario ~9.6:1 bg / 8.6:1 card)
+         · taza grande  #A99883 (terciario/dim ~6.8:1 bg / 6.1:1 card)
+         · cobre suave  #D6A171 (acento ~8.1:1 bg; precio reforzado #E5B078)
+       Voz tipográfica: Plus Jakarta Sans 800 (auto-hospedada) para el
+       display del tema; el --font-heading del owner sigue mandando en lo
+       demás (mantenemos su selector). Sin gradientes decorativos.
+       La morfología de lista vive SOLO en layout-classic (patrón
+       explosivo); el resto de layouts recibe únicamente la paleta.
+       ============================================================ */
+    body.theme-moderna {
+      --bg-chalkboard: #171310;
+      --surface-card: #241B15;
+      --surface-card-hover: #2F241D;
+      --chalk-white: #F3EADD;
+      --chalk-muted: #DCCDBB;
+      --chalk-dim: #A99883;
+      --chalk-gold: #D6A171;
+      --chalk-gold-ink: #E5B078;
+      --chalk-leaf: #A3B18A;
+      --border-chalk: rgba(243, 234, 221, 0.12);
+      --border-gold: rgba(214, 161, 113, 0.45);
+      background-color: #171310;
+      background-image: none;
     }
-    body.theme-moderna .dish-card:hover {
-      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
-      border-color: rgba(201, 138, 84, 0.35);
-    }
-    /* Foto del producto protagonista dentro de la card */
-    body.theme-moderna .dish-image {
-      border-radius: 12px;
-      border: 1px solid rgba(201, 138, 84, 0.2);
-      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
-    }
-    /* CTA de venta rápido: pill moderna (antes círculo) */
-    body.theme-moderna .btn-add { border-radius: 12px; }
-    body.theme-moderna .btn-add:hover { filter: brightness(1.08); }
-    /* Header: espresso con luz de barra, sin slab ruidoso */
+
+    /* ── Identidad del tema (cualquier layout): header de barra + voz 800 ── */
     body.theme-moderna .menu-header {
-      background: linear-gradient(180deg, #211813 0%, #171310 100%);
-      border-bottom: 1px solid rgba(201, 138, 84, 0.25);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      background: #171310;
+      border-bottom: 1px solid rgba(214, 161, 113, 0.28);
+      box-shadow: none;
+      padding: 30px 16px 24px;
     }
-    body.theme-moderna .restaurant-title { letter-spacing: 0.02em; }
-    body.theme-moderna .cat-pill { border-radius: 999px; }
+    body.theme-moderna .restaurant-title {
+      font-family: 'Plus Jakarta Sans', 'Montserrat', sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.85rem, 6.5vw, 2.35rem);
+      letter-spacing: -0.025em;
+      color: var(--chalk-white);
+    }
+    body.theme-moderna .restaurant-slogan {
+      color: var(--chalk-muted);
+      font-size: 1.15rem;
+    }
+    body.theme-moderna .restaurant-logo {
+      width: 52px;
+      height: 52px;
+      border: 1px solid rgba(243, 234, 221, 0.25);
+      background: #241B15;
+    }
+    /* Meta de la barra: sin píldoras ni cajitas — texto en calma */
+    body.theme-moderna .meta-chip {
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      padding: 4px 6px;
+      color: var(--chalk-muted);
+    }
+    body.theme-moderna .meta-chip:hover {
+      background: rgba(243, 234, 221, 0.06);
+      color: var(--chalk-white);
+    }
+    body.theme-moderna .meta-chip-reserve {
+      background: transparent;
+      color: var(--chalk-gold);
+      text-decoration: underline;
+      text-decoration-color: rgba(214, 161, 113, 0.7);
+      text-decoration-thickness: 1.5px;
+      text-underline-offset: 6px;
+    }
+    body.theme-moderna .meta-chip-reserve:hover { background: rgba(214, 161, 113, 0.1); }
+    /* Anillos rápidos de categorías: hairline porcelana, nada de arcoíris */
+    body.theme-moderna .st-ring-face {
+      border-width: 1.5px;
+      background:
+        linear-gradient(#1B1613, #1B1613) padding-box,
+        linear-gradient(180deg, rgba(243, 234, 221, 0.4), rgba(243, 234, 221, 0.1)) border-box;
+    }
+    body.theme-moderna .st-ring-label { color: var(--chalk-dim); }
+    body.theme-moderna .st-ring:focus-visible {
+      outline: 2px solid var(--chalk-gold);
+      outline-offset: 2px;
+      border-radius: 50%;
+    }
+    /* Mozo: puck espresso con anillo fino (nada de naranja chillón) */
+    body.theme-moderna .waiter-fab {
+      background: #241B15;
+      color: var(--chalk-white);
+      border: 1px solid rgba(243, 234, 221, 0.3);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+    }
+    body.theme-moderna .waiter-fab:hover {
+      transform: scale(1.08);
+      box-shadow: 0 8px 26px rgba(0, 0, 0, 0.6);
+    }
+    body.theme-moderna .announcement-banner {
+      background: #241B15;
+      color: var(--chalk-muted);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-chalk);
+    }
+    /* Buscador: una sola regla fina (input de barra, no cajita) */
+    body.theme-moderna .search-box {
+      background: transparent;
+      border: 0;
+      border-bottom: 1px solid var(--border-chalk);
+      border-radius: 0;
+      padding: 10px 2px;
+      color: var(--chalk-white);
+      font-size: 0.95rem;
+    }
+    body.theme-moderna .search-box:focus {
+      border-bottom-color: var(--chalk-gold);
+      outline: none;
+    }
+    body.theme-moderna .search-box::placeholder { color: var(--chalk-dim); }
+    /* Categorías de la barra: texto, no píldoras. Activa = subrayado cobre. */
+    body.theme-moderna .cat-pill {
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      padding: 6px 10px;
+      color: var(--chalk-dim);
+      font-weight: 500;
+      font-size: 0.85rem;
+      letter-spacing: 0.01em;
+    }
+    body.theme-moderna .cat-pill:hover { color: var(--chalk-muted); }
+    body.theme-moderna .cat-pill.active {
+      background: transparent;
+      color: var(--chalk-white);
+      font-weight: 700;
+      text-decoration-line: underline;
+      text-decoration-color: var(--chalk-gold);
+      text-decoration-thickness: 2px;
+      text-underline-offset: 10px;
+    }
+    body.theme-moderna .cat-pill:focus-visible {
+      outline: 2px solid var(--chalk-gold);
+      outline-offset: 4px;
+    }
+    /* Chef specials: franja editorial sin dorado chillón */
+    body.theme-moderna .chef-specials-section {
+      background: transparent;
+      border: 0;
+      border-top: 1px solid var(--border-chalk);
+      border-bottom: 1px solid var(--border-chalk);
+      border-radius: 0;
+      padding: 16px 0;
+    }
+    body.theme-moderna .chef-specials-title {
+      font-family: 'Plus Jakarta Sans', 'Montserrat', sans-serif;
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: var(--chalk-white);
+      text-shadow: none;
+    }
+    body.theme-moderna .chef-special-card {
+      background: var(--surface-card);
+      border-color: var(--border-chalk);
+      border-radius: 0;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+    body.theme-moderna .chef-special-card:hover { border-color: var(--border-gold); }
+    body.theme-moderna .chef-special-name {
+      font-family: 'Plus Jakarta Sans', 'Montserrat', sans-serif;
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+    body.theme-moderna .chef-special-price { color: var(--chalk-white); }
+    body.theme-moderna .chef-badge-gold {
+      background: transparent;
+      border-color: var(--border-chalk);
+      border-radius: 0;
+    }
+    body.theme-moderna .chef-specials-carousel { scrollbar-color: rgba(214, 161, 113, 0.35) transparent; }
+
+    /* ============================================================
+       "LA CARTA DE LA BARRA" — morfología de lista (solo layout-classic)
+       ============================================================ */
+    body.theme-moderna.layout-classic .menu-container { max-width: 620px; }
+    body.theme-moderna.layout-classic .category-section { margin-bottom: 44px; }
+    /* Cabecera de categoría: palabra display + regla fina completa */
+    body.theme-moderna.layout-classic .category-title {
+      font-family: 'Plus Jakarta Sans', 'Montserrat', sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.55rem, 5.5vw, 1.9rem);
+      letter-spacing: -0.02em;
+      color: var(--chalk-white);
+      border-bottom: 1px solid rgba(243, 234, 221, 0.14);
+      padding-bottom: 10px;
+      margin-bottom: 4px;
+    }
+    body.theme-moderna.layout-classic .category-badge-count {
+      font-family: inherit;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--chalk-dim);
+    }
+    body.theme-moderna.layout-classic .dishes-grid {
+      display: block;
+      gap: 0;
+    }
+    body.theme-moderna.layout-classic .dishes-grid .dish-card { contain-intrinsic-size: auto 108px; }
+    /* La fila: tipografía corrida, hairline como único adorno */
+    body.theme-moderna.layout-classic .dish-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      column-gap: 16px;
+      row-gap: 2px;
+      align-items: start;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      border-bottom: 1px solid rgba(243, 234, 221, 0.08);
+      box-shadow: none;
+      padding: 18px 0;
+      transition: border-color 0.2s ease;
+    }
+    body.theme-moderna.layout-classic .dish-card:hover {
+      background: transparent;
+      border-bottom-color: rgba(214, 161, 113, 0.35);
+    }
+    /* La foto no compite con el texto: vive en el detalle especial */
+    body.theme-moderna.layout-classic .dish-thumb { display: none; }
+    /* El cuerpo se disuelve: sus hijos pasan a la grilla de la fila */
+    body.theme-moderna.layout-classic .dish-body,
+    body.theme-moderna.layout-classic .dish-title-line { display: contents; }
+    body.theme-moderna.layout-classic .dish-name {
+      grid-column: 1;
+      grid-row: 1;
+      display: flex;
+      align-items: baseline;
+      font-size: 1.06rem;
+      font-weight: 600;
+      letter-spacing: -0.005em;
+      color: var(--chalk-white);
+    }
+    /* Línea de puntos del menú fino, entre texto y precio */
+    body.theme-moderna.layout-classic .dish-name::after {
+      content: "";
+      flex: 1 1 12px;
+      margin: 0 0 0 10px;
+      border-bottom: 1px dotted rgba(243, 234, 221, 0.28);
+      transform: translateY(-3px);
+    }
+    body.theme-moderna.layout-classic .dish-price {
+      grid-column: 2;
+      grid-row: 1;
+      justify-self: end;
+      align-self: baseline;
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--chalk-white);
+      letter-spacing: 0.01em;
+    }
+    body.theme-moderna.layout-classic .dish-price span { color: var(--chalk-dim); }
+    body.theme-moderna.layout-classic .dish-desc {
+      grid-column: 1;
+      grid-row: 2;
+      margin: 5px 0 0;
+      max-width: 46ch;
+      color: var(--chalk-muted);
+      font-size: 0.85rem;
+      line-height: 1.45;
+    }
+    /* El +: circulito (puck de tamper), hairline — el cobre solo en hover */
+    body.theme-moderna.layout-classic .dish-action {
+      grid-column: 2;
+      grid-row: 2;
+      justify-self: end;
+    }
+    body.theme-moderna.layout-classic .dish-card .btn-add {
+      background: transparent;
+      color: var(--chalk-white);
+      border: 1px solid rgba(243, 234, 221, 0.25);
+      width: 34px;
+      height: 34px;
+      font-size: 1.05rem;
+    }
+    body.theme-moderna.layout-classic .dish-card .btn-add:hover {
+      background: var(--chalk-white);
+      color: #171310;
+      border-color: transparent;
+    }
+    body.theme-moderna.layout-classic .qty-counter {
+      color: var(--chalk-dim);
+      font-weight: 500;
+      font-size: 0.72rem;
+    }
+    /* Meta-divisas: texto mínimo en calma (el color del tema no grita) */
+    body.theme-moderna.layout-classic .dish-badge {
+      grid-column: 1 / -1;
+      background: transparent !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      padding: 0 !important;
+      margin: 6px 0 0;
+      color: var(--chalk-dim) !important;
+      font-size: 0.66rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      width: fit-content;
+    }
+    /* Agotado: tachado del nombre + texto en calma ya bastan */
+    body.theme-moderna.layout-classic .dish-card.dish-sold .dish-badge {
+      color: var(--chalk-muted) !important;
+    }
     body.theme-foodtruck {
       --bg-chalkboard: #141414;
       --surface-card: #202020;

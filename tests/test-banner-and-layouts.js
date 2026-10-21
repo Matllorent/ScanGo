@@ -342,6 +342,16 @@ async function runTests() {
   assert.ok(/body\.theme-moderna\s*\{[^}]*--chalk-gold:\s*#D6A171/.test(menuCss), 'Cafetería Moderna: acento cobre suave #D6A171');
   assert.ok(/body\.theme-moderna\s*\{[^}]*--chalk-white:\s*#F3EADD/.test(menuCss), 'Cafetería Moderna: texto crema latte #F3EADD');
   assert.ok(/body\.theme-moderna\s*\{[^}]*--chalk-gold-ink:\s*#E5B078/.test(menuCss), 'Cafetería Moderna: precio reforzado #E5B078 (mayor contraste sobre card)');
+  // Morfología "La carta de la barra" (rediseño oct-2026): lista tipográfica
+  // corrida scoped a layout-classic — las cards mueren, la tipografía manda.
+  assert.ok(/body\.theme-moderna\s*\{[^}]*background-image:\s*none/.test(menuCss), 'moderna: sin gradientes decorativos (fondo plano)');
+  assert.ok(/body\.theme-moderna\.layout-classic \.dish-card\s*\{[^}]*background:\s*transparent/.test(menuCss), 'moderna/classic: cards transparentes (lista, no cajas)');
+  assert.ok(/body\.theme-moderna\.layout-classic [^{]*\.dish-name\s*\{[^}]*display:\s*flex/.test(menuCss) && menuCss.includes('body.theme-moderna.layout-classic .dish-name::after'), 'moderna/classic: línea de puntos entre nombre y precio');
+  assert.ok(/body\.theme-moderna\.layout-classic \.dish-body,\s*body\.theme-moderna\.layout-classic \.dish-title-line\s*\{[^}]*display:\s*contents/.test(menuCss), 'moderna/classic: cuerpo disuelto en la grilla de la fila (name+precio misma línea)');
+  assert.ok(/body\.theme-moderna\.layout-classic [^{]*\.dish-price\s*\{[^}]*color:\s*var\(--chalk-white\)/.test(menuCss), 'moderna/classic: precio en tinta porcelana (no dorado como el resto de temas)');
+  assert.ok(/body\.theme-moderna\.layout-classic [^{]*\.dish-thumb\s*\{[^}]*display:\s*none/.test(menuCss), 'moderna/classic: miniatura fuera de la fila (la foto vive en el detalle)');
+  assert.ok(/body\.theme-moderna \.cat-pill\s*\{[^}]*border:\s*0/.test(menuCss), 'moderna: categorías como texto (sin píldora), activo con subrayado del tema');
+  assert.ok(/body\.theme-moderna\.layout-classic \.category-title\s*\{[^}]*Plus Jakarta Sans/.test(menuCss), 'moderna: cabecera de categoría display Plus Jakarta 800');
   console.log('✓ Panel de temas tema-agnóstico (fix crema-sobre-crema en explosivo) + Cafetería Moderna café de especialidad (cobre/carbón, AA)');
 
   console.log('\n🎉 ¡TODAS LAS VERIFICACIONES DE BANNER Y MORFOLOGÍAS PASARON AL 100%!');
