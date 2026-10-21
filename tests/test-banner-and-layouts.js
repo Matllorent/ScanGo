@@ -419,6 +419,21 @@ async function runTests() {
   assert.ok(/body\.theme-emerald\s*\{[^}]*--surface-card:\s*#12382B/.test(menuCss) && /body\.theme-emerald\s*\{[^}]*--chalk-dim:\s*#A9C8B8/.test(menuCss), 'emerald: beryl más profundo de superficie + dim beryl (AA sobre la faceta más clara)');
   console.log('✓ Tema Emerald "EL BERILO": fondo tallado (facetas conic + vetas + haz de luz + inclusiones), cards con chaflán de diamante y gema engastada (AA)');
 
+  // ─────────────────────────────────────────────────────────────
+  // §3j — NIGHTBAR (layout-neon, morfología completa)
+  // ─────────────────────────────────────────────────────────────
+  assert.ok(/body\.layout-neon\s*\{\s*background:\s*\n?\s*radial-gradient\(9px circle at 12% 8%/.test(menuCss) && /background-color:\s*#070B0A;/.test(menuCss), 'neon NIGHTBAR: la sala a oscuras con bokeh de luces ambientales (3 capas) — shorthand + background-color al final');
+  assert.ok(/radial-gradient\(ellipse 85% 40% at 50% 0%, rgba\(var\(--neon-rgb\), 0\.08\)/.test(menuCss) && /linear-gradient\(180deg, transparent 0 78%/.test(menuCss), 'neon NIGHTBAR: el tinte del tubo llena la pared arriba y el piso refleja el glow abajo');
+  assert.ok(/body\.layout-neon \.restaurant-title\s*\{\s*animation:\s*neonTubeFlicker/.test(menuCss) && /@keyframes neonTubeFlicker/.test(menuCss) && /prefers-reduced-motion: reduce\)\s*\{\s*body\.layout-neon \.restaurant-title\s*\{\s*animation:\s*none/.test(menuCss), 'neon NIGHTBAR: parpadeo sutil del cartel (9s) que se apaga con prefers-reduced-motion');
+  assert.ok(/body\.layout-neon \.restaurant-title::after\s*\{[^}]*height:\s*2px/.test(menuCss) && /body\.layout-neon \.restaurant-title::after\s*\{[^}]*background:\s*var\(--neon\)/.test(menuCss), 'neon NIGHTBAR: tubo de bajada del cartel bajo el nombre');
+  assert.ok(/body\.layout-neon \.category-title::before\s*\{[^}]*width:\s*6px/.test(menuCss) && /body\.layout-neon \.category-title::after\s*\{[^}]*linear-gradient\(90deg, var\(--neon\)/.test(menuCss), 'neon NIGHTBAR: cabeceras = tubos de letrero (soporte de porcelana + barra que se apaga)');
+  assert.ok(/body\.layout-neon \.btn-add\s*\{[^}]*background:\s*#0B110F/.test(menuCss) && /body\.layout-neon \.btn-add:hover\s*\{[^}]*background:\s*var\(--neon\)/.test(menuCss), 'neon NIGHTBAR: el botón + es el tubo APAGADO que se enciende al hover (aro over vidrio → llenado)');
+  assert.ok(/body\.layout-neon \.cat-pill\.active,\s*body\.layout-neon \.cat-pill\[aria-pressed="true"\]/.test(menuCss) && /background:\s*var\(--neon\) !important;\s*\n\s*color:\s*#070B0A !important;/.test(menuCss), 'neon NIGHTBAR: pill activa = tubo encendido (ink sobre neón, !important gana al inline de Populares)');
+  assert.ok(/body\.layout-neon \.floating-cart-bar\s*\{[^}]*border:\s*1\.5px solid var\(--neon\)/.test(menuCss) && /body\.layout-neon \.floating-cart-bar\s*\{[^}]*border-radius:\s*999px/.test(menuCss) && /body\.layout-neon \.floating-cart-bar #cartTotalBadge\s*\{[^}]*color:\s*var\(--neon\)/.test(menuCss), 'neon NIGHTBAR: la barra del carrito es el alumbrado de la barra (píldora negra + aro de neón + LED del acento)');
+  assert.ok(/body\.layout-neon \.chef-specials-section\s*\{[^}]*border:\s*1px solid rgba\(var\(--neon-rgb\), 0\.25\)/.test(menuCss) && /body\.layout-neon \.total-summary \.summary-row span\.total-amount\s*\{[^}]*color:\s*var\(--neon\)/.test(menuCss), 'neon NIGHTBAR: vidriera de promos con aro + total del checkout en LED del acento');
+  assert.ok(/body\.layout-neon \.dish-card\s*\{[^}]*position:\s*relative/.test(menuCss) && /body\.layout-neon \.dish-card::after\s*\{[^}]*inset:\s*0/.test(menuCss), 'neon NIGHTBAR: bicó de vidrio — aro interior de luz (inset 0, pointer-events none)');
+  console.log('✓ Layout Neon "NIGHTBAR": bokeh ambiental, cartel con tubo y parpadeo, cabeceras-tubo, botón que se enciende, píldora de carrito con aro (AA)');
+
   console.log('\n🎉 ¡TODAS LAS VERIFICACIONES DE BANNER Y MORFOLOGÍAS PASARON AL 100%!');
 }
 
