@@ -435,12 +435,16 @@
       color: #101614;
     }
     body.theme-emerald {
-      --bg-chalkboard: #151D1A;
-      --surface-card: #1D2824;
-      --surface-card-hover: #24322D;
+      /* EL BERILO: la paleta profundiza a beryl tallado. El tratamiento
+         facetado completo vive más abajo (sección "EL BERILO"). */
+      --bg-chalkboard: #0C2C21;
+      --surface-card: #12382B;
+      --surface-card-hover: #174233;
       --chalk-gold: #ECC94B;
+      --chalk-white: #F2F8F4;
+      --chalk-dim: #A9C8B8;
       --border-gold: rgba(236, 201, 75, 0.35);
-      background-color: #151D1A;
+      background-color: #0A271E;
     }
     body.theme-rustic {
       --bg-chalkboard: #1E1815;
@@ -1346,6 +1350,99 @@
         radial-gradient(circle at 85% 85%, rgba(112,214,255,0.05) 0%, transparent 45%);
     }
     body.theme-otaku .dish-card { border-radius: 16px; }
+
+    /* ============================================================
+       EL BERILO — esmeralda tallada (theme-emerald)
+       El fondo ES la piedra: facetas del crown dibujadas con
+       conic-gradient de hard stops (cada faceta un plano de beryl,
+       separadas por vetas de corte oscuras), el haz de luz que entra
+       por la mesa, y las inclusiones del "jardín" como puntitos.
+
+       body.theme-emerald          → paleta + talla (cualquier layout)
+       body.theme-emerald.layout-classic → morfología facetada (sólo classic)
+
+       Paleta (WCAG AA verificada): blanco #F2F8F4 y oro #ECC94B ≥7:1
+       sobre la faceta más clara #16482F; dim #A9C8B8 4.6:1 idem.
+         · beryl base     #0A271E → #0C2C21
+         · 6 facetas      #0B2B21 #0D3326 #0F382B #11432F #124030 #16482F
+         · veta de corte  #071911 (0.4deg entre facetas = el cuchillo)
+         · inclusiones    puntitos rgba(226,252,240, .12/.07) — el jardín
+         · oro engaste    #ECC94B (--chalk-gold intacto)
+       Gotcha: pos/size/repeat por capa SÓLO en el shorthand background;
+       background-color va al FINAL (el shorthand lo resetea).
+        ============================================================ */
+
+     /* ── La piedra tallada (aplica a cualquier layout) ─────────── */
+     body.theme-emerald {
+       background:
+         linear-gradient(112deg, transparent 0 19%, rgba(214, 244, 230, 0.06) 30%, rgba(214, 244, 230, 0.02) 37%, transparent 46%) 0 0 / 100% 100% no-repeat,
+         radial-gradient(ellipse 72% 30% at 50% 0%, rgba(206, 245, 222, 0.10), transparent 72%) 0 0 / 100% 100% no-repeat,
+         radial-gradient(circle at 61px 97px, rgba(226, 252, 240, 0.12) 1.1px, transparent 2.6px) 0 0 / 137px 149px repeat,
+         radial-gradient(circle at 143px 31px, rgba(226, 252, 240, 0.07) 1px, transparent 2.4px) 0 0 / 179px 131px repeat,
+         conic-gradient(from 8deg at 50% 6%, #11432F 0deg 16.6deg, #071911 16.6deg 17deg, #0D3326 17deg 30.6deg, #071911 30.6deg 31deg, #16482F 31deg 43.6deg, #071911 43.6deg 44deg, #0B2B21 44deg 61.6deg, #071911 61.6deg 62deg, #124030 62deg 75.6deg, #071911 75.6deg 76deg, #0F382B 76deg 90.6deg, #071911 90.6deg 91deg, #11432F 91deg 106.6deg, #071911 106.6deg 107deg, #0D3326 107deg 121.6deg, #071911 121.6deg 122deg, #16482F 122deg 137.6deg, #071911 137.6deg 138deg, #0B2B21 138deg 150.6deg, #071911 150.6deg 151deg, #124030 151deg 167.6deg, #071911 167.6deg 168deg, #0F382B 168deg 182.6deg, #071911 182.6deg 183deg, #11432F 183deg 200.6deg, #071911 200.6deg 201deg, #0D3326 201deg 213.6deg, #071911 213.6deg 214deg, #16482F 214deg 230.6deg, #071911 230.6deg 231deg, #0B2B21 231deg 246.6deg, #071911 246.6deg 247deg, #124030 247deg 261.6deg, #071911 261.6deg 262deg, #0F382B 262deg 279.6deg, #071911 279.6deg 280deg, #11432F 280deg 294.6deg, #071911 294.6deg 295deg, #0D3326 295deg 310.6deg, #071911 310.6deg 311deg, #16482F 311deg 325.6deg, #071911 325.6deg 326deg, #0B2B21 326deg 340.6deg, #071911 340.6deg 341deg, #124030 341deg 359.6deg, #071911 359.6deg 360deg) 0 0 / 100% 100% no-repeat;
+       background-color: #0A271E;
+     }
+     /* El contenedor va transparente para que el crown facetado
+        se vea DETRÁS del contenido (las tarjetas son paneles facetados). */
+     body.theme-emerald .menu-container { background: transparent; }
+     /* Barra sticky = vidrio de gema (backdrop-filter base difumina
+        las facetas detrás, como una piedra sumergida). */
+     body.theme-emerald .controls-wrapper {
+       background: rgba(10, 32, 24, 0.94);
+       border-bottom: 1px solid rgba(236, 201, 75, 0.30);
+     }
+
+     /* ── Morfología facetada (sólo classic) ────────────────────── */
+     body.theme-emerald.layout-classic .dish-card {
+       /* Tarjeta = panel facetado: dos esquinas cortadas a diamante
+          (step cut) y plano de luz arriba-izquierda. */
+       clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+       border-radius: 0;
+       background: linear-gradient(133deg, rgba(236, 201, 75, 0.10) 0 22%, rgba(0, 0, 0, 0) 22%), #12402F;
+       border-color: rgba(236, 201, 75, 0.22);
+       box-shadow: inset 0 1px 0 rgba(226, 252, 240, 0.09);
+     }
+     body.theme-emerald.layout-classic .dish-card:hover {
+       background: linear-gradient(133deg, rgba(236, 201, 75, 0.14) 0 22%, rgba(0, 0, 0, 0) 22%), #174531;
+     }
+     body.theme-emerald.layout-classic .btn-add {
+       /* El botón + = la gema engastada (corte de diamante, contenido
+          derecho — el + nunca rota). */
+       clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+       border-radius: 0;
+       background: linear-gradient(135deg, #2FA97C 0 50%, #1B6E4F 50%);
+       color: #F2F8F4;
+     }
+     body.theme-emerald.layout-classic .cat-pill {
+       /* Pastillas con corte de talla (recorte diagonal). */
+       clip-path: polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%);
+       border-radius: 0;
+       border: 1px solid rgba(236, 201, 75, 0.30);
+       background: rgba(18, 64, 48, 0.85);
+     }
+     body.theme-emerald.layout-classic .cat-pill.active,
+     body.theme-emerald.layout-classic .cat-pill[aria-pressed="true"] {
+       background: #ECC94B;
+       color: #0A271E !important;
+       border-color: #ECC94B;
+     }
+     body.theme-emerald.layout-classic .category-title {
+       /* Cabecera de categoría: la gema engastada + filete de oro. */
+       display: flex;
+       align-items: center;
+       gap: 10px;
+       border-bottom: 1px solid rgba(236, 201, 75, 0.28);
+     }
+     body.theme-emerald.layout-classic .category-title::before {
+       content: '';
+       flex: 0 0 auto;
+       width: 9px;
+       height: 9px;
+       transform: rotate(45deg);
+       background: linear-gradient(135deg, #34B586 0 50%, #1D7A57 50%);
+       box-shadow: 0 0 0 2px rgba(236, 201, 75, 0.35);
+     }
+
 
     /* ============================================================
        EXPLOSIVO — fanzine punk / neobrutalismo explosivo

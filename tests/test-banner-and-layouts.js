@@ -405,6 +405,20 @@ async function runTests() {
   assert.ok(/body\.theme-basketball \.controls-wrapper\s*\{[^}]*border-radius:\s*0 0 14px 14px/.test(menuCss), 'basketball: tablero con esquinas inferiores redondeadas (cristal completo, no banda infinita)');
   console.log('✓ Tema Basketball "LA CANCHA": piso pintado (media pista/zona/tiro tres), marcador LED, filas con riel, papel de anotador (AA) y barra sticky = tablero con aro');
 
+  // ─────────────────────────────────────────────────────────────
+  // §3i — EL BERILO (theme-emerald tallado): el fondo ES la piedra
+  // ─────────────────────────────────────────────────────────────
+  assert.ok(/body\.theme-emerald\s*\{\s*background:\s*\n?\s*linear-gradient\(112deg, transparent 0 19%/.test(menuCss) && /conic-gradient\(from 8deg at 50% 6%, #11432F 0deg 16\.6deg/.test(menuCss), 'emerald: el fondo ES la piedra — haz de luz + facetas del crown con conic hard stops');
+  assert.ok(/#071911 359\.6deg 360deg\)[^;]*no-repeat;\s*background-color:\s*#0A271E;/.test(menuCss), 'emerald: vetas de corte #071911 entre facetas y background-color DESPUÉS del shorthand (el shorthand lo resetea)');
+  assert.ok(/radial-gradient\(circle at 61px 97px, rgba\(226, 252, 240, 0\.12\)/.test(menuCss) && /radial-gradient\(circle at 143px 31px, rgba\(226, 252, 240, 0\.07\)/.test(menuCss), 'emerald: inclusiones del jardín (dos capas de puntitos desfasados)');
+  assert.ok(/body\.theme-emerald \.menu-container\s*\{\s*background:\s*transparent/.test(menuCss), 'emerald: contenedor transparente — el crown facetado vive en el body y el contenido flota sobre la gema');
+  assert.ok(/body\.theme-emerald\.layout-classic \.dish-card\s*\{[^}]*clip-path:\s*polygon\(16px 0, 100% 0, 100% calc\(100% - 16px\)/.test(menuCss), 'emerald: tarjeta = panel facetado con dos esquinas cortadas a diamante (step cut)');
+  assert.ok(/body\.theme-emerald\.layout-classic \.btn-add\s*\{[^}]*clip-path:\s*polygon\(50% 0, 100% 50%, 50% 100%, 0 50%\)/.test(menuCss), 'emerald: el botón + es la gema engastada (corte de diamante, el + nunca rota)');
+  assert.ok(/body\.theme-emerald\.layout-classic \.cat-pill\s*\{[^}]*clip-path:\s*polygon\(9px 0, 100% 0, calc\(100% - 9px\) 100%/.test(menuCss), 'emerald: pastillas con corte de talla (recorte diagonal)');
+  assert.ok(/body\.theme-emerald\.layout-classic \.category-title::before\s*\{[^}]*transform:\s*rotate\(45deg\)/.test(menuCss) && /body\.theme-emerald\.layout-classic \.category-title\s*\{[^}]*border-bottom:\s*1px solid rgba\(236, 201, 75, 0\.28\)/.test(menuCss), 'emerald: cabecera de categoría con gema engastada (::before rotada 45deg) + filete de oro');
+  assert.ok(/body\.theme-emerald\s*\{[^}]*--surface-card:\s*#12382B/.test(menuCss) && /body\.theme-emerald\s*\{[^}]*--chalk-dim:\s*#A9C8B8/.test(menuCss), 'emerald: beryl más profundo de superficie + dim beryl (AA sobre la faceta más clara)');
+  console.log('✓ Tema Emerald "EL BERILO": fondo tallado (facetas conic + vetas + haz de luz + inclusiones), cards con chaflán de diamante y gema engastada (AA)');
+
   console.log('\n🎉 ¡TODAS LAS VERIFICACIONES DE BANNER Y MORFOLOGÍAS PASARON AL 100%!');
 }
 
