@@ -29,6 +29,8 @@ const COOKIE_OPTIONS = {
 
 const { revokeJti, checkSessionFreshness } = require('../utils/tokenRevocation');
 const { issueDeviceToken, listDeviceTokens, revokeDeviceToken, revokeAllUserDevices, verifyDeviceToken } = require('../utils/deviceTokens');
+const { fetchWithTimeout } = require('../utils/fetchWithTimeout');
+const { timingSafeEqualHex } = require('../utils/adminSession');
 
 /**
  * Emite un JWT de sesión revocable: jti (logout puntual) + pwdTs
@@ -45,6 +47,101 @@ function mintSessionToken(user) {
     JWT_SECRET,
     { expiresIn: '7d' }
   );
+}
+
+/**
+ * Alta/login unificado desde un perfil verificado de Google. Lo comparten
+ * POST /api/auth/google (GIS) y el callback del flujo redirect (mobile),
+ * así el email_verified, la carta starter y el email de bienvenida son UNA
+ * sola lógica (cero drift entre los dos caminos).
+ */
+async function upsertGoogleUser(googleProfile, requestedType, requestedRestaurantName) {
+  const email = googleProfile.email.trim().toLowerCase();
+
+  let user = db.findUserByEmail(email);
+  let restaurant = user ? db.findRestaurantByUserId(user.id) : null;
+
+  const isNewUser = !user;
+  if (!user) {
+    const randomPassword = crypto.randomBytes(48).toString('hex');
+    user = await db.createUser({
+      id: 'usr_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex'),
+      email,
+      password: await hashPassword(randomPassword),
+      name: String(googleProfile.name || 'Responsable').slice(0, 80),
+      email_confirmed_at: new Date().toISOString()
+    });
+  }
+
+  if (!restaurant) {
+    const displayName = googleProfile.name || 'Responsable';
+    const restaurantNameFinal = requestedRestaurantName || String(`Mi local (${displayName})`).slice(0, 80);
+    restaurant = await db.saveRestaurant(user.id, {
+      name: restaurantNameFinal,
+      bizName: restaurantNameFinal,
+      businessType: requestedType,
+      currency: '$',
+      theme: defaultThemeForBusinessType(requestedType),
+      iceCreamButtonStyle: defaultIceCreamButtonStyleFor(requestedType),
+      iceCreamBuilderLabel: requestedType === 'heladeria' ? 'Armá tu helado a medida' : '',
+      allowIceCreamWizard: requestedType === 'heladeria',
+      allowPerfumery: requestedType === 'perfumery',
+      city: '',
+      smartWeatherEnabled: false,
+      ...buildStarterMenu(requestedType)
+    });
+  }
+
+  // Welcome email for new Google Auth users (same template as register)
+  if (isNewUser && restaurant) {
+    const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+    emailService.sendWelcomeEmail({
+      to: user.email,
+      restaurantName: restaurant.name || restaurant.bizName,
+      menuUrl: `${appUrl}/m/${restaurant.slug}`,
+      studioUrl: `${appUrl}/studio`
+    }).catch((err) => console.error('❌ [WelcomeEmail]', err.message));
+    emailService.sendNewClientNotification({
+      source: 'google',
+      clientEmail: user.email,
+      clientName: user.name,
+      restaurantName: restaurant.name || restaurant.bizName,
+      slug: restaurant.slug,
+      menuUrl: `${appUrl}/m/${restaurant.slug}`
+    }).catch((err) => console.error('[NewClientNotification]', err.message));
+  }
+
+  return { user, restaurant, isNewUser };
+}
+
+/**
+ * Firmar/verificar el state CSRF del flujo redirect: payload `nonce.ts.tipo`
+ * con HMAC-SHA256 de JWT_SECRET. El valor viaja en la URL (Google lo devuelve
+ * tal cual) Y en cookie httpOnly; el callback exige igualdad en tiempo
+ * constante — un state forjado sin cookie no completa sesión.
+ */
+function signGoogleState(parts) {
+  const payload = parts.join('.');
+  const mac = crypto.createHmac('sha256', JWT_SECRET).update(payload).digest('hex');
+  return `${Buffer.from(payload).toString('base64url')}.${mac}`;
+}
+
+function verifyGoogleState(stateParam, cookieState) {
+  if (!stateParam || !cookieState || !timingSafeEqualHex(String(stateParam), String(cookieState))) {
+    return null;
+  }
+  try {
+    const [payloadB64, mac] = String(stateParam).split('.');
+    const payload = Buffer.from(payloadB64, 'base64url').toString();
+    const expected = crypto.createHmac('sha256', JWT_SECRET).update(payload).digest('hex');
+    if (!timingSafeEqualHex(mac, expected)) return null;
+    const [nonce, ts, businessType] = payload.split('.');
+    const age = Date.now() - Number(ts);
+    if (!nonce || !Number.isFinite(age) || age < 0 || age > 10 * 60 * 1000) return null;
+    return { nonce, businessType: ['restaurant', 'heladeria', 'perfumery', 'events'].includes(businessType) ? businessType : 'restaurant' };
+  } catch {
+    return null;
+  }
 }
 
 // Mutex en proceso por jti de reset: serializa el check-then-set de
@@ -169,67 +266,15 @@ router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
       throw new AppError('Google account must have a verified email.', 401, 'GOOGLE_EMAIL_NOT_VERIFIED');
     }
 
-    const email = googleProfile.email.trim().toLowerCase();
     const requestedType = ['restaurant', 'heladeria', 'perfumery', 'events'].includes(businessType)
       ? businessType
       : 'restaurant';
     const requestedRestaurantName = String(restaurantName || '').trim().slice(0, 80);
 
-    let user = db.findUserByEmail(email);
-    let restaurant = user ? db.findRestaurantByUserId(user.id) : null;
-
-    const isNewUser = !user;
-    if (!user) {
-      const randomPassword = crypto.randomBytes(48).toString('hex');
-      user = await db.createUser({
-        id: 'usr_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex'),
-        email,
-        password: await hashPassword(randomPassword),
-        name: String(googleProfile.name || 'Responsable').slice(0, 80),
-        email_confirmed_at: new Date().toISOString()
-      });
-    }
-
-    if (!restaurant) {
-      const displayName = googleProfile.name || 'Responsable';
-      const restaurantNameFinal = requestedRestaurantName || String(`Mi local (${displayName})`).slice(0, 80);
-      restaurant = await db.saveRestaurant(user.id, {
-        name: restaurantNameFinal,
-        bizName: restaurantNameFinal,
-        businessType: requestedType,
-        currency: '$',
-        theme: defaultThemeForBusinessType(requestedType),
-        iceCreamButtonStyle: defaultIceCreamButtonStyleFor(requestedType),
-        iceCreamBuilderLabel: requestedType === 'heladeria' ? 'Armá tu helado a medida' : '',
-        allowIceCreamWizard: requestedType === 'heladeria',
-        allowPerfumery: requestedType === 'perfumery',
-        city: '',
-        smartWeatherEnabled: false,
-        ...buildStarterMenu(requestedType)
-      });
-    }
+    const { user, restaurant } = await upsertGoogleUser(googleProfile, requestedType, requestedRestaurantName);
 
     const token = mintSessionToken(user);
     res.cookie('auth_token', token, COOKIE_OPTIONS);
-
-    // Welcome email for new Google Auth users (same template as register)
-    if (isNewUser && restaurant) {
-      const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
-      emailService.sendWelcomeEmail({
-        to: user.email,
-        restaurantName: restaurant.name || restaurant.bizName,
-        menuUrl: `${appUrl}/m/${restaurant.slug}`,
-        studioUrl: `${appUrl}/studio`
-      }).catch((err) => console.error('❌ [WelcomeEmail]', err.message));
-      emailService.sendNewClientNotification({
-        source: 'google',
-        clientEmail: user.email,
-        clientName: user.name,
-        restaurantName: restaurant.name || restaurant.bizName,
-        slug: restaurant.slug,
-        menuUrl: `${appUrl}/m/${restaurant.slug}`
-      }).catch((err) => console.error('[NewClientNotification]', err.message));
-    }
 
     const { password: _, ...safeUser } = user;
     return successResponse(res, { user: safeUser, restaurant }, 'Acceso con Google exitoso. Sesión guardada en cookie segura.', 200, { flatData: true });
@@ -239,21 +284,132 @@ router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
 });
 
 /**
+ * GET /api/auth/google/start?businessType=
+ * Flujo redirect authorization-code para MOBILE (y cualquier navegador donde
+ * FedCM/One Tap falla: WebViews Android, iOS Safari). Google bloquea el
+ * OAuth embebido en WebViews, pero una navegación top-level al consentimiento
+ * funciona en cualquier navegador real; sin popup = sin bloqueador.
+ * Fail-closed: 503 sin GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET.
+ * `?probe=1` devuelve JSON {ready} para que el frontend pregunte sin navegar.
+ */
+router.get('/google/start', (req, res, next) => {
+  try {
+    if (process.env.ALLOW_NEW_SUBSCRIPTIONS && ['false', '0', 'no', 'off'].includes(String(process.env.ALLOW_NEW_SUBSCRIPTIONS).toLowerCase())) {
+      throw new AppError('New registrations are paused.', 503, 'SALES_CLOSED');
+    }
+    const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+    const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
+    const ready = Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
+
+    if (req.query.probe === '1') {
+      return successResponse(res, { ready, clientId: GOOGLE_CLIENT_ID || '' }, 'Google OAuth config', 200, { flatData: true });
+    }
+
+    if (!ready) {
+      return res.redirect('/?registro=1&google=noconfig');
+    }
+
+    const requestedType = ['restaurant', 'heladeria', 'perfumery', 'events'].includes(req.query.businessType)
+      ? req.query.businessType
+      : 'restaurant';
+    const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const redirectUri = `${appUrl}/api/auth/google/callback`;
+    const state = signGoogleState([
+      crypto.randomBytes(12).toString('hex'),
+      String(Date.now()),
+      requestedType
+    ]);
+
+    // Cookie espejo del state (httpOnly): el callback compara en tiempo constante.
+    res.cookie('g_state', state, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 10 * 60 * 1000
+    });
+
+    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('client_id', GOOGLE_CLIENT_ID);
+    authUrl.searchParams.set('redirect_uri', redirectUri);
+    authUrl.searchParams.set('scope', 'openid email profile');
+    authUrl.searchParams.set('state', state);
+    authUrl.searchParams.set('prompt', 'select_account');
+
+    return res.redirect(authUrl.toString());
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * GET /api/auth/google/callback
- * Handles the redirect-based Google OAuth flow (popup fallback).
- * Expects ID token in URL fragment or query params from Google's OAuth endpoint.
- * This is the fallback when One Tap is not available.
+ * Dos modos:
+ *  1. Authorization-code (flujo redirect mobile): `code`+`state` en query →
+ *     verifica el state contra la cookie espejo, intercambia el código por el
+ *     id_token en el token endpoint de Google, reutiliza la MISMA lógica de
+ *     alta (upsertGoogleUser) y redirige sesionado a /studio.html.
+ *  2. Legacy fragment (GIS fallback histórico): sin `code`, sirve la página
+ *     pasiva que extrae el id_token del fragment (google-auth-callback.js).
  */
 router.get('/google/callback', async (req, res, next) => {
   try {
-    // Google OAuth redirect returns the token in the URL fragment (#id_token=...)
-    // Since fragments are not sent to the server, this endpoint serves an HTML page
-    // that extracts the token from the fragment and posts it to /api/auth/google via fetch.
-    
-    const clientId = process.env.GOOGLE_CLIENT_ID || '';
-    const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
-    
-    // HTML page that extracts ID token from fragment and completes auth
+    const { code, state } = req.query;
+
+    if (code && state) {
+      const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+      const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
+      // Redirects relativos (mismo origen): nunca abrimos la puerta a un
+      // APP_URL desincronizado (anti open-redirect tras autenticar).
+      const landing = '/?registro=1';
+
+      if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+        return res.redirect(`${landing}&google=noconfig`);
+      }
+      const stateData = verifyGoogleState(state, req.cookies?.g_state);
+      res.clearCookie('g_state');
+      if (!stateData) {
+        return res.redirect(`${landing}&google=state`);
+      }
+
+      // Exchange del código: form-urlencoded al token endpoint (15s timeout).
+      const tokenRes = await fetchWithTimeout('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          code: String(code),
+          client_id: GOOGLE_CLIENT_ID,
+          client_secret: GOOGLE_CLIENT_SECRET,
+          redirect_uri: `${appUrl}/api/auth/google/callback`,
+          grant_type: 'authorization_code'
+        }).toString()
+      });
+      if (!tokenRes.ok) {
+        console.error('[GoogleOAuth] token exchange falló:', tokenRes.status);
+        return res.redirect(`${landing}&google=exchange`);
+      }
+      const tokens = await tokenRes.json();
+      if (!tokens.id_token) {
+        return res.redirect(`${landing}&google=exchange`);
+      }
+
+      const client = new OAuth2Client(GOOGLE_CLIENT_ID);
+      const ticket = await client.verifyIdToken({
+        idToken: tokens.id_token,
+        audience: GOOGLE_CLIENT_ID
+      });
+      const googleProfile = ticket.getPayload();
+      if (!googleProfile?.email || googleProfile.email_verified !== true) {
+        return res.redirect(`${landing}&google=email`);
+      }
+
+      const { user } = await upsertGoogleUser(googleProfile, stateData.businessType, '');
+      const token = mintSessionToken(user);
+      res.cookie('auth_token', token, COOKIE_OPTIONS);
+      return res.redirect('/studio.html');
+    }
+
+    // Legacy: fragment flow (sin code) — página pasiva que completa por fetch.
     const html = `
 <!DOCTYPE html>
 <html lang="es">

@@ -113,10 +113,36 @@ async function runTests() {
   await new Promise(resolve => server.listen(0, resolve));
   try {
     const { port } = server.address();
+
     const configResponse = await fetch(`http://localhost:${port}/api/auth/google/config`);
     const config = await configResponse.json();
     assert.strictEqual(configResponse.status, 200);
     assert.strictEqual(config.clientId, process.env.GOOGLE_CLIENT_ID || '');
+
+    // Flujo redirect (móvil): probe no fuga el secret y las rutas son honestas.
+    const probeRes = await fetch(`http://localhost:${port}/api/auth/google/start?probe=1`);
+    const probe = await probeRes.json();
+    assert.strictEqual(probeRes.status, 200);
+    assert.strictEqual(typeof probe.ready, 'boolean', 'probe expone ready sin secret');
+    assert.ok(!('clientSecret' in probe), 'el probe NUNCA fuga el secret');
+
+    const redirectProbe = new AbortController();
+    const startRes = await fetch(`http://localhost:${port}/api/auth/google/start`, { redirect: 'manual', signal: redirectProbe.signal });
+    assert.strictEqual(startRes.status, 302, '/start redirige (302), nunca cansa a un navegador de móvil');
+    const location = startRes.headers.get('location') || '';
+    assert.ok(location.includes('google=noconfig') || location.includes('accounts.google.com/o/oauth2'), `location honesta: ${location}`);
+    if (location.includes('accounts.google.com')) {
+      assert.ok(location.includes('response_type=code'), 'flujo authorization-code');
+      assert.ok(location.includes('redirect_uri='), 'redirect_uri registrado');
+      assert.ok(location.includes('state='), 'state anti CSRF');
+    }
+
+    // State forjado (sin cookie espejo) NO completa sesión: vuelve al landing
+    // (si el secret no está configurado devuelve noconfig — también es honesto).
+    const forgedRes = await fetch(`http://localhost:${port}/api/auth/google/callback?code=x&state=forjado.abc`, { redirect: 'manual' });
+    assert.strictEqual(forgedRes.status, 302);
+    const forgedLoc = forgedRes.headers.get('location') || '';
+    assert.ok(forgedLoc.includes('google=state') || forgedLoc.includes('google=noconfig'), `state forjado no sesiona: ${forgedLoc}`);
   } finally {
     if (server.closeAllConnections) server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));

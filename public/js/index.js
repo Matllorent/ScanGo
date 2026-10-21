@@ -324,9 +324,44 @@ async function handleGoogleCredential(credentialResponse) {
   }
 }
 
+// FedCM/One Tap falla en WebViews (Google bloquea OAuth embebido: "la app no
+// tiene autorización" en Xiaomi/Android) y queda silencioso en iOS Safari.
+// En móvil o app nativa usamos el flujo redirect: navegación full-page al
+// consentimiento de Google + intercambio server-side del código.
+function shouldUseGoogleRedirectFlow() {
+  try {
+    if (window.Capacitor) return true;
+    if (window.AuthClient && typeof window.AuthClient.isNativeApp === 'function' && window.AuthClient.isNativeApp()) return true;
+    return /Android|iPhone|iPad|iPod/i.test((typeof navigator !== 'undefined' && navigator.userAgent) || '');
+  } catch (error) { /* detección best-effort */ }
+  return false;
+}
+
+async function startGoogleRedirectFlow() {
+  setGoogleButtonsDisabled(true);
+  try {
+    const res = await fetch('/api/auth/google/start?probe=1');
+    const data = await res.json();
+    if (data?.ready) {
+      const businessType = document.getElementById('regBusinessType')?.value || 'restaurant';
+      window.location.assign('/api/auth/google/start?businessType=' + encodeURIComponent(businessType));
+      return;
+    }
+    setGoogleButtonsDisabled(false);
+    showError('El acceso con Google en móvil todavía no está configurado en el servidor (falta GOOGLE_CLIENT_SECRET). Registrándote por correo funciona igual.');
+  } catch (error) {
+    setGoogleButtonsDisabled(false);
+    showError('No se pudo iniciar el acceso con Google. Verificá tu conexión e intentá de nuevo.');
+  }
+}
+
 async function startGoogleSignup() {
   hideError();
   warnAboutLocalGoogleOrigin();
+  if (shouldUseGoogleRedirectFlow()) {
+    await startGoogleRedirectFlow();
+    return;
+  }
   try {
     await ensureGoogleIdentityReady();
     const promptResult = google.accounts.id.prompt(notification => {
@@ -1012,7 +1047,10 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // Landings /soluciones: el CTA enlaza con ?registro=1 para llevar directo al
   // alta (sin que el visitante tenga que buscar el botón).
-  const wantsRegister = new URLSearchParams(window.location.search).get('registro') === '1';
+  const urlParamsLanding = new URLSearchParams(window.location.search);
+  const wantsRegister = urlParamsLanding.get('registro') === '1';
+  const wantsGoogleParam = wantsRegister && urlParamsLanding.get('google');
+  const googleParamValue = wantsGoogleParam || '';
 
   // Si hay sesión (cookie httpOnly), mostrar acceso directo al Studio.
   // Sin token en JS: se pregunta al backend en vez de leer localStorage.
@@ -1027,11 +1065,32 @@ window.addEventListener('DOMContentLoaded', async () => {
       if (navActions) {
         navActions.innerHTML = '<a href="/studio.html" class="btn btn-gold btn-sm">Ir a Mi Studio 🚀</a>';
       }
-    } else if (wantsRegister) {
+    } else if (wantsRegister || wantsGoogleParam) {
       openAuthModal('register');
+      if (wantsGoogleParam) showGoogleParamNotice(googleParamValue);
     }
   } catch (e) {
     // Sin sesión: si pedían registro abrimos el modal; si no, queda el CTA.
-    if (wantsRegister) openAuthModal('register');
+    if (wantsRegister || wantsGoogleParam) {
+      openAuthModal('register');
+      if (wantsGoogleParam) showGoogleParamNotice(googleParamValue);
+    }
   }
 });
+
+// El callback del flujo redirect vuelve con ?registro=1&google=<motivo>:
+// mensaje honesto (nada de pantallas mudas) y consumo del param (URL limpia).
+function showGoogleParamNotice(reason) {
+  const notices = {
+    noconfig: 'El acceso con Google todavía no está configurado en el servidor. Registrándote por correo funciona igual.',
+    state: 'El intento de acceso con Google expiró (10 min) o ya se usó. Probá de nuevo.',
+    exchange: 'Google rechazó el intercambio del código de acceso. Probá de nuevo en un rato.',
+    email: 'La cuenta de Google no tiene un email verificado: necesitamos uno verificado para crear tu cuenta.'
+  };
+  showError(notices[reason] || 'El acceso con Google no se completó. Probá de nuevo o registrate por correo.');
+  try {
+    const clean = new URL(window.location.href);
+    clean.searchParams.delete('google');
+    window.history.replaceState({}, '', clean.pathname + clean.search);
+  } catch (e) { /* replaceState best-effort */ }
+}
