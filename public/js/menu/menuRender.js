@@ -485,6 +485,13 @@ let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
         ? `<img src="${escapeHtml(d.photoUrl)}" alt="${escapeHtml(d.name)}" class="dish-thumb" loading="lazy" decoding="async" style="aspect-ratio:16/9">` 
         : '';
 
+      // Kicker de horario ("Solo de 08:00 a 12:00"): dato latente del plato,
+      // oculto por defecto en TODOS los temas (base CSS); el tema nordico
+      // (Bistró Nordico) es el único que lo muestra sobre el nombre.
+      const scheduleKickerHtml = (d.schedule && d.schedule.enabled && d.schedule.timeStart && d.schedule.timeEnd)
+        ? `<div class="dish-schedule-kicker">Solo de ${escapeHtml(d.schedule.timeStart)} a ${escapeHtml(d.schedule.timeEnd)}</div>`
+        : '';
+
       // Sin costo ($0 o sin precio): NO se muestra ninguna cifra, solo el botón pedir.
       const isFreeDish = isFreePrice(effectivePrice);
       const formattedPrice = isFreeDish
@@ -520,6 +527,7 @@ let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
         <div class="dish-card ${isUnavailable ? 'dish-sold' : ''} ${d.photoUrl ? 'dish-has-photo' : ''}"${popTierAttr} id="dish_card_${d.id}" style="${isUnavailable ? 'opacity:0.6; filter:grayscale(0.5);' : ''}">
           ${photoHtml}
           <div class="dish-body">
+            ${scheduleKickerHtml}
             <div class="dish-title-line">
               <span class="dish-name" style="${isSold ? 'text-decoration:line-through;' : ''}">${escapeHtml(d.name)}</span>
               ${badgeHtml}

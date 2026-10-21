@@ -37,7 +37,7 @@ Sistema de recolección de feedback post-pedido con entrada neutral:
 - **Comprobantes por WhatsApp**: El comensal envía el pedido estructurado y adjunta comprobante de pago o el enlace directo provisto por Checkout Pro.
 
 ### 3.4. Resiliencia, Accesibilidad y Diseño
-- **Classic Artisanal**: 17 variantes (las 14 de pizarra más Smash Urban, Glass Gastro y Ticket Térmico).
+- **Classic Artisanal**: 18 variantes (las 14 de pizarra más Smash Urban, Glass Gastro, Ticket Térmico y Bistró Nordico).
 - **Nuevas Morfologías**: Bento Grid modular, Minimalist Luxury editorial, Neon Nightbar, Delivery App, Billboard/Ticker/Sticker y Stories (modo dual mesa/casa, con video por plato y virtualización).
 - **Hero Banner con Contain & Blur Backdrop**: La imagen de portada no se recorta; se muestra 100% íntegra mediante `object-fit: contain` con un elegante fondo difuminado (blur) creado a partir de la misma imagen.
 - **Seguridad**: Autenticación 2FA TOTP (Google Authenticator), tokens JWT de un solo uso con JTI y expiración de 15 minutos, Kill-Switch de suscripciones con código HTTP 503.

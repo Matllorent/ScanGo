@@ -48,13 +48,13 @@ async function runTests() {
     assert.ok(layout.menuSizing.includes('uniform'), `${layout.id}: siempre soporta uniform (estado histórico)`);
     assert.ok(layout.menuSizing.every((s) => manifest.MENU_SIZING_MODES.includes(s)), `${layout.id}: menuSizing ⊆ MENU_SIZING_MODES`);
   }
-  assert.strictEqual(manifest.CLASSIC_THEME_IDS.length, 17, '17 paletas clásicas');
+  assert.strictEqual(manifest.CLASSIC_THEME_IDS.length, 18, '18 paletas clásicas');
   assert.strictEqual(manifest.HELADERIA_THEME_IDS.length, 12, '12 paletas de heladería');
-  assert.strictEqual(manifest.THEME_IDS.length, 29, '29 temas en total');
-  assert.strictEqual(new Set(manifest.THEME_IDS).size, 29, 'ids de tema únicos');
+  assert.strictEqual(manifest.THEME_IDS.length, 30, '30 temas en total');
+  assert.strictEqual(new Set(manifest.THEME_IDS).size, 30, 'ids de tema únicos');
   assert.ok(manifest.isValidTheme('classic') && manifest.isValidTheme('cioccolato'), 'isValidTheme acepta temas reales');
   assert.ok(!manifest.isValidTheme('no-existe') && !manifest.isValidTheme('__proto__'), 'isValidTheme rechaza fantasma y proto');
-  console.log('✓ Manifest canónico: 10 morfologías × capacidades coherentes + 29 temas');
+  console.log('✓ Manifest canónico: 10 morfologías × capacidades coherentes + 30 temas');
 
   // ── 2) Resolución: los combos no soportados caen al default ───────────────
   assert.strictEqual(manifest.resolveImageMode('classic', 'auto'), 'grid', 'classic auto → grid');

@@ -8938,3 +8938,367 @@
         grid-column: span 2;
       }
     }
+
+/* ============================================================
+   BISTR� N�RDICO (theme-nordico) � oct-2026
+   Copia estructural del est�ndar de carta moderna de referencia:
+   p�gina off-white #F8F8F6, tinta #121212, tarjetas blancas con
+   radio 20px + borde hairline #E9E9EA, miniatura a la izquierda,
+   fila horizontal, nav de categor�as sticky blanca, tachado de
+   precio viejo y kicker de horario en texto plano. Nada de pizarra,
+   dorados ni sombras duras: minimalismo n�rdico de juice bar.
+   La paleta viste TODOS los layouts; la morfolog�a (filas JOE)
+   vive en layout-classic (patr�n moderno/explosivo).
+   ============================================================ */
+
+/* Kicker de horario (dato latente del plato: schedule.timeStart/End).
+   Oculto por defecto para TODOS los temas; s�lo el nordico lo pinta. */
+.dish-schedule-kicker { display: none; }
+
+/* ---- Paleta (todos los layouts) ---- */
+body.theme-nordico {
+  --bg-chalkboard: #F8F8F6;
+  --surface-card: #FFFFFF;
+  --surface-card-hover: #FDFDFB;
+  --chalk-white: #121212;              /* la tinta ES el texto del tema claro */
+  --chalk-muted: #4A4A4A;
+  --chalk-dim: #6E6E6E;                /* 4.9:1 sobre blanco � AA */
+  --chalk-gold: #121212;               /* CTA/acento = tinta (nada dorado) */
+  --chalk-gold-ink: #121212;
+  --chalk-leaf: #2F7D33;
+  --border-chalk: #E9E9EA;             /* hairline opaco, la firma n�rdica */
+  --border-gold: rgba(18, 18, 18, 0.55);
+  --nordico-radius-card: 20px;
+  --nordico-radius-thumb: 8px;
+  background-color: #F8F8F6;
+  color: #121212;
+  font-family: 'Plus Jakarta Sans', 'Montserrat', system-ui, sans-serif;
+}
+/* El men�-container deja ver el off-white del body (transparente!) */
+body.theme-nordico .menu-container { background: #F8F8F6; box-shadow: none; }
+/* El header base asume fondo oscuro; el claro re-scopes a tinta */
+body.theme-nordico .menu-header { --chalk-white: #121212; --chalk-dim: #6E6E6E; }
+
+/* ---- Cabecera de tienda: nombre grande, slogan en tinta suave ---- */
+body.theme-nordico .restaurant-title { color: #121212; }
+body.theme-nordico .restaurant-slogan { color: #6E6E6E; }
+body.theme-nordico .menu-header { background: #F8F8F6; }
+/* Con portada: scrim claro para que la tinta se mantenga legible */
+body.theme-nordico.has-hero-banner .menu-header {
+  background: linear-gradient(180deg, rgba(248, 248, 246, 0.92) 0%, rgba(248, 248, 246, 0.96) 100%);
+}
+
+/* ---- Barra sticky de controles: card blanca con hairline ---- */
+body.theme-nordico .controls-wrapper {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #E9E9EA;
+  border-radius: var(--nordico-radius-card);
+  box-shadow: 0 1px 2px rgba(18, 18, 18, 0.04);
+}
+body.theme-nordico .controls-wrapper .search-box {
+  background: #FFFFFF;
+  border: 1px solid #E9E9EA;
+  color: #121212;
+  border-radius: 12px;
+}
+body.theme-nordico .controls-wrapper .search-box::placeholder { color: #9A9A9E; }
+
+/* Pills (categor�as + dietas): texto plano, activa en tinta plena */
+body.theme-nordico .cat-pill {
+  background: #FFFFFF;
+  border: 1px solid #E9E9EA;
+  color: #121212;
+  border-radius: 999px;
+  font-weight: 600;
+}
+body.theme-nordico .cat-pill:hover { background: #F1F1EE; }
+body.theme-nordico .cat-pill.active,
+body.theme-nordico .cat-pill[aria-pressed="true"] {
+  background: #121212;
+  color: #FFFFFF;
+  border-color: #121212;
+}
+body.theme-nordico .pill-emoji { opacity: 0.9; }
+
+/* ---- Cabecera de categor�a: fila editorial sin joyas ni tizas ---- */
+body.theme-nordico .category-title {
+  color: #121212;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+body.theme-nordico .category-title::before,
+body.theme-nordico .category-title::after { content: none; }
+body.theme-nordico .category-title .category-count,
+body.theme-nordico .cat-count { color: #6E6E6E; font-weight: 500; }
+
+/* ---- Tarjeta de plato: fila horizontal estilo juice bar ---- */
+body.theme-nordico.layout-classic .dish-card {
+  background: #FFFFFF;
+  border: 1px solid #E9E9EA;
+  border-radius: var(--nordico-radius-card);
+  box-shadow: none;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 112px 1fr auto;
+  gap: 0 14px;
+  align-items: start;
+}
+body.theme-nordico.layout-classic .dish-card:not(.dish-has-photo) {
+  grid-template-columns: 1fr auto;
+}
+body.theme-nordico.layout-classic .dish-card:hover {
+  border-color: #D9D9DC;
+  box-shadow: 0 2px 10px rgba(18, 18, 18, 0.06);
+}
+/* Miniatura: 112px, radio 8 (la figura JOE), columna 1 de punta a punta */
+body.theme-nordico.layout-classic .dish-thumb {
+  width: 112px;
+  height: 140px;
+  aspect-ratio: auto !important;
+  object-fit: cover;
+  border-radius: var(--nordico-radius-thumb);
+  grid-row: 1;
+  grid-column: 1;
+}
+/* Cuerpo: celda central apilada natural (kicker → título → desc → precio) */
+body.theme-nordico.layout-classic .dish-body {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+body.theme-nordico.layout-classic .dish-name {
+  color: #121212;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+body.theme-nordico.layout-classic .dish-desc {
+  color: #6E6E6E;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+body.theme-nordico.layout-classic .dish-price {
+  margin-top: auto;
+  color: #121212;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+body.theme-nordico.layout-classic .dish-action {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: end;
+}
+/* Badges: texto m�nimo, sin chips de color chill�n (kicker n�rdico) */
+body.theme-nordico .dish-badge {
+  background: none !important;
+  border: none !important;
+  color: #6E6E6E !important;
+  font-weight: 500;
+  font-size: 0.7rem;
+  letter-spacing: 0.01em;
+  padding: 0;
+}
+/* El badge AGOTADO conserva su gravedad roja (informaci�n, no adorno) */
+body.theme-nordico .dish-badge[style*="background:#E53E3E"] {
+  background: #E53E3E !important;
+  color: #FFFFFF !important;
+  border-radius: 6px !important;
+  padding: 2px 7px !important;
+}
+/* Kicker de horario: SOLO DE 08:00 A 12:00 � texto plano sobre el nombre */
+body.theme-nordico .dish-schedule-kicker {
+  display: block;
+  color: #6E6E6E;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 3px;
+}
+/* Bot�n +: c�rculo de tinta (el �nico punto negro de la fila) */
+body.theme-nordico .btn-add {
+  background: #121212;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 999px;
+  box-shadow: none;
+  width: 34px;
+  height: 34px;
+  font-weight: 600;
+}
+body.theme-nordico .btn-add:hover { background: #333336; }
+body.theme-nordico .qty-counter { color: #6E6E6E; font-weight: 500; }
+body.theme-nordico .dish-qty-controls {
+  border: none;
+  background: none;
+  padding: 0;
+  gap: 8px;
+}
+
+/* ---- Chef specials: mismas tarjetas fila (combo offers JOE) ---- */
+body.theme-nordico .chef-specials-title { color: #121212; font-weight: 700; }
+body.theme-nordico .chef-badge-gold {
+  background: none;
+  border: 1px solid #E9E9EA;
+  color: #6E6E6E;
+  border-radius: 999px;
+  font-weight: 600;
+}
+body.theme-nordico.layout-classic .chef-special-card {
+  background: #FFFFFF;
+  border: 1px solid #E9E9EA;
+  border-radius: var(--nordico-radius-card);
+  box-shadow: none;
+}
+body.theme-nordico .chef-special-thumb {
+  border-radius: var(--nordico-radius-thumb);
+}
+body.theme-nordico .chef-special-tag-ribbon {
+  color: #121212;
+  border-color: #E9E9EA;
+}
+body.theme-nordico .chef-special-name { color: #121212; font-weight: 700; }
+body.theme-nordico .chef-special-desc { color: #6E6E6E; }
+body.theme-nordico .chef-special-price { color: #121212; font-weight: 700; }
+
+/* ---- Carrito flotante: barra blanca hairline (basket JOE) ---- */
+body.theme-nordico #floatingCart {
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid #E9E9EA;
+  color: #121212;
+  border-radius: 999px;
+  box-shadow: 0 4px 18px rgba(18, 18, 18, 0.10);
+}
+body.theme-nordico #floatingCart .cart-total,
+body.theme-nordico #cartTotalBadge {
+  color: #121212;
+}
+body.theme-nordico #cartTotalBadge {
+  background: #121212;
+  color: #FFFFFF;
+  border-radius: 999px;
+}
+
+/* ---- Checkout y resumen: tarjetas blancas hairline ---- */
+body.theme-nordico .total-summary,
+body.theme-nordico [class*="checkout"],
+body.theme-nordico .checkout-summary-box {
+  background: #FFFFFF;
+  border-color: #E9E9EA;
+}
+body.theme-nordico .summary-row { color: #6E6E6E; }
+body.theme-nordico .summary-row.total-row {
+  color: #121212;
+  border-color: #E9E9EA;
+}
+body.theme-nordico .summary-row.total-row span.total-amount { color: #121212; }
+body.theme-nordico .total-amount { color: #121212; }
+/* Pill activa de propina: el JS pinta fondo --chalk-gold (tinta en nordico
+   con texto literal #101614) → inversa por presencia del estilo inline */
+body.theme-nordico button[data-tip-pill][style*="chalk-gold"] {
+  background: #121212 !important;
+  color: #FFFFFF !important;
+  border-color: #121212 !important;
+}
+/* CTA del modal de nota (mismo patrón: bg --chalk-gold + texto literal) */
+body.theme-nordico .dish-note-confirm {
+  background: #121212;
+  color: #FFFFFF;
+}
+
+/* ---- CTA principal: pill con radio, sin sombra dura ---- */
+body.theme-nordico .btn-wa-submit {
+  border-radius: 999px;
+  box-shadow: none;
+  font-weight: 700;
+}
+
+/* ---- Modales: superficie blanca radio 20, overlays suaves ---- */
+body.theme-nordico .modal-overlay { background: rgba(18, 18, 18, 0.34); }
+body.theme-nordico .modal-box,
+body.theme-nordico .modal-content,
+body.theme-nordico .modal {
+  background: #FFFFFF;
+  border-radius: var(--nordico-radius-card);
+  color: #121212;
+  box-shadow: none;
+}
+body.theme-nordico .modal-box h2,
+body.theme-nordico .modal-box h3,
+body.theme-nordico .modal h2 { color: #121212; }
+body.theme-nordico .modal-box input,
+body.theme-nordico .modal-box textarea,
+body.theme-nordico .modal-box select {
+  background: #F8F8F6;
+  border: 1px solid #E9E9EA;
+  color: #121212;
+}
+
+/* ---- Chips de meta (horario/tel�fono/zona): texto plano dim ---- */
+body.theme-nordico .meta-chip,
+body.theme-nordico .dish-meta {
+  background: none;
+  border: none;
+  color: #6E6E6E;
+  padding-left: 0;
+}
+body.theme-nordico .meta-emoji { opacity: 0.75; }
+
+/* ---- Anillos de historias: hairline neutro, activa en tinta ---- */
+body.theme-nordico .st-ring {
+  border-color: #D9D9DC;
+}
+body.theme-nordico .st-ring.active { border-color: #121212; }
+
+/* ---- Estado vac�o: misma tarjeta hairline ---- */
+body.theme-nordico .empty-state-card {
+  background: #FFFFFF;
+  border: 1px solid #E9E9EA;
+  border-radius: var(--nordico-radius-card);
+  box-shadow: none;
+}
+body.theme-nordico .empty-state-title { color: #121212; }
+body.theme-nordico .empty-state-desc { color: #6E6E6E; }
+body.theme-nordico .empty-state-btn {
+  background: #121212;
+  color: #FFFFFF;
+  border-radius: 999px;
+}
+
+/* ---- Foco visible: tinta sobre papeler�a clara ---- */
+body.theme-nordico :focus-visible {
+  outline: 2px solid #121212;
+  outline-offset: 2px;
+}
+body.theme-nordico .btn-wa-submit:focus-visible,
+body.theme-nordico .btn-add:focus-visible,
+body.theme-nordico .cat-pill:focus-visible {
+  outline: 2px solid #121212;
+  outline-offset: 2px;
+}
+
+/* Movimiento honesto: hover estado (transici�n) bajo reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  body.theme-nordico .dish-card,
+  body.theme-nordico .btn-add,
+  body.theme-nordico .cat-pill { transition: none; }
+}
+
+/* Superficies de la APP que asumen header/superficie oscura � el nordico
+   es claro: re-scope expl�cito (patr�n �52 de tintas en papel). */
+body.theme-nordico .skip-link { background: #121212; color: #F8F8F6; }
+/* badge de estado abierto/cerrado: color inline desde JS → gana !important
+   (patrón layout-minimalist/brutalist) */
+body.theme-nordico .status-pill.open {
+  background: rgba(47, 125, 51, 0.08) !important;
+  border-color: rgba(47, 125, 51, 0.35) !important;
+  color: #2F7D33 !important;
+}
+body.theme-nordico .status-pill.closed,
+body.theme-nordico .status-pill.order-later { color: #C53030 !important; }
+body.theme-nordico .i18n-demo-theme,
+body.theme-nordico .btn-push-accept { background: #121212; color: #FFFFFF; }
+
