@@ -1685,7 +1685,9 @@ Object.defineProperties(window, {
       document.querySelectorAll('[data-tip-pill]').forEach(pill => {
         const isActive = tipCustom === null && String(pill.getAttribute('data-tip-pill')) === String(tipPercent);
         pill.style.background = isActive ? 'var(--chalk-gold, #D4A853)' : 'var(--surface-card)';
-        pill.style.color = isActive ? '#101614' : '#fff';
+        // var() y no literal '#fff': en temas de papel claro (basketball) la
+        // tinta del texto debe heredar el modo del tema, no asumir fondos oscuros.
+        pill.style.color = isActive ? '#101614' : 'var(--chalk-muted, #fff)';
         pill.style.borderColor = isActive ? 'var(--chalk-gold, #D4A853)' : 'var(--border-chalk)';
       });
     }

@@ -355,6 +355,46 @@ async function runTests() {
   assert.ok(/body\.theme-moderna \.controls-wrapper\s*\{[^}]*background:\s*rgba\(23, 19, 16/.test(menuCss), 'moderna: barra sticky en carbón del tema (no el verde hardcodeado rgba(21,29,26))');
   console.log('✓ Panel de temas tema-agnóstico (fix crema-sobre-crema en explosivo) + Cafetería Moderna café de especialidad (cobre/carbón, AA)');
 
+  // 3h. Tema Basketball "LA CANCHA" (morfología oct-2026): el menú ES la
+  //     cancha — piso de madera con marcas pintadas (media pista + círculo,
+  //     la zona/"key" con tiro libre, arco de tres, línea de fondo), precio
+  //     según marcador (goma + LED ámbar mono) y filas con riel de la zona.
+  //     Patrones: paleta AA verificada + morfología scoped a layout-classic.
+  assert.ok(/body\.theme-basketball\s*\{[^}]*--bg-chalkboard:\s*#C79E63/.test(menuCss), 'basketball: madera de la cancha #C79E63');
+  assert.ok(/body\.theme-basketball\s*\{[^}]*--surface-card:\s*#F8F1E4/.test(menuCss), 'basketball: papel de anotador #F8F1E4 (modals, no wood-sobre-tinta)');
+  assert.ok(/body\.theme-basketball\s*\{[^}]*--chalk-white:\s*#26160D/.test(menuCss), 'basketball: tinta cacao #26160D sobre madera (~7:1)');
+  assert.ok(/body\.theme-basketball\s*\{[^}]*--chalk-gold:\s*#E56A25/.test(menuCss), 'basketball: naranja bola #E56A25 con tinta encima (5.3:1)');
+  assert.ok(/body\.theme-basketball\s*\{[^}]*--chalk-gold-ink:\s*#B14312/.test(menuCss), 'basketball: chapa profunda #B14312 para TEXTO acento sobre papel (~5.7:1)');
+  assert.ok(/body\.theme-basketball\s*\{[^}]*--chalk-dim:\s*#452918/.test(menuCss), 'basketball: secundario café #452918 (nunca rgba claro heredado)');
+  // La cancha pintada: shorthand background (pos/size/repeat por capa NO son
+  // válidos dentro de background-image — el motor tira la declaración entera).
+  assert.ok(/body\.theme-basketball\s*\{[^}]*radial-gradient\(circle 160px at 50% 260px/.test(menuCss), 'basketball: círculo central de la media pista');
+  assert.ok(/body\.theme-basketball\s*\{[^}]*circle 330px at 97% 100%/.test(menuCss), 'basketball: arco de tres puntos en la esquina inferior');
+  assert.ok(/body\.theme-basketball\s*\{[^}]*radial-gradient\(circle 66px at 142px calc\(100% - 300px\)/.test(menuCss), 'basketball: círculo de tiro libre de la zona (key)');
+  assert.ok(/body\.theme-basketball\s*\{[^}]*0 258px \/ 100% 5px/.test(menuCss), 'basketball: línea de medio campo (banda de tiza)');
+  assert.ok(menuCss.includes('body.theme-basketball .menu-container { background: transparent; }'), 'basketball: contenedor transparente — el piso vive en el body y el contenido flota sobre la cancha');
+  // Header: el base re-scopea --chalk-white a claro ("header siempre oscuro");
+  // basketball lo devuelve a tinta sobre madera (titular varsity Montserrat 900).
+  const bbHeaderStart = menuCss.indexOf('body.theme-basketball .menu-header {');
+  const bbHeaderCss = menuCss.slice(bbHeaderStart, menuCss.indexOf('}', bbHeaderStart) + 1);
+  assert.ok(/--chalk-white:\s*#26160D/.test(bbHeaderCss), 'basketball: header re-scopea --chalk-white a tinta (contrario al re-scope claro del base)');
+  assert.ok(/body\.theme-basketball \.restaurant-title\s*\{[^}]*font-weight:\s*900/.test(menuCss), 'basketball: titular wordmark Montserrat 900 uppercase');
+  assert.ok(/body\.theme-basketball\.has-hero-banner \.restaurant-title\s*\{[^}]*color:\s*#F8F1E4/.test(menuCss), 'basketball: con portada la voz sale en crema con sombra (overlay foto)');
+  // Morfología de filas con riel (solo layout-classic)
+  assert.ok(/body\.theme-basketball\.layout-classic \.category-title\s*\{[^}]*background:\s*#1C1512/.test(menuCss) && /body\.theme-basketball\.layout-classic \.category-title\s*\{[^}]*border-left:\s*6px solid #E56A25/.test(menuCss), 'basketball: cabecera de categoría = tablero de goma con borde naranja');
+  assert.ok(/body\.theme-basketball\.layout-classic \.category-badge-count\s*\{[^}]*color:\s*#FFC048/.test(menuCss) && /body\.theme-basketball\.layout-classic \.category-badge-count\s*\{[^}]*IBM Plex Mono/.test(menuCss), 'basketball: contador LED ámbar en IBM Plex Mono');
+  assert.ok(/body\.theme-basketball\.layout-classic \.dishes-grid\s*\{[^}]*display:\s*block/.test(menuCss), 'basketball: lista corrida (no grid de cards); sizing-popularity puede re-griddar');
+  assert.ok(/body\.theme-basketball\.layout-classic \.dish-card\s*\{[^}]*border-left:\s*4px solid #C45A1D/.test(menuCss), 'basketball: riel de la zona al costado de la fila');
+  assert.ok(/body\.theme-basketball\.layout-classic \.dish-body,\s*body\.theme-basketball\.layout-classic \.dish-title-line\s*\{[^}]*display:\s*contents/.test(menuCss), 'basketball: cuerpo disuelto en la grilla de la fila');
+  assert.ok(/body\.theme-basketball\.layout-classic \.dish-thumb\s*\{[^}]*display:\s*none/.test(menuCss), 'basketball: miniatura fuera de la fila (la foto vive en detalle/stories)');
+  assert.ok(/body\.theme-basketball\.layout-classic \.dish-price\s*\{[^}]*background:\s*#1C1512/.test(menuCss) && /body\.theme-basketball\.layout-classic \.dish-price\s*\{[^}]*color:\s*#FFC048/.test(menuCss) && /body\.theme-basketball\.layout-classic \.dish-price\s*\{[^}]*IBM Plex Mono/.test(menuCss), 'basketball: precio = marcador (goma + LED ámbar, única voz mono del tema)');
+  assert.ok(/body\.theme-basketball\.layout-classic \.dish-price:empty\s*\{[^}]*display:\s*none/.test(menuCss), 'basketball: $0 sin costo no pinta marcador vacío');
+  assert.ok(/body\.theme-basketball\.layout-classic \.dish-card \.btn-add\s*\{[^}]*background:\s*#E56A25/.test(menuCss) && /body\.theme-basketball\.layout-classic \.dish-card \.btn-add:hover\s*\{[^}]*rotate/.test(menuCss), 'basketball: el botón + es la pelota (naranja, hover con giro de bola)');
+  assert.ok(/body\.theme-basketball \.cat-pill.active,\s*body\.theme-basketball \.cat-pill\[aria-pressed="true"\]/.test(menuCss) && /background:\s*#E56A25;\s*\n\s*color:\s*#26160D !important;/.test(menuCss), 'basketball: pill varsity activa = pintada naranja con tinta (!important gana al color inline de "⭐ Populares")');
+  assert.ok(/body\.theme-basketball\.layout-classic \.dish-badge\s*\{[^}]*grid-column:\s*1 \/ -1/.test(menuCss), 'basketball: badges ocupan línea propia dentro de la fila-grid');
+  assert.ok(/body\.theme-basketball \.total-summary\s*\{[^}]*background:\s*#1C1512/.test(menuCss) && /body\.theme-basketball \.total-summary \.summary-row span\.total-amount\s*\{[^}]*color:\s*#FFC048/.test(menuCss), 'basketball: el total del checkout = marcador (goma + dígitos LED ámbar)');
+  console.log('✓ Tema Basketball "LA CANCHA": piso pintado (media pista/zona/tiro tres), marcador LED, filas con riel y papel de anotador (AA)');
+
   console.log('\n🎉 ¡TODAS LAS VERIFICACIONES DE BANNER Y MORFOLOGÍAS PASARON AL 100%!');
 }
 

@@ -2116,19 +2116,484 @@
         radial-gradient(circle at 80% 80%, rgba(82,183,136,0.04) 0%, transparent 50%);
     }
 
+    /* ============================================================
+       BASKETBALL — "LA CANCHA" (tema morfológico, oct-2026)
+       Rediseño completo: el menú es la cancha. Base de madera dura
+       de maple con vetas y marcas de cancha (círculo central + arco
+       de 3 puntos pintados en tiza crema), tinta cacao sobre madera,
+       y el NARANJA de la pelota reservado a lo funcional: la fila
+       lleva riel de pintura (líneas de la zona "key"), el precio
+       vive en un chip marcador de goma negra con dígitos LED ámbar
+       (IBM Plex Mono, única voz mono del tema), el CTA "+" es la
+       pelota (círculo naranja), las cabeceras de categoría son
+       tableros de marcador (goma negra + Montserrat 800 caps + LED)
+       y los insignias son fichas de box score.
+       Morfología scoped a layout-classic (patrón explosivo/moderna);
+       el resto de layouts recibe la paleta + identidad de marcador.
+
+       Paleta (contraste verificado a mano, AA sobre madera #C79E63 ≈ L 0.375):
+         · madera dura  #C79E63 (fondo; tinta encima ≈ 7:1)
+         · tinta cacao  #26160D (texto principal ≈ 7:1 / sobre papel ≈ 13)
+         · café medio   #452918 (secundario ≈ 4.8:1)
+         · papel ficha  #F8F1E4 (modals/cartas; tinta encima ≈ 13:1)
+         · goma negra   #1C1512 (chips/marcador; crema ≈ 15:1, LED ≈ 11:1)
+         · bola naranja #E56A25 (fills con tinta ≈ 5.3:1; NUNCA texto sobre claro)
+         · LED ámbar    #FFC048 (dígitos del marcador sobre goma ≈ 11:1)
+         · chapa profunda #B14312 (acento texto sobre papel ≈ 5.7:1)
+       Tipos: Montserrat 800 caps para el bloque varsity; la única voz
+       mono es el precio-marcador. El --font-heading del dueño manda
+       donde el tema no define su propia voz.
+       ============================================================ */
     body.theme-basketball {
-      --bg-chalkboard: #19120C;
-      --surface-card: #261910;
-      --surface-card-hover: #372316;
-      --chalk-gold: #FF7700;
-      --chalk-green: #F4A261;
-      --chalk-muted: #EAD8C7;
-      --border-chalk: rgba(255, 119, 0, 0.3);
-      --border-gold: rgba(255, 119, 0, 0.6);
-      background-color: #19120C;
-      background-image: 
-        radial-gradient(circle at 50% 50%, rgba(255,119,0,0.04) 0%, transparent 60%),
-        radial-gradient(circle at 50% 0%, transparent 120px, rgba(255,255,255,0.02) 121px, rgba(255,255,255,0.02) 122px, transparent 123px);
+      --bg-chalkboard: #C79E63;
+      --surface-card: #F8F1E4;
+      --surface-card-hover: #EFE3CC;
+      --chalk-white: #26160D;
+      --chalk-muted: #452918;
+      --chalk-dim: #452918;
+      --chalk-gold: #E56A25;
+      --chalk-gold-ink: #B14312;
+      --chalk-gold-dim: rgba(229, 106, 37, 0.14);
+      --chalk-green: #1B5E20;
+      --border-chalk: rgba(38, 22, 13, 0.16);
+      --border-gold: rgba(229, 106, 37, 0.55);
+      /* ── LA CANCHA PINTADA ── Capas geográficas: media pista con
+         círculo central, la zona ("key") a la izquierda con tiro libre,
+         arco de tres puntos en la esquina inferior, línea de fondo, y
+         las vetas de la tabla debajo. Tiza crema sobre madera.
+         (Shorthand obligatorio: pos/size/repeat por capa solo valen en
+         `background`, no dentro de `background-image`. El color va AL
+         FINAL porque el shorthand resetea background-color.) */
+      background:
+        /* círculo de tiro libre (sobre el borde superior de la zona) */
+        radial-gradient(circle 66px at 142px calc(100% - 300px), transparent 58px, rgba(248, 241, 228, 0.5) 62px 66px, transparent 69px) no-repeat,
+        /* riel izquierdo de la zona */
+        linear-gradient(rgba(248, 241, 228, 0.42), rgba(248, 241, 228, 0.42)) 30px bottom / 5px 300px no-repeat,
+        /* riel derecho de la zona */
+        linear-gradient(rgba(248, 241, 228, 0.42), rgba(248, 241, 228, 0.42)) 255px bottom / 5px 300px no-repeat,
+        /* pintura de la zona: capa más oscura tipo caoba sutil */
+        linear-gradient(90deg, transparent 0 30px, rgba(38, 22, 13, 0.11) 30px 255px, transparent 255px) 0 bottom / 100% 300px no-repeat,
+        /* círculo central sobre la línea de medio campo */
+        radial-gradient(circle 160px at 50% 260px, transparent 148px, rgba(248, 241, 228, 0.5) 152px 158px, transparent 161px) no-repeat,
+        /* línea de medio campo */
+        linear-gradient(rgba(248, 241, 228, 0.5), rgba(248, 241, 228, 0.5)) 0 258px / 100% 5px no-repeat,
+        /* arco de tres puntos, esquina inferior (el aro queda fuera de cuadro) */
+        radial-gradient(circle 330px at 97% 100%, transparent 312px, rgba(248, 241, 228, 0.4) 318px 324px, transparent 327px) no-repeat,
+        /* línea de fondo */
+        linear-gradient(rgba(248, 241, 228, 0.5), rgba(248, 241, 228, 0.5)) 0 bottom / 100% 5px no-repeat,
+        /* vetas de la tabla: juntas + variación de tablón */
+        repeating-linear-gradient(90deg, rgba(38, 22, 13, 0.06) 0 1px, transparent 1px 92px),
+        repeating-linear-gradient(90deg, rgba(248, 241, 228, 0.03) 0 46px, transparent 46px 92px);
+      background-color: #C79E63;
+    }
+
+    /* El contenedor NO tapa el piso: la cancha vive en el body y el
+       contenido flota sobre ella (en todos los layouts del tema). */
+    body.theme-basketball .menu-container { background: transparent; }
+
+    /* ── Identidad "LA CANCHA" (cualquier layout) ── */
+    body.theme-basketball .menu-header {
+      background: transparent;
+      border-bottom: none;
+      box-shadow: none;
+      padding: 34px 16px 22px;
+      /* El header base (.menu-header, ~línea 3990) re-scopea --chalk-white/
+         --chalk-dim a tinta CLARO asumiendo "header siempre oscuro". Acá el
+         header es transparente sobre madera → devolvemos tinta cacao. */
+      --chalk-white: #26160D;
+      --chalk-muted: #452918;
+      --chalk-dim: #452918;
+    }
+    body.theme-basketball .restaurant-title {
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      line-height: 0.95;
+      color: var(--chalk-white);
+      margin-bottom: 6px;
+    }
+    body.theme-basketball .restaurant-logo {
+      border: 3px solid #1C1512;
+      box-shadow: 0 4px 14px rgba(38, 22, 13, 0.35);
+      background: #F8F1E4;
+    }
+    body.theme-basketball .restaurant-slogan { color: #452918; }
+    /* Con portada (overlay oscuro) la voz del tema sale en crema como el marcador */
+    body.theme-basketball.has-hero-banner .restaurant-title {
+      color: #F8F1E4;
+      text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55);
+    }
+    body.theme-basketball.has-hero-banner .restaurant-slogan { color: #F0E2C8; text-shadow: 0 1px 10px rgba(0, 0, 0, 0.5); }
+    body.theme-basketball.has-hero-banner .restaurant-logo {
+      border-color: #F8F1E4;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+    }
+    /* Meta: fichas de goma negra (roster tags) */
+    body.theme-basketball .meta-chip {
+      background: #1C1512;
+      border: 1px solid rgba(248, 241, 228, 0.22);
+      color: #F8F1E4;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    body.theme-basketball .meta-chip:hover {
+      border-color: rgba(248, 241, 228, 0.5);
+      background: #2A1F16;
+    }
+    /* spans internos (ciudad, teléfono) viajan heredados, no gris legacy */
+    body.theme-basketball .meta-chip span { color: inherit; }
+    body.theme-basketball .meta-chip-reserve {
+      background: #E56A25;
+      border-color: transparent;
+      color: #26160D;
+      font-weight: 700;
+    }
+    body.theme-basketball .meta-chip-reserve:hover { background: #F07A33; }
+    /* Barra sticky = tablero de goma */
+    body.theme-basketball .controls-wrapper {
+      background: rgba(28, 21, 18, 0.96);
+      backdrop-filter: blur(10px);
+      border-bottom: 2px solid rgba(229, 106, 37, 0.4);
+    }
+    body.theme-basketball .search-box {
+      background: transparent;
+      border: 0;
+      border-bottom: 1px solid rgba(248, 241, 228, 0.28);
+      border-radius: 0;
+      padding: 10px 2px;
+      color: #F8F1E4;
+      font-size: 0.95rem;
+    }
+    body.theme-basketball .search-box:focus {
+      border-bottom-color: #E56A25;
+      outline: none;
+    }
+    body.theme-basketball .search-box::placeholder { color: rgba(248, 241, 228, 0.55); }
+    /* Categorías: fichas varsity caps; activa = pintada naranja con tinta.
+       !important: "⭐ Populares" viaja con color inline desde menu.js
+       (var(--chalk-gold-ink)); inline gana, entonces el tema fuerza su voz. */
+    body.theme-basketball .cat-pill,
+    body.theme-basketball .cat-pill[aria-pressed="true"] {
+      background: transparent;
+      color: rgba(248, 241, 228, 0.75) !important;
+    }
+    body.theme-basketball .cat-pill {
+      background: transparent;
+      border: 0;
+      border-radius: 4px;
+      padding: 6px 12px;
+      color: rgba(248, 241, 228, 0.75);
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-weight: 700;
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    body.theme-basketball .cat-pill:hover { color: #F8F1E4; }
+    body.theme-basketball .cat-pill.active,
+    body.theme-basketball .cat-pill[aria-pressed="true"] {
+      background: #E56A25;
+      color: #26160D !important;
+      font-weight: 800;
+    }
+    body.theme-basketball .cat-pill:focus-visible {
+      outline: 2px solid #E56A25;
+      outline-offset: 3px;
+    }
+    /* Insignias = fichas de box score (goma negra + crema) */
+    body.theme-basketball .dish-badge {
+      background: #1C1512 !important;
+      border: 0 !important;
+      color: #F8F1E4 !important;
+      border-radius: 3px !important;
+      padding: 3px 7px !important;
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-weight: 700;
+      font-size: 0.6rem;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      width: fit-content;
+    }
+    body.theme-basketball .dish-badge.badge-star { background: #E56A25 !important; color: #26160D !important; }
+    /* TTS accesible: tinta sobre madera (el bar no tiene superficie oscura) */
+    body.theme-basketball .btn-a11y-tts {
+      background: transparent;
+      border: 1.5px solid rgba(38, 22, 13, 0.35);
+      color: #26160D;
+    }
+    body.theme-basketball .a11y-bar { color: #26160D; }
+    /* Anillos rápidos: aro del equipo (pintura → goma), nada de arcoíris */
+    body.theme-basketball .st-ring-face {
+      border-width: 2.5px;
+      background:
+        linear-gradient(#F8F1E4, #F8F1E4) padding-box,
+        linear-gradient(180deg, #E56A25, #7A2E0E) border-box;
+    }
+    body.theme-basketball .st-ring-label { color: #F8F1E4; text-shadow: 0 1px 6px rgba(0,0,0,0.55); }
+    /* Mozo: ficha de goma con aro naranja (la naranja queda para la pelota) */
+    body.theme-basketball .waiter-fab {
+      background: #1C1512;
+      color: #F8F1E4;
+      border: 2.5px solid #E56A25;
+      box-shadow: 0 6px 20px rgba(38, 22, 13, 0.45);
+    }
+    /* Chip ℹ️ flotante sobre madera: tablero, no blanco legacy */
+    body.theme-basketball .btn-info-modal {
+      background: #1C1512;
+      color: #F8F1E4;
+      border: 1px solid rgba(248, 241, 228, 0.25);
+    }
+    body.theme-basketball .btn-info-modal:hover { background: #2A1F16; }
+    /* Prompt de push = tablero fijo (bg literal oscuro): re-scope de tinta
+       para que title/desc sigan en crema, lista de borde naranja. */
+    body.theme-basketball .push-prompt-banner {
+      --chalk-white: #F8F1E4;
+      --chalk-dim: rgba(248, 241, 228, 0.72);
+      border-color: rgba(229, 106, 37, 0.45);
+      color: #F8F1E4;
+    }
+    /* Anuncio de demo: tablero, no banner amarillo */
+    body.theme-basketball .announcement-banner {
+      background: #1C1512;
+      color: #F8F1E4;
+      font-weight: 600;
+      border-bottom: 2px solid rgba(229, 106, 37, 0.45);
+    }
+    /* Chef specials = "los titulares": franja de goma con fichas papel */
+    body.theme-basketball .chef-specials-section {
+      background: #1C1512;
+      border: 0;
+      border-radius: 10px;
+      padding: 18px 14px;
+    }
+    body.theme-basketball .chef-specials-title {
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-weight: 800;
+      font-size: 1.02rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #F8F1E4;
+      text-shadow: none;
+    }
+    body.theme-basketball .chef-badge-gold {
+      background: #E56A25;
+      border: 0;
+      border-radius: 3px;
+      color: #26160D;
+      letter-spacing: 0.06em;
+    }
+    body.theme-basketball .chef-special-card {
+      background: #F8F1E4;
+      border: 1px solid rgba(38, 22, 13, 0.14);
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+    body.theme-basketball .chef-special-card:hover { border-color: #E56A25; }
+    body.theme-basketball .chef-special-name { color: #26160D; font-weight: 700; }
+    body.theme-basketball .chef-special-price { color: #26160D; }
+    body.theme-basketball .chef-specials-carousel { scrollbar-color: rgba(229, 106, 37, 0.5) transparent; }
+    /* Modales = papel de anotador (las variables ya invierten la tinta)
+       El naranja de ficha rellena botones con tinta encima (5.3:1); los
+       textos acento específicos van cubiertos caso por caso abajo. */
+    body.theme-basketball .modal-box {
+      border: 1px solid rgba(38, 22, 13, 0.2);
+    }
+    /* El modal de info viene "siempre oscuro" (literal #16201C + #fff):
+       mismo tratamiento de papel que hace taquería. */
+    body.theme-basketball .info-modal-box {
+      background: var(--surface-card);
+      border-color: rgba(38, 22, 13, 0.2);
+      box-shadow: 0 18px 50px rgba(38, 22, 13, 0.35);
+    }
+    body.theme-basketball .info-modal-title,
+    body.theme-basketball .info-section-title,
+    body.theme-basketball .service-title-group { color: #26160D; }
+    body.theme-basketball .info-action-btn {
+      background: rgba(38, 22, 13, 0.06);
+      border-color: rgba(38, 22, 13, 0.18);
+      color: #26160D;
+    }
+    body.theme-basketball .info-action-btn:hover { background: #E56A25; color: #26160D; }
+    body.theme-basketball .info-address-box,
+    body.theme-basketball .service-card { background: rgba(38, 22, 13, 0.05); }
+    body.theme-basketball .info-directions-link {
+      color: #B14312;
+      border-color: rgba(177, 67, 18, 0.45);
+      background: rgba(177, 67, 18, 0.08);
+    }
+    body.theme-basketball .info-modal-body { scrollbar-color: rgba(177, 67, 18, 0.35) transparent; }
+    body.theme-basketball .service-check { color: #276749; }
+    body.theme-basketball .service-subnote { color: #8A5A00; }
+    body.theme-basketball .schedule-day-row.today {
+      background: rgba(177, 67, 18, 0.1);
+      border-color: rgba(177, 67, 18, 0.3);
+      color: #9A3307;
+    }
+    body.theme-basketball .schedule-day-hours.closed,
+    body.theme-basketball .schedule-closed { color: #C0392B; }
+    /* Nota del plato: input papel (venga dark literal) + acentos tintados */
+    body.theme-basketball .form-textarea {
+      background: #FFFFFF;
+      border-color: rgba(38, 22, 13, 0.25);
+      color: #26160D;
+    }
+    body.theme-basketball .dish-note-cancel {
+      background: transparent;
+      border-color: rgba(38, 22, 13, 0.3);
+      color: #452918;
+    }
+    body.theme-basketball .modal-box .dish-note-dish-name { color: #B14312; }
+    /* Resumen del checkout = el marcador: goma negra, labels crema y
+       el total en LEDs ámbar mono (única voz monospace del tema). */
+    body.theme-basketball .total-summary {
+      background: #1C1512;
+      border: 1px solid rgba(229, 106, 37, 0.4);
+      border-radius: 8px;
+    }
+    body.theme-basketball .total-summary .summary-row,
+    body.theme-basketball .total-summary .summary-row.total-row {
+      color: #F8F1E4;
+    }
+    body.theme-basketball .total-summary .summary-row span.total-amount {
+      color: #FFC048;
+      font-weight: 700;
+    }
+    body.theme-basketball .empty-state-card { border-color: rgba(38, 22, 13, 0.16); }
+    body.theme-basketball .empty-state-title { color: #B14312; }
+    body.theme-basketball .empty-state-btn { border-color: #B14312; color: #B14312; }
+    body.theme-basketball .empty-state-btn:hover { background: #B14312; color: #F8F1E4; }
+
+    /* ============================================================
+       "LA CANCHA" — morfología de filas con riel (solo layout-classic)
+       ============================================================ */
+    body.theme-basketball.layout-classic .menu-container { max-width: 640px; }
+    body.theme-basketball.layout-classic .category-section { margin-bottom: 42px; }
+    /* Cabecera de categoría = pequeño tablero de marcador */
+    body.theme-basketball.layout-classic .category-title {
+      background: #1C1512;
+      border: 0;
+      border-left: 6px solid #E56A25;
+      border-radius: 6px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      color: #F8F1E4;
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-weight: 800;
+      font-size: 0.98rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    body.theme-basketball.layout-classic .category-title > span:first-child { display: flex; align-items: center; gap: 8px; }
+    /* La pelota minúscula delante del título */
+    body.theme-basketball.layout-classic .category-title > span:first-child::before {
+      content: '';
+      flex: 0 0 auto;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: #E56A25;
+      box-shadow: inset 0 0 0 2.5px rgba(38, 22, 13, 0.35);
+    }
+    body.theme-basketball.layout-classic .category-badge-count {
+      color: #FFC048;
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 500;
+      font-size: 0.78rem;
+      letter-spacing: 0.02em;
+      text-transform: none;
+    }
+    body.theme-basketball.layout-classic .dishes-grid {
+      display: block;
+      gap: 0;
+    }
+    /* La fila: riel de la zona ("key") pintado al costado */
+    body.theme-basketball.layout-classic .dish-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-rows: auto auto;
+      column-gap: 14px;
+      row-gap: 4px;
+      align-items: start;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      border-left: 4px solid #C45A1D;
+      box-shadow: none;
+      padding: 16px 2px 16px 14px;
+      margin-bottom: 10px;
+      transition: border-color 0.2s ease, background-color 0.2s ease;
+    }
+    body.theme-basketball.layout-classic .dish-card:hover {
+      background: rgba(248, 241, 228, 0.5);
+      border-left-color: #E56A25;
+    }
+    body.theme-basketball.layout-classic .dish-thumb { display: none; }
+    /* El cuerpo se disuelve: name/price en fila 1, desc r2, badges r3+ */
+    body.theme-basketball.layout-classic .dish-body,
+    body.theme-basketball.layout-classic .dish-title-line { display: contents; }
+    body.theme-basketball.layout-classic .dish-name {
+      grid-column: 1;
+      grid-row: 1;
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-weight: 700;
+      font-size: 1.02rem;
+      letter-spacing: -0.005em;
+      color: #26160D;
+      align-self: center;
+    }
+    /* El precio = marcador: goma negra dígitos LED */
+    body.theme-basketball.layout-classic .dish-price {
+      grid-column: 2;
+      grid-row: 1;
+      justify-self: end;
+      align-self: center;
+      background: #1C1512;
+      color: #FFC048;
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 600;
+      font-size: 0.92rem;
+      padding: 4px 10px;
+      border-radius: 5px;
+      box-shadow: 0 2px 8px rgba(38, 22, 13, 0.3);
+    }
+    /* Pedido sin costo: sin marcador vacío */
+    body.theme-basketball.layout-classic .dish-price:empty { display: none; }
+    body.theme-basketball.layout-classic .dish-price span {
+      color: rgba(248, 241, 228, 0.66);
+    }
+    body.theme-basketball.layout-classic .dish-desc {
+      grid-column: 1;
+      grid-row: 2;
+      margin: 2px 0 0;
+      max-width: 46ch;
+      color: #452918;
+      font-size: 0.85rem;
+      line-height: 1.45;
+    }
+    body.theme-basketball.layout-classic .dish-badge { grid-column: 1 / -1; margin: 6px 0 0; }
+    /* El "+" es la pelota: naranja con surco de goma */
+    body.theme-basketball.layout-classic .dish-action {
+      grid-column: 2;
+      grid-row: 2;
+      justify-self: end;
+    }
+    body.theme-basketball.layout-classic .dish-card .btn-add {
+      background: #E56A25;
+      color: #26160D;
+      border: none;
+      box-shadow: inset 0 0 0 2px rgba(38, 22, 13, 0.25), 0 2px 6px rgba(38, 22, 13, 0.25);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    body.theme-basketball.layout-classic .dish-card .btn-add:hover {
+      transform: scale(1.1) rotate(-4deg);
+      box-shadow: inset 0 0 0 2px rgba(38, 22, 13, 0.35), 0 4px 10px rgba(38, 22, 13, 0.35);
+    }
+    body.theme-basketball.layout-classic .qty-counter {
+      color: #452918;
+      font-weight: 600;
+      font-size: 0.72rem;
+      text-align: center;
     }
 
     body.theme-football {
