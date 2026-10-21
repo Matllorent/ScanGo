@@ -474,7 +474,10 @@ let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
       if (d.tags && d.tags.includes('sinlactosa')) badgeHtml += '<span class="dish-badge" style="background:rgba(99,179,237,0.2); color:#63B3ED; border:1px solid rgba(99,179,237,0.4);">🥛 Sin Lactosa</span> ';
       if (d.tags && d.tags.includes('picante')) badgeHtml += '<span class="dish-badge" style="background:rgba(237,137,54,0.2); color:#ED8936; border:1px solid rgba(237,137,54,0.4);">🌶️ Picante</span> ';
       if (d.tags && d.tags.includes('star')) badgeHtml += '<span class="dish-badge badge-star">⭐ Destacado</span> ';
-      if (d.videoUrl) badgeHtml += '<span class="dish-badge dish-videobadge">🎬 Video</span> ';
+      // Badge "🎬 Video" eliminado por decisión del dueño (oct-2026):
+      // la existencia del video solo se comunica vía Stories y el badge 🎬
+      // de la carta ruido visual. El video en sí sigue intacto (d.videoUrl).
+
       // Happy Hour badge
       if (sched.isHappyHour) badgeHtml += '<span class="dish-badge" style="background:rgba(225,169,56,0.16); color:var(--chalk-gold, #E1A938); border:1px solid rgba(225,169,56,0.4);">🕐 Happy Hour</span> ';
 

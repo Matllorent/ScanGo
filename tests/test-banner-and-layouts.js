@@ -261,7 +261,7 @@ async function runTests() {
   assert.ok(sanitizeFile.includes('videoUrl: sanitizeVideoUrl'), 'sanitizeDish debe persistir videoUrl saneado');
   assert.ok(studioHtml.includes('id="modalDishVideo"'), 'studio debe pedir el link MP4 en el editor del plato');
   const renderSrc = fs.readFileSync(path.join(__dirname, '../public/js/menu/menuRender.js'), 'utf8');
-  assert.ok(renderSrc.includes('dish-videobadge'), 'la carta clásica debe señalizar con 🎬 los platos con video');
+  assert.ok(!renderSrc.includes('dish-videobadge'), 'badge "🎬 Video" eliminado de la carta (decisión del dueño): el video solo se vive en Stories');
   assert.ok(storiesMod.includes('lookupDishVideo') && storiesMod.includes('window.restaurantData'), 'stories debe leer el video del puente vivo (sin duplicar estado)');
   assert.ok(storiesMod.includes("setAttribute('playsinline'") && storiesMod.includes('STORY_VIDEO_MAX_MS'), 'video: playsinline + avance atado a duración con tope 15s');
   assert.ok(storiesMod.includes('saveData') && storiesMod.includes('.catch('), 'video: respeta save-data y el play() con catch (iOS ahorro)');

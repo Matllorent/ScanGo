@@ -8379,11 +8379,8 @@
     }
     /* ── Badge 🎬 en la carta clásica (el plato tiene video en Stories) ─ */
     /* Sólido teal-700 + blanco: contrasta en temas oscuros Y claros. */
-    .dish-badge.dish-videobadge {
-      background: #0E7490;
-      color: #FFFFFF;
-      border: 1px solid #0E7490;
-    }
+    /* Badge "🎬 Video" eliminado (decisión del dueño, oct-2026):
+       el video solo se vive en Stories. Regla CSS muerta fuera. */
     @media (prefers-reduced-motion: reduce) {
       .dish-card.st-flash { animation: none; }
     }
