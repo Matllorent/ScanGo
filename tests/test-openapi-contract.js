@@ -52,6 +52,8 @@ const SPEC_PATHS = [
   '/api/loyalty/challenge',
   '/api/loyalty/email',
   '/api/loyalty/validate',
+  '/api/loyalty/churn',
+  '/api/loyalty/reactivation',
   '/api/orders/mercadopago/preference',
   '/api/public/analytics/event',
   '/api/notifications/waiter-alert',

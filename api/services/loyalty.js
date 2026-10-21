@@ -29,6 +29,7 @@ const path = require('path');
 const crypto = require('crypto');
 const db = require('../../src/db/db');
 const { getSupabaseClient } = require('../utils/supabase');
+const { computeChurnCandidates } = require('../utils/churnRecovery');
 const AppError = require('../utils/AppError');
 const sentry = require('../utils/sentry');
 const logger = require('../utils/logger');
@@ -969,6 +970,25 @@ async function eraseCustomerData(phone) {
   return { erased: true, customerId };
 }
 
+// in-mem para el panel de recupero (R1).
+async function listChurnCandidates(restaurantId, { daysSinceLastVisit, minVisits, nowMs } = {}) {
+  const accounts = readCollection('accounts');
+  const customers = readCollection('customers');
+  return computeChurnCandidates({
+    accounts, customers, restaurantId, nowMs, daysSinceLastVisit, minVisits
+  });
+}
+
+/** Objetivo de recupero: cuenta del dueño + cliente (o null si no matchea). */
+function findReactivationTarget(restaurantId, customerId) {
+  const account = readCollection('accounts').find(
+    a => a && a.restaurantId === restaurantId && a.customerId === customerId
+  );
+  if (!account) return null;
+  const customer = readCollection('customers').find(c => c && c.id === customerId) || null;
+  return { account, customer };
+}
+
 module.exports = {
   // puros / helpers (para tests)
   normalizePhone,
@@ -981,6 +1001,8 @@ module.exports = {
   getPublicLoyaltyConfig,
   GLOBAL_LEVELS,
   GLOBAL_REWARDS,
+  listChurnCandidates,
+  findReactivationTarget,
   // negocio
   findCustomerByPhone,
   findOrCreateCustomer,

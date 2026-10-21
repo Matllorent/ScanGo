@@ -1047,6 +1047,125 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/loyalty/churn:
+    get:
+      tags: [loyalty]
+      summary: Clientes en riesgo de no volver (dueño, R1)
+      description: |-
+        `authMiddleware` (401) + `tenantGuard` (403 sin local). Lista derivada
+        de las cuentas REALES de fidelización del local: `visits >= minVisits`
+        y ausencia >= `days` desde su última visita (7..365, default 45/2).
+        Privacy-first: teléfono enmascarado y email solo como dominio.
+      operationId: loyaltyChurnCandidates
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, minimum: 7, maximum: 365, default: 45 }
+        - name: minVisits
+          in: query
+          schema: { type: integer, minimum: 1, default: 2 }
+      responses:
+        '200':
+          description: Reporte de recupero (`{ thresholdDays, minVisits, count, candidates[] }`)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/loyalty/reactivation:
+    post:
+      tags: [loyalty]
+      summary: Email de recupero a UN cliente (dueño, R1)
+      description: |-
+        `authMiddleware` (401) + `tenantGuard` + `requireActiveSubscription`.
+        Cliente de otro local → 404 `CUSTOMER_NOT_FOUND`; el perfil sin email
+        → 422 `NO_CUSTOMER_EMAIL`; sin consentimiento de marketing → 409
+        `MARKETING_CONSENT_MISSING`; pidió baja de email → 409
+        `CUSTOMER_OPTED_OUT`. Audit `REACTIVATION_SENT` con teléfono
+        enmascarado.
+      operationId: loyaltyReactivationSend
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customerId]
+              properties:
+                customerId:
+                  type: string
+                message:
+                  type: string
+                  maxLength: 400
+                promoCode:
+                  type: string
+                  maxLength: 30
+      responses:
+        '200':
+          description: Email enviado (`{ sent:true, emailMasked, provider }`)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '400':
+          description: Body inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Cliente de otro local (`CUSTOMER_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Opt-out o consentimiento ausente (el email NO salió)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Perfil sin email (`NO_CUSTOMER_EMAIL`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/loyalty/validate:
     post:
       tags: [loyalty]

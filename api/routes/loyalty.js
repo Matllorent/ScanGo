@@ -9,6 +9,9 @@ const { tenantGuard } = require('../middleware/tenantGuard');
 const { loyaltyLimiter } = require('../middleware/rateLimits');
 const { requireActiveSubscription } = require('../middleware/subscriptionGuard');
 const auditService = require('../services/audit');
+const { computeChurnCandidates } = require('../utils/churnRecovery');
+const emailService = require('../services/email');
+const db = require('../../src/db/db');
 
 const router = express.Router();
 
@@ -216,6 +219,99 @@ router.get('/customers', authMiddleware, tenantGuard, async (req, res, next) => 
   try {
     const customers = await loyaltyService.listRestaurantCustomers(req.tenantId);
     return successResponse(res, customers, 'Clientes del local');
+  } catch (err) {
+    next(err);
+  }
+});
+
+const reactivationSchema = z.object({
+  customerId: z.string().min(4, { message: 'Cliente requerido' }).max(64),
+  message: z.string().max(400, { message: 'Mensaje demasiado largo' }).trim().optional(),
+  promoCode: z.string().max(30, { message: 'Cupón demasiado largo' }).trim().optional()
+});
+
+/**
+ * GET /api/loyalty/churn
+ * Dueño: lista de clientes en riesgo de no volver (R1). La cuenta la arma el
+ * módulo puro churnRecovery desde las cuentas REALES de fidelización del local
+ * (ausencia contra su propia frecuencia); teléfonos enmascarados y email solo
+ * como dominio, privacy-first como /customers.
+ */
+router.get('/churn', authMiddleware, tenantGuard, async (req, res, next) => {
+  try {
+    const report = await loyaltyService.listChurnCandidates(req.tenantId, {
+      daysSinceLastVisit: req.query.days,
+      minVisits: req.query.minVisits
+    });
+    return successResponse(res, report, 'Clientes en riesgo de no volver');
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/loyalty/reactivation
+ * Dueño: envía el email de recupero a UN cliente a la vez (data propia, cero
+ * listas compradas). Honesto en cada caso: sin email del perfil → 422;
+ * opt-out de marketing o baja de email → 409 (el email NO salió, avisarlo
+ * para que el dueño no insista). Auditoría REACTIVATION_SENT con teléfono
+ * enmascarado (nunca el crudo, igual que LOYALTY_CREDIT).
+ */
+router.post('/reactivation', authMiddleware, tenantGuard, requireActiveSubscription, loyaltyLimiter, validateBody(reactivationSchema), async (req, res, next) => {
+  try {
+    const target = loyaltyService.findReactivationTarget(req.tenantId, req.validatedBody.customerId);
+    if (!target) {
+      throw new AppError('El cliente no pertenece a este local', 404, 'CUSTOMER_NOT_FOUND');
+    }
+    const email = target.customer && typeof target.customer.email === 'string' ? target.customer.email.trim() : '';
+    if (!email) {
+      throw new AppError('El cliente todavía no registró un email en su tarjeta ScanGo', 422, 'NO_CUSTOMER_EMAIL');
+    }
+    if (target.customer.consentMarketing === false) {
+      throw new AppError('El cliente no dio consentimiento de marketing. Solo avisos operativos.', 409, 'MARKETING_CONSENT_MISSING');
+    }
+    if (emailService.isOptedOut(email)) {
+      throw new AppError('Este cliente pidió la baja de emails. No puede recibir campañas.', 409, 'CUSTOMER_OPTED_OUT');
+    }
+
+    const restaurant = db.findRestaurantById(req.tenantId);
+    const restaurantName = (restaurant && restaurant.name) || 'Tu local favorito';
+    const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const menuSlug = restaurant && restaurant.slug;
+    const menuUrl = menuSlug ? `${appUrl}/m/${menuSlug}` : appUrl;
+    const points = Math.max(0, Math.floor(Number(target.account && target.account.points)) || 0);
+    const personalMessage = req.validatedBody.message
+      ? `\n\n${req.validatedBody.message}`
+      : '';
+    const body = [
+      `¡Te extrañamos, ${target.customer.name || 'amigo'}! Tenés ${points} puntitos esperando en tu tarjeta del Club.`,
+      personalMessage.trim(),
+      'Te dejamos el link de la carta para que pidas por WhatsApp cuando quieras:'
+    ].filter(Boolean).join('\n\n');
+
+    const result = await emailService.sendPromotionalEmail({
+      to: email,
+      subject: `¡Te extrañamos en ${restaurantName}!`,
+      body,
+      restaurantName,
+      promoCode: req.validatedBody.promoCode,
+      promoLink: menuUrl
+    });
+
+    auditService.logAction({
+      tenantId: req.tenantId,
+      userId: req.user && req.user.userId,
+      requestId: req.requestId,
+      action: 'REACTIVATION_SENT',
+      entity: 'loyalty',
+      details: {
+        phone: loyaltyService.maskPhone(target.customer.phone),
+        provider: result && result.provider,
+        skipped: Boolean(result && result.skipped)
+      }
+    });
+
+    return successResponse(res, { sent: true, emailMasked: emailService.maskEmail(email), provider: result.provider }, 'Email de recupero enviado');
   } catch (err) {
     next(err);
   }

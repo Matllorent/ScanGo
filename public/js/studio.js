@@ -2315,6 +2315,85 @@ function handleRedeemCodeEnter(event) {
   if (event && event.key === 'Enter') validateLoyaltyCode();
 }
 
+let churnListCache = [];
+
+async function loadChurnList() {
+  const list = document.getElementById('churnList');
+  const daysEl = document.getElementById('inputChurnDays');
+  if (!list) return;
+  const days = daysEl ? (Number(daysEl.value) || 45) : 45;
+  list.innerHTML = '<div style="font-size:11px; color:var(--text-dim);">⏳ Analizando…</div>';
+  try {
+    const res = await studioApi(`/api/loyalty/churn?days=${encodeURIComponent(days)}`);
+    const body = await res.json();
+    if (!res.ok || !body.data) {
+      list.innerHTML = `<div style="font-size:11px; color:#F87171;">${escapeHtml(body.error || 'No se pudo calcular la lista.')}</div>`;
+      return;
+    }
+    const report = body.data;
+    const candidates = report.candidates || [];
+    churnListCache = candidates;
+    if (!candidates.length) {
+      list.innerHTML = `<div style="font-size:11px; color:#68D391;">✓ Sin clientes en riesgo con ausencia de ${report.thresholdDays} días. Tu Club está saludable.</div>`;
+      return;
+    }
+    list.innerHTML = `<div style="font-size:11px; color:var(--text-dim); margin-bottom:6px;">${report.count} cliente(s) recurrentes que no volvieron hace ${report.thresholdDays}+ días:</div>` +
+      candidates.map((c, idx) => `
+        <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px;">
+          <div style="display:flex; justify-content:space-between; gap:8px;">
+            <div style="flex:1;">
+              <div style="font-size:12px; font-weight:700; color:#fff;">${escapeHtml(c.name || 'Cliente del Club')} <span style="color:var(--text-dim); font-weight:400;">(${escapeHtml(c.phoneMasked)})</span></div>
+              <div style="font-size:10px; color:var(--text-dim); margin-top:2px;">
+                ${c.daysSince} días sin venir · ${c.visits} visitas · ${c.points} pts
+                ${c.consentBlocked ? ' · <span style="color:#F6AD55;">sin consentimiento de marketing</span>' : ''}
+                ${c.hasEmail ? '' : ' · <span style="color:#F6AD55;">sin email en su tarjeta</span>'}
+              </div>
+            </div>
+            ${c.hasEmail && !c.consentBlocked
+              ? `<button type="button" class="btn-nav" data-js-click="sendReactivation|${escapeHtml(String(c.customerId))}" style="font-size:10px; padding:4px 8px; white-space:nowrap; align-self:flex-start;">✉️ Recuperar</button>`
+              : ''}
+          </div>
+        </div>
+      `).join('');
+  } catch (e) {
+    list.innerHTML = '<div style="font-size:11px; color:#F87171;">Error de conexión.</div>';
+  }
+}
+
+async function sendReactivation(customerId) {
+  const id = String(customerId || '').trim();
+  if (!id) return;
+  const target = churnListCache.find(c => String(c.customerId) === id);
+  const name = (target && target.name) || 'Cliente del Club';
+  let confirmed = false;
+  if (typeof window.showConfirmDialog === 'function') {
+    try {
+      confirmed = Boolean(await Promise.resolve(window.showConfirmDialog({
+        icon: '✉️',
+        title: 'Email de recupero',
+        message: `Le decimos a ${name} que te extrañás, mostramos sus puntos y el link de tu carta.`,
+        confirmText: 'Enviar email',
+        confirmClass: 'btn-primary'
+      })));
+    } catch {
+      confirmed = false;
+    }
+  }
+  if (!confirmed) return;
+  const list = document.getElementById('churnList');
+  try {
+    const res = await studioApi('/api/loyalty/reactivation', { method: 'POST', body: JSON.stringify({ customerId: id }) });
+    const body = await res.json();
+    if (!res.ok) {
+      if (list) list.innerHTML = `<div style="font-size:11px; color:#F87171;">✕ ${escapeHtml(body.error || 'No se pudo enviar el email.')}</div>`;
+      return;
+    }
+    loadChurnList();
+  } catch (e) {
+    if (list) list.innerHTML = '<div style="font-size:11px; color:#F87171;">Error de conexión.</div>';
+  }
+}
+
 async function loadNotificationEvents() {
   const list = document.getElementById('notificationInboxList');
   if (!list) return;
@@ -2967,6 +3046,7 @@ const globalExports = {
   addEventGuest, removeEventGuest, updateEventGuestField, renderEventGuestRows, sendGuestInvite, copyGuestInviteLink,
   validateGoogleReviewLink, testGoogleReviewLink, copyReviewLink, loadReviewFunnel,
   loadNotificationEvents, markNotificationEventRead, sendPromoPush,
+  loadChurnList, sendReactivation,
   loadRecentOrders, setOrderStatus, toggleOrderSound, printOrderTicket, printOrderEscPos, connectUsbPrinter,
   importDemoTemplate, discardDemoTemplate,
   renderOnboardingChecklist, refreshOnboardingChecklist, dismissOnboardingChecklist, onboardGoToStep,
