@@ -57,7 +57,7 @@ import {
   maybeOpenReviewFromLink as maybeOpenReviewFromLinkMod,
   flashDishCard as flashDishCardMod
 } from './menu/index.js';
-import { LAYOUT_IDS } from './menu/themeManifest.js';
+import { LAYOUT_IDS, CLASSIC_THEME_IDS, HELADERIA_THEME_IDS } from './menu/themeManifest.js';
 import { initModalA11y } from './modalA11y.js';
 import {
   analyzeCartContextForUpsell as analyzeCartContextForUpsellMod,
@@ -285,13 +285,14 @@ Object.defineProperties(window, {
       'helado-fresa': 'Fresa & Crema', 'helado-cielo': 'Cielo Helado',
       'helado-pastel': 'Sorbete Pastel', gelateria: 'Gelateria',
       'helado-pistacho': 'Pistacchio', 'helado-dulce': 'Dulce de Leche',
-      cioccolato: 'Cioccolato', 'helado-mora': 'Mora Noche'
+      cioccolato: 'Cioccolato', 'helado-mora': 'Mora Noche',
+      nordico: 'Bistró Nordico'
     };
-    const CLASSIC_THEMES = ['classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer', 'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football', 'smash-urban', 'glass-gastro', 'ticket'];
-    const HELADERIA_THEMES_MENU = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora', 'helado-crema'];
+    // Listas SOLO del espejo del manifest (zero drift): una paleta nueva en
+    // api/utils/themeManifest.js aparece sola en el panel de la demo.
     function demoAllowedThemes() {
       if (!restaurantData) return [];
-      return restaurantData.businessType === 'heladeria' ? HELADERIA_THEMES_MENU : CLASSIC_THEMES;
+      return restaurantData.businessType === 'heladeria' ? HELADERIA_THEME_IDS : CLASSIC_THEME_IDS;
     }
     // Probador de temas del panel (nuevo): nombres cortos de morfología
     // (ids SIEMPRE del espejo del manifest — cero drift) + los 6 presets

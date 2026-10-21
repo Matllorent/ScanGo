@@ -217,7 +217,7 @@ async function runTests() {
   assert.ok(/\.i18n-demo-theme\s*\{[^}]*background:\s*var\(--chalk-gold\)/.test(menuCss), 'disparador con acento sólido (visible)');
   const menuJs = fs.readFileSync(path.join(ROOT, 'public', 'js', 'menu.js'), 'utf8');
   assert.ok(menuJs.includes('THEME_SHORT_NAMES'), 'menu.js trae nombres cortos de temas');
-  const themeNamesBlock = menuJs.slice(menuJs.indexOf('const THEME_SHORT_NAMES'), menuJs.indexOf('const CLASSIC_THEMES'));
+  const themeNamesBlock = menuJs.slice(menuJs.indexOf('const THEME_SHORT_NAMES'), menuJs.indexOf('const DEMO_LAYOUT_NAMES'));
   assert.ok(!/\p{Extended_Pictographic}/u.test(themeNamesBlock), 'nombres de tema sin emojis');
   assert.ok(menuJs.includes('function setDemoTheme('), 'menu.js implementa setDemoTheme');
   assert.ok(menuJs.includes('function toggleDemoThemeBar('), 'menu.js implementa toggleDemoThemeBar');

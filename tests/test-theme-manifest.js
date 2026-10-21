@@ -201,6 +201,9 @@ async function runTests() {
   const renderSrc = read('public/js/menu/menuRender.js');
   assert.ok(renderSrc.includes('data-pop-tier'), 'menuRender emite data-pop-tier en las cartas');
   assert.ok(renderSrc.includes('category-hero-img'), 'menuRender inyecta la foto protagonista por categoría');
+  const menuJsThemesSrc = read('public/js/menu.js');
+  assert.ok(menuJsThemesSrc.includes("import { LAYOUT_IDS, CLASSIC_THEME_IDS, HELADERIA_THEME_IDS } from './menu/themeManifest.js'"), 'menu.js importa las listas de temas del ESPEJO (sin copias locales que se revisen a mano)');
+  assert.ok(!/const CLASSIC_THEMES = \[/.test(menuJsThemesSrc) && !/HELADERIA_THEMES_MENU\s*=/.test(menuJsThemesSrc), 'sin array de temas hardcodeado en menu.js (drift por paleta nueva = tema invisible en la demo)');
   const menuRouterSrc = read('api/routes/menu.js');
   assert.ok(menuRouterSrc.includes('resolveImageMode') && menuRouterSrc.includes('resolveMenuSizing'), 'ruta del menú resuelve las dimensiones server-side');
   assert.ok(menuRouterSrc.includes('computePopTiers') && menuRouterSrc.includes('popTier'), 'ruta del menú adjunta popTier solo con sizing activo');
