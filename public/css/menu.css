@@ -1087,6 +1087,9 @@
       font-weight: 600;
       border-bottom: 1px solid var(--border-chalk);
     }
+    /* Barra sticky de controles: el base rgba(21,29,26,.96) es verdepetróleo
+       hardcodeado — la compongo encima del carbón del tema (#171310). */
+    body.theme-moderna .controls-wrapper { background: rgba(23, 19, 16, 0.96); }
     /* Buscador: una sola regla fina (input de barra, no cajita) */
     body.theme-moderna .search-box {
       background: transparent;

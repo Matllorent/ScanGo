@@ -352,6 +352,7 @@ async function runTests() {
   assert.ok(/body\.theme-moderna\.layout-classic [^{]*\.dish-thumb\s*\{[^}]*display:\s*none/.test(menuCss), 'moderna/classic: miniatura fuera de la fila (la foto vive en el detalle)');
   assert.ok(/body\.theme-moderna \.cat-pill\s*\{[^}]*border:\s*0/.test(menuCss), 'moderna: categorías como texto (sin píldora), activo con subrayado del tema');
   assert.ok(/body\.theme-moderna\.layout-classic \.category-title\s*\{[^}]*Plus Jakarta Sans/.test(menuCss), 'moderna: cabecera de categoría display Plus Jakarta 800');
+  assert.ok(/body\.theme-moderna \.controls-wrapper\s*\{[^}]*background:\s*rgba\(23, 19, 16/.test(menuCss), 'moderna: barra sticky en carbón del tema (no el verde hardcodeado rgba(21,29,26))');
   console.log('✓ Panel de temas tema-agnóstico (fix crema-sobre-crema en explosivo) + Cafetería Moderna café de especialidad (cobre/carbón, AA)');
 
   console.log('\n🎉 ¡TODAS LAS VERIFICACIONES DE BANNER Y MORFOLOGÍAS PASARON AL 100%!');
