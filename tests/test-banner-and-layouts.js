@@ -393,7 +393,10 @@ async function runTests() {
   assert.ok(/body\.theme-basketball \.cat-pill.active,\s*body\.theme-basketball \.cat-pill\[aria-pressed="true"\]/.test(menuCss) && /background:\s*#E56A25;\s*\n\s*color:\s*#26160D !important;/.test(menuCss), 'basketball: pill varsity activa = pintada naranja con tinta (!important gana al color inline de "⭐ Populares")');
   assert.ok(/body\.theme-basketball\.layout-classic \.dish-badge\s*\{[^}]*grid-column:\s*1 \/ -1/.test(menuCss), 'basketball: badges ocupan línea propia dentro de la fila-grid');
   assert.ok(/body\.theme-basketball \.total-summary\s*\{[^}]*background:\s*#1C1512/.test(menuCss) && /body\.theme-basketball \.total-summary \.summary-row span\.total-amount\s*\{[^}]*color:\s*#FFC048/.test(menuCss), 'basketball: el total del checkout = marcador (goma + dígitos LED ámbar)');
-  console.log('✓ Tema Basketball "LA CANCHA": piso pintado (media pista/zona/tiro tres), marcador LED, filas con riel y papel de anotador (AA)');
+  assert.ok(/body\.theme-basketball \.controls-wrapper\s*\{[^}]*border-bottom:\s*5px solid #E56A25/.test(menuCss), 'basketball: la barra sticky es el tablero con aro naranja de 5px al pie');
+  assert.ok(/body\.theme-basketball \.controls-wrapper::after\s*\{[^}]*z-index:\s*-1/.test(menuCss) && /body\.theme-basketball \.controls-wrapper::before\s*\{[^}]*z-index:\s*-1/.test(menuCss), 'basketball: marco grabado + cuadrado del tiro libre pintados DETRÁS del contenido (z-index -1; el backdrop-filter del base crea el stacking context)');
+  assert.ok(/body\.theme-basketball \.controls-wrapper\s*\{[^}]*border-radius:\s*0 0 14px 14px/.test(menuCss), 'basketball: tablero con esquinas inferiores redondeadas (cristal completo, no banda infinita)');
+  console.log('✓ Tema Basketball "LA CANCHA": piso pintado (media pista/zona/tiro tres), marcador LED, filas con riel, papel de anotador (AA) y barra sticky = tablero con aro');
 
   console.log('\n🎉 ¡TODAS LAS VERIFICACIONES DE BANNER Y MORFOLOGÍAS PASARON AL 100%!');
 }

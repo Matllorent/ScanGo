@@ -2250,11 +2250,39 @@
       font-weight: 700;
     }
     body.theme-basketball .meta-chip-reserve:hover { background: #F07A33; }
-    /* Barra sticky = tablero de goma */
+    /* Barra sticky = el TABLERO de básquet: cristal ahumado con marco
+       grabado, cuadrado del tiro libre (detrás del contenido, z-index -1:
+       backdrop-filter crea stacking context así que no se esconde bajo el
+       fondo) y el aro naranja de 5px al pie. */
     body.theme-basketball .controls-wrapper {
-      background: rgba(28, 21, 18, 0.96);
-      backdrop-filter: blur(10px);
-      border-bottom: 2px solid rgba(229, 106, 37, 0.4);
+      position: relative;
+      background: rgba(28, 21, 18, 0.94);
+      border: 2px solid rgba(229, 106, 37, 0.5);
+      border-bottom: 5px solid #E56A25; /* el aro */
+      border-radius: 0 0 14px 14px;
+    }
+    body.theme-basketball .controls-wrapper::before {
+      content: '';
+      position: absolute;
+      inset: 6px 9px 12px;
+      border: 1.5px solid rgba(248, 241, 228, 0.22);
+      border-radius: 9px;
+      pointer-events: none;
+      z-index: -1;
+    }
+    body.theme-basketball .controls-wrapper::after {
+      content: '';
+      position: absolute;
+      bottom: 9px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 86px;
+      height: 34px;
+      border: 3px solid rgba(229, 106, 37, 0.6);
+      border-bottom: 0;
+      border-radius: 4px 4px 0 0;
+      pointer-events: none;
+      z-index: -1;
     }
     body.theme-basketball .search-box {
       background: transparent;
