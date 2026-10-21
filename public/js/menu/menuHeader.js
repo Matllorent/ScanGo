@@ -245,12 +245,23 @@ import { LAYOUTS, LAYOUT_IDS, IMAGE_MODES, CLASSIC_THEME_IDS, HELADERIA_THEME_ID
         resChip.style.display = (ctx.getRestaurantData().allowReservations !== false) ? 'inline-flex' : 'none';
       }
 
-      // Wi-Fi Chip
+      // Wi-Fi Chip — SOLO en mesa (2A): la clave del Wi-Fi es un dato útil únicamente
+      // estando en el local. Con ?mesa=/ ?table= (QR de mesa) o invitado de evento
+      // se muestra; abriendo el link a distancia (Instagram, bio) queda oculto.
       if (ctx.getRestaurantData().wifi && ctx.getRestaurantData().wifi.ssid) {
         const wifiChip = document.getElementById('wifiChip');
-        wifiChip.style.display = 'inline-flex';
-        document.getElementById('wifiSsidDisplay').textContent = ctx.getRestaurantData().wifi.ssid;
-        document.getElementById('wifiPassDisplay').textContent = ctx.getRestaurantData().wifi.password || '(Sin clave)';
+        const accessParams = new URLSearchParams(window.location.search);
+        const isOnSiteContext = Boolean(
+          accessParams.get('mesa') || accessParams.get('table') || accessParams.get('qr')
+          || accessParams.get('invitado') || accessParams.get('guest')
+        );
+        if (isOnSiteContext) {
+          wifiChip.style.display = 'inline-flex';
+          document.getElementById('wifiSsidDisplay').textContent = ctx.getRestaurantData().wifi.ssid;
+          document.getElementById('wifiPassDisplay').textContent = ctx.getRestaurantData().wifi.password || '(Sin clave)';
+        } else {
+          wifiChip.style.display = 'none';
+        }
       }
 
       // Instagram Link Chip
