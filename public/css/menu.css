@@ -2251,9 +2251,10 @@
     }
     body.theme-basketball .meta-chip-reserve:hover { background: #F07A33; }
     /* Barra sticky = el TABLERO de básquet: cristal ahumado con marco
-       grabado, cuadrado del tiro libre (detrás del contenido, z-index -1:
-       backdrop-filter crea stacking context así que no se esconde bajo el
-       fondo) y el aro naranja de 5px al pie. */
+       grabado y el aro naranja de 5px al pie. (El cuadrado del tiro
+       libre NO flota en el wrapper: su altura varía con cada fila y se
+       leía como un artefacto de selección; encuentra su ancla estable en
+       el buscador, que es el elemento seguro del tablero.) */
     body.theme-basketball .controls-wrapper {
       position: relative;
       background: rgba(28, 21, 18, 0.94);
@@ -2265,36 +2266,33 @@
       content: '';
       position: absolute;
       inset: 6px 9px 12px;
-      border: 1.5px solid rgba(248, 241, 228, 0.22);
+      border: 1.5px solid rgba(248, 241, 228, 0.2);
       border-radius: 9px;
       pointer-events: none;
       z-index: -1;
     }
-    body.theme-basketball .controls-wrapper::after {
-      content: '';
-      position: absolute;
-      bottom: 9px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 86px;
-      height: 34px;
-      border: 3px solid rgba(229, 106, 37, 0.6);
-      border-bottom: 0;
-      border-radius: 4px 4px 0 0;
-      pointer-events: none;
-      z-index: -1;
+    /* El buscador = el cuadrado pintado donde se apunta: marco naranja
+       vivo. (La barra de idioma/moneda volvió a GOMA: su base usa
+       var(--surface-card) y en este tema resolvía papel — una repisa
+       crema que no pedía el tablero; en el resto de themes va oscura.) */
+    body.theme-basketball .i18n-currency-bar {
+      background: rgba(28, 21, 18, 0.9);
+      border: 1px solid rgba(248, 241, 228, 0.16);
+      border-radius: 8px;
     }
+    /* el ícono 💵 pinta var(--chalk-dim) = tinta: sobre goma desaparece */
+    body.theme-basketball .i18n-currency-icon { color: rgba(248, 241, 228, 0.72); }
     body.theme-basketball .search-box {
-      background: transparent;
-      border: 0;
-      border-bottom: 1px solid rgba(248, 241, 228, 0.28);
-      border-radius: 0;
-      padding: 10px 2px;
+      background: rgba(248, 241, 228, 0.06);
+      border: 2px solid rgba(229, 106, 37, 0.5);
+      border-radius: 7px;
+      padding: 10px 12px;
       color: #F8F1E4;
       font-size: 0.95rem;
     }
     body.theme-basketball .search-box:focus {
-      border-bottom-color: #E56A25;
+      border-color: #E56A25;
+      background: rgba(248, 241, 228, 0.1);
       outline: none;
     }
     body.theme-basketball .search-box::placeholder { color: rgba(248, 241, 228, 0.55); }

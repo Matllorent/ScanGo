@@ -394,7 +394,10 @@ async function runTests() {
   assert.ok(/body\.theme-basketball\.layout-classic \.dish-badge\s*\{[^}]*grid-column:\s*1 \/ -1/.test(menuCss), 'basketball: badges ocupan línea propia dentro de la fila-grid');
   assert.ok(/body\.theme-basketball \.total-summary\s*\{[^}]*background:\s*#1C1512/.test(menuCss) && /body\.theme-basketball \.total-summary \.summary-row span\.total-amount\s*\{[^}]*color:\s*#FFC048/.test(menuCss), 'basketball: el total del checkout = marcador (goma + dígitos LED ámbar)');
   assert.ok(/body\.theme-basketball \.controls-wrapper\s*\{[^}]*border-bottom:\s*5px solid #E56A25/.test(menuCss), 'basketball: la barra sticky es el tablero con aro naranja de 5px al pie');
-  assert.ok(/body\.theme-basketball \.controls-wrapper::after\s*\{[^}]*z-index:\s*-1/.test(menuCss) && /body\.theme-basketball \.controls-wrapper::before\s*\{[^}]*z-index:\s*-1/.test(menuCss), 'basketball: marco grabado + cuadrado del tiro libre pintados DETRÁS del contenido (z-index -1; el backdrop-filter del base crea el stacking context)');
+  assert.ok(/body\.theme-basketball \.controls-wrapper::before\s*\{[^}]*z-index:\s*-1/.test(menuCss), 'basketball: marco grabado pintado DETRÁS del contenido (z-index -1; el backdrop-filter del base crea el stacking context)');
+  assert.ok(!/body\.theme-basketball \.controls-wrapper::after/.test(menuCss), 'basketball: el cuadrado de tiro libre NO flota en el wrapper (su altura varía por fila y se leía como artefacto de selección)');
+  assert.ok(/body\.theme-basketball \.search-box\s*\{[^}]*border:\s*2px solid rgba\(229, 106, 37, 0\.5\)/.test(menuCss), 'basketball: el buscador es el cuadrado pintado del tablero (marco naranja estable)');
+  assert.ok(/body\.theme-basketball \.i18n-currency-bar\s*\{[^}]*background:\s*rgba\(28, 21, 18, 0\.9\)/.test(menuCss), 'basketball: barra de idioma/moneda en goma (su base usa var(--surface-card) y resolvía papel sobre el tablero)');
   assert.ok(/body\.theme-basketball \.controls-wrapper\s*\{[^}]*border-radius:\s*0 0 14px 14px/.test(menuCss), 'basketball: tablero con esquinas inferiores redondeadas (cristal completo, no banda infinita)');
   console.log('✓ Tema Basketball "LA CANCHA": piso pintado (media pista/zona/tiro tres), marcador LED, filas con riel, papel de anotador (AA) y barra sticky = tablero con aro');
 
