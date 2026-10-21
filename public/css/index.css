@@ -372,6 +372,32 @@
     .compare-scango { color: var(--accent-gold); font-weight: 700; }
     .compare-head .compare-scango { color: var(--accent-gold); }
 
+    /* Banda de hechos (R6): resultado por hechos verificables, estilo Fornno pero honesto */
+    .facts-band-section { padding: 60px 0; background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle); }
+    .facts-band { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; max-width: 1000px; margin: 0 auto; }
+    .fact-chip {
+      display: flex; flex-direction: column; gap: 8px;
+      padding: 22px 18px;
+      background: rgba(10, 15, 13, 0.55);
+      border: 1px solid var(--border-gold);
+      border-radius: 12px;
+      text-align: center;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .fact-chip:hover { transform: translateY(-3px); border-color: var(--accent-gold); }
+    .fact-number {
+      font-size: 2rem; font-weight: 800; letter-spacing: -0.5px;
+      color: var(--accent-gold); line-height: 1.1;
+    }
+    .fact-label { color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; }
+    @media (max-width: 860px) {
+      .facts-band { grid-template-columns: repeat(2, 1fr); }
+      .fact-number { font-size: 1.6rem; }
+    }
+    @media (max-width: 520px) {
+      .facts-band { grid-template-columns: 1fr; }
+    }
+
     .hero-mockup-wrapper {
       position: relative;
       background: var(--bg-surface);

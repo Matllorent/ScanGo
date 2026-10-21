@@ -59,3 +59,14 @@ assert.ok(client.includes("getElementById('regBusinessType')"), 'El registro her
 assert.ok(css.includes('.pricing-rubro-tab'), 'Estilos de pestañas de rubro');
 
 console.log('✓ Landing: Google seguro, ahorro en vivo y simulador sin registro verificados');
+
+// ── R6: banda de hechos (resultado por hechos verificables, cero métricas inventadas) ──
+assert.ok(html.includes('id="hechos"'), 'La banda de hechos #hechos debe existir (posicionamiento contra demos sin precios)');
+assert.ok(html.includes('class="facts-band"'), 'La banda de hechos renderiza sus chips');
+const factChips = (html.match(/class="fact-chip"/g) || []).length;
+assert.ok(factChips === 4, `La banda tiene 4 hechos reales (hay ${factChips})`);
+assert.ok(html.includes('Comisión sobre tus pedidos'), 'Fact 0% comisión presente');
+assert.ok(html.includes('El sistema grande vende demo. Nosotros publicamos la verdad.'), 'Headline anti-demo presente');
+assert.ok(html.includes('US$ 9') && html.includes('Precio público y fijo'), 'Precio transparente reforzado en la banda');
+assert.ok(css.includes('.facts-band') && css.includes('.fact-chip'), 'CSS de la banda de hechos presente');
+console.log('✓ R6: banda de hechos verificable presente (4 chips + CSS)');
