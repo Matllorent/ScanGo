@@ -605,6 +605,7 @@ Los 5 claros sobreescriben `--chalk-white` a tinta oscura y refuerzan títulos/n
 | `docs/competitor-fornno.md` | Intel de competencia FORNNO (Uruguay): qué venden, qué hacen mejor, roadmap R1–R6 convertibles |
 | `docs/estrategia-producto-oct-2026.md` | Estrategia de mercado oct-2026: radar de competencia con precios, posicionamiento $9 vs $99–229, canales por CAC (≤$30), backlog priorizado + repos/libros/videos de referencia |
 | `docs/auditoria-abuse-comensal.md` | Modelado de amenazas comensal→restaurante/ScanGo: 14 vectores con estado (2 findings abiertos: P1 retención de `notification_events`, P2 HTML sin escapar en emails), acciones recomendadas |
+| `docs/plan-ejecucion-bloque-sistema-oct-2026.md` | Plan de ejecución del bloque "El Sistema": principios serverless-escalables, F1 El Cierre (email nocturno + P1/P2 higiene), F2 KDS v1 polling, F3 agotados derivados, F4 footer viral + atribución; orden de commits y riesgos |
 | `public/js/menu/eventGuestMode.js` | Resolución de tema de evento, contexto de invitado, reservas WhatsApp |
 | `public/js/utils/` | Utilidades frontend (usan `escapeHtmlBrowser.js`, ver trampas) |
 | `public/js/components/` | 14 componentes ES Module reutilizables |
