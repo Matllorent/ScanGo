@@ -598,6 +598,7 @@ Los 5 claros sobreescriben `--chalk-white` a tinta oscura y refuerzan títulos/n
 | `.cursorrules` | Reglas de desarrollo (cero mocks, sync API↔Admin) |
 | `docs/kds-reservas-roadmap.md` | Roadmap de producto: KDS "Vista Kitchen" (v1 reusa polling+estados+aging existentes) y módulo de reservas con estados |
 | `docs/whatsapp-business-integration.md` | Arquitectura de integración WhatsApp Business (Cloud API/v4, precios oct-2026, wha.me default) |
+| `docs/competitor-fornno.md` | Intel de competencia FORNNO (Uruguay): qué venden, qué hacen mejor, roadmap R1–R6 convertibles |
 | `public/js/menu/eventGuestMode.js` | Resolución de tema de evento, contexto de invitado, reservas WhatsApp |
 | `public/js/utils/` | Utilidades frontend (usan `escapeHtmlBrowser.js`, ver trampas) |
 | `public/js/components/` | 14 componentes ES Module reutilizables |
