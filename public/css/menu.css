@@ -8291,6 +8291,12 @@
       flex: 1;
     }
     .stories-tray-rings::-webkit-scrollbar { display: none; }
+    /* Anillos de categorías CENTRADOS cuando sobra espacio (todos los temas).
+       margin auto en primero/último: con espacio libre reparte a ambos lados
+       (grupo centrado); al desbordar los márgenes colapsan a 0 y la fila vuelve
+       a alinear al inicio con scroll completo — sin recorte a la izquierda. */
+    .stories-tray-rings > .st-ring:first-child { margin-left: auto; }
+    .stories-tray-rings > .st-ring:last-child { margin-right: auto; }
     .st-ring {
       background: none;
       border: none;
