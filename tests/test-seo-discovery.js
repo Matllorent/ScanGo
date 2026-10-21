@@ -80,6 +80,7 @@ async function runTests() {
   const robots = seoDiscovery.buildRobotsTxt('https://menus.example');
   for (const token of [
     'User-agent: *',
+    'Disallow: /el-jefe',
     'Disallow: /studio',
     'Disallow: /admin',
     'Disallow: /api/',

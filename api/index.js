@@ -286,7 +286,18 @@ app.get('/studio', studioHtmlAuthMiddleware, (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'studio.html'), SEND_FILE_OPTIONS);
 });
 
-app.get('/admin', adminHtmlAuthMiddleware, (req, res) => {
+// Panel maestro en ruta ofuscada y configurable (default /el-jefe): la URL
+// pegada no se descubre por escaneo; /admin queda como redirección legacy.
+// En Vercel la página es estática: la ruta canónica vive en vercel.json.
+const ADMIN_PATH = process.env.ADMIN_PATH && /^\/[a-z0-9-]{2,64}$/.test(process.env.ADMIN_PATH)
+  ? process.env.ADMIN_PATH
+  : '/el-jefe';
+
+app.get('/admin', (req, res) => {
+  res.redirect(302, ADMIN_PATH);
+});
+
+app.get(ADMIN_PATH, adminHtmlAuthMiddleware, (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'admin.html'), SEND_FILE_OPTIONS);
 });
 

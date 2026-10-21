@@ -52,8 +52,10 @@ const AI_USER_AGENTS = [
   'Applebot'
 ];
 
-/** Rutas que NUNCA deben indexarse (paneles, API). */
-const PRIVATE_PATHS = ['/admin', '/studio', '/api/'];
+/** Rutas que NUNCA deben indexarse (paneles, API). El panel maestro vive en
+ *  ruta ofuscada (/el-jefe, default en vercel.json); /admin queda prohibido
+ *  también por la redirección legacy. */
+const PRIVATE_PATHS = ['/el-jefe', '/admin', '/studio', '/api/'];
 
 /** Páginas legales estáticas (fijas por dominio; ver vercel.json). */
 const LEGAL_PAGES = [
@@ -82,8 +84,8 @@ function buildRobotsTxt(appUrl) {
     '# Política de rastreo de ScanGo — fuente única: api/utils/seoDiscovery.js.',
     '# Los menús públicos /m/* están abiertos a buscadores y a rastreadores de IA',
     '# de búsqueda (ChatGPT Search, Perplexity, Google AI…). Los paneles /studio,',
-    '# /admin y /api/ quedan fuera del índice. Para cambiar la política de IA,',
-    '# editá AI_USER_AGENTS en el módulo (un solo lugar, sin drift).',
+    '# /el-jefe (redirección desde /admin) y /api/ quedan fuera del índice. Para',
+    '# cambiar la política de IA, editá AI_USER_AGENTS en el módulo (un solo lugar).',
     '',
     'User-agent: *',
     ...PRIVATE_PATHS.map((p) => `Disallow: ${p}`),

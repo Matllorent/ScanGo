@@ -40,7 +40,7 @@
       "continue": true
     },
     {
-      "src": "/admin",
+      "src": "/el-jefe",
       "headers": {
         "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.clarity.ms https://*.clarity.ms; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com https://www.mercadopago.com; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com https://www.clarity.ms https://scripts.clarity.ms 'sha256-glbvQotwimombxggJCQc0N/O0dODRbgqX/Xpjsc5LIo=' 'sha256-5OrHp69xB6jZgZ5vw4aBO7AaCndiMpYYqu7mv9/YGWY=' 'sha256-B2JfjHS0efn7vRf83uZXkLg0RfNq6xQDs2me9WXS3Qs='; script-src-attr 'none'; frame-src 'self' https://accounts.google.com",
         "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -151,6 +151,13 @@
     },
     {
       "src": "/admin",
+      "status": 302,
+      "headers": {
+        "Location": "/el-jefe"
+      }
+    },
+    {
+      "src": "/el-jefe",
       "dest": "/public/admin.html"
     },
     {

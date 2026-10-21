@@ -18,7 +18,7 @@ if (fs.existsSync(envPath)) {
 const REQUIRED = [
   // Fail-closed: sin estas, api/index.js NO arranca con NODE_ENV=production
   ['JWT_SECRET', 'Firma de tokens (fail-closed en prod)'],
-  ['ADMIN_KEY', 'Clave maestra del panel /admin (fail-closed en prod)'],
+  ['ADMIN_KEY', 'Clave maestra del panel maestro /el-jefe (fail-closed en prod)'],
   ['ADMIN_TOTP_SECRET', '2FA Google Authenticator (fail-closed en prod)'],
   ['APP_URL', 'Dominio público (CORS allowlist) — en prod debe ser https://<dominio>'],
   // Datos
