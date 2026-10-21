@@ -673,7 +673,7 @@ Object.defineProperties(window, {
 
       let html = `<button class="cat-pill ${selectedCategory === 'ALL' ? 'active' : ''}" aria-pressed="${selectedCategory === 'ALL'}" data-js-click="selectCategory|ALL">Todos</button>`;
       if (hasFeatured) {
-        html += `<button class="cat-pill ${selectedCategory === 'POPULAR' ? 'active' : ''}" aria-pressed="${selectedCategory === 'POPULAR'}" data-js-click="toggleCategory|POPULAR" style="color:var(--chalk-gold-ink, var(--chalk-gold)); border-color:var(--border-gold);">⭐ Populares</button>`;
+        html += `<button class="cat-pill ${selectedCategory === 'POPULAR' ? 'active' : ''}" aria-pressed="${selectedCategory === 'POPULAR'}" data-js-click="toggleCategory|POPULAR" style="color:var(--chalk-gold-ink, var(--chalk-gold)); border-color:var(--border-gold);"><span class="pill-emoji" aria-hidden="true">⭐</span> Populares</button>`;
       }
 
       cats.forEach(c => {
@@ -1402,7 +1402,7 @@ Object.defineProperties(window, {
       }
       if (totalCount > 0) {
         bar.classList.add('active');
-        document.getElementById('cartCountBadge').textContent = `🛒 ${totalCount} ${totalCount === 1 ? 'ítem' : 'ítems'}`;
+        document.getElementById('cartCountBadge').innerHTML = `<span class="cart-bar-emoji" aria-hidden="true">🛒</span> ${totalCount} ${totalCount === 1 ? 'ítem' : 'ítems'}`;
         const badge = document.getElementById('cartTotalBadge');
         if (barIsFree) {
           badge.textContent = '';

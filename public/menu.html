@@ -81,25 +81,25 @@
     <!-- Quick Meta Information (Uruguay Address, Delivery Time & Minimum Order) -->
     <div class="restaurant-meta-bar">
       <button type="button" id="addressChip" class="meta-chip" data-js-click="openRestaurantInfoModal">
-        📍 <span id="addressText">Uruguay</span>
+        <span class="meta-emoji" aria-hidden="true">📍</span> <span id="addressText">Uruguay</span>
       </button>
       <span id="deliveryTimeChip" class="meta-chip">
-        🕒 Entrega <strong id="deliveryTimeText">30 - 45min.</strong>
+        <span class="meta-emoji" aria-hidden="true">🕒</span> Entrega <strong id="deliveryTimeText">30 - 45min.</strong>
       </span>
       <span id="minOrderChip" class="meta-chip" style="display:none;">
-        🛒 Pedido mínimo <strong id="minOrderText">$U 300</strong>
+        <span class="meta-emoji" aria-hidden="true">🛒</span> Pedido mínimo <strong id="minOrderText">$U 300</strong>
       </span>
       <button type="button" id="reservationChip" class="meta-chip meta-chip-reserve" data-js-click="openReservationModal" style="display:none;">
-        📅 Reservar Mesa
+        <span class="meta-emoji" aria-hidden="true">📅</span> Reservar Mesa
       </button>
       <button type="button" id="wifiChip" class="meta-chip" data-js-click="openWifiModal" style="display:none;">
-        📶 Conectar a Wi-Fi
+        <span class="meta-emoji" aria-hidden="true">📶</span> Conectar a Wi-Fi
       </button>
       <button type="button" id="googleReviewChip" class="meta-chip meta-chip-btn" data-js-click="openSmartReviewModal" style="display:none; color:var(--chalk-gold); border-color:rgba(236, 201, 75, 0.4); background:rgba(236,201,75,0.08); cursor:pointer;">
-        ⭐ Calificar Experiencia
+        <span class="meta-emoji" aria-hidden="true">⭐</span> Calificar Experiencia
       </button>
       <span id="phoneChip" class="meta-chip" style="display:none;">
-        📞 <span id="phoneText"></span>
+        <span class="meta-emoji" aria-hidden="true">📞</span> <span id="phoneText"></span>
       </span>
     </div>
   </header>
@@ -226,7 +226,7 @@
 
   <!-- Floating Cart Bar -->
   <div id="floatingCart" class="floating-cart-bar" data-js-click="openCartModal" role="button" tabindex="0" aria-label="Ver pedido y abrir el carrito">
-    <span id="cartCountBadge">🛒 0 ítems</span>
+    <span id="cartCountBadge"><span class="cart-bar-emoji" aria-hidden="true">🛒</span> 0 ítems</span>
     <span>Ver Pedido (<span id="cartTotalBadge">$0</span>) →</span>
   </div>
   <div id="cartLiveAnnounce" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
