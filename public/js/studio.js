@@ -1101,18 +1101,12 @@ export function updateLiveState() {
   const neonSelect = el('inputNeonAccent');
   const neonIsCustom = Boolean(neonSelect && neonSelect.value === 'custom');
   if (neonSelect) restaurant.neonAccent = neonIsCustom ? 'mint' : (neonSelect.value || 'mint');
-  // Color neón libre (picker HEX + input de texto aún más rápido):
+  // Color neón libre (cuadro de colores nativo, sin escribir código):
   // solo persiste #RRGGBB válido con la opción custom activa.
   const neonPicker = el('inputNeonCustomColor');
-  const neonHexText = el('inputNeonCustomText');
-  // El text input manda editable: si escribe un HEX válido ahí, el picker lo sigue.
-  const textRaw = neonHexText ? String(neonHexText.value || '').trim() : '';
-  const textHex = /^#[0-9a-fA-F]{6}$/.test(textRaw) ? `#${textRaw.slice(1).toLowerCase()}` : '';
   const pickerRaw = neonPicker ? String(neonPicker.value || '').trim() : '';
   const pickerHex = /^#[0-9a-fA-F]{6}$/.test(pickerRaw) ? `#${pickerRaw.slice(1).toLowerCase()}` : '';
-  const neonHex = textHex || pickerHex;
-  if (textHex && neonPicker && neonPicker.value.toLowerCase() !== textHex) neonPicker.value = textHex;
-  if (neonPicker && !textHex && pickerHex) neonHexText && (neonHexText.value = pickerHex);
+  const neonHex = pickerHex;
   restaurant.neonCustomColor = (neonIsCustom && neonHex) ? neonHex : '';
   const hexLabel = document.getElementById('neonCustomHexLabel');
   if (hexLabel) hexLabel.textContent = neonHex || '#00f5d4';
@@ -1348,7 +1342,6 @@ export function renderStudioUI() {
   const storedCustom = /^#[0-9a-fA-F]{6}$/.test(storedCustomRaw) ? `#${storedCustomRaw.slice(1).toLowerCase()}` : '';
   if (el('inputNeonAccent')) el('inputNeonAccent').value = storedCustom ? 'custom' : (restaurant.neonAccent || 'mint');
   if (el('inputNeonCustomColor')) el('inputNeonCustomColor').value = storedCustom || '#00F5D4';
-  if (el('inputNeonCustomText')) el('inputNeonCustomText').value = storedCustom || '';
   const storedHexLabel = document.getElementById('neonCustomHexLabel');
   if (storedHexLabel) storedHexLabel.textContent = storedCustom || '#00f5d4';
   const neonRowLoad = document.getElementById('neonAccentRow');

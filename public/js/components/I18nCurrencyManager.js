@@ -476,7 +476,6 @@ export class I18nCurrencyManager {
         ${demoHTML}
         ${langHTML}
         <div class="i18n-currency">
-          <span class="i18n-currency-icon" aria-hidden="true">💵</span>
           <select id="selectCurrencySwitcher" class="i18n-currency-select" aria-label="Moneda"
                   data-js-change="i18nManager.setCurrency|this.value">
             <option value="$UYU" ${this.currentCurrency === '$UYU' ? 'selected' : ''}>$ UYU</option>
@@ -512,8 +511,7 @@ export class I18nCurrencyManager {
           <div class="demo-theme-section-label">Neón del Nightbar</div>
           <div id="demoNeonSwatches" class="demo-neon-swatches"></div>
           <div class="demo-neon-hexrow">
-            <input type="color" id="demoNeonHexPicker" value="#00f5d4" data-js-input="setDemoNeonHex|this.value" aria-label="Color neón libre">
-            <input type="text" id="demoNeonHexText" maxlength="7" placeholder="#00F5D4" data-js-input="setDemoNeonHex|this.value" aria-label="Color neón libre en hexadecimal (ej. #00F5D4)">
+            <input type="color" id="demoNeonHexPicker" value="#00f5d4" data-js-input="setDemoNeonHex|this.value" aria-label="Elegir color neón libre con el cuadro de colores">
           </div>
         </div>
         <div class="i18n-demo-theme-foot">Demo de prueba: solo cambia la estética, nada se guarda.</div>`;

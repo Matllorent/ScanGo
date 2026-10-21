@@ -5217,23 +5217,13 @@
     }
     .demo-neon-hexrow { display: flex; gap: 6px; align-items: center; }
     .demo-neon-hexrow input[type="color"] {
-      width: 34px;
-      height: 30px;
+      width: 48px;
+      height: 32px;
       padding: 2px;
       border-radius: 8px;
       border: 1px solid rgba(255, 255, 255, 0.2);
       background: transparent;
       cursor: pointer;
-    }
-    .demo-neon-hexrow input[type="text"] {
-      width: 92px;
-      background: #131B17;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 8px;
-      color: #EAF2EC;
-      font-family: var(--font-mono, monospace);
-      font-size: 11px;
-      padding: 6px 8px;
     }
     /* Pills del probador: clase propia (antes era 100% inline, sin trayecto
        de hover). Estados garantizados sobre la superficie fija del panel:

@@ -402,20 +402,16 @@ Object.defineProperties(window, {
       const k = registryAccent(String(key || ''));
       if (!k) return;
       const hex = (DEMO_NEON_PRESETS.find((p) => p.key === k) || {}).hex;
-      // Preset param + limpiar el color libre del panel (el preset manda).
+      // Preset param + el cuadro de colores sigue al preset (el preset manda).
       const picker = document.getElementById('demoNeonHexPicker');
-      const text = document.getElementById('demoNeonHexText');
       if (picker) picker.value = (hex || '#00F5D4').toLowerCase();
-      if (text) text.value = '';
       applyDemoPreviewParam((q) => { q.set('morph', 'neon'); q.set('neon', k); });
     }
     function setDemoNeonHex(raw) {
       if (!restaurantData || restaurantData.isDemo !== true) return;
       const hex = normalizeNeonHexMod(raw);
-      const text = document.getElementById('demoNeonHexText');
       const picker = document.getElementById('demoNeonHexPicker');
       if (hex) {
-        if (text && text.value.toLowerCase() !== hex.toLowerCase()) text.value = hex.toUpperCase();
         if (picker) picker.value = hex.toLowerCase();
         // Hex vuelve a manda encima del preset (menuHeader pisa --neon inline).
         applyDemoPreviewParam((q) => { q.set('morph', 'neon'); q.set('neon', hex); });
