@@ -27,7 +27,8 @@ async function runTests() {
       categoryId: 'cat-main',
       name: 'Pasta fresca',
       description: 'Salsa casera </script><script>alert("x")</script>',
-      price: 420
+      price: 420,
+      tags: ['celiac', 'vegano']
     }]
   });
 
@@ -65,6 +66,10 @@ async function runTests() {
     assert.strictEqual(menuItem.offers.price, '420');
     assert.strictEqual(menuItem.offers.priceCurrency, 'UYU');
     assert.strictEqual(menuItem.description, 'Salsa casera </script><script>alert("x")</script>');
+    assert.deepStrictEqual(menuItem.suitableForDiet, [
+      'https://schema.org/GlutenFreeDiet',
+      'https://schema.org/VeganDiet'
+    ], 'suitableForDiet enriquecido en Schema.org para GEO e IA');
 
     // §ETag — revalidación barata del SSR público (crawlers/CDN).
     const etagRes = await fetch(`http://localhost:${port}/m/${slug}`);

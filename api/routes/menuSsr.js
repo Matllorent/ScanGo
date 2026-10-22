@@ -121,6 +121,42 @@ router.get('/:slug', async (req, res) => {
     };
     const currencyInput = String(restaurant.currency || '').trim().toUpperCase();
     const priceCurrency = currencyAliases[currencyInput] || (/^[A-Z]{3}$/.test(currencyInput) ? currencyInput : null);
+    const resolveSuitableForDiet = dish => {
+      const tags = Array.isArray(dish.tags) ? dish.tags.map(t => String(t || '').toLowerCase().trim()) : [];
+      const diets = [];
+      const isGlutenFree = Boolean(
+        dish.isGlutenFree || dish.celiac ||
+        tags.some(t => ['celiac', 'singluten', 'sin_tacc', 'sintacc', 'gluten_free', 'glutenfree', 'no_tacc', 'notacc'].includes(t))
+      );
+      if (isGlutenFree) diets.push('https://schema.org/GlutenFreeDiet');
+      const isVegan = Boolean(
+        dish.isVegan ||
+        tags.some(t => ['vegan', 'vegano'].includes(t))
+      );
+      if (isVegan) diets.push('https://schema.org/VeganDiet');
+      const isVegetarian = Boolean(
+        dish.isVegetarian || dish.isVeggie ||
+        tags.some(t => ['veggie', 'vegetariano', 'vegetarian'].includes(t))
+      );
+      if (isVegetarian) diets.push('https://schema.org/VegetarianDiet');
+      const isLactoseFree = Boolean(
+        dish.isLactoseFree ||
+        tags.some(t => ['sin_lactosa', 'sinlactosa', 'lactose_free', 'lactosefree'].includes(t))
+      );
+      if (isLactoseFree) diets.push('https://schema.org/LowLactoseDiet');
+      const isHalal = Boolean(
+        dish.isHalal ||
+        tags.some(t => ['halal'].includes(t))
+      );
+      if (isHalal) diets.push('https://schema.org/HalalDiet');
+      const isKosher = Boolean(
+        dish.isKosher ||
+        tags.some(t => ['kosher'].includes(t))
+      );
+      if (isKosher) diets.push('https://schema.org/KosherDiet');
+      return diets.length === 1 ? diets[0] : (diets.length > 1 ? diets : null);
+    };
+
     const toMenuItem = dish => {
       const item = {
         '@type': 'MenuItem',
@@ -138,6 +174,8 @@ router.get('/:slug', async (req, res) => {
           ...(priceCurrency ? { priceCurrency } : {})
         };
       }
+      const suitableForDiet = resolveSuitableForDiet(dish);
+      if (suitableForDiet) item.suitableForDiet = suitableForDiet;
       return item;
     };
     const menuSections = categories.map(category => ({
