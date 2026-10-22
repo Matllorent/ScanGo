@@ -168,7 +168,8 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
     const activeBranchCacheKey = `${slug}:branch:${reqBranch}${reqSizing}`;
 
     const fetchPromise = getCachedMenu(activeBranchCacheKey, async () => {
-      const restaurant = db.findRestaurantBySlug(slug);
+      let restaurant = db.findRestaurantBySlug(slug);
+      if (!restaurant) restaurant = await db.lazyLoadRestaurant(slug);
       if (!restaurant) return null;
 
       // Events mode: el corte duro es la fecha del evento (expiry), pero la

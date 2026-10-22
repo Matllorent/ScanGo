@@ -13,7 +13,7 @@
  */
 const PRIVILEGED_FIELDS = [
   'subscription', 'userId', 'id', 'analytics', 'createdAt', 'updatedAt',
-  '__proto__', 'constructor', 'prototype'
+  'recoveryCoupons', '__proto__', 'constructor', 'prototype'
 ];
 
 function stripPrivilegedFields(payload) {

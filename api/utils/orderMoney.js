@@ -136,26 +136,52 @@ function resolveDeliveryFee(restaurant, orderMode, declaredFee) {
   return fee;
 }
 
-function resolveCouponDiscount({ restaurant, subtotal, deliveryFee, coupon, orderMode }) {
+function resolveCouponDiscount({ restaurant, subtotal, deliveryFee, coupon, orderMode, nowMs, phone, claimedCodes }) {
   if (!coupon || !coupon.code) return { discount: 0, coupon: null };
-  const config = Array.isArray(restaurant.customCoupons) ? restaurant.customCoupons : [];
-  const valid = config.find((c) => String(c.code || '').toUpperCase() === String(coupon.code).toUpperCase());
+  const wanted = String(coupon.code).trim().toUpperCase();
+  // Catálogo dual: los cupones del dueño (customCoupons, PÚBLICOS por diseño)
+  // + los del recupero (recoveryCoupons, PRIVADOS — nunca van al payload del
+  // menú: un código de recupero expuesto sería un voucher imprimible).
+  const custom = Array.isArray(restaurant.customCoupons) ? restaurant.customCoupons : [];
+  const claimed = Array.isArray(claimedCodes)
+    ? new Set(claimedCodes.map((c) => String(c || '').trim().toUpperCase()).filter(Boolean))
+    : null;
+  const valid = custom.map((row) => ({ row, source: 'custom' }))
+    .concat(catalogRecoveryRows(restaurant, { nowMs, phone }).map((row) => ({ row, source: 'recovery' })))
+    .find((entry) => String(entry.row.code || '').toUpperCase() === wanted);
   // Cupón desconocido (o mutado en el cliente): no descuenta, no rompe.
   if (!valid) return { discount: 0, coupon: null };
-  if (valid.type === 'percent') {
-    const value = Math.min(100, Math.max(0, Number(valid.value) || 0));
+  // Los códigos de recupero recién reclamados pasan directo (el claim atómico
+  // YA validó expiración/uso/teléfono: ver services/loyalty.claimRecoveryCoupon).
+  if (valid.source === 'recovery' && !claimed?.has(wanted)) {
+    return { discount: 0, coupon: null };
+  }
+  const row = valid.row;
+  if (row.type === 'percent') {
+    const value = Math.min(100, Math.max(0, Number(row.value) || 0));
     return {
       discount: Math.round(subtotal * (value / 100) * 100) / 100,
-      coupon: { code: valid.code, type: 'percent', value, label: valid.label || `${value}% OFF` }
+      coupon: { code: row.code, type: 'percent', value, label: row.label || `${value}% OFF` }
     };
   }
-  if (valid.type === 'free_delivery' && orderMode === 'DELIVERY') {
+  if (row.type === 'free_delivery' && orderMode === 'DELIVERY') {
     return {
       discount: deliveryFee,
-      coupon: { code: valid.code, type: 'free_delivery', value: 0, label: valid.label || 'Envío Gratis' }
+      coupon: { code: row.code, type: 'free_delivery', value: 0, label: row.label || 'Envío Gratis' }
     };
   }
   return { discount: 0, coupon: null };
+}
+
+/**
+ * catalogRecoveryRows — solo filas VIGENTES del catálogo privado (expiración,
+ * uso único y teléfono). Los codes reclamadas evitan esta primera criba vía
+ * `claimedCodes` (ya fueron validadas a nivel atómico).
+ */
+function catalogRecoveryRows(restaurant, { nowMs, phone } = {}) {
+  const { isValidRecoveryCoupon } = require('./recoveryCoupons');
+  const rows = Array.isArray(restaurant.recoveryCoupons) ? restaurant.recoveryCoupons : [];
+  return rows.filter((row) => isValidRecoveryCoupon(row, { nowMs, phone }) === true);
 }
 
 module.exports = { quoteOrderItems, quoteIceCreamLine, resolveDeliveryFee, resolveCouponDiscount };

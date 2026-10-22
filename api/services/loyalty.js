@@ -30,6 +30,7 @@ const crypto = require('crypto');
 const db = require('../../src/db/db');
 const { getSupabaseClient } = require('../utils/supabase');
 const { computeChurnCandidates } = require('../utils/churnRecovery');
+const recoveryCoupons = require('../utils/recoveryCoupons');
 const AppError = require('../utils/AppError');
 const sentry = require('../utils/sentry');
 const logger = require('../utils/logger');
@@ -989,6 +990,187 @@ function findReactivationTarget(restaurantId, customerId) {
   return { account, customer };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// F8 — Cupones de recupero (winback). Ledger PRIVADO: los códigos nunca van al
+// payload público del menú (los customCoupons del dueño sí, ese es su diseño).
+// Persistencia dual honesta:
+//  - Local: data/recovery_coupons.json (fuente por instancia, escritura
+//    atómica vía db.writeJson).
+//  - Cloud: espejo en la tabla `webhooks` (mismo patrón contable de la
+//    idempotencia de studio_branches): creación `wb_<id>` y uso FINAL
+//    `wbu_<id>` (el único marcador que bloquea cross-instancia).
+// Atomicidad del canje: lock en cadena por (restaurante + código), espejo del
+// addOrder de db.js. Ventana conocida: dos instancias con el MISMO código en
+// el mismo segundo pueden doble-legalizar (documentado; el RPC atómico de
+// loyalty_redemption es el patrón a replicar si algún día escala).
+// ─────────────────────────────────────────────────────────────────────────────
+const RECOVERY_COUPONS_FILE = path.join(DATA_DIR, 'recovery_coupons.json');
+
+function readRecoveryCouponsLocal() {
+  if (!fs.existsSync(RECOVERY_COUPONS_FILE)) return [];
+  try { return JSON.parse(fs.readFileSync(RECOVERY_COUPONS_FILE, 'utf8')); } catch (e) { return []; }
+}
+
+const _winbackChains = new Map();
+
+function withWinbackLock(key, fn) {
+  const prev = _winbackChains.get(key) || Promise.resolve();
+  const run = prev.catch(() => {}).then(fn);
+  _winbackChains.set(key, run.catch(() => {}));
+  return run;
+}
+
+function rowsForOwner(rows, restaurantId) {
+  return rows.filter(r => r && r.restaurantId === restaurantId);
+}
+
+async function mirrorCouponRow(provider, eventId, eventType, row) {
+  try {
+    await db.markWebhookProcessed(provider, eventId, eventType, { coupon: row });
+  } catch (e) {
+    // Espejo best-effort: nunca rompe el flujo del dueño ni del comensal.
+    sentry.captureException(e, { source: 'loyalty.recoveryCoupons.mirror', level: 'warn', tags: { restaurantId: row && row.restaurantId } });
+  }
+}
+
+/** Lectura cross-instancia de cupones creados en otra réplica (best-effort). */
+async function mirrorCouponList(restaurantId) {
+  const supabase = getSupabaseClient();
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('webhooks')
+      .select('response')
+      .eq('provider', 'winback_coupon')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) return [];
+    return (data || [])
+      .map(r => r && r.response && r.response.coupon)
+      .filter(c => c && c.restaurantId === restaurantId);
+  } catch (e) {
+    return [];
+  }
+}
+
+async function listRecoveryCoupons(restaurantId) {
+  const byId = new Map();
+  for (const row of mirrorCouponList ? await mirrorCouponList(restaurantId) : []) byId.set(row.id, row);
+  for (const row of rowsForOwner(readRecoveryCouponsLocal(), restaurantId)) byId.set(row.id, row);
+  return [...byId.values()].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+}
+
+async function createWinbackCoupon({ restaurantId, discountType, discountValue, nowMs, ttlDays, randomSource, boundPhone }) {
+  const row = recoveryCoupons.buildRecoveryCoupon({
+    discountType, discountValue, createdAtMs: nowMs, ttlDays,
+    randomSource,
+    boundPhone: boundPhone || '',
+    id: 'wbcp_' + crypto.randomUUID()
+  });
+  if (!row) return null;
+  row.restaurantId = restaurantId;
+  const saved = withWinbackLock(`create:${restaurantId}`, async () => {
+    const rows = rowsForOwner(readRecoveryCouponsLocal(), restaurantId);
+    rows.push(row);
+    await db.writeJson(RECOVERY_COUPONS_FILE, recoveryCoupons.purgeRecoveryCoupons(rows, { nowMs: row.createdAtMs }));
+    return row;
+  });
+  await saved;
+  await mirrorCouponRow('winback_coupon', `wb_${row.id}`, 'created', row);
+  return row;
+}
+
+/**
+ * claimRecoveryCoupon — consumo atómico (provisional). True → el claim quedó
+ * escrito (usado hasta que finalize/release decida); reason describe por qué
+ * no si falló. El lock serializa claims del mismo código dentro del proceso;
+ * cross-instancia lo respalda el marcador `wbu_` del uso FINAL.
+ */
+async function claimRecoveryCoupon({ restaurantId, code, phone, nowMs }) {
+  const normalized = recoveryCoupons.normalizeCouponCode(code);
+  if (!normalized) return { row: null, reason: 'NOT_FOUND' };
+  return withWinbackLock(`claim:${restaurantId}:${normalized}`, async () => {
+    let row = recoveryCoupons.findCouponByCode(rowsForOwner(readRecoveryCouponsLocal(), restaurantId), normalized);
+    if (!row) {
+      // La creación pudo quedar solo en otra réplica (lag del espejo local).
+      for (const c of await listRecoveryCoupons(restaurantId)) {
+        if (recoveryCoupons.normalizeCouponCode(c.code) === normalized) { row = c; break; }
+      }
+    }
+    if (!row) return { row: null, reason: 'NOT_FOUND' };
+    const verdict = recoveryCoupons.isValidRecoveryCoupon(row, { nowMs, phone });
+    if (verdict !== true) return { row, reason: verdict };
+    try {
+      const usedElsewhere = await db.hasProcessedWebhookAsync('winback_used', `wbu_${row.id}`);
+      if (usedElsewhere) return { row, reason: 'ALREADY_USED' };
+    } catch (e) { /* cloud down: el espejo local manda (inspección honesta acotada) */ }
+    const atIso = new Date(Number.isFinite(nowMs) ? nowMs : Date.now()).toISOString();
+    row.usedAt = atIso;
+    row.usedByPhone = normalizePhone(String(phone || '')) || null;
+    const rows = readRecoveryCouponsLocal();
+    const idx = rows.findIndex(r => r && r.id === row.id);
+    if (idx >= 0) {
+      rows[idx] = { ...row, restaurantId };
+      await db.writeJson(RECOVERY_COUPONS_FILE, recoveryCoupons.purgeRecoveryCoupons(rows, { nowMs: Date.parse(atIso) }));
+    } else {
+      // La fila vive SOLO en la otra réplica: clavamos el claim como nuevo local.
+      rows.push({ ...row, restaurantId });
+      await db.writeJson(RECOVERY_COUPONS_FILE, recoveryCoupons.purgeRecoveryCoupons(rows, { nowMs: Date.parse(atIso) }));
+    }
+    logger.info(`[loyalty] winback claim ${recoveryCoupons.normalizeCouponCode(row.code)} phone=${maskPhone(row.usedByPhone || '—')}`);
+    return { row, reason: null };
+  });
+}
+
+/** Concreta el uso final (el pedido sí existió): parchea orderId + espejo cloud. */
+async function finalizeRecoveryClaim({ restaurantId, code, orderId, phone }) {
+  const normalized = recoveryCoupons.normalizeCouponCode(code);
+  return withWinbackLock(`claim:${restaurantId}:${normalized}`, async () => {
+    const rows = readRecoveryCouponsLocal();
+    const row = recoveryCoupons.findCouponByCode(rowsForOwner(rows, restaurantId), normalized);
+    if (!row || !row.usedAt) return { confirmed: false };
+    let alreadyFinalized = false;
+    try {
+      alreadyFinalized = await db.hasProcessedWebhookAsync('winback_used', `wbu_${row.id}`);
+    } catch (e) { /* cloud down: seguimos local */ }
+    if (alreadyFinalized) {
+      sentry.captureMessage('winback coupon finalized twice', {
+        source: 'loyalty.recoveryCoupons',
+        level: 'warn',
+        tags: { restaurantId, code: normalized }
+      });
+    }
+    row.usedOrderId = orderId || row.usedOrderId || null;
+    row.usedByPhone = normalizePhone(String(phone || '')) || row.usedByPhone || null;
+    const idx = rows.findIndex(r => r && r.id === row.id);
+    if (idx >= 0) rows[idx] = { ...row, restaurantId };
+    await db.writeJson(RECOVERY_COUPONS_FILE, recoveryCoupons.purgeRecoveryCoupons(rows, { nowMs: Date.now() }));
+    if (!alreadyFinalized) {
+      await mirrorCouponRow('winback_used', `wbu_${row.id}`, 'used', {
+        ...row, usedByPhone: maskPhone(row.usedByPhone || '—')
+      });
+    }
+    return { confirmed: true, alreadyFinalized };
+  });
+}
+
+/** Suelta un claim provisional si el pedido falló ANTES de existir. */
+async function releaseRecoveryClaim({ restaurantId, code }) {
+  const normalized = recoveryCoupons.normalizeCouponCode(code);
+  return withWinbackLock(`claim:${restaurantId}:${normalized}`, async () => {
+    const rows = readRecoveryCouponsLocal();
+    const row = recoveryCoupons.findCouponByCode(rowsForOwner(rows, restaurantId), normalized);
+    if (!row || !row.usedAt) return { released: false };
+    row.usedAt = null;
+    row.usedByPhone = null;
+    row.usedOrderId = null;
+    const idx = rows.findIndex(r => r && r.id === row.id);
+    if (idx >= 0) rows[idx] = { ...row, restaurantId };
+    await db.writeJson(RECOVERY_COUPONS_FILE, recoveryCoupons.purgeRecoveryCoupons(rows, { nowMs: Date.now() }));
+    return { released: true };
+  });
+}
+
 module.exports = {
   // puros / helpers (para tests)
   normalizePhone,
@@ -1003,6 +1185,12 @@ module.exports = {
   GLOBAL_REWARDS,
   listChurnCandidates,
   findReactivationTarget,
+  // F8 cupones de recupero (winback)
+  listRecoveryCoupons,
+  createWinbackCoupon,
+  claimRecoveryCoupon,
+  finalizeRecoveryClaim,
+  releaseRecoveryClaim,
   // negocio
   findCustomerByPhone,
   findOrCreateCustomer,

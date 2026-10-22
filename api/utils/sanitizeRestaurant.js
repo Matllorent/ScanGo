@@ -499,6 +499,9 @@ function sanitizeRestaurantPayload(data) {
   // Coupons & Team
   clean.customCoupons = sanitizeCustomCoupons(clean.customCoupons);
   clean.teamMembers = sanitizeTeamMembers(clean.teamMembers);
+  // Cupones de recupero (F8): server-managed SOLO por la capa de loyalty
+  // (catálogo privado). El Studio nunca los crea ni los pisa por /save.
+  delete clean.recoveryCoupons;
 
   // Heladería: tamaños y toppings del dueño (undefined = defaults del wizard).
   clean.iceCreamContainers = sanitizeIceCreamContainers(clean.iceCreamContainers);

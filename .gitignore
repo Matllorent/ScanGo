@@ -39,3 +39,6 @@ public/qa-menu-*
 # Mockups estáticos de revisión visual (previews/tema-*.html, solo workspace)
 previews/
 
+# OpenCode plugins y workspace local
+.opencode/
+

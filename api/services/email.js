@@ -56,6 +56,17 @@ function maskEmailList(to) {
   return arr.map(maskEmail).join(', ');
 }
 
+/** Escape HTML para interpolation en templates (sanea texto del propietario
+ * (nombre/mensaje/codigo/cuppon): todo sale como texto literal, jamas marcado vivo. */
+function escapeHtmlText(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /**
  * Email Service for Transactional & Marketing Emails
  * Integrates Resend API client via native fetch with process.env credentials
@@ -232,6 +243,42 @@ const emailService = {
       </div>
     `;
     return this.sendEmail({ to, subject, html });
+  },
+
+  /**
+   * Send Win-back Coupon Email (F8 Cupón de recupero).
+   * Todo campo interpolado pasa por escapeHtml — el body del mensaje viene
+   * del texto libre del dueño (cierre del finding P2 para este template):
+   * HTML inyectado sale como texto, nunca como marcado vivo.
+   */
+  async sendWinbackCouponEmail({ to, restaurantName, message, couponCode, couponLabel, expiresAt, menuUrl }) {
+    // CAN-SPAM §5(4)+(5): honoring opt-outs no es opcional (idéntico a las promos).
+    if (isOptedOut(to)) {
+      console.log(`[Email] Winback skipped (opt-out): ${maskEmailList(to)}`);
+      return { provider: 'local_mock', success: true, skipped: true, reason: 'OPT_OUT' };
+    }
+    const place = escapeHtmlText(restaurantName || 'Tu restaurante');
+    const msg = escapeHtmlText(message || '').trim();
+    const code = escapeHtmlText(couponCode || '');
+    const label = escapeHtmlText(couponLabel || '');
+    const expires = escapeHtmlText(expiresAt || '');
+    const link = typeof menuUrl === 'string' && menuUrl.startsWith('http')
+      ? menuUrl
+      : '';
+    const html = `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto;">
+        <h2>Te extra&ntilde;amos — ten&eacute;s un cup&oacute;n de ${place}</h2>
+        ${msg ? `<p>${msg.replace(/\n/g, '<br>')}</p>` : ''}
+        ${code ? `<div style="text-align:center; padding: 18px; border: 2px dashed #059669; border-radius: 8px; margin: 16px 0;">
+          <div style="font-size: 13px; color: #64748b;">${label || 'Cup&oacute;n de bienvenida de vuelta'}</div>
+          <div style="font-size: 26px; font-weight: bold; letter-spacing: 2px; color: #059669;">${code}</div>
+          ${expires ? `<div style="font-size: 12px; color: #64748b;">V&aacute;lido hasta ${expires}</div>` : ''}
+        </div>` : ''}
+        ${link ? `<p><a href="${escapeHtmlText(link)}" style="background: #059669; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Ver carta y pedir</a></p>` : ''}
+        <p style="font-size: 12px; color: #64748b;">Un solo uso. Si no quer&eacute;s recibir m&aacute;s avisos, pod&eacute;s darte de baja abajo.</p>
+      </div>
+    `;
+    return this.sendEmail({ to, subject: `Volvé a ${restaurantName || 'tu local favorito'} — te guardamos un cupón`, html });
   },
 
   /**

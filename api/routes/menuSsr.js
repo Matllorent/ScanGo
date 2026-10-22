@@ -19,10 +19,12 @@ const { PUBLIC_DIR, SEND_FILE_OPTIONS } = require('../utils/paths');
 const router = express.Router();
 
 // SEO & OpenGraph Dynamic Public Menu Route
-router.get('/:slug', (req, res) => {
+router.get('/:slug', async (req, res) => {
   const slug = (req.params.slug || '').toLowerCase();
   // Demos por rubro: se resuelven sin DB (in-memory, siempre online).
-  const restaurant = db.findRestaurantBySlug(slug) || getDemoRestaurant(slug);
+  let restaurant = db.findRestaurantBySlug(slug);
+  if (!restaurant) restaurant = await db.lazyLoadRestaurant(slug);
+  restaurant = restaurant || getDemoRestaurant(slug);
   const menuHtmlPath = path.join(PUBLIC_DIR, 'menu.html');
 
   if (fs.existsSync(menuHtmlPath) && restaurant) {

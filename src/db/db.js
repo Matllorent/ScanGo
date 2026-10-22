@@ -41,6 +41,90 @@ function readRestaurants() {
   return rows;
 }
 
+// ── Caché de hydratación lazy (por slug / userId / id) ──────────────────────
+// En un Cold Start serverless el archivo restaurants.json está vacío.
+// En lugar de descargar toda la tabla al boot, cada lookup consulta Supabase
+// de forma puntual la primera vez y persiste el resultado en el JSON local.
+// Las siguientes llamadas síncronas (findRestaurantBySlug, etc.) lo encuentran.
+let _lazyCache = new Map(); // slug|userId|id → true (evita doble fetch por key)
+
+/** Normaliza una fila de Supabase al mismo shape que usa el boot. */
+function _normalizeCloudRestaurantRow(r) {
+  const profile = r.profile && typeof r.profile === 'object' ? r.profile : {};
+  return {
+    ...profile,
+    id: r.id,
+    userId: r.user_id,
+    slug: r.slug,
+    name: r.name || profile.name,
+    bizName: r.biz_name || profile.bizName,
+    slogan: r.slogan || profile.slogan,
+    currency: r.currency || profile.currency,
+    phone: r.phone || profile.phone,
+    city: r.city || profile.city || '',
+    smartWeatherEnabled: Boolean(r.smart_weather_enabled),
+    theme: r.theme || profile.theme,
+    logoUrl: r.logo_url || profile.logoUrl,
+    bannerUrl: r.banner_url || profile.bannerUrl || null,
+    businessType: normalizeBusinessType(r.business_type || profile.businessType),
+    layout: r.layout || profile.layout || 'classic',
+    wifi: r.wifi || profile.wifi,
+    categories: r.categories || profile.categories || [],
+    dishes: r.dishes || profile.dishes || [],
+    modifierGroups: r.modifier_groups || profile.modifierGroups || [],
+    deliveryZones: r.delivery_zones || profile.deliveryZones || [],
+    branches: r.branches || profile.branches || [],
+    subscription: r.subscription || profile.subscription,
+    createdAt: r.created_at || profile.createdAt,
+    updatedAt: r.updated_at || profile.updatedAt
+  };
+}
+
+/**
+ * Descarga UN restaurante de Supabase (por slug, userId o id) y lo mezcla en
+ * el JSON local. Best-effort: nunca lanza, el fallo se logea silencioso.
+ * @param {'slug'|'userId'|'id'} field  Campo de búsqueda.
+ * @param {string} value                Valor a buscar.
+ */
+async function _lazyHydrateRestaurant(field, value) {
+  if (!supabase || !value) return;
+  const cacheKey = `${field}:${value}`;
+  if (_lazyCache.has(cacheKey)) return; // ya lo intentamos
+  _lazyCache.set(cacheKey, true);
+
+  const colMap = { slug: 'slug', userId: 'user_id', id: 'id' };
+  const col = colMap[field];
+  if (!col) return;
+
+  try {
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('*')
+      .eq(col, value)
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return;
+
+    const normalized = normalizeRestaurantBusinessType(_normalizeCloudRestaurantRow(data));
+    const existing = readJson(RESTAURANTS_FILE, []);
+    const idx = existing.findIndex(r => r.id === normalized.id);
+    if (idx === -1) {
+      existing.push(normalized);
+    } else {
+      // Cloud gana solo si es más nuevo
+      if (tsOf(normalized.updatedAt || normalized.createdAt) >
+          tsOf(existing[idx].updatedAt || existing[idx].createdAt)) {
+        existing[idx] = normalized;
+      }
+    }
+    await writeJson(RESTAURANTS_FILE, existing);
+  } catch (e) {
+    // best-effort: el JSON local puede quedar incompleto pero nunca rompe
+    console.warn(`[DB lazy] No se pudo hidratar ${field}=${value}:`, e.message);
+  }
+}
+
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -373,73 +457,35 @@ if (process.env.SUPABASE_URL && supabaseKey) {
 
     databaseReady = (async () => {
       try {
-        const [usersResult, restaurantsResult] = await Promise.all([
-          supabase.from('users').select('*'),
-          supabase.from('restaurants').select('*')
-        ]);
+        // ── Boot lazy: solo hidratamos la tabla users ────────────────────────
+        // La tabla restaurants puede tener miles de filas y crece con el SaaS.
+        // Descargarla entera en cada Cold Start es el principal contribuidor al
+        // tiempo de arranque en Vercel. Los restaurantes se hidratan on-demand
+        // mediante _lazyHydrateRestaurant() la primera vez que se accede a uno
+        // por slug/userId/id (ver findRestaurantBySlug et al. más abajo).
+        const usersResult = await supabase.from('users').select('*');
         if (usersResult.error) throw usersResult.error;
-        if (restaurantsResult.error) throw restaurantsResult.error;
 
         const cloudUsers = (usersResult.data || []).map(user => ({
           ...user,
           createdAt: user.createdAt || user.created_at,
           updatedAt: user.updatedAt || user.updated_at
         }));
-        const cloudRestaurants = (restaurantsResult.data || []).map(r => {
-          const profile = r.profile && typeof r.profile === 'object' ? r.profile : {};
-          return {
-            ...profile,
-            id: r.id,
-            userId: r.user_id,
-            slug: r.slug,
-            name: r.name || profile.name,
-            bizName: r.biz_name || profile.bizName,
-            slogan: r.slogan || profile.slogan,
-            currency: r.currency || profile.currency,
-            phone: r.phone || profile.phone,
-            city: r.city || profile.city || '',
-            smartWeatherEnabled: Boolean(r.smart_weather_enabled),
-            theme: r.theme || profile.theme,
-            logoUrl: r.logo_url || profile.logoUrl,
-            bannerUrl: r.banner_url || profile.bannerUrl || null,
-            businessType: normalizeBusinessType(r.business_type || profile.businessType),
-            layout: r.layout || profile.layout || 'classic',
-            wifi: r.wifi || profile.wifi,
-            categories: r.categories || profile.categories || [],
-            dishes: r.dishes || profile.dishes || [],
-            modifierGroups: r.modifier_groups || profile.modifierGroups || [],
-            deliveryZones: r.delivery_zones || profile.deliveryZones || [],
-            branches: r.branches || profile.branches || [],
-            subscription: r.subscription || profile.subscription,
-            createdAt: r.created_at || profile.createdAt,
-            updatedAt: r.updated_at || profile.updatedAt
-          };
-        }).map(normalizeRestaurantBusinessType);
 
         const localUsers = readJson(USERS_FILE, []);
-        const localRestaurants = readJson(RESTAURANTS_FILE, []);
-        const hydrated = resolveHydrationData(cloudUsers, localUsers, cloudRestaurants, localRestaurants);
-
         if (cloudUsers.length === 0 && localUsers.length > 0) {
           console.warn('[DB] Snapshot de Supabase vacío para usuarios; conservando datos locales válidos.');
         }
-        if (cloudRestaurants.length === 0 && localRestaurants.length > 0) {
-          console.warn('[DB] Snapshot de Supabase vacío para restaurantes; conservando datos locales válidos.');
-        }
 
-        // Re-lectura antes de escribir: entre el read de arriba y este write
-        // pueden haber entrado altas locales (createUser/saveRestaurant directos
-        // que no esperan db.ready, como hacen los tests). Sin esto, el write
-        // pisaría esas filas → 401 USER_NOT_FOUND fantasma. La fusión final
-        // une lo hidratado con lo que haya AHORA en disco (disco gana empates).
+        // Re-lectura antes de escribir (ver comentario original).
         const freshUsers = readJson(USERS_FILE, []);
-        const freshRestaurants = readJson(RESTAURANTS_FILE, []);
-        const finalUsers = mergeById(freshUsers, hydrated.users);
-        const finalRestaurants = mergeById(freshRestaurants, hydrated.restaurants);
+        const finalUsers = mergeById(freshUsers, cloudUsers);
 
-        if (!await writeJson(USERS_FILE, finalUsers) || !await writeJson(RESTAURANTS_FILE, finalRestaurants)) {
-          throw new Error('No se pudo hidratar el snapshot local desde Supabase.');
+        if (!await writeJson(USERS_FILE, finalUsers)) {
+          throw new Error('No se pudo hidratar el snapshot local de usuarios desde Supabase.');
         }
+
+        console.log(`✅ [DB] Usuarios hidratados (${finalUsers.length}). Restaurantes: carga diferida por slug/id.`);
 
         // Reparación outbox: pedidos que quedaron solo en local (insert cloud
         // fallido en caliente) se suben ahora. Best-effort, nunca rompe el boot.
@@ -453,8 +499,6 @@ if (process.env.SUPABASE_URL && supabaseKey) {
         }
 
         // Sonda del esquema operacional (7 tablas realtime/operaciones).
-        // Grupal/Realtime, pedidos, reseñas, feedback, auditoría, push y
-        // telemetría: si alguna falta, se reporta en logs y healthz.
         try {
           cloudSchemaStatus = await probeCloudSchema(supabase);
           if (cloudSchemaStatus.missing.length > 0) {
@@ -599,16 +643,42 @@ const db = {
   // Restaurants & Menus
   findRestaurantBySlug(slug) {
     const rests = readRestaurants();
-    return normalizeRestaurantBusinessType(rests.find(r => (r.slug || '').toLowerCase() === (slug || '').toLowerCase()) || null);
+    const found = rests.find(r => (r.slug || '').toLowerCase() === (slug || '').toLowerCase()) || null;
+    // Si no está localmente, disparar la carga lazy en background para el próximo request.
+    // Fire-and-forget: esta función sigue siendo síncrona.
+    if (!found && slug) _lazyHydrateRestaurant('slug', slug.toLowerCase()).catch(() => {});
+    return normalizeRestaurantBusinessType(found);
   },
   findRestaurantByUserId(userId) {
     const rests = readRestaurants();
-    return normalizeRestaurantBusinessType(rests.find(r => r.userId === userId) || null);
+    const found = rests.find(r => r.userId === userId) || null;
+    if (!found && userId) _lazyHydrateRestaurant('userId', userId).catch(() => {});
+    return normalizeRestaurantBusinessType(found);
   },
   findRestaurantById(id) {
     const rests = readRestaurants();
-    return normalizeRestaurantBusinessType(rests.find(r => r.id === id) || null);
+    const found = rests.find(r => r.id === id) || null;
+    if (!found && id) _lazyHydrateRestaurant('id', id).catch(() => {});
+    return normalizeRestaurantBusinessType(found);
   },
+
+  /**
+   * Versión async de findRestaurantBySlug que ESPERA la hidratación lazy.
+   * Úsala en handlers de alto impacto que pueden hacer await:
+   * SSR /m/:slug, rutas de menú público, handler de eventos.
+   * Garantiza que el restaurante esté en el JSON local ANTES del lookup.
+   * @param {string} slug
+   * @returns {Promise<object|null>}
+   */
+  async lazyLoadRestaurant(slug) {
+    if (!slug) return null;
+    await _lazyHydrateRestaurant('slug', (slug || '').toLowerCase());
+    const rests = readRestaurants();
+    return normalizeRestaurantBusinessType(
+      rests.find(r => (r.slug || '').toLowerCase() === slug.toLowerCase()) || null
+    );
+  },
+
   async saveRestaurant(userId, data) {
     const rests = readJson(RESTAURANTS_FILE, []);
     let rest = rests.find(r => r.userId === userId);
