@@ -4594,7 +4594,7 @@
       content-visibility: auto;
       contain-intrinsic-size: auto 140px;
     }
-    .dish-body { flex: 1; }
+    .dish-body { flex: 1; min-width: 0; }
     .dish-title-line {
       display: flex;
       align-items: center;
@@ -4606,6 +4606,8 @@
       font-size: 1.05rem;
       font-weight: 700;
       color: var(--chalk-white);
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .dish-badge {
       font-size: 0.7rem;
@@ -4634,6 +4636,8 @@
       font-size: 1.15rem;
       font-weight: 700;
       color: var(--chalk-gold-ink, var(--chalk-gold));
+      flex-shrink: 0;
+      white-space: nowrap;
     }
 
     /* Actions / Add button */
