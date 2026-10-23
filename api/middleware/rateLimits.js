@@ -54,5 +54,9 @@ module.exports = {
     'ADMIN_RATE_LIMIT_EXCEEDED',
     'Acceso temporalmente bloqueado por seguridad: has superado el límite de 5 intentos. Esperá 15 minutos antes de volver a intentar.'
   ),
+  // Creación individual de platos (POST /api/studio/dishes): 30 req/min por tenant
+  dishCreationLimiter: createRateLimit(30, 'DISH_CREATION_RATE_LIMITED', 'Demasiados platos creados en poco tiempo.'),
+  // Guardado masivo con platos (POST /api/studio/save con dishes[]): 5 req/min por tenant
+  dishBulkSaveLimiter: createRateLimit(5, 'DISH_BULK_SAVE_RATE_LIMITED', 'Demasiados guardados masivos de carta en poco tiempo.'),
   publicEventKeyGenerator
 };

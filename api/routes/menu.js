@@ -17,6 +17,7 @@ const { getDemoRestaurant, listDemoRestaurants, normalizeDemoType } = require('.
 const { resolveBranchOverridePrice, normalizeBranchCustomDishes } = require('../utils/menuResponse');
 const { resolveImageMode, resolveMenuSizing, layoutSupportsMenuSizing } = require('../utils/themeManifest');
 const { computePopTiers } = require('../utils/popularityTiers');
+const escapeHtml = require('../utils/escapeHtml');
 
 const router = express.Router();
 
@@ -456,6 +457,334 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * GET /api/menu/:slug/dishes - Listar platos con paginación cursor-based (público)
+ * Query params: limit (default 50, max 100), after_id (cursor), categoryId (filtro),
+ * branch (sucursal), sizing (popularity preview)
+ */
+const PUBLIC_DISHES_DEFAULT_LIMIT = 50;
+const PUBLIC_DISHES_MAX_LIMIT = 100;
+
+router.get('/menu/:slug/dishes', menuCacheMiddleware, async (req, res) => {
+  const slug = (req.params.slug || '').toLowerCase();
+  const demoType = normalizeDemoType(slug);
+  if (demoType) {
+    try {
+      const demo = getDemoRestaurant(demoType);
+      if (!demo) return res.status(404).json({ error: 'Demo no encontrada' });
+      let dishes = (demo.dishes || []).map(d => ({
+        ...d,
+        previous_price: d.previous_price || d.previousPrice || null,
+        is_chef_recommended: Boolean(d.is_chef_recommended || d.isChefRecommended)
+      }));
+      return res.status(200).json(paginateDishes(dishes, req.query));
+    } catch (e) {
+      return res.status(500).json({ error: 'No se pudo cargar la demo' });
+    }
+  }
+
+  try {
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error('DB_TIMEOUT_800MS')), 800);
+    });
+
+    const reqBranch = (req.query.branch || req.query.sucursal || '').toLowerCase().trim();
+    const reqSizing = req.query.sizing === 'popularity' ? ':sizing:popularity' : '';
+    const activeBranchCacheKey = `${slug}:branch:${reqBranch}${reqSizing}:dishes`;
+
+    const fetchPromise = getCachedMenu(activeBranchCacheKey, async () => {
+      let restaurant = db.findRestaurantBySlug(slug);
+      if (!restaurant) restaurant = await db.lazyLoadRestaurant(slug);
+      if (!restaurant) return null;
+
+      const isEvent = restaurant.businessType === 'events' || restaurant.isEvent === true;
+      if (isEvent) {
+        const expiresAt = restaurant.expiresAt ? new Date(restaurant.expiresAt) : null;
+        const eventDate = restaurant.eventDate ? new Date(restaurant.eventDate) : null;
+        const expiryCheck = expiresAt || eventDate;
+        if (expiryCheck && expiryCheck < new Date()) return { inactive: true, expired: true };
+      } else {
+        const access = billingOrchestrator.verifyAccess(restaurant.id);
+        if (!access.allowed) return { inactive: true };
+      }
+
+      let activeBranch = null;
+      if (reqBranch && Array.isArray(restaurant.branches)) {
+        activeBranch = restaurant.branches.find(b =>
+          (b.id || '').toLowerCase() === reqBranch || (b.slug || '').toLowerCase() === reqBranch
+        );
+      }
+
+      let inheritedDishes = [...(restaurant.dishes || [])];
+      if (activeBranch?.overridePrices && typeof activeBranch.overridePrices === 'object') {
+        inheritedDishes = inheritedDishes.map(d => ({
+          ...d,
+          price: resolveBranchOverridePrice(activeBranch.overridePrices, d.id, d.price),
+          previous_price: d.price
+        }));
+      }
+      if (activeBranch?.customDishes && Array.isArray(activeBranch.customDishes)) {
+        inheritedDishes = [...inheritedDishes, ...activeBranch.customDishes];
+      }
+
+      // Filter by category
+      const categoryId = req.query.categoryId;
+      if (categoryId) {
+        inheritedDishes = inheritedDishes.filter(d => d.categoryId === categoryId);
+      }
+
+      // Apply translations
+      const reqLang = (req.query.lang || 'es').toLowerCase();
+      let dishes = inheritedDishes.map(d => {
+        const trans = d.translations?.[reqLang];
+        return {
+          ...d,
+          name: trans?.name || d.name,
+          description: trans?.description || d.description,
+          previous_price: d.previous_price || d.previousPrice || null,
+          is_chef_recommended: Boolean(d.is_chef_recommended || d.isChefRecommended)
+        };
+      });
+
+      // Sort: chef recommended first, then by availability
+      const reqHour = req.query.hour || req.query.mealTime || '';
+      const reqDay = typeof req.query.day !== 'undefined' ? parseInt(req.query.day) : new Date().getDay();
+      dishes.sort((a, b) => {
+        const aChef = a.is_chef_recommended ? 1 : 0;
+        const bChef = b.is_chef_recommended ? 1 : 0;
+        if (aChef !== bChef) return bChef - aChef;
+        if (reqHour) {
+          const aHours = Array.isArray(a.available_hours || a.availableHours) ? (a.available_hours || a.availableHours) : [];
+          const bHours = Array.isArray(b.available_hours || b.availableHours) ? (b.available_hours || b.availableHours) : [];
+          const aMatch = aHours.includes(reqHour) ? 1 : 0;
+          const bMatch = bHours.includes(reqHour) ? 1 : 0;
+          if (aMatch !== bMatch) return bMatch - aMatch;
+        }
+        const aDays = Array.isArray(a.available_days || a.availableDays) ? (a.available_days || a.availableDays) : [0,1,2,3,4,5,6];
+        const bDays = Array.isArray(b.available_days || b.availableDays) ? (b.available_days || b.availableDays) : [0,1,2,3,4,5,6];
+        const aDayMatch = aDays.includes(reqDay) ? 1 : 0;
+        const bDayMatch = bDays.includes(reqDay) ? 1 : 0;
+        if (aDayMatch !== bDayMatch) return bDayMatch - aDayMatch;
+        return 0;
+      });
+
+      // Popularity sizing
+      const sizingPreview = req.query.sizing === 'popularity';
+      const layoutId = restaurant.layout || 'classic';
+      const { layoutSupportsMenuSizing, resolveMenuSizing } = require('../utils/themeManifest');
+      const { computePopTiers } = require('../utils/popularityTiers');
+      const effectiveMenuSizing = (sizingPreview && layoutSupportsMenuSizing(layoutId, 'popularity'))
+        ? 'popularity'
+        : resolveMenuSizing(layoutId, restaurant.menuSizing);
+      if (effectiveMenuSizing === 'popularity') {
+        const tiers = computePopTiers(dishes, restaurant.analytics && restaurant.analytics.dishPopularity);
+        dishes = dishes.map(d => ({ ...d, popTier: tiers.has(d.id) ? tiers.get(d.id) : 1 }));
+      }
+
+      return { dishes, total: dishes.length };
+    });
+
+    let data;
+    try {
+      data = await Promise.race([fetchPromise, timeoutPromise]);
+    } catch (raceErr) {
+      if (raceErr.message === 'DB_TIMEOUT_800MS') {
+        const { memoryCache } = require('../middleware/cache');
+        const stale = memoryCache.get(activeBranchCacheKey);
+        if (stale) {
+          res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300');
+          res.setHeader('Warning', '110 Response is Stale');
+          res.setHeader('X-Cache-Status', 'Stale-Fallback');
+          return res.status(200).json(paginateDishes(stale.dishes || [], req.query, stale.total));
+        }
+      }
+      data = await fetchPromise;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (!data) return res.status(404).json({ error: 'Restaurante no encontrado' });
+    if (data.inactive) return res.status(402).json({ error: 'MenuTemporalmenteInactivo' });
+
+    const response = paginateDishes(data.dishes, req.query, data.total);
+    res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300');
+    res.json(response);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+function paginateDishes(dishes, query, totalCount) {
+  const limit = Math.min(parseInt(query.limit) || PUBLIC_DISHES_DEFAULT_LIMIT, PUBLIC_DISHES_MAX_LIMIT);
+  const afterId = query.after_id;
+  let startIndex = 0;
+  if (afterId) {
+    const foundIndex = dishes.findIndex(d => String(d.id) === String(afterId));
+    if (foundIndex !== -1) startIndex = foundIndex + 1;
+  }
+  const page = dishes.slice(startIndex, startIndex + limit);
+  const nextCursor = startIndex + limit < (totalCount ?? dishes.length) ? page[page.length - 1]?.id : null;
+  return {
+    success: true,
+    data: page,
+    pagination: {
+      limit,
+      nextCursor,
+      hasMore: nextCursor !== null,
+      total: totalCount ?? dishes.length
+    }
+  };
+}
+
+/**
+ * GET /m/:slug/rewards
+ * Catálogo público de recompensas del Club (estilo Novity/Bonuxo).
+ * SSR con JSON-LD ItemList para SEO/GEO.
+ * Accesible desde el FAB "Mi Club" o link directo.
+ */
+router.get('/m/:slug/rewards', async (req, res, next) => {
+  try {
+    const slug = String(req.params.slug || '').trim();
+    if (!slug) return res.status(404).json({ error: 'Slug requerido' });
+
+    // Reutilizar la lógica de carga del menú
+    const restaurant = db.findRestaurantBySlug(slug);
+    if (!restaurant) return res.status(404).json({ error: 'Restaurante no encontrado' });
+
+    // Verificar si el local tiene fidelización activa
+    const loyaltyEnabled = restaurant.allowLoyaltyPoints === true;
+    if (!loyaltyEnabled) {
+      return res.status(404).json({ error: 'Club no disponible en este local' });
+    }
+
+    const loyaltyConfig = loyaltyService.getPublicLoyaltyConfig(restaurant);
+    const rewards = Array.isArray(loyaltyConfig.rewards) ? loyaltyConfig.rewards : [];
+    const visitReward = loyaltyConfig.visitReward || { title: 'Visita completa', pointsCost: 0 };
+    const stampsTarget = loyaltyConfig.stampsTarget || 6;
+
+    // Construir JSON-LD ItemList
+    const itemList = rewards.map((r, idx) => ({
+      '@type': 'ListItem',
+      position: idx + 1,
+      item: {
+        '@type': 'Product',
+        name: r.title,
+        description: `Canjeable por ${r.pointsCost} puntos del Club`,
+        offers: {
+          '@type': 'Offer',
+          price: r.pointsCost,
+          priceCurrency: 'PTS',
+          availability: 'https://schema.org/InStock'
+        }
+      }
+    }));
+
+    // Agregar visit reward como primer item si existe
+    if (visitReward && visitReward.title) {
+      itemList.unshift({
+        '@type': 'ListItem',
+        position: 0,
+        item: {
+          '@type': 'Product',
+          name: visitReward.title,
+          description: `Premio por completar ${stampsTarget} visitas (sellos)`,
+          offers: {
+            '@type': 'Offer',
+            price: 0,
+            priceCurrency: 'PTS',
+            availability: 'https://schema.org/InStock'
+          }
+        }
+      });
+      // Re-posicionar
+      itemList.forEach((item, idx) => { item.position = idx; });
+    }
+
+    const jsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'ItemList',
+      name: `Catálogo de Recompensas — ${restaurant.name}`,
+      description: `Premios canjeables con puntos del Club de ${restaurant.name}. ${rewards.length} recompensas disponibles + premio por visitas.`,
+      numberOfItems: itemList.length,
+      itemListElement: itemList
+    };
+
+    // HTML SSR
+    const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const menuUrl = `${appUrl}/m/${slug}`;
+    const rewardsHtml = rewards.length
+      ? rewards.map(r => `
+          <article class="reward-card" style="background:var(--surface-card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:12px; display:grid; grid-template-columns: auto 1fr auto; gap:12px; align-items:center;">
+            <div class="reward-icon" style="font-size:2rem;">🎁</div>
+            <div>
+              <h3 style="margin:0 0 4px; color:var(--chalk-white);">${escapeHtml(r.title)}</h3>
+              <p style="margin:0; color:var(--chalk-dim); font-size:0.85rem;">Canjeable por <strong>${r.pointsCost} pts</strong></p>
+            </div>
+            <button type="button" class="btn-primary" style="padding:8px 16px; border-radius:8px; font-weight:700;" disabled>Requiere identificación</button>
+          </article>
+        `).join('')
+      : '<p style="color:var(--chalk-dim); text-align:center; padding:2rem;">No hay recompensas configuradas todavía.</p>';
+
+    const visitRewardHtml = visitReward && visitReward.title
+      ? `<article class="reward-card visit-reward" style="background:linear-gradient(135deg, var(--chalk-gold-dim), transparent); border:1px solid var(--chalk-gold); border-radius:12px; padding:16px; margin-bottom:16px; display:grid; grid-template-columns: auto 1fr auto; gap:12px; align-items:center;">
+            <div class="reward-icon" style="font-size:2rem;">☕</div>
+            <div>
+              <h3 style="margin:0 0 4px; color:var(--chalk-white);">${escapeHtml(visitReward.title)}</h3>
+              <p style="margin:0; color:var(--chalk-dim); font-size:0.85rem;">Completa <strong>${stampsTarget} visitas</strong> para obtenerlo</p>
+            </div>
+            <span class="reward-badge" style="background:var(--chalk-gold); color:#0E1412; padding:4px 12px; border-radius:20px; font-size:0.75rem; font-weight:800;">Premio por fidelidad</span>
+          </article>`
+      : '';
+
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catálogo de Recompensas — ${escapeHtml(restaurant.name)}</title>
+  <meta name="description" content="Premios canjeables con puntos del Club de ${escapeHtml(restaurant.name)}. ${rewards.length} recompensas disponibles.">
+  <link rel="canonical" href="${menuUrl}#rewards">
+  <script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="/fonts/fonts.css">
+  <link rel="stylesheet" href="/fonts/extended.css">
+  <link rel="stylesheet" href="/css/menu.css">
+  <style>
+    .rewards-page { max-width: 720px; margin: 0 auto; padding: 20px 16px 40px; }
+    .rewards-header { text-align: center; margin-bottom: 24px; }
+    .rewards-title { font-size: 1.75rem; font-weight: 800; color: var(--chalk-white); margin: 0 0 8px; }
+    .rewards-subtitle { color: var(--chalk-dim); margin: 0; }
+    .rewards-list { display: flex; flex-direction: column; gap: 12px; }
+    .btn-back { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 20px; padding: 10px 16px; background: transparent; border: 1px solid var(--border); color: var(--chalk-white); border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .btn-back:hover { background: var(--surface-card-hover); }
+  </style>
+</head>
+<body class="theme-${restaurant.theme || 'classic'} layout-${restaurant.layout || 'classic'}">
+  <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
+  <main id="main-content" tabindex="-1" class="rewards-page">
+    <button class="btn-back" onclick="window.location.href='${menuUrl}'">← Volver al Menú</button>
+    <header class="rewards-header">
+      <h1 class="rewards-title">🎁 Catálogo de Recompensas</h1>
+      <p class="rewards-subtitle">Club de Puntos — ${escapeHtml(restaurant.name)}</p>
+    </header>
+    ${visitRewardHtml}
+    <div class="rewards-list" role="list">${rewardsHtml}</div>
+    <p style="margin-top:24px; text-align:center; color:var(--chalk-dim); font-size:0.85rem;">
+      Identifícate con tu teléfono en el menú principal para ver tu saldo y canjear recompensas.
+    </p>
+  </main>
+</body>
+</html>`;
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+    res.send(html);
+  } catch (e) {
+    next(e);
   }
 });
 

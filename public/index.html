@@ -197,6 +197,7 @@
       <div class="hero-grid">
         <div class="hero-content">
           <span class="section-badge">🚀 Tu Menú Digital en Minutos</span>
+          <span class="badge-uy">🇺🇾 Hecho en Uruguay · Soporte WhatsApp +598</span>
           <h1>Creá el menú digital de tu negocio y vendé directo</h1>
           <p class="hero-one-liner">Tus clientes escanean el QR desde la mesa o desde casa, exploran platos con fotos, eligen ingredientes y te piden por WhatsApp con el total listo. Sin comisiones.</p>
 
@@ -561,30 +562,64 @@
         </div>
       </div>
 
-      <!-- Plan por evento (solo pestaña Eventos): pago único por fiesta -->
+      <!-- <!-- Plan por evento (solo pestaña Eventos): pago unico por fiesta + plan ilimitado -->
       <div class="pricing-grid" id="pricingEventGrid" style="display:none; justify-content:center;">
-        <div class="pricing-card featured" style="max-width:420px;">
-          <div class="ribbon-featured">PAGO ÚNICO • SIN SUSCRIPCIÓN</div>
-          <div>
-            <h3 class="plan-name">Fiesta Única</h3>
-            <p class="plan-desc">Un solo pago por tu boda, cumple o evento corporativo. Online hasta el día de la fiesta.</p>
-            <div class="plan-price">$12 <span>USD / evento</span></div>
-            <div class="plan-billing-note">Sin mensualidad · Sin renovación automática</div>
-
-            <ul class="plan-features">
-              <li><span class="check">✓</span> <strong>Programa visual de la fiesta</strong></li>
-              <li><span class="check">✓</span> <strong>Invitación con QR para tus invitados</strong></li>
-              <li><span class="check">✓</span> Confirmaciones por WhatsApp</li>
-              <li><span class="check">✓</span> Menú del evento + pedidos en vivo</li>
-              <li><span class="check">✓</span> Cartelería de mesa imprimible (PDF)</li>
-            </ul>
+        <!-- Toggle Mensual/Anual para Eventos -->
+        <div class="pricing-toggle" style="width:100%; max-width:420px; margin:0 auto 24px;">
+          <div class="toggle-buttons" role="radiogroup" aria-label="Periodo de facturacion para eventos">
+            <button type="button" class="toggle-btn active" data-period="monthly" data-js-click="switchEventPeriod|monthly" role="radio" aria-checked="true">Plan Unico Evento</button>
+            <button type="button" class="toggle-btn" data-period="annual" data-js-click="switchEventPeriod|annual" role="radio" aria-checked="false">Plan Evento Ilimitado</button>
           </div>
-
-          <button class="btn btn-gold" data-js-click="openAuthModal|register">Crear mi Evento →</button>
         </div>
-      </div>
-    </div>
-  </section>
+
+        <!-- Plan Mensual Evento -->
+        <div id="eventPlanMonthly" class="pricing-grid" style="justify-content:center;">
+          <div class="pricing-card featured" style="max-width:420px;">
+            <div class="ribbon-featured">PAGO UNICO - SIN SUSCRIPCION</div>
+            <div>
+              <h3 class="plan-name" id="eventPlanMonthlyName">Plan Unico Evento</h3>
+              <p class="plan-desc" id="eventPlanMonthlyDesc">Un solo pago para tu boda, cumpleanos, fiesta o evento corporativo. Sin suscripcion ni renovaciones.</p>
+              <div class="plan-price">$12 <span>USD / evento</span></div>
+              <div class="plan-billing-note">Sin mensualidad - Sin renovacion automatica</div>
+
+              <ul class="plan-features" id="eventPlanMonthlyFeatures">
+                <li><span class="check">V</span> <strong>Programa visual de la fiesta (itinerario visual)</strong></li>
+                <li><span class="check">V</span> <strong>Invitacion con QR para tus invitados</strong></li>
+                <li><span class="check">V</span> Confirmaciones por WhatsApp (RSVP automatico)</li>
+                <li><span class="check">V</span> Menu del evento + pedidos en vivo + pago online</li>
+                <li><span class="check">V</span> Carteleria de mesa imprimible (PDF)</li>
+                <li><span class="check">V</span> <strong>Valido hasta el dia del evento</strong></li>
+              </ul>
+            </div>
+
+            <button class="btn btn-gold" data-js-click="openAuthModal|register" data-event-plan="monthly">Crear mi Evento -></button>
+          </div>
+        </div>
+
+        <!-- Plan Anual Evento -->
+        <div id="eventPlanAnnual" class="pricing-grid" style="display:none; justify-content:center;">
+          <div class="pricing-card featured" style="max-width:420px;">
+            <div class="ribbon-featured">PLAN ILIMITADO - 1 ANO</div>
+            <div>
+              <h3 class="plan-name" id="eventPlanAnnualName">Plan Evento Ilimitado</h3>
+              <p class="plan-desc" id="eventPlanAnnualDesc">Para organizadores de eventos recurrentes. Todos tus eventos del ano por una tarifa plana.
+              <div class="plan-price">$89 <span>USD / ano</span></div>
+              <div class="plan-billing-note">Renovacion automatica - Cancela cuando quieras</div>
+
+              <ul class="plan-features" id="eventPlanAnnualFeatures">
+                <li><span class="check">V</span> <strong>Eventos ilimitados por 1 ano</strong></li>
+                <li><span class="check">V</span> <strong>Todo lo del Plan Unico Evento</strong></li>
+                <li><span class="check">V</span> <strong>Invitaciones ilimitadas por evento</strong></li>
+                <li><span class="check">V</span> <strong>Gestion de multiples fechas/sedes</strong></li>
+                <li><span class="check">V</span> <strong>Analytics consolidados por evento</strong></li>
+                <li><span class="check">V</span> Soporte prioritario por WhatsApp</li>
+              </ul>
+            </div>
+
+            <button class="btn btn-gold" data-js-click="openAuthModal|register" data-event-plan="annual">Comenzar mi Ano de Eventos -></button>
+          </div>
+        </div>
+      </div</section>
 
   <!-- Testimonials Section -->
   <section id="testimonios" class="testimonials-section">
@@ -723,6 +758,12 @@
           <p class="footer-desc">
             Plataforma para cartas gastronómicas interactivas, generación de cartelería QR y canalización directa de pedidos y reservas vía WhatsApp sin intermediarios ni comisiones.
           </p>
+          <div style="margin-top:16px;">
+            <div style="font-size:0.95rem; color:var(--text-dim); margin-bottom:8px;">Soporte Uruguay:</div>
+            <a href="https://wa.me/59899123456" style="display:flex; align-items:center; gap:8px; color:var(--accent-gold); font-weight:700; text-decoration:none;">
+              <span>📞</span> <span>+598 99 123 456</span>
+            </a>
+          </div>
         </div>
 
         <div>
@@ -805,6 +846,16 @@
             <input type="password" id="regPassword" class="form-input" placeholder="Mínimo 6 caracteres" minlength="6" required autocomplete="new-password">
             <button type="button" class="toggle-pass-btn" data-js-click="togglePasswordVisibility|regPassword|this" aria-label="Mostrar u ocultar contraseña" title="Mostrar/ocultar contraseña">👁️</button>
           </div>
+        </div>
+
+        <!-- Opcional: Fotos de la carta física para importación por IA -->
+        <div class="form-group" style="border:1px dashed var(--border-subtle); border-radius:8px; padding:16px; background:rgba(235, 169, 56, 0.05); margin-top:16px;">
+          <label class="form-label" style="display:flex; align-items:center; gap:8px; font-size:0.9rem; color:var(--accent-gold); font-weight:700; cursor:pointer;">
+            <span>📷</span> Subí fotos de tu carta física (opcional)
+          </label>
+          <input type="file" id="regMenuPhotos" class="form-input" multiple accept="image/jpeg,image/png,image/webp" data-js-change="previewMenuPhotos|this.files">
+          <div id="regMenuPhotosPreview" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;"></div>
+          <div class="input-hint">Sube 1-3 fotos de tu carta física. Las procesamos con IA y armamos tu menú automáticamente al crear tu cuenta. Máximo 5MB cada una.</div>
         </div>
 
         <!-- Confirmación de edad (COPPA/RGPD: sólo adultos registran su negocio) -->

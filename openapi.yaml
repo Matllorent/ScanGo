@@ -601,6 +601,365 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/studio/dishes:
+    post:
+      tags: [studio]
+      summary: Crear un plato individual
+      description: |-
+        `authMiddleware` (401) + `requireVerifiedEmail` + `requireActiveSubscription` + rate limit 30/min.
+        Valida con zod estricto (`name` máx 100, `price` 0-999999, `description` máx 500, `photoUrl` URL máx 2048).
+        Cuota de platos por plan: Trial 50, Starter 200, Event 100. Excedido → 403 `DISH_QUOTA_EXCEEDED`.
+        Responde 201 con `{ success: true, dish, quota {current, max} }`.
+      operationId: studioCreateDish
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, price, categoryId]
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                price:
+                  type: number
+                  minimum: 0
+                  maximum: 999999
+                categoryId:
+                  type: string
+                description:
+                  type: string
+                  maxLength: 500
+                photoUrl:
+                  type: string
+                  format: uri
+                  maxLength: 2048
+                videoUrl:
+                  type: string
+                  format: uri
+                  maxLength: 500
+                originalPrice:
+                  type: number
+                  minimum: 0
+                  maximum: 999999
+                  nullable: true
+      responses:
+        '201':
+          description: Plato creado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, dish, quota]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  dish:
+                    $ref: '#/components/schemas/Dish'
+                  quota:
+                    type: object
+                    required: [current, max]
+                    properties:
+                      current:
+                        type: integer
+                      max:
+                        type: integer
+        '400':
+          description: Validación fallida (`VALIDATION_ERROR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Email sin confirmar, cuota excedida (`DISH_QUOTA_EXCEEDED`), o rate limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags: [studio]
+      summary: Listar platos con paginación cursor-based
+      description: |-
+        `authMiddleware` (401) + `requireVerifiedEmail`.
+        Query params: `limit` (default 50, max 100), `after_id` (cursor), `categoryId` (filtro opcional).
+        Devuelve `{ success: true, data[], pagination {limit, nextCursor, hasMore, total} }`.
+      operationId: studioListDishes
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: after_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Cursor para paginación (id del último plato de la página anterior)
+        - name: categoryId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filtrar por categoría
+      responses:
+        '200':
+          description: Lista paginada de platos
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, pagination]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Dish'
+                  pagination:
+                    type: object
+                    required: [limit, nextCursor, hasMore, total]
+                    properties:
+                      limit:
+                        type: integer
+                      nextCursor:
+                        type: string
+                        nullable: true
+                      hasMore:
+                        type: boolean
+                      total:
+                        type: integer
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/studio/dishes/{id}:
+    patch:
+      tags: [studio]
+      summary: Actualizar un plato individual
+      description: |-
+        `authMiddleware` (401) + `requireVerifiedEmail` + `requireActiveSubscription`.
+        Valida con zod parcial (mismos límites que creación). Responde 200 con el plato actualizado.
+      operationId: studioUpdateDish
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                price:
+                  type: number
+                  minimum: 0
+                  maximum: 999999
+                description:
+                  type: string
+                  maxLength: 500
+                photoUrl:
+                  type: string
+                  format: uri
+                  maxLength: 2048
+                videoUrl:
+                  type: string
+                  format: uri
+                  maxLength: 500
+                originalPrice:
+                  type: number
+                  minimum: 0
+                  maximum: 999999
+                  nullable: true
+      responses:
+        '200':
+          description: Plato actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, dish]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  dish:
+                    $ref: '#/components/schemas/Dish'
+        '400':
+          description: Validación fallida (`VALIDATION_ERROR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Plato no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [studio]
+      summary: Eliminar un plato individual
+      description: |-
+        `authMiddleware` (401) + `requireVerifiedEmail` + `requireActiveSubscription`.
+        Responde 200 `{ success: true, message }`.
+      operationId: studioDeleteDish
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Plato eliminado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Plato no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/menu/{slug}/dishes:
+    get:
+      tags: [menu]
+      summary: Listar platos del menú público con paginación cursor-based
+      description: |-
+        Público (sin auth). Query params: `limit` (default 50, max 100), `after_id` (cursor),
+        `categoryId` (filtro), `branch` (sucursal), `sizing` (popularity preview), `lang` (idioma).
+        Devuelve `{ success: true, data[], pagination {limit, nextCursor, hasMore, total} }`.
+      operationId: menuListDishes
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: after_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: categoryId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: branch
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: sizing
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [popularity]
+        - name: lang
+          in: query
+          required: false
+          schema:
+            type: string
+            default: es
+      responses:
+        '200':
+          description: Lista paginada de platos
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, pagination]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MenuDish'
+                  pagination:
+                    type: object
+                    required: [limit, nextCursor, hasMore, total]
+                    properties:
+                      limit:
+                        type: integer
+                      nextCursor:
+                        type: string
+                        nullable: true
+                      hasMore:
+                        type: boolean
+                      total:
+                        type: integer
+        '404':
+          description: Restaurante no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/orders:
     post:
       tags: [orders]
@@ -2015,3 +2374,122 @@ components:
           example: RESTAURANT_NOT_FOUND
         details:
           description: Detalle de validación (formato Zod) u otro contexto
+    Dish:
+      type: object
+      required: [id, categoryId, name, price]
+      properties:
+        id:
+          type: string
+        categoryId:
+          type: string
+        name:
+          type: string
+          maxLength: 100
+        price:
+          type: number
+          minimum: 0
+        originalPrice:
+          type: number
+          minimum: 0
+          nullable: true
+        description:
+          type: string
+          maxLength: 500
+        photoUrl:
+          type: string
+          format: uri
+          maxLength: 2048
+        videoUrl:
+          type: string
+          format: uri
+          maxLength: 500
+        outOfStock:
+          type: boolean
+        isChefSpecial:
+          type: boolean
+        iceCreamSurcharge:
+          type: number
+          minimum: 0
+          maximum: 1000000
+        weatherTags:
+          type: array
+          items:
+            type: string
+        schedule:
+          type: object
+          nullable: true
+        modifierGroupIds:
+          type: array
+          items:
+            type: string
+        variants:
+          type: array
+          items:
+            type: object
+        proteinOptions:
+          type: array
+          items:
+            type: object
+        variantSelectionMode:
+          type: string
+        variantsRequired:
+          type: boolean
+        kid_friendly:
+          type: boolean
+        allergens:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+    MenuDish:
+      type: object
+      required: [id, categoryId, name, price]
+      properties:
+        id:
+          type: string
+        categoryId:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+        originalPrice:
+          type: number
+          nullable: true
+        description:
+          type: string
+        photoUrl:
+          type: string
+          format: uri
+        videoUrl:
+          type: string
+          format: uri
+        outOfStock:
+          type: boolean
+        isChefSpecial:
+          type: boolean
+        iceCreamSurcharge:
+          type: number
+        weatherTags:
+          type: array
+          items:
+            type: string
+        schedule:
+          type: object
+          nullable: true
+        modifierGroupIds:
+          type: array
+          items:
+            type: string
+        variants:
+          type: array
+          items:
+            type: object
+        popTier:
+          type: integer
+          minimum: 0
+          maximum: 2
+          description: Tier de popularidad (2 grande / 1 normal / 0 chico) — solo con menuSizing=popularity

@@ -239,7 +239,8 @@ import {
   validateLoyaltyCode as validateLoyaltyCodeMod,
   handleRedeemCodeEnter as handleRedeemCodeEnterMod,
   loadChurnList as loadChurnListMod,
-  sendReactivation as sendReactivationMod
+  sendReactivation as sendReactivationMod,
+  launchWinbackCampaign as launchWinbackCampaignMod
 } from './studio/loyaltyManager.js';
 import {
   WEDDING_ITINERARY_ICONS,
@@ -1233,6 +1234,13 @@ export function updateLiveState() {
     const sliderB = el('sliderBillRequest');
     if (sliderB) sliderB.style.backgroundColor = billCheckbox.checked ? '#38A169' : '#2a3a33';
   }
+  // Vibración al agregar al carrito (default ON).
+  const vibrationCheckbox = el('inputAllowVibrationOnAdd');
+  if (vibrationCheckbox) {
+    restaurant.allowVibrationOnAdd = vibrationCheckbox.checked !== false;
+    const sliderV = el('sliderVibrationOnAdd');
+    if (sliderV) sliderV.style.backgroundColor = vibrationCheckbox.checked ? '#38A169' : '#2a3a33';
+  }
   // Vitrina vs con pedidos (default encendido).
   const ordersCheckbox = el('inputAllowMenuOrders');
   if (ordersCheckbox) {
@@ -1448,6 +1456,12 @@ export function renderStudioUI() {
     const sliderB = el('sliderBillRequest');
     if (sliderB) sliderB.style.backgroundColor = billLoad.checked ? '#38A169' : '#2a3a33';
   }
+  const vibrationLoad = el('inputAllowVibrationOnAdd');
+  if (vibrationLoad) {
+    vibrationLoad.checked = restaurant.allowVibrationOnAdd !== false;
+    const sliderV = el('sliderVibrationOnAdd');
+    if (sliderV) sliderV.style.backgroundColor = vibrationLoad.checked ? '#38A169' : '#2a3a33';
+  }
   const ordersLoad = el('inputAllowMenuOrders');
   if (ordersLoad) {
     ordersLoad.checked = restaurant.allowMenuOrders !== false;
@@ -1565,6 +1579,24 @@ export function renderStudioUI() {
       soundOn = localStorage.getItem('scango_order_sound') !== '0';
     } catch (e) { /* storage bloqueado: suena */ }
     orderSoundBox.checked = soundOn;
+  }
+  // Parpadeo del título: respeta la preferencia guardada (default on).
+  const orderTitleFlashBox = el('inputOrderTitleFlashEnabled');
+  if (orderTitleFlashBox) {
+    let flashOn = true;
+    try {
+      flashOn = localStorage.getItem('scango_order_title_flash') !== '0';
+    } catch (e) { /* storage bloqueado: parpadea */ }
+    orderTitleFlashBox.checked = flashOn;
+  }
+  // Banner visual: respeta la preferencia guardada (default on).
+  const orderBannerFlashBox = el('inputOrderBannerFlashEnabled');
+  if (orderBannerFlashBox) {
+    let flashOn = true;
+    try {
+      flashOn = localStorage.getItem('scango_order_banner_flash') !== '0';
+    } catch (e) { /* storage bloqueado: parpadea */ }
+    orderBannerFlashBox.checked = flashOn;
   }
 
   setReviewPhotoOption('logo');
@@ -2132,6 +2164,7 @@ async function validateLoyaltyCode() { return validateLoyaltyCodeMod(escapeHtml)
 function handleRedeemCodeEnter(event) { handleRedeemCodeEnterMod(event, escapeHtml); }
 async function loadChurnList() { return loadChurnListMod(escapeHtml); }
 async function sendReactivation(customerId) { return sendReactivationMod(customerId, escapeHtml, showConfirmDialog); }
+async function launchWinbackCampaign() { return launchWinbackCampaignMod(escapeHtml, showConfirmDialog); }
 
 async function loadNotificationEvents() {
   const list = document.getElementById('notificationInboxList');
@@ -2245,6 +2278,26 @@ function isOrderSoundEnabled() {
   }
 }
 
+function isOrderTitleFlashEnabled() {
+  const box = document.getElementById('inputOrderTitleFlashEnabled');
+  if (box) return box.checked === true;
+  try {
+    return localStorage.getItem('scango_order_title_flash') !== '0';
+  } catch (e) {
+    return true;
+  }
+}
+
+function isOrderBannerFlashEnabled() {
+  const box = document.getElementById('inputOrderBannerFlashEnabled');
+  if (box) return box.checked === true;
+  try {
+    return localStorage.getItem('scango_order_banner_flash') !== '0';
+  } catch (e) {
+    return true;
+  }
+}
+
 export function toggleOrderSound() {
   const box = document.getElementById('inputOrderSoundEnabled');
   try {
@@ -2252,43 +2305,114 @@ export function toggleOrderSound() {
   } catch (e) { /* storage bloqueado */ }
 }
 
+export function toggleOrderTitleFlash() {
+  const box = document.getElementById('inputOrderTitleFlashEnabled');
+  try {
+    localStorage.setItem('scango_order_title_flash', box && box.checked ? '1' : '0');
+  } catch (e) { /* storage bloqueado */ }
+}
+
+export function toggleOrderBannerFlash() {
+  const box = document.getElementById('inputOrderBannerFlashEnabled');
+  try {
+    localStorage.setItem('scango_order_banner_flash', box && box.checked ? '1' : '0');
+  } catch (e) { /* storage bloqueado */ }
+}
+
 // Beep doble por WebAudio (sin assets): se crea al momento del aviso para no
 // pedir permiso antes de tiempo; si el navegador lo bloquea, falla en silencio.
 function playOrderAlert(count) {
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    const now = ctx.currentTime;
-    [0, 0.22].forEach((offset, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = i === 0 ? 880 : 1174.66;
-      gain.gain.setValueAtTime(0.0001, now + offset);
-      gain.gain.exponentialRampToValueAtTime(0.25, now + offset + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.18);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now + offset);
-      osc.stop(now + offset + 0.2);
-    });
-    setTimeout(() => { try { ctx.close(); } catch (e) {} }, 1000);
-  } catch (e) { /* autoplay bloqueado o sin audio: el badge ● NUEVO igual avisa */ }
+  // Sonido (WebAudio)
+  if (isOrderSoundEnabled()) {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx) {
+        const ctx = new Ctx();
+        const now = ctx.currentTime;
+        [0, 0.22].forEach((offset, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = i === 0 ? 880 : 1174.66;
+          gain.gain.setValueAtTime(0.0001, now + offset);
+          gain.gain.exponentialRampToValueAtTime(0.25, now + offset + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.18);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + offset);
+          osc.stop(now + offset + 0.2);
+        });
+        setTimeout(() => { try { ctx.close(); } catch (e) {} }, 1000);
+      }
+    } catch (e) { /* autoplay bloqueado o sin audio: el badge ● NUEVO igual avisa */ }
+  }
   // Parpadeo del título para cocinas con el panel en otra pestaña.
-  try {
-    if (orderTitleTimer) {
-      clearTimeout(orderTitleTimer);
-      orderTitleTimer = null;
-    }
-    if (!playOrderAlert._originalTitle) playOrderAlert._originalTitle = document.title;
-    document.title = `🔔 ¡${count > 1 ? count + ' pedidos nuevos' : 'Pedido nuevo'}! — ScanGo Studio`;
-    orderTitleTimer = setTimeout(() => {
-      document.title = playOrderAlert._originalTitle || document.title;
-      orderTitleTimer = null;
-    }, 8000);
-  } catch (e) {}
+  if (isOrderTitleFlashEnabled()) {
+    try {
+      if (orderTitleTimer) {
+        clearTimeout(orderTitleTimer);
+        orderTitleTimer = null;
+      }
+      if (!playOrderAlert._originalTitle) playOrderAlert._originalTitle = document.title;
+      document.title = `🔔 ¡${count > 1 ? count + ' pedidos nuevos' : 'Pedido nuevo'}! — ScanGo Studio`;
+      orderTitleTimer = setTimeout(() => {
+        document.title = playOrderAlert._originalTitle || document.title;
+        orderTitleTimer = null;
+      }, 8000);
+    } catch (e) {}
+  }
+  // Banner visual parpadeante en la página.
+  if (isOrderBannerFlashEnabled()) {
+    showOrderBannerAlert(count);
+  }
 }
+
+// Banner visual de alerta de nuevo pedido — parpadea en la parte superior
+// del panel Studio. Se auto-elimina tras 8s o al hacer click.
+let orderBannerAlertTimer = null;
+function showOrderBannerAlert(count) {
+  try {
+    let banner = document.getElementById('orderBannerAlert');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'orderBannerAlert';
+      banner.setAttribute('role', 'alert');
+      banner.setAttribute('aria-live', 'assertive');
+      banner.style.cssText = 'position:fixed; top:60px; left:50%; transform:translateX(-50%); z-index:9999; background:#E53E3E; color:#fff; font-size:13px; font-weight:700; padding:12px 24px; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.4); display:flex; align-items:center; gap:12px; cursor:pointer; animation:orderBannerPulse 1s ease-in-out infinite;';
+      banner.addEventListener('click', () => { hideOrderBannerAlert(); });
+      document.body.appendChild(banner);
+      // Inyectar keyframes si no existen
+      if (!document.getElementById('orderBannerStyles')) {
+        const style = document.createElement('style');
+        style.id = 'orderBannerStyles';
+        style.textContent = `
+          @keyframes orderBannerPulse {
+            0%, 100% { opacity: 1; box-shadow: 0 8px 24px rgba(229,62,62,0.4); }
+            50% { opacity: 0.7; box-shadow: 0 8px 24px rgba(229,62,62,0.7); }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            #orderBannerAlert { animation: none !important; opacity: 1 !important; }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    }
+    banner.innerHTML = `🔔 <span>${count > 1 ? count + ' pedidos nuevos' : '¡Pedido nuevo!'}<span> <span style="font-size:10px; opacity:0.8;">Click para cerrar</span>`;
+    banner.style.display = 'flex';
+    if (orderBannerAlertTimer) clearTimeout(orderBannerAlertTimer);
+    orderBannerAlertTimer = setTimeout(hideOrderBannerAlert, 8000);
+  } catch (e) { /* no bloquear */ }
+}
+
+function hideOrderBannerAlert() {
+  const banner = document.getElementById('orderBannerAlert');
+  if (banner) banner.style.display = 'none';
+  if (orderBannerAlertTimer) {
+    clearTimeout(orderBannerAlertTimer);
+    orderBannerAlertTimer = null;
+  }
+}
+
 function stopOrdersPolling() {
   if (ordersPollTimer) {
     clearInterval(ordersPollTimer);
@@ -2656,7 +2780,7 @@ const globalExports = {
   validateGoogleReviewLink, testGoogleReviewLink, copyReviewLink, loadReviewFunnel,
   loadNotificationEvents, markNotificationEventRead, sendPromoPush,
   loadChurnList, sendReactivation,
-  loadRecentOrders, setOrderStatus, toggleOrderSound, printOrderTicket, printOrderEscPos, connectUsbPrinter,
+  loadRecentOrders, setOrderStatus, toggleOrderSound, toggleOrderTitleFlash, toggleOrderBannerFlash, printOrderTicket, printOrderEscPos, connectUsbPrinter,
   importDemoTemplate, discardDemoTemplate,
   renderOnboardingChecklist, refreshOnboardingChecklist, dismissOnboardingChecklist, onboardGoToStep,
   updateBusinessTypeControls, filterThemeOptionsByBusinessType, resolveIceCreamButtonStyle,

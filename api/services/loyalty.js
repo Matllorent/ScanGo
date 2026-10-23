@@ -562,6 +562,74 @@ async function creditOrder({ restaurant, customerPhone, customerName, orderId, a
       unlocks.push({ type: 'level_up', levelId: customer.levelId, label: level.label });
     }
 
+    // QW2: Emit telemetry + push when customer is close to a reward (1 stamp away or points near threshold)
+    try {
+      const telemetryService = require('./telemetry');
+      const notificationsService = require('./notifications');
+      
+      // Check stamps: 1 away from visit reward
+      const stampsToReward = Math.max(0, config.stampsTarget - account.stamps);
+      if (stampsToReward === 1) {
+        telemetryService.recordEvent({
+          restaurantId: restaurant.id,
+          eventType: 'loyalty_near_reward',
+          metadata: { 
+            trigger: 'stamps', 
+            stampsToReward: 1, 
+            rewardTitle: config.visitReward.title,
+            customerPhone: normalized 
+          }
+        });
+        // Send push notification (fire-and-forget, never breaks order flow)
+        notificationsService.sendLoyaltyNearRewardPush({
+          restaurantId: restaurant.id,
+          customerPhone: normalized,
+          trigger: 'stamps',
+          rewardTitle: config.visitReward.title,
+          stampsToReward: 1,
+          slug: restaurant.slug,
+          restaurantName: restaurant.name
+        }).catch(e => sentry.captureException(e, { source: 'loyalty.nearRewardPush', level: 'warn' }));
+      }
+      
+      // Check points: close to any reward (within 20% of next reward cost)
+      if (Array.isArray(config.rewards) && config.rewards.length > 0) {
+        const nextReward = config.rewards
+          .filter(r => r.pointsCost > account.points)
+          .sort((a, b) => a.pointsCost - b.pointsCost)[0];
+        if (nextReward) {
+          const pointsNeeded = nextReward.pointsCost - account.points;
+          const threshold = Math.max(1, Math.ceil(nextReward.pointsCost * 0.2)); // 20% threshold
+          if (pointsNeeded <= threshold) {
+            telemetryService.recordEvent({
+              restaurantId: restaurant.id,
+              eventType: 'loyalty_near_reward',
+              metadata: { 
+                trigger: 'points', 
+                pointsNeeded, 
+                rewardTitle: nextReward.title,
+                rewardCost: nextReward.pointsCost,
+                customerPhone: normalized 
+              }
+            });
+            // Send push notification (fire-and-forget)
+            notificationsService.sendLoyaltyNearRewardPush({
+              restaurantId: restaurant.id,
+              customerPhone: normalized,
+              trigger: 'points',
+              rewardTitle: nextReward.title,
+              pointsNeeded,
+              slug: restaurant.slug,
+              restaurantName: restaurant.name
+            }).catch(e => sentry.captureException(e, { source: 'loyalty.nearRewardPush', level: 'warn' }));
+          }
+        }
+      }
+    } catch (e) {
+      // Never break the order flow for telemetry/push
+      sentry.captureException(e, { source: 'loyalty.nearRewardTelemetry', level: 'warn' });
+    }
+
     return {
       credited: true,
       points,
@@ -1207,5 +1275,7 @@ module.exports = {
   verifyLoyaltyOtp,
   maskEmail,
   requestLoyaltyOtp,
-  setCustomerEmail
+  setCustomerEmail,
+  // helpers internos (para cron/tests)
+  readCollection
 };

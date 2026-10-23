@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json.schemastore.org/k6-options.json",
+  "description": "Configuración compartida de thresholds y opciones para tests k6 de ScanGo",
+  "thresholds": {
+    "global": {
+      "checks": ["rate>0.99"],
+      "http_req_duration{p95}": ["p(95)<1500"],
+      "http_req_failed": ["rate<0.01"]
+    },
+    "menu_public": {
+      "description": "Menú público SSR (/m/:slug) - SLO: p95 < 500ms",
+      "menu_latency{p95}": ["p(95)<500"],
+      "menu_errors": ["rate<0.01"]
+    },
+    "api": {
+      "description": "API endpoints - SLO: p95 < 1000ms",
+      "quote_latency{p95}": ["p(95)<1000"],
+      "order_latency{p95}": ["p(95)<1000"],
+      "loyalty_latency{p95}": ["p(95)<1000"],
+      "quote_errors": ["rate<0.01"],
+      "order_errors": ["rate<0.01"],
+      "loyalty_errors": ["rate<0.01"]
+    },
+    "coupon_atomicity": {
+      "description": "Atomicidad cupón winback: exactamente 1 éxito, resto 409",
+      "coupon_success": ["count==1"],
+      "coupon_conflict_409": ["count==49"],
+      "coupon_fail_other": ["count==0"]
+    },
+    "group_cart": {
+      "description": "Carritos grupales - consistencia union-merge + tombstones",
+      "groupcart_sync_latency{p95}": ["p(95)<1000"],
+      "groupcart_get_latency{p95}": ["p(95)<500"],
+      "groupcart_clear_latency{p95}": ["p(95)<1000"],
+      "groupcart_sync_errors": ["rate<0.02"],
+      "groupcart_get_errors": ["rate<0.01"],
+      "groupcart_clear_errors": ["rate<0.01"],
+      "groupcart_merge_success": ["count>100"]
+    },
+    "discover": {
+      "description": "Feed Descubrir beta - geo + paginación + likes",
+      "discover_feed_latency{p95}": ["p(95)<800"],
+      "discover_pagination_latency{p95}": ["p(95)<600"],
+      "discover_like_latency{p95}": ["p(95)<500"],
+      "discover_feed_errors": ["rate<0.01"],
+      "discover_cache_hit_rate": ["rate>0.3"]
+    }
+  },
+  "env_vars": {
+    "BASE_URL": {
+      "description": "URL base del deployment (ej: https://scango-rouge.vercel.app)",
+      "required": true
+    },
+    "SLUGS_CSV": {
+      "description": "Ruta a CSV con columna 'slug' de restaurantes reales para data-driven tests",
+      "required": false
+    },
+    "AUTH_TOKEN": {
+      "description": "JWT de dueño para endpoints autenticados (loyalty validate, winback, etc.)",
+      "required": false
+    },
+    "WINBACK_COUPON": {
+      "description": "Código de cupón winback específico a testear (default: genera uno aleatorio)",
+      "required": false
+    },
+    "GROUP_CART_TOKEN": {
+      "description": "Token HMAC para endpoints /group/* (QR de mesa)",
+      "required": false
+    },
+    "RESTAURANT_ID": {
+      "description": "ID del restaurante para group cart tests",
+      "required": false
+    },
+    "TABLE_NUMBER": {
+      "description": "Número de mesa base para group cart tests",
+      "required": false,
+      "default": "1"
+    },
+    "LAT": {
+      "description": "Latitud para tests geo de Descubrir",
+      "required": false,
+      "default": "-34.9011"
+    },
+    "LNG": {
+      "description": "Longitud para tests geo de Descubrir",
+      "required": false,
+      "default": "-56.1645"
+    },
+    "RADIUS_KM": {
+      "description": "Radio en km para filtro geo",
+      "required": false,
+      "default": "10"
+    },
+    "CITY": {
+      "description": "Ciudad para filtro de Descubrir",
+      "required": false,
+      "default": "montevideo"
+    }
+  },
+  "scenarios_summary": {
+    "load-test-checkout.js": {
+      "peak_lunch": "200 VU: 2m ramp → 5m sustained → 1m down (70% menu, 20% quote+order, 10% loyalty)",
+      "winback_coupon_concurrency": "50 VU concurrentes validando EL MISMO cupón (atomicidad: 1x200, 49x409)"
+    },
+    "load-test-groupcart.js": {
+      "group_carts": "120 VU (30 mesas × 4 comensales) 3min sustained - union-merge + tombstones via HTTP polling"
+    },
+    "load-test-discover.js": {
+      "discover_feed": "100 VU: 30s→50 → 2m@100 → 30s down (geo 60%, city 70%, sort mix)",
+      "discover_pagination": "20 VU 1min deep pagination (offset 0-200)",
+      "discover_likes": "30 VU 2min concurrent dish_like via analytics event"
+    }
+  },
+  "ci_integration": {
+    "github_actions": {
+      "workflow_file": ".github/workflows/k6-load-test.yml",
+      "trigger": "workflow_dispatch",
+      "required_secrets": [
+        "K6_BASE_URL",
+        "K6_AUTH_TOKEN",
+        "K6_GROUP_CART_TOKEN",
+        "K6_RESTAURANT_ID"
+      ],
+      "artifacts": "k6-results-*.json"
+    }
+  }
+}

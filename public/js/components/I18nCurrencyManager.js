@@ -325,9 +325,9 @@ export const TRANSLATIONS = {
 };
 
 export const CURRENCY_CONFIG = {
-  '$UYU': { symbol: '$', label: '$ UYU', rateFromUYU: 1 },
-  '$USD': { symbol: 'US$', label: 'US$ USD', rateFromUYU: 0.025 }, // 1 USD = 40 UYU
-  '$ARS': { symbol: '$', label: '$ ARS', rateFromUYU: 30 } // 1 UYU = 30 ARS (1 USD = 1200 ARS)
+  UYU: { symbol: '$UYU', label: '$ UYU', rateFromUYU: 1 },
+  USD: { symbol: 'US$', label: 'US$ USD', rateFromUYU: 0.025 }, // 1 USD = 40 UYU
+  ARS: { symbol: '$', label: '$ ARS', rateFromUYU: 30 } // 1 UYU = 30 ARS (1 USD = 1200 ARS)
 };
 
 /** Nombres legibles de los idiomas que soporta la UI del menú. */
@@ -399,12 +399,12 @@ export class I18nCurrencyManager {
   }
 
   getCurrencySymbol() {
-    const cfg = CURRENCY_CONFIG[this.currentCurrency] || CURRENCY_CONFIG['$UYU'];
+    const cfg = CURRENCY_CONFIG[this.currentCurrency] || CURRENCY_CONFIG.UYU;
     return cfg.symbol;
   }
 
   formatPrice(basePriceInUYU) {
-    const cfg = CURRENCY_CONFIG[this.currentCurrency] || CURRENCY_CONFIG['$UYU'];
+    const cfg = CURRENCY_CONFIG[this.currentCurrency] || CURRENCY_CONFIG.UYU;
     const converted = Math.round(basePriceInUYU * cfg.rateFromUYU);
     return `${cfg.symbol} ${converted.toLocaleString()}`;
   }
@@ -431,6 +431,12 @@ export class I18nCurrencyManager {
 
     const restaurant = (typeof window !== 'undefined' && window.restaurantData) || {};
     const langs = detectAvailableLanguages(restaurant);
+    
+    // Sincronizar moneda desde el restaurante si está disponible
+    if (restaurant.currency && CURRENCY_CONFIG[restaurant.currency]) {
+      this.currentCurrency = restaurant.currency;
+    }
+    
     const showLang = langs.length > 1;
     // Si el dueño no configuró traducciones, el menú queda en su idioma base:
     // ocultamos por completo el selector (evita ofrecer un cambio que no traduce).
@@ -478,9 +484,9 @@ export class I18nCurrencyManager {
         <div class="i18n-currency">
           <select id="selectCurrencySwitcher" class="i18n-currency-select" aria-label="Moneda"
                   data-js-change="i18nManager.setCurrency|this.value">
-            <option value="$UYU" ${this.currentCurrency === '$UYU' ? 'selected' : ''}>$ UYU</option>
-            <option value="$USD" ${this.currentCurrency === '$USD' ? 'selected' : ''}>US$ USD</option>
-            <option value="$ARS" ${this.currentCurrency === '$ARS' ? 'selected' : ''}>$ ARS</option>
+            <option value="UYU" ${this.currentCurrency === 'UYU' ? 'selected' : ''}>$ UYU</option>
+            <option value="USD" ${this.currentCurrency === 'USD' ? 'selected' : ''}>US$ USD</option>
+            <option value="ARS" ${this.currentCurrency === 'ARS' ? 'selected' : ''}>$ ARS</option>
           </select>
         </div>
       </div>

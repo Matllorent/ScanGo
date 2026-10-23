@@ -10,6 +10,7 @@ const {
   CLASSIC_THEME_IDS,
   HELADERIA_THEME_IDS
 } = require('./themeManifest');
+const { z } = require('zod');
 
 // Morfologías y paletas vienen del MANIFEST CANÓNICO (api/utils/themeManifest.js):
 // una sola lista para el backend, el frontend (espejo ESM generado por
@@ -34,6 +35,37 @@ const WEDDING_ITINERARY_MAX_ITEMS = 12;
 // estricta ($..$$$$), sameAs solo http(s) y geo lat/lng numérico con rangos reales.
 const PRICE_RANGE_TOKENS = ['$', '$$', '$$$', '$$$$'];
 const MAX_SAME_AS_URLS = 3;
+
+// Esquema Zod para validación estricta de plato individual (endpoint /api/studio/dishes)
+const DISH_SCHEMA = z.object({
+  id: z.string().max(50).optional(),
+  categoryId: z.string().max(50),
+  name: z.string().min(1, { message: 'Nombre requerido' }).max(100),
+  price: z.number().min(0).max(999999).or(z.string().regex(/^\d+(\.\d+)?$/).transform(Number)),
+  originalPrice: z.number().min(0).max(999999).nullable().optional(),
+  description: z.string().max(500).optional().default(''),
+  photoUrl: z.string().url().max(2048).optional().nullable(),
+  videoUrl: z.string().url().max(500).optional().nullable(),
+  outOfStock: z.boolean().optional(),
+  isChefSpecial: z.boolean().optional(),
+  iceCreamSurcharge: z.number().min(0).max(1000000).optional(),
+  weatherTags: z.array(z.string()).optional(),
+  schedule: z.object({
+    enabled: z.boolean(),
+    days: z.array(z.number().int().min(0).max(6)).optional(),
+    timeStart: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+    timeEnd: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+    behavior: z.enum(['badge', 'hide']).optional(),
+    overridePrice: z.number().min(0).max(999999).nullable().optional(),
+    originalPriceRef: z.number().min(0).max(999999).nullable().optional()
+  }).nullable().optional(),
+  kid_friendly: z.boolean().optional(),
+  allergens: z.array(z.string()).optional(),
+  tags: z.array(z.string().max(25)).max(8).optional()
+});
+
+// Esquema para validación masiva de platos en /api/studio/save
+const DISHES_ARRAY_SCHEMA = z.array(DISH_SCHEMA).max(400);
 
 function sanitizeString(str, maxLen) {
   if (typeof str !== 'string') return '';
@@ -371,6 +403,14 @@ function sanitizeRestaurantPayload(data) {
   clean.city = sanitizeString(clean.city, 100);
   clean.smartWeatherEnabled = Boolean(clean.smartWeatherEnabled);
   clean.currency = sanitizeString(clean.currency, 5);
+  // Validar moneda contra allowlist (UYU/USD)
+  const validCurrencies = ['UYU', 'USD'];
+  const currencyUpper = String(clean.currency || '').toUpperCase();
+  if (!validCurrencies.includes(currencyUpper)) {
+    clean.currency = 'USD';
+  } else {
+    clean.currency = currencyUpper;
+  }
   clean.theme = sanitizeString(clean.theme, 30);
   clean.themeFont = sanitizeString(clean.themeFont, 30);
   clean.instagram = sanitizeString(clean.instagram, 40).replace(/[^a-zA-Z0-9._]/g, '');
@@ -550,5 +590,8 @@ module.exports = {
   ICE_CREAM_BUTTON_STYLES,
   ALLOWED_WEATHER_TAGS,
   ALLOWED_TEAM_ROLES,
-  COUPON_TYPES
+  COUPON_TYPES,
+  DISH_SCHEMA,
+  DISHES_ARRAY_SCHEMA,
+  sanitizeDish
 };

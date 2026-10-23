@@ -228,6 +228,14 @@
     <span id="cartCountBadge"><span class="cart-bar-emoji" aria-hidden="true">🛒</span> 0 ítems</span>
     <span>Ver Pedido (<span id="cartTotalBadge">$0</span>) →</span>
   </div>
+
+  <!-- Floating Loyalty FAB — "Mi Club en el Menú" (QW1) -->
+  <button type="button" id="floatingLoyaltyFab" class="floating-loyalty-fab" data-js-click="openLoyaltyModal" role="button" tabindex="0" aria-label="Mi Club: ver puntos, nivel y recompensas" style="display:none;">
+    <span class="fab-icon" aria-hidden="true">🎁</span>
+    <span class="fab-label">Mi Club</span>
+    <span id="floatingLoyaltyBadge" class="fab-badge" aria-hidden="true" style="display:none;"></span>
+  </button>
+
   <div id="cartLiveAnnounce" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <div id="dishNoteModal" class="modal-overlay" aria-hidden="true" data-js-click-backdrop="closeDishNoteModal" role="dialog" aria-modal="true" aria-labelledby="dishNoteTitle">

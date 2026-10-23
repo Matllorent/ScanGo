@@ -208,6 +208,60 @@ const notificationsService = {
   },
 
   /**
+   * QW2: Push "A 1 sello del premio" / "Cerca de recompensa por puntos".
+   * Se dirige SOLO a suscripciones guest del restaurante con consentimiento
+   * cuyo teléfono coincide con el cliente cerca de la recompensa.
+   * Payload: title, body, url al menú con ancla #club, tag por trigger.
+   */
+  async sendLoyaltyNearRewardPush({ restaurantId, customerPhone, trigger, rewardTitle, stampsToReward, pointsNeeded, slug, restaurantName }) {
+    const normalized = normalizePhone(customerPhone);
+    if (!normalized) {
+      return { success: true, checked: 0, delivered: 0, failed: 0, removed: 0, skipped: 'NO_MATCHING_SUBSCRIBERS' };
+    }
+
+    const guests = await this.listSubscriptions({ restaurantId, role: 'guest' });
+    const targets = guests.filter(s =>
+      s.consent_marketing === true && normalizePhone(s.customer_phone) === normalized
+    );
+    if (targets.length === 0) {
+      return { success: true, checked: 0, delivered: 0, failed: 0, removed: 0, skipped: 'NO_MATCHING_SUBSCRIBERS' };
+    }
+
+    let title, body;
+    if (trigger === 'stamps') {
+      title = '🎁 ¡A 1 visita de tu premio!';
+      body = 'Te falta 1 visita para "' + rewardTitle + '". ¡Volvé pronto!';
+    } else {
+      title = '⭐ ¡Casi lográs una recompensa!';
+      body = 'Te faltan ' + pointsNeeded + ' pts para "' + rewardTitle + '". ¡Seguí sumando!';
+    }
+
+    const payload = {
+      title,
+      body,
+      icon: '/icon-192.png',
+      url: slug ? '/m/' + slug + '#club' : '/',
+      type: 'loyalty_near_reward',
+      tag: 'loyalty-near-reward-' + trigger,
+      renotify: true,
+      requireInteraction: false,
+      data: { trigger, rewardTitle, restaurantName: restaurantName || '' },
+      timestamp: new Date().toISOString()
+    };
+
+    const dispatch = await dispatchToSubscriptions(targets, payload);
+    return {
+      success: true,
+      ...dispatch,
+      skipped: null,
+      payload
+    };
+  },
+
+  /**
+
+
+  /**
    * Lista suscripciones del restaurante (o de un usuario puntual), con filtro
    * opcional por rol: 'owner' | 'guest'.
    */

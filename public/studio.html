@@ -36,6 +36,9 @@
         <div style="font-size: 10px; color: var(--text-dim);" id="studioNavUserEmail">Cargando...</div>
       </div>
       <div id="subscriptionBadge" class="sub-badge badge-trial">⏳ 7 días de prueba</div>
+      <div style="margin-left:8px;">
+        <span class="badge-uy" style="font-size:0.75rem; padding:3px 8px;">🇺🇾 Uruguay</span>
+      </div>
     </div>
 
     <div class="nav-actions">
@@ -225,10 +228,8 @@
             <div class="form-group">
               <label class="form-label" for="inputLocalCurrency">Moneda de la Carta</label>
               <select id="inputLocalCurrency" class="form-select" data-js-change="updateLiveState">
-                <option value="$">$ (Pesos UYU / ARS / MXN)</option>
-                <option value="US$">US$ (Dólares Americanos)</option>
-                <option value="€">€ (Euros)</option>
-                <option value="R$">R$ (Reales)</option>
+                <option value="UYU">$UYU (Pesos Uruguayos)</option>
+                <option value="USD">US$ (Dólares Americanos)</option>
               </select>
             </div>
 
@@ -390,6 +391,13 @@
                 <label style="position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0;">
                   <input type="checkbox" id="inputAllowBillRequest" data-js-change="updateLiveState" style="opacity:0; width:0; height:0;" aria-label="Permitir pedir la cuenta">
                   <span id="sliderBillRequest" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
+                </label>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-top:1px dashed var(--border);">
+                <div style="font-size:11px; color:#fff;">📳 Vibración al agregar al carrito</div>
+                <label style="position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0;">
+                  <input type="checkbox" id="inputAllowVibrationOnAdd" data-js-change="updateLiveState" style="opacity:0; width:0; height:0;" aria-label="Permitir vibración al agregar plato">
+                  <span id="sliderVibrationOnAdd" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
                 </label>
               </div>
             </div>
@@ -1147,6 +1155,14 @@
                   <input type="checkbox" id="inputOrderSoundEnabled" checked data-js-change="toggleOrderSound" style="width:14px; height:14px; accent-color:#D4A853;">
                   🔔 Sonido
                 </label>
+                <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:var(--text-dim); cursor:pointer; white-space:nowrap;">
+                  <input type="checkbox" id="inputOrderTitleFlashEnabled" checked data-js-change="toggleOrderTitleFlash" style="width:14px; height:14px; accent-color:#D4A853;">
+                  🔔 Parpadeo título
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:var(--text-dim); cursor:pointer; white-space:nowrap;">
+                  <input type="checkbox" id="inputOrderBannerFlashEnabled" checked data-js-change="toggleOrderBannerFlash" style="width:14px; height:14px; accent-color:#D4A853;">
+                  🔔 Banner visual
+                </label>
                 <button type="button" id="usbPrinterBtn" class="btn-nav" data-js-click="connectUsbPrinter" style="width:auto; padding:5px 10px; font-size:10px;" title="Conectar impresora térmica por USB (Chrome/Edge)">🔌 Impresora</button>
                 <span id="usbPrinterStatus" style="font-size:10px; color:var(--text-dim);" aria-live="polite"></span>
                 <button type="button" class="btn-nav" data-js-click="loadRecentOrders" style="margin-left:auto; width:auto; padding:5px 10px; font-size:10px;">🔄 Actualizar</button>
@@ -1248,6 +1264,48 @@
               </p>
               <div id="churnList" style="margin-top:6px;">
                 <div style="font-size:11px; color:var(--text-dim);">Tocá "Detectar" para ver la lista.</div>
+              </div>
+            </div>
+
+            <div style="border-top:1px solid var(--border); margin-top:18px; padding-top:16px;">
+              <div class="section-title" style="margin-bottom:8px;">🤖 Campaña Automatizada de Recupero (Winback)</div>
+              <p style="font-size:11px; color:var(--text-dim); margin-bottom:12px;">
+                <strong>Zero-touch:</strong> elegí la oferta, ajustá el umbral si querés, y lanzá. El sistema detecta clientes en riesgo,
+                filtra los que tienen consentimiento de marketing + email, genera cupones únicos <code>VOL-XXXXXXXX</code> atados a su teléfono
+                y dispara los emails en lote. Respetá opt-outs y bajas automáticamente.
+              </p>
+              <div class="form-group">
+                <label class="form-label" for="inputWinbackOffer">Oferta prédiseñada</label>
+                <select id="inputWinbackOffer" class="form-select" aria-label="Oferta de recupero" style="width:100%;">
+                  <option value="percent_10">🎁 10% OFF en el próximo pedido</option>
+                  <option value="percent_15">🎁 15% OFF en el próximo pedido</option>
+                  <option value="free_delivery">🚚 Envío Gratis en el próximo delivery</option>
+                </select>
+              </div>
+              <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
+                <div class="form-group" style="flex:1; min-width:140px;">
+                  <label class="form-label" for="inputWinbackDays">Días de ausencia</label>
+                  <select id="inputWinbackDays" class="form-select" aria-label="Días de ausencia para considerar en riesgo">
+                    <option value="30">30 días</option>
+                    <option value="45" selected>45 días</option>
+                    <option value="60">60 días</option>
+                    <option value="90">90 días</option>
+                  </select>
+                </div>
+                <div class="form-group" style="flex:1; min-width:140px;">
+                  <label class="form-label" for="inputWinbackMinVisits">Mín. visitas</label>
+                  <input type="number" id="inputWinbackMinVisits" class="form-input" min="1" max="100" value="2" style="width:100%;" aria-label="Mínimo de visitas para considerar recurrente">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="inputWinbackMessage">Mensaje personalizado (opcional)</label>
+                <textarea id="inputWinbackMessage" class="form-textarea" rows="2" maxlength="500" placeholder="Ej: Volvé que te extrañamos, te esperamos con este beneficio exclusivo..."></textarea>
+              </div>
+              <button type="button" class="btn-nav btn-nav-gold" data-js-click="launchWinbackCampaign" style="width:100%; justify-content:center; padding:10px; font-weight:700; font-size:12px;">🚀 Generar y enviar campaña</button>
+              <div id="winbackCampaignResult" style="font-size:11px; margin-top:10px; min-height:20px;"></div>
+              <div id="winbackTelemetry" style="font-size:11px; color:var(--text-dim); margin-top:8px; display:none;">
+                <strong>📊 Telemetría de recupero (últimos 30 días):</strong>
+                <div id="winbackTelemetryContent"></div>
               </div>
             </div>
 

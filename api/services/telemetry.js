@@ -10,7 +10,8 @@ const localTelemetryEvents = [];
 const EVENT_TYPES = [
   'qr_scan', 'dish_click', 'order_placed', 'waiter_call', 'reservation',
   'visit', 'order', 'waiter',
-  'event_qr_scan', 'event_dish_click', 'event_order_placed'
+  'event_qr_scan', 'event_dish_click', 'event_order_placed',
+  'loyalty_near_reward'
 ];
 
 // Tipos de evento que alimentan cada contador legacy de restaurant.analytics.

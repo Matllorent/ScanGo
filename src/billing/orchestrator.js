@@ -33,12 +33,12 @@ const PLANS = {
   starter_monthly: {
     name: 'Starter Mensual',
     priceUsd: _planPrice('starter_monthly', 9),
-    features: { maxDishes: 999, themes: 9, zonesDelivery: true, waiterCall: true, wifiCard: true, analytics: true }
+    features: { maxDishes: 200, themes: 17, zonesDelivery: true, waiterCall: true, wifiCard: true, analytics: true }
   },
   starter_annual: {
     name: 'Starter Anual',
     priceUsd: _planPrice('starter_annual', 79),
-    features: { maxDishes: 999, themes: 9, zonesDelivery: true, waiterCall: true, wifiCard: true, analytics: true }
+    features: { maxDishes: 200, themes: 17, zonesDelivery: true, waiterCall: true, wifiCard: true, analytics: true }
   },
   // Pago único por evento (one-off): el dueño paga una vez y el menú queda
   // online hasta la fecha del evento. No se renueva: al vencer eventDate el
@@ -46,9 +46,12 @@ const PLANS = {
   event_once: {
     name: 'Evento Único',
     priceUsd: _planPrice('event_once', 12),
-    features: { maxDishes: 999, themes: 9, zonesDelivery: true, waiterCall: true, wifiCard: true, analytics: true }
+    features: { maxDishes: 100, themes: 12, zonesDelivery: true, waiterCall: true, wifiCard: true, analytics: true }
   }
 };
+
+// Límite de platos en trial (antes de activar plan): 50 platos máx
+const TRIAL_MAX_DISHES = 50;
 
 /**
  * Redondea a 2 decimales para montos monetarios (evita errores de coma flotante)
@@ -283,6 +286,54 @@ const billingOrchestrator = {
       totalPrice,
       totalDiscount: round2(plan.priceUsd * branchCount - totalPrice),
       hasMultiBranchDiscount: branchCount > 1
+    };
+  },
+
+  /**
+   * Obtiene el límite máximo de platos para un restaurante según su plan/suscripción.
+   * - Trial: TRIAL_MAX_DISHES (50)
+   * - Plan activo: plan.features.maxDishes
+   * - Plan vencido/past_due: plan.features.maxDishes (no se reducen platos ya creados)
+   * - Sin suscripción válida: TRIAL_MAX_DISHES
+   * @param {object} restaurant
+   * @returns {number}
+   */
+  getMaxDishes(restaurant) {
+    if (!restaurant) return TRIAL_MAX_DISHES;
+    const sub = restaurant.subscription;
+    if (!sub || typeof sub !== 'object') return TRIAL_MAX_DISHES;
+    
+    // Trial activo (primeros 7 días)
+    const now = Date.now();
+    const trialEnds = sub.trialEndsAt ? new Date(sub.trialEndsAt).getTime() : 0;
+    const inTrial = Number.isFinite(trialEnds) && now < trialEnds;
+    if (inTrial) return TRIAL_MAX_DISHES;
+    
+    // Post-trial gracia (días 8-10): aún en trial para efectos de cuota
+    const graceEnd = trialEnds + TRIAL_GRACE_DAYS * DAY_MS;
+    if (now < graceEnd) return TRIAL_MAX_DISHES;
+    
+    // Plan activo o past_due: usa el límite del plan
+    const planKey = resolvePlanKey(sub.plan);
+    const plan = PLANS[planKey];
+    return plan?.features?.maxDishes ?? TRIAL_MAX_DISHES;
+  },
+
+  /**
+   * Verifica si un restaurante puede crear más platos (para validación en save/dish endpoints).
+   * @param {object} restaurant
+   * @param {number} newDishesCount - Cantidad de platos nuevos a agregar
+   * @returns {object} { allowed: boolean, current: number, max: number, error?: string }
+   */
+  checkDishQuota(restaurant, newDishesCount = 0) {
+    const current = Array.isArray(restaurant?.dishes) ? restaurant.dishes.length : 0;
+    const max = this.getMaxDishes(restaurant);
+    const wouldExceed = current + newDishesCount > max;
+    return {
+      allowed: !wouldExceed,
+      current,
+      max,
+      error: wouldExceed ? `Límite de platos excedido (${current}/${max}). Actualizá tu plan para agregar más.` : undefined
     };
   },
 
@@ -641,4 +692,4 @@ const billingOrchestrator = {
   }
 };
 
-module.exports = billingOrchestrator;
+module.exports = { ...billingOrchestrator, TRIAL_MAX_DISHES };

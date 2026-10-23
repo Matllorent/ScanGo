@@ -7,7 +7,7 @@ const { z } = require('zod');
 const router = express.Router();
 const db = require('../../src/db/db');
 const billingOrchestrator = require('../../src/billing/orchestrator');
-const { sanitizeRestaurantPayload } = require('../utils/sanitizeRestaurant');
+const { sanitizeRestaurantPayload, sanitizeDish, DISH_SCHEMA, DISHES_ARRAY_SCHEMA } = require('../utils/sanitizeRestaurant');
 const { menuCacheMiddleware, invalidateMenuCache, memoryCache } = require('../middleware/cache');
 const { authMiddleware } = require('../middleware/auth');
 const requireVerifiedEmail = require('../middleware/requireVerifiedEmail');
@@ -19,19 +19,25 @@ const aiRouter = require('./ai');
 const auditService = require('../services/audit');
 const { runSeoAudit } = require('../utils/seoAudit');
 const indexNow = require('../utils/indexNow');
+const { dishCreationLimiter, dishBulkSaveLimiter } = require('../middleware/rateLimits');
 
 // IndexNow (best-effort): throttle por slug — el autosave del Studio guarda a
 // menudo; no spameamos la API de pings de Bing/Yandex con cada tecla.
 const indexNowThrottle = new Map();
 const INDEXNOW_MIN_INTERVAL_MS = 5 * 60 * 1000;
 
+// Cursor-based pagination constants
+const DEFAULT_DISHES_LIMIT = 50;
+const MAX_DISHES_LIMIT = 100;
+
 /**
  * POST /api/studio/save - Guardar restaurante/menú completo
  * Requiere sesión + casilla verificada + suscripción vigente (o gracia activa):
  * con el trial vencido y sin plan, el menú está pausado y no debería editar se
  * como si nada. Los gates de gracia post-trial viven en verifyAccess().
+ * Rate limited a 5 req/min por tenant para guardados masivos con platos.
  */
-router.post('/save', authMiddleware, requireVerifiedEmail, requireActiveSubscription, async (req, res, next) => {
+router.post('/save', authMiddleware, requireVerifiedEmail, requireActiveSubscription, dishBulkSaveLimiter, async (req, res, next) => {
   try {
     const payload = req.body.data || req.body;
     if (JSON.stringify(payload).length > 1_000_000) {
@@ -96,6 +102,183 @@ router.post('/save', authMiddleware, requireVerifiedEmail, requireActiveSubscrip
       }
     }
     return res.json({ success: true, restaurant });
+  } catch (e) {
+    return next(e);
+  }
+});
+
+/**
+ * POST /api/studio/dishes - Crear un plato individual
+ * Rate limited a 30 req/min por tenant, con validación de cuota por plan.
+ */
+router.post('/dishes', authMiddleware, requireVerifiedEmail, requireActiveSubscription, dishCreationLimiter, validateBody(DISH_SCHEMA), async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const restaurant = db.findRestaurantByUserId(userId);
+    if (!restaurant) return res.status(404).json({ error: 'Restaurante no encontrado' });
+
+    // Verificar cuota de platos
+    const quota = billingOrchestrator.checkDishQuota(restaurant, 1);
+    if (!quota.allowed) {
+      return res.status(403).json({ success: false, error: quota.error, code: 'DISH_QUOTA_EXCEEDED', current: quota.current, max: quota.max });
+    }
+
+    const dishData = req.validatedBody;
+    const cleanDish = sanitizeDish(dishData);
+
+    if (!restaurant.dishes) restaurant.dishes = [];
+    restaurant.dishes.push(cleanDish);
+
+    const saved = await db.saveRestaurant(userId, restaurant);
+    if (saved && saved.slug) {
+      memoryCache.delete(saved.slug);
+      await invalidateMenuCache(saved.slug);
+    }
+
+    auditService.logAction({
+      tenantId: saved.id,
+      userId,
+      requestId: req.requestId,
+      action: 'DISH_CREATE',
+      entity: 'dish',
+      details: { dishId: cleanDish.id, dishName: cleanDish.name }
+    });
+
+    return res.status(201).json({ success: true, dish: cleanDish, quota: { current: quota.current + 1, max: quota.max } });
+  } catch (e) {
+    return next(e);
+  }
+});
+
+/**
+ * GET /api/studio/dishes - Listar platos con paginación cursor-based
+ * Query params: limit (default 50, max 100), after_id (cursor), categoryId (filtro)
+ */
+router.get('/dishes', authMiddleware, requireVerifiedEmail, async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const restaurant = db.findRestaurantByUserId(userId);
+    if (!restaurant) return res.status(404).json({ error: 'Restaurante no encontrado' });
+
+    let dishes = Array.isArray(restaurant.dishes) ? [...restaurant.dishes] : [];
+
+    // Filtrar por categoría si se provee
+    const categoryId = req.query.categoryId;
+    if (categoryId) {
+      dishes = dishes.filter(d => d.categoryId === categoryId);
+    }
+
+    // Ordenar por createdAt si existe, sino por id (más recientes al final)
+    dishes.sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (aTime !== bTime) return aTime - bTime;
+      return String(a.id).localeCompare(String(b.id));
+    });
+
+    // Cursor-based pagination
+    const limit = Math.min(parseInt(req.query.limit) || DEFAULT_DISHES_LIMIT, MAX_DISHES_LIMIT);
+    const afterId = req.query.after_id;
+
+    let startIndex = 0;
+    if (afterId) {
+      const foundIndex = dishes.findIndex(d => String(d.id) === String(afterId));
+      if (foundIndex !== -1) startIndex = foundIndex + 1;
+    }
+
+    const page = dishes.slice(startIndex, startIndex + limit);
+    const nextCursor = startIndex + limit < dishes.length ? page[page.length - 1]?.id : null;
+
+    return res.json({
+      success: true,
+      data: page,
+      pagination: {
+        limit,
+        nextCursor,
+        hasMore: nextCursor !== null,
+        total: dishes.length
+      }
+    });
+  } catch (e) {
+    return next(e);
+  }
+});
+
+/**
+ * PATCH /api/studio/dishes/:id - Actualizar un plato individual
+ */
+router.patch('/dishes/:id', authMiddleware, requireVerifiedEmail, requireActiveSubscription, validateBody(DISH_SCHEMA.partial()), async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const restaurant = db.findRestaurantByUserId(userId);
+    if (!restaurant) return res.status(404).json({ error: 'Restaurante no encontrado' });
+
+    const dishId = req.params.id;
+    const dishIndex = (restaurant.dishes || []).findIndex(d => d.id === dishId);
+    if (dishIndex === -1) {
+      return res.status(404).json({ error: 'Plato no encontrado' });
+    }
+
+    const updates = req.validatedBody;
+    const cleanUpdates = sanitizeDish({ ...restaurant.dishes[dishIndex], ...updates });
+    // Preservar ID original
+    cleanUpdates.id = dishId;
+    restaurant.dishes[dishIndex] = cleanUpdates;
+
+    const saved = await db.saveRestaurant(userId, restaurant);
+    if (saved && saved.slug) {
+      memoryCache.delete(saved.slug);
+      await invalidateMenuCache(saved.slug);
+    }
+
+    auditService.logAction({
+      tenantId: saved.id,
+      userId,
+      requestId: req.requestId,
+      action: 'DISH_UPDATE',
+      entity: 'dish',
+      details: { dishId, updatedFields: Object.keys(updates) }
+    });
+
+    return res.json({ success: true, dish: cleanUpdates });
+  } catch (e) {
+    return next(e);
+  }
+});
+
+/**
+ * DELETE /api/studio/dishes/:id - Eliminar un plato individual
+ */
+router.delete('/dishes/:id', authMiddleware, requireVerifiedEmail, requireActiveSubscription, async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const restaurant = db.findRestaurantByUserId(userId);
+    if (!restaurant) return res.status(404).json({ error: 'Restaurante no encontrado' });
+
+    const dishId = req.params.id;
+    const dish = (restaurant.dishes || []).find(d => d.id === dishId);
+    if (!dish) {
+      return res.status(404).json({ error: 'Plato no encontrado' });
+    }
+
+    restaurant.dishes = (restaurant.dishes || []).filter(d => d.id !== dishId);
+
+    const saved = await db.saveRestaurant(userId, restaurant);
+    if (saved && saved.slug) {
+      memoryCache.delete(saved.slug);
+      await invalidateMenuCache(saved.slug);
+    }
+
+    auditService.logAction({
+      tenantId: saved.id,
+      userId,
+      requestId: req.requestId,
+      action: 'DISH_DELETE',
+      entity: 'dish',
+      details: { dishId, dishName: dish.name }
+    });
+
+    return res.json({ success: true, message: 'Plato eliminado' });
   } catch (e) {
     return next(e);
   }

@@ -12,11 +12,13 @@ function requestIdMiddleware(req, res, next) {
   req.requestId = requestId;
   res.setHeader('X-Request-ID', requestId);
 
-  const startTime = Date.now();
+  // Reloj monótono de CPU: insensible a saltos NTP/leap seconds del reloj de pared
+  const startHr = process.hrtime.bigint();
 
   // Log response completion
   res.on('finish', () => {
-    const responseTime = Date.now() - startTime;
+    const elapsedNs = process.hrtime.bigint() - startHr;
+    const responseTime = Math.max(0, Math.round(Number(elapsedNs) / 1e6));
     const logger = require('../utils/logger');
     // Sin query strings en logs: pueden traer coords redondeadas (?lat=&lng=)
     // u otros datos del comensal. La ruta sola alcanza para operar.

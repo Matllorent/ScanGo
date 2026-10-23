@@ -22,7 +22,7 @@ router.post('/public/analytics/event', publicAnalyticsLimiter, async (req, res) 
   try {
     const { slug, event, dishId, branchId, amount, items, consent } = req.body || {};
     if (!slug || !event) return res.status(400).json({ error: 'slug y event requeridos' });
-    const validEvents = ['visit', 'order', 'reservation', 'waiter', 'dish_click', 'order_placed', 'google_review_click', 'private_feedback', 'review_nudge_accept', 'dish_like'];
+    const validEvents = ['visit', 'order', 'reservation', 'waiter', 'dish_click', 'order_placed', 'google_review_click', 'private_feedback', 'review_nudge_accept', 'dish_like', 'loyalty_near_reward'];
     if (!validEvents.includes(event)) return res.status(400).json({ error: 'Evento inválido' });
     // dish_like sin plato es ruido (inflaría lecturas del feed sin contar en
     // ningún lado): se rechaza antes de persistir.

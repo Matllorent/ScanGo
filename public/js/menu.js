@@ -1407,11 +1407,27 @@ Object.defineProperties(window, {
       return item.qty > 1 && hasPackage && summary ? `Por paquete (${item.qty}): ${summary}` : summary;
     }
 
+    // Vibración al agregar al carrito (comensales) — defensivo, respeta prefers-reduced-motion
+    // y configurable por el dueño (restaurant.allowVibrationOnAdd, default ON).
+    function triggerAddToCartVibration() {
+      if (!restaurantData || restaurantData.allowVibrationOnAdd === false) return;
+      if (typeof navigator.vibrate !== 'function') return;
+      // Respeta la preferencia de movimiento reducido del usuario (a11y)
+      try {
+        const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+        if (mq.matches) return;
+      } catch (e) { /* matchMedia no disponible */ }
+      try {
+        navigator.vibrate(45); // pulso corto 45ms
+      } catch (e) { /* vibración bloqueada o no soportada */ }
+    }
+
     function addDishToCart(dish, note, choices) {
       if (window.groupCartManagerInstance && window.groupCartManagerInstance.isGroupActive()) {
         const added = window.groupCartManagerInstance.addItem(dish, choices, note);
         if (added) {
           cart = window.groupCartManagerInstance.cart;
+          triggerAddToCartVibration();
           return;
         }
       }
@@ -1420,11 +1436,13 @@ Object.defineProperties(window, {
       const matchingItem = Object.values(cart).find(item => item.dish.id === dish.id && item.note === note && JSON.stringify(item.choices || []) === choicesKey);
       if (matchingItem) {
         matchingItem.qty += 1;
+        triggerAddToCartVibration();
         return;
       }
 
       const cartItemId = `cart_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       cart[cartItemId] = { dish, qty: 1, note, choices: choices || [] };
+      triggerAddToCartVibration();
     }
 
     function getDishCartQuantity(dishId) {
@@ -2332,12 +2350,48 @@ Object.defineProperties(window, {
           .then(body => {
             if (body && body.data && body.data.customer && body.data.account) {
               const titleEl = document.querySelector('#loyaltyTopBanner .loyalty-banner-title');
-              if (titleEl && document.getElementById('loyaltyTopBanner') && document.getElementById('loyaltyTopBanner').style.display !== 'none') {
-                titleEl.textContent = `⭐ ${body.data.account.points} pts · ${body.data.customer.levelId === 'frecuente' ? 'Cliente Frecuente' : 'Bronce'}`;
+              const bannerEl = document.getElementById('loyaltyTopBanner');
+              if (titleEl && bannerEl && bannerEl.style.display !== 'none') {
+                const customer = body.data.customer;
+                const account = body.data.account;
+                const globalTier = customer.levelId || 'bronce';
+                const globalTierLabels = {
+                  bronce: 'Bronce',
+                  plata: 'Plata',
+                  oro: 'Oro',
+                  platino: 'Platino'
+                };
+                const globalTierLabel = globalTierLabels[globalTier] || globalTier;
+                const localLevelLabel = account.levelId === 'frecuente' ? 'Cliente Frecuente' : 'Bronce';
+                titleEl.innerHTML = `⭐ ${account.points} pts · ${localLevelLabel} <span class="loyalty-global-tier" style="margin-left:8px; padding:2px 6px; background:var(--accent-gold, #fbbf24); color:#111; border-radius:4px; font-size:10px; font-weight:700;">${globalTierLabel}</span>`;
+              }
+
+              // QW1: Update Floating Loyalty FAB
+              const fab = document.getElementById('floatingLoyaltyFab');
+              if (fab) {
+                fab.style.display = 'flex';
+                const account = body.data.account;
+                const customer = body.data.customer;
+                const globalTier = customer.levelId || 'bronce';
+                const globalTierLabels = { bronce: 'Bronce', plata: 'Plata', oro: 'Oro', platino: 'Platino' };
+                const globalTierLabel = globalTierLabels[globalTier] || globalTier;
+                const badge = document.getElementById('floatingLoyaltyBadge');
+                if (badge) {
+                  badge.textContent = `${account.points} pts`;
+                  badge.style.display = 'flex';
+                }
+                fab.classList.add('expanded');
+                fab.setAttribute('aria-label', `Mi Club: ${account.points} pts · ${globalTierLabel}`);
               }
             }
           })
           .catch(() => {});
+      }
+
+      // QW1: Show FAB if loyalty enabled (even before customer identifies)
+      const fab = document.getElementById('floatingLoyaltyFab');
+      if (fab && enabled) {
+        fab.style.display = 'flex';
       }
     }
 

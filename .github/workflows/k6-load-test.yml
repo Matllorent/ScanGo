@@ -1,0 +1,250 @@
+name: k6 Load Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_suite:
+        description: 'Test suite to run'
+        type: choice
+        required: true
+        options:
+          - checkout
+          - groupcart
+          - discover
+          - all
+        default: 'checkout'
+      base_url:
+        description: 'Base URL (production or staging)'
+        type: string
+        required: true
+        default: 'https://scango-rouge.vercel.app'
+      slugs_csv:
+        description: 'Path to CSV with restaurant slugs (optional, uses demo slugs if empty)'
+        type: string
+        required: false
+        default: ''
+      auth_token:
+        description: 'JWT auth token for authenticated endpoints (owner)'
+        type: string
+        required: false
+        default: ''
+      group_cart_token:
+        description: 'HMAC token for group cart endpoints (QR mesa)'
+        type: string
+        required: false
+        default: ''
+      restaurant_id:
+        description: 'Restaurant ID for group cart tests'
+        type: string
+        required: false
+        default: ''
+
+jobs:
+  k6-checkout:
+    if: github.event.inputs.test_suite == 'checkout' || github.event.inputs.test_suite == 'all'
+    name: k6 Checkout Load Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BASE_URL: ${{ github.event.inputs.base_url }}
+      SLUGS_CSV: ${{ github.event.inputs.slugs_csv }}
+      AUTH_TOKEN: ${{ github.event.inputs.auth_token }}
+      WINBACK_COUPON: VOL-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup k6
+        uses: grafana/k6-action@v0.2.0
+        with:
+          version: 'latest'
+
+      - name: Prepare slugs CSV (if provided)
+        if: env.SLUGS_CSV != ''
+        run: |
+          if [ -f "${{ env.SLUGS_CSV }}" ]; then
+            echo "Using existing slugs CSV: ${{ env.SLUGS_CSV }}"
+          else
+            echo "Generating slugs from demo restaurants..."
+            echo "slug" > slugs.csv
+            echo "demo" >> slugs.csv
+            echo "demo-heladeria" >> slugs.csv
+            echo "demo-perfumeria" >> slugs.csv
+            echo "demo-evento" >> slugs.csv
+            echo "SLUGS_CSV=slugs.csv" >> $GITHUB_ENV
+          fi
+
+      - name: Run k6 checkout test
+        run: |
+          k6 run \
+            --out json=k6-results-checkout.json \
+            --summary-export=k6-summary-checkout.json \
+            tests/k6/load-test-checkout.js
+
+      - name: Upload k6 results
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-results-checkout
+          path: |
+            k6-results-checkout.json
+            k6-summary-checkout.json
+          retention-days: 30
+
+      - name: Check thresholds and comment on PR
+        if: github.event_name == 'pull_request'
+        run: |
+          if [ -f k6-summary-checkout.json ]; then
+            cat k6-summary-checkout.json | jq -r '
+              "### k6 Load Test Results (Checkout)\n" +
+              "| Metric | Threshold | Result | Pass |\n" +
+              "|--------|-----------|--------|------|\n" +
+              (.metrics | to_entries[] | select(.value.thresholds) | 
+                .value.thresholds[] | 
+                "| \(.metric) | \(.threshold) | \(.value) | \(if .ok then "✅" else "❌" end) |"
+              )
+            ' > k6-comment.md
+            gh pr comment ${{ github.event.pull_request.number }} --body-file k6-comment.md || true
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  k6-groupcart:
+    if: github.event.inputs.test_suite == 'groupcart' || github.event.inputs.test_suite == 'all'
+    name: k6 Group Cart Load Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_URL: ${{ github.event.inputs.base_url }}
+      SLUGS_CSV: ${{ github.event.inputs.slugs_csv }}
+      GROUP_CART_TOKEN: ${{ github.event.inputs.group_cart_token }}
+      RESTAURANT_ID: ${{ github.event.inputs.restaurant_id }}
+      TABLE_NUMBER: "1"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup k6
+        uses: grafana/k6-action@v0.2.0
+        with:
+          version: 'latest'
+
+      - name: Prepare slugs CSV (if provided)
+        if: env.SLUGS_CSV != ''
+        run: |
+          if [ -f "${{ env.SLUGS_CSV }}" ]; then
+            echo "Using existing slugs CSV: ${{ env.SLUGS_CSV }}"
+          else
+            echo "Generating slugs from demo restaurants..."
+            echo "slug" > slugs.csv
+            echo "demo" >> slugs.csv
+            echo "demo-heladeria" >> slugs.csv
+            echo "demo-perfumeria" >> slugs.csv
+            echo "demo-evento" >> slugs.csv
+            echo "SLUGS_CSV=slugs.csv" >> $GITHUB_ENV
+          fi
+
+      - name: Run k6 group cart test
+        run: |
+          k6 run \
+            --out json=k6-results-groupcart.json \
+            --summary-export=k6-summary-groupcart.json \
+            tests/k6/load-test-groupcart.js
+
+      - name: Upload k6 results
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-results-groupcart
+          path: |
+            k6-results-groupcart.json
+            k6-summary-groupcart.json
+          retention-days: 30
+
+  k6-discover:
+    if: github.event.inputs.test_suite == 'discover' || github.event.inputs.test_suite == 'all'
+    name: k6 Discover Feed Load Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_URL: ${{ github.event.inputs.base_url }}
+      SLUGS_CSV: ${{ github.event.inputs.slugs_csv }}
+      LAT: "-34.9011"
+      LNG: "-56.1645"
+      RADIUS_KM: "10"
+      CITY: "montevideo"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup k6
+        uses: grafana/k6-action@v0.2.0
+        with:
+          version: 'latest'
+
+      - name: Prepare slugs CSV (if provided)
+        if: env.SLUGS_CSV != ''
+        run: |
+          if [ -f "${{ env.SLUGS_CSV }}" ]; then
+            echo "Using existing slugs CSV: ${{ env.SLUGS_CSV }}"
+          else
+            echo "Generating slugs from demo restaurants..."
+            echo "slug" > slugs.csv
+            echo "demo" >> slugs.csv
+            echo "demo-heladeria" >> slugs.csv
+            echo "demo-perfumeria" >> slugs.csv
+            echo "demo-evento" >> slugs.csv
+            echo "SLUGS_CSV=slugs.csv" >> $GITHUB_ENV
+          fi
+
+      - name: Run k6 discover test
+        run: |
+          k6 run \
+            --out json=k6-results-discover.json \
+            --summary-export=k6-summary-discover.json \
+            tests/k6/load-test-discover.js
+
+      - name: Upload k6 results
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-results-discover
+          path: |
+            k6-results-discover.json
+            k6-summary-discover.json
+          retention-days: 30
+
+  # Job consolidado para reportar en PR
+  k6-report:
+    if: github.event_name == 'pull_request' && (github.event.inputs.test_suite == 'all' || github.event.inputs.test_suite != '')
+    needs: [k6-checkout, k6-groupcart, k6-discover]
+    name: k6 Consolidated Report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: k6-results-*
+          merge-multiple: false
+
+      - name: Generate consolidated report
+        run: |
+          echo "### k6 Load Test Consolidated Report" > consolidated-report.md
+          echo "" >> consolidated-report.md
+          echo "| Test Suite | Status | Key Metrics |" >> consolidated-report.md
+          echo "|------------|--------|-------------|" >> consolidated-report.md
+
+          for f in k6-summary-*.json; do
+            if [ -f "$f" ]; then
+              suite=$(basename "$f" .json | sed 's/k6-summary-//')
+              status=$(jq -r '.root_group.checks.passes / (.root_group.checks.passes + .root_group.checks.fails) > 0.99' "$f" 2>/dev/null && echo "✅ PASS" || echo "❌ FAIL")
+              p95_menu=$(jq -r '.metrics.menu_latency?.values?.["p(95)"] // "N/A"' "$f" 2>/dev/null)
+              p95_api=$(jq -r '.metrics.quote_latency?.values?.["p(95)"] // .metrics.order_latency?.values?.["p(95)"] // "N/A"' "$f" 2>/dev/null)
+              p95_discover=$(jq -r '.metrics.discover_feed_latency?.values?.["p(95)"] // "N/A"' "$f" 2>/dev/null)
+              error_rate=$(jq -r '.metrics.http_req_failed?.values?.rate // "N/A"' "$f" 2>/dev/null)
+              echo "| $suite | $status | Menu p95: ${p95_menu}ms, API p95: ${p95_api}ms, Discover p95: ${p95_discover}ms, Error rate: ${error_rate} |" >> consolidated-report.md
+            fi
+          done
+
+      - name: Comment on PR
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body-file consolidated-report.md || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

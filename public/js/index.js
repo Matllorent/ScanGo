@@ -146,7 +146,31 @@ const PRICING_COPY = {
     }
   },
   events: {
-    hint: 'Un solo pago por fiesta: sin suscripción ni renovaciones.'
+    hint: 'Un solo pago por fiesta: sin suscripción ni renovaciones.',
+    monthly: {
+      name: 'Plan Único Evento',
+      desc: 'Un solo pago para tu boda, cumpleaños, fiesta o evento corporativo. Sin suscripción ni renovaciones.',
+      features: [
+        '<strong>Programa visual de la fiesta (itinerario visual)</strong>',
+        '<strong>Invitación con QR para tus invitados</strong>',
+        'Confirmaciones por WhatsApp (RSVP automático)',
+        'Menú del evento + pedidos en vivo + pago online',
+        'Cartelería de mesa imprimible (PDF)',
+        '<strong>Válido hasta el día del evento</strong>'
+      ]
+    },
+    annual: {
+      name: 'Plan Evento Ilimitado',
+      desc: 'Para organizadores de eventos recurrentes. Todos tus eventos del año por una tarifa plana.',
+      features: [
+        '<strong>Eventos ilimitados por 1 año</strong>',
+        '<strong>Todo lo del Plan Único Evento</strong>',
+        '<strong>Invitaciones ilimitadas por evento</strong>',
+        '<strong>Gestión de múltiples fechas/sedes</strong>',
+        '<strong>Analytics consolidados por evento</strong>',
+        'Soporte prioritario por WhatsApp'
+      ]
+    }
   }
 };
 
@@ -184,6 +208,93 @@ function switchPricingRubro(rubro) {
     renderPricingFeatures('planMonthlyFeatures', copy.monthly.features);
     renderPricingFeatures('planAnnualFeatures', copy.annual.features);
   }
+}
+
+function switchEventPeriod(period) {
+  if (!['monthly', 'annual'].includes(period)) return;
+  
+  // Toggle buttons
+  const monthlyBtn = document.querySelector('[data-period="monthly"]');
+  const annualBtn = document.querySelector('[data-period="annual"]');
+  
+  if (monthlyBtn) {
+    monthlyBtn.classList.toggle('active', period === 'monthly');
+    monthlyBtn.setAttribute('aria-checked', period === 'monthly');
+  }
+  if (annualBtn) {
+    annualBtn.classList.toggle('active', period === 'annual');
+    annualBtn.setAttribute('aria-checked', period === 'annual');
+  }
+  
+  // Toggle grids
+  const monthlyGrid = document.getElementById('eventPlanMonthly');
+  const annualGrid = document.getElementById('eventPlanAnnual');
+  
+  if (monthlyGrid) monthlyGrid.style.display = period === 'monthly' ? '' : 'none';
+  if (annualGrid) annualGrid.style.display = period === 'annual' ? '' : 'none';
+  
+  // Update content
+  const monthlyName = document.getElementById('eventPlanMonthlyName');
+  const monthlyDesc = document.getElementById('eventPlanMonthlyDesc');
+  const annualName = document.getElementById('eventPlanAnnualName');
+  const annualDesc = document.getElementById('eventPlanAnnualDesc');
+  
+  if (period === 'monthly') {
+    if (monthlyName) monthlyName.textContent = 'Plan Único Evento';
+    if (monthlyDesc) monthlyDesc.textContent = 'Un solo pago para tu boda, cumpleaños, fiesta o evento corporativo. Sin suscripción ni renovaciones.';
+  } else if (period === 'annual') {
+    if (annualName) annualName.textContent = 'Plan Evento Ilimitado';
+    if (annualDesc) annualDesc.textContent = 'Para organizadores de eventos recurrentes. Todos tus eventos del año por una tarifa plana.';
+  }
+  
+  // Render features
+  const copy = PRICING_COPY.events;
+  if (copy) {
+    if (period === 'monthly' && monthlyName) {
+      renderPricingFeatures('eventPlanMonthlyFeatures', copy.monthly.features);
+    } else if (period === 'annual' && annualName) {
+      renderPricingFeatures('eventPlanAnnualFeatures', copy.annual.features);
+    }
+  }
+}
+
+
+
+// Preview de fotos de carta para registro
+window.regMenuPhotos = [];
+function previewMenuPhotos(files) {
+  const preview = document.getElementById('regMenuPhotosPreview');
+  if (!preview) return;
+  preview.innerHTML = '';
+
+  const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  const maxSize = 5 * 1024 * 1024; // 5MB
+
+  Array.from(files || []).forEach((file) => {
+    if (!validTypes.includes(file.type)) {
+      console.warn('Tipo de archivo no soportado:', file.type);
+      return;
+    }
+    if (file.size > maxSize) {
+      console.warn('Archivo demasiado grande:', file.size);
+      return;
+    }
+
+    window.regMenuPhotos.push(file);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      img.style.width = '80px';
+      img.style.height = '80px';
+      img.style.objectFit = 'cover';
+      img.style.borderRadius = '6px';
+      img.style.border = '2px solid var(--accent-gold)';
+      preview.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function closeAuthModal() {

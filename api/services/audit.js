@@ -23,8 +23,13 @@ const AUDIT_ACTIONS = Object.freeze({
   LOYALTY_REDEEM_VALIDATED: 'LOYALTY_REDEEM_VALIDATED',
   PROMO_SENT: 'PROMO_SENT',
   REACTIVATION_SENT: 'REACTIVATION_SENT',
+  WINBACK_SENT: 'WINBACK_SENT',
+  BIRTHDAY_NUDGE_SENT: 'BIRTHDAY_NUDGE_SENT',
   PHOTO_UPLOADED: 'PHOTO_UPLOADED',
-  VIDEO_UPLOADED: 'VIDEO_UPLOADED'
+  VIDEO_UPLOADED: 'VIDEO_UPLOADED',
+  DISH_CREATE: 'DISH_CREATE',
+  DISH_UPDATE: 'DISH_UPDATE',
+  DISH_DELETE: 'DISH_DELETE'
 });
 
 const AUDIT_ENTITIES = Object.freeze({
@@ -34,7 +39,8 @@ const AUDIT_ENTITIES = Object.freeze({
   account: 'account',
   order: 'order',
   loyalty: 'loyalty',
-  notification: 'notification'
+  notification: 'notification',
+  dish: 'dish'
 });
 
 function assertValidAuditRef(action, entity) {

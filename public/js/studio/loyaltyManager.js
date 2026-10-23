@@ -160,3 +160,100 @@ export async function sendReactivation(customerId, escapeHtml, showConfirmDialog
     if (list) list.innerHTML = `<div style="font-size:11px; color:#F87171;">✕ ${escapeHtml(e.message || 'Error de conexión.')}</div>`;
   }
 }
+
+/**
+ * F8 — Campaña Winback Zero-Touch
+ * Lanza POST /api/loyalty/winback con la oferta elegida y muestra reporte + telemetría.
+ */
+export async function launchWinbackCampaign(escapeHtml, showConfirmDialog) {
+  const resultEl = document.getElementById('winbackCampaignResult');
+  const telemetryEl = document.getElementById('winbackTelemetry');
+  const telemetryContent = document.getElementById('winbackTelemetryContent');
+  const offerEl = document.getElementById('inputWinbackOffer');
+  const daysEl = document.getElementById('inputWinbackDays');
+  const minVisitsEl = document.getElementById('inputWinbackMinVisits');
+  const messageEl = document.getElementById('inputWinbackMessage');
+  if (!resultEl || !offerEl || !daysEl || !minVisitsEl) return;
+
+  const offerType = offerEl.value;
+  const daysSinceLastVisit = Number(daysEl.value) || 45;
+  const minVisits = Number(minVisitsEl.value) || 2;
+  const customMessage = messageEl?.value?.trim() || '';
+
+  const offerLabels = {
+    percent_10: '10% OFF',
+    percent_15: '15% OFF',
+    free_delivery: 'Envío Gratis'
+  };
+  const offerLabel = offerLabels[offerType] || offerType;
+
+  let confirmed = false;
+  if (typeof showConfirmDialog === 'function') {
+    try {
+      confirmed = Boolean(await Promise.resolve(showConfirmDialog({
+        icon: '🚀',
+        title: 'Lanzar campaña de recupero',
+        message: `Se detectarán clientes en riesgo (ausencia ≥ ${daysSinceLastVisit} días, ≥ ${minVisits} visitas), se filtrará por consentimiento de marketing + email, se generarán cupones ${offerLabel} únicos (VOL-XXXXXXXX) atados a su teléfono y se enviarán los emails en lote. ¿Continuar?`,
+        confirmText: 'Lanzar campaña',
+        confirmClass: 'btn-primary'
+      })));
+    } catch {
+      confirmed = false;
+    }
+  }
+  if (!confirmed) return;
+
+  resultEl.innerHTML = '<span style="color:var(--text-dim);">⏳ Lanzando campaña…</span>';
+  try {
+    const body = await apiFetch('/api/loyalty/winback', {
+      method: 'POST',
+      body: JSON.stringify({ offerType, daysSinceLastVisit, minVisits, customMessage })
+    });
+    const data = body.data || {};
+    const { sent, blockedConsent, blockedNoEmail, blockedOptOut, totalCandidates, errors } = data;
+    resultEl.innerHTML = `
+      <div style="color:#68D391; font-weight:700;">✓ Campaña completada</div>
+      <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">
+        📤 Enviados: <strong>${sent}</strong> &nbsp;|&nbsp;
+        🚫 Sin consentimiento: <strong>${blockedConsent}</strong> &nbsp;|&nbsp;
+        📭 Sin email: <strong>${blockedNoEmail}</strong> &nbsp;|&nbsp;
+        📛 Opt-out: <strong>${blockedOptOut}</strong> &nbsp;|&nbsp;
+        👥 Candidatos totales: <strong>${totalCandidates}</strong>
+      </div>
+      ${errors && errors.length ? `<div style="font-size:10px; color:#F87171; margin-top:4px;">Errores: ${errors.map(e => `${e.customerId}:${e.reason}`).join(', ')}</div>` : ''}
+    `;
+    // Mostrar telemetría
+    if (telemetryEl && telemetryContent) {
+      telemetryEl.style.display = 'block';
+      telemetryContent.innerHTML = '<span style="color:var(--text-dim);">⏳ Cargando telemetría…</span>';
+      try {
+        const telemetry = await apiFetch('/api/loyalty/winback/telemetry');
+        const t = telemetry.data || {};
+        telemetryContent.innerHTML = `
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:8px; margin-top:6px; font-size:10px;">
+            <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:6px; padding:8px; text-align:center;">
+              <div style="color:var(--text-dim);">Recuperados (30d)</div>
+              <div style="font-weight:800; color:#68D391; font-size:14px;">${t.recoveredCount || 0}</div>
+            </div>
+            <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:6px; padding:8px; text-align:center;">
+              <div style="color:var(--text-dim);">Cupones usados</div>
+              <div style="font-weight:800; color:#60a5fa; font-size:14px;">${t.couponsUsed || 0}</div>
+            </div>
+            <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:6px; padding:8px; text-align:center;">
+              <div style="color:var(--text-dim);">Ingreso atribuido</div>
+              <div style="font-weight:800; color:#fbbf24; font-size:14px;">$${(t.attributedRevenueCents || 0) / 100}</div>
+            </div>
+            <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:6px; padding:8px; text-align:center;">
+              <div style="color:var(--text-dim);">Tasa conversión</div>
+              <div style="font-weight:800; color:#f87171; font-size:14px;">${t.conversionRate ? (t.conversionRate * 100).toFixed(1) + '%' : '—'}</div>
+            </div>
+          </div>
+        `;
+      } catch {
+        telemetryContent.innerHTML = '<span style="color:var(--text-dim);">Telemetría no disponible</span>';
+      }
+    }
+  } catch (e) {
+    resultEl.innerHTML = `<div style="color:#F87171;">✕ ${escapeHtml(e.message || 'Error de conexión.')}</div>`;
+  }
+}

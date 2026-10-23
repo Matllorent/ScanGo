@@ -1,5 +1,7 @@
 const express = require('express');
 const { z } = require('zod');
+const fs = require('fs');
+const path = require('path');
 const AppError = require('../utils/AppError');
 const loyaltyService = require('../services/loyalty');
 const { successResponse } = require('../utils/response');
@@ -8,9 +10,11 @@ const { authMiddleware } = require('../middleware/auth');
 const { tenantGuard } = require('../middleware/tenantGuard');
 const { loyaltyLimiter } = require('../middleware/rateLimits');
 const { requireActiveSubscription } = require('../middleware/subscriptionGuard');
+const { verifyCronAuth } = require('../middleware/cronAuth');
 const auditService = require('../services/audit');
 const { computeChurnCandidates } = require('../utils/churnRecovery');
 const emailService = require('../services/email');
+const notificationsService = require('../services/notifications');
 const db = require('../../src/db/db');
 
 const router = express.Router();
@@ -312,6 +316,161 @@ router.post('/reactivation', authMiddleware, tenantGuard, requireActiveSubscript
     });
 
     return successResponse(res, { sent: true, emailMasked: emailService.maskEmail(email), provider: result.provider }, 'Email de recupero enviado');
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+const winbackCampaignSchema = z.object({
+  offerType: z.enum(['percent_10', 'percent_15', 'free_delivery'], { message: 'Oferta inválida' }),
+  daysSinceLastVisit: z.number().int().min(7).max(365).optional().default(45),
+  minVisits: z.number().int().min(1).max(100).optional().default(2),
+  customMessage: z.string().max(500, { message: 'Mensaje demasiado largo' }).trim().optional()
+});
+
+/**
+ * POST /api/loyalty/winback
+ * Dueño: lanza una campaña de recupero AUTOMATIZADA (F8).
+ * - Detecta candidatos de churn con umbrales configurables
+ * - Filtra SOLO los que tienen consentMarketing: true + email
+ * - Genera cupones de uso único VOL-XXXXXXXX atados al teléfono (boundPhone)
+ * - Dispara emails en lote (respetando opt-outs) con plantilla pre-diseñada
+ * - Devuelve reporte: { sent, blockedConsent, blockedNoEmail, blockedOptOut, errors[] }
+ * Zero-touch: el dueño solo elige la oferta (10%/15%/Envío Gratis) y lanza.
+ */
+router.post('/winback', authMiddleware, tenantGuard, requireActiveSubscription, loyaltyLimiter, validateBody(winbackCampaignSchema), async (req, res, next) => {
+  try {
+    const { offerType, daysSinceLastVisit, minVisits, customMessage } = req.validatedBody;
+    const restaurantId = req.tenantId;
+
+    // 1) Detectar candidatos de churn
+    const report = await loyaltyService.listChurnCandidates(restaurantId, {
+      daysSinceLastVisit,
+      minVisits,
+      nowMs: Date.now()
+    });
+    const candidates = report.candidates || [];
+
+    // 2) Mapear oferta a parámetros de cupón
+    const offerMap = {
+      percent_10: { discountType: 'percent', discountValue: 10, label: '10% OFF' },
+      percent_15: { discountType: 'percent', discountValue: 15, label: '15% OFF' },
+      free_delivery: { discountType: 'free_delivery', discountValue: 0, label: 'Envío Gratis' }
+    };
+    const offer = offerMap[offerType];
+
+    // 3) Preparar envío en lote
+    const nowMs = Date.now();
+    const restaurant = db.findRestaurantById(restaurantId);
+    const restaurantName = (restaurant && restaurant.name) || 'Tu local favorito';
+    const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const menuSlug = restaurant && restaurant.slug;
+    const menuUrl = menuSlug ? `${appUrl}/m/${menuSlug}` : appUrl;
+
+    let sent = 0;
+    let blockedConsent = 0;
+    let blockedNoEmail = 0;
+    let blockedOptOut = 0;
+    const errors = [];
+
+    for (const candidate of candidates) {
+      // Obtener datos completos del cliente (email, teléfono real, consentimiento)
+      const target = loyaltyService.findReactivationTarget(restaurantId, candidate.customerId);
+      if (!target || !target.customer) {
+        errors.push({ customerId: candidate.customerId, reason: 'CUSTOMER_NOT_FOUND' });
+        continue;
+      }
+      const customer = target.customer;
+
+      // Verificar email
+      const email = customer.email ? customer.email.trim() : '';
+      if (!email) {
+        blockedNoEmail++;
+        continue;
+      }
+
+      // Verificar consentimiento de marketing
+      if (customer.consentMarketing === false) {
+        blockedConsent++;
+        continue;
+      }
+
+      // Verificar opt-out global
+      if (emailService.isOptedOut(email)) {
+        blockedOptOut++;
+        continue;
+      }
+
+      // Generar cupón único atado al teléfono del cliente
+      const coupon = await loyaltyService.createWinbackCoupon({
+        restaurantId,
+        discountType: offer.discountType,
+        discountValue: offer.discountValue,
+        nowMs,
+        ttlDays: 14,
+        randomSource: Math.random,
+        boundPhone: customer.phone // E.164 normalizado
+      });
+
+      if (!coupon) {
+        errors.push({ customerId: customer.customerId, reason: 'COUPON_GENERATION_FAILED' });
+        continue;
+      }
+
+      // Enviar email con plantilla winback
+      const personalMessage = customMessage
+        ? `\n\n${customMessage}`
+        : '\n\nTe esperamos con este beneficio exclusivo para que vuelvas a disfrutar.';
+      
+      const body = [
+        `¡Te extrañamos, ${customer.name || 'amigo'}!`,
+        `Tenés ${customer.points || 0} puntitos esperando en tu tarjeta del Club.`,
+        personalMessage,
+        `Tu cupón: <strong>${coupon.code}</strong> (${offer.label})`,
+        'Es de un solo uso, atado a tu teléfono y vence en 14 días.',
+        `Pedí acá: <a href="${menuUrl}">${menuUrl}</a>`
+      ].filter(Boolean).join('<br><br>');
+
+      try {
+        const result = await emailService.sendPromotionalEmail({
+          to: email,
+          subject: `¡Te extrañamos en ${restaurantName}! Tu cupón: ${coupon.code}`,
+          body,
+          restaurantName,
+          promoCode: coupon.code,
+          promoLink: menuUrl
+        });
+
+        // Auditoría
+        await auditService.logAction({
+          tenantId: restaurantId,
+          userId: req.user && req.user.userId,
+          requestId: req.requestId,
+          action: 'WINBACK_SENT',
+          entity: 'loyalty',
+          details: {
+            phone: loyaltyService.maskPhone(customer.phone),
+            couponCode: coupon.code,
+            offerType,
+            provider: result && result.provider
+          }
+        });
+
+        sent++;
+      } catch (emailErr) {
+        errors.push({ customerId: customer.customerId, reason: 'EMAIL_SEND_FAILED', detail: emailErr.message });
+      }
+    }
+
+    return successResponse(res, {
+      sent,
+      blockedConsent,
+      blockedNoEmail,
+      blockedOptOut,
+      totalCandidates: candidates.length,
+      errors: errors.length ? errors : undefined
+    }, `Campaña de recupero completada: ${sent} enviados, ${blockedConsent} sin consentimiento, ${blockedNoEmail} sin email, ${blockedOptOut} con opt-out`);
   } catch (err) {
     next(err);
   }
