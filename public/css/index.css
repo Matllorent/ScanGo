@@ -1633,9 +1633,103 @@
       background: radial-gradient(circle, rgba(56, 161, 105, 0.10) 0%, transparent 60%);
       animation: heroAuroraB 20s ease-in-out infinite;
     }
-    .motion-ready .hero-grid { position: relative; z-index: 1; }
+    /* --- Badge Uruguay en el menú público y Studio --- */
+    .badge-uy {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #003f87 0%, #0057b8 100%);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 12px rgba(0, 63, 135, 0.35);
+      animation: badge-pulse 3s ease-in-out infinite;
+    }
+    .badge-uy-small {
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      margin-left: 8px;
+    }
+    @keyframes badge-pulse {
+      0%, 100% { box-shadow: 0 4px 12px rgba(0, 63, 135, 0.35); transform: scale(1); }
+      50% { box-shadow: 0 6px 16px rgba(0, 91, 195, 0.5); transform: scale(1.02); }
+    }
 
-    /* --- 3 · CTA dorado con halo que respira (llama la conversión) --- */
+    /* ============================================================
+       QW3: IA Importación de Carta - Estilos del modal de revisión
+       ============================================================ */
+    .ai-review-modal .modal-card {
+      max-width: 700px;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+    .ai-review-list {
+      max-height: 320px;
+      overflow-y: auto;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 12px;
+      background: var(--bg-base);
+    }
+    .ai-review-item {
+      display: grid;
+      grid-template-columns: 1fr auto 120px;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-card);
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+    .ai-review-item:last-child {
+      border-bottom: none;
+    }
+    .ai-review-dish-info h4 {
+      margin: 0 0 4px 0;
+      font-size: 0.95rem;
+      color: var(--chalk-white);
+    }
+    .ai-review-dish-info p {
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+    }
+    .ai-review-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ai-review-input {
+      width: 90px;
+      padding: 6px 8px;
+      font-size: 0.85rem;
+      border-radius: 6px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-dark);
+      color: #fff;
+    }
+    .ai-review-input:focus {
+      outline: none;
+      border-color: var(--accent-gold);
+    }
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-dim);
+    }
+    .empty-state .empty-icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    /* ============================================================
+       FIN - QW3 IA Importación de Carta
+       ============================================================ */
     @keyframes ctaHalo {
       0%, 100% { box-shadow: 0 0 0 0 rgba(225, 169, 56, 0.34); }
       50% { box-shadow: 0 0 0 12px rgba(225, 169, 56, 0); }

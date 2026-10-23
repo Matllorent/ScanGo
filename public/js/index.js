@@ -1205,3 +1205,253 @@ function showGoogleParamNotice(reason) {
     window.history.replaceState({}, '', clean.pathname + clean.search);
   } catch (e) { /* replaceState best-effort */ }
 }
+
+/* ============================================================
+   QW3: IA Importación de Carta en Registro (Zero-Touch)
+   ============================================================ */
+window.regMenuPhotos = [];
+
+/* Previsualiza las fotos que el dueño sube al registrarse */
+function previewMenuPhotos(files) {
+  const preview = document.getElementById('regMenuPhotosPreview');
+  if (!preview) return;
+  preview.innerHTML = '';
+  const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  Array.from(files || []).forEach((file) => {
+    if (!validTypes.includes(file.type)) return;
+    if (file.size > maxSize) return;
+    window.regMenuPhotos.push(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      img.style.width = '80px';
+      img.style.height = '80px';
+      img.style.objectFit = 'cover';
+      img.style.borderRadius = '6px';
+      img.style.border = '2px solid var(--accent-gold)';
+      preview.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/* Muestra un modal de procesamiento mientras la IA analiza las fotos */
+function showAIProcessingModal(show) {
+  let modal = document.getElementById('aiProcessingModal');
+  if (show) {
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.id = 'aiProcessingModal';
+      modal.innerHTML = `
+        <div class="modal-card" role="dialog" aria-modal="true" aria-label="Procesando carta con IA">
+          <div style="text-align:center; padding:24px;">
+            <div style="font-size:3rem; margin-bottom:12px;">🤖</div>
+            <h2 style="margin-bottom:8px;">Procesando tu carta con IA…</h2>
+            <p style="color:var(--text-dim); font-size:0.9rem;">Analizando platos, precios y categorías. Puede tardar unos segundos.</p>
+            <div style="margin-top:16px; display:flex; justify-content:center;">
+              <div style="width:40px; height:40px; border:3px solid var(--accent-gold); border-top:3px solid transparent; border-radius:50%; animation:spin 1s linear infinite;"></div>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+    modal.classList.add('active');
+  } else if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+/* Muestra el modal de revisión de platos detectados por IA */
+function showAIReviewModal(dishes) {
+  closeAIProcessingModal();
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Revisar platos detectados">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+        <h3 style="margin:0; font-size:1.25rem;">🍽️ Platos detectados por IA</h3>
+        <button type="button" class="modal-close" data-js-click="closeAIReviewModal" aria-label="Cerrar">✕</button>
+      </div>
+      <p style="font-size:0.9rem; color:var(--text-dim); margin-bottom:16px;">Revisa y ajusta los platos detectados. Puedes editar nombre, precio y categoría antes de guardarlos.</p>
+      <div id="aiReviewList" style="max-height:400px; overflow-y:auto; border:1px solid var(--border-subtle); border-radius:8px; padding:12px; margin-bottom:16px;">
+        ${dishes.map((d, i) => `
+          <div style="display:flex; align-items:center; gap:12px; padding:12px; border-bottom:1px solid var(--border-subtle); background:var(--bg-base);">
+            <div style="flex:1;">
+              <div style="font-weight:700; color:#fff;">${escapeHtml(d.name || 'Plato sin nombre')}</div>
+              <div style="font-size:0.85rem; color:var(--text-dim);">${d.category || 'General'}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="color:var(--accent-gold); font-weight:bold;">$${(d.price || 0).toFixed(2)}</span>
+              <input type="number" class="form-input" style="width:80px; font-size:0.85rem;" value="${d.price || 0}" min="0" step="0.01" data-dish-index="${i}" data-field="price">
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" class="btn-nav" data-js-click="closeAIReviewModal">Usar menú predeterminado</button>
+        <button type="button" class="btn btn-nav-gold" data-js-click="confirmAIDishes">Usar estos platos</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.classList.add('active');
+    window.aiReviewDishes = dishes;
+
+    overlay.querySelector('[data-js-click="closeAIReviewModal"]').addEventListener('click', () => {
+      overlay.remove();
+      window.aiReviewDishes = null;
+    });
+    overlay.querySelector('[data-js-click="confirmAIDishes"]').addEventListener('click', async () => {
+      const priceInputs = overlay.querySelectorAll('[data-field="price"]');
+      priceInputs.forEach((input, idx) => {
+        if (window.aiReviewDishes[idx]) {
+          window.aiReviewDishes[idx].price = parseFloat(input.value) || 0;
+        }
+      });
+      overlay.remove();
+      await saveAIProcessedDishes(window.aiReviewDishes);
+      window.aiReviewDishes = null;
+    });
+}
+
+/* Guarda los platos procesados por IA en el restaurante recién creado */
+async function saveAIProcessedDishes(dishes) {
+  const restaurantData = JSON.parse(localStorage.getItem('menu_pizarron_restaurant') || '{}');
+  if (!restaurant || !restaurant.id) {
+    showError('No se pudo identificar el restaurante para guardar los platos.');
+    return;
+  }
+  const btn = document.getElementById('btnSubmitRegister');
+  btn.disabled = true;
+  btn.textContent = 'Guardando platos…';
+  try {
+    for (const dish of dishes) {
+      await fetch('/api/studio/dishes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dishId: dish.id || 'dish_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+          name: dish.name || 'Plato sin nombre',
+          price: parseFloat(dish.price) || 0,
+          categoryId: dish.categoryId || 'cat_1',
+          category: dish.category || 'General',
+          description: dish.description || '',
+          outOfStock: false,
+          image: dish.photo || ''
+        })
+      });
+    }
+    showError('¡Menú creado con IA! Se agregaron ' + dishes.length + ' platos.');
+    window.location.href = '/studio.html';
+  } catch (err) {
+    console.error('Error guardando platos:', err);
+    showError('Error guardando platos: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Comenzar 7 Días Gratis →';
+  }
+}
+
+/* Modifica handleRegister para integrar el flujo de IA */
+async function handleRegister(e) {
+  e.preventDefault();
+  hideError();
+  const btn = document.getElementById('btnSubmitRegister');
+  btn.disabled = true;
+  btn.textContent = 'Creando cuenta…';
+
+  const name = document.getElementById('regName').value.trim();
+  const restaurantName = document.getElementById('regRestaurant').value.trim();
+  const businessType = document.getElementById('regBusinessType')?.value || 'restaurant';
+  const email = document.getElementById('regEmail').value.trim();
+  const password = document.getElementById('regPassword').value;
+  const ageConfirmed = document.getElementById('regAgeConfirm')?.checked === true;
+
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, restaurantName, businessType, email, password, ageConfirmed })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al crear la cuenta');
+
+    if (data.restaurant) {
+      data.restaurant.businessType = businessType;
+      data.restaurant.allowIceCreamWizard = (businessType === 'heladeria');
+      data.restaurant.allowPerfumery = (businessType === 'perfumery');
+      data.restaurant.allowLoyaltyPoints = false;
+      if (businessType === 'heladeria') {
+        if (!data.restaurant.theme || data.restaurant.theme === 'emerald') data.restaurant.theme = 'helado-fiesta';
+        if (!data.restaurant.iceCreamButtonStyle) data.restaurant.iceCreamButtonStyle = 'fiesta';
+        if (!data.restaurant.iceCreamBuilderLabel) data.restaurant.iceCreamBuilderLabel = 'Armá tu helado a medida';
+      }
+    }
+
+    localStorage.setItem('menu_pizarron_user', JSON.stringify(data.user));
+    localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(data.restaurant));
+    localStorage.setItem('scango_demo_restaurant', JSON.stringify(data.restaurant));
+
+    if (data.requiresEmailVerification) {
+      showEmailVerificationScreen(email);
+      return;
+    }
+
+    // Procesar fotos de carta con IA si hay fotos subidas
+    if (window.regMenuPhotos && window.regMenuPhotos.length > 0) {
+      showAIProcessingModal(true);
+      try {
+        const res = await fetch('/api/ai/parse-menu', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ images: window.regMenuPhotos.map(f => f.src || f) })
+        });
+        if (!res.ok) throw new Error('Error procesando imágenes con IA');
+        const aiData = await res.json();
+        const dishes = aiData.dishes || aiData.items || [];
+        if (dishes.length > 0) {
+          showAIReviewModal(dishes);
+          // Esperar a que el usuario confirme los platos antes de continuar
+          await new Promise(resolve => {
+            window.onAIReviewComplete = (d) => resolve(d);
+            window.onAIReviewCancel = () => resolve(null);
+          });
+          if (window.aiReviewDishes && window.aiReviewDishes.length > 0) {
+            const restaurantId = data.restaurant.id;
+            for (const dish of window.aiReviewDishes) {
+              await fetch('/api/studio/dishes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  dishId: dish.id || 'dish_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+                  name: dish.name || 'Plato sin nombre',
+                  price: parseFloat(dish.price) || 0,
+                  categoryId: dish.categoryId || 'cat_1',
+                  category: dish.category || 'General',
+                  description: dish.description || '',
+                  outOfStock: false,
+                  image: dish.photo || ''
+                })
+              });
+            }
+          }
+        } else {
+          showError('No se detectaron platos en las imágenes. Se creará el menú predeterminado.');
+        }
+      } catch (err) {
+        console.error('Error en IA:', err);
+        showError('No se pudieron procesar las fotos con IA. Se creará el menú predeterminado.');
+      }
+    }
+
+    window.location.href = '/studio.html';
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Comenzar 7 Días Gratis →';
+  }
+}

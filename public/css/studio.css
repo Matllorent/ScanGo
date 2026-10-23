@@ -592,3 +592,23 @@
     @media (max-width: 600px) {
       .onboarding-steps { grid-template-columns: 1fr; }
     }
+
+    /* Badge Uruguay en el panel del Studio */
+    .studio-badge-uy {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #003f87 0%, #0057b8 100%);
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-left: 8px;
+      box-shadow: 0 4px 12px rgba(0, 63, 135, 0.35);
+      animation: badge-pulse 3s ease-in-out infinite;
+    }
+    @keyframes badge-pulse {
+      0%, 100% { box-shadow: 0 4px 12px rgba(0, 63, 135, 0.35); transform: scale(1); }
+      50% { box-shadow: 0 6px 16px rgba(0, 91, 195, 0.5); transform: scale(1.02); }
+    }
