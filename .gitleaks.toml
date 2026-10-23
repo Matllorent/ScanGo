@@ -41,6 +41,9 @@ paths = [
   # Skill de terceros (token-optimizer): los hallazgos jwt/generic-api-key
   # salen de payloads de ejemplo, nunca de credenciales del proyecto.
   '''benchmark\.py$''',
+  # Documentación y pruebas k6 con valores de ejemplo
+  '''tests/k6/README\.md$''',
+  '''docs/SECRET_MANAGEMENT_GUIDE\.md$''',
 ]
 regexes = [
   # Fixtures de password de los tests (actual "test_password"; versiones
