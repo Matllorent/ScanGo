@@ -287,6 +287,7 @@ Object.defineProperties(window, {
       'helado-pistacho': 'Pistacchio', 'helado-dulce': 'Dulce de Leche',
       cioccolato: 'Cioccolato', 'helado-mora': 'Mora Noche',
       nordico: 'Bistró Nordico',
+      fuego: 'Pizza al Fuego', burger: 'Burger & Brasa', veggie: 'Huerta Fresca',
       'perfu-farmacia': 'Botica Dermato', 'perfu-noir': 'Parfum Noir'
     };
     // Listas SOLO del espejo del manifest (zero drift): una paleta nueva en

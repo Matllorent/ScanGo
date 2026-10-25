@@ -360,7 +360,7 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 - **Prohibido `on*=` en TODO `public/`** (HTML y JS): la CSP de **ambas** variantes tiene `script-src-attr 'none'` desde la Etapa 2 — un `onclick=`/`onchange=`/etc. nuevo se rompe en producción (y `tests/test-csp.js` falla, escanea todo `public/`). Usar `data-js-*` + `public/js/dom-bindings.js` (binder universal). También: `javascript:void(0)` está bloqueado → usar `href="#"` (el binder hace preventDefault en los `<A>`).
 
 ### Estructura de Datos Clave
-- **Restaurant** incluye: `subscription` (status, plan, provider, trialEndsAt, currentPeriodEnd, gracePeriodDaysRemaining), `branches[]`, `categories[]`, `dishes[]`, `modifierGroups[]`, `deliveryZones[]`, `businessType` (`restaurant|heladeria|perfumery|events`), `layout` (`classic|bento|minimalist|neon|billboard|ticker|sticker|delivery|stories`), `theme` (18 clásicas: `classic…football` + `smash-urban` + `glass-gastro` + `ticket` + `nordico`; 12 exclusivas de heladería; 2 exclusivas de perfumería), `city`, `smartWeatherEnabled`
+- **Restaurant** incluye: `subscription` (status, plan, provider, trialEndsAt, currentPeriodEnd, gracePeriodDaysRemaining), `branches[]`, `categories[]`, `dishes[]`, `modifierGroups[]`, `deliveryZones[]`, `businessType` (`restaurant|heladeria|perfumery|events`), `layout` (`classic|bento|minimalist|neon|billboard|ticker|sticker|delivery|stories`), `theme` (21 clásicas: `classic…football` + `smash-urban` + `glass-gastro` + `ticket` + `nordico` + `fuego` + `burger` + `veggie`; 12 exclusivas de heladería; 2 exclusivas de perfumería), `city`, `smartWeatherEnabled`
 - **Branch**: `id`, `name`, `slug`, `phone`, `address`, `overridePrices{}`, `customDishes[]`
 - **User**: `id`, `email`, `password` (bcrypt), `name`, `createdAt`
 
@@ -575,6 +575,21 @@ Perfumería (`businessType='perfumery'`) es rubro de primera clase desde siempre
 
 - **Demo Casa Aromas** (`api/utils/demoRestaurants.js`): `theme: 'perfu-farmacia'` (antes `terracotta` inválido).
 - Regresión: `tests/test-theme-manifest.js` (§4b gating triple + unicidad/disjunción de buckets + isValidTheme con `terracotta` rechazado) y `tests/test-banner-and-layouts.js` (filtro simétrico 3 vías del Studio + enforcement server-side).
+
+### Temas Clásicos de Vertical — 3 paletas nuevas (oct-2026, batch 2)
+
+Batch 2 del motor de temas: 3 clásicos para los verticales más comunes que no tenían identidad (pizzería de leña, hamburguesería de barrio, vegetariana). Añadidos al final de `CLASSIC_THEME_IDS` (`CLASSIC_THEME_IDS` ahora **21**, `THEME_IDS` **35**) — cero gating nuevo: pertenecer al bucket clásico es el único requisito (selector del Studio, `demoAllowedThemes`, `?theme=` de `menuHeader` los auto-aceptan). Morfología scoped a `body.theme-*.layout-classic`, paleta en todos los layouts, fuente Montserrat (fuego/burger) y Plus Jakarta (veggie), todas auto-hospedadas.
+
+| Tema | Vibe | Paleta + firma |
+|------|------|----------------|
+| `fuego` — Pizza al Fuego | Oscuro: horno de leña | Carbón `#201812` + dos brasas radiales al pie (radiales del body, regla aparte del `background-color` — gotcha del shorthand), superficie `#2A2018`, tinta `#F5EBDD` (≈14:1), dim `#BCAB92` (≈7.8:1), brasa `#E8853B` (≈6.6:1) como `--chalk-gold`; contenedor transparente. Firma: título de categoría = CARTEL DE HORNADA (uppercase 800 + barrita ember 46×4) y botón + brasa con tinta de masa |
+| `burger` — Burger & Brasa | Claro: papel kraft de hamburguesería | Kraft `#F3ECE0`, tarjetas blancas, tinta calada `#241D15` (≈14:1), dim `#6E6355` (≈5:1), MOSTAZA `#E3A81F` como relleno (`--chalk-gold`, tinta encima 7.5:1), mostaza-texto `#8A5600` (6.2:1), KÉTCHUP `#C0392B` reservado a AGOTADO/hover/foco (blanco encima 5.4:1). Firma: franja de CUADROS ketchup-mostaza bajo el título (`conic-gradient` checkerboard 8px) + nombre de plato uppercase 800; badge = texto de sello mostaza-oscuro |
+| `veggie` — Huerta Fresca | Claro: huerta/naturista | Avena `#F7F5EC`, tarjetas radio 16, tinta bosque `#26332B` (≈12:1), dim `#5F6F60` (≈5.4:1), HOJA `#3F6B34` como `--chalk-gold` (6.2:1 en ambas direcciones); AGOTADO en chip tomate `#C24E3A` (4.7:1). Firma: brote teardrop CSS (`border-radius: 0 50% 50% 50%` + `rotate(-45deg)`) junto al título de categoría |
+
+- **Re-scopes de luz** (patrón botica/nordico): los 2 claros re-scopean `--chalk-white` a tinta en `.menu-header`, scrim propio con `has-hero-banner`, skip-link/`i18n-demo-theme`/`btn-push-accept` en tinta, status pills en tinte; el AGOTADO conserva gravedad con chip propio (ketchup/tomate) vía `[style*="background:#E53E3E"]`. Fuego es oscuro: solo status pills + focus.
+- **Tip pill override** en los 3: JS pinta `bg var(--chalk-gold)` + `var(--chalk-muted,#fff)` → cada tema sobrescribe `button[data-tip-pill][style*="chalk-gold"]` con la tinta correcta (ember/tinta, mostaza/tinta, hoja/blanco).
+- Wiring: `menu.js` THEME_SHORT_NAMES, options del Studio + hints `(21 estéticas clásicas)`/`(21 clásicas…)`, llms.txt/llms-full.txt, espejo regenerado.
+- Regresión: `tests/test-theme-manifest.js` (21/35 + isValidTheme) y `tests/test-banner-and-layouts.js` (§3l: paletas, firmas checkerboard/teardrop/brasa, overrides de tip-pill, AGOTADO re-estilado por tema).
 
 ### Temas Visuales para Heladerías
 

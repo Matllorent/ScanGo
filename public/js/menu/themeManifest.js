@@ -161,7 +161,10 @@ export const CLASSIC_THEME_IDS = [
   "smash-urban",
   "glass-gastro",
   "ticket",
-  "nordico"
+  "nordico",
+  "fuego",
+  "burger",
+  "veggie"
 ];
 export const HELADERIA_THEME_IDS = [
   "helado-fiesta",
@@ -200,6 +203,9 @@ export const THEME_IDS = [
   "glass-gastro",
   "ticket",
   "nordico",
+  "fuego",
+  "burger",
+  "veggie",
   "helado-fiesta",
   "helado-menta",
   "helado-tropical",

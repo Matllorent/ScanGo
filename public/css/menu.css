@@ -9918,4 +9918,844 @@ body.theme-perfu-noir .status-pill.open {
 body.theme-perfu-noir .status-pill.closed,
 body.theme-perfu-noir .status-pill.order-later { color: #F2A3A3 !important; }
 
+/* ------------------------------------------------------------
+   THEME-FUEGO — PIZZA AL FUEGO (oscuro, oct-2026 batch 2)
+   Pizzería de leña: masa de carbón #201812 con el respiro del
+   horno (dos brasas radiales al pie) y acento ember #E8853B.
+   Firma: cabecera de categoría = cartel de hornada (title 800
+   uppercase + barrita ember de 46×4px) y botón + círculo ember
+   con tinta de masa.  AA sobre #201812: ink #F5EBDD ≈14:1,
+   dim #BCAB92 ≈7.8:1, ember #E8853B ≈6.6:1 — holgado.
+   ------------------------------------------------------------ */
+body.theme-fuego {
+  --bg-chalkboard: #201812;
+  --surface-card: #2A2018;
+  --surface-card-hover: #32261A;
+  --chalk-white: #F5EBDD;
+  --chalk-muted: #E4D6C2;
+  --chalk-dim: #BCAB92;
+  --chalk-gold: #E8853B;               /* acento = brasa del horno */
+  --chalk-gold-ink: #201812;
+  --chalk-leaf: #8FA96B;
+  --border-chalk: rgba(245, 235, 221, 0.14);
+  --border-gold: rgba(232, 133, 59, 0.5);
+  --fuego-radius: 12px;
+  background-color: #201812;
+  color: #F5EBDD;
+  font-family: 'Montserrat', system-ui, sans-serif;
+}
+/* La boca del horno: brasas suaves al pie de la sala */
+body.theme-fuego {
+  background-image:
+    radial-gradient(ellipse 70% 38% at 50% 108%, rgba(232, 133, 59, 0.16), transparent 62%),
+    radial-gradient(ellipse 90% 50% at 50% 118%, rgba(229, 90, 43, 0.10), transparent 68%),
+    radial-gradient(ellipse 60% 30% at 88% -8%, rgba(232, 133, 59, 0.05), transparent 60%);
+}
+body.theme-fuego .menu-container { background: transparent; box-shadow: none; }
+body.theme-fuego.has-hero-banner .menu-header {
+  background: linear-gradient(180deg, rgba(32, 24, 18, 0.55) 0%, rgba(32, 24, 18, 0.86) 100%);
+}
+
+body.theme-fuego .restaurant-title { color: #F5EBDD; font-weight: 900; letter-spacing: 0.01em; }
+body.theme-fuego .restaurant-slogan { color: #BCAB92; }
+
+body.theme-fuego .controls-wrapper {
+  background: rgba(42, 32, 24, 0.96);
+  border: 1px solid var(--border-chalk);
+  border-radius: var(--fuego-radius);
+  box-shadow: none;
+  backdrop-filter: blur(6px);
+}
+body.theme-fuego .controls-wrapper .search-box {
+  background: #241B15;
+  border: 1px solid var(--border-chalk);
+  color: #F5EBDD;
+  border-radius: 10px;
+}
+body.theme-fuego .controls-wrapper .search-box::placeholder { color: #BCAB92; }
+
+body.theme-fuego .cat-pill {
+  background: #2A2018;
+  border: 1px solid var(--border-chalk);
+  color: #E4D6C2;
+  border-radius: 999px;
+  font-weight: 600;
+}
+body.theme-fuego .cat-pill:hover { background: #32261A; }
+body.theme-fuego .cat-pill.active,
+body.theme-fuego .cat-pill[aria-pressed="true"] {
+  background: #E8853B;
+  color: #201812;
+  border-color: #E8853B;
+}
+
+/* Firma: cabecera de categoría = CARTEL DE HORNADA (título con
+   barrita ember de fierro) */
+body.theme-fuego .category-title {
+  color: #F5EBDD;
+  font-size: 0.84rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  padding-bottom: 10px;
+}
+body.theme-fuego .category-title::after {
+  content: "";
+  display: block;
+  width: 46px;
+  height: 4px;
+  margin-top: 7px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #E8853B, rgba(232, 133, 59, 0.25));
+}
+body.theme-fuego .category-title::before { content: none; }
+body.theme-fuego .category-title .category-count,
+body.theme-fuego .cat-count { color: #BCAB92; font-weight: 500; text-transform: none; letter-spacing: 0.02em; }
+
+/* Fila de plato: carta de hornada (104 izquierda, precio ember) */
+body.theme-fuego.layout-classic .dish-card {
+  background: #2A2018;
+  border: 1px solid var(--border-chalk);
+  border-radius: var(--fuego-radius);
+  box-shadow: none;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 104px 1fr auto;
+  gap: 0 14px;
+  align-items: start;
+}
+body.theme-fuego.layout-classic .dish-card:not(.dish-has-photo) { grid-template-columns: 1fr auto; }
+body.theme-fuego.layout-classic .dish-card:hover { border-color: rgba(232, 133, 59, 0.45); }
+body.theme-fuego.layout-classic .dish-thumb {
+  width: 104px;
+  height: 132px;
+  aspect-ratio: auto !important;
+  object-fit: cover;
+  border-radius: 8px;
+  grid-row: 1;
+  grid-column: 1;
+  filter: saturate(1.05) contrast(1.02);
+}
+body.theme-fuego.layout-classic .dish-body { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+body.theme-fuego.layout-classic .dish-name { color: #F5EBDD; font-size: 0.95rem; font-weight: 700; letter-spacing: 0; }
+body.theme-fuego.layout-classic .dish-desc { color: #BCAB92; font-size: 0.82rem; line-height: 1.45; }
+body.theme-fuego.layout-classic .dish-price {
+  margin-top: auto;
+  color: #E8853B;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+body.theme-fuego.layout-classic .dish-action { grid-column: 3; grid-row: 1; align-self: end; }
+
+body.theme-fuego .dish-badge {
+  background: rgba(232, 133, 59, 0.10) !important;
+  border: 1px solid rgba(232, 133, 59, 0.35) !important;
+  color: #E8853B !important;
+  font-weight: 600;
+  font-size: 0.68rem;
+  padding: 2px 7px !important;
+  border-radius: 6px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+body.theme-fuego .dish-badge[style*="background:#E53E3E"] {
+  background: #E53E3E !important;
+  color: #FFFFFF !important;
+}
+
+/* El botón + es la BRASA: ember redondo, tinta de masa */
+body.theme-fuego .btn-add {
+  background: #E8853B;
+  color: #201812;
+  border: none;
+  border-radius: 999px;
+  box-shadow: none;
+  width: 34px;
+  height: 34px;
+  font-weight: 800;
+}
+body.theme-fuego .btn-add:hover { background: #D0712C; color: #201812; }
+body.theme-fuego .qty-counter { color: #BCAB92; font-weight: 600; }
+body.theme-fuego .dish-qty-controls { border: none; background: none; padding: 0; gap: 8px; }
+
+body.theme-fuego .chef-specials-title { color: #F5EBDD; font-weight: 800; text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.78rem; }
+body.theme-fuego .chef-badge-gold {
+  background: rgba(232, 133, 59, 0.12);
+  border: 1px solid rgba(232, 133, 59, 0.4);
+  color: #E8853B;
+  border-radius: 999px;
+  font-weight: 700;
+}
+body.theme-fuego.layout-classic .chef-special-card {
+  background: #2A2018;
+  border: 1px solid var(--border-chalk);
+  border-radius: var(--fuego-radius);
+  box-shadow: none;
+}
+body.theme-fuego .chef-special-thumb { border-radius: 8px; }
+body.theme-fuego .chef-special-tag-ribbon { color: #E8853B; border-color: rgba(232, 133, 59, 0.4); }
+body.theme-fuego .chef-special-name { color: #F5EBDD; font-weight: 700; }
+body.theme-fuego .chef-special-desc { color: #BCAB92; }
+body.theme-fuego .chef-special-price { color: #E8853B; font-weight: 800; }
+
+body.theme-fuego #floatingCart {
+  background: rgba(42, 32, 24, 0.96);
+  border: 1px solid var(--border-chalk);
+  color: #F5EBDD;
+  border-radius: 999px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(6px);
+}
+body.theme-fuego #floatingCart .cart-total,
+body.theme-fuego #cartTotalBadge { color: #E8853B; }
+body.theme-fuego #cartTotalBadge {
+  background: #E8853B;
+  color: #201812;
+  border-radius: 999px;
+}
+
+body.theme-fuego .total-summary,
+body.theme-fuego [class*="checkout"],
+body.theme-fuego .checkout-summary-box {
+  background: #2A2018;
+  border-color: var(--border-chalk);
+}
+body.theme-fuego .summary-row { color: #BCAB92; }
+body.theme-fuego .summary-row.total-row { color: #F5EBDD; border-color: var(--border-chalk); }
+body.theme-fuego .summary-row.total-row span.total-amount { color: #E8853B; }
+body.theme-fuego .total-amount { color: #E8853B; }
+/* Pill activa de propina: JS pinta bg var(--chalk-gold) = ember con tinta */
+body.theme-fuego button[data-tip-pill][style*="chalk-gold"] {
+  background: #E8853B !important;
+  color: #201812 !important;
+  border-color: #E8853B !important;
+}
+body.theme-fuego .dish-note-confirm { background: #E8853B; color: #201812; }
+
+body.theme-fuego .btn-wa-submit { border-radius: 999px; box-shadow: none; font-weight: 700; }
+
+body.theme-fuego .modal-overlay { background: rgba(14, 9, 5, 0.62); }
+body.theme-fuego .modal-box,
+body.theme-fuego .modal-content,
+body.theme-fuego .modal {
+  background: #2A2018;
+  border: 1px solid var(--border-chalk);
+  border-radius: 14px;
+  color: #F5EBDD;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+}
+body.theme-fuego .modal-box h2,
+body.theme-fuego .modal-box h3,
+body.theme-fuego .modal h2 { color: #F5EBDD; }
+body.theme-fuego .modal-box input,
+body.theme-fuego .modal-box textarea,
+body.theme-fuego .modal-box select {
+  background: #241B15;
+  border: 1px solid var(--border-chalk);
+  color: #F5EBDD;
+}
+
+body.theme-fuego .meta-chip,
+body.theme-fuego .dish-meta { background: rgba(232, 133, 59, 0.08); border: 1px solid var(--border-chalk); color: #E4D6C2; }
+body.theme-fuego .meta-emoji { opacity: 0.8; }
+
+body.theme-fuego .st-ring { border-color: rgba(232, 133, 59, 0.3); }
+body.theme-fuego .st-ring.active { border-color: #E8853B; }
+
+body.theme-fuego .empty-state-card {
+  background: #2A2018;
+  border: 1px solid var(--border-chalk);
+  border-radius: 14px;
+  box-shadow: none;
+}
+body.theme-fuego .empty-state-title { color: #F5EBDD; }
+body.theme-fuego .empty-state-desc { color: #BCAB92; }
+body.theme-fuego .empty-state-btn { background: #E8853B; color: #201812; border-radius: 999px; }
+
+body.theme-fuego #specialActionsBar { background: rgba(42, 32, 24, 0.96); border: 1px solid var(--border-chalk); border-radius: 14px; backdrop-filter: blur(6px); }
+body.theme-fuego #btnTogglePerfumeryMode { background: rgba(232, 133, 59, 0.12); color: #E8853B; border: 1px solid rgba(232, 133, 59, 0.4); }
+
+body.theme-fuego :focus-visible { outline: 2px solid #E8853B; outline-offset: 2px; }
+body.theme-fuego .btn-wa-submit:focus-visible,
+body.theme-fuego .btn-add:focus-visible,
+body.theme-fuego .cat-pill:focus-visible { outline: 2px solid #E8853B; outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  body.theme-fuego .dish-card,
+  body.theme-fuego .btn-add,
+  body.theme-fuego .cat-pill { transition: none; }
+}
+
+body.theme-fuego .status-pill.open {
+  background: rgba(143, 169, 107, 0.12) !important;
+  border-color: rgba(143, 169, 107, 0.4) !important;
+  color: #A9C58A !important;
+}
+body.theme-fuego .status-pill.closed,
+body.theme-fuego .status-pill.order-later { color: #F2A3A3 !important; }
+
+/* ------------------------------------------------------------
+   THEME-BURGER — BURGER & BRASA (claro, oct-2026 batch 2)
+   Hamburguesería de barrio: papel kraft #F3ECE0, tinta calada
+   #241D15, MOSTAZA #E3A81F (relleno con tinta encima, 7.5:1) y
+   KÉTCHUP #C0392B reservado a AGOTADO/hover/foco. Firma: franja
+   de cuadros (checker ketchup-mostaza) bajo el título de
+   categoría y nombre de plato uppercase 800.
+   ------------------------------------------------------------ */
+body.theme-burger {
+  --bg-chalkboard: #F3ECE0;
+  --surface-card: #FFFFFF;
+  --surface-card-hover: #FBF6EC;
+  --chalk-white: #241D15;
+  --chalk-muted: #4A4136;
+  --chalk-dim: #6E6355;
+  --chalk-gold: #E3A81F;               /* acento relleno = mostaza */
+  --chalk-gold-ink: #241D15;
+  --chalk-leaf: #C0392B;
+  --border-chalk: #E6DAC6;
+  --border-gold: rgba(227, 168, 31, 0.55);
+  --burger-radius: 10px;
+  background-color: #F3ECE0;
+  color: #241D15;
+  font-family: 'Montserrat', system-ui, sans-serif;
+}
+body.theme-burger .menu-container { background: #F3ECE0; box-shadow: none; }
+/* El header base asume fondo oscuro; el papel kraft re-scopea a tinta */
+body.theme-burger .menu-header { --chalk-white: #241D15; --chalk-dim: #6E6355; }
+
+body.theme-burger .restaurant-title { color: #241D15; font-weight: 900; letter-spacing: -0.01em; }
+body.theme-burger .restaurant-slogan { color: #6E6355; }
+body.theme-burger .menu-header { background: #F3ECE0; }
+/* Con portada: scrim kraft para sostener la tinta */
+body.theme-burger.has-hero-banner .menu-header {
+  background: linear-gradient(180deg, rgba(243, 236, 224, 0.92) 0%, rgba(243, 236, 224, 0.97) 100%);
+}
+
+body.theme-burger .controls-wrapper {
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid #E6DAC6;
+  border-radius: var(--burger-radius);
+  box-shadow: 0 1px 2px rgba(36, 29, 21, 0.04);
+}
+body.theme-burger .controls-wrapper .search-box {
+  background: #FFFFFF;
+  border: 1px solid #E6DAC6;
+  color: #241D15;
+  border-radius: 10px;
+}
+body.theme-burger .controls-wrapper .search-box::placeholder { color: #6E6355; }
+
+body.theme-burger .cat-pill {
+  background: #FFFFFF;
+  border: 1px solid #E6DAC6;
+  color: #241D15;
+  border-radius: 999px;
+  font-weight: 700;
+}
+body.theme-burger .cat-pill:hover { background: #FBF6EC; }
+body.theme-burger .cat-pill.active,
+body.theme-burger .cat-pill[aria-pressed="true"] {
+  background: #E3A81F;
+  color: #241D15;
+  border-color: #E3A81F;
+}
+
+/* Firma de la hamburguesería: franja de CUADROS (ketchup y
+   mostaza, manteles de kiosco) bajo el título de categoría */
+body.theme-burger .category-title {
+  color: #241D15;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding-bottom: 10px;
+}
+body.theme-burger .category-title::after {
+  content: "";
+  display: block;
+  width: 64px;
+  height: 6px;
+  margin-top: 7px;
+  border-radius: 2px;
+  background: conic-gradient(#C0392B 25%, #E3A81F 0 50%, #C0392B 0 75%, #E3A81F 0) 0 0 / 8px 8px;
+}
+body.theme-burger .category-title::before { content: none; }
+body.theme-burger .category-title .category-count,
+body.theme-burger .cat-count { color: #6E6355; font-weight: 600; text-transform: none; letter-spacing: 0; }
+
+/* Fila de plato: carta de pizarra blanca, nombre calado 800 */
+body.theme-burger.layout-classic .dish-card {
+  background: #FFFFFF;
+  border: 1px solid #E6DAC6;
+  border-radius: var(--burger-radius);
+  box-shadow: none;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 104px 1fr auto;
+  gap: 0 14px;
+  align-items: start;
+}
+body.theme-burger.layout-classic .dish-card:not(.dish-has-photo) { grid-template-columns: 1fr auto; }
+body.theme-burger.layout-classic .dish-card:hover { border-color: #C0392B; box-shadow: 0 2px 10px rgba(36, 29, 21, 0.06); }
+body.theme-burger.layout-classic .dish-thumb {
+  width: 104px;
+  height: 132px;
+  aspect-ratio: auto !important;
+  object-fit: cover;
+  border-radius: 8px;
+  grid-row: 1;
+  grid-column: 1;
+  filter: saturate(1.05);
+}
+body.theme-burger.layout-classic .dish-body { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+body.theme-burger.layout-classic .dish-name { color: #241D15; font-size: 0.92rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.01em; }
+body.theme-burger.layout-classic .dish-desc { color: #6E6355; font-size: 0.82rem; line-height: 1.45; text-transform: none; }
+body.theme-burger.layout-classic .dish-price {
+  margin-top: auto;
+  color: #241D15;
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+}
+body.theme-burger.layout-classic .dish-action { grid-column: 3; grid-row: 1; align-self: end; }
+
+/* Badges: texto mínimo en mostaza oscura (tinta de sello) */
+body.theme-burger .dish-badge {
+  background: none !important;
+  border: none !important;
+  color: #8A5600 !important;
+  font-weight: 700;
+  font-size: 0.66rem;
+  padding: 0 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+/* El AGOTADO pide su gravedad: chip ketchup con blanco (5.4:1) */
+body.theme-burger .dish-badge[style*="background:#E53E3E"] {
+  background: #C0392B !important;
+  border: none !important;
+  color: #FFFFFF !important;
+  padding: 2px 7px !important;
+  border-radius: 6px !important;
+}
+
+/* El botón + es el SILLÓN de tinta con mostaza, hover ketchup */
+body.theme-burger .btn-add {
+  background: #241D15;
+  color: #E3A81F;
+  border: none;
+  border-radius: 999px;
+  box-shadow: none;
+  width: 34px;
+  height: 34px;
+  font-weight: 800;
+}
+body.theme-burger .btn-add:hover { background: #C0392B; color: #FFFFFF; }
+body.theme-burger .qty-counter { color: #241D15; font-weight: 700; }
+body.theme-burger .dish-qty-controls { border: none; background: none; padding: 0; gap: 8px; }
+
+body.theme-burger .chef-specials-title { color: #241D15; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.78rem; }
+body.theme-burger .chef-badge-gold {
+  background: rgba(227, 168, 31, 0.16);
+  border: 1px solid rgba(227, 168, 31, 0.5);
+  color: #8A5600;
+  border-radius: 999px;
+  font-weight: 700;
+}
+body.theme-burger.layout-classic .chef-special-card {
+  background: #FFFFFF;
+  border: 1px solid #E6DAC6;
+  border-radius: var(--burger-radius);
+  box-shadow: none;
+}
+body.theme-burger .chef-special-thumb { border-radius: 8px; }
+body.theme-burger .chef-special-tag-ribbon { color: #C0392B; border-color: rgba(192, 57, 43, 0.4); }
+body.theme-burger .chef-special-name { color: #241D15; font-weight: 800; }
+body.theme-burger .chef-special-desc { color: #6E6355; }
+body.theme-burger .chef-special-price { color: #241D15; font-weight: 800; }
+
+body.theme-burger #floatingCart {
+  background: #241D15;
+  border: 1px solid #241D15;
+  color: #F3ECE0;
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(36, 29, 21, 0.35);
+}
+body.theme-burger #floatingCart .cart-total,
+body.theme-burger #cartTotalBadge { color: #F3ECE0; }
+body.theme-burger #cartTotalBadge {
+  background: #E3A81F;
+  color: #241D15;
+  border-radius: 999px;
+}
+
+body.theme-burger .total-summary,
+body.theme-burger [class*="checkout"],
+body.theme-burger .checkout-summary-box {
+  background: #FFFFFF;
+  border-color: #E6DAC6;
+}
+body.theme-burger .summary-row { color: #6E6355; }
+body.theme-burger .summary-row.total-row { color: #241D15; border-color: #E6DAC6; }
+body.theme-burger .summary-row.total-row span.total-amount { color: #241D15; }
+body.theme-burger .total-amount { color: #241D15; }
+/* Pill activa de propina: JS pinta bg var(--chalk-gold) = mostaza con tinta */
+body.theme-burger button[data-tip-pill][style*="chalk-gold"] {
+  background: #E3A81F !important;
+  color: #241D15 !important;
+  border-color: #E3A81F !important;
+}
+body.theme-burger .dish-note-confirm { background: #241D15; color: #E3A81F; }
+
+body.theme-burger .btn-wa-submit { border-radius: 999px; box-shadow: none; font-weight: 700; }
+
+body.theme-burger .modal-overlay { background: rgba(36, 29, 21, 0.45); }
+body.theme-burger .modal-box,
+body.theme-burger .modal-content,
+body.theme-burger .modal {
+  background: #FFFFFF;
+  border: 1px solid #E6DAC6;
+  border-radius: 14px;
+  color: #241D15;
+  box-shadow: 0 18px 48px rgba(36, 29, 21, 0.22);
+}
+body.theme-burger .modal-box h2,
+body.theme-burger .modal-box h3,
+body.theme-burger .modal h2 { color: #241D15; }
+body.theme-burger .modal-box input,
+body.theme-burger .modal-box textarea,
+body.theme-burger .modal-box select {
+  background: #FAF5EB;
+  border: 1px solid #E6DAC6;
+  color: #241D15;
+}
+
+body.theme-burger .meta-chip,
+body.theme-burger .dish-meta { background: #FFFFFF; border: 1px solid #E6DAC6; color: #4A4136; }
+body.theme-burger .meta-emoji { opacity: 0.8; }
+
+body.theme-burger .st-ring { border-color: rgba(227, 168, 31, 0.6); }
+body.theme-burger .st-ring.active { border-color: #E3A81F; }
+
+body.theme-burger .empty-state-card {
+  background: #FFFFFF;
+  border: 1px solid #E6DAC6;
+  border-radius: var(--burger-radius);
+  box-shadow: none;
+}
+body.theme-burger .empty-state-title { color: #241D15; }
+body.theme-burger .empty-state-desc { color: #6E6355; }
+body.theme-burger .empty-state-btn { background: #E3A81F; color: #241D15; border-radius: 999px; }
+
+body.theme-burger #specialActionsBar { background: #FFFFFF; border: 1px solid #E6DAC6; border-radius: var(--burger-radius); }
+body.theme-burger #btnTogglePerfumeryMode { background: rgba(227, 168, 31, 0.14); color: #8A5600; border: 1px solid rgba(227, 168, 31, 0.5); }
+
+body.theme-burger :focus-visible { outline: 2px solid #C0392B; outline-offset: 2px; }
+body.theme-burger .btn-wa-submit:focus-visible,
+body.theme-burger .btn-add:focus-visible,
+body.theme-burger .cat-pill:focus-visible { outline: 2px solid #C0392B; outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  body.theme-burger .dish-card,
+  body.theme-burger .btn-add,
+  body.theme-burger .cat-pill { transition: none; }
+}
+
+body.theme-burger .skip-link { background: #241D15; color: #F3ECE0; }
+body.theme-burger .i18n-demo-theme,
+body.theme-burger .btn-push-accept { background: #241D15; color: #F3ECE0; }
+body.theme-burger .status-pill.open {
+  background: rgba(47, 107, 52, 0.08) !important;
+  border-color: rgba(47, 107, 52, 0.35) !important;
+  color: #2F6B34 !important;
+}
+body.theme-burger .status-pill.closed {
+  background: rgba(192, 57, 43, 0.08) !important;
+  border-color: rgba(192, 57, 43, 0.35) !important;
+  color: #C0392B !important;
+}
+body.theme-burger .status-pill.order-later { color: #8A5600 !important; }
+
+/* ------------------------------------------------------------
+   THEME-VEGGIE — HUERTA FRESCA (claro, oct-2026 batch 2)
+   Vegetariana/veggie: avena #F7F5EC, tinta bosque #26332B, y
+   HOJA #3F6B34 (6.2:1 en ambas direcciones) como único acento.
+   Firma: brote de tallo rotado (teardrop CSS) junto al título
+   de categoría y tarjetas de radio 16 suaves como huerta.
+   ------------------------------------------------------------ */
+body.theme-veggie {
+  --bg-chalkboard: #F7F5EC;
+  --surface-card: #FFFFFF;
+  --surface-card-hover: #F2F6EE;
+  --chalk-white: #26332B;
+  --chalk-muted: #46554A;
+  --chalk-dim: #5F6F60;
+  --chalk-gold: #3F6B34;               /* acento = hoja huerta */
+  --chalk-gold-ink: #FFFFFF;
+  --chalk-leaf: #3F6B34;
+  --border-chalk: #E4E8DD;
+  --border-gold: rgba(63, 107, 52, 0.45);
+  --veggie-radius: 16px;
+  background-color: #F7F5EC;
+  color: #26332B;
+  font-family: 'Plus Jakarta Sans', 'Montserrat', system-ui, sans-serif;
+}
+body.theme-veggie .menu-container { background: #F7F5EC; box-shadow: none; }
+/* El header base asume fondo oscuro; la huerta re-scopea a tinta */
+body.theme-veggie .menu-header { --chalk-white: #26332B; --chalk-dim: #5F6F60; }
+
+body.theme-veggie .restaurant-title { color: #26332B; font-weight: 700; letter-spacing: -0.2px; }
+body.theme-veggie .restaurant-slogan { color: #5F6F60; }
+body.theme-veggie .menu-header { background: #F7F5EC; }
+/* Con portada: scrim avena para sostener la tinta */
+body.theme-veggie.has-hero-banner .menu-header {
+  background: linear-gradient(180deg, rgba(247, 245, 236, 0.93) 0%, rgba(247, 245, 236, 0.97) 100%);
+}
+
+body.theme-veggie .controls-wrapper {
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid #E4E8DD;
+  border-radius: var(--veggie-radius);
+  box-shadow: 0 1px 2px rgba(38, 51, 43, 0.04);
+}
+body.theme-veggie .controls-wrapper .search-box {
+  background: #FFFFFF;
+  border: 1px solid #E4E8DD;
+  color: #26332B;
+  border-radius: 12px;
+}
+body.theme-veggie .controls-wrapper .search-box::placeholder { color: #5F6F60; }
+
+body.theme-veggie .cat-pill {
+  background: #FFFFFF;
+  border: 1px solid #E4E8DD;
+  color: #26332B;
+  border-radius: 999px;
+  font-weight: 600;
+}
+body.theme-veggie .cat-pill:hover { background: #F2F6EE; }
+body.theme-veggie .cat-pill.active,
+body.theme-veggie .cat-pill[aria-pressed="true"] {
+  background: #3F6B34;
+  color: #FFFFFF;
+  border-color: #3F6B34;
+}
+
+/* Firma de la huerta: brote de tallo (teardrop CSS rotado -45°)
+   al costado del título de categoría — la cosquilla del brote */
+body.theme-veggie .category-title {
+  color: #26332B;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: -0.1px;
+  padding-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+body.theme-veggie .category-title::before {
+  content: "";
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 0 50% 50% 50%;
+  transform: rotate(-45deg);
+  background: #3F6B34;
+}
+body.theme-veggie .category-title::after { content: none; }
+body.theme-veggie .category-title .category-count,
+body.theme-veggie .cat-count { color: #5F6F60; font-weight: 500; text-transform: none; letter-spacing: 0; margin-left: auto; }
+
+/* Fila de plato: huerta de tarjeta blanca radio 16 */
+body.theme-veggie.layout-classic .dish-card {
+  background: #FFFFFF;
+  border: 1px solid #E4E8DD;
+  border-radius: var(--veggie-radius);
+  box-shadow: none;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 104px 1fr auto;
+  gap: 0 14px;
+  align-items: start;
+}
+body.theme-veggie.layout-classic .dish-card:not(.dish-has-photo) { grid-template-columns: 1fr auto; }
+body.theme-veggie.layout-classic .dish-card:hover { border-color: rgba(63, 107, 52, 0.5); box-shadow: 0 2px 12px rgba(38, 51, 43, 0.06); }
+body.theme-veggie.layout-classic .dish-thumb {
+  width: 104px;
+  height: 132px;
+  aspect-ratio: auto !important;
+  object-fit: cover;
+  border-radius: 10px;
+  grid-row: 1;
+  grid-column: 1;
+  filter: saturate(1.05);
+}
+body.theme-veggie.layout-classic .dish-body { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+body.theme-veggie.layout-classic .dish-name { color: #26332B; font-size: 0.95rem; font-weight: 700; letter-spacing: -0.1px; }
+body.theme-veggie.layout-classic .dish-desc { color: #5F6F60; font-size: 0.82rem; line-height: 1.45; }
+body.theme-veggie.layout-classic .dish-price {
+  margin-top: auto;
+  color: #3F6B34;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+body.theme-veggie.layout-classic .dish-action { grid-column: 3; grid-row: 1; align-self: end; }
+
+/* Badges: texto mínimo en hoja oscura */
+body.theme-veggie .dish-badge {
+  background: none !important;
+  border: none !important;
+  color: #3F6B34 !important;
+  font-weight: 700;
+  font-size: 0.66rem;
+  padding: 0 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+/* El AGOTADO conserva su gravedad: chip tomate con blanco (4.7:1) */
+body.theme-veggie .dish-badge[style*="background:#E53E3E"] {
+  background: #C24E3A !important;
+  border: none !important;
+  color: #FFFFFF !important;
+  padding: 2px 7px !important;
+  border-radius: 6px !important;
+}
+
+/* El botón + es el BROTE: hoja redonda con blanco */
+body.theme-veggie .btn-add {
+  background: #3F6B34;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 999px;
+  box-shadow: none;
+  width: 34px;
+  height: 34px;
+  font-weight: 700;
+}
+body.theme-veggie .btn-add:hover { background: #35572B; color: #FFFFFF; }
+body.theme-veggie .qty-counter { color: #5F6F60; font-weight: 600; }
+body.theme-veggie .dish-qty-controls { border: none; background: none; padding: 0; gap: 8px; }
+
+body.theme-veggie .chef-specials-title { color: #26332B; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.78rem; }
+body.theme-veggie .chef-badge-gold {
+  background: rgba(63, 107, 52, 0.1);
+  border: 1px solid rgba(63, 107, 52, 0.35);
+  color: #3F6B34;
+  border-radius: 999px;
+  font-weight: 600;
+}
+body.theme-veggie.layout-classic .chef-special-card {
+  background: #FFFFFF;
+  border: 1px solid #E4E8DD;
+  border-radius: var(--veggie-radius);
+  box-shadow: none;
+}
+body.theme-veggie .chef-special-thumb { border-radius: 10px; }
+body.theme-veggie .chef-special-tag-ribbon { color: #3F6B34; border-color: rgba(63, 107, 52, 0.4); }
+body.theme-veggie .chef-special-name { color: #26332B; font-weight: 700; }
+body.theme-veggie .chef-special-desc { color: #5F6F60; }
+body.theme-veggie .chef-special-price { color: #3F6B34; font-weight: 700; }
+
+body.theme-veggie #floatingCart {
+  background: #FFFFFF;
+  border: 1px solid #E4E8DD;
+  color: #26332B;
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(38, 51, 43, 0.14);
+}
+body.theme-veggie #floatingCart .cart-total,
+body.theme-veggie #cartTotalBadge { color: #3F6B34; }
+body.theme-veggie #cartTotalBadge {
+  background: #3F6B34;
+  color: #FFFFFF;
+  border-radius: 999px;
+}
+
+body.theme-veggie .total-summary,
+body.theme-veggie [class*="checkout"],
+body.theme-veggie .checkout-summary-box {
+  background: #FFFFFF;
+  border-color: #E4E8DD;
+}
+body.theme-veggie .summary-row { color: #5F6F60; }
+body.theme-veggie .summary-row.total-row { color: #26332B; border-color: #E4E8DD; }
+body.theme-veggie .summary-row.total-row span.total-amount { color: #3F6B34; }
+body.theme-veggie .total-amount { color: #3F6B34; }
+/* Pill activa de propina: JS pinta bg var(--chalk-gold) = hoja con blanco */
+body.theme-veggie button[data-tip-pill][style*="chalk-gold"] {
+  background: #3F6B34 !important;
+  color: #FFFFFF !important;
+  border-color: #3F6B34 !important;
+}
+body.theme-veggie .dish-note-confirm { background: #3F6B34; color: #FFFFFF; }
+
+body.theme-veggie .btn-wa-submit { border-radius: 999px; box-shadow: none; font-weight: 700; }
+
+body.theme-veggie .modal-overlay { background: rgba(38, 51, 43, 0.42); }
+body.theme-veggie .modal-box,
+body.theme-veggie .modal-content,
+body.theme-veggie .modal {
+  background: #FFFFFF;
+  border: 1px solid #E4E8DD;
+  border-radius: var(--veggie-radius);
+  color: #26332B;
+  box-shadow: 0 18px 48px rgba(38, 51, 43, 0.18);
+}
+body.theme-veggie .modal-box h2,
+body.theme-veggie .modal-box h3,
+body.theme-veggie .modal h2 { color: #26332B; }
+body.theme-veggie .modal-box input,
+body.theme-veggie .modal-box textarea,
+body.theme-veggie .modal-box select {
+  background: #F7F5EC;
+  border: 1px solid #E4E8DD;
+  color: #26332B;
+}
+
+body.theme-veggie .meta-chip,
+body.theme-veggie .dish-meta { background: #FFFFFF; border: 1px solid #E4E8DD; color: #46554A; }
+body.theme-veggie .meta-emoji { opacity: 0.8; }
+
+body.theme-veggie .st-ring { border-color: rgba(63, 107, 52, 0.3); }
+body.theme-veggie .st-ring.active { border-color: #3F6B34; }
+
+body.theme-veggie .empty-state-card {
+  background: #FFFFFF;
+  border: 1px solid #E4E8DD;
+  border-radius: var(--veggie-radius);
+  box-shadow: none;
+}
+body.theme-veggie .empty-state-title { color: #26332B; }
+body.theme-veggie .empty-state-desc { color: #5F6F60; }
+body.theme-veggie .empty-state-btn { background: #3F6B34; color: #FFFFFF; border-radius: 999px; }
+
+body.theme-veggie #specialActionsBar { background: #FFFFFF; border: 1px solid #E4E8DD; border-radius: var(--veggie-radius); }
+body.theme-veggie #btnTogglePerfumeryMode { background: rgba(63, 107, 52, 0.1); color: #3F6B34; border: 1px solid rgba(63, 107, 52, 0.35); }
+
+body.theme-veggie :focus-visible { outline: 2px solid #3F6B34; outline-offset: 2px; }
+body.theme-veggie .btn-wa-submit:focus-visible,
+body.theme-veggie .btn-add:focus-visible,
+body.theme-veggie .cat-pill:focus-visible { outline: 2px solid #3F6B34; outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  body.theme-veggie .dish-card,
+  body.theme-veggie .btn-add,
+  body.theme-veggie .cat-pill { transition: none; }
+}
+
+body.theme-veggie .skip-link { background: #26332B; color: #F7F5EC; }
+body.theme-veggie .i18n-demo-theme,
+body.theme-veggie .btn-push-accept { background: #26332B; color: #FFFFFF; }
+body.theme-veggie .status-pill.open {
+  background: rgba(63, 107, 52, 0.08) !important;
+  border-color: rgba(63, 107, 52, 0.35) !important;
+  color: #3F6B34 !important;
+}
+body.theme-veggie .status-pill.closed {
+  background: rgba(194, 78, 58, 0.08) !important;
+  border-color: rgba(194, 78, 58, 0.35) !important;
+  color: #C24E3A !important;
+}
+body.theme-veggie .status-pill.order-later { color: #8A5600 !important; }
+
 

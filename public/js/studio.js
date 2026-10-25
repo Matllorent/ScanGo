@@ -608,7 +608,7 @@ export function filterThemeOptionsByBusinessType() {
   const countHint = document.getElementById('themeCountHint');
   if (countHint) countHint.textContent = isHeladeria
     ? '(12 estéticas exclusivas de heladería)'
-    : (isPerfumery ? '(2 estéticas exclusivas de perfumería)' : '(18 estéticas clásicas)');
+    : (isPerfumery ? '(2 estéticas exclusivas de perfumería)' : '(21 estéticas clásicas)');
   if (corrected) triggerAutoSave();
 }
 

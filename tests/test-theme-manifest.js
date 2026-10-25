@@ -48,11 +48,11 @@ async function runTests() {
     assert.ok(layout.menuSizing.includes('uniform'), `${layout.id}: siempre soporta uniform (estado histórico)`);
     assert.ok(layout.menuSizing.every((s) => manifest.MENU_SIZING_MODES.includes(s)), `${layout.id}: menuSizing ⊆ MENU_SIZING_MODES`);
   }
-  assert.strictEqual(manifest.CLASSIC_THEME_IDS.length, 18, '18 paletas clásicas');
+  assert.strictEqual(manifest.CLASSIC_THEME_IDS.length, 21, '21 paletas clásicas (con fuego/burger/veggie, oct-2026)');
   assert.strictEqual(manifest.HELADERIA_THEME_IDS.length, 12, '12 paletas de heladería');
   assert.strictEqual(manifest.PERFUMERY_THEME_IDS.length, 2, '2 paletas de perfumería (Botica Dermato + Parfum Noir)');
-  assert.strictEqual(manifest.THEME_IDS.length, 32, '32 temas en total');
-  assert.strictEqual(new Set(manifest.THEME_IDS).size, 32, 'ids de tema únicos (ningún id repetido)');
+  assert.strictEqual(manifest.THEME_IDS.length, 35, '35 temas en total');
+  assert.strictEqual(new Set(manifest.THEME_IDS).size, 35, 'ids de tema únicos (ningún id repetido)');
   // Los 3 buckets son DISJUNTOS: un id nunca vive en dos rubros.
   for (const t of manifest.PERFUMERY_THEME_IDS) {
     assert.ok(!manifest.HELADERIA_THEME_IDS.includes(t) && !manifest.CLASSIC_THEME_IDS.includes(t), `${t}: exclusivo de perfumería`);
@@ -61,9 +61,10 @@ async function runTests() {
     assert.ok(!manifest.CLASSIC_THEME_IDS.includes(t), `${t}: exclusivo de heladería (no solape con clásicos)`);
   }
   assert.ok(manifest.isValidTheme('classic') && manifest.isValidTheme('cioccolato'), 'isValidTheme acepta temas reales');
+  assert.ok(manifest.isValidTheme('fuego') && manifest.isValidTheme('burger') && manifest.isValidTheme('veggie'), 'isValidTheme acepta los clásicos de vertical (oct-2026)');
   assert.ok(manifest.isValidTheme('perfu-farmacia') && manifest.isValidTheme('perfu-noir'), 'isValidTheme acepta las paletas de perfumería');
   assert.ok(!manifest.isValidTheme('no-existe') && !manifest.isValidTheme('terracotta') && !manifest.isValidTheme('__proto__'), 'isValidTheme rechaza fantasma, el id roto viejo y proto');
-  console.log('✓ Manifest canónico: 10 morfologías × capacidades coherentes + 32 temas (18 clásicas + 12 heladería + 2 perfumería)');
+  console.log('✓ Manifest canónico: 10 morfologías × capacidades coherentes + 35 temas (21 clásicas + 12 heladería + 2 perfumería)');
 
   // ── 2) Resolución: los combos no soportados caen al default ───────────────
   assert.strictEqual(manifest.resolveImageMode('classic', 'auto'), 'grid', 'classic auto → grid');

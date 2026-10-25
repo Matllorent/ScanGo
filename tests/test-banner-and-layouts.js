@@ -470,6 +470,36 @@ async function runTests() {
   assert.ok(/body\.theme-nordico \.dish-badge\s*\{\s*background:\s*none !important;/.test(menuCss), 'nordico: badges como texto mínimo sin chips de color (el AGOTADO rojo queda)');
   console.log('✓ Tema Nordico "BISTRÓ NORDICO": off-white+tinta, tarjeta fila (piedra/figure 112px), kicker horario latente, pills y sticky hairline (AA)');
 
+  // ─────────────────────────────────────────────────────────────
+  // §3l — TEMAS DE VERTICAL oct-2026 (fuego + burger + veggie)
+  // ─────────────────────────────────────────────────────────────
+  // FUEGO — pizzería de leña: carbón + brasa, morfología cartel de hornada
+  assert.ok(/body\.theme-fuego\s*\{[^}]*--bg-chalkboard:\s*#201812/.test(menuCss) && /body\.theme-fuego\s*\{[^}]*--chalk-gold:\s*#E8853B/.test(menuCss), 'fuego: bisela de carbón #201812 + acento brasa #E8853B como --chalk-gold');
+  assert.ok(/background-image:\s*\n?\s*radial-gradient\(ellipse 70% 38% at 50% 108%/.test(menuCss), 'fuego: las brasas del horno van en regla aparte (shorthand computable, background-color al final del primer bloque)');
+  assert.ok(/body\.theme-fuego \.menu-container\s*\{\s*background:\s*transparent;/.test(menuCss), 'fuego: contenedor transparente (el carbón con brasas del body se ve detrás)');
+  assert.ok(/body\.theme-fuego\.layout-classic \.dish-card\s*\{[^}]*grid-template-columns:\s*104px 1fr auto/.test(menuCss) && /body\.theme-fuego\.layout-classic \.dish-body\s*\{[^}]*display:\s*flex/.test(menuCss), 'fuego: fila de hornada (miniatura 104 | cuerpo flex | acción)');
+  assert.ok(/body\.theme-fuego \.category-title::after\s*\{[^}]*width:\s*46px/.test(menuCss) && /body\.theme-fuego \.category-title::after\s*\{[^}]*height:\s*4px/.test(menuCss), 'fuego: firma = barrita ember 46×4 bajo el título de categoría');
+  assert.ok(/body\.theme-fuego \.btn-add\s*\{[^}]*background:\s*#E8853B/.test(menuCss) && /body\.theme-fuego \.btn-add\s*\{[^}]*color:\s*#201812/.test(menuCss), 'fuego: botón + = brasa con tinta de masa');
+  assert.ok(/body\.theme-fuego button\[data-tip-pill\]\[style\*="chalk-gold"\]/.test(menuCss) && /background:\s*#E8853B !important/.test(menuCss.slice(menuCss.indexOf('body.theme-fuego button[data-tip-pill]'), menuCss.indexOf('body.theme-fuego button[data-tip-pill]') + 300)), 'fuego: override de pill de propina ember con tinta (JS pinta chalk-gold)');
+
+  // BURGER — papel kraft + mostaza/ketchup, morfología franja de cuadros
+  assert.ok(/body\.theme-burger\s*\{[^}]*--bg-chalkboard:\s*#F3ECE0/.test(menuCss) && /body\.theme-burger\s*\{[^}]*--chalk-white:\s*#241D15/.test(menuCss), 'burger: papel kraft #F3ECE0 + tinta calada #241D15');
+  assert.ok(/body\.theme-burger\.layout-classic \.dish-name\s*\{[^}]*text-transform:\s*uppercase/.test(menuCss) && /body\.theme-burger\.layout-classic \.dish-desc\s*\{[^}]*text-transform:\s*none/.test(menuCss), 'burger: nombre de plato uppercase 800 con descripción en caja normal');
+  assert.ok(/conic-gradient\(#C0392B 25%, #E3A81F 0 50%, #C0392B 0 75%, #E3A81F 0\)/.test(menuCss) && /body\.theme-burger \.category-title::after/.test(menuCss), 'burger: firma = franja de cuadros ketchup-mostaza (conic checkerboard)');
+  assert.ok(/body\.theme-burger \.btn-add\s*\{[^}]*background:\s*#241D15/.test(menuCss) && /body\.theme-burger \.btn-add\s*\{[^}]*color:\s*#E3A81F/.test(menuCss) && /body\.theme-burger \.btn-add:hover\s*\{[^}]*background:\s*#C0392B/.test(menuCss), 'burger: botón + tinta con mostaza, hover ketchup');
+  assert.ok(/body\.theme-burger \.dish-badge\[style\*="background:#E53E3E"\]\s*\{[^}]*background:\s*#C0392B !important/.test(menuCss), 'burger: AGOTADO queda en chip ketchup con blanco (información, no adorno)');
+  assert.ok(/body\.theme-burger \.menu-header\s*\{[^}]*--chalk-white:\s*#241D15/.test(menuCss) && /body\.theme-burger\.has-hero-banner \.menu-header/.test(menuCss), 'burger: header re-scopeado a tinta + scrim kraft con portada');
+
+  // VEGGIE — avena + hoja, morfología brote (teardrop rotado)
+  assert.ok(/body\.theme-veggie\s*\{[^}]*--bg-chalkboard:\s*#F7F5EC/.test(menuCss) && /body\.theme-veggie\s*\{[^}]*--chalk-gold:\s*#3F6B34/.test(menuCss), 'veggie: avena #F7F5EC + hoja #3F6B34 como acento (--chalk-gold)');
+  assert.ok(/body\.theme-veggie \.category-title::before\s*\{[^}]*border-radius:\s*0 50% 50% 50%/.test(menuCss) && /transform:\s*rotate\(-45deg\)/.test(menuCss.slice(menuCss.indexOf('body.theme-veggie .category-title::before'), menuCss.indexOf('body.theme-veggie .category-title::before') + 300)), 'veggie: firma = brote teardrop CSS rotado -45° junto al título');
+  assert.ok(/body\.theme-veggie\s*\{[^}]*--veggie-radius:\s*16px/.test(menuCss) && /body\.theme-veggie\.layout-classic \.dish-card\s*\{[^}]*border-radius:\s*var\(--veggie-radius\)/.test(menuCss), 'veggie: tarjetas de radio 16 suaves (huerta)');
+  assert.ok(/body\.theme-veggie\.layout-classic \.dish-price\s*\{[^}]*color:\s*#3F6B34/.test(menuCss) && /body\.theme-veggie \.btn-add\s*\{[^}]*background:\s*#3F6B34/.test(menuCss), 'veggie: precio y botón + en hoja con blanco');
+  assert.ok(/body\.theme-veggie \.dish-badge\[style\*="background:#E53E3E"\]\s*\{[^}]*background:\s*#C24E3A !important/.test(menuCss), 'veggie: AGOTADO en chip tomate con blanco (4.7:1)');
+  assert.ok(/body\.theme-veggie button\[data-tip-pill\]\[style\*="chalk-gold"\]/.test(menuCss) && /color:\s*#FFFFFF !important/.test(menuCss.slice(menuCss.indexOf('body.theme-veggie button[data-tip-pill]'), menuCss.indexOf('body.theme-veggie button[data-tip-pill]') + 300)), 'veggie: override de pill de propina hoja con blanco');
+
+  console.log('✓ Temas de vertical oct-2026: Fuego (brasa+hornada), Burger (kraft+cuadros) y Veggie (avena+brote) con AA y firmas propias');
+
   console.log('\n🎉 ¡TODAS LAS VERIFICACIONES DE BANNER Y MORFOLOGÍAS PASARON AL 100%!');
 }
 

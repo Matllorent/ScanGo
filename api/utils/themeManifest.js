@@ -44,11 +44,11 @@ const LAYOUTS = [
   { id: 'brutalist', defaultImageMode: 'grid', imageModes: ['grid', 'none', 'hero'], menuSizing: ['uniform', 'popularity'] }
 ];
 
-/** 18 paletas clásicas (rubros que no son heladería ni perfumería). */
+/** 21 paletas clásicas (rubros que no son heladería ni perfumería). */
 const CLASSIC_THEME_IDS = [
   'classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer',
   'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football',
-  'smash-urban', 'glass-gastro', 'ticket', 'nordico'
+  'smash-urban', 'glass-gastro', 'ticket', 'nordico', 'fuego', 'burger', 'veggie'
 ];
 /** 12 paletas exclusivas de heladería (rubro de primera clase). */
 const HELADERIA_THEME_IDS = [
