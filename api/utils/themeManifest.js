@@ -44,7 +44,7 @@ const LAYOUTS = [
   { id: 'brutalist', defaultImageMode: 'grid', imageModes: ['grid', 'none', 'hero'], menuSizing: ['uniform', 'popularity'] }
 ];
 
-/** 18 paletas clásicas (rubros que no son heladería). */
+/** 18 paletas clásicas (rubros que no son heladería ni perfumería). */
 const CLASSIC_THEME_IDS = [
   'classic', 'emerald', 'rustic', 'taqueria', 'bar', 'moderna', 'foodtruck', 'gamer',
   'otaku', 'explosivo', 'infantil', 'alegre', 'basketball', 'football',
@@ -55,9 +55,20 @@ const HELADERIA_THEME_IDS = [
   'helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato',
   'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora', 'helado-crema'
 ];
+/**
+ * 2 paletas exclusivas de PERFUMERÍA (rubro de primera clase, oct-2026).
+ * Perfumería es un rubro propio (catálogo de heurísticas, landing
+ * /soluciones/perfumeria, tab de precios) pero nunca tuvo estética propia:
+ * la Casa Aromas del demo usaba un id de tema inexistente ('terracotta') y
+ * renderizaba sin paleta. Un local de fragancias no es una parrilla: ahora
+ * SOLO ve estas 2 (el Studio las filtra y el backend las impone).
+ */
+const PERFUMERY_THEME_IDS = [
+  'perfu-farmacia', 'perfu-noir'
+];
 
 const LAYOUT_IDS = LAYOUTS.map((l) => l.id);
-const THEME_IDS = [...CLASSIC_THEME_IDS, ...HELADERIA_THEME_IDS];
+const THEME_IDS = [...CLASSIC_THEME_IDS, ...HELADERIA_THEME_IDS, ...PERFUMERY_THEME_IDS];
 
 /** Devuelve la entrada del layout o null (id huérfano ⇒ null, nunca inventa). */
 function getLayout(id) {
@@ -107,6 +118,7 @@ module.exports = {
   LAYOUT_IDS,
   CLASSIC_THEME_IDS,
   HELADERIA_THEME_IDS,
+  PERFUMERY_THEME_IDS,
   THEME_IDS,
   getLayout,
   layoutSupportsImageMode,

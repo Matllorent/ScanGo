@@ -8,7 +8,8 @@ const {
   MENU_SIZING_MODES,
   LAYOUT_IDS,
   CLASSIC_THEME_IDS,
-  HELADERIA_THEME_IDS
+  HELADERIA_THEME_IDS,
+  PERFUMERY_THEME_IDS
 } = require('./themeManifest');
 const { z } = require('zod');
 
@@ -23,7 +24,11 @@ const CLASSIC_THEMES = CLASSIC_THEME_IDS;
 // Un cliente heladería SOLO puede elegir estas (el Studio los filtra y el
 // backend los impone: cualquier otro theme se corrige a helado-fiesta).
 const HELADERIA_THEMES = HELADERIA_THEME_IDS;
-const ALL_THEMES = [...CLASSIC_THEMES, ...HELADERIA_THEMES];
+// Perfumería: rubro de primera clase con estética propia (2 paletas,
+// oct-2026). Simétrico a heladería: la perfumería SOLO viste las suyas y el
+// resto de los rubros jamás las ve (una farmacia no es una taquería).
+const PERFUMERY_THEMES = PERFUMERY_THEME_IDS;
+const ALL_THEMES = [...CLASSIC_THEMES, ...HELADERIA_THEMES, ...PERFUMERY_THEMES];
 // Estilos del botón "Armá tu helado artesanal" (CTA protagonista del menú).
 // 6 variantes premium, obviamente de heladería, elegibles por el dueño.
 const ICE_CREAM_BUTTON_STYLES = ['clasico', 'fiesta', 'premium', 'tropical', 'nube', 'noche'];
@@ -481,16 +486,24 @@ function sanitizeRestaurantPayload(data) {
 
   // Eventos
   clean.businessType = sanitizeString(clean.businessType, 20);
-  // Heladería SOLO viste temas de heladería: si el rubro es heladería y el
-  // theme no es uno de los 11 propios, se corrige al default festivo.
-  // (El Studio además filtra el selector; esto es el enforcement server-side
-  // para que ningún payload viejo o manual cuele un theme de restaurante.)
+  // GATING TRIPLE de temas por rubro (heladería ↔ perfumería ↔ resto):
+  // cada rubro de primera clase SOLO viste sus paletas (el Studio además
+  // filtra el selector; esto es el enforcement server-side para que ningún
+  // payload viejo o manual cuele un theme imposible).
+  // 1) Heladería: theme fuera del bucket propio → festivo (incluye temas del
+  //    resto y los de perfumería).
   if (clean.businessType === 'heladeria' && !HELADERIA_THEMES.includes(clean.theme)) {
     clean.theme = 'helado-fiesta';
-  }
-  // Simétrico: un restaurante (o perfumería/evento) con theme de heladería
-  // vuelve a emerald (el Studio ya no los ofrece fuera de heladería).
-  if (clean.businessType !== 'heladeria' && HELADERIA_THEMES.includes(clean.theme)) {
+  } else if (clean.businessType === 'perfumery' && !PERFUMERY_THEMES.includes(clean.theme)) {
+    // 2) Perfumería: theme de restaurante, heladería o inexistente (cuentas
+    //    viejas como la demo con 'terracotta') → botica, la paleta default.
+    clean.theme = 'perfu-farmacia';
+  } else if (clean.businessType !== 'heladeria' && clean.businessType !== 'perfumery' && HELADERIA_THEMES.includes(clean.theme)) {
+    // 3) Simétrico: un restaurante/evento con theme de heladería vuelve a
+    //    emerald (el Studio ya no los ofrece fuera de heladería).
+    clean.theme = 'emerald';
+  } else if (clean.businessType !== 'heladeria' && clean.businessType !== 'perfumery' && PERFUMERY_THEMES.includes(clean.theme)) {
+    // 4) Igual con las paletas de perfumería: jamás las viste otro rubro.
     clean.theme = 'emerald';
   }
   clean.eventDate = sanitizeString(clean.eventDate, 30);
@@ -586,6 +599,7 @@ module.exports = {
   NEON_ACCENT_KEYS,
   CLASSIC_THEMES,
   HELADERIA_THEMES,
+  PERFUMERY_THEMES,
   ALL_THEMES,
   ICE_CREAM_BUTTON_STYLES,
   ALLOWED_WEATHER_TAGS,

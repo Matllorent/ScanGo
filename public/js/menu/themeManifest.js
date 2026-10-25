@@ -177,6 +177,10 @@ export const HELADERIA_THEME_IDS = [
   "helado-mora",
   "helado-crema"
 ];
+export const PERFUMERY_THEME_IDS = [
+  "perfu-farmacia",
+  "perfu-noir"
+];
 export const THEME_IDS = [
   "classic",
   "emerald",
@@ -207,5 +211,7 @@ export const THEME_IDS = [
   "helado-pistacho",
   "helado-cielo",
   "helado-mora",
-  "helado-crema"
+  "helado-crema",
+  "perfu-farmacia",
+  "perfu-noir"
 ];

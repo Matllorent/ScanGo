@@ -29,6 +29,7 @@ function buildManifestEsm() {
     LAYOUT_IDS: manifest.LAYOUT_IDS,
     CLASSIC_THEME_IDS: manifest.CLASSIC_THEME_IDS,
     HELADERIA_THEME_IDS: manifest.HELADERIA_THEME_IDS,
+    PERFUMERY_THEME_IDS: manifest.PERFUMERY_THEME_IDS,
     THEME_IDS: manifest.THEME_IDS
   };
   const lines = Object.entries(data).map(

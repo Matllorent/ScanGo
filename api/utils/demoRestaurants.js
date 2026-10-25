@@ -171,7 +171,7 @@ function demoPerfumery() {
     businessType: 'perfumery',
     allowIceCreamWizard: false,
     allowPerfumery: true,
-    theme: 'terracotta',
+    theme: 'perfu-farmacia',
     phone: '59899000333',
     bannerUrl: 'https://commons.wikimedia.org/wiki/Special:FilePath/Museo%20del%20Perfume%20de%20Barcelona.JPG?width=1200',
     logoUrl: null,

@@ -9371,3 +9371,551 @@ body.theme-nordico .status-pill.order-later { color: #C53030 !important; }
 body.theme-nordico .i18n-demo-theme,
 body.theme-nordico .btn-push-accept { background: #121212; color: #FFFFFF; }
 
+/* ============================================================
+   PERFUMERÍA — SOCLES DE FRAGANCIA (oct-2026)
+   Perfumería es rubro de primera clase pero NUNCA tuvo estética
+   propia (la demo Casa Aromas usaba un id de tema inexistente).
+   Dos paletas exclusivas del rubro, misma arquitectura que las
+   12 de heladería: la paleta viste TODOS los layouts y la
+   morfología especial vive SOLO en layout-classic (patrón
+   moderna/explosivo/nordico).
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1) theme-perfu-farmacia — BOTICA DERMATO (claro)
+   Farmacia/dermatología-botica: porcelana fría #F4F7F6, tinta
+   sapogreen #1E2D2A, acento EUCALIPTO #3D7C68 (AA 4.9:1 sobre
+   blanco), tarjeta blanca hairline #E2E8E5. Firma: cabeceras de
+   categoría como ETIQUETAS DE ALBARELO (uppercase + doble filete
+   fino) y nombre del local en serif (etiqueta de botica). Sin
+   beige+latón (el cliché premium) NI dorados: botica limpia.
+   ------------------------------------------------------------ */
+body.theme-perfu-farmacia {
+  --bg-chalkboard: #F4F7F6;
+  --surface-card: #FFFFFF;
+  --surface-card-hover: #FBFDFC;
+  --chalk-white: #1E2D2A;              /* tinta sapoverde ≈ 13:1 s/ porcelana */
+  --chalk-muted: #43524E;
+  --chalk-dim: #5C6B67;                /* 5.6:1 sobre blanco — AA */
+  --chalk-gold: #3D7C68;               /* acento botica = eucalipto (4.9:1) */
+  --chalk-gold-ink: #1E2D2A;
+  --chalk-leaf: #3D7C68;
+  --border-chalk: #E2E8E5;             /* hairline fria, la firma de la botica */
+  --border-gold: rgba(61, 124, 104, 0.55);
+  --perfu-radius-card: 14px;
+  --perfu-radius-thumb: 6px;
+  background-color: #F4F7F6;
+  color: #1E2D2A;
+  font-family: 'Plus Jakarta Sans', 'Montserrat', system-ui, sans-serif;
+}
+body.theme-perfu-farmacia .menu-container { background: #F4F7F6; box-shadow: none; }
+/* El header base asume fondo oscuro; el claro re-scopea a tinta */
+body.theme-perfu-farmacia .menu-header { --chalk-white: #1E2D2A; --chalk-dim: #5C6B67; }
+
+body.theme-perfu-farmacia .restaurant-title {
+  color: #1E2D2A;
+  font-family: 'Playfair Display', serif;   /* etiqueta de botica */
+  letter-spacing: 0.01em;
+}
+body.theme-perfu-farmacia .restaurant-slogan { color: #5C6B67; }
+body.theme-perfu-farmacia .menu-header { background: #F4F7F6; }
+/* Con portada: scrim porcelana para mantener legible la tinta */
+body.theme-perfu-farmacia.has-hero-banner .menu-header {
+  background: linear-gradient(180deg, rgba(244, 247, 246, 0.93) 0%, rgba(244, 247, 246, 0.97) 100%);
+}
+
+body.theme-perfu-farmacia .controls-wrapper {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #E2E8E5;
+  border-radius: var(--perfu-radius-card);
+  box-shadow: 0 1px 2px rgba(30, 45, 42, 0.04);
+}
+body.theme-perfu-farmacia .controls-wrapper .search-box {
+  background: #FFFFFF;
+  border: 1px solid #E2E8E5;
+  color: #1E2D2A;
+  border-radius: 10px;
+}
+body.theme-perfu-farmacia .controls-wrapper .search-box::placeholder { color: #8FA0A0; }
+
+body.theme-perfu-farmacia .cat-pill {
+  background: #FFFFFF;
+  border: 1px solid #E2E8E5;
+  color: #1E2D2A;
+  border-radius: 999px;
+  font-weight: 600;
+}
+body.theme-perfu-farmacia .cat-pill:hover { background: #EEF4F2; }
+body.theme-perfu-farmacia .cat-pill.active,
+body.theme-perfu-farmacia .cat-pill[aria-pressed="true"] {
+  background: #3D7C68;
+  color: #FFFFFF;
+  border-color: #3D7C68;
+}
+
+/* Firma de la botica: cabecera de categoría como ALBARELO —
+   uppercase micro-label + doble filete fino (libro de contabilidad) */
+body.theme-perfu-farmacia .category-title {
+  color: #1E2D2A;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  padding-bottom: 8px;
+  border-bottom: 3px double #CBDAD5;
+}
+body.theme-perfu-farmacia .category-title::before,
+body.theme-perfu-farmacia .category-title::after { content: none; }
+body.theme-perfu-farmacia .category-title .category-count,
+body.theme-perfu-farmacia .cat-count { color: #5C6B67; font-weight: 500; text-transform: none; letter-spacing: 0; }
+
+/* Tarjeta de plato: fila horizontal blanca hairline (cuadrícula albarelera) */
+body.theme-perfu-farmacia.layout-classic .dish-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8E5;
+  border-radius: var(--perfu-radius-card);
+  box-shadow: none;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 104px 1fr auto;
+  gap: 0 14px;
+  align-items: start;
+}
+body.theme-perfu-farmacia.layout-classic .dish-card:not(.dish-has-photo) {
+  grid-template-columns: 1fr auto;
+}
+body.theme-perfu-farmacia.layout-classic .dish-card:hover {
+  border-color: #C4D4CF;
+  box-shadow: 0 2px 10px rgba(30, 45, 42, 0.05);
+}
+body.theme-perfu-farmacia.layout-classic .dish-thumb {
+  width: 104px;
+  height: 132px;
+  aspect-ratio: auto !important;
+  object-fit: cover;
+  border-radius: var(--perfu-radius-thumb);
+  grid-row: 1;
+  grid-column: 1;
+}
+body.theme-perfu-farmacia.layout-classic .dish-body {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+body.theme-perfu-farmacia.layout-classic .dish-name {
+  color: #1E2D2A;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.1px;
+}
+body.theme-perfu-farmacia.layout-classic .dish-desc { color: #5C6B67; font-size: 0.82rem; line-height: 1.45; }
+/* El precio SALE SÓLO de la etiqueta: eucalipto, la tinta de marca */
+body.theme-perfu-farmacia.layout-classic .dish-price {
+  margin-top: auto;
+  color: #2F6353;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+body.theme-perfu-farmacia.layout-classic .dish-action { grid-column: 3; grid-row: 1; align-self: end; }
+
+body.theme-perfu-farmacia .dish-badge {
+  background: none !important;
+  border: none !important;
+  color: #5C6B67 !important;
+  font-weight: 500;
+  font-size: 0.7rem;
+  padding: 0;
+}
+/* El AGOTADO conserva su gravedad roja (información, no adorno) */
+body.theme-perfu-farmacia .dish-badge[style*="background:#E53E3E"] {
+  background: #E53E3E !important;
+  color: #FFFFFF !important;
+  border-radius: 6px !important;
+  padding: 2px 7px !important;
+}
+
+body.theme-perfu-farmacia .btn-add {
+  background: #3D7C68;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 999px;
+  box-shadow: none;
+  width: 34px;
+  height: 34px;
+  font-weight: 600;
+}
+body.theme-perfu-farmacia .btn-add:hover { background: #2F6353; }
+body.theme-perfu-farmacia .qty-counter { color: #5C6B67; font-weight: 500; }
+body.theme-perfu-farmacia .dish-qty-controls { border: none; background: none; padding: 0; gap: 8px; }
+
+body.theme-perfu-farmacia .chef-specials-title { color: #1E2D2A; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.9rem; }
+body.theme-perfu-farmacia .chef-badge-gold {
+  background: none;
+  border: 1px solid #E2E8E5;
+  color: #5C6B67;
+  border-radius: 999px;
+  font-weight: 600;
+}
+body.theme-perfu-farmacia.layout-classic .chef-special-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8E5;
+  border-radius: var(--perfu-radius-card);
+  box-shadow: none;
+}
+body.theme-perfu-farmacia .chef-special-thumb { border-radius: var(--perfu-radius-thumb); }
+body.theme-perfu-farmacia .chef-special-tag-ribbon { color: #1E2D2A; border-color: #E2E8E5; }
+body.theme-perfu-farmacia .chef-special-name { color: #1E2D2A; font-weight: 700; }
+body.theme-perfu-farmacia .chef-special-desc { color: #5C6B67; }
+body.theme-perfu-farmacia .chef-special-price { color: #2F6353; font-weight: 700; }
+
+body.theme-perfu-farmacia #floatingCart {
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid #E2E8E5;
+  color: #1E2D2A;
+  border-radius: 999px;
+  box-shadow: 0 4px 18px rgba(30, 45, 42, 0.10);
+}
+body.theme-perfu-farmacia #floatingCart .cart-total,
+body.theme-perfu-farmacia #cartTotalBadge { color: #1E2D2A; }
+body.theme-perfu-farmacia #cartTotalBadge {
+  background: #3D7C68;
+  color: #FFFFFF;
+  border-radius: 999px;
+}
+
+body.theme-perfu-farmacia .total-summary,
+body.theme-perfu-farmacia [class*="checkout"],
+body.theme-perfu-farmacia .checkout-summary-box {
+  background: #FFFFFF;
+  border-color: #E2E8E5;
+}
+body.theme-perfu-farmacia .summary-row { color: #5C6B67; }
+body.theme-perfu-farmacia .summary-row.total-row { color: #1E2D2A; border-color: #E2E8E5; }
+body.theme-perfu-farmacia .summary-row.total-row span.total-amount { color: #1E2D2A; }
+body.theme-perfu-farmacia .total-amount { color: #1E2D2A; }
+/* Pill activa de propina: el JS pinta bg var(--chalk-gold) + texto literal;
+   en la botica (eucalipto) la inversa correcta es texto blanco */
+body.theme-perfu-farmacia button[data-tip-pill][style*="chalk-gold"] {
+  background: #3D7C68 !important;
+  color: #FFFFFF !important;
+  border-color: #3D7C68 !important;
+}
+body.theme-perfu-farmacia .dish-note-confirm { background: #3D7C68; color: #FFFFFF; }
+
+body.theme-perfu-farmacia .btn-wa-submit { border-radius: 999px; box-shadow: none; font-weight: 700; }
+
+body.theme-perfu-farmacia .modal-overlay { background: rgba(30, 45, 42, 0.34); }
+body.theme-perfu-farmacia .modal-box,
+body.theme-perfu-farmacia .modal-content,
+body.theme-perfu-farmacia .modal {
+  background: #FFFFFF;
+  border-radius: var(--perfu-radius-card);
+  color: #1E2D2A;
+  box-shadow: none;
+}
+body.theme-perfu-farmacia .modal-box h2,
+body.theme-perfu-farmacia .modal-box h3,
+body.theme-perfu-farmacia .modal h2 { color: #1E2D2A; }
+body.theme-perfu-farmacia .modal-box input,
+body.theme-perfu-farmacia .modal-box textarea,
+body.theme-perfu-farmacia .modal-box select {
+  background: #F4F7F6;
+  border: 1px solid #E2E8E5;
+  color: #1E2D2A;
+}
+
+body.theme-perfu-farmacia .meta-chip,
+body.theme-perfu-farmacia .dish-meta { background: none; border: none; color: #5C6B67; padding-left: 0; }
+body.theme-perfu-farmacia .meta-emoji { opacity: 0.75; }
+
+body.theme-perfu-farmacia .st-ring { border-color: #C4D4CF; }
+body.theme-perfu-farmacia .st-ring.active { border-color: #3D7C68; }
+
+body.theme-perfu-farmacia .empty-state-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8E5;
+  border-radius: var(--perfu-radius-card);
+  box-shadow: none;
+}
+body.theme-perfu-farmacia .empty-state-title { color: #1E2D2A; }
+body.theme-perfu-farmacia .empty-state-desc { color: #5C6B67; }
+body.theme-perfu-farmacia .empty-state-btn { background: #3D7C68; color: #FFFFFF; border-radius: 999px; }
+
+/* Barra especial de perfumería (Modo Perfumería): hairline de botica */
+body.theme-perfu-farmacia #specialActionsBar { background: #FFFFFF; border: 1px solid #E2E8E5; border-radius: var(--perfu-radius-card); }
+body.theme-perfu-farmacia #btnTogglePerfumeryMode { background: #EEF4F2; color: #2F6353; border: 1px solid #CBDAD5; }
+
+body.theme-perfu-farmacia :focus-visible { outline: 2px solid #2F6353; outline-offset: 2px; }
+body.theme-perfu-farmacia .btn-wa-submit:focus-visible,
+body.theme-perfu-farmacia .btn-add:focus-visible,
+body.theme-perfu-farmacia .cat-pill:focus-visible { outline: 2px solid #2F6353; outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  body.theme-perfu-farmacia .dish-card,
+  body.theme-perfu-farmacia .btn-add,
+  body.theme-perfu-farmacia .cat-pill { transition: none; }
+}
+
+/* Superficies de la APP que asumen header/superficie oscura — la botica
+   es clara: re-scope explícito (patrón §52 de tintas en papel). */
+body.theme-perfu-farmacia .skip-link { background: #1E2D2A; color: #F4F7F6; }
+body.theme-perfu-farmacia .status-pill.open {
+  background: rgba(61, 124, 104, 0.08) !important;
+  border-color: rgba(61, 124, 104, 0.35) !important;
+  color: #2F6353 !important;
+}
+body.theme-perfu-farmacia .status-pill.closed,
+body.theme-perfu-farmacia .status-pill.order-later { color: #C53030 !important; }
+body.theme-perfu-farmacia .i18n-demo-theme,
+body.theme-perfu-farmacia .btn-push-accept { background: #1E2D2A; color: #FFFFFF; }
+
+/* ------------------------------------------------------------
+   2) theme-perfu-noir — PARFUM NOIR (oscuro)
+   Frasco de perfume en la noche: aubergine #180E1A con blush
+   #E2A9BB y superficies #221527. Firma: tipografía de caja de
+   perfume (MAISON) — labels mayúsculas de amplio tracking con
+   filetes finos, y precio como gajo rubí-gris. Nada de neón:
+   la noche de la perfumería es mate, sin tubos.
+   Contrastar sobre #180E1A: texto #F3E9F0 ≈16:1, dim #B9A3B4 ≈8:1,
+   blush #E2A9BB ≈9.5:1 — AA holgado.
+   ------------------------------------------------------------ */
+body.theme-perfu-noir {
+  --bg-chalkboard: #180E1A;
+  --surface-card: #221527;
+  --surface-card-hover: #2A1B30;
+  --chalk-white: #F3E9F0;
+  --chalk-muted: #D9C5CF;
+  --chalk-dim: #B9A3B4;
+  --chalk-gold: #E2A9BB;               /* acento = blusa del perfume */
+  --chalk-gold-ink: #180E1A;
+  --chalk-leaf: #A7C4B5;
+  --border-chalk: rgba(226, 169, 187, 0.22);
+  --border-gold: rgba(226, 169, 187, 0.45);
+  --perfu-noir-radius: 10px;
+  background-color: #180E1A;
+  color: #F3E9F0;
+  font-family: 'Montserrat', system-ui, sans-serif;
+}
+/* Vahído de la noche: dos capas suaves (sin neón, mate) */
+body.theme-perfu-noir {
+  background-image:
+    radial-gradient(ellipse 80% 40% at 20% -10%, rgba(226, 169, 187, 0.08), transparent 60%),
+    radial-gradient(ellipse 70% 35% at 90% 110%, rgba(151, 118, 167, 0.07), transparent 65%);
+}
+body.theme-perfu-noir .menu-container { background: transparent; box-shadow: none; }
+
+/* Nombre del local: label de maison (serif + tracking amplio) */
+body.theme-perfu-noir .restaurant-title {
+  color: #F3E9F0;
+  font-family: 'Playfair Display', serif;
+  letter-spacing: 0.06em;
+}
+body.theme-perfu-noir .restaurant-slogan { color: #B9A3B4; letter-spacing: 0.04em; }
+
+/* Firma MAISON: cabecera de categoría como caja de perfume —
+   label mayúscula con filete fino ARRIBA y ABAJO (tapas del frasco) */
+body.theme-perfu-noir .category-title {
+  color: #E2A9BB;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-chalk);
+  border-bottom: 1px solid var(--border-chalk);
+  margin-top: 18px;
+}
+body.theme-perfu-noir .category-title::before,
+body.theme-perfu-noir .category-title::after { content: none; }
+body.theme-perfu-noir .category-title .category-count,
+body.theme-perfu-noir .cat-count { color: #B9A3B4; font-weight: 500; text-transform: none; letter-spacing: 0.04em; }
+
+/* Fila de plato: superficie frasca con filete blush scrim */
+body.theme-perfu-noir.layout-classic .dish-card {
+  background: #221527;
+  border: 1px solid var(--border-chalk);
+  border-radius: var(--perfu-noir-radius);
+  box-shadow: none;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 104px 1fr auto;
+  gap: 0 14px;
+  align-items: start;
+}
+body.theme-perfu-noir.layout-classic .dish-card:not(.dish-has-photo) { grid-template-columns: 1fr auto; }
+body.theme-perfu-noir.layout-classic .dish-card:hover { border-color: rgba(226, 169, 187, 0.45); }
+body.theme-perfu-noir.layout-classic .dish-thumb {
+  width: 104px;
+  height: 132px;
+  aspect-ratio: auto !important;
+  object-fit: cover;
+  border-radius: 6px;
+  grid-row: 1;
+  grid-column: 1;
+  filter: saturate(0.92);
+}
+body.theme-perfu-noir.layout-classic .dish-body { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+body.theme-perfu-noir.layout-classic .dish-name { color: #F3E9F0; font-size: 0.95rem; font-weight: 600; letter-spacing: 0.02em; }
+body.theme-perfu-noir.layout-classic .dish-desc { color: #B9A3B4; font-size: 0.82rem; line-height: 1.45; }
+/* Precio como gajo del frasco: blush, tracking fino (label grabada) */
+body.theme-perfu-noir.layout-classic .dish-price {
+  margin-top: auto;
+  color: #E2A9BB;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+}
+body.theme-perfu-noir.layout-classic .dish-action { grid-column: 3; grid-row: 1; align-self: end; }
+
+body.theme-perfu-noir .dish-badge {
+  background: rgba(226, 169, 187, 0.12) !important;
+  border: 1px solid var(--border-chalk) !important;
+  color: #E2A9BB !important;
+  font-weight: 500;
+  font-size: 0.7rem;
+  padding: 2px 7px !important;
+  border-radius: 6px !important;
+}
+/* El AGOTADO conserva su gravedad roja (información, no adorno) */
+body.theme-perfu-noir .dish-badge[style*="background:#E53E3E"] {
+  background: #E53E3E !important;
+  color: #FFFFFF !important;
+}
+
+/* El botón + es el TAPÓN del frasco: blush mate, nunca neón */
+body.theme-perfu-noir .btn-add {
+  background: #E2A9BB;
+  color: #180E1A;
+  border: none;
+  border-radius: 999px;
+  box-shadow: none;
+  width: 34px;
+  height: 34px;
+  font-weight: 600;
+}
+body.theme-perfu-noir .btn-add:hover { background: #EFC4D2; }
+body.theme-perfu-noir .qty-counter { color: #B9A3B4; font-weight: 500; }
+body.theme-perfu-noir .dish-qty-controls { border: none; background: none; padding: 0; gap: 8px; }
+
+body.theme-perfu-noir .chef-specials-title { color: #F3E9F0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.78rem; }
+body.theme-perfu-noir .chef-badge-gold {
+  background: rgba(226, 169, 187, 0.12);
+  border: 1px solid var(--border-chalk);
+  color: #E2A9BB;
+  border-radius: 999px;
+  font-weight: 600;
+}
+body.theme-perfu-noir.layout-classic .chef-special-card {
+  background: #221527;
+  border: 1px solid var(--border-chalk);
+  border-radius: var(--perfu-noir-radius);
+  box-shadow: none;
+}
+body.theme-perfu-noir .chef-special-thumb { border-radius: 6px; }
+body.theme-perfu-noir .chef-special-tag-ribbon { color: #E2A9BB; border-color: var(--border-chalk); }
+body.theme-perfu-noir .chef-special-name { color: #F3E9F0; font-weight: 600; }
+body.theme-perfu-noir .chef-special-desc { color: #B9A3B4; }
+body.theme-perfu-noir .chef-special-price { color: #E2A9BB; font-weight: 700; }
+
+body.theme-perfu-noir #floatingCart {
+  background: rgba(34, 21, 39, 0.96);
+  border: 1px solid var(--border-chalk);
+  color: #F3E9F0;
+  border-radius: 999px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(6px);
+}
+body.theme-perfu-noir #floatingCart .cart-total,
+body.theme-perfu-noir #cartTotalBadge { color: #E2A9BB; }
+body.theme-perfu-noir #cartTotalBadge {
+  background: #E2A9BB;
+  color: #180E1A;
+  border-radius: 999px;
+}
+
+body.theme-perfu-noir .total-summary,
+body.theme-perfu-noir [class*="checkout"],
+body.theme-perfu-noir .checkout-summary-box {
+  background: #221527;
+  border-color: var(--border-chalk);
+}
+body.theme-perfu-noir .summary-row { color: #B9A3B4; }
+body.theme-perfu-noir .summary-row.total-row { color: #F3E9F0; border-color: var(--border-chalk); }
+body.theme-perfu-noir .summary-row.total-row span.total-amount { color: #E2A9BB; }
+body.theme-perfu-noir .total-amount { color: #E2A9BB; }
+/* Pill activa de propina: JS pinta bg var(--chalk-gold) = blush con tinta */
+body.theme-perfu-noir button[data-tip-pill][style*="chalk-gold"] {
+  background: #E2A9BB !important;
+  color: #180E1A !important;
+  border-color: #E2A9BB !important;
+}
+body.theme-perfu-noir .dish-note-confirm { background: #E2A9BB; color: #180E1A; }
+
+body.theme-perfu-noir .btn-wa-submit { border-radius: 999px; box-shadow: none; font-weight: 700; }
+
+body.theme-perfu-noir .modal-overlay { background: rgba(10, 5, 12, 0.62); }
+body.theme-perfu-noir .modal-box,
+body.theme-perfu-noir .modal-content,
+body.theme-perfu-noir .modal {
+  background: #221527;
+  border: 1px solid var(--border-chalk);
+  border-radius: 14px;
+  color: #F3E9F0;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+}
+body.theme-perfu-noir .modal-box h2,
+body.theme-perfu-noir .modal-box h3,
+body.theme-perfu-noir .modal h2 { color: #F3E9F0; }
+body.theme-perfu-noir .modal-box input,
+body.theme-perfu-noir .modal-box textarea,
+body.theme-perfu-noir .modal-box select {
+  background: #180E1A;
+  border: 1px solid var(--border-chalk);
+  color: #F3E9F0;
+}
+
+body.theme-perfu-noir .meta-chip,
+body.theme-perfu-noir .dish-meta { background: rgba(226, 169, 187, 0.08); border: 1px solid var(--border-chalk); color: #D9C5CF; }
+body.theme-perfu-noir .meta-emoji { opacity: 0.8; }
+
+body.theme-perfu-noir .st-ring { border-color: rgba(226, 169, 187, 0.3); }
+body.theme-perfu-noir .st-ring.active { border-color: #E2A9BB; }
+
+body.theme-perfu-noir .empty-state-card {
+  background: #221527;
+  border: 1px solid var(--border-chalk);
+  border-radius: 14px;
+  box-shadow: none;
+}
+body.theme-perfu-noir .empty-state-title { color: #F3E9F0; }
+body.theme-perfu-noir .empty-state-desc { color: #B9A3B4; }
+body.theme-perfu-noir .empty-state-btn { background: #E2A9BB; color: #180E1A; border-radius: 999px; }
+
+body.theme-perfu-noir #specialActionsBar { background: rgba(34, 21, 39, 0.96); border: 1px solid var(--border-chalk); border-radius: 14px; backdrop-filter: blur(6px); }
+body.theme-perfu-noir #btnTogglePerfumeryMode { background: rgba(226, 169, 187, 0.12); color: #E2A9BB; border: 1px solid var(--border-chalk); }
+
+body.theme-perfu-noir :focus-visible { outline: 2px solid #E2A9BB; outline-offset: 2px; }
+body.theme-perfu-noir .btn-wa-submit:focus-visible,
+body.theme-perfu-noir .btn-add:focus-visible,
+body.theme-perfu-noir .cat-pill:focus-visible { outline: 2px solid #E2A9BB; outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  body.theme-perfu-noir .dish-card,
+  body.theme-perfu-noir .btn-add,
+  body.theme-perfu-noir .cat-pill { transition: none; }
+}
+
+/* El tema ES oscuro: header/superficies base ya lo asumen — solo
+   garantizamos las pills de estado y el foco en dark (patrón cioccolato). */
+body.theme-perfu-noir .status-pill.open {
+  background: rgba(167, 196, 181, 0.12) !important;
+  border-color: rgba(167, 196, 181, 0.4) !important;
+  color: #A7C4B5 !important;
+}
+body.theme-perfu-noir .status-pill.closed,
+body.theme-perfu-noir .status-pill.order-later { color: #F2A3A3 !important; }
+
+

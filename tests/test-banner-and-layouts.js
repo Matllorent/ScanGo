@@ -181,15 +181,35 @@ async function runTests() {
   assert.ok(schemaSql.includes("business_type TEXT NOT NULL DEFAULT 'restaurant'"), 'Supabase debe tener business_type con restaurant por defecto');
   assert.ok(studioHtml.includes('<option value="heladeria">'), 'studio.html debe exponer Heladería como rubro de primera clase');
   assert.ok(studioHtml.includes('value="helado-fiesta"') && studioHtml.includes('value="cioccolato"'), 'studio.html debe ofrecer los temas de heladería en el selector de estética');
-  // Filtro simétrico por rubro: heladería SOLO ve lo suyo y el resto SOLO ve
-  // clásicos (un confeti rosa no es una parrilla). Las options siguen en el
-  // HTML (se ocultan por JS); el server corrige lo que cuele por payload.
-  assert.ok(studioJs.includes('const hide = isHeladeria ? !isHela : isHela;'), 'el filtro de temas es simétrico por rubro');
+  // Filtro simétrico por rubro (3 vías): heladería SOLO ve lo suyo, perfumería
+  // SOLO sus 2, el resto SOLO ve clásicos (un confeti rosa no es una parrilla
+  // y una farmacia no es una taquería). Las options siguen en el HTML (se
+  // ocultan por JS); el server corrige lo que cuele por payload.
+  assert.ok(studioJs.includes('const hide = isHeladeria ? !isHela : (isPerfumery ? !isPerfu : (isHela || isPerfu));'), 'el filtro de temas es simétrico por rubro (3 vías: heladería ↔ perfumería ↔ clásicos)');
   assert.ok(studioJs.includes("restaurant.theme = 'emerald'"), 'restaurante con theme de heladería se corrige a emerald');
+  assert.ok(studioJs.includes("restaurant.theme = 'perfu-farmacia'"), 'perfumería con theme ajeno se corrige a botica');
+  assert.ok(studioJs.includes("const PERFUMERY_THEMES = ['perfu-farmacia', 'perfu-noir'];"), 'Studio declara el bucket de perfumería (gating frontend)');
+  assert.ok(studioHtml.includes('value="perfu-farmacia"') && studioHtml.includes('value="perfu-noir"'), 'studio.html ofrece las paletas de perfumería en el selector');
   const { sanitizeRestaurantPayload } = require('../api/utils/sanitizeRestaurant');
   assert.strictEqual(
     sanitizeRestaurantPayload({ name: 'R', businessType: 'restaurant', theme: 'helado-fiesta' }).theme,
     'emerald', 'server: restaurante con theme de heladería → emerald'
+  );
+  assert.strictEqual(
+    sanitizeRestaurantPayload({ name: 'R', businessType: 'restaurant', theme: 'perfu-noir' }).theme,
+    'emerald', 'server: restaurante con theme de perfumería → emerald'
+  );
+  assert.strictEqual(
+    sanitizeRestaurantPayload({ name: 'P', businessType: 'perfumery', theme: 'gamer' }).theme,
+    'perfu-farmacia', 'server: perfumería con theme clásico → botica'
+  );
+  assert.strictEqual(
+    sanitizeRestaurantPayload({ name: 'P', businessType: 'perfumery', theme: 'perfu-noir' }).theme,
+    'perfu-noir', 'server: perfumería conserva su paleta exclusiva'
+  );
+  assert.strictEqual(
+    sanitizeRestaurantPayload({ name: 'H', businessType: 'heladeria', theme: 'emerald' }).theme,
+    'helado-fiesta', 'server: heladería con theme clásico → helado-fiesta'
   );
   assert.strictEqual(
     sanitizeRestaurantPayload({ name: 'H', businessType: 'heladeria', theme: 'emerald' }).theme,

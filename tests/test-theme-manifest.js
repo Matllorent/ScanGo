@@ -27,7 +27,7 @@ const { pathToFileURL } = require('url');
 
 const manifest = require('../api/utils/themeManifest');
 const { TARGET, buildManifestEsm } = require('../scripts/regen-theme-manifest');
-const { sanitizeRestaurantPayload, ALLOWED_LAYOUTS, CLASSIC_THEMES, HELADERIA_THEMES, ALL_THEMES } = require('../api/utils/sanitizeRestaurant');
+const { sanitizeRestaurantPayload, ALLOWED_LAYOUTS, CLASSIC_THEMES, HELADERIA_THEMES, PERFUMERY_THEMES, ALL_THEMES } = require('../api/utils/sanitizeRestaurant');
 const { computePopTiers, DISH_POPULARITY_MIN_SAMPLES } = require('../api/utils/popularityTiers');
 
 const read = (rel) => fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
@@ -50,11 +50,20 @@ async function runTests() {
   }
   assert.strictEqual(manifest.CLASSIC_THEME_IDS.length, 18, '18 paletas clásicas');
   assert.strictEqual(manifest.HELADERIA_THEME_IDS.length, 12, '12 paletas de heladería');
-  assert.strictEqual(manifest.THEME_IDS.length, 30, '30 temas en total');
-  assert.strictEqual(new Set(manifest.THEME_IDS).size, 30, 'ids de tema únicos');
+  assert.strictEqual(manifest.PERFUMERY_THEME_IDS.length, 2, '2 paletas de perfumería (Botica Dermato + Parfum Noir)');
+  assert.strictEqual(manifest.THEME_IDS.length, 32, '32 temas en total');
+  assert.strictEqual(new Set(manifest.THEME_IDS).size, 32, 'ids de tema únicos (ningún id repetido)');
+  // Los 3 buckets son DISJUNTOS: un id nunca vive en dos rubros.
+  for (const t of manifest.PERFUMERY_THEME_IDS) {
+    assert.ok(!manifest.HELADERIA_THEME_IDS.includes(t) && !manifest.CLASSIC_THEME_IDS.includes(t), `${t}: exclusivo de perfumería`);
+  }
+  for (const t of manifest.HELADERIA_THEME_IDS) {
+    assert.ok(!manifest.CLASSIC_THEME_IDS.includes(t), `${t}: exclusivo de heladería (no solape con clásicos)`);
+  }
   assert.ok(manifest.isValidTheme('classic') && manifest.isValidTheme('cioccolato'), 'isValidTheme acepta temas reales');
-  assert.ok(!manifest.isValidTheme('no-existe') && !manifest.isValidTheme('__proto__'), 'isValidTheme rechaza fantasma y proto');
-  console.log('✓ Manifest canónico: 10 morfologías × capacidades coherentes + 30 temas');
+  assert.ok(manifest.isValidTheme('perfu-farmacia') && manifest.isValidTheme('perfu-noir'), 'isValidTheme acepta las paletas de perfumería');
+  assert.ok(!manifest.isValidTheme('no-existe') && !manifest.isValidTheme('terracotta') && !manifest.isValidTheme('__proto__'), 'isValidTheme rechaza fantasma, el id roto viejo y proto');
+  console.log('✓ Manifest canónico: 10 morfologías × capacidades coherentes + 32 temas (18 clásicas + 12 heladería + 2 perfumería)');
 
   // ── 2) Resolución: los combos no soportados caen al default ───────────────
   assert.strictEqual(manifest.resolveImageMode('classic', 'auto'), 'grid', 'classic auto → grid');
@@ -84,12 +93,14 @@ async function runTests() {
   assert.deepStrictEqual(fe.THEME_IDS, manifest.THEME_IDS, 'THEME_IDS idéntico');
   assert.deepStrictEqual(fe.CLASSIC_THEME_IDS, manifest.CLASSIC_THEME_IDS, 'CLASSIC_THEME_IDS idéntico');
   assert.deepStrictEqual(fe.HELADERIA_THEME_IDS, manifest.HELADERIA_THEME_IDS, 'HELADERIA_THEME_IDS idéntico');
+  assert.deepStrictEqual(fe.PERFUMERY_THEME_IDS, manifest.PERFUMERY_THEME_IDS, 'PERFUMERY_THEME_IDS idéntico');
   console.log('✓ Espejo ESM generado sin drift (contenido + arrays == canónico)');
 
   // ── 4) Sanitizer: allowlists del manifest + campos nuevos ─────────────────
   assert.deepStrictEqual(ALLOWED_LAYOUTS, manifest.LAYOUT_IDS, 'ALLOWED_LAYOUTS DERIVA del manifest (misma lista)');
   assert.deepStrictEqual(CLASSIC_THEMES, manifest.CLASSIC_THEME_IDS, 'CLASSIC_THEMES == manifest');
   assert.deepStrictEqual(HELADERIA_THEMES, manifest.HELADERIA_THEME_IDS, 'HELADERIA_THEMES == manifest');
+  assert.deepStrictEqual(PERFUMERY_THEMES, manifest.PERFUMERY_THEME_IDS, 'PERFUMERY_THEMES == manifest');
   assert.deepStrictEqual(ALL_THEMES, manifest.THEME_IDS, 'ALL_THEMES == manifest');
   const base = { name: 'Local Manifest', slug: 'local-manifest' };
   assert.strictEqual(sanitizeRestaurantPayload({ ...base, layout: 'brutalist' }).layout, 'brutalist', 'brutalist persiste (allowlist nueva)');
@@ -103,6 +114,17 @@ async function runTests() {
   const defaults = sanitizeRestaurantPayload({ ...base });
   assert.strictEqual(defaults.imageMode, 'auto', 'sin dato → imageMode auto');
   assert.strictEqual(defaults.menuSizing, 'uniform', 'sin dato → menuSizing uniform');
+
+  // ── 4b) GATING TRIPLE de temas por rubro (heladería ↔ perfumería ↔ resto)
+  assert.strictEqual(sanitizeRestaurantPayload({ ...base, businessType: 'perfumery', theme: 'gamer' }).theme, 'perfu-farmacia', 'perfumería con theme de restaurante → botica (default del rubro)');
+  assert.strictEqual(sanitizeRestaurantPayload({ ...base, businessType: 'perfumery', theme: 'helado-fiesta' }).theme, 'perfu-farmacia', 'perfumería con theme de heladería → botica (nunca confeti en una farmacia)');
+  assert.strictEqual(sanitizeRestaurantPayload({ ...base, businessType: 'perfumery', theme: 'terracotta' }).theme, 'perfu-farmacia', 'perfumería con theme inexistente (cuentas viejas como la demo) → botica');
+  assert.strictEqual(sanitizeRestaurantPayload({ ...base, businessType: 'perfumery', theme: 'perfu-noir' }).theme, 'perfu-noir', 'perfumería mantiene su paleta noir');
+  assert.strictEqual(sanitizeRestaurantPayload({ ...base, businessType: 'perfumery', theme: 'perfu-farmacia' }).theme, 'perfu-farmacia', 'perfumería mantiene su paleta default');
+  assert.strictEqual(sanitizeRestaurantPayload({ ...base, businessType: 'restaurant', theme: 'perfu-noir' }).theme, 'emerald', 'restaurante jamás viste perfumería → emerald');
+  assert.strictEqual(sanitizeRestaurantPayload({ ...base, businessType: 'heladeria', theme: 'perfu-noir' }).theme, 'helado-fiesta', 'heladería jamás viste perfumería → fiesta');
+  assert.strictEqual(sanitizeRestaurantPayload({ ...base, businessType: 'events', theme: 'perfu-farmacia' }).theme, 'emerald', 'evento jamás viste perfumería → emerald');
+  assert.strictEqual(sanitizeRestaurantPayload({ ...base, businessType: 'heladeria', theme: 'classic' }).theme, 'helado-fiesta', 'heladería con clásico → fiesta (regla previa intacta)');
   const lockedHeladeria = sanitizeRestaurantPayload({ ...base, businessType: 'heladeria', theme: 'emerald' });
   assert.strictEqual(lockedHeladeria.theme, 'helado-fiesta', 'el candado de rubro de heladería sigue intacto (emerald → helado-fiesta)');
   console.log('✓ Sanitizer: allowlists derivadas del manifest + imageMode/menuSizing normalizados');
@@ -202,7 +224,9 @@ async function runTests() {
   assert.ok(renderSrc.includes('data-pop-tier'), 'menuRender emite data-pop-tier en las cartas');
   assert.ok(renderSrc.includes('category-hero-img'), 'menuRender inyecta la foto protagonista por categoría');
   const menuJsThemesSrc = read('public/js/menu.js');
-  assert.ok(menuJsThemesSrc.includes("import { LAYOUT_IDS, CLASSIC_THEME_IDS, HELADERIA_THEME_IDS } from './menu/themeManifest.js'"), 'menu.js importa las listas de temas del ESPEJO (sin copias locales que se revisen a mano)');
+  assert.ok(menuJsThemesSrc.includes("import { LAYOUT_IDS, CLASSIC_THEME_IDS, HELADERIA_THEME_IDS, PERFUMERY_THEME_IDS } from './menu/themeManifest.js'"), 'menu.js importa las listas de temas del ESPEJO (sin copias locales que se revisen a mano)');
+  // Gating por rubro en la demo/probador: la perfumería SOLO ve sus paletas
+  assert.ok(menuJsThemesSrc.includes("bizType === 'perfumery'") && menuJsThemesSrc.includes('PERFUMERY_THEME_IDS'), 'demoAllowedThemes() da la perfumería SOLO sus paletas (slope de heladería intacto)');
   assert.ok(!/const CLASSIC_THEMES = \[/.test(menuJsThemesSrc) && !/HELADERIA_THEMES_MENU\s*=/.test(menuJsThemesSrc), 'sin array de temas hardcodeado en menu.js (drift por paleta nueva = tema invisible en la demo)');
   const menuRouterSrc = read('api/routes/menu.js');
   assert.ok(menuRouterSrc.includes('resolveImageMode') && menuRouterSrc.includes('resolveMenuSizing'), 'ruta del menú resuelve las dimensiones server-side');

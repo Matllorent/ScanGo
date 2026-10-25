@@ -360,7 +360,7 @@ Copiar `.env.example` → `.env`. Variables **críticas**:
 - **Prohibido `on*=` en TODO `public/`** (HTML y JS): la CSP de **ambas** variantes tiene `script-src-attr 'none'` desde la Etapa 2 — un `onclick=`/`onchange=`/etc. nuevo se rompe en producción (y `tests/test-csp.js` falla, escanea todo `public/`). Usar `data-js-*` + `public/js/dom-bindings.js` (binder universal). También: `javascript:void(0)` está bloqueado → usar `href="#"` (el binder hace preventDefault en los `<A>`).
 
 ### Estructura de Datos Clave
-- **Restaurant** incluye: `subscription` (status, plan, provider, trialEndsAt, currentPeriodEnd, gracePeriodDaysRemaining), `branches[]`, `categories[]`, `dishes[]`, `modifierGroups[]`, `deliveryZones[]`, `businessType` (`restaurant|heladeria|perfumery|events`), `layout` (`classic|bento|minimalist|neon|billboard|ticker|sticker|delivery|stories`), `theme` (17 clásicas: `classic…football` + `smash-urban` + `glass-gastro` + `ticket`; 12 exclusivas de heladería), `city`, `smartWeatherEnabled`
+- **Restaurant** incluye: `subscription` (status, plan, provider, trialEndsAt, currentPeriodEnd, gracePeriodDaysRemaining), `branches[]`, `categories[]`, `dishes[]`, `modifierGroups[]`, `deliveryZones[]`, `businessType` (`restaurant|heladeria|perfumery|events`), `layout` (`classic|bento|minimalist|neon|billboard|ticker|sticker|delivery|stories`), `theme` (18 clásicas: `classic…football` + `smash-urban` + `glass-gastro` + `ticket` + `nordico`; 12 exclusivas de heladería; 2 exclusivas de perfumería), `city`, `smartWeatherEnabled`
 - **Branch**: `id`, `name`, `slug`, `phone`, `address`, `overridePrices{}`, `customDishes[]`
 - **User**: `id`, `email`, `password` (bcrypt), `name`, `createdAt`
 
@@ -557,6 +557,24 @@ Bug real corregido: el item sintético `icecream_*` moría en `/quote` con `DISH
 - `dish.iceCreamSurcharge` (≥ 0, solo lo usa la heladería): campo en el modal de plato (visible solo con `businessType='heladeria'`), badge `+$` en el gusto y suma al total del wizard y de la cotización server-side.
 - El wizard muestra la foto del gusto (si el plato tiene) y chips Sin TACC/Vegano (solo si hay gustos marcados; toggle como las categorías).
 - Vitrina de heladería: con `allowMenuOrders=false` el CTA "Armá tu helado" se oculta (`isHeladeria && ordersOn`) y `openIceCreamWizard` no abre por invocación directa. Regresión en §15c.
+
+### Temas Visuales para Perfumería (rubro de primera clase, oct-2026)
+
+Perfumería (`businessType='perfumery'`) es rubro de primera clase desde siempre (heurísticas de catálogo, `/soluciones/perfumeria`, tab de precios) pero **nunca tuvo estética propia**: la demo Casa Aromas vestía un id de tema INEXISTENTE (`terracotta`) y renderizaba sin paleta. Se corrigió con el mecanismo completo del repo, simétrico a heladería:
+
+- **Bucket nuevo en el manifest** (`api/utils/themeManifest.js`): `PERFUMERY_THEME_IDS = ['perfu-farmacia', 'perfu-noir']` — `THEME_IDS` ahora **32** (18 clásicas + 12 heladería + 2 perfumería), los 3 buckets **disjuntos** (un id jamás vive en dos rubros). El regen exporta el bucket y el espejo ESM se regeneró (`node scripts/regen-theme-manifest.js`).
+- **Gating triple server-side** (`api/utils/sanitizeRestaurant.js`): (1) heladería con theme fuera de su bucket → `helado-fiesta`; (2) perfumería con theme de otro rubro o inexistente (cuentas viejas) → `perfu-farmacia`; (3) restro/evento con theme de heladería → `emerald`; (4) resto/evento con theme de perfumería → `emerald`. Exporta `PERFUMERY_THEMES`.
+- **Frontend espejo**: `menuHeader.js` corrige efectivo + `?theme=` por rubro (el lockdown no tiene excepciones NI por preview: `?theme=gamer` en perfumería → botica; `?theme=perfu-noir` en restaurante → rechazado), fallback de clase `theme-perfu-farmacia` para perflu; `menu.js` (`demoAllowedThemes()` 3 vías + nombres cortos del probador de demos); `studio.js` (`filterThemeOptionsByBusinessType()` 3 vías con `#themePerfumeryHint`, `themeCountHint` por rubro y corrección al cambiar rubro); `index.js` (registro de perfumería nace vestida de `perfu-farmacia`, espejo del bloque heladería).
+- **Studio selector**: optgroup "🧴 Perfumería & Boticas" con las 2 paletas.
+- **Las 2 paletas** (morfología scoped a `body.theme-*.layout-classic`, paleta en todos los layouts; contraste AA precalculado):
+
+| Tema | Vibe | Paleta |
+|------|------|--------|
+| `theme-perfu-farmacia` — Botica Dermato | Claro: botica dermatológica | Porcelana fría `#F4F7F6`, tinta sapoverde `#1E2D2A` (≈13:1), acento eucalipto `#3D7C68` (4.9:1), hairline `#E2E8E5`; nombre del local en serif Playfair; cabeceras de categoría como ETIQUETAS DE ALBARELO (uppercase + doble filete) |
+| `theme-perfu-noir` — Parfum Noir | Oscuro: frasco de perfume en la noche | Aubergine mate `#180E1A` (con vahído radial sutil, SIN neón), superficie `#221527`, texto `#F3E9F0` (≈16:1), dim `#B9A3B4` (≈8:1), acento blush `#E2A9BB` (≈9.5:1); tipografía MAISON (labels uppercase tracking amplio con filetes arriba/abajo); contenedor transparente, la "pared" del body se ve detrás |
+
+- **Demo Casa Aromas** (`api/utils/demoRestaurants.js`): `theme: 'perfu-farmacia'` (antes `terracotta` inválido).
+- Regresión: `tests/test-theme-manifest.js` (§4b gating triple + unicidad/disjunción de buckets + isValidTheme con `terracotta` rechazado) y `tests/test-banner-and-layouts.js` (filtro simétrico 3 vías del Studio + enforcement server-side).
 
 ### Temas Visuales para Heladerías
 

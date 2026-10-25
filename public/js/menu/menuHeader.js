@@ -25,7 +25,7 @@ import { computeOpenStatus, getClosingCountdown } from './openStatus.js';
 // Morfologías y paletas: espejo ESM generado del manifest canónico del
 // backend (api/utils/themeManifest.js). La paridad la garantiza
 // tests/test-theme-manifest.js; jamás editar este listado a mano.
-import { LAYOUTS, LAYOUT_IDS, IMAGE_MODES, CLASSIC_THEME_IDS, HELADERIA_THEME_IDS } from './themeManifest.js';
+import { LAYOUTS, LAYOUT_IDS, IMAGE_MODES, CLASSIC_THEME_IDS, HELADERIA_THEME_IDS, PERFUMERY_THEME_IDS } from './themeManifest.js';
 
     // === Open / Closed Real-time Status Badge (fuera de renderHeader) ===
     // Extraído del header para poder re-ejecutarse SIN re-renderizar todo:
@@ -110,28 +110,37 @@ import { LAYOUTS, LAYOUT_IDS, IMAGE_MODES, CLASSIC_THEME_IDS, HELADERIA_THEME_ID
         layout = morphParam;
       }
       const layoutClass = validLayouts.includes(layout) ? `layout-${layout}` : 'layout-classic';
-      const validThemes = [...CLASSIC_THEME_IDS, ...HELADERIA_THEME_IDS];
-      // Heladería SOLO viste sus 12 temas: si el dato viene con un theme de
-      // restaurante (cuenta vieja o payload manual), se corrige a fiesta en el
-      // render para que el comensal siempre vea estética de heladería.
+      const validThemes = [...CLASSIC_THEME_IDS, ...HELADERIA_THEME_IDS, ...PERFUMERY_THEME_IDS];
+      // GATING por rubro (espejo del sanitizer): heladería SOLO viste sus 12
+      // temas y perfumería SOLO sus 2 — si el dato viene con un theme de otro
+      // rubro (cuenta vieja o payload manual), se corrige en el render para
+      // que el comensal siempre vea la estética de su rubro.
       const HELADERIA_ONLY = HELADERIA_THEME_IDS;
+      const PERFUMERY_ONLY = PERFUMERY_THEME_IDS;
+      const bizTypeForTheme = String(ctx.getRestaurantData().businessType || 'restaurant').toLowerCase();
       let effectiveTheme = ctx.getRestaurantData().theme;
-      if (ctx.getRestaurantData().businessType === 'heladeria' && !HELADERIA_ONLY.includes(effectiveTheme)) {
+      if (bizTypeForTheme === 'heladeria' && !HELADERIA_ONLY.includes(effectiveTheme)) {
         effectiveTheme = 'helado-fiesta';
+      } else if (bizTypeForTheme === 'perfumery' && !PERFUMERY_ONLY.includes(effectiveTheme)) {
+        effectiveTheme = 'perfu-farmacia';
       }
       // Preview ?theme=<clave> (espejo de ?morph= y ?neon=): el dueño prueba
-      // estéticas desde un link sin guardar nada. Solo claves válidas, y en
-      // heladería SOLO las 12 propias: el lockdown no tiene excepciones ni
-      // siquiera por preview (?theme=classic en heladería → fiesta).
+      // estéticas desde un link sin guardar nada. Solo claves válidas, y CADA
+      // rubro SOLO las suyas: el lockdown no tiene excepciones ni siquiera
+      // por preview (?theme=classic en heladería → fiesta; ?theme=gamer en
+      // perfumería → botica).
       const themeParam = new URLSearchParams(window.location.search).get('theme');
       if (themeParam && validThemes.includes(themeParam)) {
-        if (ctx.getRestaurantData().businessType === 'heladeria' && !HELADERIA_ONLY.includes(themeParam)) {
-          effectiveTheme = 'helado-fiesta';
-        } else {
+        const allowedForBiz = bizTypeForTheme === 'heladeria'
+          ? HELADERIA_ONLY.includes(themeParam)
+          : bizTypeForTheme === 'perfumery'
+            ? PERFUMERY_ONLY.includes(themeParam)
+            : !HELADERIA_ONLY.includes(themeParam) && !PERFUMERY_ONLY.includes(themeParam);
+        if (allowedForBiz) {
           effectiveTheme = themeParam;
         }
       }
-      const themeClass = validThemes.includes(effectiveTheme) ? `theme-${effectiveTheme}` : 'theme-emerald';
+      const themeClass = validThemes.includes(effectiveTheme) ? `theme-${effectiveTheme}` : (bizTypeForTheme === 'perfumery' ? 'theme-perfu-farmacia' : 'theme-emerald');
       document.body.className = `${themeClass} font-${ctx.getRestaurantData().themeFont || 'serif'} ${layoutClass}`;
 
       // === MOTOR DE PLANTILLAS: modo de imagen + sizing por popularidad

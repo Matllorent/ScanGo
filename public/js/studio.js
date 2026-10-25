@@ -548,6 +548,7 @@ async function initDemoMode(demoType) {
 }
 
 export const HELADERIA_THEMES = ['helado-fiesta', 'helado-menta', 'helado-tropical', 'helado-pastel', 'gelateria', 'cioccolato', 'helado-fresa', 'helado-dulce', 'helado-pistacho', 'helado-cielo', 'helado-mora', 'helado-crema'];
+export const PERFUMERY_THEMES = ['perfu-farmacia', 'perfu-noir'];
 export const ICE_CREAM_BUTTON_STYLES = ['clasico', 'fiesta', 'premium', 'tropical', 'nube', 'noche'];
 
 export function resolveIceCreamButtonStyle(value) {
@@ -556,45 +557,58 @@ export function resolveIceCreamButtonStyle(value) {
 }
 
 /**
- * Filtra el selector de estética por rubro (simétrico): una heladería SOLO ve
- * sus 11 temas propios, y el resto de los rubros SOLO ve los 17 clásicos (los
- * de heladería se ocultan + disabled: un confeti rosa no es una parrilla). Si
- * el valor actual quedó del otro lado (cuenta vieja o cambio de rubro), se
- * corrige a helado-fiesta / emerald para que el Studio nunca muestre un theme
- * imposible.
+ * Filtra el selector de estética por rubro (simétrico): heladería SOLO ve sus
+ * 12 temas propios y perfumería SOLO sus 2; el resto de los rubros SOLO ve
+ * los 18 clásicos (los exclusivos por rubro se ocultan + disabled: un confeti
+ * rosa no es una parrilla y una farmacia no es una taquería). Si el valor
+ * actual quedó del otro lado (cuenta vieja o cambio de rubro), se corrige a
+ * helado-fiesta / perfu-farmacia / emerald para que el Studio nunca muestre
+ * un theme imposible.
  */
 export function filterThemeOptionsByBusinessType() {
   const themeSelect = document.getElementById('inputThemeBg');
   if (!themeSelect) return;
   const bizType = normalizeBusinessType(restaurant?.businessType);
   const isHeladeria = bizType === 'heladeria';
+  const isPerfumery = bizType === 'perfumery';
   let corrected = false;
   Array.from(themeSelect.options).forEach(opt => {
     if (!opt.value) return; // optgroup labels no son options reales
     const isHela = HELADERIA_THEMES.includes(opt.value);
-    // Cada rubro ve solo lo suyo: heladería ↔ clásicos, nunca mezclados.
-    const hide = isHeladeria ? !isHela : isHela;
+    const isPerfu = PERFUMERY_THEMES.includes(opt.value);
+    // Cada rubro ve solo lo suyo: heladería ↔ perfumería ↔ clásicos.
+    const hide = isHeladeria ? !isHela : (isPerfumery ? !isPerfu : (isHela || isPerfu));
     opt.hidden = hide;
     opt.disabled = hide;
   });
-  // Corrección automática: heladería con theme de restaurante → fiesta.
+  // Corrección automática: heladería con theme de otro rubro → fiesta.
   if (isHeladeria && restaurant && !HELADERIA_THEMES.includes(restaurant.theme)) {
     restaurant.theme = 'helado-fiesta';
     themeSelect.value = 'helado-fiesta';
     corrected = true;
   }
-  // Al salir de heladería con un theme exclusivo → emerald (no existe fuera).
-  if (!isHeladeria && restaurant && HELADERIA_THEMES.includes(restaurant.theme)) {
+  // Perfumería con theme de otro rubro o inexistente → botica (default del rubro).
+  if (isPerfumery && restaurant && !PERFUMERY_THEMES.includes(restaurant.theme)) {
+    restaurant.theme = 'perfu-farmacia';
+    themeSelect.value = 'perfu-farmacia';
+    corrected = true;
+  }
+  // Al salir de un rubro exclusivo con un theme que ya no existe ahí → emerald.
+  if (!isHeladeria && !isPerfumery && restaurant && (HELADERIA_THEMES.includes(restaurant.theme) || PERFUMERY_THEMES.includes(restaurant.theme))) {
     // Solo corregimos si el rubro cambió de verdad (no al cargar una heladería).
-    // Como acá bizType ya no es heladería, el theme helado quedó huérfano.
+    // Como acá bizType ya no es el rubro exclusivo, el theme quedó huérfano.
     restaurant.theme = 'emerald';
     themeSelect.value = 'emerald';
     corrected = true;
   }
   const hint = document.getElementById('themeHeladeriaHint');
   if (hint) hint.style.display = isHeladeria ? 'block' : 'none';
+  const perfuHint = document.getElementById('themePerfumeryHint');
+  if (perfuHint) perfuHint.style.display = isPerfumery ? 'block' : 'none';
   const countHint = document.getElementById('themeCountHint');
-  if (countHint) countHint.textContent = isHeladeria ? '(12 estéticas exclusivas de heladería)' : '(17 estéticas clásicas)';
+  if (countHint) countHint.textContent = isHeladeria
+    ? '(12 estéticas exclusivas de heladería)'
+    : (isPerfumery ? '(2 estéticas exclusivas de perfumería)' : '(18 estéticas clásicas)');
   if (corrected) triggerAutoSave();
 }
 
@@ -1144,10 +1158,16 @@ export function updateLiveState() {
   updateLayoutCapabilityRows();
   if (el('inputThemeBg')) {
     let nextTheme = el('inputThemeBg').value;
-    // Cambio de rubro a heladería con theme de restaurante: corrección
-    // inmediata a fiesta (el filtro además lo impone al mostrar).
+    // Cambio de rubro con theme de otro rubro: corrección inmediata al
+    // default del rubro (el filtro además lo impone al mostrar).
     if (restaurant.businessType === 'heladeria' && !HELADERIA_THEMES.includes(nextTheme)) {
       nextTheme = 'helado-fiesta';
+      el('inputThemeBg').value = nextTheme;
+    } else if (restaurant.businessType === 'perfumery' && !PERFUMERY_THEMES.includes(nextTheme)) {
+      nextTheme = 'perfu-farmacia';
+      el('inputThemeBg').value = nextTheme;
+    } else if (restaurant.businessType !== 'heladeria' && restaurant.businessType !== 'perfumery' && (HELADERIA_THEMES.includes(nextTheme) || PERFUMERY_THEMES.includes(nextTheme))) {
+      nextTheme = 'emerald';
       el('inputThemeBg').value = nextTheme;
     }
     restaurant.theme = nextTheme;
