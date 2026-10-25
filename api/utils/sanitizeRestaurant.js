@@ -446,6 +446,19 @@ function sanitizeRestaurantPayload(data) {
   // Contador de cierre en el badge del menú ("Cierra en N min"): default
   // encendido (ausente = activado), el dueño puede apagarlo con un false.
   clean.showClosingCountdown = clean.showClosingCountdown !== false;
+  // Huso del dueño (F1 "El Cierre" + heatmap): viaja en el DOCUMENTO del local
+  // (capturado por el navegador del Studio en cada guardado) para que los
+  // crones y el badge usen la MISMA frontera de jornada sin env vars por
+  // huso. Ausente → -180 (UY/AR, default del producto), clamp ±840 = ±14h
+  // con minutos (igual que createOrderSchema). Válido tras round-trip.
+  const ownerOffset = Number(clean.utcOffsetMinutes);
+  clean.utcOffsetMinutes = Number.isFinite(ownerOffset)
+    ? Math.max(-840, Math.min(840, Math.round(ownerOffset)))
+    : -180;
+  // Cierre nocturno por email (El Cierre F1): default ENCENDIDO para todo
+  // local activo (el wow diario del plan); el dueño lo apaga con false
+  // explícito. Los demos nunca lo generan: el cron los saltea.
+  clean.nightSummaryEnabled = clean.nightSummaryEnabled !== false;
   // Servicio de mesa (QR de mesa): el dueño decide qué ofrece. Defaults
   // encendidos para no cambiar la experiencia actual de ningún local.
   clean.allowWaiterCall = clean.allowWaiterCall !== false;

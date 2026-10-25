@@ -67,6 +67,18 @@ function escapeHtmlText(value) {
     .replace(/'/g, '&#39;');
 }
 
+/** Href segura para los <a> de los emails (política del archivo, finding P2):
+ *  solo http(s) o rutas absolutas de la misma app ("/studio"). Otros esquemas
+ *  (javascript:, data:, belongs a otro host extraño) no salen como href —
+ *  mejor el CTA sin link que un vector de phishing. El valor SIEMPRE va
+ *  escapado para atributos. */
+function safeEmailHref(url) {
+  const raw = String(url || '');
+  if (!raw) return '';
+  if (!/^(https?:\/\/|\/)/i.test(raw)) return '';
+  return escapeHtmlText(raw);
+}
+
 /**
  * Email Service for Transactional & Marketing Emails
  * Integrates Resend API client via native fetch with process.env credentials
@@ -147,13 +159,17 @@ const emailService = {
    * Send Welcome Email
    */
   async sendWelcomeEmail({ to, restaurantName, menuUrl, studioUrl }) {
+    const place = escapeHtmlText(restaurantName || '');
+    // Finding P2: todo campo del dueño va escapado y los href por safeEmailHref.
+    const link = safeEmailHref(studioUrl) || safeEmailHref('https://scango.uy/studio');
+    const menu = safeEmailHref(menuUrl);
     const subject = `¡Bienvenido a ScanGo, ${restaurantName}!`;
     const html = `
       <div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
-        <h2 style="color: #10b981;">¡Tu menú digital de ${restaurantName} ya está activo!</h2>
+        <h2 style="color: #10b981;">¡Tu menú digital de ${place} ya está activo!</h2>
         <p>Gracias por unirte a ScanGo. Tenés <strong>7 días gratis</strong> para cargar tus platos, ajustar precios y personalizar la estética de tu menú: sin tarjeta y sin compromiso.</p>
-        <p style="margin: 18px 0;"><a href="${studioUrl || 'https://scango.uy/studio'}" style="background: #10b981; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Empezar en el Panel Studio</a></p>
-        ${menuUrl ? `<p>Tu menú público (ya compartible): <a href="${menuUrl}">${menuUrl}</a></p>` : ''}
+        <p style="margin: 18px 0;"><a href="${link}" style="background: #10b981; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Empezar en el Panel Studio</a></p>
+        ${menu ? `<p>Tu menú público (ya compartible): <a href="${menu}">${menu}</a></p>` : ''}
         <p style="font-size: 12px; color: #888;">Te avisaremos por correo cuando tu prueba esté por terminar.</p>
       </div>
     `;
@@ -164,14 +180,18 @@ const emailService = {
    * Send Admin Invitation Email
    */
   async sendAdminInvitationEmail({ to, name, restaurantName, inviteLink }) {
+    // Finding P2: nombre/restaurant del dueño escapados, href por safeEmailHref.
+    const who = escapeHtmlText(name || '');
+    const place = escapeHtmlText(restaurantName || '');
+    const invite = safeEmailHref(inviteLink);
     const subject = `Invitación especial a ScanGo — ${restaurantName}`;
     const html = `
       <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
-        <h2 style="color: #2563eb;">Hola ${name}, te invitamos a ScanGo</h2>
-        <p>Has sido invitado como administrador del restaurante <strong>${restaurantName}</strong> con suscripción Pro activa.</p>
+        <h2 style="color: #2563eb;">Hola ${who}, te invitamos a ScanGo</h2>
+        <p>Has sido invitado como administrador del restaurante <strong>${place}</strong> con suscripción Pro activa.</p>
         <p>Para activar tu cuenta y establecer tu contraseña, hacé clic en el siguiente enlace seguro:</p>
         <p style="margin: 25px 0;">
-          <a href="${inviteLink}" style="background: #2563eb; color: #ffffff; padding: 14px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Activar mi Cuenta y Configurar Clave</a>
+          <a href="${invite}" style="background: #2563eb; color: #ffffff; padding: 14px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Activar mi Cuenta y Configurar Clave</a>
         </p>
         <p style="font-size: 13px; color: #64748b;">Si no solicitaste esta invitación, podés ignorar este correo de forma segura.</p>
       </div>
@@ -183,12 +203,14 @@ const emailService = {
    * Send Email Verification Link
    */
   async sendVerificationEmail({ to, verificationLink }) {
+    // Finding P2: href siempre por safeEmailHref (el link lo arma el server).
+    const link = safeEmailHref(verificationLink);
     const subject = 'Confirmá tu dirección de correo electrónico';
     const html = `
       <div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
         <h2>Verificación de Cuenta</h2>
         <p>Hacé clic en el siguiente botón para confirmar tu casilla de correo y habilitar la publicación de tu menú:</p>
-        <p><a href="${verificationLink}" style="background: #2563eb; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Confirmar mi Correo</a></p>
+        <p><a href="${link}" style="background: #2563eb; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Confirmar mi Correo</a></p>
       </div>
     `;
     return this.sendEmail({ to, subject, html });
@@ -214,14 +236,16 @@ const emailService = {
       console.log(`[Email] Review request skipped (opt-out): ${maskEmailList(to)}`);
       return { provider: 'local_mock', success: true, skipped: true, reason: 'OPT_OUT' };
     }
-    const place = restaurantName || 'tu local favorito';
-    const who = customerName ? `${customerName}, ` : '';
+    const place = escapeHtmlText(restaurantName || 'tu local favorito');
+    // Finding P2: el nombre del COMENSAL es input de tercero — escápado SIEMPRE.
+    const who = customerName ? `${escapeHtmlText(customerName)}, ` : '';
+    const review = safeEmailHref(reviewUrl);
     const html = `
       <div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
         <h2>¿Cómo estuvo tu experiencia en ${place}?</h2>
         <p>Hola ${who}pediste en ${place} y queremos saber cómo te fue.</p>
         <p>Si salió rico, contanos; si algo falló, contanos también. Tu opinión llega directo al dueño.</p>
-        <p><a href="${reviewUrl}" style="background: #059669; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Contar mi experiencia</a></p>
+        <p><a href="${review}" style="background: #059669; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Contar mi experiencia</a></p>
         <p style="font-size: 12px; color: #64748b;">Tu opinión ayuda a ${place} a mejorar cada semana.</p>
       </div>
     `;
@@ -234,12 +258,18 @@ const emailService = {
       console.log(`[Email] Promo skipped (opt-out): ${maskEmailList(to)}`);
       return { provider: 'local_mock', success: true, skipped: true, reason: 'OPT_OUT' };
     }
+    // Finding P2: el body es texto LIBRE del dueño — sale como texto literal
+    // (con saltos de línea preservados), jamás como marcado vivo.
+    const place = escapeHtmlText(restaurantName || 'Tu Restaurante Favorito');
+    const promoBody = escapeHtmlText(body || '').replace(/\n/g, '<br>');
+    const code = escapeHtmlText(promoCode || '');
+    const link = safeEmailHref(promoLink);
     const html = `
       <div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
-        <h2>Especiales de ${restaurantName || 'Tu Restaurante Favorito'}</h2>
-        <p>${body}</p>
-        ${promoCode ? `<p style="font-size: 18px; font-weight: bold; color: #059669;">Cupón de Descuento: ${promoCode}</p>` : ''}
-        ${promoLink ? `<p><a href="${promoLink}" style="background: #f59e0b; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Ver Menú y Pedir</a></p>` : ''}
+        <h2>Especiales de ${place}</h2>
+        ${promoBody ? `<p>${promoBody}</p>` : ''}
+        ${code ? `<p style="font-size: 18px; font-weight: bold; color: #059669;">Cupón de Descuento: ${code}</p>` : ''}
+        ${link ? `<p><a href="${link}" style="background: #f59e0b; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Ver Menú y Pedir</a></p>` : ''}
       </div>
     `;
     return this.sendEmail({ to, subject, html });
@@ -292,14 +322,16 @@ const emailService = {
    * @returns {Promise<object>} sendEmail result
    */
   async sendTrialWarningEmail({ to, userName, restaurantName, daysLeft, studioUrl }) {
-    const isLastDay = Number(daysLeft) <= 1;
-    const restaurant = restaurantName || 'Tu restaurante';
-    const name = userName || 'Responsable';
-    const link = studioUrl || `${process.env.APP_URL || ''}/studio`;
+    const days = Number(daysLeft) || 0;
+    const isLastDay = days <= 1;
+    // Finding P2: nombre/restaurant del dueño escapados, href por safeEmailHref.
+    const restaurant = escapeHtmlText(restaurantName || 'Tu restaurante');
+    const name = escapeHtmlText(userName || 'Responsable');
+    const link = safeEmailHref(studioUrl) || safeEmailHref(`${process.env.APP_URL || ''}/studio`);
 
     const subject = isLastDay
       ? '🚨 Último día de tu prueba gratuita'
-      : `⚠️ Tu prueba gratuita expira en ${daysLeft} días`;
+      : `⚠️ Tu prueba gratuita expira en ${days} días`;
 
     const html = isLastDay
       ? `
@@ -318,7 +350,7 @@ const emailService = {
       <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #f59e0b;">Tu prueba gratuita está por terminar</h2>
         <p>Hola <strong>${name}</strong>,</p>
-        <p>Tu restaurante <strong>${restaurant}</strong> tiene <strong>${daysLeft} días</strong> restantes de prueba gratuita.</p>
+        <p>Tu restaurante <strong>${restaurant}</strong> tiene <strong>${days} días</strong> restantes de prueba gratuita.</p>
         <p>Para mantener tu menú digital activo, actualizá tu plan:</p>
         <p style="margin: 24px 0;">
           <a href="${link}" style="background: #f59e0b; color: #111; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">Activar Plan</a>
@@ -341,11 +373,12 @@ const emailService = {
    * @returns {Promise<object>} sendEmail result
    */
   async sendPaymentReceiptEmail({ to, userName, restaurantName, planName, renewsAt }) {
-    const restaurant = restaurantName || 'Tu restaurante';
-    const name = userName || 'Responsable';
-    const plan = planName || 'Pro Mensual';
+    // Finding P2: nombre/restaurant/plan escapados (el asunto es plain text).
+    const restaurant = escapeHtmlText(restaurantName || 'Tu restaurante');
+    const name = escapeHtmlText(userName || 'Responsable');
+    const plan = escapeHtmlText(planName || 'Pro Mensual');
     const renewDate = renewsAt ? new Date(renewsAt) : null;
-    const renewLabel = renewDate && !isNaN(renewDate.getTime()) ? renewDate.toLocaleDateString() : 'N/A';
+    const renewLabel = renewDate && !isNaN(renewDate.getTime()) ? escapeHtmlText(renewDate.toLocaleDateString()) : 'N/A';
 
     const subject = `✓ Confirmación de pago - Plan ${plan}`;
     const html = `
@@ -374,11 +407,12 @@ const emailService = {
    * @returns {Promise<object>} sendEmail result
    */
   async sendPaymentFailedEmail({ to, userName, restaurantName, planName, gracePeriodDays, updatePaymentUrl }) {
-    const restaurant = restaurantName || 'Tu restaurante';
-    const name = userName || 'Responsable';
-    const plan = planName || 'Pro Mensual';
+    // Finding P2: escapados los campos del dueño, href por safeEmailHref.
+    const restaurant = escapeHtmlText(restaurantName || 'Tu restaurante');
+    const name = escapeHtmlText(userName || 'Responsable');
+    const plan = escapeHtmlText(planName || 'Pro Mensual');
     const grace = Number(gracePeriodDays) || 7;
-    const link = updatePaymentUrl || `${process.env.APP_URL || ''}/studio?tab=billing`;
+    const link = safeEmailHref(updatePaymentUrl) || safeEmailHref(`${process.env.APP_URL || ''}/studio?tab=billing`);
 
     const subject = `⚠️ No pudimos procesar tu pago - ${restaurant}`;
     const html = `
@@ -410,12 +444,13 @@ const emailService = {
    * @returns {Promise<object>} sendEmail result
    */
   async sendDunningReminderEmail({ to, userName, restaurantName, planName, daysLeft, gracePeriodDays, updatePaymentUrl }) {
-    const restaurant = restaurantName || 'Tu restaurante';
-    const name = userName || 'Responsable';
-    const plan = planName || 'Pro Mensual';
+    // Finding P2: escapados los campos del dueño, href por safeEmailHref.
+    const restaurant = escapeHtmlText(restaurantName || 'Tu restaurante');
+    const name = escapeHtmlText(userName || 'Responsable');
+    const plan = escapeHtmlText(planName || 'Pro Mensual');
     const days = Number(daysLeft) || 0;
     const grace = Number(gracePeriodDays) || 7;
-    const link = updatePaymentUrl || `${process.env.APP_URL || ''}/studio?tab=billing`;
+    const link = safeEmailHref(updatePaymentUrl) || safeEmailHref(`${process.env.APP_URL || ''}/studio?tab=billing`);
     const accent = days <= 2 ? '#ef4444' : '#f59e0b';
     const plural = days === 1 ? '' : 's';
 
@@ -448,10 +483,12 @@ const emailService = {
    * @returns {Promise<object>} sendEmail result
    */
   async sendTrialExpiredEmail({ to, userName, restaurantName, graceDays, studioUrl, menuUrl }) {
-    const restaurant = restaurantName || 'Tu restaurante';
-    const name = userName || 'Responsable';
+    // Finding P2: escapados los campos del dueño, href por safeEmailHref.
+    const restaurant = escapeHtmlText(restaurantName || 'Tu restaurante');
+    const name = escapeHtmlText(userName || 'Responsable');
     const grace = Number(graceDays) || 3;
-    const link = studioUrl || `${process.env.APP_URL || ''}/studio`;
+    const link = safeEmailHref(studioUrl) || safeEmailHref(`${process.env.APP_URL || ''}/studio`);
+    const menu = safeEmailHref(menuUrl);
 
     const subject = `Tu prueba gratuita de ScanGo terminó — ${restaurant}`;
     const html = `
@@ -463,7 +500,7 @@ const emailService = {
         <p style="margin: 24px 0;">
           <a href="${link}" style="background: #10b981; color: #fff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">Activar mi plan</a>
         </p>
-        ${menuUrl ? `<p style="font-size: 12px;">Tu menú: <a href="${menuUrl}">${menuUrl}</a></p>` : ''}
+        ${menu ? `<p style="font-size: 12px;">Tu menú: <a href="${menu}">${menu}</a></p>` : ''}
         <p style="font-size: 12px; color: #888;">Pasados los ${grace} días de gracia, el menú queda pausado hasta que actives tu plan. Podés reactivarlo en cualquier momento.</p>
       </div>
     `;
@@ -481,9 +518,10 @@ const emailService = {
    * @returns {Promise<object>} sendEmail result
    */
   async sendMenuPausedEmail({ to, userName, restaurantName, studioUrl }) {
-    const restaurant = restaurantName || 'Tu restaurante';
-    const name = userName || 'Responsable';
-    const link = studioUrl || `${process.env.APP_URL || ''}/studio`;
+    // Finding P2: escapados los campos del dueño, href por safeEmailHref.
+    const restaurant = escapeHtmlText(restaurantName || 'Tu restaurante');
+    const name = escapeHtmlText(userName || 'Responsable');
+    const link = safeEmailHref(studioUrl) || safeEmailHref(`${process.env.APP_URL || ''}/studio`);
 
     const subject = `⚠️ El menú de ${restaurant} quedó pausado`;
     const html = `
@@ -516,17 +554,80 @@ const emailService = {
 
     const srcLabel = source === 'subscription' ? 'Nueva suscripcion' : source === 'google' ? 'Nuevo registro (Google)' : 'Nuevo registro';
     const subject = '[ScanGo] ' + srcLabel + ': ' + (restaurantName || clientEmail || 'cliente');
+    // Finding P2: todo dato del cliente/registro va escapado, href por safeEmailHref.
+    const who = escapeHtmlText(clientName || '-');
+    const whoEmail = escapeHtmlText(clientEmail || '-');
+    const place = escapeHtmlText(restaurantName || '-');
+    const what = escapeHtmlText(source || 'register');
     const html = '<div style="font-family:sans-serif;padding:20px;color:#1e293b;max-width:600px;margin:0 auto;">'
-      + '<h2 style="color:#10b981;">' + srcLabel + '</h2>'
-      + '<p><strong>Cliente:</strong> ' + (clientName || '-') + '</p>'
-      + '<p><strong>Email:</strong> ' + (clientEmail || '-') + '</p>'
-      + '<p><strong>Restaurante:</strong> ' + (restaurantName || '-') + '</p>'
-      + (slug ? '<p><strong>Slug:</strong> ' + slug + '</p>' : '')
-      + (planName ? '<p><strong>Plan:</strong> ' + planName + '</p>' : '')
-      + (menuUrl ? '<p><strong>Menu:</strong> <a href="' + menuUrl + '">' + menuUrl + '</a></p>' : '')
-      + '<p style="font-size:12px;color:#888;">Fuente: ' + (source || 'register') + ' | ' + new Date().toISOString() + '</p>'
+      + '<h2 style="color:#10b981;">' + escapeHtmlText(srcLabel) + '</h2>'
+      + '<p><strong>Cliente:</strong> ' + who + '</p>'
+      + '<p><strong>Email:</strong> ' + whoEmail + '</p>'
+      + '<p><strong>Restaurante:</strong> ' + place + '</p>'
+      + (slug ? '<p><strong>Slug:</strong> ' + escapeHtmlText(slug) + '</p>' : '')
+      + (planName ? '<p><strong>Plan:</strong> ' + escapeHtmlText(planName) + '</p>' : '')
+      + (menuUrl ? '<p><strong>Menu:</strong> <a href="' + safeEmailHref(menuUrl) + '">' + escapeHtmlText(menuUrl) + '</a></p>' : '')
+      + '<p style="font-size:12px;color:#888;">Fuente: ' + escapeHtmlText(what) + ' | ' + escapeHtmlText(new Date().toISOString()) + '</p>'
       + '</div>';
     return this.sendEmail({ to: recipients, subject, html });
+  },
+
+  /**
+   * Send Night Summary Email — F1 "El Cierre" (oct-2026).
+   * El Z-report del dueño sin POS: cada madrugada, un email con su JORNADA
+   * (la que acabó): pedidos, ingresos (sin propinas), propinas aparte, ticket
+   * promedio, hora pico y top 3. Transaccional al DUEÑO (no campaña: el
+   * opt-out comercial no aplica; el dueño lo apaga con nightSummaryEnabled).
+   * El resumen llega precomputado desde api/utils/nightSummary.js — los datos
+   * del dueño (nombre del local) van escapados igual (política del archivo).
+   */
+  async sendNightSummaryEmail({ to, restaurantName, localDay, currency, summary, studioUrl }) {
+    if (!to || !summary || !localDay) {
+      throw new AppError('El destinatario (to), el día (localDay) y el resumen (summary) son requeridos', 400, 'MISSING_EMAIL_FIELDS');
+    }
+    const place = escapeHtmlText(restaurantName || 'Tu local');
+    const day = escapeHtmlText(localDay);
+    const link = safeEmailHref(studioUrl) || safeEmailHref(`${process.env.APP_URL || ''}/studio?tab=notifications`);
+    const S = summary;
+    const counts = S.counts || {};
+    const ccy = escapeHtmlText(String(currency || S.currency || 'USD'));
+    const fmt = (n) => {
+      const num = Number(n) || 0;
+      try {
+        return new Intl.NumberFormat('es-UY', { style: 'currency', currency: String(currency || S.currency || 'USD'), maximumFractionDigits: 2 }).format(num);
+      } catch {
+        return `${ccy} ${num.toFixed(2)}`;
+      }
+    };
+    const total = Number(counts.total) || 0;
+    const delivered = Number(counts.delivered) || 0;
+    const cancelled = Number(counts.cancelled) || 0;
+    const capNote = counts.truncated ? ' <span style="color:#b45309;">(500+: resumen parcial)</span>' : '';
+    const topRows = (Array.isArray(S.topDishes) ? S.topDishes : []).map((dish, i) =>
+      `<li>${escapeHtmlText(dish.name || `Plato #${i + 1}`)} — ${Number(dish.qty) || 0} pedidos</li>`
+    ).join('');
+    const row = (k, v) => `<tr><td style="padding:6px 10px;color:#64748b;font-size:13px;">${k}</td><td style="padding:6px 10px;font-weight:600;font-size:13px;">${v}</td></tr>`;
+    const subject = `Tu cierre de hoy: ${total} pedidos · ${fmt(S.revenue)}`;
+    const html = `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #10b981;">Tu cierre — ${day}</h2>
+        <p style="margin-top: -8px; color: #64748b; font-size: 14px;">${place} · la jornada que acabó, en una línea.</p>
+        <table style="border-collapse: collapse; width: 100%; margin: 14px 0; border: 1px solid #e2e8f0; border-radius: 8px;">
+          ${row('Pedidos', `${total}${capNote}`)}
+          ${row('Entregados', delivered)}
+          ${row('Cancelados', cancelled)}
+          ${row('Ingresos', fmt(S.revenue))}
+          ${row('Propinas', fmt(S.tips))}
+          ${row('Ticket promedio', fmt(S.avgTicket))}
+          ${S.peakHour && S.peakHour.label ? row('Hora pico', escapeHtmlText(String(S.peakHour.label))) : ''}
+          ${S.firstOrderLabel || S.lastOrderLabel ? row('Ventana', `${escapeHtmlText(String(S.firstOrderLabel || ''))} → ${escapeHtmlText(String(S.lastOrderLabel || ''))}`) : ''}
+        </table>
+        ${total > 0 && topRows ? `<p style="font-weight: 600; margin-bottom: 6px;">Top platos del día</p><ol style="margin-top:0;padding-left:18px;color:#1e293b;">${topRows}</ol>` : ''}
+        <p style="margin: 20px 0;"><a href="${link}" style="background: #10b981; color: #fff; padding: 12px 22px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Ver Pedidos en vivo</a></p>
+        <p style="font-size: 12px; color: #888;">Ingresos sin propinas (mismo criterio que tu panel: la propina no distorsiona el ticket). Se envía cada noche con cierre a la madrugada; se puede desactivar desde tu Studio.</p>
+      </div>
+    `;
+    return this.sendEmail({ to, subject, html });
   },
 
 };
@@ -542,6 +643,9 @@ const emailService = {
 // Helpers puros exportados (testeables): ocultan PII de destinatarios en logs.
 emailService.maskEmail = maskEmail;
 emailService.maskEmailList = maskEmailList;
+// Escape del finding P2: los tests pueden exigir el helper directo (+ guía de uso).
+emailService.escapeHtmlText = escapeHtmlText;
+emailService.safeEmailHref = safeEmailHref;
 
 module.exports = emailService;
 // CAN-SPAM: helpers de opt-out comercial (usados por la ruta de baja y tests).

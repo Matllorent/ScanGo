@@ -61,10 +61,15 @@ export async function saveStudioChanges(restaurant, showSaveFeedback, reloadPrev
     const headers = window.AuthClient
       ? window.AuthClient.getAuthHeaders({ 'Content-Type': 'application/json' })
       : { 'Content-Type': 'application/json' };
+    // El huso del dueño viaja en CADA guardado (F1 "El Cierre" + heatmap): el
+    // cron nocturno y el badge cierran la jornada en SU madrugada, sin env
+    // vars por huso. getTimezoneOffset es negativo por spec (UTC-3 → +180).
+    const offsetNow = -new Date().getTimezoneOffset();
+    const dataToSend = { ...restaurant, utcOffsetMinutes: offsetNow };
     const res = await fetch('/api/studio/save', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ restaurantId: restaurant.id, data: restaurant })
+      body: JSON.stringify({ restaurantId: restaurant.id, data: dataToSend })
     });
     if (res.status === 401) {
       finishSave('⚠️ Sesión vencida — recargá la página', 'error');

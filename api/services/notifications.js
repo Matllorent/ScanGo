@@ -535,6 +535,122 @@ const notificationsService = {
     return ev;
   },
 
+  async hasNightSummarySent(restaurantId, localDay) {
+    if (!restaurantId || !localDay) return false;
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('notification_events')
+          .select('id')
+          .eq('type', 'night_summary')
+          .eq('data->>restaurantId', String(restaurantId))
+          .eq('data->>localDay', String(localDay))
+          .limit(1);
+        if (!error && data && data.length > 0) return true;
+        if (error) console.warn('[Supabase Night Summary Dedupe Warning]', error.message);
+      } catch (e) {
+        console.warn('[Supabase Night Summary Dedupe Exception]', e.message);
+      }
+    }
+    return readNotificationEvents().some(
+      e => e && e.type === 'night_summary' && e.data && String(e.data.restaurantId) === String(restaurantId) && String(e.data.localDay) === String(localDay)
+    );
+  },
+
+  /** Graba el marcador de cierre enviado (espejo local + nube best-effort).
+   *  Se graba AUN en días de 0 pedidos: el seguimiento del "sin pedidos" es el
+   *  dedupe barato de los próximos ticks. */
+  async recordNightSummary({ restaurantId, localDay }) {
+    if (!restaurantId || !localDay) return null;
+    const events = readNotificationEvents();
+    const existing = events.find(e => e && e.type === 'night_summary' && e.data && String(e.data.restaurantId) === String(restaurantId) && String(e.data.localDay) === String(localDay));
+    if (existing) return existing;
+    const ev = {
+      id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : `ns_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+      restaurantId: restaurantId || null,
+      branchId: null,
+      type: 'night_summary',
+      title: 'Cierre nocturno enviado',
+      body: 'Email diario de cierre (El Cierre F1).',
+      data: { restaurantId: String(restaurantId), localDay: String(localDay) },
+      isRead: true, // marcador de dedupe, no ensucia el inbox del dueño
+      createdAt: new Date().toISOString()
+    };
+    await writeNotificationEvents([...events, ev]);
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      retryQueue.enqueue(async () => {
+        const { error } = await supabase.from('notification_events').upsert([toEventCloudRow(ev)], { onConflict: 'id' });
+        if (error) throw new Error(error.message);
+      }, { taskName: 'night_summary_record_replicate' });
+    }
+    return ev;
+  },
+
+  /**
+   * Purga de retención (finding P1, auditoría de abuso oct-2026):
+   * notification_events crecía sin cota (plan free de Supabase). Borra los
+   * eventos LEÍDOS con created_at más viejo que `readOlderThanDays`
+   * (env NOTIFICATIONS_RETENTION_DAYS, default 180, clamp [30,730]). Los
+   * marcadores de dedupe (review_nudge_request / night_summary) son
+   * isRead:true y caducan con el mismo criterio: su ventana es de horas,
+   * 180 días es holgado. Idempotente (DELETE con filtro). Nunca lanza.
+   */
+  async purgeOldNotificationEvents({ readOlderThanDays = 180, dryRun = false } = {}) {
+    const days = Math.max(30, Math.min(730, Math.round(Number(readOlderThanDays) || 0) || 180));
+    const cutoffIso = new Date(Date.now() - days * 86400000).toISOString();
+    const isOld = (tsLike) => {
+      const ts = new Date(tsLike || 0).getTime();
+      return isNaN(ts) ? false : ts < Date.now() - days * 86400000;
+    };
+
+    let prunedLocal = 0;
+    let prunedCloud = 0;
+    let candidatesCloud = 0;
+    if (!dryRun) {
+      const rows = readNotificationEvents();
+      const keep = rows.filter((row) => {
+        if (!row || !row.isRead) return true; // los vivos quedan SIEMPRE
+        const tsOld = isOld(row.createdAt || row.created_at);
+        if (tsOld) prunedLocal += 1;
+        return !tsOld;
+      });
+      if (prunedLocal > 0) await writeNotificationEvents(keep);
+    } else {
+      const rows = readNotificationEvents();
+      prunedLocal = rows.filter((row) => row && row.isRead && isOld(row.createdAt || row.created_at)).length;
+    }
+
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        if (dryRun) {
+          const { count, error } = await supabase
+            .from('notification_events')
+            .select('id', { count: 'exact', head: true })
+            .eq('is_read', true)
+            .lt('created_at', cutoffIso);
+          if (!error) candidatesCloud = count || 0;
+          else console.warn('[Supabase Notification Purge DryRun Warning]', error.message);
+        } else {
+          const { data, error } = await supabase
+            .from('notification_events')
+            .delete()
+            .select('id')
+            .eq('is_read', true)
+            .lt('created_at', cutoffIso);
+          if (!error) prunedCloud = Array.isArray(data) ? data.length : 0;
+          else console.warn('[Supabase Notification Purge Warning]', error.message);
+        }
+      } catch (e) {
+        console.warn('[Supabase Notification Purge Exception]', e.message);
+      }
+    }
+
+    return { days, cutoffIso, dryRun: Boolean(dryRun), prunedLocal, prunedCloud, candidatesCloud };
+  },
+
   /** Marca un evento como leído (solo del propio restaurante). */
   async markNotificationEventRead(id, restaurantId) {
     const events = await this.listNotificationEvents({ restaurantId, limit: 500 });

@@ -229,6 +229,10 @@
     {
       "path": "/api/cron/birthday-nudge",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/night-summary",
+      "schedule": "0 * * * *"
     }
   ]
 }

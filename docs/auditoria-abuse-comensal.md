@@ -9,14 +9,15 @@
 
 **Estado general: sólido.** Los flujos de dinero (cotización server-side, MP,
 cupones, propina) y de identidad (loyalty E.164, sesiones, tenantGuard) están
-bien blindados. Quedan **2 findings reales (1 P1, 1 P2)** y un vector de abuso
-de reputación por documentar. Nada crítico (P0).
+bien blindados. Los **3 findings del bloque emails/retención quedaron RESUELTOS
+en la Serie 1 de oct-2026** (A/A2 con escape + `safeEmailHref`; B con retención
+en el cron mensual). Resta el vector C en backlog. Nada crítico (P0).
 
 | Ref | Vector | Impacto | Estado |
 |---|---|---|---|
-| A | Emails con HTML sin escapar (owner-controlled) | Phishing entre clientes del dueño / reputación de dominio Resend | **P2 — pendiente** |
-| A2 | Fugas de HTML en emails de R2/R1 templates | ídem | **P2 — pendiente** |
-| B | `notification_events` sin retención | Crecimiento sin cota (plan free Supabase) | **P1 — pendiente** |
+| A | Emails con HTML sin escapar (owner-controlled) | Phishing entre clientes del dueño / reputación de dominio Resend | **P2 — RESUELTO (oct-2026): `escapeHtmlText` + `safeEmailHref` en email.js** |
+| A2 | Fugas de HTML en emails de R2/R1 templates | ídem | **P2 — RESUELTO (oct-2026): misma política en las 14 plantillas** |
+| B | `notification_events` sin retención | Crecimiento sin cota (plan free Supabase) | **P1 — RESUELTO (oct-2026): `purgeOldNotificationEvents` en el cron mensual** |
 | C | Pedidos falsos al dueño (spam ~KDS/pedidos en vivo) | Ruido operativo, push repetidos | parcial (captcha opt-in) |
 | D | Spam de aviso de mozo | Push al dueño 1/min por mesa | mitigado (dedupe) |
 | E | Votos falsos en Descubrir (localStorage) | Ranking distorsionable | parcial, aceptado |
@@ -32,31 +33,29 @@ de reputación por documentar. Nada crítico (P0).
 
 ## Detalle de findings
 
-### A (P2) — Interpolación HTML sin escapar en templates de email
-`api/services/email.js` interpola `${body}`, `${promoCode}`, `${restaurantName}`
-directamente en HTML (`<p>${body}</p>`, bienvenida, invitación, promo,
-reactivación R1). El origen es el DUEÑO (no el comensal), así que no es XSS
-comensal→restaurante, pero sí:
-- un dueño malicioso puede inyectar HTML/links en emails a **sus** clientes en
-  nombre del dominio de envío (reputación de Resend + riesgo de marca ScanGo);
-- promos anidadas (un `<a>` con `onclick`-style payloads) no corren JS en email,
-  pero sí phishing visual.
+### A/A2 (P2) — RESUELTO (oct-2026): escape HTML en las plantillas de email
+**La Política del archivo ahora es**: todo texto interpolado sale por
+`escapeHtmlText()` (server-side, testeable y exportado) y TODO href por
+`safeEmailHref()` (solo `http(s)://` o rutas absolutas de la propia app —
+`javascript:`/`data:` jamás salen como href; el valor SIEMPRE va escapado).
+Las 14 plantillas (welcome, invitación, verificación, reseña R2, promo R1,
+receipt, failed, dunning, trial-warning/expired, menu-paused, new-client,
+winback, **night summary F1**) usan la política; los asuntos quedan como texto
+plano (los clientes de email no los interpretan). Regresión: `tests/
+test-night-summary.js` §5 (hostiles `<script>`/`<img onerror>` → texto literal,
+sin hrefs de esquema traicionero) + §4b para el email del cierre.
 
-**Fix propuesto** (small): escapar los tres campos con el mismo `escapeHtml`
-legacy/disponible server-side antes de interpolar; agregar caso de regresión en
-`tests/test-email-notifications.js` (buddy `<script>`/`<a href>` en body → sale
-como texto).
-
-### B (P1) — `notification_events` sin retención
-El aviso de mozo persiste cada evento (inbox) en local + nube. Los crones de
-retención cubren `telemetry_events` y `audit_logs`, pero **no** `notification_events`.
-Un local con tráfico alto acumula filas sin límite (riesgo #1 del plan free:
-500MB). El volumen real es bajo (dedupe por click + payload), pero es el único
-canal de escritura comensal-triggered sin política.
-
-**Fix propuesto** (small): extender el cron mensual de retención (`api/cron/
-telemetry-retention.js`) para purgar eventos leídos (`isRead:true`) con ≥ 90 días
-(o la misma política que audit: `NOTIFICATIONS_RETENTION_DAYS`, default 180).
+### B (P1) — RESUELTO (oct-2026): retención de `notification_events`
+El cron mensual de retención (`api/cron/telemetry-retention.js`, mounted como
+`/api/cron/telemetry-retention`) ahora también purga `notification_events`
+`NOTIFICATIONS_RETENTION_DAYS` (default 180, clamp [30,730]) vía
+`notificationsService.purgeOldNotificationEvents` (DELETE nube con filtro +
+poda del espejo local; dry-run reporta sin borrar; los marcadores de dedupe
+`review_nudge_request`/`night_summary` son isRead:true y caducan con la MISMA
+política — su ventana de referencia es de horas, 180 días es holgado). Los
+eventos VIVOS del inbox nunca se tocan. Regresión: `tests/test-night-summary.js`
+§3b (dry-run sin mutación + purga real local cuando no hay nube); el ejercicio de
+retención de test-hardening §B sigue tal cual.
 
 ### C — Pedidos falsos (spam operativo)
 El limiter de orders es 60/15min **por IP**; una bot-farm con varias IPs puede
