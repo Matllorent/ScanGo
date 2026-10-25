@@ -31,6 +31,7 @@ const { getSecurityHeaders } = require('../api/utils/securityHeaders');
 const STATIC_SOURCES = [
   '/',
   '/studio',
+  '/kitchen',
   '/el-jefe',
   '/terminos',
   '/privacidad',

@@ -289,6 +289,14 @@ app.get('/studio', studioHtmlAuthMiddleware, (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'studio.html'), SEND_FILE_OPTIONS);
 });
 
+// Vista Kitchen (KDS F2 "El Sistema"): pizarra fullscreen del dueño. La página
+// NO lleva guard HTML (se abre desde una tablet compartida): el gate de sesión
+// lo resuelven las APIs + el overlay propio de la pizarra. En Vercel la sirve
+// el CDN vía vercel.json; acá en dev la sirve Express.
+app.get('/kitchen', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'kitchen.html'), SEND_FILE_OPTIONS);
+});
+
 // Panel maestro en ruta ofuscada y configurable (default /el-jefe): la URL
 // pegada no se descubre por escaneo; /admin queda como redirección legacy.
 // En Vercel la página es estática: la ruta canónica vive en vercel.json.

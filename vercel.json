@@ -40,6 +40,20 @@
       "continue": true
     },
     {
+      "src": "/kitchen",
+      "headers": {
+        "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.clarity.ms https://*.clarity.ms; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com https://www.mercadopago.com; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com https://www.clarity.ms https://scripts.clarity.ms 'sha256-glbvQotwimombxggJCQc0N/O0dODRbgqX/Xpjsc5LIo=' 'sha256-B2JfjHS0efn7vRf83uZXkLg0RfNq6xQDs2me9WXS3Qs='; script-src-attr 'none'; frame-src 'self' https://accounts.google.com",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Permissions-Policy": "camera=(), geolocation=(), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Resource-Policy": "same-origin",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "SAMEORIGIN",
+        "Strict-Transport-Security": "max-age=15552000; includeSubDomains"
+      },
+      "continue": true
+    },
+    {
       "src": "/el-jefe",
       "headers": {
         "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.clarity.ms https://*.clarity.ms; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com https://www.mercadopago.com; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com https://www.clarity.ms https://scripts.clarity.ms 'sha256-glbvQotwimombxggJCQc0N/O0dODRbgqX/Xpjsc5LIo=' 'sha256-B2JfjHS0efn7vRf83uZXkLg0RfNq6xQDs2me9WXS3Qs='; script-src-attr 'none'; frame-src 'self' https://accounts.google.com",
@@ -148,6 +162,10 @@
     {
       "src": "/studio",
       "dest": "/public/studio.html"
+    },
+    {
+      "src": "/kitchen",
+      "dest": "/public/kitchen.html"
     },
     {
       "src": "/admin",

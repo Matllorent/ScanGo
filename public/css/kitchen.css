@@ -1,0 +1,384 @@
+/*
+ * public/css/kitchen.css — KDS "Vista Kitchen" (F2, oct-2026)
+ * Pizarra de cocina fullscreen para el dueño: tablet dedicada, tipografía
+ * grande, alto contraste y cero fricción. Todo del propio dominio (CSP
+ * transitional, cero fuentes/third parties: usa las mismas self-hosted del
+ * repo y variables del sistema).
+ */
+
+:root {
+  --kds-bg: #0e1412;
+  --kds-panel: #17201c;
+  --kds-border: #29362f;
+  --kds-border-strong: #3a4a41;
+  --kds-white: #ecf5ef;
+  --kds-dim: #9fb3aa;
+  --kds-gold: #d4a853;
+  --kds-amber: #f6a94e;
+  --kds-red: #f87171;
+  --kds-green: #68d391;
+  --kds-note: #ff9b9b;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--kds-bg);
+  color: var(--kds-white);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* la pizarra no scrollea: las columnas sí */
+}
+
+/* Accesibilidad: skip-link + texto solo-lectores (copias de la casa) */
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  background: var(--kds-gold);
+  color: #101614;
+  padding: 8px 14px;
+  border-radius: 0 0 8px 0;
+  z-index: 60;
+  font-weight: 700;
+}
+.skip-link:focus { left: 0; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+:focus-visible { outline: 3px solid var(--kds-gold); outline-offset: 2px; }
+
+/* ── Encabezado ── */
+.kds-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #0b100e;
+  border-bottom: 1px solid var(--kds-border);
+  flex: 0 0 auto;
+}
+.kds-title {
+  margin: 0;
+  font-size: 1.25rem;
+  letter-spacing: 0.02em;
+}
+.kds-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.kds-place {
+  font-size: 0.95rem;
+  color: var(--kds-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 34vw;
+}
+.kds-clock {
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--kds-gold);
+  font-weight: 700;
+}
+
+/* ── Pizarra: 5 columnas ── */
+.kds-board {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  padding: 10px;
+}
+.kds-column {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #101714;
+  border: 1px solid var(--kds-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.kds-col-head {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--kds-border-strong);
+  background: #0b100e;
+}
+.kds-col-head h2 {
+  margin: 0;
+  font-size: 0.98rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--kds-dim);
+}
+.kds-count {
+  display: inline-block;
+  min-width: 26px;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--kds-border-strong);
+  color: var(--kds-white);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.kds-col-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.kds-col-empty {
+  color: var(--kds-dim);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 18px 4px;
+}
+
+/* ── Tarjetas ── */
+.kds-card {
+  background: var(--kds-panel);
+  border: 1px solid var(--kds-border-strong);
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+}
+.kds-card[data-order-pending='true'] { border-color: var(--kds-gold); }
+.kds-chip-new { background: var(--kds-gold); color: #101614; font-weight: 800; }
+.kds-card-delayed { border-color: var(--kds-amber); }
+.kds-card.cancelled { border-color: var(--kds-red); }
+
+.kds-card-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.kds-ticket { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.kds-chip {
+  font-size: 0.72rem;
+  background: var(--kds-border-strong);
+  color: var(--kds-white);
+  border-radius: 999px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+.kds-chip-delayed { background: var(--kds-amber); color: #101614; font-weight: 700; }
+.kds-age {
+  margin-left: auto;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.kds-customer {
+  margin-top: 6px;
+  font-size: 0.95rem;
+  color: var(--kds-dim);
+}
+
+.kds-items {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.kds-items li {
+  font-size: 1.05rem;
+  line-height: 1.35;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+.kds-item-name { font-weight: 700; }
+.kds-item-mod {
+  font-size: 0.75rem;
+  color: var(--kds-dim);
+  border: 1px solid var(--kds-border-strong);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+.kds-item-note {
+  font-size: 0.85rem;
+  color: var(--kds-note);
+  font-weight: 700;
+}
+.kds-notes {
+  margin-top: 8px;
+  padding: 7px 9px;
+  border-left: 4px solid var(--kds-red);
+  background: rgba(248, 113, 113, 0.08);
+  color: var(--kds-note);
+  font-size: 0.9rem;
+  border-radius: 0 8px 8px 0;
+}
+.kds-card.kds-card-delayed .kds-notes { border-left-color: var(--kds-amber); }
+
+/* ── Acciones ── */
+.kds-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+}
+.kds-btn {
+  appearance: none;
+  border: 1px solid var(--kds-border-strong);
+  background: transparent;
+  color: var(--kds-white);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.kds-btn:hover { border-color: var(--kds-dim); }
+.kds-btn-slim { font-size: 0.8rem; padding: 6px 10px; }
+.kds-btn-primary {
+  flex: 1;
+  background: var(--kds-green);
+  color: #101614;
+  border-color: var(--kds-green);
+  font-weight: 800;
+  font-size: 1rem;
+  padding: 12px 14px;
+  min-height: 48px; /* toque con guantes o dedos grasosos */
+}
+.kds-btn-primary:hover { background: #7ee0a4; border-color: #7ee0a4; }
+.kds-btn-danger {
+  background: transparent;
+  color: var(--kds-red);
+  border-color: var(--kds-red);
+  min-height: 48px;
+}
+
+/* ── Banner + nota de cancelados ── */
+.kds-banner,
+.kds-cancelled-note {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 40;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.92rem;
+}
+.kds-banner {
+  background: #3b1f1f;
+  border: 1px solid var(--kds-red);
+  color: #ffd9d9;
+}
+.kds-cancelled-note {
+  background: #1f2a26;
+  border: 1px solid var(--kds-border-strong);
+  color: var(--kds-dim);
+}
+.kds-cancelled-note[hidden] { display: none; }
+.kds-banner[hidden] { display: none; }
+
+/* ── Gate de sesión ── */
+.kds-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(6, 10, 8, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.kds-gate[hidden] { display: none; }
+.kds-gate-box {
+  max-width: 420px;
+  text-align: center;
+  background: var(--kds-panel);
+  border: 1px solid var(--kds-border-strong);
+  border-radius: 12px;
+  padding: 28px 22px;
+}
+.kds-gate-icon { font-size: 2.6rem; margin-bottom: 10px; }
+.kds-gate-msg {
+  margin: 0 0 16px;
+  color: var(--kds-dim);
+  line-height: 1.5;
+}
+.kds-btn-primary:hover { text-decoration: none; }
+
+/* ── Modal de confirmación (mismos ids que el Studio; estilos propios) ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 55;
+  padding: 18px;
+}
+.modal-overlay.active { display: flex; }
+.modal-box {
+  position: relative;
+  width: min(440px, 100%);
+  background: var(--kds-panel);
+  border: 1px solid var(--kds-border-strong);
+  border-radius: 12px;
+  padding: 22px;
+}
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: none;
+  background: transparent;
+  color: var(--kds-dim);
+  font-size: 1rem;
+  cursor: pointer;
+}
+.kds-confirm-icon { font-size: 2.4rem; text-align: center; margin-bottom: 8px; }
+.kds-confirm-title {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  text-align: center;
+  border: none;
+}
+.kds-confirm-msg {
+  margin: 0 0 18px;
+  text-align: center;
+  color: var(--kds-dim);
+  line-height: 1.6;
+  font-size: 0.9rem;
+}
+.kds-confirm-actions { display: flex; gap: 10px; }
+.kds-confirm-actions .kds-btn { flex: 1; }
+
+/* ── Responsive: tablets chicas apilan columnas a 2/3 filas ── */
+@media (max-width: 900px) {
+  .kds-board { grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-y: auto; overflow-x: hidden; }
+  .kds-column { min-height: 320px; }
+}
+@media (max-width: 560px) {
+  .kds-board { grid-template-columns: 1fr; }
+}

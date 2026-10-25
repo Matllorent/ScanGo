@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,follow">
+  <title>Vista Kitchen — ScanGo</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0E1412">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="/css/kitchen.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Saltar a la pizarra</a>
+
+  <!-- Encabezado mínimo: identidad del local + reloj de cocina. Sin navegación
+       a propósito (tablet dedicada a pantalla completa, spec F2). -->
+  <header class="kds-header">
+    <h1 class="kds-title">👨‍🍳 Vista Kitchen</h1>
+    <div class="kds-meta">
+      <span id="kdsRestaurantName" class="kds-place"></span>
+      <span id="kdsClock" class="kds-clock" aria-hidden="true"></span>
+      <button type="button" id="kdsRefreshBtn" class="kds-btn kds-btn-slim" aria-label="Actualizar pedidos ahora">⟳ Actualizar</button>
+    </div>
+  </header>
+
+  <!-- Pizarra: 5 columnas fijas (la tabla de decisión vive en
+       /js/kitchen/kitchenColumns.js). Cada tarjeta avanza UNS estado por
+       toque; cancelar pide confirmación (diálogo propio, nunca window.confirm). -->
+  <main id="main-content" tabindex="-1" class="kds-board" aria-label="Pizarra de pedidos en cocina">
+    <section class="kds-column" data-column="queue" aria-labelledby="colTitleQueue">
+      <header class="kds-col-head"><h2 id="colTitleQueue">En cola <span id="colCountQueue" class="kds-count">0</span></h2></header>
+      <div class="kds-col-body" id="colBodyQueue"></div>
+    </section>
+    <section class="kds-column" data-column="confirmed" aria-labelledby="colTitleConfirmed">
+      <header class="kds-col-head"><h2 id="colTitleConfirmed">Confirmados <span id="colCountConfirmed" class="kds-count">0</span></h2></header>
+      <div class="kds-col-body" id="colBodyConfirmed"></div>
+    </section>
+    <section class="kds-column" data-column="preparing" aria-labelledby="colTitlePreparing">
+      <header class="kds-col-head"><h2 id="colTitlePreparing">Preparando <span id="colCountPreparing" class="kds-count">0</span></h2></header>
+      <div class="kds-col-body" id="colBodyPreparing"></div>
+    </section>
+    <section class="kds-column" data-column="ready" aria-labelledby="colTitleReady">
+      <header class="kds-col-head"><h2 id="colTitleReady">Listo / En camino <span id="colCountReady" class="kds-count">0</span></h2></header>
+      <div class="kds-col-body" id="colBodyReady"></div>
+    </section>
+    <section class="kds-column" data-column="delivered" aria-labelledby="colTitleDelivered">
+      <header class="kds-col-head"><h2 id="colTitleDelivered">Entregados <span id="colCountDelivered" class="kds-count">0</span></h2></header>
+      <div class="kds-col-body" id="colBodyDelivered"></div>
+    </section>
+  </main>
+
+  <!-- Estado honesto: banner visible para errores de red/sesión (nada de alert). -->
+  <div id="kdsBanner" class="kds-banner" role="status" hidden></div>
+  <div id="kdsCancelledNote" class="kds-cancelled-note" role="status" hidden></div>
+  <div id="kdsLive" class="sr-only" role="status" aria-live="polite"></div>
+
+  <!-- Gate de sesión: sin sesión la pizarra no muestra pedidos. -->
+  <div id="kdsGate" class="kds-gate" role="alert" hidden>
+    <div class="kds-gate-box">
+      <div class="kds-gate-icon">🔒</div>
+      <p id="kdsGateMessage" class="kds-gate-msg">Necesitás iniciar sesión en el Studio para ver la pizarra de cocina.</p>
+      <a class="kds-btn kds-btn-primary" href="/studio.html">Abrir el Studio</a>
+    </div>
+  </div>
+
+  <!-- Confirmación de cancelación (diálogo propio del repo, modo promesa vía
+       showConfirmDialog de studio/ui/confirmDialog.js — NUNCA window.confirm).
+       Mismos ids que el Studio para reutilizar el módulo sin fork. -->
+  <div id="confirmActionModal" class="modal-overlay">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="confirmDialogTitle">
+      <button type="button" class="modal-close" id="confirmDialogCloseBtn" aria-label="Cerrar">✕</button>
+      <div id="confirmDialogIcon" class="kds-confirm-icon">⚠️</div>
+      <h3 id="confirmDialogTitle" class="kds-confirm-title">¿Confirmar Acción?</h3>
+      <p id="confirmDialogMessage" class="kds-confirm-msg">¿Estás seguro?</p>
+      <div class="kds-confirm-actions">
+        <button type="button" id="confirmDialogCancelBtn" class="kds-btn">Cancelar</button>
+        <button type="button" id="confirmDialogAcceptBtn" class="kds-btn kds-btn-danger">Sí, Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- authClient expone window.AuthClient (cookie web + device token app):
+       la sesión viaja igual que en el Studio, sin contratos nuevos. -->
+  <script src="/js/authClient.js"></script>
+  <script type="module" src="/js/kitchen/kitchen.js"></script>
+</body>
+</html>
