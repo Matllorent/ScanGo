@@ -258,45 +258,6 @@ function switchEventPeriod(period) {
   }
 }
 
-
-
-// Preview de fotos de carta para registro
-window.regMenuPhotos = [];
-function previewMenuPhotos(files) {
-  const preview = document.getElementById('regMenuPhotosPreview');
-  if (!preview) return;
-  preview.innerHTML = '';
-
-  const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  const maxSize = 5 * 1024 * 1024; // 5MB
-
-  Array.from(files || []).forEach((file) => {
-    if (!validTypes.includes(file.type)) {
-      console.warn('Tipo de archivo no soportado:', file.type);
-      return;
-    }
-    if (file.size > maxSize) {
-      console.warn('Archivo demasiado grande:', file.size);
-      return;
-    }
-
-    window.regMenuPhotos.push(file);
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = document.createElement('img');
-      img.src = e.target.result;
-      img.style.width = '80px';
-      img.style.height = '80px';
-      img.style.objectFit = 'cover';
-      img.style.borderRadius = '6px';
-      img.style.border = '2px solid var(--accent-gold)';
-      preview.appendChild(img);
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 function closeAuthModal() {
   const modal = document.getElementById('authModal');
   modal.classList.remove('active');
@@ -503,62 +464,6 @@ function togglePasswordVisibility(inputId, btn) {
     btn.textContent = '👁️';
     btn.setAttribute('aria-label', 'Mostrar contraseña');
     btn.title = 'Mostrar contraseña';
-  }
-}
-
-async function handleRegister(e) {
-  e.preventDefault();
-  hideError();
-  const btn = document.getElementById('btnSubmitRegister');
-  btn.disabled = true;
-  btn.textContent = 'Creando cuenta...';
-
-  const name = document.getElementById('regName').value.trim();
-  const restaurantName = document.getElementById('regRestaurant').value.trim();
-  const businessType = document.getElementById('regBusinessType')?.value || 'restaurant';
-  const email = document.getElementById('regEmail').value.trim();
-  const password = document.getElementById('regPassword').value;
-  const ageConfirmed = document.getElementById('regAgeConfirm')?.checked === true;
-
-  try {
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, restaurantName, businessType, email, password, ageConfirmed })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Error al crear la cuenta');
-
-    if (data.restaurant) {
-      data.restaurant.businessType = businessType;
-      data.restaurant.allowIceCreamWizard = (businessType === 'heladeria');
-      data.restaurant.allowPerfumery = (businessType === 'perfumery');
-      data.restaurant.allowLoyaltyPoints = false;
-      // Heladería nace vestida de heladería (no con el verde bistro).
-      if (businessType === 'heladeria') {
-        if (!data.restaurant.theme || data.restaurant.theme === 'emerald') data.restaurant.theme = 'helado-fiesta';
-        if (!data.restaurant.iceCreamButtonStyle) data.restaurant.iceCreamButtonStyle = 'fiesta';
-        if (!data.restaurant.iceCreamBuilderLabel) data.restaurant.iceCreamBuilderLabel = 'Armá tu helado a medida';
-      }
-    }
-
-    localStorage.setItem('menu_pizarron_user', JSON.stringify(data.user));
-    localStorage.setItem('menu_pizarron_restaurant', JSON.stringify(data.restaurant));
-    localStorage.setItem('scango_demo_restaurant', JSON.stringify(data.restaurant));
-
-    // Con Supabase activo la casilla se confirma desde el correo: tirar al usuario
-    // al Studio sin confirmar sólo le hace chocar con un 403 al querer guardar.
-    if (data.requiresEmailVerification) {
-      showEmailVerificationScreen(email);
-      return;
-    }
-
-    window.location.href = '/studio.html';
-  } catch (err) {
-    showError(err.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Comenzar Prueba Gratis (7 Días) →';
   }
 }
 
@@ -1388,6 +1293,9 @@ async function handleRegister(e) {
         if (!data.restaurant.theme || data.restaurant.theme === 'emerald') data.restaurant.theme = 'helado-fiesta';
         if (!data.restaurant.iceCreamButtonStyle) data.restaurant.iceCreamButtonStyle = 'fiesta';
         if (!data.restaurant.iceCreamBuilderLabel) data.restaurant.iceCreamBuilderLabel = 'Armá tu helado a medida';
+      }
+      if (businessType === 'perfumery') {
+        if (!data.restaurant.theme || data.restaurant.theme === 'emerald') data.restaurant.theme = 'perfu-farmacia';
       }
     }
 
