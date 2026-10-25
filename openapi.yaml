@@ -2405,6 +2405,13 @@ components:
           maxLength: 500
         outOfStock:
           type: boolean
+        dailyStock:
+          type: integer
+          minimum: 1
+          maximum: 9999
+          description: >-
+            Stock diario del plato (opt-in, F3 "Agotados con memoria"):
+            "vendo ~N por día". Ausente = sin memoria (comportamiento normal).
         isChefSpecial:
           type: boolean
         iceCreamSurcharge:
@@ -2469,6 +2476,18 @@ components:
           format: uri
         outOfStock:
           type: boolean
+        dailyStock:
+          type: integer
+          minimum: 1
+          maximum: 9999
+          description: Tope de ventas diarias configurado por el dueño (opt-in; ausente = sin tope).
+        soldOutToday:
+          type: boolean
+          description: >-
+            Derivado server-side: true cuando las ventas de HOY (día local del
+            dueño, mismo huso que El Cierre) alcanzan `dailyStock`. El flag
+            manual `outOfStock` gana siempre; el derivado revive solo a la
+            medianoche local, sin cron de reset.
         isChefSpecial:
           type: boolean
         iceCreamSurcharge:

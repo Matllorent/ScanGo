@@ -15,6 +15,7 @@
  */
 import { escapeHtml } from '../utils/escapeHtmlBrowser.js';
 import { isFreePrice } from './menuPresentation.js';
+import { isDishSoldOut } from '../utils/dishAvailability.js';
 import { computeOpenStatus } from './openStatus.js';
 import { parseGuestContext, resolveEventTheme } from './eventGuestMode.js';
 import { renderWeddingItineraryHTML as renderWeddingItineraryHTMLMod } from './weddingItinerary.js';
@@ -88,7 +89,7 @@ let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
 
       // Chef Specials & Menú del Día (siempre, como hasta ahora)
       const chefDishes = dishes.filter(d => {
-        if (d.outOfStock) return false;
+        if (isDishSoldOut(d)) return false;
         if (!d.isChefSpecial && (!d.tags || !d.tags.includes('chef_special'))) return false;
         const sched = getDishScheduleStatus(d);
         return sched.shouldDisplay;
@@ -99,7 +100,7 @@ let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
       let starDishes = [];
       if (isBoardMorph) {
         starDishes = dishes.filter(d => {
-          if (d.outOfStock) return false;
+          if (isDishSoldOut(d)) return false;
           if (!d.tags || !d.tags.includes('star')) return false;
           const sched = getDishScheduleStatus(d);
           return sched.shouldDisplay;
@@ -454,7 +455,10 @@ let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
 
     function renderSingleDishCard(ctx, d, currency) {
       const inCart = ctx.getDishCartQuantity(d.id);
-      const isSold = Boolean(d.outOfStock);
+      // F3 "Agotados con memoria": manual (`outOfStock`) o derivado del server
+      // (`soldOutToday`, stock diario del día local) comparten el MISMOS
+      // estilos — badge, tachado, ✕ bloqueado y clase dish-sold (Stories).
+      const isSold = isDishSoldOut(d);
       const sched = getDishScheduleStatus(d);
       const isUnavailable = isSold || !sched.isAvailable;
       const effectivePrice = sched.effectivePrice !== undefined ? sched.effectivePrice : d.price;

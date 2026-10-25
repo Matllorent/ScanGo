@@ -9,6 +9,7 @@
 
 import { isFreePrice } from './menuPresentation.js';
 import { escapeHtml as escapeHtmlDefault } from '../utils/escapeHtmlBrowser.js';
+import { isDishSoldOut } from '../utils/dishAvailability.js';
 
 export const DEFAULT_UPSELL_KEYWORDS = {
   triggers: ['hamburguesa', 'burger', 'milanesa', 'plato', 'principal', 'carne', 'pollo', 'pizza', 'sandwich', 'wrap', 'taco', 'burrito', 'empanada', 'combo', 'chivito', 'lomo'],
@@ -69,7 +70,7 @@ export function analyzeCartContextForUpsell(cart = {}, restaurantData = {}) {
     cartSubtotal += (ci.qty || 1) * (ci.dish.price || 0);
   });
 
-  const availableDishes = restaurantData.dishes.filter(d => !d.outOfStock && !cartDishIds.has(d.id));
+  const availableDishes = restaurantData.dishes.filter(d => !isDishSoldOut(d) && !cartDishIds.has(d.id));
   let candidates = [];
   let reason = '';
   let badge = 'Sugerencia del Mozo';
@@ -237,7 +238,7 @@ export function detectCrossSellOpportunity(cartItems = [], restaurantData = {}) 
   if (needsDrink) {
     return restaurantData.dishes.filter(d => {
       const text = (d.name + ' ' + (d.description || '')).toLowerCase();
-      return !d.outOfStock && /bebida|gaseosa|refresco|cerveza|limonada|trago/i.test(text);
+      return !isDishSoldOut(d) && /bebida|gaseosa|refresco|cerveza|limonada|trago/i.test(text);
     }).slice(0, 2);
   }
   return [];

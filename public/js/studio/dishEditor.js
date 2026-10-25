@@ -486,6 +486,8 @@ export function editDish(restaurant, dishId) {
   if (el('modalDishVideo')) el('modalDishVideo').value = existingVideo;
   previewDishVideo();
   if (el('modalDishOutOfStock')) el('modalDishOutOfStock').checked = !!dish.outOfStock;
+  // F3 "Agotados con memoria": el tope de ventas del día (opt-in). Vacío = sin tope.
+  if (el('modalDishDailyStock')) el('modalDishDailyStock').value = (dish.dailyStock ?? '');
   if (el('modalDishStar')) el('modalDishStar').checked = (dish.tags || []).includes('star');
   if (el('modalDishChefSpecial')) el('modalDishChefSpecial').checked = !!dish.isChefSpecial || (dish.tags || []).includes('chef_special');
   if (el('tagVeggie')) el('tagVeggie').checked = (dish.tags || []).includes('veggie');
@@ -582,6 +584,7 @@ export function openNewDishModal(restaurant) {
   if (el('modalDishVideo')) el('modalDishVideo').value = '';
   clearDishVideo();
   if (el('modalDishOutOfStock')) el('modalDishOutOfStock').checked = false;
+  if (el('modalDishDailyStock')) el('modalDishDailyStock').value = '';
   if (el('modalDishStar')) el('modalDishStar').checked = false;
   if (el('modalDishChefSpecial')) el('modalDishChefSpecial').checked = false;
 
@@ -651,6 +654,12 @@ export function saveDishFromModal(restaurant, event, onSaved) {
   const videoUrl = document.getElementById('modalDishVideo')?.value.trim();
   const categoryId = document.getElementById('modalDishCategory')?.value;
   const outOfStock = document.getElementById('modalDishOutOfStock')?.checked;
+  // F3 "Agotados con memoria": entero 1..9999; vacío/inválido → undefined
+  // (sin memoria, comportamiento actual — el sanitizer aplica la MISMA regla).
+  const dailyStockVal = parseInt(document.getElementById('modalDishDailyStock')?.value, 10);
+  const dailyStock = (Number.isInteger(dailyStockVal) && dailyStockVal >= 1 && dailyStockVal <= 9999)
+    ? dailyStockVal
+    : undefined;
   const isChefSpecial = document.getElementById('modalDishChefSpecial')?.checked;
   const optionConfig = getDishOptionConfig();
 
@@ -705,6 +714,13 @@ export function saveDishFromModal(restaurant, event, onSaved) {
       dish.videoUrl = videoUrl || null;
       dish.categoryId = finalCategoryId;
       dish.outOfStock = outOfStock;
+      // F3: si el dueño vació el campo, el tope se REMUEVE (no queda un stock
+      // viejo auto-agotando el plato para siempre).
+      if (dailyStock !== undefined) {
+        dish.dailyStock = dailyStock;
+      } else {
+        delete dish.dailyStock;
+      }
       dish.isChefSpecial = isChefSpecial;
       dish.schedule = schedule;
       dish.tags = tags;
@@ -729,6 +745,7 @@ export function saveDishFromModal(restaurant, event, onSaved) {
       videoUrl: videoUrl || null,
       categoryId: finalCategoryId,
       outOfStock,
+      dailyStock,
       isChefSpecial,
       schedule,
       tags,

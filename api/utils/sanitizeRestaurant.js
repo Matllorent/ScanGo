@@ -11,6 +11,7 @@ const {
   HELADERIA_THEME_IDS,
   PERFUMERY_THEME_IDS
 } = require('./themeManifest');
+const { parseDailyStock } = require('./dailyStockTracker');
 const { z } = require('zod');
 
 // Morfologías y paletas vienen del MANIFEST CANÓNICO (api/utils/themeManifest.js):
@@ -181,7 +182,7 @@ function ensureUniqueSlug(baseSlug, seenSlugs) {
 }
 
 function sanitizeDish(d) {
-  return {
+  const cleanDish = {
     id: String(d.id || generateId('d_')).slice(0, 50),
     categoryId: String(d.categoryId || ''),
     name: sanitizeString(d.name || 'Sin nombre', 100),
@@ -220,6 +221,15 @@ function sanitizeDish(d) {
       : [],
     tags: Array.isArray(d.tags) ? d.tags.slice(0, 8).map(t => sanitizeString(t, 25)) : []
   };
+
+  // F3 "Agotados con memoria": dailyStock es OPT-IN — el campo SOLO existe si
+  // es un entero válido (1..9999, misma regla que el Studio usa en el input).
+  // undefined = sin memoria: el plato queda exactamente como hoy y el módulo
+  // derivado no paga ninguna consulta extra.
+  const dailyStock = parseDailyStock(d.dailyStock);
+  if (dailyStock !== null) cleanDish.dailyStock = dailyStock;
+
+  return cleanDish;
 }
 
 function sanitizeCategory(c) {

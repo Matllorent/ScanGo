@@ -1,4 +1,5 @@
 import { escapeHtml } from '/js/utils/escapeHtmlBrowser.js';
+import { isDishSoldOut } from '/js/utils/dishAvailability.js';
 /**
  * VirtualWaiter.js — "El Mozo Virtual" con Recomendaciones de Clima y Maridaje Inteligente
  * Asistente heurístico en tiempo real para el carrito de compras de ScanGo.
@@ -109,7 +110,7 @@ export class VirtualWaiter {
     }
 
     const inCartDishIds = new Set(items.map(item => item?.dish?.id || item?.dishId).filter(Boolean));
-    const availableDishes = dishes.filter(d => !inCartDishIds.has(d.id) && !d.outOfStock && (d.price || 0) > 0);
+    const availableDishes = dishes.filter(d => !inCartDishIds.has(d.id) && !isDishSoldOut(d) && (d.price || 0) > 0);
 
     if (!availableDishes.length) {
       return { candidates: [], reason: '', badge: '', discount: '' };

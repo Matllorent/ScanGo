@@ -1038,7 +1038,9 @@ Object.defineProperties(window, {
     function addToCart(dishId) {
       if (!areMenuOrdersEnabled()) return; // vitrina: la carta solo muestra
       const dish = restaurantData.dishes.find(d => d.id === dishId);
-      if (!dish || dish.outOfStock) return;
+      // F3: el agotado de HOY (derivado del stock diario) bloquea igual que
+      // el manual del dueño — el botón ya está disabled, este es el guard real.
+      if (!dish || dish.outOfStock || dish.soldOutToday) return;
       const sched = getDishScheduleStatus(dish);
       if (!sched.isAvailable) {
         alert(`Este plato no se encuentra disponible en este horario (${sched.reason || 'Fuera de horario'}).`);

@@ -14,6 +14,7 @@
  */
 import { escapeHtml } from '../utils/escapeHtmlBrowser.js';
 import { isFreePrice } from './menuPresentation.js';
+import { isDishSoldOut } from '../utils/dishAvailability.js';
 
     /**
      * Diccionario semántico de categorías y disparadores para recomendaciones gastronómicas
@@ -57,9 +58,10 @@ import { isFreePrice } from './menuPresentation.js';
         cartSubtotal += (ci.qty || 1) * (ci.dish.price || 0);
       });
 
-      // Platos disponibles que no están en el carrito
+      // Platos disponibles que no están en el carrito (agotado manual u
+      // "Agotado hoy" derivado del stock diario, ambos fuera).
       const availableDishes = (ctx.getRestaurantData().dishes || []).filter(dish =>
-        !cartDishIds.has(dish.id) && !dish.outOfStock && (dish.price || 0) > 0
+        !cartDishIds.has(dish.id) && !isDishSoldOut(dish) && (dish.price || 0) > 0
       );
 
       if (!availableDishes.length) {
@@ -313,7 +315,7 @@ import { isFreePrice } from './menuPresentation.js';
 
       const cartDishIds = new Set(items.map(ci => ci.dish.id));
       const availableDishes = (restaurantData.dishes || []).filter(d =>
-        !cartDishIds.has(d.id) && !d.outOfStock && (d.price || 0) > 0
+        !cartDishIds.has(d.id) && !isDishSoldOut(d) && (d.price || 0) > 0
       );
 
       if (!availableDishes.length) {

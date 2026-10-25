@@ -1129,6 +1129,48 @@ const db = {
     return order;
   },
 
+  // F3 stock diario ("Agotados con memoria"): filas MÍNIMAS de pedidos dentro
+  // de la ventana ISO del día local del dueño (la calcula
+  // api/utils/dailyStockTracker.getDailyStockWindow, misma frontera que F1).
+  // Unión nube ∪ espejo local por id (patrón El Cierre): un pedido cuyo
+  // dual-write fue rechazado en cloud NO desaparece del conteo, y si la nube
+  // con drift cae, el espejo sostiene el agregado (el menú nunca rompe).
+  async getSoldQtyForDay(restaurantId, startIso, endIso) {
+    if (!restaurantId || !startIso || !endIso) return [];
+    let cloudRows = [];
+    try {
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('id, items_snapshot, status, created_at')
+          .eq('restaurant_id', restaurantId)
+          .gte('created_at', startIso)
+          .lt('created_at', endIso);
+        if (error) throw error;
+        cloudRows = Array.isArray(data) ? data : [];
+      }
+    } catch (err) {
+      console.warn('[DB] getSoldQtyForDay cloud no disponible (espejo local:', (err && err.message) || err, ')');
+    }
+    const startMs = Date.parse(startIso);
+    const endMs = Date.parse(endIso);
+    const byId = new Map();
+    for (const row of cloudRows) {
+      if (row && row.id) byId.set(String(row.id), row);
+    }
+    for (const localRow of readJson(ORDERS_FILE, [])) {
+      if (!localRow) continue;
+      const rid = localRow.restaurant_id || localRow.restaurantId;
+      if (rid !== restaurantId) continue;
+      const ts = Date.parse(localRow.created_at || localRow.createdAt || '');
+      if (Number.isNaN(ts)) continue;
+      if (ts >= startMs && ts < endMs && localRow.id && !byId.has(String(localRow.id))) {
+        byId.set(String(localRow.id), localRow);
+      }
+    }
+    return [...byId.values()];
+  },
+
   // Mapeo canónico local → fila cloud de `orders` (misma forma que usa
   // POST /api/orders; fuente única para no diverger).
   toCloudOrder(orderRecord) {

@@ -182,7 +182,7 @@ export function sortWeatherCategories(categories, dishes, restaurantData = {}) {
 export function getAvailableDietFilters(dishes) {
   const available = new Set(['ALL']);
   Object.entries(DIET_FILTER_MAP).forEach(([key, tags]) => {
-    const hasMatch = dishes.some(d => !d.outOfStock && d.tags && d.tags.some(t => tags.includes(t)));
+    const hasMatch = dishes.some(d => (!d.outOfStock && !d.soldOutToday) && d.tags && d.tags.some(t => tags.includes(t)));
     if (hasMatch) available.add(key);
   });
   return available;
@@ -198,7 +198,7 @@ export function getAvailableDietFilters(dishes) {
 export function categoryHasVisibleDishes(category, dishes, { searchTerm, dietFilter, restaurantData } = {}) {
   return dishes.some(dish => {
     if (dish.categoryId !== category.id) return false;
-    if (dish.outOfStock) return false;
+    if (dish.outOfStock || dish.soldOutToday) return false;
     if (searchTerm && !matchesSearch(dish, searchTerm)) return false;
     if (!matchesDiet(dish, dietFilter)) return false;
     const sched = getDishScheduleStatus(dish, restaurantData);
@@ -215,7 +215,7 @@ export function categoryHasVisibleDishes(category, dishes, { searchTerm, dietFil
 export function filterDishes(dishes, { searchTerm, dietFilter, selectedCategory, restaurantData } = {}) {
   const scheduleEnabled = restaurantData?.scheduleEnabled;
   return dishes.filter(dish => {
-    if (dish.outOfStock) return false;
+    if (dish.outOfStock || dish.soldOutToday) return false;
     if (searchTerm && !matchesSearch(dish, searchTerm)) return false;
     if (!matchesDiet(dish, dietFilter)) return false;
     if (selectedCategory !== 'ALL' && selectedCategory !== 'POPULAR' && dish.categoryId !== selectedCategory) return false;

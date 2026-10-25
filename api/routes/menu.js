@@ -17,6 +17,7 @@ const { getDemoRestaurant, listDemoRestaurants, normalizeDemoType } = require('.
 const { resolveBranchOverridePrice, normalizeBranchCustomDishes } = require('../utils/menuResponse');
 const { resolveImageMode, resolveMenuSizing, layoutSupportsMenuSizing } = require('../utils/themeManifest');
 const { computePopTiers } = require('../utils/popularityTiers');
+const dailyStockTracker = require('../utils/dailyStockTracker');
 const escapeHtml = require('../utils/escapeHtml');
 
 const router = express.Router();
@@ -298,6 +299,31 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
         // Tier por plato (2 grande / 1 normal / 0 chico): el payload público
         // NUNCA ve scores crudas ni conteos, solo este derivado acotado.
         dishes = dishes.map(d => ({ ...d, popTier: tiers.has(d.id) ? tiers.get(d.id) : 1 }));
+      }
+
+      // F3 "Agotados con memoria": el plato con `dailyStock` se marca
+      // `soldOutToday` cuando las ventas del día local (mismo huso de El
+      // Cierre) alcanzaron su tope. Ventana derivada, CERO cron de reset;
+      // revive solo a la medianoche del dueño. El agregado vive DENTRO del
+      // cache (60s middleware + single-flight): a lo sumo 1 consulta/min/local
+      // y SOLO cuando la carta tiene platos con `dailyStock` (cero costo para
+      // el resto, patrón del spec). El manual `outOfStock` gana siempre: acá
+      // solo se emite el derivado, nunca se pisa la decisión del dueño.
+      if (dailyStockTracker.anyDishWithDailyStock(dishes)) {
+        try {
+          const ownerOffset = Number.isFinite(Number(restaurant.utcOffsetMinutes))
+            ? restaurant.utcOffsetMinutes
+            : -180;
+          const stockWindow = dailyStockTracker.getDailyStockWindow(Date.now(), ownerOffset);
+          const soldToday = dailyStockTracker.sumSoldByDish(
+            await db.getSoldQtyForDay(restaurant.id, stockWindow.startUtc, stockWindow.endUtc)
+          );
+          dishes = dailyStockTracker.attachSoldOutToday(dishes, soldToday);
+        } catch (dailyStockErr) {
+          // Fail-open honesto: sin datos de ventas el plato NUNCA se auto-agota;
+          // el dueño siempre puede usar el flag manual.
+          console.warn('[menu] dailyStock: ventas del día no disponibles:', (dailyStockErr && dailyStockErr.message) || dailyStockErr);
+        }
       }
 
       // Sanitize public payload: exclude internal userId, billing identifiers, etc.

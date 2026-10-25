@@ -1866,6 +1866,17 @@
           </div>
         </div>
 
+        <!-- F3 "Agotados con memoria": stock diario opt-in. La ventana del día
+             es la del dueño (mismo huso que El Cierre) y el plato revive solo a
+             la medianoche — derivación server-side, sin cron de reset. -->
+        <div class="form-group">
+          <label class="form-label" for="modalDishDailyStock">📈 Stock diario (agotado automático)</label>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <input type="number" id="modalDishDailyStock" class="form-input" style="width:110px;" min="1" max="9999" step="1" inputmode="numeric" placeholder="Ej: 30">
+            <span style="font-size:10px; color:var(--text-dim);">"Vendo ~N por día": ScanGo pausa el plato solo cuando las ventas de HOY llegan a N y se recupera solo a la medianoche. Vacío = sin tope.</span>
+          </div>
+        </div>
+
         <!-- Allergen / Diet Tags -->
         <div class="form-group">
           <label class="form-label">Etiquetas Dietéticas y Alérgenos</label>
