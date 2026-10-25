@@ -472,6 +472,9 @@ let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
       if (isSold) badgeHtml += '<span class="dish-badge" style="background:#E53E3E; color:#fff;">✕ AGOTADO HOY</span> ';
       if (!isSold && !sched.isAvailable) badgeHtml += `<span class="dish-badge" style="background:rgba(237,137,54,0.25); color:#F6AD55; border:1px solid rgba(237,137,54,0.5);">⏰ ${sched.reason}</span> `;
       if (d.isChefSpecial || (d.tags && d.tags.includes('chef_special'))) badgeHtml += '<span class="dish-badge" style="background:rgba(236,201,75,0.25); color:var(--chalk-gold); border:1px solid rgba(236,201,75,0.6); font-weight:700;">👨‍🍳 Sugerencia del Chef</span> ';
+      // F5 "Tendencia honesta": el server emite `trendingLabel` SOLO con ventas
+      // reales de la semana (>= 3 unidades, top 3). Sin evidencia no hay chip.
+      if (d.trendingLabel) badgeHtml += `<span class="dish-badge badge-trending">${escapeHtml(String(d.trendingLabel).slice(0, 40))}</span> `;
       if (d.tags && (d.tags.includes('veggie') || d.tags.includes('vegetariano'))) badgeHtml += '<span class="dish-badge badge-veggie">🥬 Vegetariano</span> ';
       if (d.tags && (d.tags.includes('vegano') || d.tags.includes('vegan'))) badgeHtml += '<span class="dish-badge badge-veggie">🌱 Vegano</span> ';
       if (d.tags && (d.tags.includes('celiac') || d.tags.includes('singluten'))) badgeHtml += '<span class="dish-badge badge-celiac">🌾 Sin TACC</span> ';

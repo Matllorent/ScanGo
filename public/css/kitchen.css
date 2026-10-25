@@ -274,6 +274,54 @@ body {
   min-height: 48px;
 }
 
+/* ── F6: barra de estaciones (chips) ── */
+.kds-station-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 16px 0;
+  flex-shrink: 0;
+}
+.kds-station-bar[hidden] { display: none; }
+.kds-station-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kds-dim);
+  font-weight: 700;
+}
+.kds-station-chip {
+  appearance: none;
+  background: transparent;
+  color: var(--kds-white);
+  border: 1px solid var(--kds-border-strong);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 40px;
+}
+.kds-station-chip:hover { border-color: var(--kds-dim); }
+.kds-station-chip[aria-pressed="true"] {
+  background: var(--kds-gold);
+  border-color: var(--kds-gold);
+  color: #101614;
+}
+.kds-station-chip:focus-visible {
+  outline: 2px solid var(--kds-green);
+  outline-offset: 2px;
+}
+
+/* Aviso de ítems de otra estación: el pedido no se parte en silencio. */
+.kds-hidden-items {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--kds-dim);
+}
+
 /* ── Banner + nota de cancelados ── */
 .kds-banner,
 .kds-cancelled-note {

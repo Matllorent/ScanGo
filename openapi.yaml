@@ -2177,6 +2177,11 @@ components:
             Interruptor del dueño para el contador de cierre en el badge del menú (default true).
             Cuando el local está abierto por horario y faltan menos de 60 minutos, el badge
             muestra "Abierto · Cierra en N min" en vez de la franja horaria.
+        showTrendingChip:
+          type: boolean
+          description: |-
+            Interruptor del dueño para el chip "🔥 Muy pedido esta semana" del menú (default true).
+            Apagado, el servidor no consulta ventas ni emite `trendingLabel` (cero costo).
         allowIceCreamWizard:
           type: boolean
         categories:
@@ -2428,6 +2433,14 @@ components:
           description: >-
             Stock diario del plato (opt-in, F3 "Agotados con memoria"):
             "vendo ~N por día". Ausente = sin memoria (comportamiento normal).
+        station:
+          type: string
+          maxLength: 16
+          description: >-
+            Estación de cocina del plato (F6, texto libre del dueño: "Barra",
+            "Cocina", "Parrilla"…). Ausente = se ve en todas las estaciones del
+            KDS. Dato OPERATIVO del local: NO viaja en el payload público del
+            menú (la pizarra la resuelve desde la sesión autenticada).
         isChefSpecial:
           type: boolean
         iceCreamSurcharge:
@@ -2504,6 +2517,16 @@ components:
             dueño, mismo huso que El Cierre) alcanzan `dailyStock`. El flag
             manual `outOfStock` gana siempre; el derivado revive solo a la
             medianoche local, sin cron de reset.
+        trendingLabel:
+          type: string
+          maxLength: 40
+          description: >-
+            Chip de tendencia HONESTA (F5): "🔥 Muy pedido esta semana", emitido
+            solo cuando el plato acumuló unidades vendidas reales en la ventana
+            de 7 días (mínimo 3, tope 3 platos, cancelados fuera). Ausente = el
+            plato no tiene evidencia suficiente o el dueño apagó el chip
+            (`showTrendingChip: false`). El payload público NUNCA expone
+            unidades, scores ni conteos.
         isChefSpecial:
           type: boolean
         iceCreamSurcharge:

@@ -31,9 +31,18 @@ import {
 import { formatOrderAge, orderAgeLevel, orderAgeStyle } from '../studio/orderAging.js';
 import { showConfirmDialog, closeConfirmDialog } from '../studio/ui/confirmDialog.js';
 import { initModalA11y } from '../modalA11y.js';
+import { sanitizeStation } from '../utils/dishStation.js';
+import {
+  ALL_STATIONS_KEY,
+  getStationOptions,
+  filterModelsByStation,
+  resolveStoredStation
+} from './kitchenStations.js';
 
 const POLL_MS = 20000;
 const CLOCK_MS = 30000;
+const STATIONS_REFRESH_MS = 300000; // la carta cambia poco: 5 min alcanza
+const STATION_STORAGE_KEY = 'scango_kds_station';
 const MAX_CARDS = 60;         // el archivo no es cocina: 60 pedidos alcanzan
 const MAX_PER_COLUMN = 12;    // los entregados no acumulan tarjeta eterna
 
@@ -42,6 +51,14 @@ let orders = [];
 let pollTimer = null;
 let seenNewIds = new Set();   // pedidos YA avisados (beep solo ante novedades)
 let baselineDone = false;
+
+// F6 "Estaciones de cocina": estación por plato resuelta desde la carta del
+// local (el ítem no la lleva en el snapshot: es config del local, no del
+// pedido). Sin estación = el ítem se ve en TODAS (fail-open).
+let stationByDishId = new Map();
+let stationLabels = [];       // grafías de la carta (para los chips)
+let activeStation = ALL_STATIONS_KEY;
+let stationBarSignature = '';
 
 const el = (id) => document.getElementById(id);
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
@@ -94,6 +111,108 @@ async function fetchOrders() {
   renderBoard();
 }
 
+// ── F6 "Estaciones de cocina" ─────────────────────────────────────────────
+// La asignación plato → estación vive en la carta del local (`dish.station`,
+// texto libre). El KDS la resuelve desde su propia sesión (`/api/auth/me`
+// devuelve el restaurante con sus platos): cero endpoints nuevos, cero
+// columnas nuevas y el comensal nunca ve el dato (no viaja en el menú público).
+
+function applyRestaurantStations(restaurant) {
+  const nextMap = new Map();
+  const labels = [];
+  const seen = new Set();
+  const dishes = restaurant && Array.isArray(restaurant.dishes) ? restaurant.dishes : [];
+  for (const dish of dishes) {
+    const station = sanitizeStation(dish && dish.station);
+    if (!station) continue;
+    if (dish.id) nextMap.set(String(dish.id), station);
+    const key = station.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      labels.push(station);
+    }
+  }
+  stationByDishId = nextMap;
+  stationLabels = labels;
+}
+
+/**
+ * Relee la carta (sesión, autenticada) para refrescar las estaciones cuando el
+ * dueño las cambia desde el Studio en otra pestaña. Falla en silencio: la
+ * pizarra sigue usando el mapa que ya tenía (nunca se queda vacía).
+ */
+async function refreshStations() {
+  const session = await checkSession();
+  if (!session) return;
+  applyRestaurantStations(session.restaurant || {});
+  renderBoard();
+}
+
+function readStoredStation() {
+  try {
+    return window.localStorage.getItem(STATION_STORAGE_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function writeStoredStation(key) {
+  try {
+    if (key) window.localStorage.setItem(STATION_STORAGE_KEY, key);
+    else window.localStorage.removeItem(STATION_STORAGE_KEY);
+  } catch { /* sin storage el filtro vive solo en esta sesión */ }
+}
+
+/**
+ * Barra de chips con las estaciones REALES del local. Se reconstruye solo si
+ * cambió el set de estaciones (el reloj de 30s no puede robar el foco del
+ * botón que el cocinero acaba de tocar).
+ */
+function renderStationBar(options) {
+  const bar = el('kdsStationBar');
+  if (!bar) return;
+  if (!options.length) {
+    bar.hidden = true;
+    bar.textContent = '';
+    stationBarSignature = '';
+    return;
+  }
+  bar.hidden = false;
+  const signature = options.map((o) => `${o.key}:${o.label}`).join('|');
+  if (signature === stationBarSignature) {
+    for (const btn of bar.querySelectorAll('[data-station-key]')) {
+      btn.setAttribute('aria-pressed', btn.dataset.stationKey === activeStation ? 'true' : 'false');
+    }
+    return;
+  }
+  stationBarSignature = signature;
+  bar.textContent = '';
+
+  const label = document.createElement('span');
+  label.className = 'kds-station-label';
+  label.textContent = 'Estación:';
+  bar.appendChild(label);
+
+  const entries = [{ key: ALL_STATIONS_KEY, label: 'Todas' }, ...options];
+  for (const entry of entries) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'kds-station-chip';
+    btn.dataset.stationKey = entry.key;
+    btn.setAttribute('aria-pressed', entry.key === activeStation ? 'true' : 'false');
+    btn.textContent = entry.label;
+    btn.addEventListener('click', () => {
+      activeStation = entry.key;
+      writeStoredStation(entry.key);
+      renderBoard();
+      const pressed = Array.from(bar.querySelectorAll('[data-station-key]'))
+        .find((b) => b.dataset.stationKey === entry.key);
+      if (pressed) pressed.focus();
+    });
+    bar.appendChild(btn);
+  }
+}
+
 // ── Avisos de pedidos nuevos (beep WebAudio + live region) ────────────────
 
 function announceNew() {
@@ -139,11 +258,24 @@ function playOrderAlert() {
 function renderBoard() {
   const buckets = new Map(KITCHEN_COLUMNS.map((c) => [c.id, []]));
   let cancelledCount = 0;
+  const allModels = [];
 
   for (const order of orders) {
-    const model = buildKitchenCardModel(order);
+    const model = buildKitchenCardModel(order, stationByDishId);
     if (!model) continue;
     if (model.cancelled) { cancelledCount += 1; continue; }
+    allModels.push(model);
+  }
+
+  // F6: chips con las estaciones reales (carta + pedidos en pantalla). Si la
+  // estación recordada ya no existe (la renombraron), cae a "Todas" — nunca
+  // una pizarra vacía por un valor viejo en localStorage.
+  const options = getStationOptions(allModels, stationLabels);
+  if (options.length) activeStation = resolveStoredStation(activeStation, options);
+  renderStationBar(options);
+
+  const visibleModels = filterModelsByStation(allModels, activeStation);
+  for (const model of visibleModels) {
     const bucket = buckets.get(model.columnId);
     if (bucket) bucket.push(model);
   }
@@ -160,7 +292,9 @@ function renderBoard() {
     if (!bucket.length) {
       const empty = document.createElement('div');
       empty.className = 'kds-col-empty';
-      empty.textContent = col.id === 'queue' ? 'Sin pedidos en cola' : '—';
+      empty.textContent = col.id === 'queue'
+        ? (activeStation ? 'Sin pedidos para esta estación' : 'Sin pedidos en cola')
+        : '—';
       body.appendChild(empty);
       continue;
     }
@@ -262,6 +396,18 @@ function renderCard(model) {
     items.appendChild(li);
   }
   if (model.items.length) card.appendChild(items);
+
+  // F6: al filtrar por estación, la tarjeta informa cuántos ítems quedaron
+  // afuera. Nada desaparece en silencio: el pedido es uno solo y la otra
+  // estación también tiene que verlo.
+  if (model.hiddenItems > 0) {
+    const hid = document.createElement('div');
+    hid.className = 'kds-hidden-items';
+    hid.textContent = model.hiddenItems === 1
+      ? '＋1 ítem en otra estación'
+      : `＋${model.hiddenItems} ítems en otra estación`;
+    card.appendChild(hid);
+  }
 
   // Fila 4: nota general del comensal en rojo
   if (model.notes) {
@@ -437,8 +583,15 @@ async function boot() {
     openGate('Tu usuario todavía no tiene un local asociado. Crealo desde el Studio.');
     return;
   }
+  // F6: estaciones de la carta + filtro recordado por device (validado contra
+  // las estaciones reales en cuanto se conocen).
+  applyRestaurantStations(restaurant);
+  activeStation = readStoredStation();
   await fetchOrders();
   startPolling();
+  setInterval(() => {
+    if (document.visibilityState === 'visible') refreshStations();
+  }, STATIONS_REFRESH_MS);
 }
 
 document.addEventListener('DOMContentLoaded', boot);

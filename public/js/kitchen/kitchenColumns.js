@@ -106,10 +106,16 @@ export function kitchenTicketNumber(order) {
  * conocida (incluido el snapshot del helado a medida) no rompen el render,
  * y el `optionsSnapshot` (modificadores del comensal) se aplana a labels.
  * Cancelled/unknown: columnId null/queue según tabla (arriba).
+ *
+ * `stationByDishId` (F6, opcional): Mapa `dishId → estación` resuelto desde la
+ * carta. El ítem sin estación conocida (helado a medida, plato borrado, o el
+ * KDS sin carta cargada) queda con `station: ''` → visible en TODAS las
+ * estaciones (la cocina nunca pierde trabajo por un lookup fallido).
  */
-export function buildKitchenCardModel(order) {
+export function buildKitchenCardModel(order, stationByDishId) {
   if (!order || typeof order !== 'object') return null;
 
+  const stations = stationByDishId && typeof stationByDishId.get === 'function' ? stationByDishId : null;
   const rawItems = order.items_snapshot || order.itemsSnapshot || [];
   const items = [];
   for (const it of (Array.isArray(rawItems) ? rawItems : [])) {
@@ -133,7 +139,14 @@ export function buildKitchenCardModel(order) {
       }
     }
     const note = String(it.note || '').trim();
-    items.push({ label: qtyLabel + name, mods, note });
+    const dishId = stringSafe(it.dishId || it.dish_id);
+    items.push({
+      label: qtyLabel + name,
+      mods,
+      note,
+      dishId,
+      station: dishId && stations && stations.has(dishId) ? stringSafe(stations.get(dishId)) : ''
+    });
   }
 
   const status = String(order.status || 'pending');

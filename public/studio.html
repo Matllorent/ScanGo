@@ -466,6 +466,19 @@
                   <span id="sliderShowClosingCountdown" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
                 </label>
               </div>
+              <!-- F5 "Tendencia honesta": chip en los platos con ventas reales
+                   de la última semana. Sin ventas suficientes no aparece nada
+                   (jamás se inventa "muy pedido"). -->
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);">
+                <div>
+                  <strong style="font-size:12px; color:#fff;">🔥 Chip "Muy pedido"</strong>
+                  <div style="font-size:10px; color:var(--text-dim);">En la carta: los platos más vendidos de los últimos 7 días llevan la etiqueta "🔥 Muy pedido esta semana". Aparece solo con ventas reales (3 unidades o más). Apagado = la carta no muestra ninguna etiqueta.</div>
+                </div>
+                <label style="position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0;">
+                  <input type="checkbox" id="inputShowTrendingChip" data-js-change="updateLiveState" style="opacity:0; width:0; height:0;" aria-label="Mostrar chip de plato muy pedido">
+                  <span id="sliderShowTrendingChip" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -1874,6 +1887,18 @@
           <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
             <input type="number" id="modalDishDailyStock" class="form-input" style="width:110px;" min="1" max="9999" step="1" inputmode="numeric" placeholder="Ej: 30">
             <span style="font-size:10px; color:var(--text-dim);">"Vendo ~N por día": ScanGo pausa el plato solo cuando las ventas de HOY llegan a N y se recupera solo a la medianoche. Vacío = sin tope.</span>
+          </div>
+        </div>
+
+        <!-- F6 "Estaciones de cocina": a qué sector de la cocina va el plato.
+             Texto libre (máx 16) — cada local arma su cocina; vacío = el ítem
+             se ve en TODAS las estaciones de la pizarra (nunca se pierde). -->
+        <div class="form-group">
+          <label class="form-label" for="modalDishStation">🍳 Estación de cocina (opcional)</label>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <input type="text" id="modalDishStation" class="form-input" style="width:200px;" maxlength="16" placeholder="Ej: Barra, Cocina, Fríos" list="dishStationOptions">
+            <datalist id="dishStationOptions"></datalist>
+            <span style="font-size:10px; color:var(--text-dim);">En la Vista Kitchen (pizarra de cocina) cada tablet puede filtrar su estación. Vacío = se ve en todas.</span>
           </div>
         </div>
 

@@ -18,9 +18,36 @@ const { resolveBranchOverridePrice, normalizeBranchCustomDishes } = require('../
 const { resolveImageMode, resolveMenuSizing, layoutSupportsMenuSizing } = require('../utils/themeManifest');
 const { computePopTiers } = require('../utils/popularityTiers');
 const dailyStockTracker = require('../utils/dailyStockTracker');
+const dishTrending = require('../utils/dishTrending');
 const escapeHtml = require('../utils/escapeHtml');
 
 const router = express.Router();
+
+// F5 "Tendencia honesta": cache en proceso de las etiquetas por local. La
+// evidencia son las ventas REALES de los últimos 7 días (no clicks ni proxy
+// del chef), así que un refresco cada 10 min es de sobra — máximo 6 consultas
+// por hora y local, y NUNCA corre para un local que apagó el chip.
+const trendingLabelsCache = new Map(); // restaurantId -> { at, labels }
+
+async function resolveTrendingLabels(restaurant, dishes) {
+  const restaurantId = restaurant && restaurant.id;
+  if (!restaurantId) return new Map();
+  const cached = trendingLabelsCache.get(restaurantId);
+  if (cached && (Date.now() - cached.at) < dishTrending.TRENDING_CACHE_MS) {
+    return cached.labels;
+  }
+  const window = dishTrending.getTrendingWindow(Date.now());
+  const rows = await db.getSoldQtyForDay(restaurantId, window.startIso, window.endIso);
+  // Misma agregación que F3: los cancelados no son ventas y las líneas sin
+  // dishId legible (helado a medida, snapshots viejos) se saltan.
+  const soldByDish = dailyStockTracker.sumSoldByDish(rows);
+  const labels = dishTrending.computeTrendingLabels(soldByDish, dishes);
+  // Cota del cache: un Map por local no puede crecer sin límite en un proceso
+  // serverless long-lived (el deploy free corre caliente por horas).
+  if (trendingLabelsCache.size > 500) trendingLabelsCache.clear();
+  trendingLabelsCache.set(restaurantId, { at: Date.now(), labels });
+  return labels;
+}
 
 function buildDemoMenuResponse(typeOrSlug, opts = {}) {
   const demo = getDemoRestaurant(typeOrSlug);
@@ -251,9 +278,13 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
       const reqLang = (req.query.lang || 'es').toLowerCase();
 
       let dishes = inheritedDishes.map(d => {
+        // F6 "Estaciones de cocina": la estación es dato OPERATIVO del local
+        // (a qué sector va el plato), no del comensal — no viaja en el payload
+        // público. La pizarra KDS la resuelve desde su propia sesión.
+        const { station, ...dishPublic } = d;
         const trans = d.translations?.[reqLang];
         return {
-          ...d,
+          ...dishPublic,
           name: trans?.name || d.name,
           description: trans?.description || d.description,
           previous_price: d.previous_price || d.previousPrice || null,
@@ -326,6 +357,22 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
         }
       }
 
+      // F5 "Tendencia honesta": chip "🔥 Muy pedido esta semana" SOLO para los
+      // platos con ventas reales de los últimos 7 días (>= 3 unidades, top 3),
+      // derivado del MISMO agregado honesto que F3 (los cancelados no cuentan).
+      // El payload público recibe la etiqueta textual: nunca unidades, scores
+      // ni conteos. Default encendido; `showTrendingChip === false` lo apaga y
+      // ahí no se consulta NADA (cero costo para quien no lo quiere).
+      if (restaurant.showTrendingChip !== false) {
+        try {
+          const trendingLabels = await resolveTrendingLabels(restaurant, dishes);
+          if (trendingLabels.size) dishes = dishTrending.attachTrendingLabel(dishes, trendingLabels);
+        } catch (trendingErr) {
+          // Fail-open: sin datos de ventas la carta queda exactamente igual.
+          console.warn('[menu] trending: ventas de la semana no disponibles:', (trendingErr && trendingErr.message) || trendingErr);
+        }
+      }
+
       // Sanitize public payload: exclude internal userId, billing identifiers, etc.
       const publicData = {
         id: restaurant.id,
@@ -389,6 +436,9 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
         scheduleActiveHours: restaurant.scheduleActiveHours || '',
         // Contador de cierre en el badge del menú (default encendido).
         showClosingCountdown: restaurant.showClosingCountdown !== false,
+        // F5: chip de tendencia en los platos con ventas reales de la semana
+        // (default encendido; apagado = la carta no muestra ninguna etiqueta).
+        showTrendingChip: restaurant.showTrendingChip !== false,
         tableCount: restaurant.tableCount || 10,
         customCoupons: restaurant.customCoupons || [],
         allowLoyaltyPoints: restaurant.allowLoyaltyPoints === true,
@@ -566,9 +616,13 @@ router.get('/menu/:slug/dishes', menuCacheMiddleware, async (req, res) => {
       // Apply translations
       const reqLang = (req.query.lang || 'es').toLowerCase();
       let dishes = inheritedDishes.map(d => {
+        // F6 "Estaciones de cocina": la estación es dato OPERATIVO del local
+        // (a qué sector va el plato), no del comensal — no viaja en el payload
+        // público. La pizarra KDS la resuelve desde su propia sesión.
+        const { station, ...dishPublic } = d;
         const trans = d.translations?.[reqLang];
         return {
-          ...d,
+          ...dishPublic,
           name: trans?.name || d.name,
           description: trans?.description || d.description,
           previous_price: d.previous_price || d.previousPrice || null,

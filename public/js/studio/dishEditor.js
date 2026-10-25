@@ -10,6 +10,7 @@
 import { ensureDishModifierGroups, renderDishModifierAssignments, getDishOptionConfig } from './modifierGroups.js';
 import { cloneDishWithNewId as cloneDishWithNewIdUtil } from './cloneUtils.js';
 import { escapeHtml as escapeHtmlDefault } from '../utils/escapeHtmlBrowser.js';
+import { sanitizeStation } from '../utils/dishStation.js';
 
 export function toggleDishesByIngredient(restaurant, isOut, onUpdated) {
   const input = document.getElementById('inputIngredientKeyword');
@@ -461,6 +462,31 @@ export function toggleDishScheduleControls() {
   if (controls) controls.style.display = enabled ? 'flex' : 'none';
 }
 
+/**
+ * F6 "Estaciones de cocina": el datalist del campo estación se arma con las
+ * estaciones que el local YA usa en su carta (nunca un catálogo inventado).
+ * Sirve para que el dueño elija "Barra" en vez de tipear "barra"/"Barra " y
+ * partir la misma estación en dos. DOM API, cero innerHTML con data.
+ */
+function renderDishStationOptions(restaurant) {
+  const list = document.getElementById('dishStationOptions');
+  if (!list) return;
+  const byKey = new Map();
+  const dishes = restaurant && Array.isArray(restaurant.dishes) ? restaurant.dishes : [];
+  for (const dish of dishes) {
+    const station = sanitizeStation(dish && dish.station);
+    if (station && !byKey.has(station.toLowerCase())) byKey.set(station.toLowerCase(), station);
+  }
+  list.textContent = '';
+  Array.from(byKey.values())
+    .sort((a, b) => a.localeCompare(b, 'es'))
+    .forEach((station) => {
+      const option = document.createElement('option');
+      option.value = station;
+      list.appendChild(option);
+    });
+}
+
 export function editDish(restaurant, dishId) {
   const dish = (restaurant.dishes || []).find(d => d.id === dishId);
   if (!dish) return;
@@ -488,6 +514,9 @@ export function editDish(restaurant, dishId) {
   if (el('modalDishOutOfStock')) el('modalDishOutOfStock').checked = !!dish.outOfStock;
   // F3 "Agotados con memoria": el tope de ventas del día (opt-in). Vacío = sin tope.
   if (el('modalDishDailyStock')) el('modalDishDailyStock').value = (dish.dailyStock ?? '');
+  // F6 "Estaciones de cocina": el sector al que va el plato (texto libre).
+  if (el('modalDishStation')) el('modalDishStation').value = dish.station || '';
+  renderDishStationOptions(restaurant);
   if (el('modalDishStar')) el('modalDishStar').checked = (dish.tags || []).includes('star');
   if (el('modalDishChefSpecial')) el('modalDishChefSpecial').checked = !!dish.isChefSpecial || (dish.tags || []).includes('chef_special');
   if (el('tagVeggie')) el('tagVeggie').checked = (dish.tags || []).includes('veggie');
@@ -585,6 +614,9 @@ export function openNewDishModal(restaurant) {
   clearDishVideo();
   if (el('modalDishOutOfStock')) el('modalDishOutOfStock').checked = false;
   if (el('modalDishDailyStock')) el('modalDishDailyStock').value = '';
+  // F6: el plato nuevo arranca sin estación (se ve en todas las del KDS).
+  if (el('modalDishStation')) el('modalDishStation').value = '';
+  renderDishStationOptions(restaurant);
   if (el('modalDishStar')) el('modalDishStar').checked = false;
   if (el('modalDishChefSpecial')) el('modalDishChefSpecial').checked = false;
 
@@ -660,6 +692,9 @@ export function saveDishFromModal(restaurant, event, onSaved) {
   const dailyStock = (Number.isInteger(dailyStockVal) && dailyStockVal >= 1 && dailyStockVal <= 9999)
     ? dailyStockVal
     : undefined;
+  // F6 "Estaciones de cocina": texto libre (máx 16). Vacío = sin estación
+  // (la pizarra de cocina lo muestra en todas, nunca se pierde un ítem).
+  const station = sanitizeStation(document.getElementById('modalDishStation')?.value || '');
   const isChefSpecial = document.getElementById('modalDishChefSpecial')?.checked;
   const optionConfig = getDishOptionConfig();
 
@@ -721,6 +756,13 @@ export function saveDishFromModal(restaurant, event, onSaved) {
       } else {
         delete dish.dailyStock;
       }
+      // F6: vaciar el campo REMUEVE la estación (el plato vuelve a verse en
+      // todas las pantallas de la cocina).
+      if (station) {
+        dish.station = station;
+      } else {
+        delete dish.station;
+      }
       dish.isChefSpecial = isChefSpecial;
       dish.schedule = schedule;
       dish.tags = tags;
@@ -746,6 +788,7 @@ export function saveDishFromModal(restaurant, event, onSaved) {
       categoryId: finalCategoryId,
       outOfStock,
       dailyStock,
+      ...(station ? { station } : {}),
       isChefSpecial,
       schedule,
       tags,

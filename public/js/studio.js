@@ -1294,6 +1294,14 @@ export function updateLiveState() {
     if (sliderCd) sliderCd.style.backgroundColor = closingCdCheck.checked ? '#38A169' : '#2a3a33';
   }
 
+  // F5 "Tendencia honesta": chip "Muy pedido" con ventas reales (default ON).
+  const trendingCheck = el('inputShowTrendingChip');
+  if (trendingCheck) {
+    restaurant.showTrendingChip = trendingCheck.checked !== false;
+    const sliderTrending = el('sliderShowTrendingChip');
+    if (sliderTrending) sliderTrending.style.backgroundColor = trendingCheck.checked ? '#38A169' : '#2a3a33';
+  }
+
   if (el('inputTableCount')) restaurant.tableCount = parseInt(el('inputTableCount').value) || 10;
 
   if (el('studioNavRestaurantName')) el('studioNavRestaurantName').textContent = restaurant.name;
@@ -1507,6 +1515,13 @@ export function renderStudioUI() {
     closingCdLoad.checked = restaurant.showClosingCountdown !== false;
     const sliderCd = el('sliderShowClosingCountdown');
     if (sliderCd) sliderCd.style.backgroundColor = closingCdLoad.checked ? '#38A169' : '#2a3a33';
+  }
+  // F5: chip de tendencia (default encendido).
+  const trendingLoad = el('inputShowTrendingChip');
+  if (trendingLoad) {
+    trendingLoad.checked = restaurant.showTrendingChip !== false;
+    const sliderTrending = el('sliderShowTrendingChip');
+    if (sliderTrending) sliderTrending.style.backgroundColor = trendingLoad.checked ? '#38A169' : '#2a3a33';
   }
   if (el('inputTableCount')) el('inputTableCount').value = restaurant.tableCount || 10;
 

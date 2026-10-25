@@ -27,6 +27,12 @@
     </div>
   </header>
 
+  <!-- F6 "Estaciones de cocina": chips con las estaciones REALES de la carta
+       (derivadas en runtime; sin estaciones la barra queda oculta). El filtro
+       se recuerda por tablet y la estación elegida nunca esconde un ítem sin
+       estación: la cocina jamás pierde trabajo. -->
+  <div id="kdsStationBar" class="kds-station-bar" role="group" aria-label="Filtrar la pizarra por estación" hidden></div>
+
   <!-- Pizarra: 5 columnas fijas (la tabla de decisión vive en
        /js/kitchen/kitchenColumns.js). Cada tarjeta avanza UNS estado por
        toque; cancelar pide confirmación (diálogo propio, nunca window.confirm). -->

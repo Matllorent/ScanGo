@@ -12,6 +12,7 @@ const {
   PERFUMERY_THEME_IDS
 } = require('./themeManifest');
 const { parseDailyStock } = require('./dailyStockTracker');
+const { sanitizeStation } = require('./dishStation');
 const { sanitizeRefSlug } = require('./viralRef');
 const { z } = require('zod');
 
@@ -68,7 +69,10 @@ const DISH_SCHEMA = z.object({
   }).nullable().optional(),
   kid_friendly: z.boolean().optional(),
   allergens: z.array(z.string()).optional(),
-  tags: z.array(z.string().max(25)).max(8).optional()
+  tags: z.array(z.string().max(25)).max(8).optional(),
+  // F3/F6: derivados del día y estación del KDS viajan por el alta individual.
+  dailyStock: z.number().int().min(1).max(9999).optional(),
+  station: z.string().max(64).optional()
 });
 
 // Esquema para validación masiva de platos en /api/studio/save
@@ -229,6 +233,13 @@ function sanitizeDish(d) {
   // derivado no paga ninguna consulta extra.
   const dailyStock = parseDailyStock(d.dailyStock);
   if (dailyStock !== null) cleanDish.dailyStock = dailyStock;
+
+  // F6 "Estaciones de cocina": `station` es texto libre del dueño (máx 16).
+  // OPT-IN como dailyStock: si está vacía el campo NO existe, y un plato sin
+  // estación se ve en TODAS las estaciones del KDS (fail-open, nunca se pierde
+  // un ítem). Nunca se inventa un catálogo de estaciones.
+  const station = sanitizeStation(d.station);
+  if (station) cleanDish.station = station;
 
   return cleanDish;
 }
@@ -464,6 +475,10 @@ function sanitizeRestaurantPayload(data) {
   // Contador de cierre en el badge del menú ("Cierra en N min"): default
   // encendido (ausente = activado), el dueño puede apagarlo con un false.
   clean.showClosingCountdown = clean.showClosingCountdown !== false;
+  // F5 "Tendencia honesta": chip "🔥 Muy pedido esta semana" en los platos con
+  // ventas reales de la última semana. Default encendido (ausente = activado);
+  // el dueño lo apaga con false explícito y el server deja de etiquetar.
+  clean.showTrendingChip = clean.showTrendingChip !== false;
   // Huso del dueño (F1 "El Cierre" + heatmap): viaja en el DOCUMENTO del local
   // (capturado por el navegador del Studio en cada guardado) para que los
   // crones y el badge usen la MISMA frontera de jornada sin env vars por

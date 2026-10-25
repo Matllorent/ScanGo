@@ -4619,6 +4619,10 @@
     .badge-veggie { background: rgba(225, 169, 56, 0.16); color: var(--chalk-gold, #E1A938); border: 1px solid rgba(225, 169, 56, 0.4); }
     .badge-celiac { background: rgba(236, 201, 75, 0.2); color: #F6E05E; border: 1px solid rgba(236, 201, 75, 0.4); }
     .badge-star { background: rgba(229, 62, 62, 0.2); color: #FC8181; border: 1px solid rgba(229, 62, 62, 0.4); }
+    /* F5 "Tendencia honesta": el chip sale SOLO con ventas reales de la semana.
+       Usa el acento del tema para no pelear con ninguna paleta (mismo criterio
+       que badge-veggie) y el texto va sin relleno brillante saturado. */
+    .badge-trending { background: rgba(232, 133, 59, 0.16); color: var(--chalk-gold, #E8A33B); border: 1px solid rgba(232, 133, 59, 0.45); font-weight: 700; }
     /* Los colores de insignia de arriba están pensados para fondos oscuros; en los
        temas claros de heladería el contraste cae a ~1.8. Los oscurecemos ahí. */
     body:is(.theme-helado-fiesta,.theme-helado-menta,.theme-helado-tropical,.theme-helado-pastel,.theme-gelateria,.theme-helado-fresa,.theme-helado-dulce,.theme-helado-pistacho,.theme-helado-cielo) .dish-badge.badge-star { background: rgba(185, 28, 28, 0.12); color: #B91C1C; border-color: rgba(185, 28, 28, 0.32); }
