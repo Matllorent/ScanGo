@@ -10447,6 +10447,45 @@ body.theme-burger .empty-state-title { color: #241D15; }
 body.theme-burger .empty-state-desc { color: #6E6355; }
 body.theme-burger .empty-state-btn { background: #E3A81F; color: #241D15; border-radius: 999px; }
 
+/* ── Footer viral (F4) ──────────────────────────────────────────────────────
+   "Esta carta corre con ScanGo" → /?ref=<slug>. Vive DENTRO del footer legal y
+   se oculta con `hidden` en demos (la demo es la vidriera de ScanGo). Usa las
+   variables del tema activo, así no desentona en ninguna de las 35 estéticas.
+   Sin `on*=` ni JS propio: el href y la visibilidad los maneja menu.js. */
+.viral-footer { margin: 0 0 10px 0; }
+.viral-footer[hidden] { display: none; }
+.viral-footer-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 8px 14px;
+  border: 1px solid color-mix(in srgb, var(--chalk-dim) 45%, transparent);
+  border-radius: 999px;
+  color: inherit;
+  text-decoration: none;
+  line-height: 1.2;
+  transition: border-color 0.2s ease, opacity 0.2s ease;
+}
+.viral-footer-link:hover,
+.viral-footer-link:focus-visible {
+  border-color: var(--chalk-gold, var(--chalk-dim));
+  opacity: 0.95;
+  text-decoration: none;
+}
+.viral-footer-label { font-size: 11px; letter-spacing: 0.2px; }
+.viral-footer-cta {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--chalk-gold, inherit);
+}
+@media (prefers-reduced-motion: reduce) {
+  .viral-footer-link { transition: none; }
+}
+
 body.theme-burger #specialActionsBar { background: #FFFFFF; border: 1px solid #E6DAC6; border-radius: var(--burger-radius); }
 body.theme-burger #btnTogglePerfumeryMode { background: rgba(227, 168, 31, 0.14); color: #8A5600; border: 1px solid rgba(227, 168, 31, 0.5); }
 

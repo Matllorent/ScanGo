@@ -2052,6 +2052,15 @@ components:
           type: boolean
           enum: [true]
           description: Debe ser exactamente `true`; sin confirmación el registro responde 400
+        # F4 · Atribución viral: slug de la carta que trajo al dueño (footer
+        # "Esta carta corre con ScanGo" → `/?ref=<slug>`). Solo se persiste como
+        # `acquiredVia` si apunta a una carta REAL existente (una demo o un slug
+        # inexistente dejan el alta sin origen inventado).
+        ref:
+          type: string
+          maxLength: 64
+          pattern: '^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$'
+          description: Slug de la carta referente (`?ref=` del footer viral)
     LoginRequest:
       type: object
       required: [email, password]
@@ -2090,6 +2099,13 @@ components:
           type: string
         userId:
           type: string
+        acquiredVia:
+          type: string
+          maxLength: 64
+          description: |-
+            F4 · Atribución viral: slug de la carta que trajo a este dueño.
+            Lo escribe SOLO el registro (`?ref=` validado contra una carta real);
+            `stripPrivilegedFields` lo bloquea en `POST /api/studio/save`.
         slug:
           type: string
         name:

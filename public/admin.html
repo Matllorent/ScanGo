@@ -411,6 +411,28 @@
         </div>
       </div>
 
+      <!-- F4 · De dónde vienen los dueños nuevos (footer viral) -->
+      <div class="table-container" style="margin-top: 2rem;">
+        <div class="table-header">
+          <div class="table-title"><i class="fa-solid fa-seedling" style="color:var(--accent);"></i> De dónde vienen los dueños nuevos</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted);">Cada carta real invita a crear la propia: acá se ve qué local trajo cada alta</div>
+        </div>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Vino de la carta de</th>
+                <th>Altas</th>
+                <th>De esas, pagando</th>
+              </tr>
+            </thead>
+            <tbody id="acquisition-tbody">
+              <tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 2rem;">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Clients Table -->
       <div class="table-container">
         <div class="table-header">
@@ -916,6 +938,7 @@
       if (mConvPct) mConvPct.textContent = `${metrics.trialConversionPercent || 0}% se quedan`;
 
       renderUpcomingWeek(metrics);
+      renderAcquisition(metrics);
 
       renderCharts(metrics, restaurants);
 
@@ -1070,6 +1093,64 @@
           </tr>`);
       });
       tbody.innerHTML = rows.join('');
+    }
+
+    // F4 · De dónde vienen los dueños nuevos. Render con DOM API (los datos
+    // vienen del backend y NUNCA se interpolan como HTML).
+    function renderAcquisition(metrics) {
+      const tbody = document.getElementById('acquisition-tbody');
+      if (!tbody) return;
+      const sources = Array.isArray(metrics && metrics.acquisitionSources) ? metrics.acquisitionSources : [];
+      tbody.textContent = '';
+
+      if (!sources.length) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 3;
+        td.style.textAlign = 'center';
+        td.style.color = 'var(--text-muted)';
+        td.style.padding = '2rem';
+        td.textContent = 'Todavía no hay altas para analizar.';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+      }
+
+      sources.forEach(src => {
+        const tr = document.createElement('tr');
+
+        const tdVia = document.createElement('td');
+        const via = typeof src.via === 'string' ? src.via : '';
+        if (via) {
+          const link = document.createElement('a');
+          link.href = `/m/${encodeURIComponent(via)}`;
+          link.target = '_blank';
+          link.rel = 'noopener';
+          link.style.color = 'var(--gold)';
+          link.style.textDecoration = 'none';
+          link.style.fontWeight = '600';
+          link.textContent = `/${via}`;
+          tdVia.appendChild(link);
+        } else {
+          const span = document.createElement('span');
+          span.style.color = 'var(--text-muted)';
+          span.textContent = '(directo)';
+          tdVia.appendChild(span);
+        }
+
+        const tdCount = document.createElement('td');
+        tdCount.style.fontWeight = '700';
+        tdCount.textContent = String(src.count || 0);
+
+        const tdPaying = document.createElement('td');
+        tdPaying.style.color = 'var(--accent)';
+        tdPaying.textContent = String(src.paying || 0);
+
+        tr.appendChild(tdVia);
+        tr.appendChild(tdCount);
+        tr.appendChild(tdPaying);
+        tbody.appendChild(tr);
+      });
     }
 
     function exportCSV() {

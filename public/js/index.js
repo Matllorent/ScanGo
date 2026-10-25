@@ -53,6 +53,23 @@ function openAuthModal(mode = 'register') {
   }
 }
 
+// ── Atribución viral (F4) ────────────────────────────────────────────────
+// El footer de una carta ("Esta carta corre con ScanGo") manda acá con
+// `?ref=<slug>`. Se captura AL CARGAR (el dueño puede abrir el registro en
+// cualquier momento) y viaja en el alta. El servidor revalida el slug y que la
+// carta exista: acá solo se acota a la forma esperada.
+const REFERRAL_MAX = 64;
+const referralRef = (() => {
+  try {
+    const raw = new URLSearchParams(window.location.search).get('ref');
+    if (typeof raw !== 'string') return '';
+    const clean = raw.trim().toLowerCase().slice(0, REFERRAL_MAX);
+    return /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(clean) ? clean : '';
+  } catch (e) {
+    return '';
+  }
+})();
+
 // ── Precios por rubro: mismos planes, mensaje adaptado ────────────────────
 // La suscripción es única (planes.json); cada rubro solo cambia nombres,
 // descripciones y bullets. Eventos muestra la tarjeta de pago único.
@@ -1279,7 +1296,10 @@ async function handleRegister(e) {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, restaurantName, businessType, email, password, ageConfirmed })
+      body: JSON.stringify({
+        name, restaurantName, businessType, email, password, ageConfirmed,
+        ...(referralRef ? { ref: referralRef } : {})
+      })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Error al crear la cuenta');

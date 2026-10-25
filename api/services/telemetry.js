@@ -11,7 +11,11 @@ const EVENT_TYPES = [
   'qr_scan', 'dish_click', 'order_placed', 'waiter_call', 'reservation',
   'visit', 'order', 'waiter',
   'event_qr_scan', 'event_dish_click', 'event_order_placed',
-  'loyalty_near_reward'
+  'loyalty_near_reward',
+  // F4: click en el footer viral "Esta carta corre con ScanGo" → /?ref=<slug>.
+  // Es un tipo CRUDO (no está en LEGACY_COUNTER_TYPES): se guarda y se puede
+  // analizar, pero NUNCA mueve ticket promedio, visitas ni órdenes.
+  'scango_cta_click'
 ];
 
 // Tipos de evento que alimentan cada contador legacy de restaurant.analytics.

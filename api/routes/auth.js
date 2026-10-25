@@ -11,6 +11,8 @@ const { successResponse, errorResponse } = require('../utils/response');
 const AppError = require('../utils/AppError');
 const { checkSubscriptionKillSwitch } = require('../middleware/killSwitch');
 const { authMiddleware, authenticateRequest } = require('../middleware/auth');
+const { sanitizeRefSlug } = require('../utils/viralRef');
+const { isDemoSlug } = require('../utils/demoRestaurants');
 
 const router = express.Router();
 
@@ -639,6 +641,15 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
     });
 
     const finalBizName = restaurantName || bizName || 'Mi Restaurante';
+    // F4 · Atribución viral: el `?ref=` de la landing se honra SOLO si apunta a
+    // una carta REAL existente (nunca demo) — si no, el alta sigue sin origen
+    // inventado. Se escribe acá, una única vez (stripPrivilegedFields la bloquea
+    // después en /save).
+    const refSlug = sanitizeRefSlug(req.body.ref);
+    // `lazyLoadRestaurant` espera la hidratación cloud: en Vercel el local
+    // referente puede no estar en el JSON local todavía al primer request.
+    const referrer = refSlug ? await db.lazyLoadRestaurant(refSlug) : null;
+    const acquiredVia = referrer && !isDemoSlug(referrer.slug) ? referrer.slug : '';
     const restaurant = await db.saveRestaurant(user.id, {
       name: finalBizName,
       bizName: finalBizName,
@@ -652,6 +663,7 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
       iceCreamBuilderLabel: businessType === 'heladeria' ? 'Armá tu helado a medida' : '',
       iceCreamButtonStyle: defaultIceCreamButtonStyleFor(businessType),
       wifi: { ssid: 'Restaurante_Clientes', password: 'pizarronrico' },
+      ...(acquiredVia ? { acquiredVia } : {}),
       ...buildStarterMenu(businessType)
     });
 

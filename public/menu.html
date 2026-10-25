@@ -728,6 +728,15 @@
   </div>
 
   <footer style="text-align:center; padding:18px 12px 90px; font-size:11px; color:var(--chalk-dim);">
+    <!-- Footer viral (F4): solo en cartas reales. `hidden` por defecto y el
+         servidor/cliente lo muestra con el slug del local; una demo nunca lo
+         muestra (la demo es la vidriera de ScanGo, no un cliente). -->
+    <div id="viralFooter" class="viral-footer" hidden>
+      <a id="viralFooterLink" class="viral-footer-link" data-viral-link href="/" rel="noopener">
+        <span class="viral-footer-label">Esta carta corre con ScanGo</span>
+        <span class="viral-footer-cta">Hacé la tuya en 60s →</span>
+      </a>
+    </div>
     <a href="/terminos" style="color:inherit; text-decoration:underline;">Términos</a>
     ·
     <a href="/privacidad" style="color:inherit; text-decoration:underline;">Privacidad</a>

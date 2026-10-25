@@ -12,6 +12,7 @@ const {
   PERFUMERY_THEME_IDS
 } = require('./themeManifest');
 const { parseDailyStock } = require('./dailyStockTracker');
+const { sanitizeRefSlug } = require('./viralRef');
 const { z } = require('zod');
 
 // Morfologías y paletas vienen del MANIFEST CANÓNICO (api/utils/themeManifest.js):
@@ -433,6 +434,13 @@ function sanitizeRestaurantPayload(data) {
   clean.tiktok = sanitizeSocialUrl(clean.tiktok, 500);
   clean.x = sanitizeSocialUrl(clean.x, 500);
   clean.googleReview = sanitizeSocialUrl(clean.googleReview, 300);
+  // Atribución viral (F4): slug de la carta que trajo al dueño. Se escribe UNA
+  // sola vez en el alta (server-side, validando que el local exista) y
+  // stripPrivilegedFields la bloquea en /save. Si el campo no vino, no se
+  // agrega (los locales viejos quedan sin la clave, no con '' inventado).
+  if (clean.acquiredVia !== undefined) {
+    clean.acquiredVia = sanitizeRefSlug(clean.acquiredVia);
+  }
   // Visibilidad SEO local (JSON-LD de /m/:slug): sin inventar datos ni dejar
   // pasar valores crudos. priceRange con allowlist, sameAs https únicos, geo numérico.
   clean.priceRange = sanitizePriceRange(clean.priceRange);

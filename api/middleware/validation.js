@@ -11,7 +11,11 @@ const registerSchema = z.object({
   businessType: z.enum(['restaurant', 'heladeria', 'perfumery', 'events']).optional().default('restaurant'),
   // COPPA/RGPD: el registro lo hace un adulto responsable del negocio.
   // Checkbox obligatorio en el formulario; sin el, el registro rechaza 400.
-  ageConfirmed: z.literal(true, { message: 'Debes confirmar que eres mayor de 18 anos' })
+  ageConfirmed: z.literal(true, { message: 'Debes confirmar que eres mayor de 18 anos' }),
+  // F4: slug de la carta que trajo al dueño (footer viral `?ref=`). Se valida
+  // contra un local REAL antes de persistirlo como `acquiredVia`; si no existe,
+  // el alta sigue normal y sin atribución (nunca se inventa el dato).
+  ref: z.string().max(64).optional()
 });
 
 // Schema for login payload

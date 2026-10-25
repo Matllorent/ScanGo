@@ -59,6 +59,7 @@ import {
 } from './menu/index.js';
 import { LAYOUT_IDS, CLASSIC_THEME_IDS, HELADERIA_THEME_IDS, PERFUMERY_THEME_IDS } from './menu/themeManifest.js';
 import { initModalA11y } from './modalA11y.js';
+import { applyViralFooter } from './utils/viralFooter.js';
 import {
   analyzeCartContextForUpsell as analyzeCartContextForUpsellMod,
   getUpsellCandidates as getUpsellCandidatesMod,
@@ -550,6 +551,39 @@ Object.defineProperties(window, {
       }).catch(() => {});
     }
 
+    // Footer viral (F4): la carta real invita a crear la propia. El click se
+    // registra con `sendBeacon` porque la navegación al landing cortaría un
+    // fetch normal (el evento se perdería justo en el momento que importa).
+    function trackViralCtaClick() {
+      const slug = getSlug();
+      if (!slug) return;
+      let consent = null;
+      try {
+        consent = localStorage.getItem('scango_cookie_consent');
+      } catch (e) { /* storage bloqueado */ }
+      const body = {
+        slug,
+        event: 'scango_cta_click',
+        consent: consent === 'all' || consent === 'necessary' ? consent : undefined
+      };
+      try {
+        if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+          const blob = new Blob([JSON.stringify(body)], { type: 'application/json' });
+          if (navigator.sendBeacon('/api/public/analytics/event', blob)) return;
+        }
+      } catch (e) { /* sigue el fetch */ }
+      trackPublicEvent('scango_cta_click');
+    }
+
+    function renderViralFooter() {
+      const el = document.getElementById('viralFooter');
+      if (!el) return;
+      applyViralFooter(el, restaurantData, {
+        appUrl: window.location.origin,
+        onTrack: () => trackViralCtaClick()
+      });
+    }
+
     // Offline resilience banner
     function showOfflineBanner(isOffline, customMsg) {
       let banner = document.getElementById('offlineNoticeBanner');
@@ -585,6 +619,7 @@ Object.defineProperties(window, {
       updateTableServiceUI();
       renderDemoThemeBar();
       applyFilterBarMode();
+      renderViralFooter();
       maybeOpenReviewFromLink();
       maybeOpenDishDeepLink();
     }

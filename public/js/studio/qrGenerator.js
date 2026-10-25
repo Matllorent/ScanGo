@@ -4,6 +4,7 @@
  * Módulo ES para generación de QR en Canvas y exportación en PDF de carteles de mesas.
  * Extraído de studio.js (generateQrCode, downloadQrPng, printTableStand, downloadAllTablesPDF).
  */
+import { buildKitLine } from '../utils/viralFooter.js';
 
 /**
  * Espera de forma reactiva y dirigida por eventos a que QRCode.js monte el canvas o img.
@@ -227,6 +228,7 @@ export function printTableStand(restaurant) {
         img { width: 220px; height: 220px; margin-bottom: 12px; }
         .wifi { background: #f4f4f5; padding: 10px 14px; border-radius: 8px; font-weight: 600; font-size: 13px; border: 1px dashed #ccc; }
         .badge-powered { font-size: 10px; color: #888; margin-top: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .viral-line { font-size: 10px; color: #9A9A9A; margin-top: 6px; }
       </style>
     </head>
     <body>
@@ -236,6 +238,7 @@ export function printTableStand(restaurant) {
         ${src ? `<img src="${src}" alt="QR Menú" />` : ''}
         ${wifiText ? `<div class="wifi">📶 ${wifiText}</div>` : ''}
         <div class="badge-powered">Menú Digital • ScanGo</div>
+        <div class="viral-line">${buildKitLine(window.location.origin)}</div>
       </div>
       <script>setTimeout(() => window.print(), 300);<\/script>
     </body>
@@ -511,7 +514,11 @@ export async function downloadAllTablesPDF(restaurant) {
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(8);
     pdf.setTextColor(150, 155, 152);
-    pdf.text('Generado con ScanGo', 105, 270, { align: 'center' });
+    pdf.text('Generado con ScanGo', 105, 264, { align: 'center' });
+    // F4 · kit viral: la misma línea que el footer de la carta, impresa en el
+    // cartel de mesa (cada mesa es un canal de altas).
+    pdf.setFontSize(7);
+    pdf.text(buildKitLine(window.location.origin), 105, 270, { align: 'center' });
   }
 
   pdf.save(`Carteles-Mesas-${restaurant?.slug || 'menu'}.pdf`);

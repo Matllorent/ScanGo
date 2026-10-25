@@ -91,6 +91,9 @@ router.get('/overview', adminMiddleware, async (req, res) => {
             branches: r.branches || [],
             subscription: r.subscription || {},
             analytics: r.analytics || { visits: 0, orders: 0, reservations: 0, waiterCalls: 0 },
+            // F4: el perfil completo (que incluye acquiredVia) vive en la
+            // columna JSON `profile`; la columna dedicada es aditiva.
+            acquiredVia: r.acquired_via || (r.profile && r.profile.acquiredVia) || '',
             createdAt: r.created_at,
             updatedAt: r.updated_at
           }));
@@ -237,6 +240,28 @@ router.get('/overview', adminMiddleware, async (req, res) => {
     }).length;
     const mrrEst = monthlyIncomeEstimate; // alias legacy: misma plata, nombre claro en la UI
 
+    // ── F4: de dónde vienen los dueños nuevos (footer viral ?ref=<slug>) ──
+    // Cada alta puede traer el slug de la carta que la originó. `(directo)`
+    // agrupa a los que llegaron sin referido (Google, boca a boca, invitación).
+    const acquisitionBySource = new Map();
+    for (const r of restaurants) {
+      const via = typeof r.acquiredVia === 'string' ? r.acquiredVia : '';
+      const key = via || '';
+      const entry = acquisitionBySource.get(key) || {
+        via,
+        label: via || '(directo)',
+        count: 0,
+        paying: 0
+      };
+      entry.count += 1;
+      if ((r.subscription || {}).status === 'active') entry.paying += 1;
+      acquisitionBySource.set(key, entry);
+    }
+    const acquisitionSources = [...acquisitionBySource.values()].sort(
+      (a, b) => (b.count - a.count) || a.label.localeCompare(b.label)
+    );
+    const acquiredCount = acquisitionSources.reduce((acc, s) => acc + (s.via ? s.count : 0), 0);
+
     res.json({
       metrics: {
         totalRestaurants,
@@ -255,7 +280,10 @@ router.get('/overview', adminMiddleware, async (req, res) => {
         trialsEndingList,
         trialFinished: trialFinished.length,
         trialBecamePaying,
-        trialConversionPercent
+        trialConversionPercent,
+        // F4: atribución viral (footer "Esta carta corre con ScanGo")
+        acquiredCount,
+        acquisitionSources
       },
       restaurants,
       users
