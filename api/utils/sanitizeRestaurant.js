@@ -479,6 +479,10 @@ function sanitizeRestaurantPayload(data) {
   // ventas reales de la última semana. Default encendido (ausente = activado);
   // el dueño lo apaga con false explícito y el server deja de etiquetar.
   clean.showTrendingChip = clean.showTrendingChip !== false;
+  // F7 "El Tiempo Real": estimación honesta de preparación en la carta y el
+  // seguimiento. Default encendido (ausente = activado); false explícito del
+  // dueño apaga la consulta y el chip.
+  clean.showPrepEstimate = clean.showPrepEstimate !== false;
   // Huso del dueño (F1 "El Cierre" + heatmap): viaja en el DOCUMENTO del local
   // (capturado por el navegador del Studio en cada guardado) para que los
   // crones y el badge usen la MISMA frontera de jornada sin env vars por

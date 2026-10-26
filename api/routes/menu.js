@@ -19,6 +19,7 @@ const { resolveImageMode, resolveMenuSizing, layoutSupportsMenuSizing } = requir
 const { computePopTiers } = require('../utils/popularityTiers');
 const dailyStockTracker = require('../utils/dailyStockTracker');
 const dishTrending = require('../utils/dishTrending');
+const { getPrepEstimateForRestaurant } = require('../services/prepEstimate');
 const escapeHtml = require('../utils/escapeHtml');
 
 const router = express.Router();
@@ -111,6 +112,9 @@ function buildDemoMenuResponse(typeOrSlug, opts = {}) {
     scheduleEnabled: Boolean(demo.scheduleEnabled),
     // Contador de cierre en el badge (default encendido cuando el campo falta).
     showClosingCountdown: demo.showClosingCountdown !== false,
+    // F7: una demo no tiene pedidos reales, así que nunca inventa un ETA.
+    showPrepEstimate: demo.showPrepEstimate !== false,
+    prepEstimate: null,
     customCoupons: [],
     allowLoyaltyPoints: false,
     loyaltyConfig: loyaltyService.getPublicLoyaltyConfig(demo),
@@ -373,6 +377,20 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
         }
       }
 
+      // F7 "El Tiempo Real": cuánto tardan REALMENTE los pedidos de este local.
+      // Se mide `created_at → status_updated_at` de los pedidos entregados de
+      // los últimos 7 días (cancelados afuera, zombis > 4 h afuera) y se exige
+      // una muestra mínima; sin muestra suficiente el chip NO aparece (omitir,
+      // nunca inventar). Informativo: el estado real sigue llegando por el
+      // seguimiento. Default encendido; `showPrepEstimate === false` no consulta
+      // nada. El servicio cachea 10 min por local y es fail-open.
+      let prepEstimateValue = null;
+      try {
+        prepEstimateValue = await getPrepEstimateForRestaurant(restaurant);
+      } catch (prepErr) {
+        console.warn('[menu] prepEstimate no disponible:', (prepErr && prepErr.message) || prepErr);
+      }
+
       // Sanitize public payload: exclude internal userId, billing identifiers, etc.
       const publicData = {
         id: restaurant.id,
@@ -439,6 +457,10 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
         // F5: chip de tendencia en los platos con ventas reales de la semana
         // (default encendido; apagado = la carta no muestra ninguna etiqueta).
         showTrendingChip: restaurant.showTrendingChip !== false,
+        // F7: estimación honesta de preparación del local (null si el dueño la
+        // apagó o si no hay muestra suficiente). Nunca expone pedidos ni PII.
+        showPrepEstimate: restaurant.showPrepEstimate !== false,
+        prepEstimate: prepEstimateValue,
         tableCount: restaurant.tableCount || 10,
         customCoupons: restaurant.customCoupons || [],
         allowLoyaltyPoints: restaurant.allowLoyaltyPoints === true,

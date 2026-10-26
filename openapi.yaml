@@ -2182,6 +2182,40 @@ components:
           description: |-
             Interruptor del dueño para el chip "🔥 Muy pedido esta semana" del menú (default true).
             Apagado, el servidor no consulta ventas ni emite `trendingLabel` (cero costo).
+        showPrepEstimate:
+          type: boolean
+          description: |-
+            Interruptor del dueño para el tiempo estimado de preparación (default true). Mide
+            `created_at → status_updated_at` de los pedidos ENTREGADOS de los últimos 7 días;
+            apagado, el servidor no consulta pedidos ni emite `prepEstimate` (cero costo).
+        prepEstimate:
+          type: object
+          nullable: true
+          description: |-
+            Solo en GET /api/menu. Estimación honesta del local: `null` si el dueño la apagó,
+            si no hay 20 pedidos entregados en 7 días o si la consulta falló. Nunca expone
+            pedidos ni PII.
+          properties:
+            samples:
+              type: integer
+              description: Cantidad de pedidos entregados usados como evidencia
+            p50:
+              type: integer
+            p90:
+              type: integer
+            min:
+              type: integer
+            max:
+              type: integer
+            label:
+              type: string
+              example: ~12–18 min
+            windowDays:
+              type: integer
+              example: 7
+            generatedAt:
+              type: string
+              format: date-time
         allowIceCreamWizard:
           type: boolean
         categories:
@@ -2354,6 +2388,22 @@ components:
           type: number
         tip:
           type: number
+        prepEstimate:
+          type: object
+          nullable: true
+          description: |-
+            Cuánto tardan los pedidos de ESTE local (null si el dueño lo apagó, si la muestra
+            no alcanza o si la consulta falló). Número del local, sin PII.
+          properties:
+            samples:
+              type: integer
+            p50:
+              type: integer
+            p90:
+              type: integer
+            label:
+              type: string
+              example: ~12–18 min
         items:
           type: array
           items:

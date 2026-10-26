@@ -18,6 +18,7 @@ const { quoteOrderItems, resolveDeliveryFee, resolveCouponDiscount } = require('
 const { z } = require('zod');
 const loyaltyService = require('../services/loyalty');
 const notificationsService = require('../services/notifications');
+const { getPrepEstimateForRestaurant } = require('../services/prepEstimate');
 const { signOrderToken, verifyOrderToken } = require('../utils/orderTrackingToken');
 const auditService = require('../services/audit');
 
@@ -327,6 +328,15 @@ router.get('/track/:token', async (req, res, next) => {
     const restaurant = db.findRestaurantById(orderRestaurantId);
     const status = ORDER_STATUSES.includes(order.status) ? order.status : 'pending';
 
+    // F7: cuánto tardan los pedidos de este local (null si aún no hay muestra
+    // suficiente o el dueño lo apagó). Es un número del LOCAL, sin PII.
+    let prepEstimate = null;
+    try {
+      prepEstimate = await getPrepEstimateForRestaurant(restaurant);
+    } catch (prepErr) {
+      prepEstimate = null;
+    }
+
     return successResponse(res, {
       orderId: order.id,
       status,
@@ -342,6 +352,7 @@ router.get('/track/:token', async (req, res, next) => {
       discount: Number(order.discount_amount != null ? order.discount_amount : (order.discountAmount || 0)) || 0,
       // Propina opcional declarada por el comensal (0 si no dejó).
       tip: Number(order.tip_amount != null ? order.tip_amount : (order.tipAmount || 0)) || 0,
+      prepEstimate,
       items: (order.items_snapshot || order.itemsSnapshot || []).map(line => ({
         name: line.name,
         quantity: line.quantity

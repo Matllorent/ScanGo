@@ -1302,6 +1302,14 @@ export function updateLiveState() {
     if (sliderTrending) sliderTrending.style.backgroundColor = trendingCheck.checked ? '#38A169' : '#2a3a33';
   }
 
+  // F7 "El Tiempo Real": estimación honesta de preparación (default ON).
+  const prepEstimateCheck = el('inputShowPrepEstimate');
+  if (prepEstimateCheck) {
+    restaurant.showPrepEstimate = prepEstimateCheck.checked !== false;
+    const sliderPrep = el('sliderShowPrepEstimate');
+    if (sliderPrep) sliderPrep.style.backgroundColor = prepEstimateCheck.checked ? '#38A169' : '#2a3a33';
+  }
+
   if (el('inputTableCount')) restaurant.tableCount = parseInt(el('inputTableCount').value) || 10;
 
   if (el('studioNavRestaurantName')) el('studioNavRestaurantName').textContent = restaurant.name;
@@ -1522,6 +1530,13 @@ export function renderStudioUI() {
     trendingLoad.checked = restaurant.showTrendingChip !== false;
     const sliderTrending = el('sliderShowTrendingChip');
     if (sliderTrending) sliderTrending.style.backgroundColor = trendingLoad.checked ? '#38A169' : '#2a3a33';
+  }
+  // F7: tiempo estimado de preparación (default encendido).
+  const prepLoad = el('inputShowPrepEstimate');
+  if (prepLoad) {
+    prepLoad.checked = restaurant.showPrepEstimate !== false;
+    const sliderPrep = el('sliderShowPrepEstimate');
+    if (sliderPrep) sliderPrep.style.backgroundColor = prepLoad.checked ? '#38A169' : '#2a3a33';
   }
   if (el('inputTableCount')) el('inputTableCount').value = restaurant.tableCount || 10;
 

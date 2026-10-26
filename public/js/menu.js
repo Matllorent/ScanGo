@@ -1777,6 +1777,24 @@ Object.defineProperties(window, {
       updateTotals();
     }
 
+    // F7 "El Tiempo Real": el checkout informa cuánto tardan REALMENTE los
+    // pedidos de este local. Es una afirmación con evidencia (pedidos
+    // entregados de los últimos 7 días, mínimo 20 muestras) que calcula el
+    // servidor; acá solo se pinta. Sin estimación, la línea no existe.
+    function updatePrepEstimateLine() {
+      const line = document.getElementById('prepEstimateLine');
+      if (!line) return;
+      const estimate = restaurantData && restaurantData.prepEstimate;
+      const label = estimate && estimate.label ? String(estimate.label) : '';
+      if (!label) {
+        line.style.display = 'none';
+        line.textContent = '';
+        return;
+      }
+      line.textContent = `⏱ En este local los pedidos suelen tardar ${label}`;
+      line.style.display = 'block';
+    }
+
     function updateTotals() {
       const currency = restaurantData.currency || '$';
       const subtotal = Object.values(cart).reduce((sum, item) => sum + (item.qty * getCartUnitPrice(item)), 0);
@@ -1831,6 +1849,7 @@ Object.defineProperties(window, {
 
       const total = Math.max(0, subtotal + currentDelivery - discountAmount) + tipAmount;
       document.getElementById('summaryTotal').textContent = formatTotalOrFree(total);
+      updatePrepEstimateLine();
       updateSplitCalculation();
     }
 

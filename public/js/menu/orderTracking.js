@@ -219,6 +219,13 @@ function renderOrderTracking(data, ctx) {
   const totalLine = (data.total != null && data.currency)
     ? `<div style="border-top:1px solid rgba(255,255,255,0.1); margin-top:12px; padding-top:10px; color:var(--chalk-gold); font-weight:700; font-size:0.9rem;">Total: ${escapeHtml(String(data.currency))} ${Number(data.total).toFixed(2)}</div>`
     : '';
+  // F7 "El Tiempo Real": cuánto tardan los pedidos de este local, con evidencia
+  // real (el servidor exige muestra mínima; si no hay, `prepEstimate` es null
+  // y esta línea no existe). Informativo: el estado real manda.
+  const prep = data && data.prepEstimate;
+  const prepLine = (prep && prep.label && status !== 'delivered' && status !== 'cancelled')
+    ? `<div style="margin-top:12px; font-size:0.82rem; color:var(--chalk-dim);">⏱ En este local los pedidos suelen tardar ${escapeHtml(String(prep.label))}.</div>`
+    : '';
   // 💬 Nudge post-entrega (una vez por pedido): el momento de mayor
   // conversión para pedir la reseña. Solo si el dueño configuró su link
   // de Google (si no, el Studio lo empuja a configurarlo).
@@ -236,7 +243,7 @@ function renderOrderTracking(data, ctx) {
       </div>`;
     }
   }
-  body.innerHTML = warning + stepsHtml + totalLine + nudgeHtml;
+  body.innerHTML = warning + stepsHtml + prepLine + totalLine + nudgeHtml;
 }
 
 function renderOrderTrackingError(message) {

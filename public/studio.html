@@ -479,6 +479,20 @@
                   <span id="sliderShowTrendingChip" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
                 </label>
               </div>
+              <!-- F7 "El Tiempo Real": estimación honesta de preparación en el
+                   checkout y el seguimiento. Se calcula con pedidos REALES ya
+                   entregados de los últimos 7 días (mínimo 20). Sin muestra
+                   suficiente no se muestra nada: nunca se inventa un tiempo. -->
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);">
+                <div>
+                  <strong style="font-size:12px; color:#fff;">⏱ Tiempo estimado de preparación</strong>
+                  <div style="font-size:10px; color:var(--text-dim);">En el checkout y el seguimiento: "En este local los pedidos suelen tardar ~X–Y min". Sale de los pedidos que ya entregaste en los últimos 7 días. Si todavía no tenés 20 pedidos entregados, no se muestra (preferimos no inventar). Apagado = nunca aparece.</div>
+                </div>
+                <label style="position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0;">
+                  <input type="checkbox" id="inputShowPrepEstimate" data-js-change="updateLiveState" style="opacity:0; width:0; height:0;" aria-label="Mostrar tiempo estimado de preparación">
+                  <span id="sliderShowPrepEstimate" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
+                </label>
+              </div>
             </div>
           </div>
 

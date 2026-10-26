@@ -1171,6 +1171,70 @@ const db = {
     return [...byId.values()];
   },
 
+  // F7 "El Tiempo Real": filas de pedidos dentro de la ventana (ISO) con los
+  // timestamps que miden la preparación REAL (created_at → status_updated_at).
+  // Unión nube ∪ espejo local por id (patrón El Cierre/F3): un pedido cuyo
+  // dual-write fue rechazado en cloud no desaparece de la muestra, y si la
+  // nube cae el espejo sostiene el cálculo (la carta nunca rompe).
+  // Degradación honesta: si `status_updated_at` todavía no existe en cloud
+  // (migración 004 sin aplicar), reintenta sin esa columna — el espejo local
+  // sigue aportando sus filas y sin timestamps la estimación es `null`.
+  async getOrderPrepRows(restaurantId, startIso, endIso) {
+    if (!restaurantId || !startIso || !endIso) return [];
+    let cloudRows = [];
+    if (supabase) {
+      const baseColumns = 'id, status, created_at';
+      const attempt = async (columns) => supabase
+        .from('orders')
+        .select(columns)
+        .eq('restaurant_id', restaurantId)
+        .gte('created_at', startIso)
+        .lt('created_at', endIso)
+        .limit(1000);
+      try {
+        let { data, error } = await attempt(`${baseColumns}, status_updated_at`);
+        if (error && /status_updated_at/i.test(error.message || '')) {
+          const retry = await attempt(baseColumns);
+          data = retry.data;
+          error = retry.error;
+        }
+        if (error) throw error;
+        cloudRows = Array.isArray(data) ? data : [];
+      } catch (err) {
+        console.warn('[DB] getOrderPrepRows cloud no disponible (espejo local:', (err && err.message) || err, ')');
+      }
+    }
+    const startMs = Date.parse(startIso);
+    const endMs = Date.parse(endIso);
+    const byId = new Map();
+    // Espejo local primero; la nube es canónica pero NO puede borrar el
+    // timestamp que el espejo sí tiene (dual-write asimétrico: local OK,
+    // cloud rechazado). Sin esto, un pedido medido en local se perdería.
+    for (const localRow of readJson(ORDERS_FILE, [])) {
+      if (!localRow) continue;
+      const rid = localRow.restaurant_id || localRow.restaurantId;
+      if (rid !== restaurantId) continue;
+      const ts = Date.parse(localRow.created_at || localRow.createdAt || '');
+      if (Number.isNaN(ts)) continue;
+      if (ts >= startMs && ts < endMs && localRow.id) {
+        byId.set(String(localRow.id), localRow);
+      }
+    }
+    for (const row of cloudRows) {
+      if (!row || !row.id) continue;
+      const key = String(row.id);
+      const local = byId.get(key);
+      if (!local) {
+        byId.set(key, row);
+        continue;
+      }
+      const cloudFinished = row.status_updated_at !== undefined ? row.status_updated_at : row.statusUpdatedAt;
+      const localFinished = local.status_updated_at !== undefined ? local.status_updated_at : local.statusUpdatedAt;
+      byId.set(key, (!cloudFinished && localFinished) ? { ...row, status_updated_at: localFinished } : row);
+    }
+    return [...byId.values()];
+  },
+
   // Mapeo canónico local → fila cloud de `orders` (misma forma que usa
   // POST /api/orders; fuente única para no diverger).
   toCloudOrder(orderRecord) {
