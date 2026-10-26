@@ -27,7 +27,13 @@ router.get('/birthday-nudge', verifyCronAuth, async (req, res, next) => {
       return res.status(400).json({ error: 'restaurantId requerido (query param)' });
     }
 
-    const now = new Date();
+    // Reloj inyectable (patrón de la casa, GATED a no-producción): la suite
+    // congela el "hoy" para no depender del día en que se corre. En producción
+    // el cron usa SIEMPRE el reloj del server (un query param nunca lo mueve).
+    const injectedNow = process.env.NODE_ENV !== 'production' && req.query.nowMs
+      ? Number(req.query.nowMs)
+      : NaN;
+    const now = new Date(Number.isFinite(injectedNow) ? injectedNow : Date.now());
     const todayMonth = now.getUTCMonth();
     const todayDay = now.getUTCDate();
 

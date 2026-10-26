@@ -166,19 +166,20 @@ assert.strictEqual(result.length, 1, 'cliente con push sub en r2 aparece en r2')
     writeJson(pushSubsFile, pushSubsData);
 
     // ── 3) Cron endpoint: GET /api/cron/birthday-nudge ────────────────────────
+    // Reloj congelado (gated a no-producción): la suite corre cualquier día.
     // Sin auth → 401
-    const anon = await fetch(`${base}/api/cron/birthday-nudge?restaurantId=${restA.id}`);
+    const anon = await fetch(`${base}/api/cron/birthday-nudge?restaurantId=${restA.id}&nowMs=${NOW}`);
     assert.strictEqual(anon.status, 401, 'cron sin secreto → 401');
 
     // Con secreto inválido → 401
-    const invalidSecret = await fetch(`${base}/api/cron/birthday-nudge?restaurantId=${restA.id}`, {
+    const invalidSecret = await fetch(`${base}/api/cron/birthday-nudge?restaurantId=${restA.id}&nowMs=${NOW}`, {
       headers: { 'x-cron-secret': 'wrong' }
     });
     assert.strictEqual(invalidSecret.status, 401, 'cron con secreto inválido → 401');
 
     // Con secreto válido (usando x-cron-secret header)
     const cronSecret = process.env.CRON_SECRET || 'test-cron-secret';
-    const cronRes = await fetch(`${base}/api/cron/birthday-nudge?restaurantId=${restA.id}`, {
+    const cronRes = await fetch(`${base}/api/cron/birthday-nudge?restaurantId=${restA.id}&nowMs=${NOW}`, {
       headers: { 'x-cron-secret': cronSecret }
     });
     assert.strictEqual(cronRes.status, 200, `cron 200 (llegó ${cronRes.status})`);
@@ -197,6 +198,14 @@ assert.strictEqual(result.length, 1, 'cliente con push sub en r2 aparece en r2')
     // skipped solo cuenta fallos de envío reales (push fallido, email fallido, opt-out)
     // En este test: 0 skipped porque el único candidato tuvo push intentado (falló por endpoint falso) y email intentado (falló por Resend testing)
     assert.strictEqual(data.skipped.noPushSub + data.skipped.noEmail + data.skipped.noConsent + data.skipped.optOut + data.skipped.emailFailed, 0, 'skipped solo cuenta fallos de envío, no filtrados previos');
+
+    // El reloj inyectado MANDA: con otra fecha no hay cumpleañeros (y no se
+    // manda nada). Así la suite no depende del día real en que se corre.
+    const otherDay = await fetch(`${base}/api/cron/birthday-nudge?restaurantId=${restA.id}&nowMs=${NOW + 30 * DAY_MS}`, {
+      headers: { 'x-cron-secret': cronSecret }
+    });
+    assert.strictEqual(otherDay.status, 200);
+    assert.strictEqual((await otherDay.json()).data.totalCandidates, 0, 'otra fecha → 0 candidatos');
 
     // Verificar auditoría
     await new Promise(r => setTimeout(r, 500));

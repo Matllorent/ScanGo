@@ -99,12 +99,20 @@ async function runGroupCartAndMozoTests() {
 
   let VirtualWaiterClass;
   try {
+    // El componente importa helpers ESM que el sandbox de `new Function` no
+    // resuelve (los imports se stripean): inyectamos la MISMA fuente de los
+    // helpers puros —no una copia de la regla— para evaluar el componente real
+    // con la implementación vigente (F3 sumó `isDishSoldOut` a `analyze`).
+    const helperSource = ['escapeHtmlBrowser.js', 'dishAvailability.js']
+      .map((file) => fs.readFileSync(path.join(__dirname, '../public/js/utils', file), 'utf8'))
+      .join('\n')
+      .replace(/export function/g, 'function');
     // Strip both export and import statements for CommonJS evaluation
     const cleanedCode = virtualWaiterSource
       .replace(/export class VirtualWaiter/, 'class VirtualWaiter')
       .replace(/import\s+.*?from\s+['"][^'"]+['"]\s*;/g, '')
       .replace(/import\s+.*?from\s+['"][^'"]+['"]\s*;/g, '');
-    const factory = new Function(`${cleanedCode}; return VirtualWaiter;`);
+    const factory = new Function(`${helperSource}\n${cleanedCode}; return VirtualWaiter;`);
     VirtualWaiterClass = factory();
   } catch (e) {
     throw new Error('Error al evaluar VirtualWaiter: ' + e.message);
