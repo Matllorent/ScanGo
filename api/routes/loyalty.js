@@ -13,6 +13,7 @@ const { requireActiveSubscription } = require('../middleware/subscriptionGuard')
 const { verifyCronAuth } = require('../middleware/cronAuth');
 const auditService = require('../services/audit');
 const { computeChurnCandidates } = require('../utils/churnRecovery');
+const recoveryCoupons = require('../utils/recoveryCoupons');
 const emailService = require('../services/email');
 const notificationsService = require('../services/notifications');
 const db = require('../../src/db/db');
@@ -372,6 +373,8 @@ router.post('/winback', authMiddleware, tenantGuard, requireActiveSubscription, 
     let blockedConsent = 0;
     let blockedNoEmail = 0;
     let blockedOptOut = 0;
+    let pushed = 0;
+    const recipients = [];
     const errors = [];
 
     for (const candidate of candidates) {
@@ -418,6 +421,25 @@ router.post('/winback', authMiddleware, tenantGuard, requireActiveSubscription, 
         continue;
       }
 
+      // Push al cliente del Club (F8-v2): el cupón también llega a la app
+      // instalada. Dirigido por teléfono + consentimiento (nunca a todos);
+      // sin VAPID o sin suscripciones se saltea sin romper la campaña.
+      let pushedToCustomer = false;
+      try {
+        const push = await notificationsService.sendWinbackCouponNotification({
+          restaurantId,
+          customerPhone: customer.phone,
+          couponCode: coupon.code,
+          offerLabel: offer.label,
+          slug: menuSlug,
+          restaurantName
+        });
+        pushedToCustomer = Boolean(push && Number(push.delivered) > 0);
+        if (pushedToCustomer) pushed++;
+      } catch (pushErr) {
+        errors.push({ customerId: candidate.customerId, reason: 'PUSH_FAILED', detail: pushErr.message });
+      }
+
       // Enviar email con plantilla winback
       const personalMessage = customMessage
         ? `\n\n${customMessage}`
@@ -432,6 +454,7 @@ router.post('/winback', authMiddleware, tenantGuard, requireActiveSubscription, 
         `Pedí acá: <a href="${menuUrl}">${menuUrl}</a>`
       ].filter(Boolean).join('<br><br>');
 
+      let emailSent = false;
       try {
         const result = await emailService.sendPromotionalEmail({
           to: email,
@@ -458,9 +481,30 @@ router.post('/winback', authMiddleware, tenantGuard, requireActiveSubscription, 
         });
 
         sent++;
+        emailSent = true;
       } catch (emailErr) {
         errors.push({ customerId: customer.customerId, reason: 'EMAIL_SEND_FAILED', detail: emailErr.message });
       }
+
+      // F8-v2: cada cliente con cupón queda en el reporte con un link de
+      // WhatsApp listo para usar. Es el fallback operativo cuando el email no
+      // salió (rebotó, no hay proveedor) y el canal natural del Club.
+      // Privacidad: la UI muestra SOLO `phoneMasked`; el número completo vive
+      // únicamente dentro de `waLink` (excepción operativa documentada, sin
+      // exponerlo como campo separado ni en logs/auditoría).
+      const waDigits = String(customer.phone || '').replace(/\D/g, '');
+      const waMessage = [
+        `¡Hola${customer.name ? ' ' + customer.name : ''}! Te esperamos en ${restaurantName}.`,
+        `Tu cupón ${coupon.code} (${offer.label}) es de un solo uso y vence en 14 días.`,
+        `Pedí acá: ${menuUrl}`
+      ].join(' ');
+      recipients.push({
+        phoneMasked: loyaltyService.maskPhone(customer.phone),
+        couponCode: coupon.code,
+        couponLabel: offer.label,
+        channels: { email: emailSent, push: pushedToCustomer },
+        waLink: waDigits ? `https://wa.me/${waDigits}?text=${encodeURIComponent(waMessage)}` : null
+      });
     }
 
     return successResponse(res, {
@@ -468,9 +512,77 @@ router.post('/winback', authMiddleware, tenantGuard, requireActiveSubscription, 
       blockedConsent,
       blockedNoEmail,
       blockedOptOut,
+      pushed,
+      recipients,
       totalCandidates: candidates.length,
       errors: errors.length ? errors : undefined
-    }, `Campaña de recupero completada: ${sent} enviados, ${blockedConsent} sin consentimiento, ${blockedNoEmail} sin email, ${blockedOptOut} con opt-out`);
+    }, `Campaña de recupero completada: ${sent} enviados, ${pushed} con push, ${blockedConsent} sin consentimiento, ${blockedNoEmail} sin email, ${blockedOptOut} con opt-out`);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/loyalty/winback/coupons
+ * Dueño: el ledger de cupones de recupero con privacidad. Nunca devuelve el
+ * teléfono crudo (solo `phoneMasked`), ni `boundPhone`, ni `usedByPhone`.
+ * `status` es derivado (live|used|expired) para que la UI no recalcule fechas.
+ */
+router.get('/winback/coupons', authMiddleware, tenantGuard, requireActiveSubscription, async (req, res, next) => {
+  try {
+    const restaurantId = req.tenantId;
+    const rows = await loyaltyService.listRecoveryCoupons(restaurantId);
+    const nowMs = Date.now();
+    const summary = recoveryCoupons.summarizeRecoveryCoupons(rows, { nowMs });
+    const coupons = rows.slice(0, 200).map((row) => {
+      const shape = recoveryCoupons.toCatalogShape(row) || { code: '', type: 'percent', value: 0, label: '' };
+      const status = row.usedAt ? 'used' : (Date.parse(row.expiresAt) > nowMs ? 'live' : 'expired');
+      return {
+        code: shape.code,
+        label: shape.label,
+        type: shape.type,
+        value: shape.value,
+        createdAt: row.createdAt || null,
+        expiresAt: row.expiresAt || null,
+        usedAt: row.usedAt || null,
+        status,
+        phoneMasked: loyaltyService.maskPhone(row.usedByPhone || row.boundPhone || ''),
+        usedOrderId: row.usedOrderId || null
+      };
+    });
+    return successResponse(res, { summary, coupons }, 'Cupones de recupero');
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/loyalty/winback/telemetry
+ * Dueño: ¿el circuito de recupero funciona? Emitidos / usados / vivos /
+ * vencidos, clientes recuperados y plata atribuida por los pedidos REALES de
+ * los cupones canjeados (ventana 30 días, cohorte por emisión).
+ */
+router.get('/winback/telemetry', authMiddleware, tenantGuard, requireActiveSubscription, async (req, res, next) => {
+  try {
+    const restaurantId = req.tenantId;
+    const days = Number(req.query.days);
+    const rows = await loyaltyService.listRecoveryCoupons(restaurantId);
+    // Solo hace falta el pedido de cada cupón usado: no se escanea el archivo
+    // entero de órdenes para una métrica del panel.
+    const usedOrderIds = new Set(rows.filter(r => r && r.usedOrderId).map(r => r.usedOrderId));
+    let orders = [];
+    try {
+      orders = db.getOrders().filter(o => o && usedOrderIds.has(o.id));
+    } catch (e) {
+      orders = []; // sin espejo legible: 0 plata atribuida, nunca inventada
+    }
+    const telemetry = recoveryCoupons.computeWinbackTelemetry(rows, {
+      orders,
+      nowMs: Date.now(),
+      windowDays: Number.isFinite(days) && days > 0 ? Math.min(365, days) : 30,
+      restaurantId
+    });
+    return successResponse(res, telemetry, 'Telemetría de recupero');
   } catch (err) {
     next(err);
   }

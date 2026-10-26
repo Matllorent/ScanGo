@@ -117,6 +117,21 @@ function findCouponByCode(rows, code) {
 }
 
 /**
+ * Dígitos E.164-ish (misma regla que el Club: se quitan +/espacios/guiones y
+ * el prefijo internacional 00). Se usa SOLO para comparar el teléfono que
+ * declara el comensal contra el vinculado al cupón: un número escrito con
+ * espacios («+598 99 123 456») debe canjear su propio cupón, no rebotar con
+ * NOT_FOR_THIS_PHONE. No persiste ni loguea nada.
+ */
+function normalizePhoneDigits(raw) {
+  if (!raw) return '';
+  let digits = String(raw).replace(/[^\d+]/g, '');
+  if (digits.startsWith('+')) digits = digits.slice(1);
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  return digits;
+}
+
+/**
  * isValidRecoveryCoupon — SOLO la semántica de vigencia (percentage/free va en money).
  * @returns {true | 'EXPIRED' | 'ALREADY_USED' | 'NOT_FOR_THIS_PHONE' | 'MALFORMED'}
  */
@@ -126,10 +141,9 @@ function isValidRecoveryCoupon(row, { nowMs, phone } = {}) {
   const at = Number.isFinite(nowMs) ? nowMs : Date.now();
   if (Date.parse(row.expiresAt) <= at) return 'EXPIRED';
   if (row.boundPhone && phone) {
-    const p = String(phone).trim();
-    if (p && normalizeCouponCode(p) !== normalizeCouponCode(row.boundPhone)) {
-      return 'NOT_FOR_THIS_PHONE';
-    }
+    const bound = normalizePhoneDigits(row.boundPhone);
+    const given = normalizePhoneDigits(phone);
+    if (bound && given && bound !== given) return 'NOT_FOR_THIS_PHONE';
   }
   return true;
 }
@@ -148,6 +162,51 @@ function toCatalogShape(row) {
     value: Number(row.value) || 0,
     label: row.label || row.offerLabel || CODE_LABEL
   };
+}
+
+// Copy honesta para el comensal: cada veredicto explica POR QUÉ el cupón no
+// aplicó (antes el checkout descartaba el código en silencio y el cliente
+// pagaba el total creyendo que había usado su cupón).
+const RECOVERY_COUPON_REASON_COPY = {
+  NOT_FOUND: 'No encontramos ese cupón en este local.',
+  EXPIRED: 'Este cupón venció. Pedile al local un código nuevo.',
+  ALREADY_USED: 'Este cupón ya fue usado. Cada código sirve una sola vez.',
+  NOT_FOR_THIS_PHONE: 'Ese cupón es personal: fue emitido para otro teléfono.',
+  MALFORMED: 'El cupón no es válido.',
+  NOT_APPLICABLE: 'Tu cupón es de envío gratis: elegí delivery para usarlo.'
+};
+
+/**
+ * describeRecoveryCoupon — veredicto listo para la UI del comensal.
+ * Puro: NO consulta el ledger; recibe la fila ya resuelta (o null).
+ * Devuelve { valid, reason, message, coupon } donde `coupon` es la fila en
+ * forma de catálogo público { code, type, value, label } (nunca el teléfono).
+ *
+ * `orderMode` es OPCIONAL (retrocompatible): cuando llega, un cupón de envío
+ * gratis fuera de DELIVERY es NOT_APPLICABLE. Esa verificación debe ocurrir
+ * ANTES del claim: si se reclamara primero, el cupón se quemaría sin dar
+ * ningún descuento en una mesa (el pricing resuelve envío gratis sobre un fee
+ * que solo existe en delivery).
+ */
+function describeRecoveryCoupon(row, { nowMs, phone, orderMode } = {}) {
+  if (!row) {
+    return { valid: false, reason: 'NOT_FOUND', message: RECOVERY_COUPON_REASON_COPY.NOT_FOUND, coupon: null };
+  }
+  const verdict = isValidRecoveryCoupon(row, { nowMs, phone });
+  if (verdict !== true) {
+    const reason = RECOVERY_COUPON_REASON_COPY[verdict] ? verdict : 'MALFORMED';
+    return { valid: false, reason, message: RECOVERY_COUPON_REASON_COPY[reason], coupon: null };
+  }
+  const mode = orderMode ? String(orderMode).toUpperCase() : '';
+  if (mode && row.type === 'free_delivery' && mode !== 'DELIVERY') {
+    return {
+      valid: false,
+      reason: 'NOT_APPLICABLE',
+      message: RECOVERY_COUPON_REASON_COPY.NOT_APPLICABLE,
+      coupon: null
+    };
+  }
+  return { valid: true, reason: null, message: '', coupon: toCatalogShape(row) };
 }
 
 /**
@@ -185,6 +244,59 @@ function summarizeRecoveryCoupons(rows, { nowMs } = {}) {
   };
 }
 
+/**
+ * computeWinbackTelemetry — métricas HONESTAS del circuito de recupero (F8-v2).
+ * Puro (cero I/O): recibe las filas del ledger y los pedidos ya leídos.
+ *
+ * Cohorte por emisión: se miran los cupones CREADOS en la ventana (default
+ * 30 días) y, de esos, cuántos se usaron. `attributedRevenueCents` solo suma
+ * pedidos REALES encontrados por `usedOrderId` (si el pedido no está en el
+ * espejo —otra réplica— no se inventa ingreso: recoveredCount tampoco sube).
+ * Los cancelados no cuentan como ingreso recuperado.
+ */
+function computeWinbackTelemetry(coupons, { orders = [], nowMs, windowDays = 30, restaurantId } = {}) {
+  const at = Number.isFinite(nowMs) ? nowMs : Date.now();
+  const days = Number.isFinite(windowDays) && windowDays > 0 ? windowDays : 30;
+  const since = at - days * 24 * 60 * 60 * 1000;
+  const all = Array.isArray(coupons) ? coupons : [];
+  const cohort = all.filter(r => {
+    if (!r || !r.createdAt) return false;
+    if (restaurantId && r.restaurantId && r.restaurantId !== restaurantId) return false;
+    return Date.parse(r.createdAt) >= since;
+  });
+  const used = cohort.filter(r => r.usedAt);
+  const live = cohort.filter(r => !r.usedAt && Date.parse(r.expiresAt) > at);
+
+  const byId = new Map(
+    (Array.isArray(orders) ? orders : [])
+      .filter(o => o && o.id && (!restaurantId || !o.restaurant_id || o.restaurant_id === restaurantId || o.restaurantId === restaurantId))
+      .map(o => [o.id, o])
+  );
+  let recoveredCount = 0;
+  let attributedRevenueCents = 0;
+  for (const row of used) {
+    const order = row.usedOrderId ? byId.get(row.usedOrderId) : null;
+    if (!order) continue;
+    const status = String(order.status || '').toLowerCase();
+    if (status === 'cancelled' || status === 'canceled') continue;
+    recoveredCount++;
+    const total = Number(order.total != null ? order.total : order.amount);
+    if (Number.isFinite(total) && total > 0) attributedRevenueCents += Math.round(total * 100);
+  }
+
+  return {
+    windowDays: days,
+    couponsIssued: cohort.length,
+    couponsUsed: used.length,
+    couponsLive: live.length,
+    couponsExpired: cohort.length - used.length - live.length,
+    recoveredCount,
+    attributedRevenueCents,
+    // % con un decimal (evita "33.333333%" en el panel).
+    conversionRate: cohort.length ? Math.round((used.length / cohort.length) * 1000) / 10 : 0
+  };
+}
+
 module.exports = {
   RECOVERY_COUPON_TYPES,
   RECOVERY_OFFERS,
@@ -195,9 +307,13 @@ module.exports = {
   generateCouponCodeNow,
   buildRecoveryCoupon,
   normalizeCouponCode,
+  normalizePhoneDigits,
   findCouponByCode,
   isValidRecoveryCoupon,
   toCatalogShape,
+  describeRecoveryCoupon,
+  RECOVERY_COUPON_REASON_COPY,
   purgeRecoveryCoupons,
-  summarizeRecoveryCoupons
+  summarizeRecoveryCoupons,
+  computeWinbackTelemetry
 };

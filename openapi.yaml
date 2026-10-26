@@ -960,6 +960,72 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/orders/coupon/validate:
+    post:
+      tags: [orders]
+      summary: Validar un cupón antes de pedir (público)
+      description: |-
+        Resuelve el código contra las DOS fuentes: catálogo público del dueño
+        (`customCoupons`) y el ledger PRIVADO de cupones de recupero
+        (`VOL-XXXXXXXX`, que nunca viaja en el payload del menú). NO consume el
+        código: la autoridad final (claim atómico) es `POST /api/orders`.
+        Veredicto honesto en `data.reason`: `NOT_FOUND`, `EXPIRED`,
+        `ALREADY_USED`, `NOT_FOR_THIS_PHONE`, `MALFORMED`, `NOT_APPLICABLE`
+        (envío gratis fuera de delivery) o `UNAVAILABLE` (ledger ilegible).
+        El teléfono solo se usa para verificar que el cupón sea del comensal
+        (comparación por dígitos); no se persiste ni se devuelve.
+      operationId: validateOrderCoupon
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [restaurantId, code]
+              properties:
+                restaurantId:
+                  type: string
+                code:
+                  type: string
+                  minLength: 1
+                  maxLength: 40
+                phone:
+                  type: string
+                  maxLength: 30
+                orderMode:
+                  type: string
+                  enum: [LOCAL, DELIVERY, TAKEAWAY]
+                  default: LOCAL
+      responses:
+        '200':
+          description: |-
+            `{ valid, reason, message, source, coupon }`; `coupon` es
+            `{ code, type, value, label }` o `null` (nunca el teléfono).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '400':
+          description: Body inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Restaurante no encontrado (`RESTAURANT_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/orders:
     post:
       tags: [orders]
@@ -969,8 +1035,14 @@ paths:
         inexistente → 400 `DISH_NOT_FOUND`). Reglas autoritativas: pedido mínimo
         del local → 400 `MIN_ORDER_NOT_MET`; `orderMode: DELIVERY` sin dirección
         → 400 `DELIVERY_ADDRESS_REQUIRED`. Carta vitrina (`allowMenuOrders=false`)
-        → 403 `MENU_ORDERS_DISABLED`. Responde 201 con el pedido + `trackingToken`
-        (HMAC sin estado) y `tipAmount` (propina opcional, aparte del ticket promedio).
+        → 403 `MENU_ORDERS_DISABLED`. Local cerrado → 400 `RESTAURANT_CLOSED`.
+        Cupón de recupero: se resuelve contra el ledger privado y se reclama
+        atómicamente antes de cobrar; un código existente pero no usable
+        devuelve 422 `COUPON_EXPIRED` / `COUPON_NOT_FOR_THIS_PHONE` /
+        `COUPON_MALFORMED` o 409 `COUPON_ALREADY_USED` (nunca cobra el total en
+        silencio). Si el pedido no llega a crearse, el claim se libera.
+        Responde 201 con el pedido + `trackingToken` (HMAC sin estado) y
+        `tipAmount` (propina opcional, aparte del ticket promedio).
         Acredita fidelización en background sin romper el alta.
       operationId: createOrder
       parameters:
@@ -1016,6 +1088,21 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           description: Carta vitrina, sin pedidos (`MENU_ORDERS_DISABLED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Cupón de recupero ya usado (`COUPON_ALREADY_USED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: |-
+            Cupón de recupero vencido, de otro teléfono, malformado o de envío
+            gratis fuera de delivery (`COUPON_EXPIRED`, `COUPON_NOT_FOR_THIS_PHONE`,
+            `COUPON_MALFORMED`, `COUPON_NOT_APPLICABLE`)
           content:
             application/json:
               schema:
@@ -1406,6 +1493,158 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/loyalty/winback:
+    post:
+      tags: [loyalty]
+      summary: Campaña de recupero automatizada (dueño, F8)
+      description: |-
+        `authMiddleware` + `tenantGuard` + `requireActiveSubscription` + limiter.
+        Detecta clientes en riesgo, filtra consentimiento de marketing + email,
+        genera cupones `VOL-XXXXXXXX` de un solo uso atados al teléfono y envía
+        email + push dirigido. Responde contadores (`sent`, `blockedConsent`,
+        `blockedNoEmail`, `blockedOptOut`, `totalCandidates`) más `pushed` y
+        `recipients[]` (aditivos): cada destinatario con `phoneMasked`,
+        `couponCode`, `channels { email, push }` y un `waLink` operativo para
+        reenviar a mano. El número completo vive SOLO dentro de `waLink`.
+      operationId: loyaltyWinbackCampaign
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [offerType]
+              properties:
+                offerType:
+                  type: string
+                  enum: [percent_10, percent_15, free_delivery]
+                daysSinceLastVisit:
+                  type: integer
+                  minimum: 7
+                  maximum: 365
+                  default: 45
+                minVisits:
+                  type: integer
+                  minimum: 1
+                  default: 2
+                customMessage:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          description: Reporte de la campaña (`{ sent, pushed, recipients[], errors? }`)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '400':
+          description: Body inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin local o suscripción inactiva
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/loyalty/winback/coupons:
+    get:
+      tags: [loyalty]
+      summary: Ledger de cupones de recupero (dueño, F8-v2)
+      description: |-
+        `authMiddleware` + `tenantGuard` + `requireActiveSubscription`.
+        Devuelve `{ summary, coupons[] }` con `code`, `label`, `type`, `value`,
+        `createdAt`, `expiresAt`, `usedAt`, `status` (`live|used|expired`),
+        `phoneMasked` y `usedOrderId`. NUNCA expone `boundPhone` ni
+        `usedByPhone` crudos.
+      operationId: loyaltyWinbackCoupons
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Cupones + resumen (`total`, `liveCount`, `usedCount`, `expiredCount`, `nextExpiry`)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/loyalty/winback/telemetry:
+    get:
+      tags: [loyalty]
+      summary: Telemetría del circuito de recupero (dueño, F8-v2)
+      description: |-
+        `authMiddleware` + `tenantGuard` + `requireActiveSubscription`.
+        Cohorte por emisión en la ventana (`?days=` 1..365, default 30):
+        `couponsIssued`, `couponsUsed`, `couponsLive`, `couponsExpired`,
+        `recoveredCount`, `attributedRevenueCents` (solo pedidos REALES no
+        cancelados encontrados por `usedOrderId`; si el pedido no está en el
+        espejo no se inventa ingreso) y `conversionRate` (porcentaje con un
+        decimal).
+      operationId: loyaltyWinbackTelemetry
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 365, default: 30 }
+      responses:
+        '200':
+          description: Métricas del circuito
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/loyalty/churn:
     get:
       tags: [loyalty]
@@ -1615,6 +1854,10 @@ paths:
         400 `INVALID_DELIVERY_FEE`) − cupón validado + propina; mínimo y
         dirección de delivery se exigen igual que en el pedido
         (400 `MIN_ORDER_NOT_MET` / `DELIVERY_ADDRESS_REQUIRED`).
+        Un cupón de recupero se VALIDA acá sin reclamarse (pagar no es canjear:
+        el claim atómico ocurre en `POST /api/orders`); si el código existe en
+        el ledger pero no es usable, responde 409/422 con el mismo error
+        honesto del pedido (nunca cobra el total en silencio).
       operationId: createMpPreference
       requestBody:
         required: true
@@ -1673,6 +1916,21 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Restaurante no encontrado (`RESTAURANT_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Cupón de recupero ya usado (`COUPON_ALREADY_USED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: |-
+            Cupón de recupero no aplicable al pedido (`COUPON_EXPIRED`,
+            `COUPON_NOT_FOR_THIS_PHONE`, `COUPON_MALFORMED`,
+            `COUPON_NOT_APPLICABLE`); no se reclama ni se cobra en silencio.
           content:
             application/json:
               schema:

@@ -1742,37 +1742,78 @@ Object.defineProperties(window, {
 
     // (render + polling + modales + init: ver orderTracking.js)
 
-    function applyCoupon() {
+    // Cupón del comensal (F8-v2). Los cupones del dueño (customCoupons) se
+    // resuelven al instante en local; un código que NO está ahí puede ser un
+    // cupón de recupero VOL-XXXXXXXX (privado por diseño: nunca viaja en el
+    // payload del menú), así que se pregunta al servidor —que es la autoridad—
+    // y se muestra el veredicto honesto (vencido / ya usado / de otro teléfono).
+    // Antes un código de recupero se rechazaba acá mismo y era IMPOSIBLE canjearlo.
+    async function applyCoupon() {
       const input = document.getElementById('inputCouponCode');
       const code = (input.value || '').trim().toUpperCase();
       const msg = document.getElementById('couponMsg');
+      const setMsg = (text, color) => {
+        if (!msg) return;
+        msg.textContent = text;
+        msg.style.color = color || '';
+      };
 
       if (!code) {
         appliedCoupon = null;
-        msg.textContent = '';
-        msg.style.color = '';
+        setMsg('');
         updateTotals();
         return;
       }
 
-      // Cupones configurables por el dueño (restaurant.customCoupons, sancionados
-      // en el backend). Ya no hay códigos hardcodeados en el frontend.
+      // 1) Catálogo público del dueño (instantáneo, sin red).
       const coupons = (restaurantData && Array.isArray(restaurantData.customCoupons)) ? restaurantData.customCoupons : [];
-      const coupon = coupons.find(c => String(c.code || '').toUpperCase() === code);
-      if (coupon && (coupon.type === 'percent' || coupon.type === 'free_delivery')) {
-        const value = coupon.type === 'percent' ? Math.min(100, Number(coupon.value) || 0) : 0;
+      const local = coupons.find(c => String(c.code || '').toUpperCase() === code);
+      if (local && (local.type === 'percent' || local.type === 'free_delivery')) {
+        const value = local.type === 'percent' ? Math.min(100, Number(local.value) || 0) : 0;
         appliedCoupon = {
-          code: coupon.code,
-          type: coupon.type,
+          code: local.code,
+          type: local.type,
           value,
-          label: coupon.label || (coupon.type === 'percent' ? `${value}% OFF` : 'Envío Gratis')
+          label: local.label || (local.type === 'percent' ? `${value}% OFF` : 'Envío Gratis')
         };
-        msg.style.color = '#68D391';
-        msg.textContent = `✓ ${appliedCoupon.label} aplicado`;
-      } else {
+        setMsg(`✓ ${appliedCoupon.label} aplicado`, '#68D391');
+        updateTotals();
+        return;
+      }
+
+      // 2) Servidor: cupones de recupero + veredicto honesto. Si la red falla,
+      //    se deja el código SIN aplicar y se avisa (nunca un falso "aplicado").
+      const modeEl = document.getElementById('orderMode');
+      const orderMode = (modeEl && modeEl.value) || 'LOCAL';
+      setMsg('Verificando cupón…', '');
+      try {
+        const res = await fetch('/api/orders/coupon/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            restaurantId: restaurantData.id,
+            code,
+            phone: getCustomerPhone(),
+            orderMode
+          })
+        });
+        const body = await res.json().catch(() => ({}));
+        const data = body && body.data ? body.data : null;
+        if (res.ok && data && data.valid && data.coupon) {
+          appliedCoupon = {
+            code: data.coupon.code,
+            type: data.coupon.type,
+            value: Number(data.coupon.value) || 0,
+            label: data.coupon.label || (data.coupon.type === 'free_delivery' ? 'Envío Gratis' : 'Cupón')
+          };
+          setMsg(`✓ ${appliedCoupon.label} aplicado`, '#68D391');
+        } else {
+          appliedCoupon = null;
+          setMsg(`✕ ${(data && data.message) || 'Cupón inválido o no disponible'}`, '#FEB2B2');
+        }
+      } catch (e) {
         appliedCoupon = null;
-        msg.style.color = '#FEB2B2';
-        msg.textContent = '✕ Cupón inválido o no disponible';
+        setMsg('✕ No pudimos verificar el cupón. Reintentá.', '#FEB2B2');
       }
       updateTotals();
     }
@@ -2090,6 +2131,9 @@ Object.defineProperties(window, {
             restaurantId: restaurantData.id,
             currency: restaurantData.currency || '$',
             customerName: (document.getElementById('orderCustomerName') || {}).value || 'Cliente',
+            // El teléfono vincula los cupones de recupero (F8-v2): sin él, el
+            // servidor no puede validar el cupón personal en la preferencia.
+            customerPhone: getCustomerPhone(),
             orderMode: mode,
             deliveryAddress: mode === 'DELIVERY' ? (document.getElementById('orderAddress') || {}).value || '' : '',
             deliveryFee: mode === 'DELIVERY' ? deliveryFee : 0,

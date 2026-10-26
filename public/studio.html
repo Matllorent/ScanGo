@@ -1309,7 +1309,8 @@
               <p style="font-size:11px; color:var(--text-dim); margin-bottom:12px;">
                 <strong>Zero-touch:</strong> elegí la oferta, ajustá el umbral si querés, y lanzá. El sistema detecta clientes en riesgo,
                 filtra los que tienen consentimiento de marketing + email, genera cupones únicos <code>VOL-XXXXXXXX</code> atados a su teléfono
-                y dispara los emails en lote. Respetá opt-outs y bajas automáticamente.
+                y dispara los emails + push en lote. Cada destinatario queda con un link de WhatsApp por si preferís avisarle a mano.
+                El comensal escribe el código en la carta y el descuento se aplica al total (un solo uso).
               </p>
               <div class="form-group">
                 <label class="form-label" for="inputWinbackOffer">Oferta prédiseñada</label>
@@ -1343,6 +1344,15 @@
               <div id="winbackTelemetry" style="font-size:11px; color:var(--text-dim); margin-top:8px; display:none;">
                 <strong>📊 Telemetría de recupero (últimos 30 días):</strong>
                 <div id="winbackTelemetryContent"></div>
+              </div>
+
+              <div style="border-top:1px solid var(--border); margin-top:12px; padding-top:10px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                  <div class="section-title" style="margin-bottom:0; font-size:12px;">🎟️ Cupones de recupero</div>
+                  <button type="button" class="btn-nav" data-js-click="loadWinbackCoupons" style="padding:6px 10px; font-size:11px;">🔄 Ver cupones</button>
+                </div>
+                <div id="winbackCouponsSummary" style="font-size:10px; color:var(--text-dim); margin-top:4px;"></div>
+                <div id="winbackCouponsPanel" style="margin-top:6px;"></div>
               </div>
             </div>
 

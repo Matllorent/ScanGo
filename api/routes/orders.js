@@ -17,6 +17,7 @@ const { computeOpenStatus } = require('../utils/openStatus');
 const { quoteOrderItems, resolveDeliveryFee, resolveCouponDiscount } = require('../utils/orderMoney');
 const { z } = require('zod');
 const loyaltyService = require('../services/loyalty');
+const recoveryCoupons = require('../utils/recoveryCoupons');
 const notificationsService = require('../services/notifications');
 const { getPrepEstimateForRestaurant } = require('../services/prepEstimate');
 const { signOrderToken, verifyOrderToken } = require('../utils/orderTrackingToken');
@@ -105,6 +106,83 @@ router.post('/quote', validateBody(createOrderSchema), (req, res, next) => {
 });
 
 /**
+ * POST /api/orders/coupon/validate
+ * Público: el comensal valida un código ANTES de armar el pedido. Antes el
+ * checkout solo comparaba contra `restaurant.customCoupons` (el catálogo
+ * público del dueño): un cupón de recupero `VOL-XXXXXXXX` —privado por
+ * diseño— se rechazaba en el navegador y nunca llegaba al servidor, así que
+ * era imposible canjearlo. Acá se resuelve contra las DOS fuentes:
+ * catálogo público + ledger privado de recupero, con veredicto honesto
+ * (vencido / ya usado / de otro teléfono) y SIN consumir el código.
+ * La autoridad final sigue en POST /api/orders (claim atómico).
+ */
+const couponValidateSchema = z.object({
+  restaurantId: z.string().min(1, { message: 'ID de restaurante requerido' }),
+  code: z.string().min(1, { message: 'Ingresá el código del cupón' }).max(40),
+  phone: z.string().max(30).optional().default(''),
+  orderMode: z.enum(['LOCAL', 'DELIVERY', 'TAKEAWAY']).optional().default('LOCAL')
+});
+
+router.post('/coupon/validate', validateBody(couponValidateSchema), async (req, res, next) => {
+  try {
+    const restaurant = db.findRestaurantById(req.body.restaurantId) || db.findRestaurantBySlug(req.body.restaurantId);
+    if (!restaurant) throw new AppError('Restaurante no encontrado', 404, 'RESTAURANT_NOT_FOUND');
+
+    const code = recoveryCoupons.normalizeCouponCode(req.body.code);
+    const phone = String(req.body.phone || '').trim();
+
+    // 1) Catálogo PÚBLICO del dueño (sin vencimiento ni teléfono: su diseño).
+    const custom = (Array.isArray(restaurant.customCoupons) ? restaurant.customCoupons : [])
+      .find((row) => recoveryCoupons.normalizeCouponCode(row && row.code) === code);
+    if (custom) {
+      const type = custom.type === 'free_delivery' ? 'free_delivery' : 'percent';
+      const value = type === 'percent' ? Math.min(100, Math.max(0, Number(custom.value) || 0)) : 0;
+      // Envío gratis solo aplica a delivery (misma regla que el pricing).
+      if (type === 'free_delivery' && req.body.orderMode !== 'DELIVERY') {
+        return successResponse(res, {
+          valid: false,
+          reason: 'NOT_APPLICABLE',
+          message: 'Tu cupón es de envío gratis: elegí delivery para usarlo.',
+          coupon: null
+        }, 'Cupón validado');
+      }
+      return successResponse(res, {
+        valid: true,
+        reason: null,
+        message: '',
+        source: 'custom',
+        coupon: { code: custom.code, type, value, label: custom.label || (type === 'percent' ? `${value}% OFF` : 'Envío Gratis') }
+      }, 'Cupón válido');
+    }
+
+    // 2) Ledger PRIVADO de recupero (el código personal que salió por email,
+    // push o WhatsApp). Nunca viaja al payload del menú.
+    let row = null;
+    try {
+      row = recoveryCoupons.findCouponByCode(await loyaltyService.listRecoveryCoupons(restaurant.id), code);
+    } catch (e) {
+      logger.warn('[orders] ledger de cupones de recupero ilegible (validate)', { restaurantId: restaurant.id, error: e.message });
+      return successResponse(res, {
+        valid: false,
+        reason: 'UNAVAILABLE',
+        message: 'No pudimos verificar el cupón ahora. Reintentá en un momento.',
+        coupon: null
+      }, 'Cupón no verificado');
+    }
+    const verdict = recoveryCoupons.describeRecoveryCoupon(row, { phone, orderMode: req.body.orderMode });
+    return successResponse(res, {
+      valid: verdict.valid,
+      reason: verdict.reason,
+      message: verdict.message,
+      source: row ? 'recovery' : null,
+      coupon: verdict.coupon
+    }, verdict.valid ? 'Cupón válido' : 'Cupón no aplicable');
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * Reglas de negocio autoritativas (anti-pedido-inservible):
  * - Pedido mínimo del local (restaurant.minOrder) sobre el subtotal.
  * - Delivery exige dirección de entrega.
@@ -161,10 +239,74 @@ function enforceOrderBusinessRules({ restaurant, subtotal, orderMode, deliveryAd
 /** quoteOrderItems / resolveDeliveryFee / resolveCouponDiscount viven en ../utils/orderMoney (Bloque 2). */
 
 /**
+ * F8-v2 — canje REAL del cupón de recupero (el `VOL-XXXXXXXX` que sale por
+ * email/push/WhatsApp). `resolveCouponDiscount` es PURO y solo aplica un cupón
+ * de recupero si (a) la fila está en el catálogo privado vigente Y (b) el
+ * código figura en `claimedCodes`. Acá se resuelve la fila del ledger, se
+ * valida (expiración / uso único / teléfono vinculado) y —solo en el pedido
+ * real— se reclama ATÓMICAMENTE antes de cobrar.
+ *
+ * @param {boolean} claim  false = validar sin consumir (preferencia de pago);
+ *                         true  = reclamar (el llamador finaliza o libera).
+ * @returns {Promise<{rows: object[], claimedCodes: string[], claimed: object|null, rejected: object|null}>}
+ *  - `rows`/`claimedCodes` van al pricing (ver resolveCouponDiscount).
+ *  - `rejected` = veredicto honesto SOLO cuando el código EXISTE en el ledger
+ *    del local pero no se puede usar (vencido / usado / otro teléfono). Un
+ *    código desconocido mantiene el comportamiento histórico: sin descuento,
+ *    sin romper el pedido (el cliente lo valida antes por /coupon/validate).
+ */
+async function resolveRecoveryCouponForCheckout({ restaurant, coupon, phone, orderMode, claim = false }) {
+  const code = coupon && coupon.code ? recoveryCoupons.normalizeCouponCode(coupon.code) : '';
+  if (!code) return { rows: [], claimedCodes: [], claimed: null, rejected: null };
+
+  let row = null;
+  try {
+    row = recoveryCoupons.findCouponByCode(await loyaltyService.listRecoveryCoupons(restaurant.id), code);
+  } catch (e) {
+    // Fail-open honesto: sin ledger legible el cupón se comporta como
+    // desconocido (nunca se cobra de más por un error de infraestructura y
+    // nunca se regala un descuento sin evidencia).
+    logger.warn('[orders] ledger de cupones de recupero ilegible', { restaurantId: restaurant.id, error: e.message });
+    return { rows: [], claimedCodes: [], claimed: null, rejected: null };
+  }
+  if (!row) return { rows: [], claimedCodes: [], claimed: null, rejected: null };
+
+  // Aplicabilidad ANTES de reclamar: un cupón de envío gratis pedido en mesa
+  // no descuenta nada (el fee solo existe en DELIVERY) y, si se reclamara
+  // primero, se quemaría sin beneficio para el comensal.
+  const preVerdict = recoveryCoupons.describeRecoveryCoupon(row, { phone, orderMode });
+  if (!preVerdict.valid) {
+    return { rows: [], claimedCodes: [], claimed: null, rejected: preVerdict };
+  }
+
+  if (!claim) {
+    return { rows: [row], claimedCodes: [code], claimed: null, rejected: null };
+  }
+
+  const result = await loyaltyService.claimRecoveryCoupon({ restaurantId: restaurant.id, code, phone });
+  if (!result || !result.row || result.reason) {
+    const verdict = recoveryCoupons.describeRecoveryCoupon(result && result.row ? result.row : row, { phone, orderMode });
+    return { rows: [], claimedCodes: [], claimed: null, rejected: verdict };
+  }
+  // Se pasa la fila PRE-claim al pricing: el claim ya marcó usedAt y
+  // catalogRecoveryRows filtra las filas no vigentes (el permiso real de
+  // descuento es `claimedCodes`, validado atómicamente arriba).
+  return { rows: [row], claimedCodes: [code], claimed: row, rejected: null };
+}
+
+/** Traduce el veredicto del cupón a un AppError honesto (409 usado / 422 resto). */
+function recoveryCouponRejectionError(rejected) {
+  if (!rejected) return null;
+  const status = rejected.reason === 'ALREADY_USED' ? 409 : 422;
+  return new AppError(rejected.message, status, `COUPON_${rejected.reason}`);
+}
+
+/**
  * POST /api/orders
  * Creates a new order with monetary precision and historical item snapshots
  */
 router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (req, res, next) => {
+  let pendingCouponClaim = null;
   try {
     const { restaurantId, tableNumber, items, currency, customerName, customerPhone, deliveryAddress, notes, tipAmount, captchaToken, orderMode, deliveryFee } = req.body;
 
@@ -206,12 +348,35 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
     // seguimiento/vivo): platos + envío validado − cupón validado + propina.
     // `amount` conserva el subtotal de platos (no distorsiona analytics).
     const validDeliveryFee = resolveDeliveryFee(restaurant, orderMode, deliveryFee);
-    const { discount: validDiscount, coupon: validCoupon } = resolveCouponDiscount({
+    // F8-v2: un cupón de recupero se RESUELVE contra el ledger privado y se
+    // reclama atómicamente antes de cobrar (el catálogo público del dueño lo
+    // resuelve el pricing puro como siempre). Un código existente pero no
+    // usable devuelve un error honesto en vez de cobrar el total en silencio.
+    const recovery = await resolveRecoveryCouponForCheckout({
       restaurant,
+      coupon: req.body.coupon,
+      phone: customerPhone,
+      orderMode,
+      claim: true
+    });
+    const rejection = recoveryCouponRejectionError(recovery.rejected);
+    if (rejection) throw rejection;
+    if (recovery.claimed) {
+      // Claim provisional: si el pedido no llega a existir, el catch lo suelta
+      // (un cupón no puede quedar quemado por un fallo de escritura).
+      pendingCouponClaim = { code: recovery.claimed.code, restaurantId: restaurant.id };
+    }
+    const pricingRestaurant = recovery.rows.length
+      ? { ...restaurant, recoveryCoupons: recovery.rows }
+      : restaurant;
+    const { discount: validDiscount, coupon: validCoupon } = resolveCouponDiscount({
+      restaurant: pricingRestaurant,
       subtotal: amountInCents / 100,
       deliveryFee: validDeliveryFee,
       coupon: req.body.coupon,
-      orderMode
+      orderMode,
+      phone: customerPhone,
+      claimedCodes: recovery.claimedCodes
     });
     const validTip = Math.max(0, Number(tipAmount) || 0);
     const canonicalTotal = Math.max(0, Math.round((amountInCents / 100 + validDeliveryFee - validDiscount + validTip) * 100) / 100);
@@ -255,6 +420,31 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
 
     // Espejo local (dev/offline). En cloud la fuente de verdad es Supabase.
     await db.addOrder(orderRecord);
+    // El pedido ya existe: el claim deja de ser "provisional" (el catch no lo
+    // suelta). La concreción con orderId viene después, best-effort.
+    pendingCouponClaim = null;
+
+    // F8-v2: el pedido YA existe → el claim provisional se concreta con su id
+    // (la telemetría de recupero atribuye el ingreso por este orderId). Es
+    // best-effort: si falla, el cupón queda usado igual (lo importante es que
+    // no se pueda volver a usar) y el pedido no se pierde.
+    if (recovery.claimed) {
+      try {
+        await loyaltyService.finalizeRecoveryClaim({
+          restaurantId: restaurant.id,
+          code: recovery.claimed.code,
+          orderId: orderRecord.id,
+          phone: customerPhone
+        });
+      } catch (e) {
+        sentry.captureException(e, {
+          source: 'orders.winbackFinalize',
+          level: 'warn',
+          tags: { restaurantId: restaurant.id },
+          extra: { couponCode: recovery.claimed.code, orderId: orderRecord.id }
+        });
+      }
+    }
 
     // Save to Supabase Cloud PostgreSQL (mapeo canónico en db.toCloudOrder).
     // Si el insert falla, el pedido queda marcado `cloudPending`: se responde
@@ -303,6 +493,20 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
       201
     );
   } catch (err) {
+    if (pendingCouponClaim) {
+      try {
+        await loyaltyService.releaseRecoveryClaim({
+          restaurantId: pendingCouponClaim.restaurantId,
+          code: pendingCouponClaim.code
+        });
+      } catch (releaseErr) {
+        sentry.captureException(releaseErr, {
+          source: 'orders.winbackRelease',
+          level: 'warn',
+          extra: { couponCode: pendingCouponClaim.code, originalError: err.message }
+        });
+      }
+    }
     next(err);
   }
 });
@@ -551,8 +755,33 @@ router.post('/mercadopago/preference', validateBody(createOrderSchema), async (r
     // Total cobrado = platos + envío validado − cupón validado + propina.
     // (Antes solo iban los platos: se cobraba de menos y la propina se perdía.)
     const validDeliveryFee = resolveDeliveryFee(restaurant, orderMode, deliveryFee);
+    // F8-v2: acá se VALIDA el cupón de recupero sin reclamarlo — pagar no es
+    // canjear. El consumo real ocurre en POST /api/orders (claim atómico); si
+    // se reclamara acá, el pedido posterior fallaría con ALREADY_USED. Un
+    // código existente pero no usable se rechaza con el mismo error honesto
+    // del pedido: nunca se cobra el total en silencio a quien cree tener un
+    // descuento. Ventana conocida: dos pagos simultáneos con el mismo código
+    // podrían generar dos preferencias; solo la primera orden lo consume.
+    const recovery = await resolveRecoveryCouponForCheckout({
+      restaurant,
+      coupon,
+      phone: req.body.customerPhone,
+      orderMode,
+      claim: false
+    });
+    const rejection = recoveryCouponRejectionError(recovery.rejected);
+    if (rejection) throw rejection;
+    const pricingRestaurant = recovery.rows.length
+      ? { ...restaurant, recoveryCoupons: recovery.rows }
+      : restaurant;
     const { discount, coupon: validCoupon } = resolveCouponDiscount({
-      restaurant, subtotal, deliveryFee: validDeliveryFee, coupon, orderMode
+      restaurant: pricingRestaurant,
+      subtotal,
+      deliveryFee: validDeliveryFee,
+      coupon,
+      orderMode,
+      phone: req.body.customerPhone,
+      claimedCodes: recovery.claimedCodes
     });
     const tip = Math.max(0, Number(tipAmount) || 0);
     const fullTotal = Math.max(0, Math.round((subtotal + validDeliveryFee - discount + tip) * 100) / 100);

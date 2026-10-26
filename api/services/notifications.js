@@ -401,6 +401,60 @@ const notificationsService = {
   },
 
   /**
+   * F8-v2 — avisa al cliente del Club que tiene un cupón de recupero nuevo.
+   * Dirigido SOLO a las suscripciones guest de ese restaurante con
+   * consentimiento de marketing y teléfono coincidente (nunca a todos), igual
+   * que el aviso de estado del pedido. Sin VAPID o sin suscripciones devuelve
+   * `{ skipped }` sin romper la campaña (el email/WhatsApp ya salieron).
+   */
+  async sendWinbackCouponNotification({ restaurantId, customerPhone, couponCode, offerLabel, slug, restaurantName }) {
+    const normalized = normalizePhone(customerPhone);
+    if (!normalized || !couponCode) {
+      return { success: true, checked: 0, delivered: 0, failed: 0, removed: 0, skipped: 'NO_MATCHING_SUBSCRIBERS' };
+    }
+
+    const guests = await this.listSubscriptions({ restaurantId, role: 'guest' });
+    const targets = guests.filter(s =>
+      s.consent_marketing === true && normalizePhone(s.customer_phone) === normalized
+    );
+    if (targets.length === 0) {
+      return { success: true, checked: 0, delivered: 0, failed: 0, removed: 0, skipped: 'NO_MATCHING_SUBSCRIBERS' };
+    }
+
+    const payload = {
+      title: 'Tenés un cupón esperando',
+      body: `${restaurantName || 'Tu local favorito'}: ${offerLabel || 'beneficio'} con el código ${couponCode}. Vence en 14 días.`,
+      icon: '/icon-192.png',
+      url: slug ? `/m/${slug}` : '/',
+      type: 'winback_coupon',
+      // tag por cupón: un cupón nuevo reemplaza al anterior del mismo código,
+      // sin pisar avisos de mesa ni de pedidos.
+      tag: `winback-${couponCode}`,
+      renotify: true,
+      requireInteraction: false,
+      data: { couponCode, restaurantName: restaurantName || '' },
+      timestamp: new Date().toISOString()
+    };
+
+    let dispatch;
+    try {
+      dispatch = await dispatchToSubscriptions(targets, payload);
+    } catch (e) {
+      // Sin VAPID (o push caído) NO rompe la campaña: el cupón ya existe y
+      // viaja por email/WhatsApp. El motivo queda honesto en `skipped`.
+      return {
+        success: true,
+        checked: targets.length,
+        delivered: 0,
+        failed: 0,
+        removed: 0,
+        skipped: e.code || 'PUSH_FAILED'
+      };
+    }
+    return { success: true, ...dispatch, skipped: null, payload };
+  },
+
+  /**
    * Persiste un evento en el centro de notificaciones del dueño (inbox).
    * Fire-and-forget seguro: nunca rompe el flujo que lo disparó.
    */

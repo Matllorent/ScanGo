@@ -54,6 +54,10 @@ const SPEC_PATHS = [
   '/api/loyalty/validate',
   '/api/loyalty/churn',
   '/api/loyalty/reactivation',
+  '/api/loyalty/winback',
+  '/api/loyalty/winback/coupons',
+  '/api/loyalty/winback/telemetry',
+  '/api/orders/coupon/validate',
   '/api/orders/mercadopago/preference',
   '/api/public/analytics/event',
   '/api/notifications/waiter-alert',
@@ -258,6 +262,33 @@ async function runTests() {
 
     const loyaltyValidateAnon = await postJson('/api/loyalty/validate', { code: 'LOY-AAAA-BBBB' });
     assert.strictEqual(loyaltyValidateAnon.status, 401, 'loyalty/validate sin auth → 401 (no 404)');
+
+    // F8-v2: el ledger de cupones de recupero y su telemetría son del dueño.
+    const winbackCouponsAnon = await fetch(`${base}/api/loyalty/winback/coupons`);
+    assert.strictEqual(winbackCouponsAnon.status, 401, 'winback/coupons sin auth → 401 (no 404)');
+    const winbackTelemetryAnon = await fetch(`${base}/api/loyalty/winback/telemetry`);
+    assert.strictEqual(winbackTelemetryAnon.status, 401, 'winback/telemetry sin auth → 401 (no 404)');
+    const winbackAnon = await postJson('/api/loyalty/winback', { offerType: 'percent_10' });
+    assert.strictEqual(winbackAnon.status, 401, 'winback sin auth → 401 (no 404)');
+
+    // F8-v2: validación pública de cupón (no consume). Código desconocido →
+    // 200 con veredicto honesto (jamás 404 ni "inválido" silencioso).
+    const couponUnknown = await postJson('/api/orders/coupon/validate', {
+      restaurantId: rest.id,
+      code: `NOEXISTE-${stamp}`,
+    });
+    assert.strictEqual(couponUnknown.status, 200, 'coupon/validate con código desconocido → 200');
+    const couponUnknownBody = await couponUnknown.json();
+    assert.strictEqual(couponUnknownBody.data.valid, false);
+    assert.strictEqual(couponUnknownBody.data.reason, 'NOT_FOUND');
+    const couponBad = await postJson('/api/orders/coupon/validate', { restaurantId: rest.id });
+    assert.strictEqual(couponBad.status, 400, 'coupon/validate sin código → 400');
+    const coupon404 = await postJson('/api/orders/coupon/validate', {
+      restaurantId: `no-existe-${stamp}`,
+      code: 'X',
+    });
+    assert.strictEqual(coupon404.status, 404, 'coupon/validate con local inexistente → 404');
+    console.log('✓ F8-v2: coupon/validate público (200/400/404) + rutas de winback 401');
 
     // Pago online con el interruptor apagado (default false) → 403 real.
     const mpOff = await postJson('/api/orders/mercadopago/preference', {

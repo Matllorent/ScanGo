@@ -240,7 +240,8 @@ import {
   handleRedeemCodeEnter as handleRedeemCodeEnterMod,
   loadChurnList as loadChurnListMod,
   sendReactivation as sendReactivationMod,
-  launchWinbackCampaign as launchWinbackCampaignMod
+  launchWinbackCampaign as launchWinbackCampaignMod,
+  loadWinbackCoupons as loadWinbackCouponsMod
 } from './studio/loyaltyManager.js';
 import {
   WEDDING_ITINERARY_ICONS,
@@ -2215,6 +2216,7 @@ function handleRedeemCodeEnter(event) { handleRedeemCodeEnterMod(event, escapeHt
 async function loadChurnList() { return loadChurnListMod(escapeHtml); }
 async function sendReactivation(customerId) { return sendReactivationMod(customerId, escapeHtml, showConfirmDialog); }
 async function launchWinbackCampaign() { return launchWinbackCampaignMod(escapeHtml, showConfirmDialog); }
+async function loadWinbackCoupons() { return loadWinbackCouponsMod(); }
 
 async function loadNotificationEvents() {
   const list = document.getElementById('notificationInboxList');
@@ -2830,6 +2832,7 @@ const globalExports = {
   validateGoogleReviewLink, testGoogleReviewLink, copyReviewLink, loadReviewFunnel,
   loadNotificationEvents, markNotificationEventRead, sendPromoPush,
   loadChurnList, sendReactivation,
+  launchWinbackCampaign, loadWinbackCoupons,
   loadRecentOrders, setOrderStatus, toggleOrderSound, toggleOrderTitleFlash, toggleOrderBannerFlash, printOrderTicket, printOrderEscPos, connectUsbPrinter,
   importDemoTemplate, discardDemoTemplate,
   renderOnboardingChecklist, refreshOnboardingChecklist, dismissOnboardingChecklist, onboardGoToStep,

@@ -161,9 +161,100 @@ export async function sendReactivation(customerId, escapeHtml, showConfirmDialog
   }
 }
 
+/** Crea un nodo con estilos inline y texto (SIEMPRE textContent: cero HTML inyectable). */
+function winbackEl(tag, styleText, text) {
+  const node = document.createElement(tag);
+  if (styleText) node.style.cssText = styleText;
+  if (text !== undefined && text !== null) node.textContent = String(text);
+  return node;
+}
+
+/** Tarjeta de métrica del panel de recupero. */
+function winbackMetric(label, value, color) {
+  const card = winbackEl('div', 'background:var(--bg-base); border:1px solid var(--border); border-radius:6px; padding:8px; text-align:center;');
+  card.appendChild(winbackEl('div', 'color:var(--text-dim);', label));
+  card.appendChild(winbackEl('div', `font-weight:800; color:${color}; font-size:14px;`, value));
+  return card;
+}
+
+function formatWinbackMoney(cents) {
+  const amount = (Number(cents) || 0) / 100;
+  return `$${amount.toLocaleString('es-UY', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+}
+
+/** Pinta el reporte de la campaña (solo DOM API, cero HTML inyectable). */
+function renderWinbackReport(container, data) {
+  container.textContent = '';
+  container.appendChild(winbackEl('div', 'color:#68D391; font-weight:700;', '✓ Campaña completada'));
+
+  const stats = winbackEl('div', 'font-size:11px; color:var(--text-dim); margin-top:4px;');
+  const parts = [
+    ['📤 Enviados', data.sent || 0],
+    ['📱 Push', data.pushed || 0],
+    ['🚫 Sin consentimiento', data.blockedConsent || 0],
+    ['📭 Sin email', data.blockedNoEmail || 0],
+    ['📛 Opt-out', data.blockedOptOut || 0],
+    ['👥 Candidatos', data.totalCandidates || 0]
+  ];
+  parts.forEach(([label, value], index) => {
+    if (index > 0) stats.appendChild(document.createTextNode(' | '));
+    stats.appendChild(document.createTextNode(`${label}: `));
+    stats.appendChild(winbackEl('strong', '', value));
+  });
+  container.appendChild(stats);
+
+  if (Array.isArray(data.errors) && data.errors.length) {
+    container.appendChild(winbackEl(
+      'div',
+      'font-size:10px; color:#F87171; margin-top:4px;',
+      `Errores: ${data.errors.map(e => `${e.customerId}:${e.reason}`).join(', ')}`
+    ));
+  }
+
+  const recipients = Array.isArray(data.recipients) ? data.recipients : [];
+  if (!recipients.length) return;
+  container.appendChild(winbackEl('div', 'font-size:11px; color:var(--text-dim); margin-top:10px;', '💬 Reenviar por WhatsApp (opcional)'));
+  const list = winbackEl('div', 'margin-top:4px; display:flex; flex-direction:column; gap:4px;');
+  recipients.forEach((r) => {
+    const row = winbackEl('div', 'display:flex; align-items:center; gap:8px; font-size:11px; flex-wrap:wrap;');
+    row.appendChild(winbackEl('span', 'font-family:monospace; font-weight:700;', r.phoneMasked || '—'));
+    row.appendChild(winbackEl('span', 'font-family:monospace; color:#60a5fa;', r.couponCode || ''));
+    row.appendChild(winbackEl('span', 'color:var(--text-dim); font-size:10px;', `${r.couponLabel || ''}${r.channels && r.channels.email ? ' · ✉️' : ''}${r.channels && r.channels.push ? ' · 📱' : ''}`));
+    if (r.waLink) {
+      const link = winbackEl('a', 'color:#25D366; text-decoration:none; font-weight:700;', '💬 WhatsApp');
+      link.href = r.waLink;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      row.appendChild(link);
+    } else {
+      row.appendChild(winbackEl('span', 'color:var(--text-dim); font-size:10px;', 'sin teléfono'));
+    }
+    list.appendChild(row);
+  });
+  container.appendChild(list);
+}
+
+/** Pinta la telemetría del circuito (métricas reales del ledger + pedidos). */
+function renderWinbackTelemetry(container, telemetry) {
+  container.textContent = '';
+  const grid = winbackEl('div', 'display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:8px; margin-top:6px; font-size:10px;');
+  const t = telemetry || {};
+  grid.appendChild(winbackMetric(`Recuperados (${t.windowDays || 30}d)`, t.recoveredCount || 0, '#68D391'));
+  grid.appendChild(winbackMetric('Cupones usados', t.couponsUsed || 0, '#60a5fa'));
+  grid.appendChild(winbackMetric('Ingreso atribuido', formatWinbackMoney(t.attributedRevenueCents), '#fbbf24'));
+  grid.appendChild(winbackMetric('Tasa de canje', `${Number(t.conversionRate) || 0}%`, '#f87171'));
+  container.appendChild(grid);
+  container.appendChild(winbackEl(
+    'div',
+    'font-size:10px; color:var(--text-dim); margin-top:6px;',
+    `Emitidos ${t.couponsIssued || 0} · Vigentes ${t.couponsLive || 0} · Vencidos ${t.couponsExpired || 0}`
+  ));
+}
+
 /**
  * F8 — Campaña Winback Zero-Touch
- * Lanza POST /api/loyalty/winback con la oferta elegida y muestra reporte + telemetría.
+ * Lanza POST /api/loyalty/winback con la oferta elegida y muestra reporte
+ * (con destinatarios y su link de WhatsApp) + telemetría real.
  */
 export async function launchWinbackCampaign(escapeHtml, showConfirmDialog) {
   const resultEl = document.getElementById('winbackCampaignResult');
@@ -193,7 +284,7 @@ export async function launchWinbackCampaign(escapeHtml, showConfirmDialog) {
       confirmed = Boolean(await Promise.resolve(showConfirmDialog({
         icon: '🚀',
         title: 'Lanzar campaña de recupero',
-        message: `Se detectarán clientes en riesgo (ausencia ≥ ${daysSinceLastVisit} días, ≥ ${minVisits} visitas), se filtrará por consentimiento de marketing + email, se generarán cupones ${offerLabel} únicos (VOL-XXXXXXXX) atados a su teléfono y se enviarán los emails en lote. ¿Continuar?`,
+        message: `Se detectarán clientes en riesgo (ausencia ≥ ${daysSinceLastVisit} días, ≥ ${minVisits} visitas), se filtrará por consentimiento de marketing + email, se generarán cupones ${offerLabel} únicos (VOL-XXXXXXXX) atados a su teléfono y se enviarán los emails + push en lote. ¿Continuar?`,
         confirmText: 'Lanzar campaña',
         confirmClass: 'btn-primary'
       })));
@@ -203,57 +294,88 @@ export async function launchWinbackCampaign(escapeHtml, showConfirmDialog) {
   }
   if (!confirmed) return;
 
-  resultEl.innerHTML = '<span style="color:var(--text-dim);">⏳ Lanzando campaña…</span>';
+  resultEl.textContent = '';
+  resultEl.appendChild(winbackEl('span', 'color:var(--text-dim);', '⏳ Lanzando campaña…'));
   try {
     const body = await apiFetch('/api/loyalty/winback', {
       method: 'POST',
       body: JSON.stringify({ offerType, daysSinceLastVisit, minVisits, customMessage })
     });
     const data = body.data || {};
-    const { sent, blockedConsent, blockedNoEmail, blockedOptOut, totalCandidates, errors } = data;
-    resultEl.innerHTML = `
-      <div style="color:#68D391; font-weight:700;">✓ Campaña completada</div>
-      <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">
-        📤 Enviados: <strong>${sent}</strong> &nbsp;|&nbsp;
-        🚫 Sin consentimiento: <strong>${blockedConsent}</strong> &nbsp;|&nbsp;
-        📭 Sin email: <strong>${blockedNoEmail}</strong> &nbsp;|&nbsp;
-        📛 Opt-out: <strong>${blockedOptOut}</strong> &nbsp;|&nbsp;
-        👥 Candidatos totales: <strong>${totalCandidates}</strong>
-      </div>
-      ${errors && errors.length ? `<div style="font-size:10px; color:#F87171; margin-top:4px;">Errores: ${errors.map(e => `${e.customerId}:${e.reason}`).join(', ')}</div>` : ''}
-    `;
-    // Mostrar telemetría
+    renderWinbackReport(resultEl, data);
+
+    // Telemetría + panel de cupones (una sola pasada por el servidor).
     if (telemetryEl && telemetryContent) {
       telemetryEl.style.display = 'block';
-      telemetryContent.innerHTML = '<span style="color:var(--text-dim);">⏳ Cargando telemetría…</span>';
+      telemetryContent.textContent = '';
+      telemetryContent.appendChild(winbackEl('span', 'color:var(--text-dim);', '⏳ Cargando telemetría…'));
       try {
         const telemetry = await apiFetch('/api/loyalty/winback/telemetry');
-        const t = telemetry.data || {};
-        telemetryContent.innerHTML = `
-          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:8px; margin-top:6px; font-size:10px;">
-            <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:6px; padding:8px; text-align:center;">
-              <div style="color:var(--text-dim);">Recuperados (30d)</div>
-              <div style="font-weight:800; color:#68D391; font-size:14px;">${t.recoveredCount || 0}</div>
-            </div>
-            <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:6px; padding:8px; text-align:center;">
-              <div style="color:var(--text-dim);">Cupones usados</div>
-              <div style="font-weight:800; color:#60a5fa; font-size:14px;">${t.couponsUsed || 0}</div>
-            </div>
-            <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:6px; padding:8px; text-align:center;">
-              <div style="color:var(--text-dim);">Ingreso atribuido</div>
-              <div style="font-weight:800; color:#fbbf24; font-size:14px;">$${(t.attributedRevenueCents || 0) / 100}</div>
-            </div>
-            <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:6px; padding:8px; text-align:center;">
-              <div style="color:var(--text-dim);">Tasa conversión</div>
-              <div style="font-weight:800; color:#f87171; font-size:14px;">${t.conversionRate ? (t.conversionRate * 100).toFixed(1) + '%' : '—'}</div>
-            </div>
-          </div>
-        `;
+        renderWinbackTelemetry(telemetryContent, telemetry.data || {});
       } catch {
-        telemetryContent.innerHTML = '<span style="color:var(--text-dim);">Telemetría no disponible</span>';
+        telemetryContent.textContent = '';
+        telemetryContent.appendChild(winbackEl('span', 'color:var(--text-dim);', 'Telemetría no disponible'));
       }
     }
+    loadWinbackCoupons();
   } catch (e) {
-    resultEl.innerHTML = `<div style="color:#F87171;">✕ ${escapeHtml(e.message || 'Error de conexión.')}</div>`;
+    resultEl.textContent = '';
+    resultEl.appendChild(winbackEl('div', 'color:#F87171;', `✕ ${e.message || 'Error de conexión.'}`));
+  }
+}
+
+const WINBACK_STATUS_COPY = { live: 'Vigente', used: 'Usado', expired: 'Vencido' };
+const WINBACK_STATUS_COLOR = { live: '#68D391', used: '#60a5fa', expired: '#F87171' };
+
+/**
+ * F8-v2 — Panel "Cupones de recupero": el dueño VE el circuito completo
+ * (emitido → canjeado → ingreso atribuido) en vez de lanzar a ciegas.
+ * GET /api/loyalty/winback/coupons (teléfono SIEMPRE enmascarado) + telemetría.
+ */
+export async function loadWinbackCoupons() {
+  const panel = document.getElementById('winbackCouponsPanel');
+  const summaryEl = document.getElementById('winbackCouponsSummary');
+  if (!panel) return;
+  panel.textContent = '';
+  panel.appendChild(winbackEl('div', 'font-size:11px; color:var(--text-dim);', '⏳ Cargando cupones…'));
+  if (summaryEl) summaryEl.textContent = '';
+
+  try {
+    const body = await apiFetch('/api/loyalty/winback/coupons');
+    const data = body.data || {};
+    const coupons = Array.isArray(data.coupons) ? data.coupons : [];
+    const summary = data.summary || {};
+    panel.textContent = '';
+
+    if (summaryEl) {
+      summaryEl.textContent = summary.total
+        ? `${summary.liveCount || 0} vigentes · ${summary.usedCount || 0} usados · ${summary.expiredCount || 0} vencidos`
+        : '';
+    }
+    if (!coupons.length) {
+      panel.appendChild(winbackEl('div', 'font-size:11px; color:var(--text-dim);', 'Todavía no hay cupones. Lanzá una campaña para emitir los primeros.'));
+      return;
+    }
+
+    const table = winbackEl('div', 'display:flex; flex-direction:column; gap:4px; margin-top:4px;');
+    coupons.forEach((c) => {
+      const row = winbackEl('div', 'display:flex; align-items:center; gap:8px; font-size:11px; flex-wrap:wrap; border-bottom:1px solid var(--border); padding-bottom:4px;');
+      row.appendChild(winbackEl('span', 'font-family:monospace; font-weight:700; color:#60a5fa; min-width:104px;', c.code || '—'));
+      row.appendChild(winbackEl('span', 'color:var(--text-dim); min-width:70px;', c.label || ''));
+      const status = WINBACK_STATUS_COPY[c.status] || c.status || '—';
+      row.appendChild(winbackEl('span', `font-weight:700; color:${WINBACK_STATUS_COLOR[c.status] || 'var(--text-dim)'}; min-width:56px;`, status));
+      row.appendChild(winbackEl('span', 'font-family:monospace; color:var(--text-dim); min-width:84px;', c.phoneMasked || '—'));
+      const date = c.status === 'used' && c.usedAt ? c.usedAt : c.expiresAt;
+      const dateLabel = date ? new Date(date).toLocaleDateString('es-UY') : '';
+      row.appendChild(winbackEl('span', 'color:var(--text-dim); font-size:10px;', c.status === 'used' ? `usado ${dateLabel}` : `vence ${dateLabel}`));
+      if (c.status === 'used' && !c.usedOrderId) {
+        row.appendChild(winbackEl('span', 'color:#fbbf24; font-size:10px;', 'sin pedido atribuido'));
+      }
+      table.appendChild(row);
+    });
+    panel.appendChild(table);
+  } catch (e) {
+    panel.textContent = '';
+    panel.appendChild(winbackEl('div', 'color:#F87171; font-size:11px;', `✕ ${e.message || 'No se pudieron cargar los cupones.'}`));
   }
 }
