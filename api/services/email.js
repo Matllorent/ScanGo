@@ -252,6 +252,69 @@ const emailService = {
     return this.sendEmail({ to, subject: `¿Cómo estuvo tu experiencia en ${place}?`, html });
   },
 
+  /**
+   * Reservas de verdad (backlog #2) — aviso al DUEÑO de una reserva nueva
+   * (transaccional, best-effort: el route la manda fire-and-forget).
+   * Todo dato del comensal pasa por escapeHtmlText (input de tercero, P2).
+   */
+  async sendReservationRequestEmail({ to, restaurantName, reservation }) {
+    if (!to || !reservation) {
+      throw new AppError('El destinatario (to) y la reserva son requeridos', 400, 'MISSING_EMAIL_FIELDS');
+    }
+    const place = escapeHtmlText(restaurantName || 'tu local');
+    const who = escapeHtmlText(reservation.name || 'Comensal');
+    const day = escapeHtmlText(reservation.date || '');
+    const hour = escapeHtmlText(reservation.time || '');
+    const pax = escapeHtmlText(reservation.paxLabel ? `${reservation.paxLabel} (${reservation.pax})` : String(reservation.pax || ''));
+    const notes = reservation.notes ? escapeHtmlText(reservation.notes) : '';
+    const phone = escapeHtmlText(reservation.phone || '');
+    const emailRow = reservation.email ? `<p style="margin:4px 0;">📧 Email: ${escapeHtmlText(reservation.email)}</p>` : '';
+    const html = `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
+        <h2>📅 Nueva reserva en ${place}</h2>
+        <p><strong>${who}</strong> pidió una mesa para <strong>${pax}</strong>:</p>
+        <p style="margin:12px 0; padding:12px 16px; background:#f0fdf4; border-radius:8px;">
+          🗓️ <strong>${day}</strong> a las <strong>${hour}</strong><br>
+          📱 Teléfono: ${phone}
+          ${emailRow}
+          ${notes ? `<br>📝 Nota: ${notes}` : ''}
+        </p>
+        <p style="font-size: 13px; color: #64748b;">Confirmala (o cancelala) desde el Studio → tab Reservas. El comensal recibe un recordatorio 24 h antes si está confirmada.</p>
+      </div>
+    `;
+    return this.sendEmail({ to, subject: `📅 Nueva reserva — ${restaurantName || 'Tu local'}`, html });
+  },
+
+  /**
+   * Reservas de verdad (backlog #2) — recordatorio 24 h al COMENSAL de una
+   * reserva confirmada. Ataca el no-show (30/50% según el patrón Fornno).
+   * Transaccional: NO respeta el opt-out de promos (operar la reserva es
+   * contractual, como el aviso de estado del pedido), pero el envío sigue
+   * pasando por sendEmail → pie legal automático.
+   */
+  async sendReservationReminderEmail({ to, customerName, restaurantName, date, time, menuUrl }) {
+    if (!to || !date || !time) {
+      throw new AppError('El destinatario (to), fecha y hora son requeridos', 400, 'MISSING_EMAIL_FIELDS');
+    }
+    const place = escapeHtmlText(restaurantName || 'tu local favorito');
+    const who = customerName ? `${escapeHtmlText(customerName)}, ` : '';
+    const day = escapeHtmlText(date);
+    const hour = escapeHtmlText(time);
+    const menu = safeEmailHref(menuUrl);
+    const html = `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
+        <h2>⏰ Tu reserva en ${place} es mañana</h2>
+        <p>Hola ${who}te recordamos tu mesa:</p>
+        <p style="margin:12px 0; padding:12px 16px; background:#f0fdf4; border-radius:8px;">
+          🗓️ <strong>${day}</strong> a las <strong>${hour}</strong>
+        </p>
+        <p>Si no podés venir, avisale al local con tiempo así libera la mesa.</p>
+        ${menu ? `<p style="font-size: 13px;"><a href="${menu}">Ver la carta</a></p>` : ''}
+      </div>
+    `;
+    return this.sendEmail({ to, subject: `⏰ Mañana: tu reserva en ${restaurantName || 'tu local favorito'} a las ${time}`, html });
+  },
+
   async sendPromotionalEmail({ to, subject, body, restaurantName, promoCode, promoLink }) {    // CAN-SPAM §5(4)+(5): honoring opt-outs no es opcional. Quien pidió la baja
     // no recibe NINGÚN envío comercial, aunque llegue por otra campaña.
     if (isOptedOut(to)) {

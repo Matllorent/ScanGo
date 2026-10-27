@@ -297,6 +297,12 @@ import {
   copyStaffQrLink as copyStaffQrLinkMod
 } from './studio/staffManager.js';
 
+import {
+  loadReservations as loadReservationsMod,
+  changeReservationsDate as changeReservationsDateMod,
+  setReservationStatus as setReservationStatusMod
+} from './studio/reservationsManager.js';
+
 // ── WebUSB / ESC·POS ── contrato estático (implementación en printerManager.js)
 // Las siguientes referencias garantizan que las herramientas de análisis y los
 // tests de regresión puedan verificar que el soporte WebUSB existe en este módulo.
@@ -1821,6 +1827,7 @@ export function switchTab(tabId, btn) {
   if (tabId === 'dishes') { populateCatFilter(); renderDishesList(); }
   if (tabId === 'qr') generateQrCode();
   if (tabId === 'staff') loadStaffMod();
+  if (tabId === 'reservas') loadReservationsMod();
   if (tabId === 'notifications') { loadNotificationEvents(); loadRecentOrders(); }
   else { stopOrdersPolling(); }
 }
@@ -2831,6 +2838,11 @@ export function rotateStaffCredential(id) { return rotateStaffCredentialMod(id);
 export function closeStaffQrModal() { return closeStaffQrModalMod(); }
 export function copyStaffQrLink() { return copyStaffQrLinkMod(); }
 
+// ── Reservas (backlog #2) ───────────────────────────────────────────────────
+export function loadReservations(options) { return loadReservationsMod(options); }
+export function changeReservationsDate(value) { return changeReservationsDateMod(value); }
+export function setReservationStatus(id, status) { return setReservationStatusMod(id, status); }
+
 // Bind all functions to window for HTML inline event handlers
 const globalExports = {
   initStudio, loadSeoAudit, logout, openDeleteAccountModal, closeDeleteAccountModal, confirmAccountDeletion,
@@ -2868,6 +2880,7 @@ const globalExports = {
   renderOnboardingChecklist, refreshOnboardingChecklist, dismissOnboardingChecklist, onboardGoToStep,
   loadStaff, saveStaffAssignments, openStaffCreateModal, openStaffEditModal, closeStaffEditor, saveStaffEditor,
   toggleStaffActive, revokeStaffSessions, deleteStaffMember, rotateStaffCredential, closeStaffQrModal, copyStaffQrLink,
+  loadReservations, changeReservationsDate, setReservationStatus,
   updateBusinessTypeControls, filterThemeOptionsByBusinessType, resolveIceCreamButtonStyle,
   openAiMenuImportModal, closeAiMenuImportModal, handleAiMenuFilesInput, moveAiMenuPage, removeAiMenuPage, runAiMenuAnalysis, closeAiMenuPreviewModal, confirmAiMenuImportAction, removeDetectedAiDish
 };

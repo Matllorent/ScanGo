@@ -269,6 +269,10 @@
     {
       "path": "/api/cron/night-summary",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/reservation-reminders",
+      "schedule": "0 * * * *"
     }
   ]
 }

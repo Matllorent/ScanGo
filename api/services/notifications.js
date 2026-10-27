@@ -765,6 +765,109 @@ const notificationsService = {
     return { days, cutoffIso, dryRun: Boolean(dryRun), prunedLocal, prunedCloud, candidatesCloud };
   },
 
+  // ── Reservas de verdad (backlog #2) ────────────────────────────────────────
+
+  /**
+   * Aviso de recordatorio dirigido al COMENSAL: 24 h antes de su reserva
+   * confirmada. Mismo filtro que el aviso de estado del pedido — guest del
+   * restaurante + consentMarketing + teléfono coincidente (nunca a todos).
+   * Sin VAPID o sin suscripción devuelve skipped honesto sin romper el cron
+   * (el email ya salió por su lado).
+   */
+  async sendReservationReminderNotification({ restaurantId, customerPhone, date, time, slug, restaurantName }) {
+    const normalized = normalizePhone(customerPhone);
+    if (!normalized) {
+      return { success: true, checked: 0, delivered: 0, failed: 0, removed: 0, skipped: 'NO_MATCHING_SUBSCRIBERS' };
+    }
+
+    const guests = await this.listSubscriptions({ restaurantId, role: 'guest' });
+    const targets = guests.filter(s =>
+      s.consent_marketing === true && normalizePhone(s.customer_phone) === normalized
+    );
+    if (targets.length === 0) {
+      return { success: true, checked: 0, delivered: 0, failed: 0, removed: 0, skipped: 'NO_MATCHING_SUBSCRIBERS' };
+    }
+
+    const where = restaurantName ? ` en ${restaurantName}` : '';
+    const payload = {
+      title: '📅 Tu reserva es mañana',
+      body: `Te esperamos${where} el ${date} a las ${time}. Si no podés venir, avisale al local.`,
+      icon: '/icon-192.png',
+      url: slug ? `/m/${slug}` : '/',
+      type: 'reservation_reminder',
+      // tag por reserva: un re-recordatorio reemplaza el anterior, sin pisar
+      // avisos de pedidos ni promos.
+      tag: `reservation-reminder-${date}-${time}`,
+      renotify: true,
+      requireInteraction: false,
+      data: { date, time, kind: 'reservation_reminder' },
+      timestamp: new Date().toISOString()
+    };
+
+    const dispatch = await dispatchToSubscriptions(targets, payload);
+    return { success: true, ...dispatch, skipped: null, payload };
+  },
+
+  /** ¿Ya se envió el recordatorio de esta reserva? (dedupe global por réplica) */
+  async hasReservationReminder(reservationId) {
+    if (!reservationId) return false;
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('notification_events')
+          .select('id')
+          .eq('type', 'reservation_reminder')
+          .eq('data->>reservationId', String(reservationId))
+          .limit(1);
+        if (!error && data && data.length > 0) return true;
+        if (error) console.warn('[Supabase Reservation Reminder Dedupe Warning]', error.message);
+      } catch (e) {
+        console.warn('[Supabase Reservation Reminder Dedupe Exception]', e.message);
+      }
+    }
+    return readNotificationEvents().some(
+      e => e && e.type === 'reservation_reminder' && e.data && e.data.reservationId === reservationId
+    );
+  },
+
+  /**
+   * Graba el marcador de recordatorio (espejo local + nube best-effort).
+   * isRead: true — es un marcador de dedupe, no un aviso para el inbox del
+   * dueño (mismo criterio que review_nudge_request).
+   */
+  async recordReservationReminder({ restaurantId, reservationId, channels }) {
+    if (!reservationId) return null;
+    const events = readNotificationEvents();
+    const existing = events.find(
+      e => e && e.type === 'reservation_reminder' && e.data && e.data.reservationId === reservationId
+    );
+    if (existing) return existing;
+    const ev = {
+      id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : `rr_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+      restaurantId: restaurantId || null,
+      branchId: null,
+      type: 'reservation_reminder',
+      title: 'Recordatorio de reserva enviado',
+      body: 'Aviso 24h al comensal (email y/o push).',
+      data: {
+        reservationId: String(reservationId),
+        ...(channels ? { channels } : {})
+      },
+      isRead: true,
+      createdAt: new Date().toISOString()
+    };
+    await writeNotificationEvents([...events, ev]);
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      retryQueue.enqueue(async () => {
+        const { error } = await supabase.from('notification_events').upsert([toEventCloudRow(ev)], { onConflict: 'id' });
+        if (error) throw new Error(error.message);
+      }, { taskName: 'reservation_reminder_record_replicate' });
+    }
+    return ev;
+  },
+
   /** Marca un evento como leído (solo del propio restaurante). */
   async markNotificationEventRead(id, restaurantId) {
     const events = await this.listNotificationEvents({ restaurantId, limit: 500 });

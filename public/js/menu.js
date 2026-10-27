@@ -2223,7 +2223,9 @@ Object.defineProperties(window, {
     }
 
     function submitReservation(e) {
-      submitReservationMod(e, restaurantData, getSlug);
+      // ctx: captcha invisible (el server lo exige solo con TURNSTILE_SECRET)
+      // + toast para avisos de la demo.
+      submitReservationMod(e, restaurantData, getSlug, { getCaptchaToken, showToast });
     }
 
     // Wi-Fi Modal

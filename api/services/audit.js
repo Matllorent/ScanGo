@@ -38,7 +38,11 @@ const AUDIT_ACTIONS = Object.freeze({
   STAFF_SESSIONS_REVOKED: 'STAFF_SESSIONS_REVOKED',
   STAFF_TABLE_ASSIGN: 'STAFF_TABLE_ASSIGN',
   STAFF_SHIFT_START: 'STAFF_SHIFT_START',
-  STAFF_SHIFT_END: 'STAFF_SHIFT_END'
+  STAFF_SHIFT_END: 'STAFF_SHIFT_END',
+  // Reservas de verdad (backlog #2)
+  RESERVATION_CREATED: 'RESERVATION_CREATED',
+  RESERVATION_STATUS_CHANGE: 'RESERVATION_STATUS_CHANGE',
+  RESERVATION_REMINDER_SENT: 'RESERVATION_REMINDER_SENT'
 });
 
 const AUDIT_ENTITIES = Object.freeze({
@@ -51,7 +55,8 @@ const AUDIT_ENTITIES = Object.freeze({
   notification: 'notification',
   dish: 'dish',
   staff: 'staff',
-  staff_session: 'staff_session'
+  staff_session: 'staff_session',
+  reservation: 'reservation'
 });
 
 function assertValidAuditRef(action, entity) {

@@ -64,5 +64,15 @@ module.exports = {
   // Activación del turno: 24 bytes de secreto hacen la fuerza bruta imposible;
   // el límite corta el abuso antes de que llegue al hash.
   staffShiftLimiter: createRateLimit(30, 'STAFF_SHIFT_RATE_LIMITED', 'Demasiados intentos de activar un turno.'),
+  // Alta pública de reserva (POST /api/reservations): un balde POR SLUG de
+  // menú (muchos comensales de un mismo local comparten NAT/proxy), no por
+  // IP global. 15 altas/15 min por local: una mesa llena no debería agotar
+  // el balde del resto; el abuso automatizado sí se corta acá.
+  reservationsPublicLimiter: createRateLimit(
+    15,
+    'RESERVATIONS_RATE_LIMITED',
+    'Demasiadas solicitudes de reserva en poco tiempo.',
+    { keyGenerator: publicEventKeyGenerator, validate: { keyGeneratorIpFallback: false } }
+  ),
   publicEventKeyGenerator
 };

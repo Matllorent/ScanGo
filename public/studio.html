@@ -139,6 +139,10 @@
           <span class="tab-icon">📲</span>
           <span>Avisos WA</span>
         </button>
+        <button class="tab-btn" data-js-click="switchTab|reservas" title="Reservas — Solicitudes del comensal y agenda del día">
+          <span class="tab-icon">📅</span>
+          <span>Reservas</span>
+        </button>
         <button class="tab-btn" data-js-click="switchTab|analytics" title="Analíticas — Métricas por sucursal, eventos y horas pico">
           <span class="tab-icon">📈</span>
           <span>Analíticas</span>
@@ -1626,6 +1630,42 @@
                 <a class="btn-nav" style="width:auto; padding:6px 12px; font-size:11px; text-decoration:none; color:var(--text-light); border:1px solid var(--border);" href="/robots.txt" target="_blank" rel="noopener">robots.txt</a>
               </div>
             </section>
+          </div>
+        </div>
+
+        <!-- TAB: RESERVAS (backlog #2, oct-2026) -->
+        <div id="tab-reservas" class="tab-pane">
+          <div class="form-section">
+            <section id="reservationsSection" aria-labelledby="reservationsSectionTitle">
+              <h2 class="section-title" id="reservationsSectionTitle">📅 Reservas del día</h2>
+              <p style="font-size:11px; color:var(--text-dim); margin:8px 0 14px;">
+                Lo que el comensal pide con el botón "Reservar Mesa" de tu carta. Confirmá las que
+                tienen lugar: una reserva confirmada le llega al comensal como recordatorio 24 horas antes.
+                El interruptor para activar o apagar el botón vive en <strong>Mi Local</strong>.
+              </p>
+
+              <div class="reservations-toolbar">
+                <label for="reservationsDate" class="sr-only">Elegí el día de la agenda</label>
+                <input type="date" id="reservationsDate" class="form-input" style="width:auto; padding:6px 10px; font-size:12px;" data-js-change="changeReservationsDate|this.value">
+                <button type="button" class="btn-nav" data-js-click="loadReservations">↻ Actualizar</button>
+                <span id="reservationsBanner" class="staff-banner" role="status" aria-live="polite" hidden></span>
+              </div>
+
+              <div id="reservationsCounts" class="res-counts" role="group" aria-label="Resumen de reservas del día"></div>
+
+              <div id="reservationsList" class="reservations-list"></div>
+
+              <div id="reservationsEmpty" class="staff-empty" hidden>
+                <span class="staff-empty-icon" aria-hidden="true">🍽️</span>
+                <strong>Sin reservas para este día.</strong>
+                <p>Cuando alguien pida mesa desde tu carta, la solicitud aparece acá como "Solicitada".</p>
+              </div>
+            </section>
+
+            <p class="staff-privacy-note">
+              🔒 El teléfono del comensal es tuyo para operar la reserva (confirmar, avisar si algo
+              cambia). El recordatorio de 24 h se envía solo a reservas confirmadas y una sola vez.
+            </p>
           </div>
         </div>
 

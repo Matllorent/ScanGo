@@ -39,12 +39,14 @@ const eventsRouter = require('./routes/events');
 const discoveryRouter = require('./routes/discovery');
 const publicRouter = require('./routes/public');
 const accountRouter = require('./routes/account');
+const reservationsRouter = require('./routes/reservations');
 const billingDunningRouter = require('./cron/billing-dunning');
 const telemetryRetentionRouter = require('./cron/telemetry-retention');
 const seoAuditCronRouter = require('./cron/seo-audit');
 const reviewNudgeCronRouter = require('./cron/review-nudge');
 const birthdayNudgeCronRouter = require('./cron/birthday-nudge');
 const nightSummaryCronRouter = require('./cron/night-summary');
+const reservationRemindersCronRouter = require('./cron/reservation-reminders');
 
 const app = express();
 // Detrás de Vercel (proxy) el req.ip real llega por X-Forwarded-For (Vercel lo
@@ -381,6 +383,7 @@ app.use('/m', menuSsrRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api', publicRouter);
 app.use('/api/account', accountRouter);
+app.use('/api/reservations', reservationsRouter);
 app.use('/', discoveryRouter);
 app.use('/api/cron', billingDunningRouter);
 app.use('/api/cron', telemetryRetentionRouter);
@@ -388,6 +391,7 @@ app.use('/api/cron', seoAuditCronRouter);
 app.use('/api/cron', reviewNudgeCronRouter);
 app.use('/api/cron', birthdayNudgeCronRouter);
 app.use('/api/cron', nightSummaryCronRouter);
+app.use('/api/cron', reservationRemindersCronRouter);
 
 // Protected routes: require active subscription (Billing operations)
 // IMPORTANTE: sólo aplica a rutas /api/billing montadas DESPUÉS de esta línea.

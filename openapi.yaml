@@ -29,6 +29,8 @@ tags:
     description: Push Web y avisos de mesa (`api/routes/notifications.js`)
   - name: staff
     description: Turno del equipo operativo — mozos y cocina (`api/routes/staff.js`)
+  - name: reservations
+    description: Reservas de verdad — alta del comensal y agenda del dueño (`api/routes/reservations.js`)
   - name: analytics
     description: Canal público de analítica (`POST /api/public/analytics/event` en `api/index.js`)
   - name: admin
@@ -3077,6 +3079,314 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/reservations:
+    post:
+      tags: [reservations]
+      summary: Alta pública de una reserva (comensal)
+      description: |-
+        Público + `reservationsPublicLimiter` (15 por local / 15 min). La
+        reserva nace `requested` dentro del doc del local
+        (`restaurant.reservations[]`, columna `profile` — cero migración) y el
+        dueño la confirma desde el Studio. Capacidad server-side
+        (`maxPerSlot`, `slotBufferMinutes`, `maxPax`, `maxAdvanceDays`): una
+        franja llena o demasiado cerca → 409 `SLOT_UNAVAILABLE` (un solo
+        código público, no se filtra el detalle de la agenda). CAPTCHA
+        invisible como el pedido (403 `CAPTCHA_REQUIRED`/`CAPTCHA_INVALID`
+        solo con `TURNSTILE_SECRET`). Demos → 200 `{demo:true}` no-op
+        (nunca registran data). `allowReservations:false` del dueño → 403
+        `RESERVATIONS_DISABLED`. Email al dueño best-effort (fire-and-forget:
+        la reserva ya existe cuando llega el 201). Auditoría
+        `RESERVATION_CREATED` con teléfono enmascarado.
+      operationId: createReservation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slug, name, phone, date, time, pax]
+              properties:
+                slug:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                phone:
+                  type: string
+                  minLength: 8
+                  maxLength: 24
+                  description: Teléfono del comensal (solo dígitos tras normalizar; E.164 preferido)
+                email:
+                  type: string
+                  format: email
+                  maxLength: 120
+                  description: Opcional — habilita el recordatorio de 24 h por email
+                date:
+                  type: string
+                  format: date
+                  pattern: '^\d{4}-\d{2}-\d{2}$'
+                time:
+                  type: string
+                  pattern: '^\d{2}:\d{2}$'
+                  example: '21:00'
+                pax:
+                  type: string
+                  description: 'Cantidad de comensales (el select puede mandar `8+` para mesa larga)'
+                  example: '4'
+                notes:
+                  type: string
+                  maxLength: 300
+                captchaToken:
+                  type: string
+                  description: Token de Turnstile (solo exigido con `TURNSTILE_SECRET`)
+      responses:
+        '201':
+          description: Reserva registrada como `requested`
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    required: [reservation]
+                    properties:
+                      reservation:
+                        $ref: '#/components/schemas/Reservation'
+        '200':
+          description: Demo — no-op honesto (`{demo:true}`, sin persistencia)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    required: [demo]
+                    properties:
+                      demo:
+                        type: boolean
+                        example: true
+        '400':
+          description: Datos inválidos (`VALIDATION_ERROR`, `RESERVATION_DATE_PAST`, `RESERVATION_PAX_INVALID`, `INVALID_RESERVATION_TIME`, ...)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Reservas apagadas por el dueño o CAPTCHA (`RESERVATIONS_DISABLED`, `CAPTCHA_REQUIRED`, `CAPTCHA_INVALID`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Local no encontrado (`RESTAURANT_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Franja sin lugar (`SLOT_UNAVAILABLE`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Límite por local alcanzado (15 / 15 min)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags: [reservations]
+      summary: Agenda del dueño — reservas de UN día
+      description: |-
+        `authMiddleware` + `requireVerifiedEmail` (401 anónimo). Devuelve las
+        reservas del día pedido (default: HOY en el huso del dueño vía
+        `utcOffsetMinutes`), ordenadas por hora, con el anillo del Club
+        (`club`: visitas del teléfono en ESTE local, lectura de fidelización
+        que nunca crea cuenta) y `counts` del día + `pending` global
+        (requested de cualquier fecha, para el badge del tab).
+      operationId: listReservations
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+            pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Día de la agenda (YYYY-MM-DD); ausente → hoy local del dueño
+      responses:
+        '200':
+          description: Agenda del día
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    required: [date, allowReservations, reservations, counts]
+                    properties:
+                      date:
+                        type: string
+                        format: date
+                      allowReservations:
+                        type: boolean
+                        description: Estado del toggle del dueño (aviso honesto cuando está apagado)
+                      reservations:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Reservation'
+                      counts:
+                        type: object
+                        required: [day, pending, requested, confirmed, seated, cancelled, noShow]
+                        properties:
+                          day:
+                            type: integer
+                            minimum: 0
+                          pending:
+                            type: integer
+                            minimum: 0
+                            description: requested vivas de TODAS las fechas (badge del tab)
+                          requested:
+                            type: integer
+                            minimum: 0
+                          confirmed:
+                            type: integer
+                            minimum: 0
+                          seated:
+                            type: integer
+                            minimum: 0
+                          cancelled:
+                            type: integer
+                            minimum: 0
+                          noShow:
+                            type: integer
+                            minimum: 0
+        '401':
+          description: Sin sesión (`AUTH_REQUIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Dueño sin restaurante (`RESTAURANT_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/reservations/{id}:
+    patch:
+      tags: [reservations]
+      summary: Acción del dueño sobre una reserva
+      description: |-
+        `authMiddleware` + `requireActiveSubscription` (401 anónimo, 403 sin
+        suscripción activa). Máquina de estados en el módulo puro
+        (`api/utils/reservations.js`) re-validada DENTRO del mutex de
+        escritura: `requested→confirmed|cancelled`,
+        `confirmed→seated|no_show|cancelled`, terminales sin salida → 409
+        `INVALID_RESERVATION_TRANSITION`. Una reserva de otro local es 404
+        `RESERVATION_NOT_FOUND` (igual que orders). Cancelar puede enviar
+        `cancelReason` (v1 UI manda el motivo fijo "Cancelada por el local").
+        Auditoría `RESERVATION_STATUS_CHANGE` (de→a + motivo).
+      operationId: updateReservationStatus
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID de la reserva (`resv_...`)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [confirmed, seated, no_show, cancelled]
+                  description: '`requested` no es un destino (nace en el alta) y los terminales no salen'
+                cancelReason:
+                  type: string
+                  maxLength: 200
+                  description: Motivo de la cancelación (solo `status=cancelled`)
+      responses:
+        '200':
+          description: Transición aplicada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    required: [reservation]
+                    properties:
+                      reservation:
+                        $ref: '#/components/schemas/Reservation'
+        '400':
+          description: Estado inválido (`INVALID_RESERVATION_STATUS`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sin sesión (`AUTH_REQUIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin suscripción activa (`SUBSCRIPTION_REQUIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Reserva ajena o inexistente (`RESERVATION_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Transición no permitida por la máquina (`INVALID_RESERVATION_TRANSITION`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/account/delete-request:
     post:
       tags: [account]
@@ -3822,3 +4132,73 @@ components:
           type: string
         staffName:
           type: string
+    Reservation:
+      type: object
+      required: [id, name, phone, date, time, pax, status, statusLabel]
+      properties:
+        id:
+          type: string
+          example: resv_1730000000000_ab12cd
+        name:
+          type: string
+          maxLength: 80
+        phone:
+          type: string
+          description: Teléfono del comensal (E.164 normalizado; para el dueño que opera la reserva)
+        email:
+          type: string
+          format: email
+          description: Opcional — destinatario del recordatorio de 24 h
+        date:
+          type: string
+          format: date
+        time:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+          example: '21:00'
+        pax:
+          type: integer
+          minimum: 1
+          maximum: 99
+        paxLabel:
+          type: string
+          example: '8+'
+          description: Presentación de pax para mesa larga (cuando corresponde)
+        notes:
+          type: string
+          maxLength: 300
+        status:
+          type: string
+          enum: [requested, confirmed, seated, cancelled, no_show]
+        statusLabel:
+          type: string
+          example: Solicitada
+        cancelReason:
+          type: string
+          maxLength: 200
+        source:
+          type: string
+          enum: [menu]
+          description: Origen del alta (v1: solo el chip del menú)
+        createdAt:
+          type: string
+          format: date-time
+        statusUpdatedAt:
+          type: string
+          format: date-time
+        club:
+          $ref: '#/components/schemas/ReservationClub'
+    ReservationClub:
+      type: object
+      description: Anillo del Club para ese teléfono (solo en la agenda del dueño; lectura, nunca crea cuenta)
+      required: [localVisits, globalVisits]
+      properties:
+        level:
+          type: string
+          description: Etiqueta del nivel de red (vacío si no tiene)
+        localVisits:
+          type: integer
+          minimum: 0
+        globalVisits:
+          type: integer
+          minimum: 0

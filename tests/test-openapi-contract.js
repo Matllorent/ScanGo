@@ -54,6 +54,8 @@ const SPEC_PATHS = [
   '/api/staff/shift/end',
   '/api/staff/tables',
   '/api/staff/push/subscribe',
+  '/api/reservations',
+  '/api/reservations/{id}',
   '/api/orders',
   '/api/orders/track/{token}',
   '/api/orders/status/{orderId}',
@@ -399,8 +401,45 @@ async function runTests() {
       body: JSON.stringify({ endpoint: 'https://push.example.com/staff' })
     });
     assert.strictEqual(staffPushDeleteAnon.status, 401, 'staff/push/subscribe DELETE sin Bearer → 401');
+
+    // Reservas de verdad (backlog #2): alta pública real + agenda/cambio del
+    // dueño sin sesión. Los flujos completos (capacidad, máquina de estados,
+    // cron de recordatorios) viven en tests/test-reservations.js.
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const reservationOk = await postJson('/api/reservations', {
+      slug: rest.slug,
+      name: 'Comensal Contrato',
+      phone: `59899${String(stamp).slice(-6)}`,
+      date: tomorrow,
+      time: '21:30',
+      pax: '2'
+    });
+    assert.strictEqual(reservationOk.status, 201, 'reserva pública → 201');
+    const reservation = (await reservationOk.json()).data.reservation;
+    assert.strictEqual(reservation.status, 'requested', 'la reserva nace requested');
+    assert.strictEqual(reservation.statusLabel, 'Solicitada', 'label ES en el alta');
+    assert.strictEqual(reservation.pax, 2, 'pax persistido');
+
+    const reservationsGetAnon = await fetch(`${base}/api/reservations`);
+    assert.strictEqual(reservationsGetAnon.status, 401, 'GET agenda sin auth → 401 (no 404)');
+    const reservationsPatchAnon = await fetch(`${base}/api/reservations/${reservation.id}`, {
+      method: 'PATCH',
+      headers: json,
+      body: JSON.stringify({ status: 'confirmed' })
+    });
+    assert.strictEqual(reservationsPatchAnon.status, 401, 'PATCH reserva sin auth → 401 (no 404)');
+    const reservations404 = await postJson('/api/reservations', {
+      slug: `no-existe-${stamp}`,
+      name: 'X',
+      phone: '59899000000',
+      date: tomorrow,
+      time: '21:30',
+      pax: '2'
+    });
+    assert.strictEqual(reservations404.status, 404, 'reserva con slug inexistente → 404 (no 401)');
     console.log('✓ Staff (Fase 1): 7 rutas del Studio + 7 del turno responden códigos reales (401/400/401)');
-    console.log('✓ 12 rutas restantes: códigos reales (400/401/403/200) y ningún 404');
+    console.log('✓ Reservas (backlog #2): 201 real + agenda/PATCH 401 + 404 slug desconocido');
+    console.log('✓ Rutas restantes: códigos reales (400/401/403/200) y ningún 404 inesperado');
 
     console.log('\n🎉 ¡CONTRATO OPENAPI VERIFICADO CONTRA RUNTIME REAL!');
   } finally {

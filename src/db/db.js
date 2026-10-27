@@ -300,6 +300,10 @@ const pendingSupabaseWrites = new Set();
 let subscriptionChangeHook = null;
 // Mutex en proceso para addOrder (read-modify-write sin transacción).
 let orderWriteLock = Promise.resolve();
+// Mutex en proceso para reservas (addReservation/updateReservationStatus son
+// read-modify-write sobre el MISMO documento del local: dos POST/PATCH
+// concurrentes intercalados pisaban una reserva — mismo porqué que addOrder).
+let reservationWriteLock = Promise.resolve();
 let databaseReady = Promise.resolve({ ready: true, mode: 'json' });
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
 
@@ -1338,6 +1342,122 @@ const db = {
     }
 
     return { success: true, restaurant: rest, branch: resultBranch, action };
+  },
+
+  // ── Reservas de verdad (backlog #2, oct-2026) ─────────────────────────────
+  // Las reservas viven DENTRO del documento del local (`restaurant.reservations[]`)
+  // y viajan a Supabase en la columna `profile` (JSONB de la 008): cero
+  // migración, misma vía dual-write que branches. El array es SERVER-OWNED —
+  // `reservations` está en PRIVILEGED_FIELDS, así que el autosave del Studio
+  // jamás lo pisa con un snapshot vago.
+  //
+  // Mutex en proceso: igual que addOrder, el read-modify-write del documento
+  // no es transaccional por más que writeJson sea atómico por archivo.
+  // Deliberate skip v1 (documentado en api/utils/reservations.js): la
+  // capacidad por franja se valida en el route ANTES del mutex — dos POST
+  // para la misma franja en el mismo instante pueden sobrecargarla por 1.
+
+  /**
+   * Agrega una reserva `requested` al documento del local. Con cota
+   * MAX_RESERVATIONS: si el array crece más, se recorta descartando primero
+   * las terminales más viejas (trimReservationsList, módulo puro).
+   * @returns {Promise<{success, reservation?, restaurant?, error?}>}
+   */
+  async addReservation(restaurantId, reservation) {
+    if (!restaurantId || !reservation || !reservation.id) {
+      return { success: false, error: 'Reserva inválida' };
+    }
+    const { trimReservationsList, MAX_RESERVATIONS } = require('../../api/utils/reservations');
+    const run = async () => {
+      const rests = readJson(RESTAURANTS_FILE, []);
+      const rest = rests.find(r => r.id === restaurantId);
+      if (!rest) return { success: false, error: 'Restaurante no encontrado' };
+      if (!Array.isArray(rest.reservations)) rest.reservations = [];
+      rest.reservations.push(reservation);
+      if (rest.reservations.length > MAX_RESERVATIONS) {
+        rest.reservations = trimReservationsList(rest.reservations, MAX_RESERVATIONS);
+      }
+      await writeJson(RESTAURANTS_FILE, rests);
+      if (supabase) {
+        trackSupabaseWrite(
+          supabase.from('restaurants').update({
+            profile: rest,
+            updated_at: new Date().toISOString()
+          }).eq('id', restaurantId),
+          'Add Reservation'
+        );
+      }
+      return { success: true, restaurant: rest, reservation };
+    };
+    reservationWriteLock = reservationWriteLock.then(() => run(), () => run());
+    return reservationWriteLock;
+  },
+
+  /** Lectura de una reserva del local (sin lock: solo lectura). */
+  findReservationById(restaurantId, reservationId) {
+    if (!restaurantId || !reservationId) return null;
+    const rest = readJson(RESTAURANTS_FILE, []).find(r => r.id === restaurantId);
+    if (!rest || !Array.isArray(rest.reservations)) return null;
+    return rest.reservations.find(r => r && r.id === reservationId) || null;
+  },
+
+  /**
+   * Aplica una transición de estado YA VALIDADA por el módulo puro (la
+   * máquina vive en api/utils/reservations.transitionReservationStatus —
+   * db.js no puede requerir api/utils para la decisión por el guard D, pero
+   * SÍ la usa acá porque el require es lazy dentro del método y el route la
+   * consultó antes). Persiste espejo local + nube (profile).
+   */
+  async updateReservationStatus(restaurantId, reservationId, patch, statusUpdatedAt) {
+    const { RESERVATION_STATUSES } = require('../../api/utils/reservations');
+    if (
+      !restaurantId || !reservationId || !patch ||
+      !RESERVATION_STATUSES.includes(patch.status)
+    ) {
+      return { success: false, error: 'Datos de transición inválidos', code: 'INVALID_RESERVATION_STATUS' };
+    }
+    const run = async () => {
+      const rests = readJson(RESTAURANTS_FILE, []);
+      const rest = rests.find(r => r.id === restaurantId);
+      if (!rest) return { success: false, error: 'Restaurante no encontrado', code: 'RESTAURANT_NOT_FOUND' };
+      if (!Array.isArray(rest.reservations)) rest.reservations = [];
+      const idx = rest.reservations.findIndex(r => r && r.id === reservationId);
+      if (idx === -1) {
+        return { success: false, error: 'Reserva no encontrada', code: 'RESERVATION_NOT_FOUND' };
+      }
+      const current = rest.reservations[idx];
+      const { transitionReservationStatus } = require('../../api/utils/reservations');
+      const check = transitionReservationStatus(current.status, patch.status);
+      if (!check.ok) {
+        return { success: false, error: 'La reserva no puede pasar a ese estado', code: check.reason };
+      }
+      const updated = {
+        ...current,
+        status: patch.status,
+        statusUpdatedAt: statusUpdatedAt || new Date().toISOString(),
+        updatedAt: statusUpdatedAt || new Date().toISOString()
+      };
+      // El motivo solo se persiste al cancelar (y nunca limpia uno previo).
+      if (patch.status === 'cancelled') {
+        updated.cancelReason = patch.cancelReason
+          ? String(patch.cancelReason).slice(0, 200)
+          : (current.cancelReason || 'Cancelada por el local');
+      }
+      rest.reservations[idx] = updated;
+      await writeJson(RESTAURANTS_FILE, rests);
+      if (supabase) {
+        trackSupabaseWrite(
+          supabase.from('restaurants').update({
+            profile: rest,
+            updated_at: new Date().toISOString()
+          }).eq('id', restaurantId),
+          'Update Reservation Status'
+        );
+      }
+      return { success: true, restaurant: rest, reservation: updated };
+    };
+    reservationWriteLock = reservationWriteLock.then(() => run(), () => run());
+    return reservationWriteLock;
   },
 
   // Subscriptions

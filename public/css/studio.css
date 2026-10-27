@@ -746,6 +746,77 @@
     .staff-action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
     .staff-action-btn.is-gold { color: var(--accent-gold); border-color: rgba(236, 201, 75, 0.4); }
     .staff-action-btn.is-danger { color: #FCA5A5; border-color: rgba(229, 62, 62, 0.35); }
+    .staff-action-btn.is-ok { color: #86EFAC; border-color: rgba(74, 222, 128, 0.35); }
+    .staff-action-btn.is-info { color: #93C5FD; border-color: rgba(96, 165, 250, 0.35); }
+    .staff-action-btn.is-warn { color: #FCD34D; border-color: rgba(251, 191, 36, 0.35); }
+
+    /* ── Reservas (backlog #2) ─────────────────────────────────────────── */
+    .reservations-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .reservations-list { display: flex; flex-direction: column; gap: 8px; }
+    .res-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface-3);
+    }
+    .res-row.is-cancelled, .res-row.is-no_show { opacity: 0.62; }
+    .res-time {
+      min-width: 52px;
+      font: 700 13px 'IBM Plex Mono', monospace;
+      color: var(--accent-gold);
+      padding-top: 2px;
+    }
+    .res-main { flex: 1; min-width: 0; }
+    .res-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px; }
+    .res-name { color: var(--text-main); font-size: 13px; }
+    .res-pax, .res-club { color: var(--text-dim); font-size: 11px; }
+    .res-club { color: var(--accent-gold); font-weight: 600; }
+    .res-phone { color: var(--text-dim); font-size: 11px; margin-top: 3px; }
+    .res-note { color: var(--text-dim); font-size: 11px; margin-top: 3px; font-style: italic; }
+    .res-cancelled-reason { color: #FCA5A5; font-size: 10px; margin-top: 3px; }
+    .res-side { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
+    .res-status-chip {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .res-tone-warn { color: #FCD34D; border-color: rgba(251, 191, 36, 0.4); background: rgba(251, 191, 36, 0.08); }
+    .res-tone-ok { color: #86EFAC; border-color: rgba(74, 222, 128, 0.4); background: rgba(74, 222, 128, 0.08); }
+    .res-tone-info { color: #93C5FD; border-color: rgba(96, 165, 250, 0.4); background: rgba(96, 165, 250, 0.08); }
+    .res-tone-danger { color: #FCA5A5; border-color: rgba(229, 62, 62, 0.4); background: rgba(229, 62, 62, 0.08); }
+    .res-tone-muted { color: var(--text-dim); border-color: var(--border); background: transparent; }
+    .res-actions { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; }
+    .res-counts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .res-count-chip {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+    .res-count-chip strong { font: 700 12px 'IBM Plex Mono', monospace; }
+    .res-c-total strong { color: var(--text-main); }
+    .res-c-warn strong { color: #FCD34D; }
+    .res-c-ok strong { color: #86EFAC; }
+    .res-c-info strong { color: #93C5FD; }
+    .res-c-danger strong { color: #FCA5A5; }
+    .res-c-muted strong { color: var(--text-dim); }
 
     .staff-empty {
       display: flex;

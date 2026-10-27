@@ -58,11 +58,15 @@ export function formatReservationWhatsAppMessage(params = {}) {
     date = '',
     time = '',
     guests = 1,
-    notes = ''
+    notes = '',
+    phone = ''
   } = params;
 
   let msg = `📅 *SOLICITUD DE RESERVA - ${restaurantName.toUpperCase()}*\n\n`;
   msg += `👤 *Titular:* ${name}\n`;
+  if (phone) {
+    msg += `📱 *Teléfono:* ${phone}\n`;
+  }
   msg += `📆 *Fecha:* ${date}\n`;
   msg += `⏰ *Hora:* ${time} hs\n`;
   msg += `👥 *Comensales:* ${guests}\n`;
@@ -81,6 +85,7 @@ export function openReservationModal() {
   const modal = document.getElementById('reservationModal');
   if (!modal) return;
   modal.classList.add('active');
+  resetReservationForm();
 
   // No permitir fechas pasadas en el selector de fecha
   const dateInput = document.getElementById('resDate');
@@ -89,12 +94,82 @@ export function openReservationModal() {
     today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
     dateInput.setAttribute('min', today.toISOString().slice(0, 10));
   }
+}
 
-  // Limpiar error previo al reabrir
+/**
+ * Reservas de verdad (backlog #2): el modal vuelve a su estado FORMULARIO
+ * (tras un éxito previo quedó el panel de éxito). Limpio error y éxito.
+ */
+export function resetReservationForm() {
+  const form = document.getElementById('reservationForm');
+  const intro = document.getElementById('resModalIntro');
+  const successBox = document.getElementById('resSuccessBox');
+  const msgEl = document.getElementById('resFormMsg');
+  if (form) form.style.display = '';
+  if (intro) intro.style.display = '';
+  if (successBox) successBox.style.display = 'none';
+  if (msgEl) {
+    msgEl.textContent = '';
+    msgEl.style.display = 'none';
+  }
+}
+
+/**
+ * Muestra un error de forma honesta (del server o de la validación client).
+ */
+function showReservationError(message) {
   const msgEl = document.getElementById('resFormMsg');
   if (msgEl) {
-    msgEl.style.display = 'none';
-    msgEl.textContent = '';
+    msgEl.textContent = `⚠️ ${message}`;
+    msgEl.style.display = 'block';
+  }
+}
+
+/**
+ * Arma el link wa.me del panel de éxito con el MISMO formatter de siempre
+ * (cero copia de copy). El click es el gesto del usuario → el navegador
+ * permite window.open (antes el flujo moría si el popup blocker cortaba la
+ * apertura automática post-fetch).
+ */
+function buildReservationWaUrl(restaurantData, fields) {
+  const ownerPhone = String(restaurantData?.phone || '').replace(/[^0-9]/g, '');
+  if (!ownerPhone) return '';
+  const msg = formatReservationWhatsAppMessage({
+    restaurantName: restaurantData.name || 'Local',
+    name: fields.name,
+    date: fields.date,
+    time: fields.time,
+    guests: fields.paxLabel ? `${fields.paxLabel}` : String(fields.pax),
+    notes: fields.notes,
+    phone: fields.phone
+  });
+  return `https://wa.me/${ownerPhone}?text=${encodeURIComponent(msg)}`;
+}
+
+/** Cablea los botones del panel de éxito (addEventListener, cero on*=). */
+function wireReservationSuccessActions(restaurantData, fields) {
+  const waBtn = document.getElementById('resSuccessWaBtn');
+  const doneBtn = document.getElementById('resSuccessDoneBtn');
+  const waUrl = buildReservationWaUrl(restaurantData, fields);
+  if (waBtn) {
+    if (waUrl) {
+      waBtn.hidden = false;
+      if (!waBtn.dataset.waBound) {
+        waBtn.dataset.waBound = 'true';
+        waBtn.addEventListener('click', () => window.open(waUrl, '_blank'));
+      }
+    } else {
+      // Sin WhatsApp del local el botón no existe: la reserva ya está
+      // registrada — nunca muestro un botón muerto.
+      waBtn.hidden = true;
+    }
+  }
+  if (doneBtn && !doneBtn.dataset.doneBound) {
+    doneBtn.dataset.doneBound = 'true';
+    doneBtn.addEventListener('click', () => {
+      resetReservationForm();
+      closeReservationModal();
+    });
   }
 }
 
@@ -107,94 +182,183 @@ export function closeReservationModal() {
 }
 
 /**
- * Submits reservation form and redirects to WhatsApp.
+ * Submits the reservation form (Reservas de verdad, backlog #2).
+ *
+ * Flujo REAL: POST /api/reservations (alta + capacidad + captcha server-side)
+ * → panel de éxito honesto con "📲 Avisar también por WhatsApp" como paso
+ * OPCIONAL (el comensal decide; el window.open de ese botón es su propio
+ * gesto — la carrera con el popup blocker ya no existe). La reserva queda
+ * `requested` en el sistema y el dueño la confirma desde el Studio.
+ *
+ * DEMOS: sin alta server-side (la demo nunca registra datos reales) → flujo
+ * WhatsApp puro de siempre. El server además devuelve 200 {demo:true} como
+ * respaldo si algún día un demo llega a POST.
+ *
+ * @param {Event} e
+ * @param {object} restaurantData - doc público del local
+ * @param {() => string} getSlugFn
+ * @param {{getCaptchaToken?: () => Promise<string>, showToast?: (m: string) => void}} ctx
  */
-export function submitReservation(e, restaurantData = {}, getSlugFn = () => '') {
+export async function submitReservation(e, restaurantData = {}, getSlugFn = () => '', ctx = {}) {
   if (e && e.preventDefault) e.preventDefault();
+  const { getCaptchaToken = null, showToast = null } = ctx || {};
 
-  const submitBtn = e?.target ? e.target.querySelector('button[type="submit"]') : null;
-  const originalText = submitBtn ? submitBtn.innerHTML : '';
-  const msgEl = document.getElementById('resFormMsg');
+  const submitBtn = document.getElementById('resSubmitBtn');
+  const submitLabel = document.getElementById('resSubmitLabel');
+  const fields = {
+    name: document.getElementById('resName')?.value.trim() || '',
+    phone: document.getElementById('resPhone')?.value.trim() || '',
+    email: document.getElementById('resEmail')?.value.trim() || '',
+    date: document.getElementById('resDate')?.value || '',
+    time: document.getElementById('resTime')?.value || '',
+    guestsRaw: document.getElementById('resGuests')?.value || '',
+    notes: document.getElementById('resNotes')?.value.trim() || ''
+  };
 
-  // ── Validación previa (evita wa.me rotos y reservas inválidas) ──────────
-  const name = document.getElementById('resName')?.value.trim() || '';
-  const date = document.getElementById('resDate')?.value || '';
-  const time = document.getElementById('resTime')?.value || '';
-  const guestsRaw = document.getElementById('resGuests')?.value || '';
-  const notes = document.getElementById('resNotes')?.value.trim() || '';
-  const rawPhone = (restaurantData.phone || '').replace(/[^0-9]/g, '');
-
+  // ── Validación previa (la definitiva es el server; acá evito viajes al vacío)
   const errors = [];
+  if (!fields.name) errors.push('Ingresá tu nombre.');
 
-  if (!name) errors.push('Ingresá tu nombre.');
-  if (!rawPhone) errors.push('El local no tiene un WhatsApp configurado para reservas.');
+  const comensalPhone = fields.phone.replace(/[^0-9]/g, '');
+  if (comensalPhone.length < 8) errors.push('Ingresá tu teléfono (lo usa el local para confirmarte).');
 
-  if (!date) {
+  if (!fields.date) {
     errors.push('Elegí una fecha.');
   } else {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const selected = new Date(`${date}T00:00:00`);
+    const selected = new Date(`${fields.date}T00:00:00`);
     if (Number.isNaN(selected.getTime()) || selected.getTime() < today.getTime()) {
       errors.push('La fecha no puede ser anterior a hoy.');
     }
   }
 
-  if (!time) errors.push('Elegí un horario.');
+  if (!fields.time) errors.push('Elegí un horario.');
 
   // El select usa '8+' como valor para "8 o más (mesa larga)"
-  const guestsNum = guestsRaw === '8+' ? 8 : parseInt(guestsRaw, 10);
+  const guestsNum = fields.guestsRaw === '8+' ? 8 : parseInt(fields.guestsRaw, 10);
   if (!Number.isFinite(guestsNum) || guestsNum < 1) {
     errors.push('Elegí la cantidad de comensales.');
   }
 
   if (errors.length) {
-    if (msgEl) {
-      msgEl.textContent = '⚠️ ' + errors.join(' ');
-      msgEl.style.display = 'block';
-    }
+    showReservationError(errors.join(' '));
     return;
   }
+  fields.phone = comensalPhone;
+  fields.pax = guestsNum;
+  fields.paxLabel = fields.guestsRaw === '8+' ? '8+' : '';
 
-  // Validación superada: limpiar cualquier error previo del intento anterior
-  // (evita mensajes fantasma al reintentar con datos correctos).
+  const msgEl = document.getElementById('resFormMsg');
   if (msgEl) {
     msgEl.textContent = '';
     msgEl.style.display = 'none';
   }
 
+  const busy = submitBtn && (submitBtn.disabled || submitBtn.dataset.busy === 'true');
+  if (busy) return;
   if (submitBtn) {
-    if (submitBtn.disabled || submitBtn.dataset.busy === 'true') return;
     submitBtn.disabled = true;
     submitBtn.dataset.busy = 'true';
-    submitBtn.innerHTML = '<span>⏳ Conectando con WhatsApp...</span>';
+  }
+  if (submitLabel) submitLabel.textContent = '⏳ Enviando solicitud…';
+
+  // ── DEMO: la demo nunca registra datos → WhatsApp puro (comportamiento viejo)
+  if (restaurantData.isDemo === true) {
+    fetch('/api/public/analytics/event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug: getSlugFn(), event: 'reservation' })
+    }).catch(() => {});
+    const waUrl = buildReservationWaUrl(restaurantData, fields);
+    if (waUrl) window.open(waUrl, '_blank');
+    else if (showToast) showToast('La demo no tiene WhatsApp configurado.');
+    setTimeout(() => {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.dataset.busy = 'false';
+      }
+      if (submitLabel) submitLabel.textContent = '📅 Enviar Solicitud de Reserva';
+      closeReservationModal();
+    }, 1200);
+    return;
   }
 
-  const msg = formatReservationWhatsAppMessage({
-    restaurantName: restaurantData.name || 'Local',
-    name,
-    date,
-    time,
-    guests: guestsNum === 8 ? '8 o más' : String(guestsNum),
-    notes
-  });
+  // ── REAL: alta server-side
+  let captchaToken = '';
+  if (typeof getCaptchaToken === 'function') {
+    try {
+      captchaToken = (await getCaptchaToken()) || '';
+    } catch (e2) {
+      captchaToken = ''; // fail-open client: el server decide si lo exige
+    }
+  }
 
-  const waUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`;
+  try {
+    const res = await fetch('/api/reservations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        slug: getSlugFn(),
+        name: fields.name,
+        phone: fields.phone,
+        email: fields.email || undefined,
+        date: fields.date,
+        time: fields.time,
+        pax: fields.guestsRaw,
+        notes: fields.notes || undefined,
+        captchaToken: captchaToken || undefined
+      })
+    });
 
-  fetch('/api/public/analytics/event', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ slug: getSlugFn(), event: 'reservation' })
-  }).catch(() => {});
+    let body = null;
+    try { body = await res.json(); } catch (e2) { body = null; }
 
-  window.open(waUrl, '_blank');
+    if (res.status === 201 && body && body.success) {
+      // Panel de éxito honesto: la reserva EXISTE; el WhatsApp es complemento.
+      const form = document.getElementById('reservationForm');
+      const intro = document.getElementById('resModalIntro');
+      const successBox = document.getElementById('resSuccessBox');
+      const detail = document.getElementById('resSuccessDetail');
+      if (form) form.style.display = 'none';
+      if (intro) intro.style.display = 'none';
+      if (detail) {
+        const when = `📅 ${fields.date} · ⏰ ${fields.time} · 👥 ${fields.paxLabel || fields.pax} persona${(fields.paxLabel || fields.pax) === 1 ? '' : 's'}`;
+        detail.textContent = `${when}. Te confirmamos por WhatsApp o teléfono — y te avisamos 24 h antes si nos dejaste tu email.`;
+      }
+      if (successBox) successBox.style.display = 'block';
+      wireReservationSuccessActions(restaurantData, fields);
 
-  setTimeout(() => {
+      // Telemetría del comensal (igual que el flujo viejo, consent server-side)
+      fetch('/api/public/analytics/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: getSlugFn(), event: 'reservation' })
+      }).catch(() => {});
+
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.dataset.busy = 'false';
+      }
+      if (submitLabel) submitLabel.textContent = '📅 Enviar Solicitud de Reserva';
+      return;
+    }
+
+    // Errores honestos por código (nunca "aplicado" cuando el server dijo no).
+    let msg = (body && body.error) || 'No se pudo registrar la reserva. Probá de nuevo.';
+    if (res.status === 429) msg = 'Demasiadas solicitudes seguidas. Esperá unos minutos.';
+    else if ((body && body.code) === 'RESERVATIONS_DISABLED') msg = 'Este local no está aceptando reservas en línea.';
+    else if ((body && body.code) === 'SLOT_UNAVAILABLE') msg = 'Esa franja ya no tiene lugar disponible. Probá otro horario.';
+    else if ((body && body.code) === 'RESTAURANT_NOT_FOUND') msg = 'El local no está disponible en este momento.';
+    else if ((body && body.code) === 'CAPTCHA_REQUIRED' || (body && body.code) === 'CAPTCHA_INVALID') msg = 'La verificación anti-robots falló. Probá de nuevo.';
+    showReservationError(msg);
+  } catch (e3) {
+    showReservationError('No se pudo conectar con el local. Probá de nuevo en un momento.');
+  } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.dataset.busy = 'false';
-      submitBtn.innerHTML = originalText;
     }
-    closeReservationModal();
-  }, 1500);
+    if (submitLabel) submitLabel.textContent = '📅 Enviar Solicitud de Reserva';
+  }
 }

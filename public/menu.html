@@ -433,12 +433,22 @@
     <div class="modal-box">
       <button type="button" class="modal-close" data-js-click="closeReservationModal" aria-label="Cerrar">✕</button>
       <h3 id="reservationModalTitle" class="modal-title">📅 Reservar Mesa</h3>
-      <p style="color:var(--chalk-dim); font-size:0.85rem; margin-bottom:14px;">Envía tu solicitud de reserva directamente al WhatsApp del local.</p>
+      <p id="resModalIntro" style="color:var(--chalk-dim); font-size:0.85rem; margin-bottom:14px;">Enviá tu solicitud: el local la confirma y te avisamos 24 horas antes por email o notificación.</p>
 
-      <form data-js-submit="submitReservation|event">
+      <form id="reservationForm" data-js-submit="submitReservation|event">
         <div class="form-group">
           <label for="resName" class="form-label">Nombre del Titular</label>
           <input type="text" id="resName" name="name" class="form-input" placeholder="Ej: Marcela González" autocomplete="name" required>
+        </div>
+
+        <div class="form-group">
+          <label for="resPhone" class="form-label">Tu Teléfono</label>
+          <input type="tel" id="resPhone" name="phone" class="form-input" placeholder="Ej: 099 123 456" autocomplete="tel" required>
+        </div>
+
+        <div class="form-group">
+          <label for="resEmail" class="form-label">Email (opcional — para el recordatorio)</label>
+          <input type="email" id="resEmail" name="email" class="form-input" placeholder="Ej: marcela@gmail.com" autocomplete="email">
         </div>
 
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
@@ -472,10 +482,21 @@
 
         <p id="resFormMsg" role="alert" class="res-form-error" style="display:none; color:#FEB2B2; font-size:0.82rem; margin:0 0 8px; line-height:1.4;"></p>
 
-        <button type="submit" class="btn-wa-submit" style="background:#25D366; width:100%; margin-top:8px;">
-          <span>📲 Solicitar Reserva por WhatsApp</span>
+        <button type="submit" id="resSubmitBtn" class="btn-wa-submit" style="background:#25D366; width:100%; margin-top:8px;">
+          <span id="resSubmitLabel">📅 Enviar Solicitud de Reserva</span>
         </button>
       </form>
+
+      <!-- Panel de éxito (se muestra tras el alta; WhatsApp queda como complemento) -->
+      <div id="resSuccessBox" style="display:none; text-align:center; padding:6px 0 2px;">
+        <p style="font-size:1.6rem; margin:0;">✅</p>
+        <p style="color:var(--chalk-white); font-weight:600; margin:6px 0 2px;">Reserva enviada</p>
+        <p id="resSuccessDetail" style="color:var(--chalk-dim); font-size:0.85rem; margin:0 0 12px;"></p>
+        <button type="button" id="resSuccessWaBtn" class="btn-wa-submit" style="background:#25D366; width:100%;">
+          <span>📲 Avisar también por WhatsApp</span>
+        </button>
+        <button type="button" id="resSuccessDoneBtn" class="form-input" style="width:100%; margin-top:8px; background:transparent; border:1px solid rgba(255,255,255,0.2);">Listo</button>
+      </div>
     </div>
   </div>
 

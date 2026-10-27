@@ -15,7 +15,11 @@
  */
 const PRIVILEGED_FIELDS = [
   'subscription', 'userId', 'id', 'analytics', 'createdAt', 'updatedAt',
-  'recoveryCoupons', 'acquiredVia', '__proto__', 'constructor', 'prototype'
+  'recoveryCoupons', 'acquiredVia', '__proto__', 'constructor', 'prototype',
+  // Reservas de verdad (backlog #2): las crea el comensal (server-side) y las
+  // muta el dueño por /api/reservations. El autosave del Studio no puede
+  // pisarlas con un snapshot vago (mismo tratamiento que recoveryCoupons).
+  'reservations'
 ];
 
 function stripPrivilegedFields(payload) {
