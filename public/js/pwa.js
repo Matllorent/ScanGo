@@ -130,7 +130,12 @@
 
   // Sólo se muestra cuando ya pasó el retardo Y la persona scrolleó (interés
   // real). Si nunca baja, nunca se la molesta — lo importante es la landing.
+  // Guard de supresión por página: el Studio tiene su PROPIA superficie de
+  // nudge (`public/js/studio/pwaNudge.js`) — su layout no scrollea la ventana,
+  // así que esta píldora del menú nunca aparecería igual; el flag lo hace
+  // explícito y evita doble banner si el layout algún día scrollea.
   function maybeShowInstallBanner() {
+    if (window.__SCANGO_PWA_SUPPRESS_BANNER__) return;
     if (bannerShown) return;
     if (!window.deferredPWAPrompt) return;
     try {
@@ -144,6 +149,7 @@
   }
 
   function scheduleInstallBanner() {
+    if (window.__SCANGO_PWA_SUPPRESS_BANNER__) return; // Studio: superficie propia
     if (!promptReadyAt) promptReadyAt = Date.now();
     window.addEventListener('scroll', maybeShowInstallBanner, { passive: true });
     // Red de seguridad por si la persona scrolleó antes del retardo.

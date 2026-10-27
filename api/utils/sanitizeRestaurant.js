@@ -15,6 +15,7 @@ const { parseDailyStock } = require('./dailyStockTracker');
 const { sanitizeStation } = require('./dishStation');
 const { sanitizeRefSlug } = require('./viralRef');
 const { sanitizeTableAssignments } = require('./staffCredentials');
+const { sanitizeLoyaltyLevels } = require('./loyaltyLevels');
 const { z } = require('zod');
 
 // Morfologías y paletas vienen del MANIFEST CANÓNICO (api/utils/themeManifest.js):
@@ -620,6 +621,17 @@ function sanitizeRestaurantPayload(data) {
   // Heladería: tamaños y toppings del dueño (undefined = defaults del wizard).
   clean.iceCreamContainers = sanitizeIceCreamContainers(clean.iceCreamContainers);
   clean.iceCreamToppings = sanitizeIceCreamToppings(clean.iceCreamToppings);
+
+  // Fidelización (R3 · multiplicador por nivel): SOLO el campo nuevo `levels`
+  // se sanea acá — opt-in, campo ABSENT cuando no hay filas válidas (nunca
+  // null/[] inventado: un local sin niveles no cambia de comportamiento).
+  // El resto de loyaltyConfig lo normaliza el servicio de lealtad con sus
+  // defaults; el payload crudo basura no pasa.
+  if (clean.loyaltyConfig && typeof clean.loyaltyConfig === 'object' && !Array.isArray(clean.loyaltyConfig)) {
+    clean.loyaltyConfig.levels = sanitizeLoyaltyLevels(clean.loyaltyConfig.levels);
+  } else if (clean.loyaltyConfig !== undefined && (typeof clean.loyaltyConfig !== 'object' || Array.isArray(clean.loyaltyConfig))) {
+    delete clean.loyaltyConfig;
+  }
 
   return clean;
 }

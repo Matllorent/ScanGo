@@ -833,6 +833,41 @@
                 </div>
               </div>
 
+              <!-- R3 · Niveles de lealtad: multiplicador por visitas (opt-in) -->
+              <div style="border-top:1px solid var(--border); margin:10px 0 8px; padding-top:10px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                  <div>
+                    <div style="font-size:11px; font-weight:700; color:#fff;">🎯 Niveles de lealtad</div>
+                    <div style="font-size:10px; color:var(--text-dim); margin-top:2px;">El comensal con más visitas a TU local gana más puntos por pedido. Sin niveles, todos ganan lo mismo.</div>
+                  </div>
+                  <label style="position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0;" aria-label="Activar niveles de lealtad">
+                    <input type="checkbox" id="inputLoyaltyLevelsEnabled" data-js-change="toggleLoyaltyLevels|this" aria-label="Activar niveles de lealtad" style="opacity:0; width:0; height:0;">
+                    <span id="sliderLoyaltyLevels" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
+                  </label>
+                </div>
+                <div id="loyaltyLevelsRows" style="display:none; flex-direction:column; gap:6px; margin-top:8px;">
+                  <div style="display:grid; grid-template-columns:1fr 84px 76px; gap:6px; font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.4px;">
+                    <span>Nombre del nivel</span><span>Desde visitas</span><span>Multiplica</span>
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 84px 76px; gap:6px;">
+                    <input type="text" id="inputLoyaltyLevelName1" class="form-input" maxlength="24" value="Bronce" placeholder="Bronce" aria-label="Nivel 1: nombre">
+                    <input type="number" id="inputLoyaltyLevelVisits1" class="form-input" min="0" step="1" value="0" aria-label="Nivel 1: visitas mínimas">
+                    <input type="number" id="inputLoyaltyLevelMult1" class="form-input" min="1" max="10" step="0.5" value="1" aria-label="Nivel 1: multiplicador de puntos">
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 84px 76px; gap:6px;">
+                    <input type="text" id="inputLoyaltyLevelName2" class="form-input" maxlength="24" value="Plata" placeholder="Plata" aria-label="Nivel 2: nombre">
+                    <input type="number" id="inputLoyaltyLevelVisits2" class="form-input" min="0" step="1" value="5" aria-label="Nivel 2: visitas mínimas">
+                    <input type="number" id="inputLoyaltyLevelMult2" class="form-input" min="1" max="10" step="0.5" value="1.5" aria-label="Nivel 2: multiplicador de puntos">
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 84px 76px; gap:6px;">
+                    <input type="text" id="inputLoyaltyLevelName3" class="form-input" maxlength="24" value="Oro" placeholder="Oro" aria-label="Nivel 3: nombre">
+                    <input type="number" id="inputLoyaltyLevelVisits3" class="form-input" min="0" step="1" value="12" aria-label="Nivel 3: visitas mínimas">
+                    <input type="number" id="inputLoyaltyLevelMult3" class="form-input" min="1" max="10" step="0.5" value="2" aria-label="Nivel 3: multiplicador de puntos">
+                  </div>
+                  <div class="input-hint">La visita número 5 gana nivel Plata (1.5× puntos), la 12 Oro (2×). El cliente lo ve en su tarjeta del Club.</div>
+                </div>
+              </div>
+
               <div style="font-size:11px; font-weight:700; color:#fff; margin-bottom:4px;">🎁 Catálogo de canjes (en puntos)</div>
               <div id="loyaltyRewardRows">
                 <div style="font-size:11px; color:var(--text-dim); padding:6px 0;">Sin beneficios configurados. Tocá "Agregar beneficio" para armar tu catálogo.</div>

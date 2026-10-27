@@ -34,6 +34,14 @@ import {
   setOnboardingSuppressed as setOnboardingSuppressedMod
 } from './studio/onboardingChecklist.js';
 
+// Quick Win #8: nudge de instalación PWA del dueño (superficie propia del
+// Studio; suprime la píldora de pwa.js en esta página).
+import { initStudioPwaNudge } from './studio/pwaNudge.js';
+
+// Belt and suspenders: el flag queda seteado en la evaluación del módulo
+// (initStudioPwaNudge también lo setea al correr).
+window.__SCANGO_PWA_SUPPRESS_BANNER__ = true;
+
 import {
   normalizeSubscription,
   checkStudioAccess,
@@ -1102,6 +1110,23 @@ export function updateLiveState() {
       };
     }
     if (!Array.isArray(restaurant.loyaltyConfig.rewards)) restaurant.loyaltyConfig.rewards = [];
+
+    // R3 · Niveles de lealtad (opt-in): toggle prendido → filas con nombre al
+    // payload (el server sanea/clampea); toggle apagado o filas vacías →
+    // campo ABSENT (nunca un [] vacío inventado).
+    const loyaltyLevelsToggle = el('inputLoyaltyLevelsEnabled');
+    if (loyaltyLevelsToggle) {
+      let levels = [];
+      if (loyaltyLevelsToggle.checked) {
+        levels = [1, 2, 3].map(i => ({
+          name: String((el('inputLoyaltyLevelName' + i) || {}).value || '').trim(),
+          minVisits: Number((el('inputLoyaltyLevelVisits' + i) || {}).value),
+          multiplier: Number((el('inputLoyaltyLevelMult' + i) || {}).value)
+        })).filter(level => level.name);
+      }
+      if (levels.length) restaurant.loyaltyConfig.levels = levels;
+      else delete restaurant.loyaltyConfig.levels;
+    }
   }
 
   const iceCreamCheckbox = el('inputAllowIceCreamWizard');
@@ -1599,6 +1624,28 @@ export function renderStudioUI() {
   const loyaltyVisit = el('inputLoyaltyVisitRewardTitle');
   if (loyaltyVisit) loyaltyVisit.value = (loyaltyCfg.visitReward && loyaltyCfg.visitReward.title) || 'Café de bienvenida';
   renderLoyaltyRewardRows();
+
+  // R3 · Niveles de lealtad: toggle refleja la escalera cargada; los inputs
+  // sin nivel conservan los defaults del HTML (plantilla sugerida).
+  const loyaltyLevelsToggle = el('inputLoyaltyLevelsEnabled');
+  if (loyaltyLevelsToggle) {
+    const levels = Array.isArray(loyaltyCfg.levels) ? loyaltyCfg.levels : [];
+    loyaltyLevelsToggle.checked = levels.length > 0;
+    const sliderLL = el('sliderLoyaltyLevels');
+    if (sliderLL) sliderLL.style.backgroundColor = loyaltyLevelsToggle.checked ? '#38A169' : '#2a3a33';
+    const levelsRows = el('loyaltyLevelsRows');
+    if (levelsRows) levelsRows.style.display = loyaltyLevelsToggle.checked ? 'flex' : 'none';
+    for (let i = 1; i <= 3; i++) {
+      const level = levels[i - 1];
+      if (!level) continue;
+      const nameEl = el('inputLoyaltyLevelName' + i);
+      if (nameEl) nameEl.value = level.name || '';
+      const visitsEl = el('inputLoyaltyLevelVisits' + i);
+      if (visitsEl && Number.isFinite(Number(level.minVisits))) visitsEl.value = Number(level.minVisits);
+      const multEl = el('inputLoyaltyLevelMult' + i);
+      if (multEl && Number.isFinite(Number(level.multiplier))) multEl.value = Number(level.multiplier);
+    }
+  }
 
   const iceCreamCheckbox = el('inputAllowIceCreamWizard');
   if (iceCreamCheckbox) {
@@ -2843,6 +2890,14 @@ export function loadReservations(options) { return loadReservationsMod(options);
 export function changeReservationsDate(value) { return changeReservationsDateMod(value); }
 export function setReservationStatus(id, status) { return setReservationStatusMod(id, status); }
 
+// R3 · Niveles de lealtad: toggle del bloque → muestra/oculta las filas.
+export function toggleLoyaltyLevels(inputEl) {
+  const rowsEl = el('loyaltyLevelsRows');
+  if (rowsEl) rowsEl.style.display = inputEl && inputEl.checked ? 'flex' : 'none';
+  const sliderLL = el('sliderLoyaltyLevels');
+  if (sliderLL) sliderLL.style.backgroundColor = inputEl && inputEl.checked ? '#38A169' : '#2a3a33';
+}
+
 // Bind all functions to window for HTML inline event handlers
 const globalExports = {
   initStudio, loadSeoAudit, logout, openDeleteAccountModal, closeDeleteAccountModal, confirmAccountDeletion,
@@ -2880,7 +2935,7 @@ const globalExports = {
   renderOnboardingChecklist, refreshOnboardingChecklist, dismissOnboardingChecklist, onboardGoToStep,
   loadStaff, saveStaffAssignments, openStaffCreateModal, openStaffEditModal, closeStaffEditor, saveStaffEditor,
   toggleStaffActive, revokeStaffSessions, deleteStaffMember, rotateStaffCredential, closeStaffQrModal, copyStaffQrLink,
-  loadReservations, changeReservationsDate, setReservationStatus,
+  loadReservations, changeReservationsDate, setReservationStatus, toggleLoyaltyLevels,
   updateBusinessTypeControls, filterThemeOptionsByBusinessType, resolveIceCreamButtonStyle,
   openAiMenuImportModal, closeAiMenuImportModal, handleAiMenuFilesInput, moveAiMenuPage, removeAiMenuPage, runAiMenuAnalysis, closeAiMenuPreviewModal, confirmAiMenuImportAction, removeDetectedAiDish
 };
@@ -2900,4 +2955,7 @@ window.addEventListener('DOMContentLoaded', () => {
   initStudio();
   initModalA11y();
   setupPushNotifications();
+  // Quick Win #8: superficie propia del Studio para instalar la PWA del dueño
+  // (también setea __SCANGO_PWA_SUPPRESS_BANNER__ para pwa.js).
+  initStudioPwaNudge();
 });

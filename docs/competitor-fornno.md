@@ -65,9 +65,13 @@ Orden por razón $/esfuerzo, todo sobre arquitectura existente:
   "al día siguiente"): post `delivered` → email programado al día siguiente con link
   de reseña de Google (`?review=1` branch ya existe). Con RESEND API ya cableado es
   UN template más en `api/services/email.js` + cron/schedule de 1 día.
-- **R3 · Multiplicador por nivel de lealtad** (Farnno chico): sumar
-  `pointsMultiplier` a los niveles locales (config del dueño, default 1/1.5/2/3
-  opcional). Es campo + lectura en credit.
+- **R3 · Multiplicador por nivel de lealtad** (HECHO oct-2026, 66ª suite): escalera
+  opt-in `loyaltyConfig.levels` `{name, minVisits, multiplier}` — módulo puro CJS
+  `api/utils/loyaltyLevels.js` + espejo ESM (paridad testeada), sanitizer (ABSENT si
+  basura, clamp [1,10] pasos de 0.5, cap 5), `creditOrder` multiplica con el tier YA
+  ganado (visitas ANTES del pedido; sin escalera → ×1, locales actuales intactos),
+  ledger guarda `metadata.multiplier` y el modal del Club muestra la escalera.
+  El canje sigue restable de AMBOS ledgers en sync (globalPoints = account.points).
 - **R4 · Wallet passes** (después, costo de certificados Apple): tarjeta lealtad en
   Google Wallet es API simple (OAuth+JWT); Apple Wallet exige certificado pass type ID.
   Vale cuando haya volumen demostrado.

@@ -524,6 +524,8 @@ export class LoyaltyRewardsModal {
           <span>+${pointsPerOrder} pts por pedido y ${Number(config.pointsPerCurrency) || 1} pt por ${'$'}1</span>
         </div>
 
+        ${this.buildLevelsLadder()}
+
         <div style="margin-top: 14px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px;">
           <div style="font-size: 0.75rem; color: var(--chalk-muted); margin-bottom: 6px; font-weight: 600;">
             Sellos de Visitas: <span style="color:var(--chalk-gold);">${account.stamps} de ${stampsTarget}</span>
@@ -547,6 +549,40 @@ export class LoyaltyRewardsModal {
     const points = (this.card && this.card.account) ? this.card.account.points : 0;
     const next = this.localRewards.find(r => r.pointsCost > points) || this.localRewards[this.localRewards.length - 1];
     return next ? next.pointsCost : 0;
+  }
+
+  /**
+   * R3 · Escalera de niveles del local (config del dueño): "cómo subir" queda
+   * visible en la tarjeta — el comensal ve qué gana al volver. Sin niveles
+   * configurados → string vacío (nada se agrega). Nombre escapado; números
+   * del server ya saneados (clamp 0..9999 / 1..10).
+   */
+  buildLevelsLadder() {
+    const config = this.config || {};
+    const levels = Array.isArray(config.levels) ? config.levels : [];
+    if (!levels.length) return '';
+    const rows = levels.map(l => {
+      const name = escapeHtml(String((l && l.name) || ''));
+      const minVisits = Math.max(0, Number(l && l.minVisits) || 0);
+      const mult = Number(l && l.multiplier);
+      const multLabel = Number.isFinite(mult) && mult >= 1
+        ? String(Math.round(mult * 10) / 10).replace('.', ',')
+        : '1';
+      const visitsLabel = minVisits <= 1 ? 'desde tu 1ª visita' : `desde ${minVisits} visitas`;
+      return `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:0.75rem;">
+          <span style="color:var(--chalk-white); font-weight:600;">${name}</span>
+          <span style="color:var(--chalk-dim);">${visitsLabel}</span>
+          <span style="color:var(--chalk-gold); font-weight:700; font-family:var(--font-mono); white-space:nowrap;">${multLabel}×</span>
+        </div>
+      `;
+    }).join('');
+    return `
+      <div style="margin-top:12px; border-top:1px dashed rgba(255,255,255,0.1); padding-top:10px;">
+        <div style="font-size:0.72rem; text-transform:uppercase; color:var(--chalk-dim); letter-spacing:0.05em; margin-bottom:6px;">🎯 Niveles de este local</div>
+        <div style="display:flex; flex-direction:column; gap:4px;">${rows}</div>
+      </div>
+    `;
   }
 
   buildGlobalSection() {

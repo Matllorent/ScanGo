@@ -1,7 +1,7 @@
 /**
  * tests/test-quick-wins.js
  * ────────────────────────
- * Bloque de 3 quick wins del backlog de la estrategia (oct-2026), suite 66ª.
+ * Bloque de quick wins del backlog de la estrategia (oct-2026), suite 66ª.
  * Cero mocks: server HTTP real + store local real (las mutaciones de data/*
  * las aísla scripts/test-data-guard.js en npm test).
  *
@@ -22,6 +22,15 @@
  *    `dish-has-schedule` del render (patrón casa dish-has-photo, SIN :has())
  *    y sticker lo vuelve blanco sobre su overlay oscuro. La regla nordico
  *    duplicada queda consolidada.
+ * §4 #8 nudge PWA del dueño: superficie propia del Studio (pwaNudge.js puro
+ *    + Node-safe) — la píldora de pwa.js exige scroll que el layout del
+ *    Studio no puede cumplir, así que gana guard `__SCANGO_PWA_SUPPRESS_BANNER__`
+ *    y la del Studio aparece por retardo desde el prompt real.
+ * §5 R3 multiplicador por nivel de lealtad (Fornno): escalera opt-in
+ *    `loyaltyConfig.levels` ({name, minVisits, multiplier}) — módulo puro
+ *    CJS + espejo ESM con paridad, sanitizer (ABSENT si basura) y el crédito
+ *    multiplica con el tier YA ganado (visitas ANTES del pedido); el canje
+ *    sigue restable de AMBOS ledgers en sync.
  */
 const assert = require('assert');
 const http = require('http');
@@ -56,7 +65,7 @@ globalThis.localStorage = {
 };
 
 async function runTests() {
-  console.log('🧪 Iniciando verificación de Quick Wins (#5 Pedir de nuevo + #6 Happy Hour visible + #7 segmento una-visita)...');
+  console.log('🧪 Iniciando verificación de Quick Wins (#5 Pedir de nuevo + #6 Happy Hour visible + #7 segmento una-visita + #8 nudge PWA + R3 multiplicador)...');
 
   // ══════════════════════════════════════════════════════════════════════════
   // §1a Módulo puro reorder.js
@@ -462,7 +471,237 @@ async function runTests() {
   assert.ok(/class="dish-schedule-kicker"/.test(menuRenderSrc), 'menuRender: el kicker sigue emitiéndose');
   console.log('✓ §3 kicker: base visible con vars · slots moderna/basketball/ticker/sticker · nordico consolidado · cero display:none');
 
-  console.log('✅ Quick Wins: #5 Pedir de nuevo + #6 Happy Hour visible + #7 segmento una-visita — TODO OK');
+  // ══════════════════════════════════════════════════════════════════════════
+  // §4 #8 "Nudge PWA del dueño": superficie propia del Studio
+  // ══════════════════════════════════════════════════════════════════════════
+  // pwa.js exigía scroll ≥400px que el layout del Studio (sidebar + paneles)
+  // nunca dispara: el dueño instalable quedaba sin CTA. La superficie nueva
+  // aparece por retardo desde el prompt REAL (señal de interés del dueño).
+  const pwaNudge = await import('../public/js/studio/pwaNudge.js');
+  const NUDGE_DELAY = pwaNudge.STUDIO_PWA_SHOW_DELAY_MS;
+  assert.ok(NUDGE_DELAY >= 10000, `el retardo no interrumpe la primera impresión (${NUDGE_DELAY}ms)`);
+
+  // Tabla de decisión pura:
+  assert.strictEqual(pwaNudge.shouldShowStudioPwaNudge({ dismissed: false, standalone: false, hasPrompt: true, elapsedMs: NUDGE_DELAY }), true, 'todo cumplido → mostrar');
+  assert.strictEqual(pwaNudge.shouldShowStudioPwaNudge({ dismissed: true, standalone: false, hasPrompt: true, elapsedMs: NUDGE_DELAY }), false, 'descartado antes → nunca más');
+  assert.strictEqual(pwaNudge.shouldShowStudioPwaNudge({ dismissed: false, standalone: true, hasPrompt: true, elapsedMs: NUDGE_DELAY }), false, 'ya instalada (standalone) → no molesta');
+  assert.strictEqual(pwaNudge.shouldShowStudioPwaNudge({ dismissed: false, standalone: false, hasPrompt: false, elapsedMs: NUDGE_DELAY }), false, 'sin prompt del navegador → no hay nada que instalar');
+  assert.strictEqual(pwaNudge.shouldShowStudioPwaNudge({ dismissed: false, standalone: false, hasPrompt: true, elapsedMs: 0 }), false, 'sin retardo cumplido → no');
+  assert.strictEqual(pwaNudge.shouldShowStudioPwaNudge({ dismissed: false, standalone: false, hasPrompt: true, elapsedMs: 'basura' }), false, 'elapsed basura → no');
+  assert.strictEqual(pwaNudge.isStandaloneDisplay(null), false, 'sin matchMedia (Node) → false');
+  assert.strictEqual(pwaNudge.initStudioPwaNudge(undefined), null, 'init sin window → null (Node-safe, el test importa el módulo)');
+
+  // Wiring estático: guard en pwa.js + módulo CSP-safe + import en studio.js.
+  const pwaSrc = readSrc('public/js/pwa.js');
+  assert.ok(/__SCANGO_PWA_SUPPRESS_BANNER__/.test(pwaSrc), 'pwa.js: guard de supresión (el Studio tiene superficie propia, cero doble banner)');
+  const pwaNudgeSrc = readSrc('public/js/studio/pwaNudge.js');
+  assert.ok(/scango_studio_pwa_dismissed/.test(pwaNudgeSrc), 'pwaNudge: descartable propio (no comparte key con el menú)');
+  assert.ok(/triggerPWAInstall/.test(pwaNudgeSrc), 'pwaNudge: delega en el trigger global de pwa.js (cero lógica duplicada)');
+  assert.ok(/appinstalled/.test(pwaNudgeSrc), 'pwaNudge: se oculta al instalarse');
+  assert.ok(/pwa-install-ready/.test(pwaNudgeSrc), 'pwaNudge: escucha el prompt real');
+  assert.ok(!/\son[a-z]+=/.test(pwaNudgeSrc), 'pwaNudge: cero atributos de evento inline (CSP)');
+  assert.ok(!/\.innerHTML\s*=/.test(pwaNudgeSrc), 'pwaNudge: render DOM API (cero asignaciones innerHTML)');
+  const studioJsSrc = readSrc('public/js/studio.js');
+  assert.ok(/initStudioPwaNudge\(\);/.test(studioJsSrc), 'studio.js: llama initStudioPwaNudge en el arranque');
+  assert.ok(/__SCANGO_PWA_SUPPRESS_BANNER__ = true/.test(studioJsSrc), 'studio.js: flag de supresión de la píldora del menú');
+  // El Studio ya trae manifest + pwa.js: instalable de verdad, solo faltaba el CTA.
+  const studioHtmlSrc = readSrc('public/studio.html');
+  assert.ok(/rel="manifest" href="\/manifest\.json"/.test(studioHtmlSrc), 'studio.html: manifest presente (instalable)');
+  assert.ok(/src="\/js\/pwa\.js"/.test(studioHtmlSrc), 'studio.html: pwa.js presente (SW + trigger global)');
+  console.log('✓ §4 nudge PWA del dueño: tabla de decisión pura · Node-safe · wiring sin doble banner');
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // §5 R3 "Multiplicador por nivel de lealtad" (Fornno)
+  // ══════════════════════════════════════════════════════════════════════════
+  const loyaltyLevels = require('../api/utils/loyaltyLevels');
+  const loyaltyLevelsEsm = await import('../public/js/utils/loyaltyLevels.js');
+
+  // ── §5a sanitizeLoyaltyLevels: opt-in, ABSENT si basura ──────────────────
+  assert.strictEqual(loyaltyLevels.sanitizeLoyaltyLevels(undefined), undefined, 'sin niveles → campo ABSENT');
+  assert.strictEqual(loyaltyLevels.sanitizeLoyaltyLevels('junk'), undefined, 'string → ABSENT');
+  assert.strictEqual(loyaltyLevels.sanitizeLoyaltyLevels([]), undefined, 'vacío → ABSENT');
+  assert.strictEqual(loyaltyLevels.sanitizeLoyaltyLevels([{ name: '   ', minVisits: 0, multiplier: 2 }]), undefined, 'sin nombre → ABSENT');
+  assert.strictEqual(loyaltyLevels.sanitizeLoyaltyLevels([{ name: 'X', minVisits: -1, multiplier: 2 }]), undefined, 'minVisits negativo → fila afuera → ABSENT');
+
+  const ladder = loyaltyLevels.sanitizeLoyaltyLevels([
+    { name: 'Oro', minVisits: 12, multiplier: 2 },
+    { name: 'Bronce', minVisits: 0, multiplier: 1 },
+    { name: 'Plata', minVisits: 5, multiplier: 1.5 }
+  ]);
+  assert.deepStrictEqual(ladder, [
+    { name: 'Bronce', minVisits: 0, multiplier: 1 },
+    { name: 'Plata', minVisits: 5, multiplier: 1.5 },
+    { name: 'Oro', minVisits: 12, multiplier: 2 }
+  ], 'ordena por minVisits asc');
+
+  // Clamp del multiplicador: [1,10] en pasos de 0.5; filas basura afuera.
+  assert.deepStrictEqual(loyaltyLevels.sanitizeLoyaltyLevels([
+    { name: 'Sube', minVisits: 0, multiplier: 0.5 },
+    { name: 'Tope', minVisits: 1, multiplier: 99 },
+    { name: 'Paso', minVisits: 2, multiplier: 2.25 },
+    { name: 'Basura', minVisits: 3, multiplier: 'x' },
+    { name: '   ', minVisits: 4, multiplier: 2 },
+    { name: 'Neg', minVisits: -3, multiplier: 2 }
+  ]), [
+    { name: 'Sube', minVisits: 0, multiplier: 1 },
+    { name: 'Tope', minVisits: 1, multiplier: 10 },
+    { name: 'Paso', minVisits: 2, multiplier: 2.5 }
+  ], 'clamp [1,10] pasos de 0.5; filas sin nombre/multiplicador/minVisits válidos descartadas');
+
+  // Cap de 5 niveles + dedupe por frontera (la primera grafía manda).
+  const sixRows = [];
+  for (let i = 0; i < 6; i++) sixRows.push({ name: 'N' + i, minVisits: i, multiplier: 1 });
+  assert.strictEqual(loyaltyLevels.sanitizeLoyaltyLevels(sixRows).length, 5, 'cap de 5 niveles');
+  const dup = loyaltyLevels.sanitizeLoyaltyLevels([
+    { name: 'Primera', minVisits: 5, multiplier: 1.5 },
+    { name: 'Duplicada', minVisits: 5, multiplier: 3 }
+  ]);
+  assert.strictEqual(dup.length, 1, 'frontera duplicada → una fila');
+  assert.strictEqual(dup[0].name, 'Primera', 'la primera grafía manda en el dedupe');
+  // Nombre cap 24 + colapso de espacios.
+  const longName = loyaltyLevels.sanitizeLoyaltyLevels([{ name: '  A   B  '.padEnd(40, 'x'), minVisits: 0, multiplier: 1 }]);
+  assert.strictEqual(longName[0].name.length, 24, 'nombre cap 24');
+  assert.ok(!/  /.test(longName[0].name), 'espacios colapsados');
+
+  // ── resolvePointsMultiplier: tabla de decisión ───────────────────────────
+  const R = (visits) => loyaltyLevels.resolvePointsMultiplier(ladder, visits);
+  assert.strictEqual(R(0), 1, '0 visitas → tier base 1×');
+  assert.strictEqual(R(4), 1, '4 visitas → todavía 1×');
+  assert.strictEqual(R(5), 1.5, '5 visitas → Plata 1.5×');
+  assert.strictEqual(R(11), 1.5, '11 visitas → Plata');
+  assert.strictEqual(R(12), 2, '12 visitas → Oro 2×');
+  assert.strictEqual(R(9999), 2, 'el tier más alto se mantiene');
+  assert.strictEqual(R('abc'), 1, 'visitas basura → 1');
+  assert.strictEqual(R(-5), 1, 'visitas negativas → 1');
+  assert.strictEqual(loyaltyLevels.resolvePointsMultiplier(undefined, 5), 1, 'sin escalera → 1 (comportamiento intacto)');
+  assert.strictEqual(loyaltyLevels.resolvePointsMultiplier([], 5), 1, 'escalera vacía → 1');
+  assert.strictEqual(loyaltyLevels.resolvePointsMultiplier([
+    { name: 'A', minVisits: 5, multiplier: 1.5 },
+    { name: 'B', minVisits: 5, multiplier: 3 }
+  ], 5), 3, 'empate de frontera → la última fila del array');
+  console.log('✓ §5a módulo puro: ABSENT si basura · clamp 0.5/[1,10] · cap 5 · dedupe · tabla de decisión');
+
+  // ── §5b Paridad CJS ↔ ESM (corpus determinista) ──────────────────────────
+  const corpora = [
+    undefined, null, 'junk', 42, [],
+    [{ name: 'Bronce', minVisits: 0, multiplier: 1 }],
+    [{ name: 'Oro', minVisits: 12, multiplier: 2 }, { name: 'Bronce', minVisits: 0, multiplier: 1 }, { name: 'Plata', minVisits: 5, multiplier: 1.5 }],
+    [{ name: 'X', minVisits: 3, multiplier: 2.25 }, { name: 'Y', minVisits: 3, multiplier: 4 }, { name: 'Z', minVisits: 7, multiplier: 'x' }],
+    sixRows
+  ];
+  for (const corpus of corpora) {
+    assert.deepStrictEqual(
+      loyaltyLevels.sanitizeLoyaltyLevels(corpus),
+      loyaltyLevelsEsm.sanitizeLoyaltyLevels(corpus),
+      'paridad CJS↔ESM: sanitizeLoyaltyLevels'
+    );
+    const sanitized = loyaltyLevels.sanitizeLoyaltyLevels(corpus) || [];
+    for (const visits of [0, 1, 4, 5, 7, 12, 50, 'abc', null]) {
+      assert.strictEqual(
+        loyaltyLevels.resolvePointsMultiplier(sanitized, visits),
+        loyaltyLevelsEsm.resolvePointsMultiplier(sanitized, visits),
+        'paridad CJS↔ESM: resolvePointsMultiplier'
+      );
+    }
+  }
+  console.log('✓ §5b paridad CJS↔ESM exacta sobre corpus determinista (patrón dishStation/viralRef)');
+
+  // ── §5c Sanitizer: opt-in idempotente, no privilegiado, basura fuera ─────
+  const sanitizeRestaurant = require('../api/utils/sanitizeRestaurant');
+  const dirty = { name: 'Local', loyaltyConfig: { enabled: true, pointsPerOrder: 10, levels: [{ name: 'Plata', minVisits: 5, multiplier: 1.5 }, { name: 'x', minVisits: -1, multiplier: 99 }] } };
+  const cleaned = sanitizeRestaurant.sanitizeRestaurantPayload(dirty);
+  assert.deepStrictEqual(cleaned.loyaltyConfig.levels, [{ name: 'Plata', minVisits: 5, multiplier: 1.5 }], 'sanitizer: levels saneado (fila basura afuera)');
+  const onceCleaned = sanitizeRestaurant.sanitizeRestaurantPayload(JSON.parse(JSON.stringify(cleaned)));
+  assert.deepStrictEqual(onceCleaned.loyaltyConfig.levels, cleaned.loyaltyConfig.levels, 'round-trip idempotente');
+  const { stripPrivilegedFields } = require('../api/utils/stripPrivilegedFields');
+  const stripped = stripPrivilegedFields(JSON.parse(JSON.stringify(cleaned)));
+  assert.ok(stripped.loyaltyConfig && Array.isArray(stripped.loyaltyConfig.levels) && stripped.loyaltyConfig.levels.length === 1, 'la escalera es del DUEÑO: sobrevive stripPrivilegedFields');
+  assert.strictEqual('loyaltyConfig' in sanitizeRestaurant.sanitizeRestaurantPayload({ name: 'L', loyaltyConfig: 'junk' }), false, 'loyaltyConfig basura no-objeto → campo fuera');
+  console.log('✓ §5c sanitizer: idempotente · no privilegiado · config basura descartada');
+
+  // ── §5d Runtime real: creditOrder con multiplicador ──────────────────────
+  const loyaltyService = require('../api/services/loyalty');
+  const ledgerFile = path.join(process.cwd(), 'data', 'loyalty_ledger.json');
+  const restR3 = {
+    id: `qw_r3_${stamp}`,
+    name: 'R3 Local', slug: `qw-r3-${stamp}`,
+    loyaltyConfig: {
+      enabled: true, pointsPerOrder: 10, pointsPerCurrency: 1,
+      levels: [{ name: 'Plata', minVisits: 5, multiplier: 1.5 }, { name: 'Oro', minVisits: 12, multiplier: 2 }]
+    }
+  };
+  const restSinNiveles = {
+    id: `qw_r3_sin_${stamp}`,
+    name: 'Sin Niveles', slug: `qw-r3-sin-${stamp}`,
+    loyaltyConfig: { enabled: true, pointsPerOrder: 10, pointsPerCurrency: 1 }
+  };
+  const phoneR3 = '+59891' + String(stamp).slice(-6);
+  const AMOUNT_CENTS = 5000; // base = 10 + (5000/100)*1 = 60 pts
+
+  // 0 visitas → 1×: un local con escalera configurada arranca igual que hoy.
+  const c1r3 = await loyaltyService.creditOrder({ restaurant: restR3, customerPhone: phoneR3, orderId: `ord_r3_a_${stamp}`, amountInCents: AMOUNT_CENTS });
+  assert.strictEqual(c1r3.credited, true, 'acredita');
+  assert.strictEqual(c1r3.points, 60, '0 visitas → 1× (60 pts)');
+  // Idempotencia por pedido intacta (el reintento no duplica).
+  const againR3 = await loyaltyService.creditOrder({ restaurant: restR3, customerPhone: phoneR3, orderId: `ord_r3_a_${stamp}`, amountInCents: AMOUNT_CENTS });
+  assert.strictEqual(againR3.credited, false, 'mismo orderId → already_credited');
+  assert.strictEqual(againR3.reason, 'already_credited', 'motivo explícito');
+
+  // Subir la cuenta a Plata (5 visitas): el SIGUIENTE pedido gana 1.5×.
+  let accountsRows = readJson(accountsFile);
+  const accR3 = accountsRows.find(r => r.restaurantId === restR3.id);
+  assert.ok(accR3, 'la cuenta local existe');
+  accR3.visits = 5;
+  writeJson(accountsFile, accountsRows);
+  const c2r3 = await loyaltyService.creditOrder({ restaurant: restR3, customerPhone: phoneR3, orderId: `ord_r3_b_${stamp}`, amountInCents: AMOUNT_CENTS });
+  assert.strictEqual(c2r3.points, 90, '5 visitas → 1.5× (60 → 90)');
+
+  // Subir a Oro (12 visitas): 2× → 120.
+  accountsRows = readJson(accountsFile);
+  accountsRows.find(r => r.restaurantId === restR3.id).visits = 12;
+  writeJson(accountsFile, accountsRows);
+  const c3r3 = await loyaltyService.creditOrder({ restaurant: restR3, customerPhone: phoneR3, orderId: `ord_r3_c_${stamp}`, amountInCents: AMOUNT_CENTS });
+  assert.strictEqual(c3r3.points, 120, '12 visitas → 2× (60 → 120)');
+
+  // Ledger con multiplicador (transparencia/auditoría).
+  const ledRow = readJson(ledgerFile).find(e => e.kind === 'order' && e.refId === `ord_r3_b_${stamp}`);
+  assert.ok(ledRow && ledRow.metadata && ledRow.metadata.multiplier === 1.5, 'el ledger guarda el multiplicador aplicado');
+
+  // Ambos ledgers en SYNC (invariante del canje: resta de ambos): 60+90+120.
+  const custR3 = readJson(customersFile).find(c => String(c.phone).replace(/\D/g, '') === phoneR3.replace(/\D/g, ''));
+  assert.ok(custR3, 'el perfil del cliente existe');
+  assert.strictEqual(custR3.globalPoints, 270, 'globalPoints acumuló los MISMO puntos que el local (canje en sync)');
+  assert.strictEqual(readJson(accountsFile).find(r => r.restaurantId === restR3.id).points, 270, 'account.points acumuló lo mismo');
+
+  // Sin escalera → 1× exacto (los locales actuales no cambian).
+  const c4r3 = await loyaltyService.creditOrder({ restaurant: restSinNiveles, customerPhone: phoneR3, orderId: `ord_r3_d_${stamp}`, amountInCents: AMOUNT_CENTS });
+  assert.strictEqual(c4r3.points, 60, 'sin escalera → 1× (60)');
+
+  // Público: la escalera viaja en loyaltyConfig (data de marketing, sin PII).
+  assert.deepStrictEqual(loyaltyService.getPublicLoyaltyConfig(restR3).levels, [
+    { name: 'Plata', minVisits: 5, multiplier: 1.5 },
+    { name: 'Oro', minVisits: 12, multiplier: 2 }
+  ], 'getPublicLoyaltyConfig expone la escalera');
+  assert.deepStrictEqual(loyaltyService.getLoyaltyConfig(restSinNiveles).levels, [], 'sin niveles → [] ESTABLE (patrón soldOutToday)');
+  console.log('✓ §5d runtime: 1× → 1.5× → 2× · idempotencia · ledger · ledgers en sync · sin escalera intacta · pública');
+
+  // ── §5e Wiring estático: Studio + modal del Club ─────────────────────────
+  const studioHtmlR3 = readSrc('public/studio.html');
+  assert.ok(/id="inputLoyaltyLevelsEnabled"/.test(studioHtmlR3), 'Studio: toggle de niveles');
+  assert.ok(/id="loyaltyLevelsRows"/.test(studioHtmlR3), 'Studio: filas de niveles');
+  assert.ok(/id="inputLoyaltyLevelName1"/.test(studioHtmlR3) && /id="inputLoyaltyLevelMult3"/.test(studioHtmlR3), 'Studio: 3 filas (name/visits/mult)');
+  assert.ok(/data-js-change="toggleLoyaltyLevels\|this"/.test(studioHtmlR3), 'Studio: toggle CSP-safe (cero on*=)');
+  assert.ok(/aria-label="Nivel 1: multiplicador de puntos"/.test(studioHtmlR3), 'Studio: inputs con nombre accesible');
+  assert.ok(/delete restaurant\.loyaltyConfig\.levels/.test(studioJsSrc), 'Studio: apagar el toggle → campo ABSENT (nunca [] vacío)');
+  assert.ok(/resolvePointsMultiplier\(config\.levels, account\.visits \|\| 0\)/.test(readSrc('api/services/loyalty.js')), 'credit: el tier YA ganado decide (visitas ANTES del pedido)');
+  assert.ok(/Math\.round\(basePoints \* multiplier\)/.test(readSrc('api/services/loyalty.js')), 'credit: puntos enteros (Math.round)');
+  const modalSrc = readSrc('public/js/components/LoyaltyRewardsModal.js');
+  assert.ok(/buildLevelsLadder/.test(modalSrc), 'modal del Club: escalera visible');
+  assert.ok(/Niveles de este local/.test(modalSrc), 'modal del Club: título de la escalera');
+  assert.ok(/escapeHtml\(String\(\(l && l\.name\) \|\| ''\)\)/.test(modalSrc), 'modal del Club: nombre del nivel escapado');
+  console.log('✓ §5e wiring: Studio toggle/filas/DOM API + modal del Club con la escalera');
+
+  console.log('✅ Quick Wins: #5 Pedir de nuevo + #6 Happy Hour visible + #7 segmento una-visita + #8 nudge PWA + R3 multiplicador de lealtad — TODO OK');
 }
 
 // Los tests corren async (imports ESM + fetch reales); el runner los espera.

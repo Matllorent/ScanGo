@@ -30,6 +30,7 @@ const crypto = require('crypto');
 const db = require('../../src/db/db');
 const { getSupabaseClient } = require('../utils/supabase');
 const { computeChurnCandidates } = require('../utils/churnRecovery');
+const { resolvePointsMultiplier, sanitizeLoyaltyLevels } = require('../utils/loyaltyLevels');
 const recoveryCoupons = require('../utils/recoveryCoupons');
 const AppError = require('../utils/AppError');
 const sentry = require('../utils/sentry');
@@ -346,6 +347,9 @@ function getLoyaltyConfig(restaurant) {
     autoStampOnOrder: cfg.autoStampOnOrder !== false,
     stampsTarget: Number.isFinite(Number(cfg.stampsTarget)) ? Math.max(1, Number(cfg.stampsTarget)) : 6,
     visitReward: (cfg.visitReward && cfg.visitReward.title) ? { id: cfg.visitReward.id || 'visita_completa', title: cfg.visitReward.title } : DEFAULT_VISIT_REWARD,
+    // R3 · escalera de niveles locales (opt-in): array SIEMPRE ([] cuando el
+    // dueño no configuró niveles — estable, patrón soldOutToday de F3).
+    levels: sanitizeLoyaltyLevels(cfg.levels) || [],
     rewards
   };
 }
@@ -362,6 +366,7 @@ function getPublicLoyaltyConfig(restaurant) {
     autoStampOnOrder: cfg.autoStampOnOrder,
     stampsTarget: cfg.stampsTarget,
     visitReward: cfg.visitReward,
+    levels: cfg.levels,
     rewards: cfg.rewards
   };
 }
@@ -512,9 +517,16 @@ async function creditOrder({ restaurant, customerPhone, customerName, orderId, a
     const customer = await findOrCreateCustomer({ phone: normalized, name: customerName || '' });
     if (!customer) return { credited: false, reason: 'no_phone' };
 
-    const points = config.pointsPerOrder + Math.floor((amountInCents || 0) / 100) * config.pointsPerCurrency;
-    const stamps = config.autoStampOnOrder ? 1 : 0;
     const account = await getOrCreateAccount(customer.id, restaurant.id);
+    const stamps = config.autoStampOnOrder ? 1 : 0;
+
+    // R3 · Multiplicador por nivel de lealtad (Fornno): el tier YA ganado
+    // (visitas ANTES de este pedido) decide — el pedido que cruza el umbral
+    // acredita todavía ×1 y el siguiente gana el nivel. Sin escalera
+    // configurada → ×1 (comportamiento intacto para los locales actuales).
+    const multiplier = resolvePointsMultiplier(config.levels, account.visits || 0);
+    const basePoints = config.pointsPerOrder + Math.floor((amountInCents || 0) / 100) * config.pointsPerCurrency;
+    const points = Math.round(basePoints * multiplier);
 
     const prevStamps = account.stamps;
     const prevLevelId = customer.levelId;
@@ -544,13 +556,13 @@ async function creditOrder({ restaurant, customerPhone, customerName, orderId, a
         id: newId('ledg'), customerId: customer.id, restaurantId: restaurant.id,
         kind: 'order', pointsDelta: points, stampsDelta: stamps,
         reason: 'Pedido registrado', refId: orderId || null,
-        metadata: { amountInCents: amountInCents || 0 }, createdAt: now
+        metadata: { amountInCents: amountInCents || 0, multiplier }, createdAt: now
       },
       {
         id: newId('ledg'), customerId: customer.id, restaurantId: null,
         kind: 'order_global', pointsDelta: points, stampsDelta: 0,
         reason: 'Acumulación global de la red', refId: orderId || null,
-        metadata: { restaurantId: restaurant.id, amountInCents: amountInCents || 0 }, createdAt: now
+        metadata: { restaurantId: restaurant.id, amountInCents: amountInCents || 0, multiplier }, createdAt: now
       }
     ]);
 
