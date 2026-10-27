@@ -6,7 +6,9 @@
  *
  *  - POST /api/reservations         — pública (comensal): alta + capacidad + captcha.
  *  - GET  /api/reservations         — dueño: agenda de UN día (default hoy local)
- *                                     con el anillo del Club (visitas del teléfono).
+ *                                     con el anillo del Club (visitas del teléfono)
+ *                                     y `waLink` wa.me prefilled (backlog #9) para
+ *                                     avisar/recordar por WhatsApp desde la agenda.
  *  - PATCH /api/reservations/:id    — dueño: requested→confirmed, confirmed→
  *                                     seated|no_show|cancelled (máquina en el
  *                                     módulo puro; el PATCH nunca la saltea).
@@ -45,6 +47,9 @@ const requireVerifiedEmail = require('../middleware/requireVerifiedEmail');
 const { requireActiveSubscription } = require('../middleware/subscriptionGuard');
 const { reservationsPublicLimiter } = require('../middleware/rateLimits');
 const { normalizeDemoType } = require('../utils/demoRestaurants');
+const {
+  buildReservationWaLink
+} = require('../utils/reservationWa');
 
 const router = express.Router();
 
@@ -221,6 +226,8 @@ router.get('/', authMiddleware, requireVerifiedEmail, async (req, res, next) => 
     // nunca crea). n por día es chico: el costo es aceptable.
     const seen = new Map();
     const withClub = [];
+    const nowMs = Date.now();
+    const restaurantName = restaurant.name || restaurant.bizName || '';
     for (const r of list) {
       let club = null;
       const phone = r.phone;
@@ -240,7 +247,19 @@ router.get('/', authMiddleware, requireVerifiedEmail, async (req, res, next) => 
           seen.set(phone, club);
         }
       }
-      withClub.push({ ...publicReservation(r), club });
+      // Backlog #9: link wa.me prefilled para avisar/recordar por WhatsApp —
+      // SOLO estados pre-visita (requested/confirmed) con teléfono válido;
+      // terminales y filas sin teléfono → null (campo SIEMPRE presente,
+      // estable para el frontend como `soldOutToday` en F3).
+      withClub.push({
+        ...publicReservation(r),
+        club,
+        waLink: buildReservationWaLink(r, {
+          restaurantName,
+          nowMs,
+          utcOffsetMinutes: offset
+        })
+      });
     }
 
     return successResponse(res, {

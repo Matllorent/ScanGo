@@ -3221,8 +3221,10 @@ paths:
         reservas del día pedido (default: HOY en el huso del dueño vía
         `utcOffsetMinutes`), ordenadas por hora, con el anillo del Club
         (`club`: visitas del teléfono en ESTE local, lectura de fidelización
-        que nunca crea cuenta) y `counts` del día + `pending` global
-        (requested de cualquier fecha, para el badge del tab).
+        que nunca crea cuenta), el `waLink` de WhatsApp prefilled (backlog #9:
+        solo estados pre-visita con teléfono válido; terminales/sin teléfono →
+        null) y `counts` del día + `pending` global (requested de cualquier
+        fecha, para el badge del tab).
       operationId: listReservations
       security:
         - cookieAuth: []
@@ -4189,6 +4191,15 @@ components:
           format: date-time
         club:
           $ref: '#/components/schemas/ReservationClub'
+        waLink:
+          type: string
+          nullable: true
+          description: |-
+            Link `https://wa.me/<dígitos>?text=...` con el recordatorio prefilled
+            (backlog #9, oct-2026) — SOLO en la agenda del dueño (GET; el alta y
+            el PATCH no lo llevan). Copys por estado: `requested` → confirma,
+            `confirmed` → recorda. Terminales y filas sin teléfono válido → null
+            (nunca se enumera). El número completo vive únicamente dentro del link.
     ReservationClub:
       type: object
       description: Anillo del Club para ese teléfono (solo en la agenda del dueño; lectura, nunca crea cuenta)

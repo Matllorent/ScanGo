@@ -799,6 +799,10 @@
     .res-tone-danger { color: #FCA5A5; border-color: rgba(229, 62, 62, 0.4); background: rgba(229, 62, 62, 0.08); }
     .res-tone-muted { color: var(--text-dim); border-color: var(--border); background: transparent; }
     .res-actions { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; }
+    /* Backlog #9: link wa.me prefilled — ancla estilizada como botón del lado. */
+    .res-actions a.staff-action-btn { display: inline-flex; align-items: center; text-decoration: none; }
+    .res-wa-btn { color: #6EE7A0; border-color: rgba(74, 222, 128, 0.45); }
+    .res-wa-btn:hover { border-color: rgba(74, 222, 128, 0.8); }
     .res-counts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
     .res-count-chip {
       display: inline-flex;

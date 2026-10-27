@@ -107,14 +107,18 @@ function localReservationStartUtcMs({ date, time }, utcOffsetMinutes = 0) {
 // ── Teléfono ────────────────────────────────────────────────────────────────
 
 /**
- * Teléfono del comensal por DÍGITOS (misma semántica que recoveryCoupons):
- * '+598 99 123 456', '598-99-123-456' y '0059899123456' son el mismo número.
- * El servicio de notificaciones push y fidelización normalizan por su lado
- * (findCustomerByPhone/suscripciones), así que dígito puro matchea E.164.
+ * Teléfono del comensal por DÍGITOS (misma semántica que recoveryCoupons/Club:
+ * se quitan +/espacios/guiones y el prefijo internacional 00 — backfill #9:
+ * sin esto una reserva alta con '00598…' no matcheaba el Club ni armaba un
+ * wa.me ruteable). '+598 99 123 456', '598-99-123-456' y '0059899123456' son
+ * el mismo número. El servicio de notificaciones push y fidelización
+ * normalizan por su lado (findCustomerByPhone/suscripciones), así que dígito
+ * puro matchea E.164.
  */
 function normalizeReservationPhone(raw) {
   if (typeof raw !== 'string') return '';
-  const digits = raw.replace(/[^0-9]/g, '');
+  let digits = raw.replace(/[^0-9]/g, '');
+  if (digits.startsWith('00')) digits = digits.slice(2); // prefijo internacional 00 (Club + recoveryCoupons)
   if (digits.length < 8 || digits.length > 20) return '';
   return digits;
 }

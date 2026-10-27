@@ -5,7 +5,8 @@
  * chip "Reservar Mesa" del menú, que dejó de ser solo WhatsApp.
  *
  * El dueño ve UN día a la vez (default: hoy en SU huso — el server lo resuelve
- * con `utcOffsetMinutes`), confirma o cancela solicitudes y ve el anillo del
+ * con `utcOffsetMinutes`), confirma o cancela solicitudes, abre WhatsApp con el
+ * recordatorio prefilled (`waLink` del server, backlog #9) y ve el anillo del
  * Club (visitas de ese teléfono en ESTE local, leído de fidelización — el
  * teléfono ya es PK E.164 ahí, el cruce es gratis).
  *
@@ -219,6 +220,16 @@ function renderRow(reservation) {
   const actions = allowedActions(reservation.status);
   if (actions.confirm || actions.seat || actions.noShow || actions.cancel) {
     const group = el('div', 'res-actions');
+    // Backlog #9: link wa.me prefilled del server (requested/confirmed con
+    // teléfono válido). Navegación directa — cero handler inline (CSP).
+    if (reservation.waLink) {
+      const wa = el('a', 'staff-action-btn res-wa-btn', '💬 WhatsApp');
+      wa.href = reservation.waLink;
+      wa.target = '_blank';
+      wa.rel = 'noopener noreferrer';
+      wa.setAttribute('aria-label', `Abrir WhatsApp para ${reservation.name || 'comensal'} a las ${reservation.time}`);
+      group.appendChild(wa);
+    }
     if (actions.confirm) {
       group.appendChild(createActionButton('✓ Confirmar', {
         ariaLabel: `Confirmar la reserva de ${reservation.name || 'comensal'} a las ${reservation.time}`,

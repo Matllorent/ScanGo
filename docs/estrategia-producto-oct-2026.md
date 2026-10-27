@@ -57,7 +57,7 @@ Orden por impacto/esfuerzo. Todo apalancado en infra existente.
 | 6 | ✅ **Happy Hour visible** (HECHO oct-2026, 66ª suite): el kicker `schedule.timeStart/timeEnd` ya NO está latente — visible en TODOS los temas (slots por `dish-has-schedule` en moderna/basketball/ticker/sticker; el Studio ya editaba el horario por plato) | "Pedido en franja horaria" sube conversión | BAJO (hacer brillar la feature latente) |
 | 7 | ✅ **Segmento "vinieron UNA vez y no volvieron"** (HECHO oct-2026, 66ª suite): R1 con `minVisits=1` — clamp [1,10] + selector de visitas en Studio (el composer de segundo mensaje quedó para fase 2) | El churn list hoy exige 2 visitas; el cliente de una sola visita es el más barato de reactivar | MUY BAJO (param + composer) |
 | 8 | **Nudge de instalación PWA para el dueño** (studio ya es instalable, sin nudge) | Recordatorio de uso diario ↑ | MUY BAJO |
-| 9 | **Reserva→recordatorio por WhatsApp** (después de reservas, fase 2) | El consumidor ya lo acepta | post #2 |
+| 9 | ✅ **Reserva→recordatorio por WhatsApp** (HECHO oct-2026, 65ª suite): el dueño avisa/recorda desde SU agenda con un link `wa.me` prefilled por estado (patrón F8-v2; el cron que envíe WhatsApp directo = Cloud API, diferido) | El consumidor ya lo acepta | post #2 |
 | 10 | **Wallet pass de fidelidad (R4 Fornno)** | Retención alta, pero Apple exige certificación $99/año | ALTO — diferir |
 
 ### Features que NO hacer (descartes conscientes)

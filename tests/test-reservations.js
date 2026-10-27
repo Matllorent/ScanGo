@@ -11,17 +11,25 @@
  *    (local = UTC + offset), capacidad por franja (SLOT_FULL/BUFFER con
  *    same-time gobernar por maxPerSlot), trim con overflow (terminales viejas
  *    primero), máquina de estados total y selección de recordatorios.
- * §2 Privilegio: `/api/studio/save` NUNCA crea/pisa `reservations`
- *    (PRIVILEGED_FIELDS + sanitizer sin la clave).
- * §3 Runtime real: server HTTP + store real — 201 pública, 400s honestos,
+ * §2 Runtime real: server HTTP + store real — 201 pública, 400s honestos,
  *    403 disabled, demo no-op, 409 capacidad (slot lleno y buffer) en
  *    restaurantes separados, agenda del dueño con anillo del Club y counts,
- *    máquina de estados vía PATCH (409/400/404/401) y cross-tenant 404.
- * §4 Cron real hermético: RESEND/VAPID retirados por la corrida, outbox
+ *    máquina de estados vía PATCH (409/400/404/401), cross-tenant 404 y el
+ *    privilegio (`/api/studio/save` NUNCA crea/pisa `reservations`,
+ *    PRIVILEGED_FIELDS + sanitizer sin la clave).
+ * §3 Cron real hermético: RESEND/VAPID retirados por la corrida, outbox
  *    interceptando el sendEmail REAL, reloj congelado ?nowMs= (gated),
  *    ventana acotable ?windowHours=, sent=1 + NO_CHANNEL sin marcar,
  *    dedupe en 2ª corrida y fail-closed del cron auth.
- * §5 Wiring estático (menu + Studio) + contrato openapi.yaml.
+ * §4 Wiring estático (menu + Studio) + contrato openapi.yaml.
+ * §5 Recordatorio por WhatsApp (backlog #9, oct-2026): módulo puro
+ *    api/utils/reservationWa.js (copys por estado requested→confirma /
+ *    confirmed→recorda, día hoy/mañana/fecha en huso del dueño con reloj
+ *    inyectable, teléfonos por dígitos con strip del 00) + `waLink` en la
+ *    agenda del dueño (SOLO requested/confirmed con teléfono válido;
+ *    terminales/sin teléfono → null, campo siempre presente) + botón 💬
+ *    CSP-safe (target=_blank rel=noopener) en el Studio + placeholder alineado
+ *    a formato internacional (+598) + contrato openapi.
  *
  * Regresión de la decisión (cero mocks: flujos reales con store y HTTP;
  * tests mutan data/* y `npm test` las aísla/restaura).
@@ -35,6 +43,7 @@ const jwt = require('jsonwebtoken');
 const app = require('../api/index');
 const db = require('../src/db/db');
 const reservations = require('../api/utils/reservations');
+const reservationWa = require('../api/utils/reservationWa');
 const emailService = require('../api/services/email');
 const notificationsService = require('../api/services/notifications');
 const loyaltyService = require('../api/services/loyalty');
@@ -596,7 +605,135 @@ async function runTests() {
     console.log('✓ §4 wiring + contrato: comensal, Studio, CSS y openapi.yaml consistentes');
   }
 
-  console.log('\n✅ Reservas de verdad + recordatorio 24h: TODOS los asserts pasaron');
+  // ── §5 Recordatorio por WhatsApp (backlog #9) ──────────────────────────────
+  console.log('\n── §5 Recordatorio por WhatsApp (backlog #9) ────────────────────');
+  {
+    // ── §5a Módulo puro api/utils/reservationWa.js ───────────────────────────
+    const NOW = Date.parse('2026-01-15T12:00:00.000Z'); // local UY (−180): 09:00, día 2026-01-15
+    const OFF = -180;
+    const HOY = '2026-01-15';
+    const MANANA = '2026-01-16';
+    const LEJOS = '2026-01-20';
+    const AYER = '2026-01-14';
+
+    // Etiqueta del día EN el huso del dueño (reloj inyectable).
+    assert.strictEqual(reservationWa.reservationDayLabel(HOY, { nowMs: NOW, utcOffsetMinutes: OFF }), 'hoy', 'mismo día local → hoy');
+    assert.strictEqual(reservationWa.reservationDayLabel(MANANA, { nowMs: NOW, utcOffsetMinutes: OFF }), 'mañana', 'día+1 → mañana');
+    assert.strictEqual(reservationWa.reservationDayLabel(LEJOS, { nowMs: NOW, utcOffsetMinutes: OFF }), 'el mar 20 ene', 'más lejos → fecha bonita');
+    assert.strictEqual(reservationWa.reservationDayLabel(AYER, { nowMs: NOW, utcOffsetMinutes: OFF }), 'el mié 14 ene', 'pasada → fecha bonita (el dueño la ve igual)');
+    assert.strictEqual(reservationWa.reservationDayLabel('basura', { nowMs: NOW }), '', 'fecha inválida → label vacío');
+    // El offset corre la frontera: 02:00Z con −180 es 23:00 local del 14.
+    const NOW_T2 = Date.parse('2026-01-15T02:00:00.000Z');
+    assert.strictEqual(reservationWa.reservationDayLabel('2026-01-14', { nowMs: NOW_T2, utcOffsetMinutes: OFF }), 'hoy', 'offset −180: 02:00Z ya es el 14 local');
+    assert.strictEqual(reservationWa.reservationDayLabel('2026-01-15', { nowMs: NOW_T2, utcOffsetMinutes: OFF }), 'mañana', 'offset −180: el 15 aún es mañana');
+    assert.strictEqual(reservationWa.reservationDayLabel('2026-01-15', { nowMs: NOW_T2, utcOffsetMinutes: 0 }), 'hoy', 'offset 0: 02:00Z ya es el 15 UTC');
+
+    // Copys por estado.
+    const confirmed = { id: 'r1', name: 'Nora', phone: '59898555123', date: MANANA, time: '21:00', pax: 2, status: 'confirmed' };
+    const textConf = reservationWa.buildReservationWaText(confirmed, { restaurantName: 'La Parrillita', nowMs: NOW, utcOffsetMinutes: OFF });
+    assert.ok(textConf.startsWith('⏰'), 'confirmed arranca con ⏰');
+    assert.ok(textConf.includes('Te recordamos tu reserva en La Parrillita'), 'confirmed → copy de recordatorio');
+    assert.ok(textConf.includes('para mañana a las 21:00, 2 personas'), 'día + hora + pax en la copy');
+    assert.ok(textConf.endsWith('respondé este mensaje 🙏'), 'confirmed cierra con el pedido de respuesta');
+
+    const textReq = reservationWa.buildReservationWaText({ ...confirmed, status: 'requested' }, { restaurantName: 'La Parrillita', nowMs: NOW, utcOffsetMinutes: OFF });
+    assert.ok(textReq.startsWith('💬'), 'requested arranca con 💬');
+    assert.ok(textReq.includes('Recibimos tu pedido de mesa en La Parrillita'), 'requested → copy de confirmación');
+    assert.ok(textReq.includes('¿Te la confirmamos?'), 'requested cierra con la pregunta');
+
+    // Sin nombre no rompe (¡Hola! a secas); nombre basura se sanea.
+    const textNoName = reservationWa.buildReservationWaText({ ...confirmed, name: '' }, { restaurantName: 'La Parrillita', nowMs: NOW });
+    assert.ok(textNoName.includes('¡Hola!'), 'sin nombre → saludo genérico');
+    const textDirty = reservationWa.buildReservationWaText({ ...confirmed, name: '  Ana\n   Pérez  ' }, { restaurantName: 'La Parrillita', nowMs: NOW });
+    assert.ok(textDirty.includes('¡Hola Ana Pérez!'), 'nombre saneado (colapsa espacios/saltos)');
+
+    // Singular / plural / '8+' (el label gana sobre el número).
+    assert.strictEqual(reservationWa.paxPhrase({ pax: 1 }), '1 persona', 'singular');
+    assert.strictEqual(reservationWa.paxPhrase({ pax: 4 }), '4 personas', 'plural');
+    assert.strictEqual(reservationWa.paxPhrase({ pax: 8, paxLabel: '8+' }), '8+ personas', 'paxLabel gana');
+    assert.strictEqual(reservationWa.paxPhrase({}), '', 'sin pax → vacío (nunca "undefined personas")');
+
+    // Terminales y entrada basura NO llevan texto ni link.
+    for (const status of ['seated', 'cancelled', 'no_show', 'desconocido']) {
+      assert.strictEqual(reservationWa.buildReservationWaText({ ...confirmed, status }, { restaurantName: 'X', nowMs: NOW }), '', `estado ${status} → sin texto`);
+      assert.strictEqual(reservationWa.buildReservationWaLink({ ...confirmed, status }, { restaurantName: 'X', nowMs: NOW }), null, `estado ${status} → sin link`);
+    }
+    assert.strictEqual(reservationWa.buildReservationWaText(null, {}), '', 'entrada null → sin texto');
+    assert.strictEqual(reservationWa.buildReservationWaText('perro', {}), '', 'entrada string → sin texto');
+    assert.strictEqual(reservationWa.buildReservationWaText([confirmed], {}), '', 'entrada array → sin texto');
+    assert.strictEqual(reservationWa.buildReservationWaText({ ...confirmed, time: '25:99' }, {}), '', 'hora inválida → sin texto');
+    assert.strictEqual(reservationWa.buildReservationWaLink(null, {}), null, 'reserva null → null');
+
+    // Link: dígitos + encoding; formatos equivalentes dan el MISMO número.
+    const link = reservationWa.buildReservationWaLink(confirmed, { restaurantName: 'La Parrillita', nowMs: NOW, utcOffsetMinutes: OFF });
+    assert.ok(link.startsWith('https://wa.me/59898555123?text='), 'link wa.me con dígitos del teléfono');
+    const decoded = decodeURIComponent(link.split('?text=')[1]);
+    assert.ok(decoded.includes('Nora') && decoded.includes('La Parrillita') && decoded.includes('21:00'), 'el link lleva el mensaje prefilled');
+    const linkFmt = reservationWa.buildReservationWaLink({ ...confirmed, phone: '598-98-555-123' }, { restaurantName: 'X', nowMs: NOW });
+    assert.ok(linkFmt.startsWith('https://wa.me/59898555123'), 'formato con guiones → mismo número');
+    const linkFmt00 = reservationWa.buildReservationWaLink({ ...confirmed, phone: '0059898555123' }, { restaurantName: 'X', nowMs: NOW });
+    assert.ok(linkFmt00.startsWith('https://wa.me/59898555123'), 'prefijo 00 strip → link ruteable (Club parity)');
+    // Sin teléfono válido → null honesto (nunca link roto).
+    assert.strictEqual(reservationWa.buildReservationWaLink({ ...confirmed, phone: '123' }, {}), null, 'teléfono corto → null');
+    assert.strictEqual(reservationWa.buildReservationWaLink({ ...confirmed, phone: null }, {}), null, 'sin teléfono → null');
+
+    // Backfill #9 en el módulo de reservas: normalizeReservationPhone alineado
+    // con el Club (docstring lo prometía, el código no lo hacía).
+    assert.strictEqual(reservations.normalizeReservationPhone('00598 99 123 456'), '59899123456', 'strip del 00 en el alta (Club + recoveryCoupons parity)');
+    console.log('✓ §5a módulo puro reservationWa: copys por estado, huso inyectable, dígitos, terminales fuera');
+
+    // ── §5b Runtime real: waLink en la agenda del dueño ──────────────────────
+    const iso = new Date().toISOString();
+    const seedWa = [
+      { id: `resv_wa_req_${STAMP}`, name: 'Nora', phone: '+598 98 555 123', date: dayPlus, time: '20:30', pax: 4, status: 'requested', source: 'menu', createdAt: iso, statusUpdatedAt: iso },
+      { id: `resv_wa_conf_${STAMP}`, name: 'Bruno', phone: '598-98-555-124', date: dayPlus, time: '21:15', pax: 2, status: 'confirmed', source: 'menu', createdAt: iso, statusUpdatedAt: iso },
+      { id: `resv_wa_nophone_${STAMP}`, name: 'Sin Teléfono', phone: '', date: dayPlus, time: '22:30', pax: 2, status: 'confirmed', source: 'menu', createdAt: iso, statusUpdatedAt: iso },
+      { id: `resv_wa_cancel_${STAMP}`, name: 'Laura', phone: '59898555126', date: dayPlus, time: '23:00', pax: 2, status: 'cancelled', source: 'menu', createdAt: iso, statusUpdatedAt: iso }
+    ];
+    for (const r of seedWa) {
+      const saved = await db.addReservation(restMain.id, r);
+      assert.ok(saved && saved.success, `fila sembrada para §5: ${r.name}`);
+    }
+    const agendaWa = (await (await fetch(`${base}/api/reservations?date=${dayPlus}`, { headers: { Authorization: `Bearer ${ownerToken(ownerA.id)}` } })).json()).data;
+    assert.ok(agendaWa.reservations.every(r => 'waLink' in r), 'waLink presente en TODAS las filas (estable como soldOutToday en F3)');
+    const nora = agendaWa.reservations.find(r => r.name === 'Nora');
+    assert.ok(nora && typeof nora.waLink === 'string', 'requested con teléfono → waLink string');
+    assert.ok(nora.waLink.startsWith('https://wa.me/59898555123?text='), 'link con dígitos del teléfono');
+    const decodedNora = decodeURIComponent(nora.waLink.split('?text=')[1]);
+    assert.ok(decodedNora.includes('¿Te la confirmamos?') && decodedNora.includes('Restaurante Reservas') && decodedNora.includes('20:30'), 'copy de requested con local + hora');
+    const bruno = agendaWa.reservations.find(r => r.name === 'Bruno');
+    assert.ok(bruno && bruno.waLink && bruno.waLink.startsWith('https://wa.me/59898555124?text='), 'confirmed → link');
+    const decodedBruno = decodeURIComponent(bruno.waLink.split('?text=')[1]);
+    assert.ok(decodedBruno.includes('Te recordamos'), 'copy de confirmed');
+    const sinTel = agendaWa.reservations.find(r => r.name === 'Sin Teléfono');
+    assert.strictEqual(sinTel.waLink, null, 'sin teléfono → null honesto (la agenda no rompe)');
+    const laura = agendaWa.reservations.find(r => r.name === 'Laura');
+    assert.strictEqual(laura.waLink, null, 'terminal cancelled → null (no lleva link)');
+
+    // El alta pública NO lleva waLink (agenda-only, igual que `club`).
+    const fresh = await postJson('/api/reservations', {
+      slug: restMain.slug, name: 'Cacho', phone: '59899111997', date: dayPlus, time: '19:30', pax: '2'
+    });
+    assert.strictEqual(fresh.status, 201, 'alta feliz → 201');
+    assert.ok(!('waLink' in (await fresh.json()).data.reservation), 'el alta NO expone waLink (solo la agenda)');
+    console.log('✓ §5b runtime: waLink solo en agenda, solo pre-visita, null honesto en terminales/sin teléfono');
+
+    // ── §5c Wiring estático + contrato ───────────────────────────────────────
+    const resManagerSrc = read('public/js/studio/reservationsManager.js');
+    const studioCssSrc = read('public/css/studio.css');
+    const contractSrc = read('openapi.yaml');
+    const menuHtmlSrc = read('public/menu.html');
+    assert.ok(/reservation\.waLink/.test(resManagerSrc), 'renderRow usa reservation.waLink');
+    assert.ok(/target\s*=\s*['"]_blank['"]/.test(resManagerSrc), 'WhatsApp abre en pestaña nueva');
+    assert.ok(/rel\s*=\s*['"]noopener/.test(resManagerSrc), 'rel noopener (seguridad de navegación)');
+    assert.ok(!/\bon(click|load|error)\s*=/i.test(resManagerSrc), 'el bloque nuevo sin on*=');
+    assert.ok(/res-wa-btn/.test(studioCssSrc), 'CSS del botón WhatsApp en la agenda');
+    assert.ok(/placeholder="Ej: \+598 99 123 456" autocomplete="tel" required/.test(menuHtmlSrc), 'placeholder del alta alineado a formato internacional (link ruteable)');
+    assert.ok(/waLink/.test(contractSrc) && /Link `https:\/\/wa\.me\/<dígitos>\?text=\.\.\.`/.test(contractSrc), 'contrato documenta waLink');
+    console.log('✓ §5c wiring + contrato: botón 💬 CSP-safe, placeholder +598, openapi con waLink');
+  }
+
+  console.log('\n✅ Reservas de verdad + recordatorio 24h (+ WhatsApp #9): TODOS los asserts pasaron');
   } finally {
     // Restaurar email real + entorno SIEMPRE (la outbox queda viva durante §3).
     emailService.sendEmail = realSendEmail;
