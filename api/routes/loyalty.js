@@ -326,7 +326,7 @@ router.post('/reactivation', authMiddleware, tenantGuard, requireActiveSubscript
 const winbackCampaignSchema = z.object({
   offerType: z.enum(['percent_10', 'percent_15', 'free_delivery'], { message: 'Oferta inválida' }),
   daysSinceLastVisit: z.number().int().min(7).max(365).optional().default(45),
-  minVisits: z.number().int().min(1).max(100).optional().default(2),
+  minVisits: z.number().int().min(1).max(10).optional().default(2),
   customMessage: z.string().max(500, { message: 'Mensaje demasiado largo' }).trim().optional()
 });
 

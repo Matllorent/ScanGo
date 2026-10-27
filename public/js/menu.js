@@ -55,7 +55,11 @@ import {
   scheduleBillNudge as scheduleBillNudgeMod,
   maybeOpenDishDeepLink as maybeOpenDishDeepLinkMod,
   maybeOpenReviewFromLink as maybeOpenReviewFromLinkMod,
-  flashDishCard as flashDishCardMod
+  flashDishCard as flashDishCardMod,
+  buildReorderPlan as buildReorderPlanMod,
+  describeReorderPlan as describeReorderPlanMod,
+  getReorderForSlug as getReorderForSlugMod,
+  saveReorderForSlug as saveReorderForSlugMod
 } from './menu/index.js';
 import { LAYOUT_IDS, CLASSIC_THEME_IDS, HELADERIA_THEME_IDS, PERFUMERY_THEME_IDS } from './menu/themeManifest.js';
 import { initModalA11y } from './modalA11y.js';
@@ -208,7 +212,20 @@ Object.defineProperties(window, {
       if (!wrapper) return;
       const fab = document.getElementById('waiterFab');
       const trackingFab = document.getElementById('orderTrackingFab');
-      if (!isElementShown(fab) && !isElementShown(trackingFab)) {
+      const reorderFab = document.getElementById('reorderFab');
+      // #5 "Pedir de nuevo": se apila sobre el de seguimiento, o toma su
+      // lugar si no hay pedido en seguimiento (misma columna, sin huecos).
+      const trackingShown = isElementShown(trackingFab);
+      if (reorderFab) {
+        reorderFab.style.bottom = trackingShown ? '212px' : '146px';
+      }
+      // Zona de colisión = la columna visible completa (del FAB más bajo al
+      // más alto): la barra sticky no debe tapar NINGUNO.
+      const shownOffsets = [];
+      if (isElementShown(fab)) shownOffsets.push(80);
+      if (trackingShown) shownOffsets.push(146);
+      if (isElementShown(reorderFab)) shownOffsets.push(trackingShown ? 212 : 146);
+      if (!shownOffsets.length) {
         document.body.classList.remove('fab-blocked');
         return;
       }
@@ -218,9 +235,8 @@ Object.defineProperties(window, {
         document.body.classList.remove('fab-blocked');
         return;
       }
-      const offset = isElementShown(trackingFab) ? 146 : 80;
-      const fabTop = window.innerHeight - offset - 56;
-      const fabBottom = window.innerHeight - offset;
+      const fabBottom = window.innerHeight - Math.min(...shownOffsets);
+      const fabTop = window.innerHeight - Math.max(...shownOffsets) - 56;
       const wr = wrapper.getBoundingClientRect();
       const vertical = wr.top < fabBottom + 8 && wr.bottom > fabTop - 8;
       const horizontal = wr.right > window.innerWidth - 88;
@@ -620,6 +636,7 @@ Object.defineProperties(window, {
       renderDemoThemeBar();
       applyFilterBarMode();
       renderViralFooter();
+      maybeShowReorderFab();
       maybeOpenReviewFromLink();
       maybeOpenDishDeepLink();
     }
@@ -647,6 +664,63 @@ Object.defineProperties(window, {
     function maybeOpenDishDeepLink() { return maybeOpenDishDeepLinkMod(trackingCtx); }
     function maybeOpenReviewFromLink() { return maybeOpenReviewFromLinkMod(trackingCtx); }
     function flashDishCard(dishId, deps) { return flashDishCardMod(dishId, { selectCategory, ...(deps || {}) }); }
+
+    // ── #5 "Pedir de nuevo" (lógica de snapshot/plan en reorder.js) ────────
+    // El comensal repite su último pedido confirmado en ESTE local: el
+    // snapshot se guarda al confirmar el pedido (orderSubmit.js) y el plan
+    // re-agrega por el flujo de carrito existente, saltando agotados /
+    // platos que ya no están / fuera de horario con aviso honesto.
+    function saveReorderSnapshot(slug, items) { return saveReorderForSlugMod(slug, items || []); }
+    function reorderLastOrder() {
+      if (!areMenuOrdersEnabled()) return;
+      const snapshot = getReorderForSlugMod(getSlug());
+      if (!snapshot) return;
+      const plan = buildReorderPlanMod(snapshot, {
+        dishes: restaurantData.dishes || [],
+        getDishGroups: (dish) => getDishModifierGroups(dish),
+        isDishAvailableNow: (dish) => getDishScheduleStatus(dish).isAvailable
+      });
+      if (!plan.lines.length) {
+        // Nada repetible (todo agotado/fuera de horario/ya no existe): honesto.
+        showToast(describeReorderPlanMod(plan));
+        return;
+      }
+      // addDishToCart agrega UNA unidad (y atribuye en mesa grupal): repetir
+      // qty veces es la semántica exacta en modo solo y grupal sin tocar el
+      // GroupCartManager.
+      for (const line of plan.lines) {
+        for (let added = 0; added < line.quantity; added++) {
+          addDishToCart(line.dish, line.note, line.choices);
+        }
+      }
+      updateCartUI();
+      renderDishes();
+      renderCartModalList();
+      // Telemetría del CTA: tipo crudo (no mueve visitas/órdenes/ticket).
+      trackPublicEvent('reorder_click', { lines: plan.lines.length, skipped: plan.skipped.length });
+      showToast(describeReorderPlanMod(plan));
+      openCartModal();
+    }
+    // FAB 🔁: visible solo con snapshot repetible de ESTE local + pedidos
+    // habilitados (vitrina nunca lo muestra) + al menos una línea reconstruible.
+    function maybeShowReorderFab() {
+      const fab = document.getElementById('reorderFab');
+      if (!fab) return;
+      let show = false;
+      if (areMenuOrdersEnabled()) {
+        const snapshot = getReorderForSlugMod(getSlug());
+        if (snapshot) {
+          const plan = buildReorderPlanMod(snapshot, {
+            dishes: restaurantData.dishes || [],
+            getDishGroups: (dish) => getDishModifierGroups(dish),
+            isDishAvailableNow: (dish) => getDishScheduleStatus(dish).isAvailable
+          });
+          show = plan.lines.length > 0;
+        }
+      }
+      fab.style.display = show ? 'flex' : 'none';
+      updateFabVisibility();
+    }
 
     // Fetch Restaurant Menu with Client-Side Timeout & Branch-Aware Caching
     async function loadMenu() {
@@ -2580,6 +2654,7 @@ Object.defineProperties(window, {
       closeOrderTracking,
       refreshOrderTracking,
       openReviewNudge,
+      reorderLastOrder,
       selectTrackedOrder,
       forgetOrderTracking,
       reopenOrderWhatsApp,

@@ -51,7 +51,10 @@ function computeChurnCandidates({ accounts, customers, restaurantId, nowMs = Dat
     return { thresholdDays: daysSinceLastVisit, minVisits, count: 0, candidates: [] };
   }
   const thresholdDays = clampInt(daysSinceLastVisit, 7, 365, 45);
-  const thresholdVisits = Math.max(1, Math.floor(Number(minVisits)) || 1);
+  // minVisits=1 abre el segmento "probaron UNA vez y no volvieron" (el cliente
+  // más barato de reactivar); el tope 10 acota un segmento que de otra forma
+  // sería una lista vacía (nadie tiene 999 visitas) y la basura cae al default.
+  const thresholdVisits = clampInt(minVisits, 1, 10, 2);
   const cutoffMs = nowMs - thresholdDays * DAY_MS;
 
   const byId = new Map(customers.map(c => [c && c.id, c]));

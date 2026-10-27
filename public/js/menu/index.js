@@ -15,6 +15,9 @@
  * - eventInvitations: invitaciones por WhatsApp, una por invitado (data-driven)
  * - menuPresentation: reglas puras de presentación (precio $0, notas por rubro)
  * - openStatus: abierto/cerrado puro con reloj inyectable (espejo del backend)
+ * - orderTracking: seguimiento del pedido + nudges de reseña
+ * - storiesLayout: modo historias dual (mesa=carta, casa=historias)
+ * - reorder: #5 "Pedir de nuevo" — snapshot del último pedido + plan de repetición
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -33,3 +36,4 @@ export * from './menuPresentation.js';
 export * from './openStatus.js';
 export * from './orderTracking.js';
 export * from './storiesLayout.js';
+export * from './reorder.js';

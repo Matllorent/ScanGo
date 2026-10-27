@@ -1298,13 +1298,20 @@
                 <button type="button" class="btn-nav" data-js-click="loadChurnList" style="margin-left:auto; width:auto; padding:5px 10px; font-size:10px;">🔍 Detectar</button>
               </div>
               <p style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">
-                Resultado del Club de Puntos: clientes recurrentes que no volvieron hace más de
+                Resultado del Club de Puntos: clientes que no volvieron hace más de
                 <select id="inputChurnDays" aria-label="Días de ausencia para considerar en riesgo" style="font-size:11px; padding:2px 4px; background:var(--surface-card); color:#fff; border:1px solid var(--border); border-radius:4px;">
                   <option value="30">30 días</option>
                   <option value="45" selected>45 días</option>
                   <option value="60">60 días</option>
                   <option value="90">90 días</option>
+                </select>
+                y con al menos
+                <select id="inputChurnMinVisits" aria-label="Visitas mínimas para considerar en riesgo" style="font-size:11px; padding:2px 4px; background:var(--surface-card); color:#fff; border:1px solid var(--border); border-radius:4px;">
+                  <option value="1">1 visita</option>
+                  <option value="2" selected>2 visitas</option>
+                  <option value="3">3 visitas</option>
                 </select>.
+                Con 1 visita incluyés a quienes probaron una sola vez y no volvieron: son los más baratos de reactivar.
                 Enviás el email de recupero UNO POR UNO, siempre respetando bajas y consentimientos.
               </p>
               <div id="churnList" style="margin-top:6px;">

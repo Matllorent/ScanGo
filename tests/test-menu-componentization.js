@@ -1220,7 +1220,7 @@ async function runMenuComponentizationTests() {
   assert.ok(menuRenderSrc30.includes('class="dish-qty-controls"'), 'la tarjeta agrupa + y − en .dish-qty-controls');
   assert.ok(
     menuRenderSrc30.includes('class="dish-schedule-kicker"') && /d\.schedule && d\.schedule\.enabled && d\.schedule\.timeStart && d\.schedule\.timeEnd/.test(menuRenderSrc30),
-    'kicker de horario (Solo de HH:MM a HH:MM): latente en todas las cartas, sólo lo muestra theme-nordico'
+    'kicker de horario (Solo de HH:MM a HH:MM): visible en todos los temas (invariante #6, test-quick-wins §3)'
   );
   assert.ok(
     (menuRenderSrc30.match(/data-js-click="removeFromCart\|this\.dataset\.dishId"/g) || []).length >= 2,

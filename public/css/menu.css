@@ -1223,6 +1223,21 @@
     /* El cuerpo se disuelve: sus hijos pasan a la grilla de la fila */
     body.theme-moderna.layout-classic .dish-body,
     body.theme-moderna.layout-classic .dish-title-line { display: contents; }
+    /* #6 Happy Hour visible: el kicker es ítem de la grilla — fila 1 completa
+       y name/price/desc/action bajan una fila SOLO cuando el plato tiene
+       horario (clase dish-has-schedule del render, patrón casa de
+       dish-has-photo: funciona en cualquier WebView, sin :has()). */
+    body.theme-moderna.layout-classic .dish-schedule-kicker {
+      grid-column: 1 / -1;
+      grid-row: 1;
+      align-self: end;
+      margin-bottom: 2px;
+      color: var(--chalk-dim);
+    }
+    body.theme-moderna.layout-classic .dish-card.dish-has-schedule .dish-name { grid-row: 2; }
+    body.theme-moderna.layout-classic .dish-card.dish-has-schedule .dish-price { grid-row: 2; }
+    body.theme-moderna.layout-classic .dish-card.dish-has-schedule .dish-desc { grid-row: 3; }
+    body.theme-moderna.layout-classic .dish-card.dish-has-schedule .dish-action { grid-row: 3; }
     body.theme-moderna.layout-classic .dish-name {
       grid-column: 1;
       grid-row: 1;
@@ -2724,6 +2739,20 @@
     /* El cuerpo se disuelve: name/price en fila 1, desc r2, badges r3+ */
     body.theme-basketball.layout-classic .dish-body,
     body.theme-basketball.layout-classic .dish-title-line { display: contents; }
+    /* #6 Happy Hour visible: el kicker en fila 1 completa y el resto baja una
+       fila SOLO cuando el plato tiene horario (clase dish-has-schedule del
+       render — patrón casa dish-has-photo, sin :has()). */
+    body.theme-basketball.layout-classic .dish-schedule-kicker {
+      grid-column: 1 / -1;
+      grid-row: 1;
+      align-self: end;
+      margin-bottom: 2px;
+      color: var(--chalk-dim, #452918);
+    }
+    body.theme-basketball.layout-classic .dish-card.dish-has-schedule .dish-name { grid-row: 2; }
+    body.theme-basketball.layout-classic .dish-card.dish-has-schedule .dish-price { grid-row: 2; }
+    body.theme-basketball.layout-classic .dish-card.dish-has-schedule .dish-desc { grid-row: 3; }
+    body.theme-basketball.layout-classic .dish-card.dish-has-schedule .dish-action { grid-row: 3; }
     body.theme-basketball.layout-classic .dish-name {
       grid-column: 1;
       grid-row: 1;
@@ -4727,6 +4756,9 @@
     }
     /* Seguimiento del pedido: por encima del mozo. */
     #orderTrackingFab { bottom: 146px; }
+    /* #5 "Pedir de nuevo": apilado sobre el de seguimiento (o toma su lugar
+       si no hay pedido en seguimiento — menu.js ajusta el bottom inline). */
+    #reorderFab { bottom: 146px; }
     /* Mientras la barra de controles (sticky) cae en la zona del FAB al abrir
        el menú, el FAB se oculta para no tapar moneda/categorías/buscador.
        Al scrollear y dejar la barra arriba, vuelve a aparecer. */
@@ -7641,14 +7673,26 @@
       flex: 1;
       min-width: 0;
     }
+    /* #6 Happy Hour visible: con horario el ticker extiende sus areas (clase
+       dish-has-schedule del render — patrón casa dish-has-photo, sin :has()). */
+    body.layout-ticker .dish-card.dish-has-schedule .dish-body {
+      grid-template-areas:
+        "kicker kicker"
+        "title price"
+        "desc desc";
+    }
+    body.layout-ticker .dish-card.dish-has-schedule .dish-schedule-kicker {
+      grid-area: kicker;
+      align-self: end;
+      margin-bottom: 2px;
+    }
     body.layout-ticker .dish-title-line {
       grid-area: title;
       display: flex;
       align-items: baseline;
       min-width: 0;
       margin-bottom: 2px;
-    }
-    body.layout-ticker .dish-title-line::after {
+    }    body.layout-ticker .dish-title-line::after {
       content: "";
       flex: 1;
       min-width: 24px;
@@ -7779,6 +7823,13 @@
       color: #ffffff !important;
       font-weight: 800;
       text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
+    }
+    /* #6 Happy Hour visible: el kicker viaja dentro del overlay oscuro — el
+       dim del tema claro sería tinta sobre el gradiente; blanco translúcido
+       como el resto del texto del overlay. */
+    body.layout-sticker .dish-card.dish-has-photo .dish-schedule-kicker {
+      color: rgba(255, 255, 255, 0.85) !important;
+      text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
     }
     body.layout-sticker .dish-card.dish-has-photo .dish-desc {
       color: rgba(255, 255, 255, 0.85) !important;
@@ -9025,8 +9076,19 @@
    ============================================================ */
 
 /* Kicker de horario (dato latente del plato: schedule.timeStart/End).
-   Oculto por defecto para TODOS los temas; s�lo el nordico lo pinta. */
-.dish-schedule-kicker { display: none; }
+   #6 Happy Hour visible: en TODOS los temas ahora — la línea se pinta con las
+   variables del tema activo (--chalk-dim, fallback AA sobre claro) y cada
+   morfología especial da su slot (moderna/basketball abajo, ticker con areas).
+   El precio en oferta (strike de Happy Hour) ya era global en menuRender. */
+.dish-schedule-kicker {
+  display: block;
+  color: var(--chalk-dim, #6E6E6E);
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 3px;
+}
 
 /* ---- Paleta (todos los layouts) ---- */
 body.theme-nordico {
@@ -9180,16 +9242,6 @@ body.theme-nordico .dish-badge[style*="background:#E53E3E"] {
   color: #FFFFFF !important;
   border-radius: 6px !important;
   padding: 2px 7px !important;
-}
-/* Kicker de horario: SOLO DE 08:00 A 12:00 � texto plano sobre el nombre */
-body.theme-nordico .dish-schedule-kicker {
-  display: block;
-  color: #6E6E6E;
-  font-size: 0.68rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 3px;
 }
 /* Bot�n +: c�rculo de tinta (el �nico punto negro de la fila) */
 body.theme-nordico .btn-add {

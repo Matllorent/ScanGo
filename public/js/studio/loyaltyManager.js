@@ -93,11 +93,13 @@ export function handleRedeemCodeEnter(event, escapeHtml) {
 export async function loadChurnList(escapeHtml) {
   const list = document.getElementById('churnList');
   const daysEl = document.getElementById('inputChurnDays');
+  const minVisitsEl = document.getElementById('inputChurnMinVisits');
   if (!list) return;
   const days = daysEl ? (Number(daysEl.value) || 45) : 45;
+  const minVisits = minVisitsEl ? (Number(minVisitsEl.value) || 2) : 2;
   list.innerHTML = '<div style="font-size:11px; color:var(--text-dim);">⏳ Analizando…</div>';
   try {
-    const body = await apiFetch(`/api/loyalty/churn?days=${encodeURIComponent(days)}`);
+    const body = await apiFetch(`/api/loyalty/churn?days=${encodeURIComponent(days)}&minVisits=${encodeURIComponent(minVisits)}`);
     if (!body.data) {
       list.innerHTML = `<div style="font-size:11px; color:#F87171;">${escapeHtml(body.error || 'No se pudo calcular la lista.')}</div>`;
       return;
@@ -106,10 +108,10 @@ export async function loadChurnList(escapeHtml) {
     const candidates = report.candidates || [];
     churnListCache = candidates;
     if (!candidates.length) {
-      list.innerHTML = `<div style="font-size:11px; color:#68D391;">✓ Sin clientes en riesgo con ausencia de ${report.thresholdDays} días. Tu Club está saludable.</div>`;
+      list.innerHTML = `<div style="font-size:11px; color:#68D391;">✓ Sin clientes en riesgo con ausencia de ${report.thresholdDays} días y ${report.minVisits} ${report.minVisits === 1 ? 'visita' : 'visitas'} o más. Tu Club está saludable.</div>`;
       return;
     }
-    list.innerHTML = `<div style="font-size:11px; color:var(--text-dim); margin-bottom:6px;">${report.count} cliente(s) recurrentes que no volvieron hace ${report.thresholdDays}+ días:</div>` +
+    list.innerHTML = `<div style="font-size:11px; color:var(--text-dim); margin-bottom:6px;">${report.count} cliente(s) que no volvieron hace ${report.thresholdDays}+ días (${report.minVisits} ${report.minVisits === 1 ? 'visita' : 'visitas'} o más):</div>` +
       candidates.map((c) => `
         <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px;">
           <div style="display:flex; justify-content:space-between; gap:8px;">

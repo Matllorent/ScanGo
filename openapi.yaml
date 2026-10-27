@@ -2168,7 +2168,8 @@ paths:
           schema: { type: integer, minimum: 7, maximum: 365, default: 45 }
         - name: minVisits
           in: query
-          schema: { type: integer, minimum: 1, default: 2 }
+          schema: { type: integer, minimum: 1, maximum: 10, default: 2 }
+          description: Mínimo de visitas históricas del cliente (1 abre el segmento una-visita; se clampea a [1,10]).
       responses:
         '200':
           description: Reporte de recupero (`{ thresholdDays, minVisits, count, candidates[] }`)

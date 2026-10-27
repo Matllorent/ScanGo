@@ -9,7 +9,8 @@
  *   getCart, getRestaurantData, isRestaurantOpenNow, getCustomerPhone,
  *   toOrderItemPayload, getCaptchaToken, getDeliveryFee: () => number,
  *   getAppliedCoupon: () => object|null, getTip: () => { percent, custom },
- *   saveOrderTracking, showOrderTrackingFab, getSlug, trackPublicEvent
+ *   saveOrderTracking, showOrderTrackingFab, getSlug, trackPublicEvent,
+ *   saveReorderSnapshot: (items) => void   // #5 "Pedir de nuevo"
  * }
  * Sin imports fuera de public/js. Sin DOM en import (seguro en Node).
  */
@@ -234,6 +235,16 @@ import { computeTipAmount } from './tipCalculator.js';
                 createdAt: Date.now()
               });
               ctx.showOrderTrackingFab();
+            }
+            // #5 "Pedir de nuevo": snapshot del pedido confirmado para el FAB 🔁.
+            // La fuente es el MISMO payload que viaja a POST /api/orders (cero
+            // transformación inventada). En mesa grupal NO se snapshottea: las
+            // líneas de otros comensales se re-atribuirían mal. Best-effort:
+            // nunca rompe el alta del pedido.
+            if (!isGroupOrder) {
+              try {
+                ctx.saveReorderSnapshot(items.map(item => ctx.toOrderItemPayload(item)));
+              } catch (e) {}
             }
           })
           .catch(() => {}));

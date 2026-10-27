@@ -15,7 +15,11 @@ const EVENT_TYPES = [
   // F4: click en el footer viral "Esta carta corre con ScanGo" → /?ref=<slug>.
   // Es un tipo CRUDO (no está en LEGACY_COUNTER_TYPES): se guarda y se puede
   // analizar, pero NUNCA mueve ticket promedio, visitas ni órdenes.
-  'scango_cta_click'
+  'scango_cta_click',
+  // #5 "Pedir de nuevo": el comensal repite su último pedido con el FAB 🔁.
+  // Mismo trato CRUDO de F4: métrica de re-orden real del local, cero efecto
+  // en la proyección legacy de analytics.
+  'reorder_click'
 ];
 
 // Tipos de evento que alimentan cada contador legacy de restaurant.analytics.

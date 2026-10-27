@@ -53,9 +53,9 @@ Orden por impacto/esfuerzo. Todo apalancado en infra existente.
 | 2 | **Reservas con recordatorio 24h** | −30/50% no-shows (patrón Fornno); email + push ya cableados | medio |
 | 3 | **Resumen nocturno de caja (Z-report por email 03:00)** | El dueño cuenta la plata al otro día; es la feature #1 pedida en entrevistas de POS | BAJO (cron + template email + orders del día) |
 | 4 | **Agotados con memoria**: N ventas hoy → auto-pausa + badge, reactiva al día siguiente | Evita comensal decepcionado + trabajo manual del dueño | BAJO-MEDIO (telemetry + flag + cron reset) |
-| 5 | **"Pedir de nuevo"**: botón para repetir el último pedido del comensal (localStorage propio) | 1 tap reordena → ticket sube; rebill ~60% | BAJO |
-| 6 | **Happy Hour visible**: `schedule.timeStart/timeEnd` ya existe LATENTE (solo el tema nordico lo pinta); llevarlo a UI de todos los temas + Studio | "Pedido en franja horaria" sube conversión | BAJO (hacer brillar la feature latente) |
-| 7 | **Segmento "vinieron UNA vez y no volvieron"** (R1 con `minVisits=1` + segundo composer) | El churn list hoy exige 2 visitas; el cliente de una sola visita es el más barato de reactivar | MUY BAJO (param + composer) |
+| 5 | ✅ **"Pedir de nuevo"** (HECHO oct-2026, 66ª suite): botón 🔁 para repetir el último pedido del comensal (localStorage propio, plan reconciliado contra la carta actual) | 1 tap reordena → ticket sube; rebill ~60% | BAJO |
+| 6 | ✅ **Happy Hour visible** (HECHO oct-2026, 66ª suite): el kicker `schedule.timeStart/timeEnd` ya NO está latente — visible en TODOS los temas (slots por `dish-has-schedule` en moderna/basketball/ticker/sticker; el Studio ya editaba el horario por plato) | "Pedido en franja horaria" sube conversión | BAJO (hacer brillar la feature latente) |
+| 7 | ✅ **Segmento "vinieron UNA vez y no volvieron"** (HECHO oct-2026, 66ª suite): R1 con `minVisits=1` — clamp [1,10] + selector de visitas en Studio (el composer de segundo mensaje quedó para fase 2) | El churn list hoy exige 2 visitas; el cliente de una sola visita es el más barato de reactivar | MUY BAJO (param + composer) |
 | 8 | **Nudge de instalación PWA para el dueño** (studio ya es instalable, sin nudge) | Recordatorio de uso diario ↑ | MUY BAJO |
 | 9 | **Reserva→recordatorio por WhatsApp** (después de reservas, fase 2) | El consumidor ya lo acepta | post #2 |
 | 10 | **Wallet pass de fidelidad (R4 Fornno)** | Retención alta, pero Apple exige certificación $99/año | ALTO — diferir |

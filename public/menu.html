@@ -522,6 +522,12 @@
   <!-- Order Tracking Floating Button (aparece tras hacer un pedido) -->
   <button type="button" id="orderTrackingFab" class="waiter-fab" data-js-click="openOrderTracking" title="Seguir mi pedido" aria-label="Seguir mi pedido" style="display:none; background:#63B3ED; box-shadow:0 6px 20px rgba(99, 179, 237, 0.5);">🧾</button>
 
+  <!-- "Pedir de nuevo" (#5): repite el último pedido confirmado en ESTE local
+       (snapshot client-side del propio comensal, cero PII). Salta agotados /
+       platos que ya no están / fuera de horario con aviso honesto; la vitrina
+       (sin pedidos) nunca lo muestra. -->
+  <button type="button" id="reorderFab" class="waiter-fab" data-js-click="reorderLastOrder" title="Repetir mi último pedido" aria-label="Repetir mi último pedido" style="display:none; background:#48BB78; box-shadow:0 6px 20px rgba(72, 187, 120, 0.5);">🔁</button>
+
   <!-- Waiter Call / Bill Request Floating Button (el dueño decide qué ofrece; "cuenta" solo en el local) -->
   <button type="button" id="waiterFab" class="waiter-fab" data-js-click="openWaiterModal" title="Llamar al Mozo o Pedir la Cuenta" aria-label="Llamar al mozo o pedir la cuenta">🔔</button>
 

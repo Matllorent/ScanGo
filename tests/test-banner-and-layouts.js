@@ -462,13 +462,17 @@ async function runTests() {
   assert.ok(/body\.theme-nordico\.layout-classic \.dish-card\s*\{[^}]*display:\s*grid/.test(menuCss) && /body\.theme-nordico\.layout-classic \.dish-card\s*\{[^}]*grid-template-columns:\s*112px 1fr auto/.test(menuCss), 'nordico: tarjeta = fila horizontal (miniatura | cuerpo | acción)');
   assert.ok(/body\.theme-nordico\.layout-classic \.dish-thumb\s*\{[^}]*width:\s*112px/.test(menuCss) && /body\.theme-nordico\.layout-classic \.dish-thumb\s*\{[^}]*border-radius:\s*var\(--nordico-radius-thumb\)/.test(menuCss), 'nordico: miniatura 112px con radio 8 (la figura de la fila)');
   assert.ok(/body\.theme-nordico\.layout-classic \.dish-body\s*\{[^}]*display:\s*flex/.test(menuCss) && /body\.theme-nordico\.layout-classic \.dish-price\s*\{[^}]*margin-top:\s*auto/.test(menuCss), 'nordico: cuerpo apilado con el precio pegado abajo (debito del tachado libre)');
-  assert.ok(/\.dish-schedule-kicker\s*\{\s*display:\s*none;/.test(menuCss) && /body\.theme-nordico \.dish-schedule-kicker\s*\{[^}]*display:\s*block/.test(menuCss) && /text-transform:\s*uppercase/.test(menuCss.split('body.theme-nordico .dish-schedule-kicker')[1].slice(0, 400)), 'nordico: kicker de horario oculto por defecto en TODOS los temas y solo el nordico lo muestra (uppercase)');
+  // #6 Happy Hour visible (oct-2026): el kicker dejó de estar oculto — la base
+  // global es visible con --chalk-dim y la regla nordico quedó consolidada (la
+  // suite 66ª test-quick-wins §3 cubre los slots por morfología).
+  assert.ok(/\.dish-schedule-kicker\s*\{\s*display:\s*block;/.test(menuCss) && /var\(--chalk-dim, #6E6E6E\)/.test(menuCss), 'kicker de horario VISIBLE en todos los temas (base global con --chalk-dim, invariante #6 de test-quick-wins)');
+  assert.ok(!/body\.theme-nordico \.dish-schedule-kicker/.test(menuCss), 'nordico: sin regla duplicada del kicker (la base global la cubre)');
   assert.ok(/body\.theme-nordico \.cat-pill\.active,\s*body\.theme-nordico \.cat-pill\[aria-pressed="true"\]/.test(menuCss), 'nordico: pastilla activa en tinta plena (aria-pressed aliñado con estado a11y)');
   assert.ok(/body\.theme-nordico \.controls-wrapper\s*\{[^}]*border:\s*1px solid #E9E9EA/.test(menuCss) && /body\.theme-nordico \.controls-wrapper\s*\{[^}]*border-radius:\s*var\(--nordico-radius-card\)/.test(menuCss), 'nordico: barra sticky = tarjeta blanca con hairline');
   assert.ok(/body\.theme-nordico\.layout-classic \.chef-special-card\s*\{[^}]*border-radius:\s*var\(--nordico-radius-card\)/.test(menuCss), 'nordico: chef specials visten la misma tarjeta fila');
   assert.ok(/body\.theme-nordico #floatingCart\s*\{[^}]*border-radius:\s*999px/.test(menuCss) && /body\.theme-nordico #cartTotalBadge\s*\{[^}]*background:\s*#121212/.test(menuCss), 'nordico: carrito flotante = barra blanca hairline con chip de tinta');
   assert.ok(/body\.theme-nordico \.dish-badge\s*\{\s*background:\s*none !important;/.test(menuCss), 'nordico: badges como texto mínimo sin chips de color (el AGOTADO rojo queda)');
-  console.log('✓ Tema Nordico "BISTRÓ NORDICO": off-white+tinta, tarjeta fila (piedra/figure 112px), kicker horario latente, pills y sticky hairline (AA)');
+  console.log('✓ Tema Nordico "BISTRÓ NORDICO": off-white+tinta, tarjeta fila (piedra/figure 112px), kicker horario visible en todos los temas, pills y sticky hairline (AA)');
 
   // ─────────────────────────────────────────────────────────────
   // §3l — TEMAS DE VERTICAL oct-2026 (fuego + burger + veggie)
