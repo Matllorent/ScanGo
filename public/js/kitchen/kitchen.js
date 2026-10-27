@@ -360,6 +360,13 @@ function renderCard(model) {
   modeChip.className = `kds-chip kds-chip-mode ${model.orderModeClass}`;
   modeChip.textContent = `${model.orderModeIcon} ${model.orderModeLabel}`;
   head.appendChild(modeChip);
+  // Fase 2 (comandero): quién tomó el pedido — el server resuelve el nombre.
+  if (model.waiterName) {
+    const waiterChip = document.createElement('span');
+    waiterChip.className = 'kds-chip kds-chip-waiter';
+    waiterChip.textContent = `🧑‍🍳 ${model.waiterName}`;
+    head.appendChild(waiterChip);
+  }
   if (model.pending) {
     const chip = document.createElement('span');
     chip.className = 'kds-chip kds-chip-new';

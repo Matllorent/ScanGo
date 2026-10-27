@@ -27,38 +27,67 @@ function unauthorized(res, code, message) {
   return res.status(401).json({ success: false, error: message, code });
 }
 
+const STAFF_ERRORS = {
+  STAFF_TOKEN_REQUIRED: 'Falta la credencial del turno (Bearer token).',
+  STAFF_SESSION_INVALID: 'Tu turno venció o no es válido. Escaneá el QR de nuevo.',
+  STAFF_RESTAURANT_NOT_FOUND: 'El local de este turno no está disponible.'
+};
+
+/**
+ * Resolución OPCIONAL de sesión de turno (Comandero, Fase 2). Devuelve
+ * `{ ok:true, ctx }` (ctx=null si el request no trae Authorization) o
+ * `{ ok:false, code }` cuando el token EXISTE pero no sirve. Un Bearer
+ * inválido en una ruta pública NO se degrada a comensal: se rechaza con 401
+ * (fail-closed honesto — el mozo ve "turno venció" en vez de un pedido sin
+ * atribución que cree que quedó firmado).
+ */
+async function resolveOptionalStaff(req) {
+  const header = String(req.headers.authorization || '').trim();
+  if (!header) return { ok: true, ctx: null };
+  const match = /^Bearer\s+(.+)$/i.exec(header);
+  if (!match) return { ok: false, code: 'STAFF_TOKEN_REQUIRED' };
+
+  const token = match[1].trim();
+  // Los tokens son base64url de 32 bytes (43 chars). Un mínimo holgado evita
+  // hashear basura en cada request sin rechazar formatos futuros.
+  if (token.length < 24 || token.length > 200) {
+    return { ok: false, code: 'STAFF_SESSION_INVALID' };
+  }
+
+  const tokenHash = hashStaffSecret(token);
+  const session = await db.findStaffSessionByTokenHash(tokenHash);
+  if (!session || !isStaffSessionActive(session)) {
+    return { ok: false, code: 'STAFF_SESSION_INVALID' };
+  }
+
+  const staff = await db.findStaffById(session.staffId);
+  if (!staff || staff.active === false || staff.restaurantId !== session.restaurantId) {
+    return { ok: false, code: 'STAFF_SESSION_INVALID' };
+  }
+
+  let restaurant = db.findRestaurantById(staff.restaurantId);
+  if (!restaurant && typeof db.lazyLoadRestaurantById === 'function') {
+    restaurant = await db.lazyLoadRestaurantById(staff.restaurantId);
+  }
+  if (!restaurant) {
+    return { ok: false, code: 'STAFF_RESTAURANT_NOT_FOUND' };
+  }
+
+  return { ok: true, ctx: { staff, session, restaurant } };
+}
+
 async function staffAuthMiddleware(req, res, next) {
   try {
-    const header = String(req.headers.authorization || '').trim();
-    const match = /^Bearer\s+(.+)$/i.exec(header);
-    if (!match) {
-      return unauthorized(res, 'STAFF_TOKEN_REQUIRED', 'Falta la credencial del turno (Bearer token).');
+    const result = await resolveOptionalStaff(req);
+    if (!result.ok) {
+      return unauthorized(res, result.code, STAFF_ERRORS[result.code] || STAFF_ERRORS.STAFF_SESSION_INVALID);
     }
-    const token = match[1].trim();
-    // Los tokens son base64url de 32 bytes (43 chars). Un mínimo holgado evita
-    // hashear basura en cada request sin rechazar formatos futuros.
-    if (token.length < 24 || token.length > 200) {
-      return unauthorized(res, 'STAFF_SESSION_INVALID', 'Tu turno venció o no es válido. Escaneá el QR de nuevo.');
+    if (!result.ctx) {
+      // Ruta OBLIGATORIA sin Bearer: el resolver opcional es solo para el
+      // comandero (`POST /api/orders`); acá un turno ausente es 401, no 500.
+      return unauthorized(res, 'STAFF_TOKEN_REQUIRED', STAFF_ERRORS.STAFF_TOKEN_REQUIRED);
     }
-
-    const tokenHash = hashStaffSecret(token);
-    const session = await db.findStaffSessionByTokenHash(tokenHash);
-    if (!session || !isStaffSessionActive(session)) {
-      return unauthorized(res, 'STAFF_SESSION_INVALID', 'Tu turno venció o no es válido. Escaneá el QR de nuevo.');
-    }
-
-    const staff = await db.findStaffById(session.staffId);
-    if (!staff || staff.active === false || staff.restaurantId !== session.restaurantId) {
-      return unauthorized(res, 'STAFF_SESSION_INVALID', 'Tu turno venció o no es válido. Escaneá el QR de nuevo.');
-    }
-
-    let restaurant = db.findRestaurantById(staff.restaurantId);
-    if (!restaurant && typeof db.lazyLoadRestaurantById === 'function') {
-      restaurant = await db.lazyLoadRestaurantById(staff.restaurantId);
-    }
-    if (!restaurant) {
-      return unauthorized(res, 'STAFF_RESTAURANT_NOT_FOUND', 'El local de este turno no está disponible.');
-    }
+    const { staff, session, restaurant } = result.ctx;
 
     req.staff = staff;
     req.staffSession = session;
@@ -87,4 +116,4 @@ async function staffAuthMiddleware(req, res, next) {
   }
 }
 
-module.exports = { staffAuthMiddleware };
+module.exports = { staffAuthMiddleware, resolveOptionalStaff };

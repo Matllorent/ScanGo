@@ -46,7 +46,10 @@ post-cancelación que propone nueva fecha**.
    agencia arriba). ScanGo = USD 9/mes, registro en 60 segundos, trial 7+3. Segmento
    PyME/mediano que no puede pagar Fornno ni está en su planeta de atención.
 2. **Pedidos/comanda reales**: carrito grupal, mesa QR, pago online MP, propina, KDS,
-   tickets ESC/POS, tracking comensal. La web de Fornno no muestra flujo de pedido (solo dice "+28 pedidos vía WhatsApp").
+   tickets ESC/POS, tracking comensal y **comandero del mozo** (oct-2026, Fase 2 Mozos:
+   el mozo toma el pedido EN la mesa desde su PWA `/mozo` y el pedido sale real con
+   atribución de turno — quién lo tomó y qué mesa — hacia KDS/Studio). La web de Fornno
+   no muestra flujo de pedido (solo dice "+28 pedidos vía WhatsApp").
 3. **SEO/GEO de fábrica**: sitemap dinámico, JSON-LD con horarios reales, llms.txt,
    landings por rubro, robots con crawlers de IA. Su "módulo Web" es más light.
 4. **Cero negociación**: dueño swipea y arranca; no "dejanos tus datos".

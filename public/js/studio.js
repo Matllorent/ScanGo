@@ -2683,7 +2683,7 @@ async function loadRecentOrders(silent = false) {
       const ageChip = `<span data-order-age data-created="${escapeHtml(o.created_at || '')}" data-status="${escapeHtml(status)}" title="Tiempo en cocina" style="font-size:10px; color:${ageStyle.color}; font-weight:${ageStyle.weight}; white-space:nowrap; margin-left:8px;">⏱ ${escapeHtml(formatOrderAgeMod(o.created_at, Date.now()))}</span>`;
       return `<div style="background:var(--bg-base); border:1px solid ${isNew ? '#D4A853' : 'var(--border)'}; border-radius:8px; padding:10px 12px; margin-bottom:8px;">
         <div style="display:flex; justify-content:space-between; gap:8px; align-items:center;">
-          <div style="font-size:12px; font-weight:700; color:#fff;">${escapeHtml(o.customer_name || 'Cliente')}${o.table_number ? ` · Mesa ${escapeHtml(String(o.table_number))}` : ''} ${isNew ? '<span style="font-size:9px; background:#D4A853; color:#101614; border-radius:4px; padding:1px 6px; font-weight:800;">● NUEVO</span>' : ''}</div>
+          <div style="font-size:12px; font-weight:700; color:#fff;">${escapeHtml(o.customer_name || 'Cliente')}${o.table_number ? ` · Mesa ${escapeHtml(String(o.table_number))}` : ''}${o.waiterName ? ` · <span style="color:#93c5fd;" title="Tomado por el mozo">🧑‍🍳 ${escapeHtml(o.waiterName)}</span>` : ''} ${isNew ? '<span style="font-size:9px; background:#D4A853; color:#101614; border-radius:4px; padding:1px 6px; font-weight:800;">● NUEVO</span>' : ''}</div>
           <div style="font-size:11px; color:#68D391; font-weight:700; white-space:nowrap;">${escapeHtml(label)}${ageChip}</div>
         </div>
         <div style="font-size:11px; color:var(--text-dim); margin:3px 0;">${escapeHtml(items)}</div>

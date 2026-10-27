@@ -1548,6 +1548,15 @@ paths:
         Responde 201 con el pedido + `trackingToken` (HMAC sin estado) y
         `tipAmount` (propina opcional, aparte del ticket promedio).
         Acredita fidelización en background sin romper el alta.
+        **Comandero (Fase 2)**: con `Authorization: Bearer <token de turno>` del
+        Sistema de Mozos, el mozo toma el pedido EN la mesa y el pedido sale con
+        `source='staff'` + `waiterId`/`tableId` de la SESIÓN (jamás del body: el
+        schema strippea las claves desconocidas → anti-forging). `waiter` sin
+        mesa asignada → 403 `TABLE_NOT_ASSIGNED`; `kitchen` → 403
+        `STAFF_ROLE_NOT_ALLOWED`; turno de otro local → 403
+        `STAFF_RESTAURANT_MISMATCH`; Bearer inválido → 401 fail-closed.
+        Sin Bearer (comensal) → `source='customer'` igual que siempre.
+        Si el local lo exige, el comensal manda `captchaToken`; el staff lo salta.
       operationId: createOrder
       parameters:
         - name: Idempotency-Key
@@ -1591,7 +1600,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Carta vitrina, sin pedidos (`MENU_ORDERS_DISABLED`)
+          description: |-
+            Vitrina sin pedidos (`MENU_ORDERS_DISABLED`); comandero: rol
+            `kitchen` (`STAFF_ROLE_NOT_ALLOWED`), mesa no asignada al mozo
+            (`TABLE_NOT_ASSIGNED`) o turno de otro local
+            (`STAFF_RESTAURANT_MISMATCH`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: |-
+            Bearer de turno inválido/vencido (comandero fail-closed:
+            `STAFF_CREDENTIAL_INVALID` / `SESSION_EXPIRED`)
           content:
             application/json:
               schema:
@@ -3822,6 +3843,25 @@ components:
         tipAmount:
           type: number
           description: Propina declarada, persistida aparte del ticket
+        source:
+          type: string
+          enum: [customer, staff, kiosk]
+          description: |-
+            Canal de origen. Lo decide SIEMPRE el server: `customer` (comensal
+            del menú) o `staff` (comandero del mozo con Bearer de turno válido).
+            El client no puede forjarlo (el schema lo strippea del body).
+        waiterId:
+          type: string
+          nullable: true
+          description: Solo `source=staff` — id del mozo de la sesión de turno
+        tableId:
+          type: string
+          nullable: true
+          description: Solo `source=staff` — id del mozo asignado a la mesa
+        waiterName:
+          type: string
+          nullable: true
+          description: Nombre del mozo resuelto server-side en los listados del dueño (KDS/Studio); nunca viaja del client
         trackingToken:
           type: string
           description: Token HMAC sin estado `${orderId}.${firma}` para el seguimiento público

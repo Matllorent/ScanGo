@@ -185,6 +185,7 @@ body {
   white-space: nowrap;
 }
 .kds-chip-delayed { background: var(--kds-amber); color: #101614; font-weight: 700; }
+.kds-chip-waiter { background: rgba(96, 165, 250, 0.16); color: #93c5fd; font-weight: 700; }
 .kds-chip-mode {
   border: 1px solid transparent;
   font-weight: 700;

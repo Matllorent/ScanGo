@@ -185,6 +185,10 @@ export function buildKitchenCardModel(order, stationByDishId) {
     orderModeIcon: orderModeMeta.icon,
     orderModeClass: orderModeMeta.className,
     customer,
+    // Comandero (Fase 2): el server ya resuelve el NOMBRE del mozo
+    // (attachWaiterNames en GET /api/orders/restaurant/:id) — el KDS lo pinta
+    // en el chip del ticket sin conocer ids del equipo.
+    waiterName: stringSafe(order.waiterName),
     items,
     notes: stringSafe(order.notes),
     delayed: status === 'delayed',

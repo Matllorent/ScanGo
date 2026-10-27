@@ -59,6 +59,7 @@ Orden por impacto/esfuerzo. Todo apalancado en infra existente.
 | 8 | ✅ **Nudge de instalación PWA para el dueño** (HECHO oct-2026, 66ª suite): banner pill propio del Studio (`public/js/studio/pwaNudge.js`, 20s desde `pwa-install-ready`, descartable, cero scroll-gate) + guard `__SCANGO_PWA_SUPPRESS_BANNER__` para que la píldora del menú no compita | Recordatorio de uso diario ↑ | MUY BAJO |
 | 9 | ✅ **Reserva→recordatorio por WhatsApp** (HECHO oct-2026, 65ª suite): el dueño avisa/recorda desde SU agenda con un link `wa.me` prefilled por estado (patrón F8-v2; el cron que envíe WhatsApp directo = Cloud API, diferido) | El consumidor ya lo acepta | post #2 |
 | 10 | **Wallet pass de fidelidad (R4 Fornno)** | Retención alta, pero Apple exige certificación $99/año | ALTO — diferir |
+| 11 | ✅ **Comandero en `/mozo` (Fase 2 Mozos)** (HECHO oct-2026, 67ª suite): el mozo toma el pedido EN la mesa desde su PWA — pedidos REALES hacia KDS/Studio con atribución `source='staff'` + `waiterId`/`tableId` decidida SIEMPRE en el server desde la sesión (anti-forging: el schema strippea el body), gates de rol/mesa/turno, idempotencia `cmd_*` por borrador y `waiterName` resuelto server-side | "Sistema de salón" que la competencia vende atado a hardware/POS; cierra el gap de la Fase 1 (el mozo ya no solo ve mesas) | MEDIO (todo sobre staff/010 + orders; cero endpoints nuevos) |
 
 ### Features que NO hacer (descartes conscientes)
 - POS completo / nómina / inventario de cocina (dominado por Toast/Clover; meses de integración).

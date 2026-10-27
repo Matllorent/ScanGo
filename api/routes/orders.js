@@ -22,6 +22,7 @@ const notificationsService = require('../services/notifications');
 const { getPrepEstimateForRestaurant } = require('../services/prepEstimate');
 const { signOrderToken, verifyOrderToken } = require('../utils/orderTrackingToken');
 const auditService = require('../services/audit');
+const { resolveOptionalStaff } = require('../middleware/staffAuth');
 
 const router = express.Router();
 
@@ -310,9 +311,26 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
   try {
     const { restaurantId, tableNumber, items, currency, customerName, customerPhone, deliveryAddress, notes, tipAmount, captchaToken, orderMode, deliveryFee } = req.body;
 
+    // ── Comandero (Fase 2 del Sistema de Mozos) ──────────────────────────────
+    // Si el request trae un Bearer de TURNO válido, el pedido se atribuye al
+    // mozo (source='staff' + waiter_id de la SESIÓN + mesa asignada). Sin
+    // header Authorization es un comensal como siempre. Con un token de turno
+    // inválido → 401 fail-closed: un mozo con el QR vencido NUNCA se degrada
+    // a comensal silenciosamente (creería que quedó firmado y no es así).
+    const staffResult = await resolveOptionalStaff(req);
+    if (!staffResult.ok) {
+      return res.status(401).json({
+        success: false,
+        error: 'Tu turno venció o no es válido. Escaneá el QR de turno de nuevo.',
+        code: staffResult.code
+      });
+    }
+    const staffCtx = staffResult.ctx;
+
     // Anti-spam/farming (Turnstile invisible): solo cuando el despliegue lo
-    // configuró. Sin secreto no se exige nada (flujo actual intacto).
-    if (isCaptchaEnforced()) {
+    // configuró. Sin secreto no se exige nada (flujo actual intacto). El
+    // comandero lo salta: hay una sesión de turno verificada detrás.
+    if (isCaptchaEnforced() && !staffCtx) {
       const captcha = await verifyTurnstile(captchaToken, req.ip);
       if (!captcha.ok) {
         return res.status(403).json({
@@ -328,6 +346,24 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
     const restaurant = db.findRestaurantById(restaurantId) || db.findRestaurantBySlug(restaurantId);
     if (!restaurant) {
       throw new AppError('Restaurante no encontrado para el pedido', 404, 'RESTAURANT_NOT_FOUND');
+    }
+
+    // Aislamiento del turno: el QR de un mozo solo comanda su PROPIO local.
+    // Un token de staff válido contra otro restaurante es un uso erróneo del
+    // QR (o un intento de atribución cruzada) → 403 explícito.
+    if (staffCtx && staffCtx.restaurant.id !== restaurant.id) {
+      throw new AppError('Tu turno no pertenece a este local.', 403, 'STAFF_RESTAURANT_MISMATCH');
+    }
+    if (staffCtx) {
+      if (staffCtx.staff.role !== 'waiter') {
+        throw new AppError('Solo un mozo puede comandar pedidos de mesa.', 403, 'STAFF_ROLE_NOT_ALLOWED');
+      }
+      const assignments = restaurant.tableAssignments && typeof restaurant.tableAssignments === 'object'
+        ? restaurant.tableAssignments
+        : {};
+      if (assignments[String(tableNumber)] !== staffCtx.staff.id) {
+        throw new AppError('Esa mesa no está asignada a tu turno.', 403, 'TABLE_NOT_ASSIGNED');
+      }
     }
 
     const orderCurrency = currency || restaurant.currency || 'USD';
@@ -393,6 +429,18 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
       // sin inferirla del tableNumber (un delivery puede mandar mesa "0").
       order_mode: orderMode,
       orderMode: orderMode,
+      // Atribución SERVER-SIDE (migración 010: waiter_id/table_id/source).
+      // Jamás la decide el client: Zod strippea esos campos del body y lo que
+      // vale acá sale de la sesión de turno (o 'customer' si no hay turno).
+      // `table_id` guarda el número de la mesa asignada (las mesas viven en
+      // restaurant.tableAssignments, que keyea por número).
+      source: staffCtx ? 'staff' : 'customer',
+      ...(staffCtx ? {
+        waiter_id: staffCtx.staff.id,
+        waiterId: staffCtx.staff.id,
+        table_id: String(tableNumber),
+        tableId: String(tableNumber)
+      } : {}),
       items_snapshot: itemsSnapshot,
       itemsSnapshot: itemsSnapshot,
       amount: amountInCents / 100,
@@ -683,6 +731,55 @@ router.patch('/status/:orderId', requireAuth, tenantGuard, validateRequest({ par
  * El param es explícito (:restaurantId) porque tenantGuard ya no interpreta
  * el `:id` genérico como tenant (evita falsos 403 en rutas de recurso).
  */
+/**
+ * Comandero (Fase 2): los pedidos tomados por un mozo (source='staff', migración
+ * 010) llevan el NOMBRE del mozo resuelto server-side para que el KDS y el
+ * Studio muestren "por Marta" sin conocer ids del equipo. Lookup batch con
+ * caché de proceso (60 s): el listado es la ruta más caliente del panel.
+ * Falla silenciosa: sin staff legible el pedido se muestra sin chip (nunca
+ * rompe el listado).
+ */
+const WAITER_NAME_CACHE_MS = 60 * 1000;
+const waiterNameCache = new Map(); // restaurantId → { at, byId }
+
+async function waiterNameMap(restaurantId) {
+  const now = Date.now();
+  const cached = waiterNameCache.get(restaurantId);
+  if (cached && now - cached.at < WAITER_NAME_CACHE_MS) return cached.byId;
+  let byId = new Map();
+  try {
+    const rows = await db.listStaff(restaurantId);
+    byId = new Map((rows || []).filter((s) => s && s.id).map((s) => [s.id, s.name || 'Mozo']));
+  } catch (e) {
+    byId = new Map();
+  }
+  waiterNameCache.set(restaurantId, { at: now, byId });
+  if (waiterNameCache.size > 200) {
+    const oldest = waiterNameCache.keys().next().value;
+    waiterNameCache.delete(oldest);
+  }
+  return byId;
+}
+
+async function attachWaiterNames(restaurantId, orders) {
+  const list = Array.isArray(orders) ? orders : [];
+  const staffIds = [...new Set(
+    list
+      .filter((o) => o && o.source === 'staff')
+      .map((o) => o.waiter_id || o.waiterId || '')
+      .filter(Boolean)
+  )];
+  if (!staffIds.length) return list;
+  const byId = await waiterNameMap(restaurantId);
+  if (!byId.size) return list;
+  return list.map((o) => {
+    if (!o || o.source !== 'staff') return o;
+    const waiterId = o.waiter_id || o.waiterId || '';
+    const name = byId.get(waiterId);
+    return name ? { ...o, waiterName: name } : o;
+  });
+}
+
 router.get('/restaurant/:restaurantId', requireAuth, tenantGuard, async (req, res, next) => {
   try {
     const restaurantId = req.params.restaurantId;
@@ -709,7 +806,8 @@ router.get('/restaurant/:restaurantId', requireAuth, tenantGuard, async (req, re
           const pending = db.getCloudPendingOrders()
             .filter(o => (o.restaurant_id || o.restaurantId) === restaurantId && !cloudIds.has(o.id))
             .map(o => ({ ...o, cloudPending: true }));
-          return successResponse(res, [...pending, ...data], 'Pedidos del restaurante recuperados');
+          const merged = await attachWaiterNames(restaurantId, [...pending, ...data]);
+          return successResponse(res, merged, 'Pedidos del restaurante recuperados');
         }
       } catch (e) {
         logger.warn('[Supabase Get Restaurant Orders]', { details: e.message, restaurantId });
@@ -720,7 +818,8 @@ router.get('/restaurant/:restaurantId', requireAuth, tenantGuard, async (req, re
     const localOrders = db.getOrders()
       .filter(o => (o.restaurant_id || o.restaurantId) === restaurantId)
       .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
-    return successResponse(res, localOrders, 'Pedidos del restaurante recuperados');
+    const merged = await attachWaiterNames(restaurantId, localOrders);
+    return successResponse(res, merged, 'Pedidos del restaurante recuperados');
   } catch (err) {
     next(err);
   }

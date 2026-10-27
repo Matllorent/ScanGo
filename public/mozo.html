@@ -69,6 +69,26 @@
       </div>
     </section>
 
+    <section id="mozoComanderoSection" class="mozo-comandero" aria-labelledby="mozoComanderoTitle" hidden>
+      <div class="mozo-section-head">
+        <div>
+          <p class="mozo-eyebrow">Comandero</p>
+          <h2 id="mozoComanderoTitle">Tomar un pedido en mesa</h2>
+        </div>
+        <span id="mozoComanderoCount" class="mozo-count-chip">0</span>
+      </div>
+      <p id="mozoComanderoHint" class="mozo-hint">Elegí la mesa, armá el pedido y envialo directo a cocina.</p>
+      <div id="mozoComanderoTables" class="mozo-comandero-tables" role="group" aria-label="Mesa del pedido"></div>
+      <div id="mozoComanderoCats" class="mozo-comandero-cats" role="group" aria-label="Categorías de la carta"></div>
+      <div id="mozoComanderoDishes" class="mozo-comandero-dishes"></div>
+      <div id="mozoDraftLines" class="mozo-draft-lines" role="list" aria-label="Platos del pedido en curso"></div>
+      <div id="mozoComanderoEmpty" class="mozo-empty" role="status" hidden>
+        <span class="mozo-empty-icon" aria-hidden="true">📋</span>
+        <strong id="mozoComanderoEmptyTitle">Cargando la carta…</strong>
+        <p id="mozoComanderoEmptyHint">Si el local no tiene carta publicada todavía, avisa al dueño.</p>
+      </div>
+    </section>
+
     <section id="mozoHelpSection" class="mozo-help" aria-labelledby="mozoHelpTitle" hidden>
       <h2 id="mozoHelpTitle" class="mozo-help-title">Cómo funciona tu turno</h2>
       <ul class="mozo-help-list">
@@ -95,6 +115,47 @@
         <a class="mozo-btn mozo-link-btn" href="/">Ir a ScanGo</a>
       </div>
       <p class="mozo-gate-note">El QR de turno no vence por tiempo: si no entra, pedile al dueño que lo regenere.</p>
+    </div>
+  </div>
+
+  <div id="mozoComanderoCart" class="mozo-comandero-cart" role="region" aria-label="Pedido en curso" hidden>
+    <div class="mozo-cart-info">
+      <strong id="mozoCartCount">0 platos</strong>
+      <span id="mozoCartTable"></span>
+    </div>
+    <span id="mozoCartTotal" class="mozo-cart-total"></span>
+    <button type="button" id="mozoCartSendBtn" class="mozo-btn mozo-btn-primary">Enviar a cocina</button>
+  </div>
+
+  <div id="mozoOptionsModal" class="mozo-modal modal-overlay" role="dialog" aria-modal="true" aria-labelledby="mozoOptionsTitle" aria-hidden="true" hidden>
+    <div class="mozo-modal-box">
+      <div class="mozo-modal-head">
+        <h3 id="mozoOptionsTitle">Opciones</h3>
+        <button type="button" id="mozoOptionsClose" class="modal-close mozo-modal-close" aria-label="Cerrar">✕</button>
+      </div>
+      <div id="mozoOptionsGroups" class="mozo-options-groups"></div>
+      <p id="mozoOptionsError" class="mozo-modal-error" role="alert" hidden></p>
+      <label class="mozo-field" for="mozoOptionsNote">
+        <span class="mozo-field-label">Nota para la cocina</span>
+        <textarea id="mozoOptionsNote" rows="2" maxlength="250" placeholder="Ej: sin cebolla, al punto"></textarea>
+      </label>
+      <div class="mozo-modal-foot">
+        <div class="mozo-qty" role="group" aria-label="Cantidad del plato">
+          <button type="button" id="mozoOptionsMinus" aria-label="Quitar una unidad">−</button>
+          <span id="mozoOptionsQty" aria-live="polite">1</span>
+          <button type="button" id="mozoOptionsPlus" aria-label="Agregar una unidad">+</button>
+        </div>
+        <button type="button" id="mozoOptionsAdd" class="mozo-btn mozo-btn-primary">Agregar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="mozoSentModal" class="mozo-modal modal-overlay" role="dialog" aria-modal="true" aria-labelledby="mozoSentTitle" aria-hidden="true" hidden>
+    <div class="mozo-modal-box mozo-modal-box-sent">
+      <span class="mozo-sent-icon" aria-hidden="true">✅</span>
+      <h3 id="mozoSentTitle">Pedido enviado a cocina</h3>
+      <p id="mozoSentDetail">—</p>
+      <button type="button" id="mozoSentNew" class="mozo-btn mozo-btn-primary">Tomar otro pedido</button>
     </div>
   </div>
 

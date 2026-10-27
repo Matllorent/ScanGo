@@ -115,10 +115,21 @@ export function sanitizeStaffSession(raw) {
     role: raw.role === 'kitchen' ? 'kitchen' : 'waiter',
     roleLabel: cleanText(raw.roleLabel, 30) || (raw.role === 'kitchen' ? 'Cocina' : 'Mozo'),
     restaurantName: cleanText(raw.restaurantName, 120),
+    // Comandero (Fase 2): el slug del local permite traer la carta pública
+    // (/api/menu/:slug) y deep-linkar el seguimiento del pedido. Allowlist de
+    // la casa (misma regla que el footer viral).
+    slug: sanitizeComanderoSlug(raw.slug),
     expiresAt,
     activatedAt: cleanIso(raw.activatedAt) || new Date().toISOString(),
     tables: normalizeTables(raw.tables)
   };
+}
+
+/** Slug con la misma allowlist que `sanitizeRefSlug` (viralRef): [a-z0-9-] máx 64. */
+export function sanitizeComanderoSlug(value) {
+  const raw = String(value == null ? '' : value).trim().toLowerCase();
+  if (!raw || raw.length > 64) return '';
+  return /^[a-z0-9-]+$/.test(raw) ? raw : '';
 }
 
 /** Construye la sesión desde `body.data` de POST /api/staff/shift/activate. */
@@ -134,6 +145,7 @@ export function buildStaffSessionFromActivation(payload, nowMs = Date.now()) {
     role: staff.role || payload.role,
     roleLabel: staff.roleLabel || payload.roleLabel,
     restaurantName: restaurant.name || payload.restaurantName,
+    slug: restaurant.slug || payload.slug,
     expiresAt: payload.expiresAt,
     activatedAt: new Date(Number(nowMs)).toISOString(),
     tables: payload.tables
@@ -156,6 +168,7 @@ export function mergeStaffSessionFromMe(session, payload) {
     role: staff.role || base.role,
     roleLabel: staff.roleLabel || base.roleLabel,
     restaurantName: restaurant.name || base.restaurantName,
+    slug: restaurant.slug || base.slug,
     expiresAt: serverSession.expiresAt || base.expiresAt,
     tables: payload.tables || base.tables
   });
@@ -250,6 +263,7 @@ export function buildMozoView(session, { pushConfigured = false, online = true }
     restaurantName: clean.restaurantName || 'Tu local',
     staffName: clean.staffName || 'Equipo',
     roleLabel: clean.roleLabel,
+    slug: clean.slug,
     tables: clean.tables,
     tableCount: clean.tables.length,
     hasTables: clean.tables.length > 0,
