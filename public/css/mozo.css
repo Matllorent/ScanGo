@@ -1,0 +1,521 @@
+/* public/css/mozo.css
+ * PWA del turno del equipo (Sistema de Mozos y Cocina, Fase 1).
+ * Misma identidad que el Studio/KDS pero pensada para el teléfono del mozo:
+ * una mano, alto contraste, targets grandes y cero navegación lateral.
+ */
+:root {
+  --mozo-bg: #0b100e;
+  --mozo-surface: #121a17;
+  --mozo-surface-2: #17211d;
+  --mozo-border: rgba(255, 255, 255, 0.1);
+  --mozo-text: #f3f7f5;
+  --mozo-dim: #a9b8b1;
+  --mozo-gold: #d4a853;
+  --mozo-gold-ink: #171205;
+  --mozo-green: #4ade80;
+  --mozo-red: #ef4444;
+  --mozo-blue: #60a5fa;
+  --mozo-radius: 16px;
+  --mozo-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(900px 420px at 85% -10%, rgba(212, 168, 83, 0.14), transparent 62%),
+    radial-gradient(700px 380px at -20% 8%, rgba(74, 222, 128, 0.08), transparent 60%),
+    var(--mozo-bg);
+  color: var(--mozo-text);
+  font-family: Montserrat, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+}
+
+[hidden] { display: none !important; }
+
+button, a { -webkit-tap-highlight-color: transparent; }
+
+:focus-visible {
+  outline: 3px solid var(--mozo-gold);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -80px;
+  z-index: 100;
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: var(--mozo-gold);
+  color: var(--mozo-gold-ink);
+  font-weight: 800;
+  text-decoration: none;
+  transition: top 0.18s ease;
+}
+.skip-link:focus { top: 12px; }
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.mozo-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: max(12px, env(safe-area-inset-top)) 16px 12px;
+  background: rgba(11, 16, 14, 0.86);
+  border-bottom: 1px solid var(--mozo-border);
+  backdrop-filter: blur(14px);
+}
+
+.mozo-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.mozo-brand-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 13px;
+  background: linear-gradient(145deg, rgba(212, 168, 83, 0.25), rgba(212, 168, 83, 0.06));
+  border: 1px solid rgba(212, 168, 83, 0.45);
+  font-size: 20px;
+}
+
+.mozo-brand-copy { min-width: 0; }
+
+.mozo-brand h1 {
+  margin: 0;
+  font-size: clamp(1rem, 4.6vw, 1.3rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mozo-subtitle {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--mozo-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mozo-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
+.mozo-connection {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  color: #bbf7d0;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.mozo-connection::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.13);
+}
+.mozo-connection.is-offline {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+}
+.mozo-connection.is-idle {
+  background: rgba(169, 184, 177, 0.1);
+  border-color: rgba(169, 184, 177, 0.25);
+  color: var(--mozo-dim);
+}
+
+/* ── Botones ────────────────────────────────────────────────────────────── */
+.mozo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 11px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--mozo-border);
+  background: var(--mozo-surface-2);
+  color: var(--mozo-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.12s ease, background 0.18s ease, border-color 0.18s ease;
+}
+.mozo-btn:hover { background: #1e2b25; border-color: rgba(255, 255, 255, 0.2); }
+.mozo-btn:active { transform: scale(0.98); }
+.mozo-btn:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+  transform: none;
+}
+.mozo-btn-slim {
+  min-height: 38px;
+  padding: 8px 11px;
+  font-size: 11px;
+  border-radius: 10px;
+}
+.mozo-btn-primary {
+  background: var(--mozo-gold);
+  border-color: var(--mozo-gold);
+  color: var(--mozo-gold-ink);
+}
+.mozo-btn-primary:hover { background: #e0b967; border-color: #e0b967; }
+.mozo-btn-danger {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.55);
+  color: #fecaca;
+}
+.mozo-btn-danger:hover { background: rgba(239, 68, 68, 0.24); border-color: #ef4444; }
+.mozo-btn-danger.is-armed {
+  background: #b91c1c;
+  border-color: #ef4444;
+  color: #fff;
+}
+
+/* ── Main ───────────────────────────────────────────────────────────────── */
+.mozo-main {
+  width: min(780px, 100%);
+  margin: 0 auto;
+  padding: 20px 16px calc(30px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.mozo-shift-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px;
+  border-radius: var(--mozo-radius);
+  background:
+    linear-gradient(135deg, rgba(212, 168, 83, 0.15), transparent 55%),
+    var(--mozo-surface);
+  border: 1px solid rgba(212, 168, 83, 0.3);
+  box-shadow: var(--mozo-shadow);
+}
+.mozo-shift-person { min-width: 0; }
+.mozo-eyebrow {
+  margin: 0 0 3px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--mozo-dim);
+}
+.mozo-shift-name {
+  margin: 0;
+  font-size: clamp(1.15rem, 5vw, 1.5rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mozo-role-chip {
+  display: inline-block;
+  margin-top: 7px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(212, 168, 83, 0.14);
+  border: 1px solid rgba(212, 168, 83, 0.4);
+  color: var(--mozo-gold);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.mozo-shift-meta {
+  text-align: right;
+  flex: 0 0 auto;
+}
+.mozo-expiry {
+  display: block;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--mozo-gold);
+  font-variant-numeric: tabular-nums;
+}
+.mozo-minutes-left {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--mozo-dim);
+}
+
+.mozo-banner {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(96, 165, 250, 0.11);
+  border: 1px solid rgba(96, 165, 250, 0.36);
+  color: #dbeafe;
+  font-size: 12px;
+  font-weight: 600;
+}
+.mozo-banner.is-error {
+  background: rgba(239, 68, 68, 0.11);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fecaca;
+}
+.mozo-banner.is-ok {
+  background: rgba(74, 222, 128, 0.1);
+  border-color: rgba(74, 222, 128, 0.35);
+  color: #bbf7d0;
+}
+
+/* ── Mesas ──────────────────────────────────────────────────────────────── */
+.mozo-tables-section { display: flex; flex-direction: column; gap: 12px; }
+.mozo-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mozo-section-head h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.mozo-count-chip {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: rgba(212, 168, 83, 0.15);
+  border: 1px solid rgba(212, 168, 83, 0.4);
+  color: var(--mozo-gold);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.mozo-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--mozo-dim);
+}
+
+.mozo-tables-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+.mozo-table-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 102px;
+  padding: 14px;
+  border-radius: 14px;
+  background:
+    linear-gradient(150deg, rgba(212, 168, 83, 0.13), transparent 62%),
+    var(--mozo-surface);
+  border: 1px solid var(--mozo-border);
+  overflow: hidden;
+}
+.mozo-table-card::after {
+  content: '';
+  position: absolute;
+  right: -18px;
+  bottom: -24px;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  border: 1px solid rgba(212, 168, 83, 0.16);
+}
+.mozo-table-number {
+  font-size: 2rem;
+  line-height: 1;
+  font-weight: 800;
+  color: var(--mozo-gold);
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.mozo-table-number.is-custom { font-size: 1.1rem; letter-spacing: -0.01em; }
+.mozo-table-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--mozo-text);
+}
+.mozo-table-caption {
+  margin-top: auto;
+  padding-top: 9px;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--mozo-dim);
+}
+
+.mozo-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 28px 20px;
+  border-radius: var(--mozo-radius);
+  background: var(--mozo-surface);
+  border: 1px dashed var(--mozo-border);
+  text-align: center;
+}
+.mozo-empty-icon { font-size: 2rem; }
+.mozo-empty strong { font-size: 14px; }
+.mozo-empty p {
+  margin: 0 0 6px;
+  max-width: 340px;
+  font-size: 12px;
+  color: var(--mozo-dim);
+}
+
+/* ── Ayuda + cierre ─────────────────────────────────────────────────────── */
+.mozo-help {
+  padding: 16px 18px;
+  border-radius: var(--mozo-radius);
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--mozo-border);
+}
+.mozo-help-title { margin: 0 0 8px; font-size: 13px; font-weight: 800; }
+.mozo-help-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--mozo-dim);
+}
+.mozo-help-list strong { color: var(--mozo-text); }
+
+.mozo-end-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+.mozo-end-section .mozo-btn-danger { align-self: flex-start; }
+.mozo-end-hint {
+  margin: 0;
+  font-size: 10px;
+  color: var(--mozo-dim);
+}
+
+/* ── Gate de sesión ─────────────────────────────────────────────────────── */
+.mozo-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(5, 8, 7, 0.78);
+  backdrop-filter: blur(9px);
+}
+.mozo-gate-box {
+  width: min(430px, 100%);
+  padding: 28px 22px;
+  border-radius: 20px;
+  background: var(--mozo-surface);
+  border: 1px solid rgba(212, 168, 83, 0.24);
+  box-shadow: var(--mozo-shadow);
+  text-align: center;
+}
+.mozo-gate-icon { font-size: 2.4rem; }
+.mozo-gate-title {
+  margin: 10px 0 6px;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+.mozo-gate-message {
+  margin: 0 0 18px;
+  font-size: 12px;
+  color: var(--mozo-dim);
+}
+.mozo-gate-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.mozo-gate-note {
+  margin: 16px 0 0;
+  font-size: 10px;
+  color: var(--mozo-dim);
+  opacity: 0.8;
+}
+.mozo-link-btn { text-decoration: none; }
+
+.mozo-noscript {
+  max-width: 520px;
+  margin: 24px auto;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fecaca;
+  text-align: center;
+  font-size: 13px;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 430px) {
+  .mozo-header { align-items: flex-start; }
+  .mozo-connection { display: none; }
+  .mozo-shift-card { padding: 15px; }
+  .mozo-tables-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mozo-table-card { min-height: 96px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -77,6 +77,14 @@ async function runTests() {
   assert.ok(/'\.\.\/studio\/ui\/confirmDialog\.js'/.test(kitchenJs), 'kitchen.js reutiliza confirmDialog');
   assert.ok(/'\.\.\/modalA11y\.js'/.test(kitchenJs), 'kitchen.js reutiliza el enhancer de modales compartido');
 
+  // F0: impresión térmica desde la cocina con los módulos compartidos del
+  // Studio (builder puro + transporte WebUSB), sin duplicar drivers.
+  assert.ok(/'\.\.\/studio\/escposTicket\.js'/.test(kitchenJs), 'kitchen.js reutiliza el builder ESC/POS puro');
+  assert.ok(/'\.\.\/print\/webusbPrinter\.js'/.test(kitchenJs), 'kitchen.js reutiliza el transporte WebUSB compartido');
+  assert.ok(/printOrderCard/.test(kitchenJs) && /printTicketOps/.test(kitchenJs), 'la pizarra imprime con el builder y el transporte compartidos');
+  assert.ok(/id="kdsPrinterBtn"/.test(html), 'botón de impresora en el encabezado del KDS');
+  assert.ok(/kds-btn-print/.test(kitchenJs) && /\.kds-btn-print/.test(kitchenCss), 'botón 🖨️ por tarjeta con estilo propio');
+
   // Polling + avisos (spec F2): 20s solo visible, beep WebAudio, live region.
   assert.ok(/20000/.test(kitchenJs) && /visibilityState\s*===\s*['"]visible['"]/.test(kitchenJs), 'polling de 20s solo con la pestaña visible');
   assert.ok(/AudioContext|webkitAudioContext/.test(kitchenJs), 'beep WebAudio sin assets');
@@ -173,6 +181,24 @@ async function runTests() {
   assert.deepEqual(mSnake.items[1].mods, []);
   assert.ok(mSnake.notes.includes('Sin talco'), 'la nota del comensal viaja cruda (el render usa textContent, jamás HTML)');
 
+  // F0: modalidad del pedido en el modelo (salón / delivery / mostrador).
+  assert.deepEqual(cols.KDS_ORDER_MODE_IDS, ['LOCAL', 'DELIVERY', 'TAKEAWAY'], 'allowlist de modalidades');
+  assert.strictEqual(cols.normalizeKdsOrderMode(' delivery '), 'DELIVERY', 'normaliza espacios/mayúsculas');
+  assert.strictEqual(cols.normalizeKdsOrderMode(null), 'LOCAL', 'sin modalidad → LOCAL');
+  assert.strictEqual(mSnake.orderMode, 'LOCAL', 'pedido histórico sin order_mode → LOCAL');
+  assert.strictEqual(mSnake.orderModeLabel, 'Salón');
+  const mDelivery = cols.buildKitchenCardModel({ id: 'd1', status: 'preparing', order_mode: 'DELIVERY' });
+  assert.strictEqual(mDelivery.orderMode, 'DELIVERY');
+  assert.strictEqual(mDelivery.orderModeLabel, 'Delivery');
+  assert.strictEqual(mDelivery.orderModeIcon, '🛵');
+  assert.strictEqual(mDelivery.orderModeClass, 'kds-mode-delivery');
+  const mTakeaway = cols.buildKitchenCardModel({ id: 't1', status: 'pending', orderMode: 'takeaway' });
+  assert.strictEqual(mTakeaway.orderMode, 'TAKEAWAY', 'camelCase/minúsculas normalizadas');
+  assert.strictEqual(mTakeaway.orderModeLabel, 'Para llevar');
+  assert.strictEqual(mTakeaway.orderModeClass, 'kds-mode-takeaway');
+  const mUnknownMode = cols.buildKitchenCardModel({ id: 'u1', status: 'pending', order_mode: 'PICKUP' });
+  assert.strictEqual(mUnknownMode.orderMode, 'LOCAL', 'modalidad desconocida cae a LOCAL (nunca rompe la tarjeta)');
+
   // Fallbacks camelCase (dual-mode) y snapshot de helado a medida.
   const mCamel = cols.buildKitchenCardModel({
     id: 'kds1',
@@ -240,6 +266,8 @@ async function runTests() {
       restaurant_id: restA.id,
       restaurantId: restA.id,
       status,
+      // F0: modalidad real del pedido (el KDS la pinta en la tarjeta).
+      order_mode: status === 'confirmed' ? 'DELIVERY' : (status === 'preparing' ? 'TAKEAWAY' : 'LOCAL'),
       currency: 'USD',
       amount: 12.5,
       table_number: String(i + 1),
@@ -267,6 +295,14 @@ async function runTests() {
   const fetchedIds = new Set(bodyOrders.data.map((o) => o.id));
   assert.ok(Object.values(orderIds).every((id) => fetchedIds.has(id)), 'los 8 pedidos llegan al KDS');
   assert.equal(bodyOrders.data.length, 8, 'exactamente 8 (aislado por restaurante)');
+
+  // F0: la modalidad persiste en el espejo local y el modelo la expone.
+  const rowConfirmed = bodyOrders.data.find((o) => o.status === 'confirmed');
+  const rowPreparing = bodyOrders.data.find((o) => o.status === 'preparing');
+  assert.strictEqual(rowConfirmed.order_mode, 'DELIVERY', 'DELIVERY persiste en la fila real');
+  assert.strictEqual(rowPreparing.order_mode, 'TAKEAWAY', 'TAKEAWAY persiste en la fila real');
+  assert.strictEqual(cols.buildKitchenCardModel(rowConfirmed).orderMode, 'DELIVERY', 'el KDS lee la modalidad de la fila');
+  assert.strictEqual(cols.buildKitchenCardModel(rowPreparing).orderModeLabel, 'Para llevar', 'la etiqueta del KDS sale de la modalidad');
 
   // Mapping colId sobre las filas REALES del runtime.
   const buckets = { queue: 0, confirmed: 0, preparing: 0, ready: 0, delivered: 0 };
@@ -347,6 +383,33 @@ async function runTests() {
   assert.ok(pageText.includes('Vista Kitchen'), 'página del KDS servida');
   assert.ok(/script-src-attr\s+'none'/.test(page.headers.get('content-security-policy') || ''), 'cabeza CSP transitional en /kitchen');
   assert.ok(/\bid="main-content"/.test(pageText), 'landmark main en la respuesta dev');
+
+  // Alta REAL (al final, para no alterar el snapshot local/cloud de arriba):
+  // el body del pedido lleva la modalidad al registro. TAKEAWAY no exige
+  // dirección ni zona de envío.
+  const resCreate = await fetch(`${base}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      restaurantId: restA.id,
+      tableNumber: '0',
+      orderMode: 'TAKEAWAY',
+      items: [{ dishId: 'dish1', quantity: 1 }],
+      customerName: 'Mostrador Test',
+      // Teléfono único por corrida: este alta también acredita fidelización
+      // global y un número fijo contaminaba a test-loyalty-dual entre
+      // corridas standalone (3 visitas fantasma → 4 !== 1).
+      customerPhone: `59899${String(Date.now()).slice(-6)}`,
+      currency: 'USD'
+    })
+  });
+  assert.strictEqual(resCreate.status, 201, 'POST pedido takeaway → 201');
+  const createdBody = await resCreate.json();
+  const createdId = createdBody && createdBody.data && createdBody.data.id;
+  assert.ok(createdId, 'el pedido creado devuelve id');
+  const createdRow = await db.findOrderById(createdId);
+  assert.strictEqual(createdRow.order_mode, 'TAKEAWAY', 'POST /api/orders persiste order_mode (local)');
+  assert.strictEqual(db.toCloudOrder(createdRow).order_mode, 'TAKEAWAY', 'toCloudOrder mapea order_mode a la nube');
 
   console.log('✓ §3 Runtime: GET id/slug · 403 cross-tenant · 401 anónimo · avance/cancel reales · /kitchen dev');
 

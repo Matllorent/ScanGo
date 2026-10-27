@@ -154,16 +154,25 @@ async function dispatchToSubscriptions(subscriptions, payload) {
 const notificationsService = {
   getVapidConfig,
 
+  /** Baja explícita de una suscripción (p. ej. el mozo cierra su turno). */
+  async removeSubscriptionByEndpoint(endpoint) {
+    if (!endpoint) return { removed: false };
+    await removeSubscription(endpoint);
+    return { removed: true };
+  },
+
   /**
    * Save a Web Push / FCM subscription token.
-   * `role`: 'owner' (dueño; recibe avisos de mesa) o 'guest' (comensal que
-   * hizo opt-in explícito y solo recibe promos del local, nunca avisos de mesa).
+   * `role`: 'owner' (dueño; recibe avisos de mesa), 'guest' (comensal que
+   * hizo opt-in explícito y solo recibe promos del local) o 'waiter' (persona
+   * del equipo; recibe SOLO avisos dirigidos a su `staff_id`, nunca promos ni
+   * avisos de mesa del dueño).
    */
-  async saveSubscription({ userId, restaurantId, endpoint, keys, role = 'owner', consentMarketing = false, customerPhone = '' }) {
+  async saveSubscription({ userId, restaurantId, endpoint, keys, role = 'owner', consentMarketing = false, customerPhone = '', staffId = '' }) {
     if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
       throw new AppError('Endpoint y llaves (p256dh, auth) son requeridos para la suscripción push', 400, 'INVALID_SUBSCRIPTION_PAYLOAD');
     }
-    const normalizedRole = role === 'guest' ? 'guest' : 'owner';
+    const normalizedRole = role === 'guest' ? 'guest' : role === 'waiter' ? 'waiter' : 'owner';
 
     const subscription = {
       id: 'sub_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
@@ -172,24 +181,36 @@ const notificationsService = {
       endpoint,
       keys,
       role: normalizedRole,
+      // Solo el comensal necesita consentimiento de marketing; el equipo y el
+      // dueño reciben avisos operativos, no promociones.
       consent_marketing: normalizedRole === 'guest' ? Boolean(consentMarketing) : true,
       // Teléfono (normalizado) que permite dirigir el aviso de estado del
-      // pedido SOLO a quien lo hizo; null en owner/guest sin teléfono.
+      // pedido SOLO a quien lo hizo; null en owner/waiter/guest sin teléfono.
       customer_phone: normalizedRole === 'guest' ? (normalizePhone(customerPhone) || null) : null,
+      // Persona del equipo destinataria (solo rol waiter). El enrutamiento es
+      // por id, no por endpoint: una tablet compartida puede cambiar de turno.
+      staff_id: normalizedRole === 'waiter' ? (staffId || null) : null,
       created_at: new Date().toISOString()
     };
 
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
-        const { error } = await supabase
+        // Degradación por columnas: la nube puede estar antes de la 004
+        // (customer_phone) o de la 010 (staff_id). Se quita SOLO la columna
+        // rechazada y se reintenta: perder la suscripción entera era peor.
+        let payload = { ...subscription };
+        let { error } = await supabase
           .from('push_subscriptions')
-          .upsert([subscription], { onConflict: 'endpoint' });
-        // Degradación: si la columna customer_phone todavía no existe
-        // (migración 004 sin aplicar), guardamos sin ella en vez de perder todo.
-        if (error && /customer_phone/i.test(error.message || '')) {
-          const { customer_phone, ...legacy } = subscription;
-          await supabase.from('push_subscriptions').upsert([legacy], { onConflict: 'endpoint' });
+          .upsert([payload], { onConflict: 'endpoint' });
+        for (let attempt = 0; error && attempt < 3; attempt++) {
+          const message = error.message || '';
+          if (/customer_phone/i.test(message)) delete payload.customer_phone;
+          else if (/staff_id/i.test(message)) delete payload.staff_id;
+          else break;
+          ({ error } = await supabase
+            .from('push_subscriptions')
+            .upsert([payload], { onConflict: 'endpoint' }));
         }
       } catch (e) {
         console.warn('[Supabase Save Push Subscription Warning]', e.message);
@@ -205,6 +226,40 @@ const notificationsService = {
     }
 
     return subscription;
+  },
+
+  /**
+   * Push dirigido a UNA persona del equipo (nunca a todos los mozos):
+   * filtra rol `waiter` + `staff_id` exacto. Sin VAPID o sin suscripción
+   * devuelve un skip honesto en vez de romper el flujo que lo invoca.
+   */
+  async sendStaffPush({ restaurantId, staffId, title, body, url, type = 'staff_shift', tag }) {
+    if (!restaurantId || !staffId) {
+      return { success: true, checked: 0, delivered: 0, failed: 0, removed: 0, skipped: 'STAFF_REQUIRED' };
+    }
+    const subscriptions = await this.listSubscriptions({ restaurantId, role: 'waiter', staffId });
+    const targets = subscriptions.filter(s => (s.staff_id || s.staffId) === staffId);
+    if (targets.length === 0) {
+      return { success: true, checked: 0, delivered: 0, failed: 0, removed: 0, skipped: 'NO_MATCHING_SUBSCRIBERS' };
+    }
+    if (!getVapidConfig()) {
+      return { success: true, checked: targets.length, delivered: 0, failed: 0, removed: 0, skipped: 'PUSH_NOT_CONFIGURED' };
+    }
+
+    const payload = {
+      title: title || '🔔 ScanGo',
+      body: body || 'Tenés un aviso de tu turno.',
+      icon: '/icon-192.png',
+      url: url || '/mozo',
+      type,
+      tag: tag || 'staff-shift',
+      renotify: true,
+      requireInteraction: false,
+      data: { staffId, restaurantId },
+      timestamp: new Date().toISOString()
+    };
+    const dispatch = await dispatchToSubscriptions(targets, payload);
+    return { success: true, ...dispatch, skipped: null, payload };
   },
 
   /**
@@ -262,10 +317,10 @@ const notificationsService = {
 
 
   /**
-   * Lista suscripciones del restaurante (o de un usuario puntual), con filtro
-   * opcional por rol: 'owner' | 'guest'.
+   * Lista suscripciones del restaurante (o de un usuario/staff puntual), con
+   * filtro opcional por rol: 'owner' | 'guest' | 'waiter'.
    */
-  async listSubscriptions({ restaurantId, targetUserId, role }) {
+  async listSubscriptions({ restaurantId, targetUserId, role, staffId }) {
     let subscriptions = [];
     const supabase = getSupabaseClient();
     if (supabase) {
@@ -274,6 +329,7 @@ const notificationsService = {
         if (restaurantId) query = query.eq('restaurant_id', restaurantId);
         if (targetUserId) query = query.eq('user_id', targetUserId);
         if (role) query = query.eq('role', role);
+        if (staffId) query = query.eq('staff_id', staffId);
         const { data, error } = await query;
         if (!error && data) subscriptions = data;
       } catch (e) {
@@ -282,13 +338,16 @@ const notificationsService = {
     }
 
     if (subscriptions.length > 0) {
-      // Degradación pre-migración 004: si la tabla cloud todavía no tiene
-      // `customer_phone`, lo completamos desde el cache en memoria del proceso
-      // (misma suscripción) para no perder el enrutamiento del aviso de pedido.
+      // Degradación pre-migración: si la tabla cloud todavía no tiene
+      // `customer_phone` (004) o `staff_id` (010), se completan desde el cache
+      // en memoria del proceso (misma suscripción) para no perder el
+      // enrutamiento dirigido.
       subscriptions = subscriptions.map(s => {
-        if (s.customer_phone) return s;
         const local = localPushSubscriptions.find(l => l.endpoint === s.endpoint);
-        return local && local.customer_phone ? { ...s, customer_phone: local.customer_phone } : s;
+        const patched = { ...s };
+        if (!patched.customer_phone && local && local.customer_phone) patched.customer_phone = local.customer_phone;
+        if (!patched.staff_id && local && local.staff_id) patched.staff_id = local.staff_id;
+        return patched;
       });
     }
 
@@ -296,6 +355,7 @@ const notificationsService = {
       subscriptions = localPushSubscriptions.filter(s => {
         if (restaurantId && s.restaurant_id !== restaurantId) return false;
         if (targetUserId && s.user_id !== targetUserId) return false;
+        if (staffId && s.staff_id !== staffId && s.staffId !== staffId) return false;
         if (role) {
           const subRole = s.role || (s.user_id ? 'owner' : 'owner');
           if (subRole !== role) return false;

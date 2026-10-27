@@ -32,6 +32,7 @@ const STATIC_SOURCES = [
   '/',
   '/studio',
   '/kitchen',
+  '/mozo',
   '/el-jefe',
   '/terminos',
   '/privacidad',

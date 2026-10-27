@@ -185,6 +185,26 @@ body {
   white-space: nowrap;
 }
 .kds-chip-delayed { background: var(--kds-amber); color: #101614; font-weight: 700; }
+.kds-chip-mode {
+  border: 1px solid transparent;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.kds-mode-local {
+  background: rgba(212, 168, 83, 0.16);
+  border-color: rgba(212, 168, 83, 0.5);
+  color: var(--kds-gold);
+}
+.kds-mode-delivery {
+  background: rgba(104, 211, 145, 0.14);
+  border-color: rgba(104, 211, 145, 0.45);
+  color: var(--kds-green);
+}
+.kds-mode-takeaway {
+  background: rgba(246, 169, 78, 0.14);
+  border-color: rgba(246, 169, 78, 0.45);
+  color: var(--kds-amber);
+}
 .kds-age {
   margin-left: auto;
   font-size: 0.95rem;
@@ -272,6 +292,16 @@ body {
   color: var(--kds-red);
   border-color: var(--kds-red);
   min-height: 48px;
+}
+.kds-btn-print {
+  margin-left: auto;
+  min-height: 48px;
+  font-size: 1.15rem;
+  padding: 8px 12px;
+}
+.kds-printer-btn[aria-pressed='true'] {
+  border-color: var(--kds-green);
+  color: var(--kds-green);
 }
 
 /* ── F6: barra de estaciones (chips) ── */

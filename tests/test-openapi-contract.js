@@ -43,6 +43,17 @@ const SPEC_PATHS = [
   '/api/studio/branches',
   '/api/studio/events',
   '/api/studio/seo-audit',
+  '/api/studio/staff',
+  '/api/studio/staff/tables',
+  '/api/studio/staff/{id}',
+  '/api/studio/staff/{id}/credential',
+  '/api/studio/staff/{id}/sessions',
+  '/api/staff/shift/activate',
+  '/api/staff/me',
+  '/api/staff/shift/heartbeat',
+  '/api/staff/shift/end',
+  '/api/staff/tables',
+  '/api/staff/push/subscribe',
   '/api/orders',
   '/api/orders/track/{token}',
   '/api/orders/status/{orderId}',
@@ -334,6 +345,61 @@ async function runTests() {
     assert.strictEqual(branchAnon.status, 401, 'studio/branches sin auth → 401 (no 404)');
     const videoUrlAnon = await postJson('/api/storage/video-upload-url', { mimeType: 'video/mp4', sizeBytes: 1000 });
     assert.strictEqual(videoUrlAnon.status, 401, 'storage/video-upload-url sin auth → 401 (no 404)');
+
+    // Fase 1 (Sistema de Mozos y Cocina): el panel del dueño exige sesión en
+    // todas sus variantes y el canal del turno exige Bearer opaco. Los flujos
+    // completos viven en tests/test-staff-waiter.js.
+    const staffListAnon = await fetch(`${base}/api/studio/staff`);
+    assert.strictEqual(staffListAnon.status, 401, 'studio/staff GET sin auth → 401');
+    const staffCreateAnon = await postJson('/api/studio/staff', { name: 'Ana', role: 'waiter' });
+    assert.strictEqual(staffCreateAnon.status, 401, 'studio/staff POST sin auth → 401');
+    const staffTablesAnon = await fetch(`${base}/api/studio/staff/tables`, {
+      method: 'PATCH',
+      headers: json,
+      body: JSON.stringify({ assignments: {} })
+    });
+    assert.strictEqual(staffTablesAnon.status, 401, 'studio/staff/tables PATCH sin auth → 401');
+    const staffPatchAnon = await fetch(`${base}/api/studio/staff/staff_x`, {
+      method: 'PATCH',
+      headers: json,
+      body: JSON.stringify({ active: false })
+    });
+    assert.strictEqual(staffPatchAnon.status, 401, 'studio/staff/{id} PATCH sin auth → 401');
+    const staffDeleteAnon = await fetch(`${base}/api/studio/staff/staff_x`, { method: 'DELETE' });
+    assert.strictEqual(staffDeleteAnon.status, 401, 'studio/staff/{id} DELETE sin auth → 401');
+    const staffRotateAnon = await postJson('/api/studio/staff/staff_x/credential', {});
+    assert.strictEqual(staffRotateAnon.status, 401, 'studio/staff/{id}/credential sin auth → 401');
+    const staffRevokeAnon = await fetch(`${base}/api/studio/staff/staff_x/sessions`, { method: 'DELETE' });
+    assert.strictEqual(staffRevokeAnon.status, 401, 'studio/staff/{id}/sessions sin auth → 401');
+
+    const staffActivateBad = await postJson('/api/staff/shift/activate', {});
+    assert.strictEqual(staffActivateBad.status, 400, 'staff/shift/activate sin body → 400');
+    const staffActivateFake = await postJson('/api/staff/shift/activate', {
+      restaurantId: rest.id,
+      staffId: `staff_fake_${stamp}`,
+      secret: 'x'.repeat(32)
+    });
+    assert.strictEqual(staffActivateFake.status, 401, 'staff/shift/activate con QR inexistente → 401');
+    const staffMeAnon = await fetch(`${base}/api/staff/me`);
+    assert.strictEqual(staffMeAnon.status, 401, 'staff/me sin Bearer → 401');
+    const staffHeartbeatAnon = await postJson('/api/staff/shift/heartbeat', {});
+    assert.strictEqual(staffHeartbeatAnon.status, 401, 'staff/shift/heartbeat sin Bearer → 401');
+    const staffEndAnon = await postJson('/api/staff/shift/end', {});
+    assert.strictEqual(staffEndAnon.status, 401, 'staff/shift/end sin Bearer → 401');
+    const staffTablesMineAnon = await fetch(`${base}/api/staff/tables`);
+    assert.strictEqual(staffTablesMineAnon.status, 401, 'staff/tables sin Bearer → 401');
+    const staffPushAnon = await postJson('/api/staff/push/subscribe', {
+      endpoint: 'https://push.example.com/staff',
+      keys: { p256dh: 'x', auth: 'y' }
+    });
+    assert.strictEqual(staffPushAnon.status, 401, 'staff/push/subscribe POST sin Bearer → 401');
+    const staffPushDeleteAnon = await fetch(`${base}/api/staff/push/subscribe`, {
+      method: 'DELETE',
+      headers: json,
+      body: JSON.stringify({ endpoint: 'https://push.example.com/staff' })
+    });
+    assert.strictEqual(staffPushDeleteAnon.status, 401, 'staff/push/subscribe DELETE sin Bearer → 401');
+    console.log('✓ Staff (Fase 1): 7 rutas del Studio + 7 del turno responden códigos reales (401/400/401)');
     console.log('✓ 12 rutas restantes: códigos reales (400/401/403/200) y ningún 404');
 
     console.log('\n🎉 ¡CONTRATO OPENAPI VERIFICADO CONTRA RUNTIME REAL!');

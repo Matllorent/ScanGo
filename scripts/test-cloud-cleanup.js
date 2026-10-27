@@ -99,6 +99,8 @@ const CHILD_TABLES = [
   'loyalty_ledger',
   'loyalty_redemptions',
   'notification_events',
+  'staff_sessions',
+  'staff',
   'push_subscriptions',
 ];
 

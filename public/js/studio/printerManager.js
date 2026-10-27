@@ -6,22 +6,29 @@
  * Soporta:
  *  - Impresión directa por WebUSB en impresoras térmicas ESC/POS (80mm)
  *  - Impresión estándar de ticket de cocina en diálogo del navegador (@media print)
+ *
+ * El transporte WebUSB vive en `public/js/print/webusbPrinter.js` (compartido
+ * con la Vista Kitchen); acá queda SOLO la UI del Studio y el ticket HTML.
  */
 
 import {
-  buildEscPosTicketOps as buildEscPosTicketOpsMod,
-  ESCPOS_TICKET_COLUMNS as ESCPOS_TICKET_COLUMNS_MOD,
-  ESCPOS_LIB_URL as ESCPOS_LIB_URL_MOD,
-  ESCPOS_LIB_GLOBAL as ESCPOS_LIB_GLOBAL_MOD,
-  ESCPOS_USB_CHUNK as ESCPOS_USB_CHUNK_MOD
+  buildEscPosTicketOps,
+  ESCPOS_TICKET_COLUMNS
 } from './escposTicket.js';
-
-let usbPrinterDevice = null;
-let usbPrinterEndpoint = 0;
-let escposLibPromise = null;
+import {
+  isPrinterReady,
+  loadEncoderClass,
+  openDevice,
+  requestPrinter,
+  restorePrinter,
+  forgetPrinter,
+  sendBytes,
+  applyOps,
+  printTicketOps
+} from '../print/webusbPrinter.js';
 
 export function usbPrinterReady() {
-  return Boolean(usbPrinterDevice && usbPrinterEndpoint > 0);
+  return isPrinterReady();
 }
 
 export function setUsbStatus(text, ok) {
@@ -34,80 +41,22 @@ export function setUsbStatus(text, ok) {
   if (btn) btn.textContent = usbPrinterReady() ? '🔌 Desconectar' : '🔌 Impresora';
 }
 
-export function getEscPosEncoderClass() {
-  if (typeof window !== 'undefined' && typeof window[ESCPOS_LIB_GLOBAL_MOD] === 'function') {
-    return Promise.resolve(window[ESCPOS_LIB_GLOBAL_MOD]);
-  }
-  if (!escposLibPromise) {
-    escposLibPromise = new Promise((resolve) => {
-      try {
-        const script = document.createElement('script');
-        script.src = ESCPOS_LIB_URL_MOD;
-        script.async = true;
-        script.onload = () => resolve(
-          (typeof window !== 'undefined' && typeof window[ESCPOS_LIB_GLOBAL_MOD] === 'function')
-            ? window[ESCPOS_LIB_GLOBAL_MOD]
-            : null
-        );
-        script.onerror = () => resolve(null);
-        document.head.appendChild(script);
-        setTimeout(() => resolve(
-          (typeof window !== 'undefined' && typeof window[ESCPOS_LIB_GLOBAL_MOD] === 'function')
-            ? window[ESCPOS_LIB_GLOBAL_MOD]
-            : null
-        ), 10000);
-      } catch (e) {
-        resolve(null);
-      }
-    });
-  }
-  return escposLibPromise;
-}
-
-export async function openUsbDevice(device) {
-  await device.open();
-  try {
-    if (device.configuration === null || device.configuration === undefined) {
-      await device.selectConfiguration(1);
-    }
-    const interfaces = (device.configuration && device.configuration.interfaces) || [];
-    const printable = interfaces.find(i => i.alternate && i.alternate.interfaceClass === 7) || interfaces[0];
-    if (!printable) throw new Error('no-interface');
-    await device.claimInterface(printable.interfaceNumber);
-    const outEp = ((printable.alternate && printable.alternate.endpoints) || [])
-      .find(e => e.direction === 'out');
-    if (!outEp) throw new Error('no-out-endpoint');
-    usbPrinterDevice = device;
-    usbPrinterEndpoint = outEp.endpointNumber;
-    return true;
-  } catch (e) {
-    try {
-      await device.close();
-    } catch (closeErr) { /* ya estaba cerrada */ }
-    usbPrinterDevice = null;
-    usbPrinterEndpoint = 0;
-    throw e;
-  }
-}
+// Compatibilidad con llamadas históricas del Studio (el transporte real es el
+// módulo compartido). No se usan en las páginas nuevas.
+export const getEscPosEncoderClass = loadEncoderClass;
+export const openUsbDevice = openDevice;
+export const sendToUsbPrinter = sendBytes;
+export const applyEscPosOps = applyOps;
 
 export async function connectUsbPrinter() {
   if (usbPrinterReady()) {
-    try {
-      if (usbPrinterDevice) await usbPrinterDevice.close();
-    } catch (e) { /* best-effort */ }
-    usbPrinterDevice = null;
-    usbPrinterEndpoint = 0;
+    await forgetPrinter();
     setUsbStatus('');
-    return;
-  }
-  if (typeof navigator === 'undefined' || !('usb' in navigator)) {
-    alert('Este navegador no soporta WebUSB. Usá Chrome o Edge en compu o Android.');
     return;
   }
   setUsbStatus('Buscando impresora…');
   try {
-    const device = await navigator.usb.requestDevice({ filters: [] });
-    await openUsbDevice(device);
+    const device = await requestPrinter();
     setUsbStatus(`Lista: ${device.productName || 'térmica USB'}`, true);
   } catch (e) {
     setUsbStatus('');
@@ -118,39 +67,8 @@ export async function connectUsbPrinter() {
 }
 
 export async function restoreUsbPrinter() {
-  try {
-    if (typeof navigator === 'undefined' || !('usb' in navigator)) return;
-    if (typeof navigator.usb.getDevices !== 'function') return;
-    const devices = await navigator.usb.getDevices();
-    if (devices.length) {
-      await openUsbDevice(devices[0]);
-      setUsbStatus(`Lista: ${devices[0].productName || 'térmica USB'}`, true);
-    }
-  } catch (e) { /* silencioso */ }
-}
-
-export async function sendToUsbPrinter(bytes) {
-  const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
-  for (let i = 0; i < data.length; i += ESCPOS_USB_CHUNK_MOD) {
-    await usbPrinterDevice.transferOut(usbPrinterEndpoint, data.slice(i, i + ESCPOS_USB_CHUNK_MOD));
-  }
-}
-
-export function applyEscPosOps(encoder, ops) {
-  for (const op of ops || []) {
-    switch (op.t) {
-      case 'init': encoder.initialize(); break;
-      case 'align': encoder.align(op.v); break;
-      case 'bold': encoder.bold(op.v !== false); break;
-      case 'size': encoder.size(op.v); break;
-      case 'line': encoder.line(op.v); break;
-      case 'rule': encoder.rule(); break;
-      case 'feed': encoder.newline(op.v || 1); break;
-      case 'cut': encoder.cut(op.v || 'partial'); break;
-      default: break;
-    }
-  }
-  return encoder;
+  const device = await restorePrinter();
+  if (device) setUsbStatus(`Lista: ${device.productName || 'térmica USB'}`, true);
 }
 
 export async function printOrderEscPos(orderId, lastOrdersCache, restaurant) {
@@ -165,26 +83,13 @@ export async function printOrderEscPos(orderId, lastOrdersCache, restaurant) {
   }
   setUsbStatus('Imprimiendo…');
   try {
-    const EncoderClass = await getEscPosEncoderClass();
+    const EncoderClass = await loadEncoderClass();
     if (typeof EncoderClass !== 'function') throw new Error('lib-missing');
-    const ops = buildEscPosTicketOpsMod(order, {
+    const ops = buildEscPosTicketOps(order, {
       restaurantName: (restaurant && (restaurant.name || restaurant.bizName)) || '',
       currency: order.currency || (restaurant && restaurant.currency) || '$'
     });
-    const encoder = new EncoderClass({ columns: ESCPOS_TICKET_COLUMNS_MOD, language: 'esc-pos' });
-    encoder.codepage('auto');
-    applyEscPosOps(encoder, ops);
-    const bytes = encoder.encode();
-    try {
-      await sendToUsbPrinter(bytes);
-    } catch (sendErr) {
-      try {
-        if (usbPrinterDevice) await usbPrinterDevice.close();
-      } catch (closeErr) { /* ya estaba muerta */ }
-      usbPrinterDevice = null;
-      usbPrinterEndpoint = 0;
-      throw sendErr;
-    }
+    await printTicketOps(EncoderClass, ops);
     setUsbStatus('Ticket enviado a la térmica.', true);
   } catch (e) {
     setUsbStatus('');
@@ -230,3 +135,6 @@ export function printOrderTicket(orderId, lastOrdersCache, restaurant, escapeHtm
   `;
   window.print();
 }
+
+// La constante se mantiene exportada para el contrato histórico del Studio.
+export { ESCPOS_TICKET_COLUMNS };

@@ -28,6 +28,7 @@ const ordersRouter = require('./routes/orders');
 const analyticsRouter = require('./routes/analytics');
 const aiRouter = require('./routes/ai');
 const studioRouter = require('./routes/studio');
+const staffRouter = require('./routes/staff');
 const loyaltyRouter = require('./routes/loyalty');
 const discoverRouter = require('./routes/discover');
 const adminRouter = require('./routes/admin');
@@ -297,6 +298,14 @@ app.get('/kitchen', (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'kitchen.html'), SEND_FILE_OPTIONS);
 });
 
+// PWA del turno del mozo (Fase 1): se abre escaneando el QR de turno. El
+// secreto viaja en el fragmento `#k=` (nunca llega al server); la página no
+// lleva guard HTML porque la autenticación real la resuelve /api/staff.
+// En Vercel la sirve el CDN vía vercel.json.
+app.get('/mozo', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'mozo.html'), SEND_FILE_OPTIONS);
+});
+
 // Panel maestro en ruta ofuscada y configurable (default /el-jefe): la URL
 // pegada no se descubre por escaneo; /admin queda como redirección legacy.
 // En Vercel la página es estática: la ruta canónica vive en vercel.json.
@@ -360,6 +369,7 @@ app.use('/api/ai', aiRouter);
 // escaneadas en base64 (ver dispatcher global de límites).
 app.use('/api/studio/ai-import', express.json({ limit: '25mb' }));
 app.use('/api/studio', studioRouter);
+app.use('/api/staff', staffRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/loyalty', loyaltyRouter);

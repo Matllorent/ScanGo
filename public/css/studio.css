@@ -612,3 +612,216 @@
       0%, 100% { box-shadow: 0 4px 12px rgba(0, 63, 135, 0.35); transform: scale(1); }
       50% { box-shadow: 0 6px 16px rgba(0, 91, 195, 0.5); transform: scale(1.02); }
     }
+
+    /* ── Sistema de Mozos y Cocina (Fase 1) ─────────────────────────────── */
+    .staff-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .staff-toolbar .btn-nav {
+      width: auto;
+      padding: 7px 12px;
+      font-size: 11px;
+    }
+    .staff-banner {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+    .staff-banner.is-error { color: #FCA5A5; }
+    .staff-banner.is-ok { color: #86EFAC; }
+
+    .staff-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 10px;
+    }
+    .staff-card {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 13px;
+      border-radius: 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+    }
+    .staff-card.is-inactive { opacity: 0.72; }
+    .staff-card-head {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+    }
+    .staff-avatar {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      flex: 0 0 38px;
+      border-radius: 11px;
+      background: rgba(236, 201, 75, 0.13);
+      border: 1px solid rgba(236, 201, 75, 0.4);
+      color: var(--accent-gold);
+      font-weight: 800;
+      font-size: 15px;
+      text-transform: uppercase;
+    }
+    .staff-card-identity { min-width: 0; flex: 1; }
+    .staff-card-name {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .staff-card-meta {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-wrap: wrap;
+      margin-top: 3px;
+      font-size: 9px;
+      color: var(--text-dim);
+    }
+    .staff-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+    .staff-chip.is-live {
+      background: rgba(56, 161, 105, 0.12);
+      border-color: rgba(56, 161, 105, 0.4);
+      color: #86EFAC;
+    }
+    .staff-chip.is-off {
+      background: rgba(229, 62, 62, 0.1);
+      border-color: rgba(229, 62, 62, 0.3);
+      color: #FCA5A5;
+    }
+    .staff-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      min-height: 20px;
+    }
+    .staff-chip-table {
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: rgba(236, 201, 75, 0.1);
+      border: 1px solid rgba(236, 201, 75, 0.28);
+      color: var(--accent-gold);
+      font-size: 9px;
+      font-weight: 700;
+    }
+    .staff-card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: auto;
+    }
+    .staff-action-btn {
+      min-height: 30px;
+      padding: 5px 8px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--surface-3);
+      color: var(--text-light);
+      font: inherit;
+      font-size: 9px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .staff-action-btn:hover { border-color: rgba(255, 255, 255, 0.24); }
+    .staff-action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .staff-action-btn.is-gold { color: var(--accent-gold); border-color: rgba(236, 201, 75, 0.4); }
+    .staff-action-btn.is-danger { color: #FCA5A5; border-color: rgba(229, 62, 62, 0.35); }
+
+    .staff-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      padding: 24px 16px;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      text-align: center;
+      color: var(--text-dim);
+    }
+    .staff-empty-icon { font-size: 1.7rem; }
+    .staff-empty strong { color: var(--text-main); font-size: 12px; }
+    .staff-empty p { font-size: 11px; max-width: 330px; }
+
+    .staff-assignment-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .staff-assignment-row {
+      display: grid;
+      grid-template-columns: minmax(86px, 120px) minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+    }
+    .staff-assignment-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .staff-assignment-row .form-input {
+      padding: 7px 9px;
+      font-size: 11px;
+      min-height: 34px;
+    }
+    .staff-assignment-empty {
+      font-size: 11px;
+      color: var(--text-dim);
+      padding: 8px 0;
+    }
+    .staff-privacy-note {
+      margin: 18px 0 0;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 10px;
+      line-height: 1.55;
+      color: var(--text-dim);
+    }
+    .staff-qr-holder {
+      width: 232px;
+      max-width: 100%;
+      min-height: 232px;
+      margin: 0 auto 12px;
+      display: grid;
+      place-items: center;
+      padding: 10px;
+      border-radius: 12px;
+      background: #fff;
+      color: #101614;
+    }
+    .staff-qr-holder canvas,
+    .staff-qr-holder img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
+    .staff-qr-warning {
+      font-size: 10px;
+      line-height: 1.5;
+      color: var(--text-dim);
+      text-align: center;
+      margin: 0 0 14px;
+    }
+    .staff-qr-warning strong { color: #FCA5A5; }
+    @media (max-width: 600px) {
+      .staff-assignment-row { grid-template-columns: 1fr; gap: 3px; }
+    }

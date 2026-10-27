@@ -89,6 +89,26 @@ export const KITCHEN_STATUS_LABELS = {
 };
 
 /**
+ * Modalidad del pedido (F0 del bloque Mozos/Cocina): la cocina necesita saber
+ * si el pedido sale para salón, delivery o mostrador. El backend la persiste
+ * en `orders.order_mode` (migración 009); los pedidos históricos sin el campo
+ * se asumen LOCAL para no romper la pizarra.
+ */
+export const KDS_ORDER_MODES = {
+  LOCAL: { label: 'Salón', icon: '🍽️', className: 'kds-mode-local' },
+  DELIVERY: { label: 'Delivery', icon: '🛵', className: 'kds-mode-delivery' },
+  TAKEAWAY: { label: 'Para llevar', icon: '🥡', className: 'kds-mode-takeaway' }
+};
+
+export const KDS_ORDER_MODE_IDS = Object.keys(KDS_ORDER_MODES);
+
+/** Normaliza la modalidad a la allowlist; cualquier cosa rara cae a LOCAL. */
+export function normalizeKdsOrderMode(value) {
+  const mode = String(value == null ? '' : value).trim().toUpperCase();
+  return Object.prototype.hasOwnProperty.call(KDS_ORDER_MODES, mode) ? mode : 'LOCAL';
+}
+
+/**
  * Número de ticket corto y determinista para gritar en cocina: cola del id
  * ('ord_<ts>_<rand>' → última cola), en mayúsculas y con `#`.
  */
@@ -151,6 +171,8 @@ export function buildKitchenCardModel(order, stationByDishId) {
 
   const status = String(order.status || 'pending');
   const customer = String(order.customer_name || '').trim();
+  const orderMode = normalizeKdsOrderMode(order.order_mode || order.orderMode);
+  const orderModeMeta = KDS_ORDER_MODES[orderMode];
   return {
     id: String(order.id || ''),
     columnId: columnIdForStatus(status),
@@ -158,6 +180,10 @@ export function buildKitchenCardModel(order, stationByDishId) {
     statusLabel: KITCHEN_STATUS_LABELS[status] || stringSafe(status),
     ticketNumber: kitchenTicketNumber(order),
     table: stringSafe(order.table_number || order.tableNumber),
+    orderMode,
+    orderModeLabel: orderModeMeta.label,
+    orderModeIcon: orderModeMeta.icon,
+    orderModeClass: orderModeMeta.className,
     customer,
     items,
     notes: stringSafe(order.notes),

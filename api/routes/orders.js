@@ -387,6 +387,12 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
       restaurantId: restaurant.id,
       table_number: String(tableNumber),
       tableNumber: String(tableNumber),
+      // Modalidad del pedido (F0 del bloque Mozos/Cocina): la cocina necesita
+      // saber si sale para salón, delivery o mostrador. Se persiste en local y
+      // en cloud (`orders.order_mode`, migración 009) para que el KDS la pinte
+      // sin inferirla del tableNumber (un delivery puede mandar mesa "0").
+      order_mode: orderMode,
+      orderMode: orderMode,
       items_snapshot: itemsSnapshot,
       itemsSnapshot: itemsSnapshot,
       amount: amountInCents / 100,

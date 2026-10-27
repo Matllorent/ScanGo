@@ -15,6 +15,8 @@ const RESTAURANTS_FILE = path.join(DATA_DIR, 'restaurants.json');
 const WEBHOOKS_FILE = path.join(DATA_DIR, 'webhooks.json');
 const RESET_TOKENS_FILE = path.join(DATA_DIR, 'reset_tokens.json');
 const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
+const STAFF_FILE = path.join(DATA_DIR, 'staff.json');
+const STAFF_SESSIONS_FILE = path.join(DATA_DIR, 'staff_sessions.json');
 
 function readJson(file, def = []) {
   if (!fs.existsSync(file)) return def;
@@ -537,6 +539,134 @@ if (process.env.SUPABASE_URL && supabaseKey) {
   }
 }
 
+// ── Sistema de Mozos y Cocina (Fase 1) ─────────────────────────────────────
+// El equipo operativo vive en sus propias tablas (`staff` / `staff_sessions`),
+// NUNCA como `users`: un mozo no tiene email, password ni suscripción. Las
+// sesiones son opacas y revocables; el token crudo jamás se persiste (solo su
+// hash). El dual-write sigue el patrón del resto del repo: local primero,
+// nube best-effort con `cloudWriteTolerant` para tolerar la migración 010
+// todavía no aplicada.
+let staffWriteLock = Promise.resolve();
+let staffSessionWriteLock = Promise.resolve();
+
+function withStaffLock(run) {
+  staffWriteLock = staffWriteLock.then(run, run);
+  return staffWriteLock;
+}
+function withStaffSessionLock(run) {
+  staffSessionWriteLock = staffSessionWriteLock.then(run, run);
+  return staffSessionWriteLock;
+}
+
+function normalizeStaffRow(row) {
+  if (!row || typeof row !== 'object' || !row.id) return null;
+  return {
+    id: row.id,
+    restaurantId: row.restaurant_id ?? row.restaurantId ?? null,
+    name: row.name || '',
+    role: row.role === 'kitchen' ? 'kitchen' : 'waiter',
+    active: row.active !== false,
+    credentialHash: row.credential_hash || row.credentialHash || '',
+    credentialUpdatedAt: row.credential_updated_at || row.credentialUpdatedAt || null,
+    createdBy: row.created_by || row.createdBy || null,
+    createdAt: row.created_at || row.createdAt || null,
+    updatedAt: row.updated_at || row.updatedAt || row.created_at || row.createdAt || null
+  };
+}
+
+function toCloudStaffRow(row) {
+  return {
+    id: row.id,
+    restaurant_id: row.restaurantId,
+    name: row.name,
+    role: row.role,
+    active: row.active !== false,
+    credential_hash: row.credentialHash,
+    credential_updated_at: row.credentialUpdatedAt,
+    created_by: row.createdBy || null,
+    created_at: row.createdAt,
+    updated_at: row.updatedAt
+  };
+}
+
+function normalizeStaffSessionRow(row) {
+  if (!row || typeof row !== 'object' || !row.id) return null;
+  return {
+    id: row.id,
+    staffId: row.staff_id ?? row.staffId ?? null,
+    restaurantId: row.restaurant_id ?? row.restaurantId ?? null,
+    tokenHash: row.token_hash || row.tokenHash || '',
+    createdAt: row.created_at || row.createdAt || null,
+    expiresAt: row.expires_at || row.expiresAt || null,
+    lastSeenAt: row.last_seen_at || row.lastSeenAt || null,
+    endedAt: row.ended_at || row.endedAt || null,
+    revokedAt: row.revoked_at || row.revokedAt || null
+  };
+}
+
+function toCloudStaffSessionRow(row) {
+  return {
+    id: row.id,
+    staff_id: row.staffId,
+    restaurant_id: row.restaurantId,
+    token_hash: row.tokenHash,
+    created_at: row.createdAt,
+    expires_at: row.expiresAt,
+    last_seen_at: row.lastSeenAt || null,
+    ended_at: row.endedAt || null,
+    revoked_at: row.revokedAt || null
+  };
+}
+
+function isActiveStaffSessionRow(session, nowMs = Date.now()) {
+  if (!session || session.revokedAt || session.endedAt) return false;
+  const expires = Date.parse(session.expiresAt || '');
+  return Number.isFinite(expires) && expires > Number(nowMs);
+}
+
+function mergeStaffSessions(localRows, cloudRows) {
+  const byId = new Map();
+  for (const row of (Array.isArray(cloudRows) ? cloudRows : [])) {
+    if (row && row.id) byId.set(String(row.id), row);
+  }
+  for (const row of (Array.isArray(localRows) ? localRows : [])) {
+    if (!row || !row.id) continue;
+    const prev = byId.get(String(row.id));
+    const rowTs = tsOf(row.lastSeenAt || row.createdAt);
+    const prevTs = tsOf(prev && (prev.lastSeenAt || prev.createdAt));
+    if (!prev || rowTs >= prevTs) byId.set(String(row.id), row);
+  }
+  return [...byId.values()];
+}
+
+async function fetchCloudStaffRows(restaurantId) {
+  if (!supabase || !restaurantId) return [];
+  try {
+    const { data, error } = await supabase
+      .from('staff')
+      .select('*')
+      .eq('restaurant_id', restaurantId);
+    if (error) return [];
+    return (data || []).map(normalizeStaffRow).filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+}
+
+async function fetchCloudStaffSessionRows({ restaurantId, staffId } = {}) {
+  if (!supabase) return [];
+  try {
+    let query = supabase.from('staff_sessions').select('*');
+    if (staffId) query = query.eq('staff_id', staffId);
+    if (restaurantId) query = query.eq('restaurant_id', restaurantId);
+    const { data, error } = await query;
+    if (error) return [];
+    return (data || []).map(normalizeStaffSessionRow).filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+}
+
 const db = {
   ready: databaseReady,
   async flushCloudWrites() {
@@ -677,6 +807,311 @@ const db = {
     return normalizeRestaurantBusinessType(
       rests.find(r => (r.slug || '').toLowerCase() === slug.toLowerCase()) || null
     );
+  },
+
+  /**
+   * Variante async por ID (misma hidratación lazy que lazyLoadRestaurant).
+   * La usa el middleware de staff en un cold start de Vercel: el staff puede
+   * venir de la nube y su restaurante todavía no estar en el JSON local.
+   */
+  async lazyLoadRestaurantById(id) {
+    if (!id) return null;
+    await _lazyHydrateRestaurant('id', id);
+    return normalizeRestaurantBusinessType(this.findRestaurantById(id));
+  },
+
+  // ── Equipo operativo (mozos / cocina) ──────────────────────────────────
+  async listStaff(restaurantId) {
+    if (!restaurantId) return [];
+    const local = readJson(STAFF_FILE, [])
+      .map(normalizeStaffRow)
+      .filter((s) => s && s.restaurantId === restaurantId);
+    const cloud = await fetchCloudStaffRows(restaurantId);
+    return mergeById(local, cloud)
+      .map(normalizeStaffRow)
+      .filter((s) => s && s.restaurantId === restaurantId)
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'es'));
+  },
+
+  async findStaffById(staffId) {
+    if (!staffId) return null;
+    const local = readJson(STAFF_FILE, []).find((s) => s && s.id === staffId);
+    if (local) return normalizeStaffRow(local);
+    if (!supabase) return null;
+    try {
+      const { data, error } = await supabase.from('staff').select('*').eq('id', staffId).limit(1);
+      if (error || !data || !data.length) return null;
+      const row = normalizeStaffRow(data[0]);
+      if (!row) return null;
+      await withStaffLock(async () => {
+        const rows = readJson(STAFF_FILE, []);
+        if (!rows.some((s) => s && s.id === row.id)) {
+          rows.push(row);
+          await writeJson(STAFF_FILE, rows);
+        }
+      });
+      return row;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  async createStaff(staff) {
+    const row = normalizeStaffRow(staff);
+    if (!row || !row.restaurantId) return null;
+    return withStaffLock(async () => {
+      const rows = readJson(STAFF_FILE, []);
+      if (!rows.some((s) => s && s.id === row.id)) rows.unshift(row);
+      await writeJson(STAFF_FILE, rows);
+      if (supabase) {
+        trackSupabaseWrite(
+          cloudWriteTolerant('staff', [toCloudStaffRow(row)], { onConflict: 'id' }).then((r) => {
+            if (!r.ok && !r.skipped) throw new Error(r.error || 'staff insert failed');
+            return r;
+          }),
+          'Create Staff'
+        );
+      }
+      return row;
+    });
+  },
+
+  async updateStaff(staffId, patch) {
+    if (!staffId) return null;
+    const existing = await this.findStaffById(staffId);
+    if (!existing) return null;
+    const updatedAt = new Date().toISOString();
+    const next = normalizeStaffRow({
+      ...existing,
+      ...(patch && typeof patch === 'object' ? patch : {}),
+      id: existing.id,
+      restaurantId: existing.restaurantId,
+      createdAt: existing.createdAt,
+      updatedAt
+    });
+    return withStaffLock(async () => {
+      const rows = readJson(STAFF_FILE, []);
+      const idx = rows.findIndex((s) => s && s.id === staffId);
+      if (idx >= 0) rows[idx] = next;
+      else rows.unshift(next);
+      await writeJson(STAFF_FILE, rows);
+      if (supabase) {
+        trackSupabaseWrite(
+          cloudWriteTolerant('staff', [toCloudStaffRow(next)], { match: { id: staffId } }).then((r) => {
+            if (!r.ok && !r.skipped) throw new Error(r.error || 'staff update failed');
+            return r;
+          }),
+          'Update Staff'
+        );
+      }
+      return next;
+    });
+  },
+
+  async deleteStaff(staffId, restaurantId) {
+    if (!staffId) return { deleted: false };
+    const existing = await this.findStaffById(staffId);
+    if (!existing) return { deleted: false };
+    const rid = restaurantId || existing.restaurantId;
+    await withStaffLock(async () => {
+      await writeJson(STAFF_FILE, readJson(STAFF_FILE, []).filter((s) => s && s.id !== staffId));
+    });
+    await withStaffSessionLock(async () => {
+      await writeJson(
+        STAFF_SESSIONS_FILE,
+        readJson(STAFF_SESSIONS_FILE, []).filter((s) => s && s.staffId !== staffId && s.staff_id !== staffId)
+      );
+    });
+    if (rid) await this.removeStaffFromTableAssignments(rid, staffId);
+    if (supabase) {
+      Promise.resolve(supabase.from('staff_sessions').delete().eq('staff_id', staffId)).catch(() => {});
+      Promise.resolve(supabase.from('staff').delete().eq('id', staffId)).catch(() => {});
+    }
+    return { deleted: true };
+  },
+
+  /**
+   * Quita un mozo de TODAS las mesas asignadas. Se usa al borrarlo para que
+   * ninguna mesa quede apuntando a un id inexistente (la pizarra del mozo
+   * simplemente no la vería, pero el Studio mostraría basura).
+   */
+  async removeStaffFromTableAssignments(restaurantId, staffId) {
+    if (!restaurantId || !staffId) return false;
+    const restaurants = readJson(RESTAURANTS_FILE, []);
+    const rest = restaurants.find((r) => r && r.id === restaurantId);
+    if (!rest || !rest.tableAssignments || typeof rest.tableAssignments !== 'object') return false;
+    let changed = false;
+    for (const [table, assigned] of Object.entries(rest.tableAssignments)) {
+      if (assigned === staffId) {
+        delete rest.tableAssignments[table];
+        changed = true;
+      }
+    }
+    if (!changed) return false;
+    await writeJson(RESTAURANTS_FILE, restaurants);
+    if (supabase) {
+      trackSupabaseWrite(
+        cloudWriteTolerant('restaurants', [{ id: rest.id, profile: rest }], { match: { id: rest.id } }).then((r) => {
+          if (!r.ok && !r.skipped) throw new Error(r.error || 'table assignments update failed');
+          return r;
+        }),
+        'Remove Staff Table Assignments'
+      );
+    }
+    return true;
+  },
+
+  /**
+   * Actualiza SOLO el mapa de mesas del local. No toca `updatedAt` a propósito:
+   * una asignación operativa no es una edición de carta y no debe provocar un
+   * 409 `MENU_CONCURRENCY_CONFLICT` en el autosave que el dueño tenga abierto.
+   */
+  async updateTableAssignments(restaurantId, assignments) {
+    if (!restaurantId) return null;
+    const restaurants = readJson(RESTAURANTS_FILE, []);
+    const rest = restaurants.find((r) => r && r.id === restaurantId);
+    if (!rest) return null;
+    rest.tableAssignments = assignments && typeof assignments === 'object' ? assignments : {};
+    await writeJson(RESTAURANTS_FILE, restaurants);
+    if (supabase) {
+      trackSupabaseWrite(
+        cloudWriteTolerant('restaurants', [{ id: rest.id, profile: rest }], { match: { id: rest.id } }).then((r) => {
+          if (!r.ok && !r.skipped) throw new Error(r.error || 'table assignments update failed');
+          return r;
+        }),
+        'Update Table Assignments'
+      );
+    }
+    return rest;
+  },
+
+  async listStaffSessions({ restaurantId, staffId, activeOnly = false } = {}) {
+    const local = readJson(STAFF_SESSIONS_FILE, [])
+      .map(normalizeStaffSessionRow)
+      .filter((s) => s
+        && (!restaurantId || s.restaurantId === restaurantId)
+        && (!staffId || s.staffId === staffId));
+    const cloud = await fetchCloudStaffSessionRows({ restaurantId, staffId });
+    const merged = mergeStaffSessions(local, cloud)
+      .map(normalizeStaffSessionRow)
+      .filter((s) => s
+        && (!restaurantId || s.restaurantId === restaurantId)
+        && (!staffId || s.staffId === staffId));
+    return activeOnly ? merged.filter((s) => isActiveStaffSessionRow(s)) : merged;
+  },
+
+  async createStaffSession(session) {
+    const row = normalizeStaffSessionRow(session);
+    if (!row || !row.staffId || !row.restaurantId || !row.tokenHash) return null;
+    return withStaffSessionLock(async () => {
+      const rows = readJson(STAFF_SESSIONS_FILE, []);
+      if (!rows.some((s) => s && s.id === row.id)) rows.unshift(row);
+      await writeJson(STAFF_SESSIONS_FILE, rows);
+      if (supabase) {
+        trackSupabaseWrite(
+          cloudWriteTolerant('staff_sessions', [toCloudStaffSessionRow(row)], { onConflict: 'id' }).then((r) => {
+            if (!r.ok && !r.skipped) throw new Error(r.error || 'staff session insert failed');
+            return r;
+          }),
+          'Create Staff Session'
+        );
+      }
+      return row;
+    });
+  },
+
+  async findStaffSessionByTokenHash(tokenHash) {
+    if (!tokenHash) return null;
+    const local = readJson(STAFF_SESSIONS_FILE, [])
+      .find((s) => s && (s.tokenHash === tokenHash || s.token_hash === tokenHash));
+    if (local) return normalizeStaffSessionRow(local);
+    if (!supabase) return null;
+    try {
+      const { data, error } = await supabase
+        .from('staff_sessions')
+        .select('*')
+        .eq('token_hash', tokenHash)
+        .limit(1);
+      if (error || !data || !data.length) return null;
+      const row = normalizeStaffSessionRow(data[0]);
+      if (!row) return null;
+      await withStaffSessionLock(async () => {
+        const rows = readJson(STAFF_SESSIONS_FILE, []);
+        if (!rows.some((s) => s && s.id === row.id)) {
+          rows.push(row);
+          await writeJson(STAFF_SESSIONS_FILE, rows);
+        }
+      });
+      return row;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  async endStaffSession(sessionId, endedAt) {
+    if (!sessionId) return null;
+    const stamp = endedAt || new Date().toISOString();
+    return withStaffSessionLock(async () => {
+      const rows = readJson(STAFF_SESSIONS_FILE, []);
+      const row = rows.find((s) => s && s.id === sessionId);
+      if (row) {
+        row.endedAt = stamp;
+        await writeJson(STAFF_SESSIONS_FILE, rows);
+      }
+      if (supabase) {
+        trackSupabaseWrite(
+          supabase.from('staff_sessions').update({ ended_at: stamp }).eq('id', sessionId),
+          'End Staff Session'
+        );
+      }
+      return row ? normalizeStaffSessionRow(row) : null;
+    });
+  },
+
+  async revokeStaffSessions(staffId, restaurantId) {
+    if (!staffId) return { revoked: 0 };
+    const stamp = new Date().toISOString();
+    return withStaffSessionLock(async () => {
+      const rows = readJson(STAFF_SESSIONS_FILE, []);
+      let revoked = 0;
+      for (const row of rows) {
+        if (!row || row.staffId !== staffId && row.staff_id !== staffId) continue;
+        if (restaurantId && row.restaurantId !== restaurantId && row.restaurant_id !== restaurantId) continue;
+        if (!row.revokedAt && !row.revoked_at) {
+          row.revokedAt = stamp;
+          revoked++;
+        }
+      }
+      if (revoked) await writeJson(STAFF_SESSIONS_FILE, rows);
+      if (supabase) {
+        let query = supabase.from('staff_sessions').update({ revoked_at: stamp }).eq('staff_id', staffId);
+        if (restaurantId) query = query.eq('restaurant_id', restaurantId);
+        trackSupabaseWrite(Promise.resolve(query), 'Revoke Staff Sessions');
+      }
+      return { revoked };
+    });
+  },
+
+  async touchStaffSession(sessionId, patch = {}) {
+    if (!sessionId) return null;
+    return withStaffSessionLock(async () => {
+      const rows = readJson(STAFF_SESSIONS_FILE, []);
+      const row = rows.find((s) => s && s.id === sessionId);
+      if (row) {
+        row.lastSeenAt = patch.lastSeenAt || new Date().toISOString();
+        if (patch.expiresAt) row.expiresAt = patch.expiresAt;
+        await writeJson(STAFF_SESSIONS_FILE, rows);
+      }
+      if (supabase) {
+        const cloudPatch = { last_seen_at: patch.lastSeenAt || new Date().toISOString() };
+        if (patch.expiresAt) cloudPatch.expires_at = patch.expiresAt;
+        trackSupabaseWrite(
+          supabase.from('staff_sessions').update(cloudPatch).eq('id', sessionId),
+          'Touch Staff Session'
+        );
+      }
+      return row ? normalizeStaffSessionRow(row) : null;
+    });
   },
 
   async saveRestaurant(userId, data) {
@@ -1242,6 +1677,9 @@ const db = {
       id: orderRecord.id,
       restaurant_id: orderRecord.restaurant_id,
       table_number: orderRecord.table_number,
+      // F0 Mozos/Cocina: modalidad del pedido para la pizarra. Fallback LOCAL
+      // para pedidos viejos/sintéticos que no traían el campo.
+      order_mode: orderRecord.order_mode || orderRecord.orderMode || 'LOCAL',
       items_snapshot: orderRecord.items_snapshot,
       amount: orderRecord.amount,
       amount_in_cents: orderRecord.amount_in_cents,
@@ -1249,6 +1687,12 @@ const db = {
       status: orderRecord.status,
       customer_name: orderRecord.customer_name,
       customer_phone: orderRecord.customer_phone,
+      // Trazabilidad del equipo (Fase 1): quién tomó el pedido y desde qué
+      // mesa. En pedidos del comensal viajan null; el comandero del mozo las
+      // completa. `source` distingue el origen sin inferirlo por el canal.
+      waiter_id: orderRecord.waiter_id || orderRecord.waiterId || null,
+      table_id: orderRecord.table_id || orderRecord.tableId || null,
+      source: orderRecord.source || 'customer',
       created_at: orderRecord.created_at
     };
   },
@@ -1442,11 +1886,28 @@ const db = {
       readJson(ordersFile, []).filter((o) => o.restaurant_id !== restaurantId && o.restaurantId !== restaurantId)
     );
 
+    // Equipo operativo: sesiones y personas del local. El token de sesión y el
+    // hash de credencial son datos del dueño → caen con su cuenta.
+    await writeJson(
+      STAFF_SESSIONS_FILE,
+      readJson(STAFF_SESSIONS_FILE, []).filter(
+        (s) => s && s.restaurantId !== restaurantId && s.restaurant_id !== restaurantId
+      )
+    );
+    await writeJson(
+      STAFF_FILE,
+      readJson(STAFF_FILE, []).filter(
+        (s) => s && s.restaurantId !== restaurantId && s.restaurant_id !== restaurantId
+      )
+    );
+
     // ── Supabase (best-effort; un fallo no debe impedir el derecho al olvido) ─
     if (supabase) {
       const deletes = [];
       if (restaurantId) {
         for (const table of [
+          'staff_sessions',
+          'staff',
           'orders',
           'reviews',
           'customer_feedback',

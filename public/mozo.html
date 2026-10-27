@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex,follow">
+  <title>Mi Turno — ScanGo</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/mozo-manifest.json">
+  <meta name="theme-color" content="#0E1412">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="/fonts/fonts.css">
+  <link rel="stylesheet" href="/css/mozo.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Saltar al contenido</a>
+
+  <header class="mozo-header">
+    <div class="mozo-brand">
+      <span class="mozo-brand-mark" aria-hidden="true">🍽️</span>
+      <div class="mozo-brand-copy">
+        <h1 id="mozoTitle">ScanGo · Mi Turno</h1>
+        <p id="mozoSubtitle" class="mozo-subtitle">Escaneá el QR de turno que te dio el dueño.</p>
+      </div>
+    </div>
+    <div class="mozo-header-actions">
+      <span id="mozoConnection" class="mozo-connection" role="status" aria-live="polite">Sin turno</span>
+      <button type="button" id="mozoPushBtn" class="mozo-btn mozo-btn-slim" aria-pressed="false" hidden>🔔 Avisos</button>
+      <button type="button" id="mozoRefreshBtn" class="mozo-btn mozo-btn-slim" aria-label="Actualizar mis mesas ahora">⟳</button>
+    </div>
+  </header>
+
+  <main id="main-content" tabindex="-1" class="mozo-main">
+    <section id="mozoShiftCard" class="mozo-shift-card" aria-labelledby="mozoShiftTitle" hidden>
+      <div class="mozo-shift-person">
+        <p class="mozo-eyebrow">Turno activo</p>
+        <h2 id="mozoShiftTitle" class="mozo-shift-name">—</h2>
+        <span id="mozoRoleChip" class="mozo-role-chip">Mozo</span>
+      </div>
+      <div class="mozo-shift-meta">
+        <p class="mozo-eyebrow">Cierra a las</p>
+        <strong id="mozoExpires" class="mozo-expiry">—</strong>
+        <span id="mozoMinutesLeft" class="mozo-minutes-left"></span>
+      </div>
+    </section>
+
+    <div id="mozoBanner" class="mozo-banner" role="status" aria-live="polite" hidden></div>
+
+    <section id="mozoTablesSection" class="mozo-tables-section" aria-labelledby="mozoTablesTitle" hidden>
+      <div class="mozo-section-head">
+        <div>
+          <p class="mozo-eyebrow">Servicio de mesa</p>
+          <h2 id="mozoTablesTitle">Tus mesas</h2>
+        </div>
+        <span id="mozoTablesCount" class="mozo-count-chip">0</span>
+      </div>
+      <p id="mozoTablesHint" class="mozo-hint">Solo ves las mesas que el dueño te asignó.</p>
+      <div id="mozoTablesGrid" class="mozo-tables-grid"></div>
+      <div id="mozoEmptyTables" class="mozo-empty" role="status" hidden>
+        <span class="mozo-empty-icon" aria-hidden="true">🪑</span>
+        <strong>Todavía no tenés mesas asignadas.</strong>
+        <p>Pedile al dueño que te asigne tus mesas desde el Studio. Cuando lo haga, aparecen acá solas.</p>
+        <button type="button" id="mozoRefreshTablesBtn" class="mozo-btn mozo-btn-primary">Actualizar mesas</button>
+      </div>
+    </section>
+
+    <section id="mozoHelpSection" class="mozo-help" aria-labelledby="mozoHelpTitle" hidden>
+      <h2 id="mozoHelpTitle" class="mozo-help-title">Cómo funciona tu turno</h2>
+      <ul class="mozo-help-list">
+        <li>Entrás escaneando el QR de turno (no hace falta email ni contraseña).</li>
+        <li>Tu sesión se mantiene abierta mientras trabajás y se renueva sola.</li>
+        <li>Si el dueño regenera tu QR o desactiva tu perfil, el turno se cierra al instante.</li>
+        <li>Al terminar, tocá <strong>Cerrar turno</strong> dos veces: el primero arma, el segundo confirma.</li>
+      </ul>
+    </section>
+
+    <section id="mozoEndSection" class="mozo-end-section" hidden>
+      <button type="button" id="mozoEndShiftBtn" class="mozo-btn mozo-btn-danger">Cerrar turno</button>
+      <p id="mozoEndHint" class="mozo-end-hint" role="status" aria-live="polite">El cierre pide un segundo toque para evitar cortar el turno sin querer.</p>
+    </section>
+  </main>
+
+  <div id="mozoGate" class="mozo-gate" role="alert">
+    <div class="mozo-gate-box">
+      <span class="mozo-gate-icon" aria-hidden="true">🔒</span>
+      <h2 id="mozoGateTitle" class="mozo-gate-title">Sin turno activo</h2>
+      <p id="mozoGateMessage" class="mozo-gate-message">Escaneá el QR de turno que te dio el dueño para entrar.</p>
+      <div class="mozo-gate-actions">
+        <button type="button" id="mozoGateRetryBtn" class="mozo-btn mozo-btn-primary" hidden>Reintentar</button>
+        <a class="mozo-btn mozo-link-btn" href="/">Ir a ScanGo</a>
+      </div>
+      <p class="mozo-gate-note">El QR de turno no vence por tiempo: si no entra, pedile al dueño que lo regenere.</p>
+    </div>
+  </div>
+
+  <noscript>
+    <p class="mozo-noscript">Esta página necesita JavaScript para activar tu turno.</p>
+  </noscript>
+
+  <script type="module" src="/js/mozo/mozo.js"></script>
+</body>
+</html>

@@ -32,6 +32,16 @@ import { formatOrderAge, orderAgeLevel, orderAgeStyle } from '../studio/orderAgi
 import { showConfirmDialog, closeConfirmDialog } from '../studio/ui/confirmDialog.js';
 import { initModalA11y } from '../modalA11y.js';
 import { sanitizeStation } from '../utils/dishStation.js';
+import { buildEscPosTicketOps } from '../studio/escposTicket.js';
+import {
+  isWebUsbSupported,
+  isPrinterReady,
+  loadEncoderClass,
+  requestPrinter,
+  restorePrinter,
+  forgetPrinter,
+  printTicketOps
+} from '../print/webusbPrinter.js';
 import {
   ALL_STATIONS_KEY,
   getStationOptions,
@@ -47,6 +57,8 @@ const MAX_CARDS = 60;         // el archivo no es cocina: 60 pedidos alcanzan
 const MAX_PER_COLUMN = 12;    // los entregados no acumulan tarjeta eterna
 
 let restaurantId = null;
+let restaurantName = '';
+let restaurantCurrency = '$';
 let orders = [];
 let pollTimer = null;
 let seenNewIds = new Set();   // pedidos YA avisados (beep solo ante novedades)
@@ -336,12 +348,18 @@ function renderCard(model) {
   ticket.textContent = model.ticketNumber;
   head.appendChild(ticket);
 
-  if (model.table) {
+  if (model.table && model.orderMode === 'LOCAL') {
     const chip = document.createElement('span');
     chip.className = 'kds-chip';
     chip.textContent = `Mesa ${model.table}`;
     head.appendChild(chip);
   }
+  // F0: modalidad del pedido (salón / delivery / mostrador). Un delivery no
+  // muestra "Mesa 0": el chip de modalidad es la verdad operativa.
+  const modeChip = document.createElement('span');
+  modeChip.className = `kds-chip kds-chip-mode ${model.orderModeClass}`;
+  modeChip.textContent = `${model.orderModeIcon} ${model.orderModeLabel}`;
+  head.appendChild(modeChip);
   if (model.pending) {
     const chip = document.createElement('span');
     chip.className = 'kds-chip kds-chip-new';
@@ -418,11 +436,12 @@ function renderCard(model) {
   }
 
   // Fila 5: acciones — avanzar un estado por toque; cancelar SOLO con
-  // confirmación (showConfirmDialog, nunca window.confirm).
+  // confirmación (showConfirmDialog, nunca window.confirm). Imprimir el ticket
+  // térmico está disponible incluso en pedidos ya entregados.
+  const actions = document.createElement('div');
+  actions.className = 'kds-actions';
   if (!model.terminal) {
     const next = nextKitchenStatus(model.status);
-    const actions = document.createElement('div');
-    actions.className = 'kds-actions';
     if (next) {
       const go = document.createElement('button');
       go.type = 'button';
@@ -439,8 +458,16 @@ function renderCard(model) {
     cancel.setAttribute('aria-label', `Cancelar pedido ${model.ticketNumber}`);
     cancel.addEventListener('click', () => cancelOrder(model.id));
     actions.appendChild(cancel);
-    card.appendChild(actions);
   }
+  const print = document.createElement('button');
+  print.type = 'button';
+  print.className = 'kds-btn kds-btn-print';
+  print.textContent = '🖨️';
+  print.title = 'Imprimir ticket en la térmica USB';
+  print.setAttribute('aria-label', `Imprimir ticket ${model.ticketNumber} en la térmica USB`);
+  print.addEventListener('click', () => printOrderCard(model));
+  actions.appendChild(print);
+  card.appendChild(actions);
 
   return card;
 }
@@ -489,6 +516,73 @@ async function cancelOrder(orderId) {
     ok = false;
   }
   if (ok) await patchStatus(orderId, 'cancelled');
+}
+
+// ── Impresión térmica ESC/POS (mismo builder y transporte que el Studio) ──
+
+async function printOrderCard(model) {
+  const order = orders.find((o) => String(o.id) === String(model.id));
+  if (!order) {
+    showBanner('No se encontró el pedido. Actualizá la pizarra e intentá de nuevo.');
+    return;
+  }
+  if (!isPrinterReady()) {
+    showBanner('Conectá primero la impresora USB con el botón 🔌 del encabezado.');
+    return;
+  }
+  showBanner('Imprimiendo ticket…');
+  try {
+    const EncoderClass = await loadEncoderClass();
+    const ops = buildEscPosTicketOps(order, {
+      restaurantName,
+      currency: order.currency || restaurantCurrency
+    });
+    await printTicketOps(EncoderClass, ops);
+    showBanner('Ticket enviado a la térmica.');
+  } catch {
+    showBanner('No se pudo imprimir. Revisá la impresora USB o usá el ticket del Studio.');
+  }
+}
+
+function updatePrinterUi() {
+  const btn = el('kdsPrinterBtn');
+  if (!btn) return;
+  const ready = isPrinterReady();
+  btn.setAttribute('aria-pressed', ready ? 'true' : 'false');
+  btn.textContent = ready ? '🔌 Impresora lista' : '🔌 Impresora';
+  btn.title = ready
+    ? 'Impresora USB conectada (tocá para desconectar)'
+    : 'Conectar impresora térmica USB';
+}
+
+async function wirePrinter() {
+  const btn = el('kdsPrinterBtn');
+  if (!btn) return;
+  updatePrinterUi();
+  if (isWebUsbSupported()) {
+    await restorePrinter();
+    updatePrinterUi();
+  }
+  btn.addEventListener('click', async () => {
+    if (isPrinterReady()) {
+      await forgetPrinter();
+      updatePrinterUi();
+      showBanner('Impresora desconectada.');
+      return;
+    }
+    if (!isWebUsbSupported()) {
+      showBanner('Este navegador no soporta WebUSB. Usá Chrome o Edge en compu o Android.');
+      return;
+    }
+    try {
+      await requestPrinter();
+      updatePrinterUi();
+      showBanner('Impresora lista para imprimir tickets.');
+    } catch (e) {
+      if (e && e.name === 'NotFoundError') return;
+      showBanner('No se pudo conectar la impresora. Probá de nuevo o usá el ticket del Studio.');
+    }
+  });
 }
 
 // ── Polling 20s + reloj + banner/gate ──────────────────────────────────────
@@ -563,6 +657,7 @@ function wireConfirmModal() {
 async function boot() {
   initModalA11y();
   wireConfirmModal();
+  wirePrinter();
   tickClock();
   setInterval(tickClock, CLOCK_MS);
 
@@ -577,8 +672,10 @@ async function boot() {
   }
   const restaurant = session.restaurant || {};
   restaurantId = restaurant.id || restaurant.slug || null;
+  restaurantName = restaurant.bizName || restaurant.name || '';
+  restaurantCurrency = restaurant.currency || '$';
   const place = el('kdsRestaurantName');
-  if (place) place.textContent = restaurant.bizName || restaurant.name || '';
+  if (place) place.textContent = restaurantName;
   if (!restaurantId) {
     openGate('Tu usuario todavía no tiene un local asociado. Crealo desde el Studio.');
     return;

@@ -115,6 +115,21 @@ function purgeLocalFixtures() {
   });
   const keptRestIds = new Set(keptRestaurants.map((r) => r.id));
 
+  // Equipo operativo (Fase 1): personas de locales conservados y sus
+  // sesiones de turno. Una sesión sin persona viva es residuo de una corrida
+  // de QA (el borrado real de la persona ya las revoca).
+  const staff = readData('staff.json', []);
+  const keptStaff = Array.isArray(staff)
+    ? staff.filter((s) => s && keptRestIds.has(s.restaurantId || s.restaurant_id))
+    : [];
+  const keptStaffIds = new Set(keptStaff.map((s) => s.id).filter(Boolean));
+  const staffSessions = readData('staff_sessions.json', []);
+  const keptStaffSessions = Array.isArray(staffSessions)
+    ? staffSessions.filter((s) => s
+      && keptRestIds.has(s.restaurantId || s.restaurant_id)
+      && keptStaffIds.has(s.staffId || s.staff_id))
+    : [];
+
   // Fidelización: cuentas solo sobreviven en restaurantes conservados; los
   // perfiles sin cuenta viva son residuo (un perfil real legítimo siempre
   // tiene su cuenta en un local conservado).
@@ -171,6 +186,8 @@ function purgeLocalFixtures() {
   };
   add('users.json', users, keptUsers, 'usuarios');
   add('restaurants.json', restaurants, keptRestaurants, 'restaurantes');
+  add('staff.json', staff, keptStaff, 'equipo');
+  add('staff_sessions.json', staffSessions, keptStaffSessions, 'turnos del equipo');
   add('loyalty_accounts.json', accounts, keptAccounts, 'cuentas de fidelización');
   add('customer_profiles.json', profiles, keptProfiles, 'perfiles de cliente');
   add('loyalty_ledger.json', ledger, keptLedger, 'movimientos de ledger');

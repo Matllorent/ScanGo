@@ -2,6 +2,12 @@
 // Helper de fetch autenticado: cookie httpOnly en web (viaja sola) +
 // Bearer opaco de dispositivo en app nativa (AuthClient lo inyecta).
 // Uso: apiFetch('/api/endpoint', { method: 'POST', body: JSON.stringify(data) })
+//
+// Errores honestos: el backend responde `{ success:false, error, code }`; el
+// mensaje que ve el dueño debe ser ese, no un genérico "HTTP 400". Además se
+// adjuntan `status`/`code`/`payload` para que cada módulo pueda distinguir
+// 401 (re-login), 403 (sin suscripción), 404 y conflictos (409) sin parsear
+// strings.
 
 export async function apiFetch(url, options = {}) {
   const headers = (window.AuthClient
@@ -11,9 +17,15 @@ export async function apiFetch(url, options = {}) {
     for (const k of Object.keys(options.headers)) headers[k] = options.headers[k];
   }
   const res = await fetch(url, { credentials: 'include', ...options, headers });
+  const payload = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
+    const err = new Error(
+      (payload && (payload.error || payload.message)) || `HTTP ${res.status}`
+    );
+    err.status = res.status;
+    err.code = (payload && payload.code) || '';
+    err.payload = payload;
+    throw err;
   }
-  return res.json();
+  return payload;
 }

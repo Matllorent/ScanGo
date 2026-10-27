@@ -151,6 +151,10 @@
           <span class="tab-icon">🎟️</span>
           <span>Promos</span>
         </button>
+        <button class="tab-btn" data-js-click="switchTab|staff" title="Equipo — Mozos, cocina y QR de turno">
+          <span class="tab-icon">👥</span>
+          <span>Equipo</span>
+        </button>
       </nav>
 
       <div class="tab-content-scroll" id="tab-content-scroll" tabindex="-1">
@@ -1625,6 +1629,49 @@
           </div>
         </div>
 
+        <!-- TAB: EQUIPO Y TURNOS -->
+        <div id="tab-staff" class="tab-pane">
+          <div class="form-section">
+            <section id="staffSection" aria-labelledby="staffSectionTitle">
+              <h2 class="section-title" id="staffSectionTitle">👥 Equipo y Turnos</h2>
+              <p style="font-size:11px; color:var(--text-dim); margin:8px 0 14px;">
+                Tus mozos y la cocina entran sin email ni contraseña: escanean un QR de turno
+                desde su teléfono. Vos decidís quién está activo y qué mesas atiende cada uno.
+              </p>
+              <div class="staff-toolbar">
+                <button type="button" class="btn-nav btn-nav-gold" data-js-click="openStaffCreateModal">＋ Agregar integrante</button>
+                <button type="button" class="btn-nav" data-js-click="loadStaff">↻ Actualizar</button>
+                <span id="staffBanner" class="staff-banner" role="status" aria-live="polite" hidden></span>
+              </div>
+              <div id="staffList" class="staff-list"></div>
+              <div id="staffEmpty" class="staff-empty" hidden>
+                <span class="staff-empty-icon" aria-hidden="true">👋</span>
+                <strong>Todavía no cargaste a nadie del equipo.</strong>
+                <p>Agregá a tu primer mozo o a la persona de cocina y mostrale su QR de turno.</p>
+              </div>
+            </section>
+
+            <section id="staffTablesSection" aria-labelledby="staffTablesTitle" style="margin-top:22px;">
+              <h2 class="section-title" id="staffTablesTitle">🪑 Mesas por persona</h2>
+              <p style="font-size:11px; color:var(--text-dim); margin:8px 0 12px;">
+                El mozo solo ve en su teléfono las mesas que le asignás acá. Una mesa pertenece
+                a una sola persona; sin asignación, nadie la ve.
+              </p>
+              <div id="staffAssignmentRows" class="staff-assignment-list"></div>
+              <div class="staff-toolbar" style="margin-top:12px;">
+                <button type="button" class="btn-nav btn-nav-green" data-js-click="saveStaffAssignments">💾 Guardar asignación</button>
+                <span id="staffTableBanner" class="staff-banner" role="status" aria-live="polite" hidden></span>
+              </div>
+            </section>
+
+            <p class="staff-privacy-note">
+              🔒 El QR de turno se muestra una sola vez y el servidor guarda solo su hash. Si se
+              filtra, regeneralo: el anterior deja de servir al instante y se cierran los turnos
+              abiertos de esa persona.
+            </p>
+          </div>
+        </div>
+
         <!-- Legal & Compliance Footer in Studio (Google Play & Privacy Policies) -->
         <div style="padding: 14px 16px; border-top: 1px solid var(--border); font-size: 10px; color: var(--text-dim); display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; background: rgba(0,0,0,0.15);">
           <a href="/privacidad.html" target="_blank" style="color: var(--text-dim); text-decoration: none;" data-js-mouseover-style-color="#fff" data-js-mouseout-style-color="var(--text-dim)">Privacidad</a> •
@@ -2150,6 +2197,53 @@
           <button type="button" class="btn-nav" data-js-click="closeBranchEdit">Cancelar</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Equipo: alta/edición de una persona del turno -->
+  <div id="staffEditorModal" class="modal-overlay">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="staffEditorTitle" style="max-width: 440px;">
+      <button class="modal-close" data-js-click="closeStaffEditor" aria-label="Cerrar">✕</button>
+      <h3 class="modal-title" id="staffEditorTitle">Agregar integrante</h3>
+      <form id="staffEditorForm" data-js-submit="saveStaffEditor|event">
+        <div class="form-group">
+          <label class="form-label" for="staffNameInput">Nombre</label>
+          <input class="form-input" id="staffNameInput" name="staffName" type="text" maxlength="60" autocomplete="off" placeholder="Ej: Lucía" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="staffRoleInput">Rol</label>
+          <select class="form-input" id="staffRoleInput" name="staffRole">
+            <option value="waiter">Mozo · atención de mesas</option>
+            <option value="kitchen">Cocina</option>
+          </select>
+        </div>
+        <p id="staffEditorHint" style="font-size:10px; color:var(--text-dim); margin:0 0 14px; line-height:1.5;">
+          Al guardar te mostramos su QR de turno una sola vez.
+        </p>
+        <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
+          <button type="button" class="btn-nav" data-js-click="closeStaffEditor">Cancelar</button>
+          <button type="submit" class="btn-nav btn-nav-gold" id="staffEditorSubmitBtn">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Equipo: QR de turno (secreto visible UNA sola vez) -->
+  <div id="staffQrModal" class="modal-overlay">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="staffQrTitle" style="max-width: 460px;">
+      <button class="modal-close" data-js-click="closeStaffQrModal" aria-label="Cerrar">✕</button>
+      <h3 class="modal-title" id="staffQrTitle">📱 QR de turno</h3>
+      <p id="staffQrName" style="font-size:12px; color:var(--text-light); font-weight:700; margin:0 0 12px;"></p>
+      <div id="staffQrCanvas" class="staff-qr-holder" role="img" aria-label="Código QR para activar el turno"></div>
+      <p class="staff-qr-warning">
+        Mostrale este QR a la persona <strong>ahora</strong>. Por seguridad no podemos volver a
+        mostrarlo: si lo perdés, regeneralo (el anterior deja de servir).
+      </p>
+      <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+        <button type="button" class="btn-nav" data-js-click="copyStaffQrLink">🔗 Copiar link</button>
+        <button type="button" class="btn-nav btn-nav-gold" data-js-click="closeStaffQrModal">Listo</button>
+      </div>
+      <p id="staffQrStatus" role="status" aria-live="polite" style="font-size:10px; color:var(--text-dim); text-align:center; margin:12px 0 0; min-height:15px;"></p>
     </div>
   </div>
 

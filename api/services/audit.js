@@ -29,7 +29,16 @@ const AUDIT_ACTIONS = Object.freeze({
   VIDEO_UPLOADED: 'VIDEO_UPLOADED',
   DISH_CREATE: 'DISH_CREATE',
   DISH_UPDATE: 'DISH_UPDATE',
-  DISH_DELETE: 'DISH_DELETE'
+  DISH_DELETE: 'DISH_DELETE',
+  // Sistema de Mozos y Cocina (Fase 1)
+  STAFF_CREATED: 'STAFF_CREATED',
+  STAFF_UPDATED: 'STAFF_UPDATED',
+  STAFF_DELETED: 'STAFF_DELETED',
+  STAFF_CREDENTIAL_ROTATED: 'STAFF_CREDENTIAL_ROTATED',
+  STAFF_SESSIONS_REVOKED: 'STAFF_SESSIONS_REVOKED',
+  STAFF_TABLE_ASSIGN: 'STAFF_TABLE_ASSIGN',
+  STAFF_SHIFT_START: 'STAFF_SHIFT_START',
+  STAFF_SHIFT_END: 'STAFF_SHIFT_END'
 });
 
 const AUDIT_ENTITIES = Object.freeze({
@@ -40,7 +49,9 @@ const AUDIT_ENTITIES = Object.freeze({
   order: 'order',
   loyalty: 'loyalty',
   notification: 'notification',
-  dish: 'dish'
+  dish: 'dish',
+  staff: 'staff',
+  staff_session: 'staff_session'
 });
 
 function assertValidAuditRef(action, entity) {

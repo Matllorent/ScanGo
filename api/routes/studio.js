@@ -20,6 +20,18 @@ const auditService = require('../services/audit');
 const { runSeoAudit } = require('../utils/seoAudit');
 const indexNow = require('../utils/indexNow');
 const { dishCreationLimiter, dishBulkSaveLimiter } = require('../middleware/rateLimits');
+const {
+  STAFF_ROLES,
+  generateStaffSecret,
+  hashStaffSecret,
+  generateStaffId,
+  sanitizeStaffName,
+  sanitizeStaffRole,
+  staffRoleLabel,
+  sanitizeTableNumber,
+  sanitizeTableAssignments,
+  buildStaffEnrollmentUrl
+} = require('../utils/staffCredentials');
 
 // IndexNow (best-effort): throttle por slug — el autosave del Studio guarda a
 // menudo; no spameamos la API de pings de Bing/Yandex con cada tecla.
@@ -561,6 +573,457 @@ router.get('/seo-audit', authMiddleware, requireVerifiedEmail, async (req, res, 
     }
     const report = runSeoAudit(restaurant, { allRestaurants: rests });
     return res.json({ success: true, ...report });
+  } catch (e) {
+    return next(e);
+  }
+});
+
+// ── Sistema de Mozos y Cocina (Fase 1) ─────────────────────────────────────
+// El dueño administra su equipo desde el Studio: alta, edición, baja, rotación
+// del QR de turno y asignación de mesas. La credencial se muestra UNA sola vez
+// (el servidor solo guarda su hash) y el QR apunta a /mozo con el secreto en el
+// fragmento `#k=`, que el browser nunca envía al servidor.
+
+const staffCreateSchema = z.object({
+  name: z.string().min(1).max(80),
+  role: z.string().max(20).optional()
+});
+
+const staffUpdateSchema = z.object({
+  name: z.string().min(1).max(80).optional(),
+  role: z.string().max(20).optional(),
+  active: z.boolean().optional()
+});
+
+const staffTablesSchema = z.object({
+  assignments: z.record(z.any()).optional().default({})
+});
+
+function ownerRestaurant(req) {
+  return req.user && req.user.userId ? db.findRestaurantByUserId(req.user.userId) : null;
+}
+
+function appBaseUrl(req) {
+  const configured = String(process.env.APP_URL || '').trim();
+  if (configured) return configured;
+  const host = req.get('host');
+  return host ? `${req.protocol}://${host}` : '';
+}
+
+function sortTableLabels(a, b) {
+  const na = /^\d+$/.test(a.number) ? Number(a.number) : null;
+  const nb = /^\d+$/.test(b.number) ? Number(b.number) : null;
+  if (na !== null && nb !== null && na !== nb) return na - nb;
+  return a.number.localeCompare(b.number, 'es');
+}
+
+function tablesForStaff(assignments, staffId) {
+  const map = assignments && typeof assignments === 'object' ? assignments : {};
+  return Object.entries(map)
+    .filter(([, assigned]) => assigned === staffId)
+    .map(([number]) => ({
+      number,
+      label: /^\d+$/.test(number) ? `Mesa ${number}` : number
+    }))
+    .sort(sortTableLabels);
+}
+
+function tablesView(assignments, staffList) {
+  const byId = new Map((staffList || []).map((s) => [s.id, s]));
+  const map = assignments && typeof assignments === 'object' ? assignments : {};
+  return Object.entries(map)
+    .map(([number, staffId]) => {
+      const staff = byId.get(staffId);
+      return {
+        number,
+        label: /^\d+$/.test(number) ? `Mesa ${number}` : number,
+        staffId,
+        staffName: staff ? staff.name : ''
+      };
+    })
+    .sort(sortTableLabels);
+}
+
+/** Shape público del equipo: NUNCA incluye `credentialHash`. */
+function publicStaffRecord(staff, { activeSessions = 0, tables = [] } = {}) {
+  return {
+    id: staff.id,
+    name: staff.name,
+    role: staff.role,
+    roleLabel: staffRoleLabel(staff.role),
+    active: staff.active !== false,
+    credentialUpdatedAt: staff.credentialUpdatedAt || null,
+    createdAt: staff.createdAt || null,
+    updatedAt: staff.updatedAt || null,
+    activeSessions,
+    tables
+  };
+}
+
+function staffPayload(staff, { sessions = [], assignments = {} } = {}) {
+  const activeByStaff = new Map();
+  for (const session of sessions) {
+    if (session && session.staffId) activeByStaff.set(session.staffId, (activeByStaff.get(session.staffId) || 0) + 1);
+  }
+  return publicStaffRecord(staff, {
+    activeSessions: activeByStaff.get(staff.id) || 0,
+    tables: tablesForStaff(assignments, staff.id)
+  });
+}
+
+/**
+ * GET /api/studio/staff
+ * Lista el equipo del local + el mapa de mesas. El dueño ve cuántas sesiones
+ * de turno están vivas y qué mesas tiene cada persona.
+ */
+router.get('/staff', authMiddleware, requireVerifiedEmail, async (req, res, next) => {
+  try {
+    const restaurant = ownerRestaurant(req);
+    if (!restaurant) {
+      return res.status(404).json({ success: false, error: 'Restaurante no encontrado', code: 'RESTAURANT_NOT_FOUND' });
+    }
+    const staff = await db.listStaff(restaurant.id);
+    const sessions = await db.listStaffSessions({ restaurantId: restaurant.id, activeOnly: true });
+    const assignments = restaurant.tableAssignments && typeof restaurant.tableAssignments === 'object'
+      ? restaurant.tableAssignments
+      : {};
+    return res.json({
+      success: true,
+      staff: staff.map((person) => staffPayload(person, { sessions, assignments })),
+      assignments,
+      tables: tablesView(assignments, staff),
+      restaurant: {
+        id: restaurant.id,
+        name: restaurant.name || restaurant.bizName || '',
+        tableCount: Number(restaurant.tableCount) || 1
+      }
+    });
+  } catch (e) {
+    return next(e);
+  }
+});
+
+/**
+ * POST /api/studio/staff
+ * Da de alta una persona y devuelve SU credencial de enrolamiento (una sola
+ * vez). El cuerpo NO acepta `id` ni hash: los genera el servidor.
+ */
+router.post('/staff', authMiddleware, requireVerifiedEmail, requireActiveSubscription, validateBody(staffCreateSchema), async (req, res, next) => {
+  try {
+    const restaurant = ownerRestaurant(req);
+    if (!restaurant) {
+      return res.status(404).json({ success: false, error: 'Restaurante no encontrado', code: 'RESTAURANT_NOT_FOUND' });
+    }
+    const name = sanitizeStaffName(req.validatedBody.name);
+    if (!name) {
+      return res.status(400).json({ success: false, error: 'El nombre del integrante es obligatorio.', code: 'INVALID_STAFF_NAME' });
+    }
+    const role = sanitizeStaffRole(req.validatedBody.role) || 'waiter';
+    const now = new Date().toISOString();
+    const id = generateStaffId();
+    const credential = generateStaffSecret();
+    const staff = await db.createStaff({
+      id,
+      restaurantId: restaurant.id,
+      name,
+      role,
+      active: true,
+      credentialHash: hashStaffSecret(credential),
+      credentialUpdatedAt: now,
+      createdBy: req.user.userId,
+      createdAt: now,
+      updatedAt: now
+    });
+    const enrollmentUrl = buildStaffEnrollmentUrl(appBaseUrl(req), {
+      restaurantId: restaurant.id,
+      staffId: id,
+      secret: credential
+    });
+
+    auditService.logAction({
+      tenantId: restaurant.id,
+      userId: req.user.userId,
+      requestId: req.requestId,
+      action: 'STAFF_CREATED',
+      entity: 'staff',
+      details: { staffId: id, role }
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Integrante agregado. Mostrale el QR para que active su turno.',
+      staff: staffPayload(staff, { assignments: restaurant.tableAssignments || {} }),
+      credential,
+      enrollmentUrl
+    });
+  } catch (e) {
+    return next(e);
+  }
+});
+
+/**
+ * PATCH /api/studio/staff/tables
+ * Asigna mesas a personas reales del local. Rechaza ids ajenos o mesas
+ * inválidas (nunca guarda una asignación que el mozo no pueda resolver).
+ * NO toca `updatedAt`: asignar mesas no es editar la carta ni debe disparar un
+ * 409 de concurrencia en el autosave.
+ *
+ * OJO ORDEN: esta ruta se declara ANTES de `/staff/:id`; si no, Express la
+ * captura como el id literal "tables".
+ */
+router.patch('/staff/tables', authMiddleware, requireVerifiedEmail, requireActiveSubscription, validateBody(staffTablesSchema), async (req, res, next) => {
+  try {
+    const restaurant = ownerRestaurant(req);
+    if (!restaurant) {
+      return res.status(404).json({ success: false, error: 'Restaurante no encontrado', code: 'RESTAURANT_NOT_FOUND' });
+    }
+    const raw = req.validatedBody.assignments || {};
+    const entries = Object.entries(raw);
+    if (entries.length > 200) {
+      return res.status(400).json({
+        success: false,
+        error: 'No se pueden asignar más de 200 mesas.',
+        code: 'TOO_MANY_TABLES'
+      });
+    }
+    const staff = await db.listStaff(restaurant.id);
+    const staffIds = new Set(staff.map((s) => s.id));
+    const assignments = {};
+    const seenTables = new Set();
+    for (const [rawTable, rawStaffId] of entries) {
+      const table = sanitizeTableNumber(rawTable);
+      if (!table) {
+        return res.status(400).json({
+          success: false,
+          error: `Número de mesa inválido: ${String(rawTable).slice(0, 40)}`,
+          code: 'INVALID_TABLE_NUMBER'
+        });
+      }
+      if (seenTables.has(table)) {
+        return res.status(400).json({
+          success: false,
+          error: `La mesa ${table} está repetida.`,
+          code: 'DUPLICATE_TABLE'
+        });
+      }
+      seenTables.add(table);
+      const staffId = typeof rawStaffId === 'string' ? rawStaffId.trim() : '';
+      if (!staffId || !staffIds.has(staffId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'La asignación apunta a una persona que no pertenece a este local.',
+          code: 'INVALID_STAFF_ID'
+        });
+      }
+      assignments[table] = staffId;
+    }
+
+    const cleanAssignments = sanitizeTableAssignments(assignments, {
+      isValidStaffId: (id) => staffIds.has(id)
+    });
+    await db.updateTableAssignments(restaurant.id, cleanAssignments);
+
+    auditService.logAction({
+      tenantId: restaurant.id,
+      userId: req.user.userId,
+      requestId: req.requestId,
+      action: 'STAFF_TABLE_ASSIGN',
+      entity: 'staff',
+      details: { tableCount: Object.keys(cleanAssignments).length }
+    });
+
+    return res.json({
+      success: true,
+      assignments: cleanAssignments,
+      tables: tablesView(cleanAssignments, staff)
+    });
+  } catch (e) {
+    return next(e);
+  }
+});
+
+/**
+ * PATCH /api/studio/staff/:id
+ * Edita nombre/rol/activo. Desactivar revoca TODAS sus sesiones de turno.
+ */
+router.patch('/staff/:id', authMiddleware, requireVerifiedEmail, requireActiveSubscription, validateBody(staffUpdateSchema), async (req, res, next) => {
+  try {
+    const restaurant = ownerRestaurant(req);
+    if (!restaurant) {
+      return res.status(404).json({ success: false, error: 'Restaurante no encontrado', code: 'RESTAURANT_NOT_FOUND' });
+    }
+    const existing = await db.findStaffById(req.params.id);
+    if (!existing || existing.restaurantId !== restaurant.id) {
+      return res.status(404).json({ success: false, error: 'Integrante no encontrado', code: 'STAFF_NOT_FOUND' });
+    }
+
+    const patch = {};
+    const body = req.validatedBody;
+    if (body.name !== undefined) {
+      const name = sanitizeStaffName(body.name);
+      if (!name) {
+        return res.status(400).json({ success: false, error: 'El nombre del integrante es obligatorio.', code: 'INVALID_STAFF_NAME' });
+      }
+      patch.name = name;
+    }
+    if (body.role !== undefined) {
+      const role = sanitizeStaffRole(body.role);
+      if (!role) {
+        return res.status(400).json({ success: false, error: 'Rol inválido. Usá mozo o cocina.', code: 'INVALID_STAFF_ROLE' });
+      }
+      patch.role = role;
+    }
+    if (body.active !== undefined) patch.active = body.active;
+
+    const updated = await db.updateStaff(existing.id, patch);
+    if (body.active === false) {
+      await db.revokeStaffSessions(existing.id, restaurant.id);
+    }
+
+    auditService.logAction({
+      tenantId: restaurant.id,
+      userId: req.user.userId,
+      requestId: req.requestId,
+      action: 'STAFF_UPDATED',
+      entity: 'staff',
+      details: { staffId: existing.id, fields: Object.keys(patch) }
+    });
+
+    const sessions = await db.listStaffSessions({ restaurantId: restaurant.id, staffId: existing.id, activeOnly: true });
+    const freshRestaurant = db.findRestaurantById(restaurant.id) || restaurant;
+    return res.json({
+      success: true,
+      staff: staffPayload(updated || existing, {
+        sessions,
+        assignments: freshRestaurant.tableAssignments || {}
+      })
+    });
+  } catch (e) {
+    return next(e);
+  }
+});
+
+/**
+ * DELETE /api/studio/staff/:id
+ * Baja definitiva: borra persona, sesiones y sus mesas asignadas.
+ */
+router.delete('/staff/:id', authMiddleware, requireVerifiedEmail, requireActiveSubscription, async (req, res, next) => {
+  try {
+    const restaurant = ownerRestaurant(req);
+    if (!restaurant) {
+      return res.status(404).json({ success: false, error: 'Restaurante no encontrado', code: 'RESTAURANT_NOT_FOUND' });
+    }
+    const existing = await db.findStaffById(req.params.id);
+    if (!existing || existing.restaurantId !== restaurant.id) {
+      return res.status(404).json({ success: false, error: 'Integrante no encontrado', code: 'STAFF_NOT_FOUND' });
+    }
+    await db.deleteStaff(existing.id, restaurant.id);
+
+    auditService.logAction({
+      tenantId: restaurant.id,
+      userId: req.user.userId,
+      requestId: req.requestId,
+      action: 'STAFF_DELETED',
+      entity: 'staff',
+      details: { staffId: existing.id, role: existing.role }
+    });
+
+    return res.json({ success: true, deleted: true, staffId: existing.id });
+  } catch (e) {
+    return next(e);
+  }
+});
+
+/**
+ * POST /api/studio/staff/:id/credential
+ * Rota el secreto del QR de turno. El anterior deja de servir al instante y
+ * TODAS las sesiones vivas se revocan (un QR filtrado no puede seguir entrando).
+ */
+router.post('/staff/:id/credential', authMiddleware, requireVerifiedEmail, requireActiveSubscription, async (req, res, next) => {
+  try {
+    const restaurant = ownerRestaurant(req);
+    if (!restaurant) {
+      return res.status(404).json({ success: false, error: 'Restaurante no encontrado', code: 'RESTAURANT_NOT_FOUND' });
+    }
+    const existing = await db.findStaffById(req.params.id);
+    if (!existing || existing.restaurantId !== restaurant.id) {
+      return res.status(404).json({ success: false, error: 'Integrante no encontrado', code: 'STAFF_NOT_FOUND' });
+    }
+    if (existing.active === false) {
+      return res.status(409).json({
+        success: false,
+        error: 'Reactivá a la persona antes de generar un QR nuevo.',
+        code: 'STAFF_INACTIVE'
+      });
+    }
+
+    const credential = generateStaffSecret();
+    const now = new Date().toISOString();
+    const updated = await db.updateStaff(existing.id, {
+      credentialHash: hashStaffSecret(credential),
+      credentialUpdatedAt: now
+    });
+    await db.revokeStaffSessions(existing.id, restaurant.id);
+
+    const enrollmentUrl = buildStaffEnrollmentUrl(appBaseUrl(req), {
+      restaurantId: restaurant.id,
+      staffId: existing.id,
+      secret: credential
+    });
+
+    auditService.logAction({
+      tenantId: restaurant.id,
+      userId: req.user.userId,
+      requestId: req.requestId,
+      action: 'STAFF_CREDENTIAL_ROTATED',
+      entity: 'staff',
+      details: { staffId: existing.id, role: existing.role }
+    });
+
+    const sessions = await db.listStaffSessions({ restaurantId: restaurant.id, staffId: existing.id, activeOnly: true });
+    return res.json({
+      success: true,
+      message: 'QR regenerado. El anterior ya no sirve.',
+      staff: staffPayload(updated || existing, {
+        sessions,
+        assignments: restaurant.tableAssignments || {}
+      }),
+      credential,
+      enrollmentUrl
+    });
+  } catch (e) {
+    return next(e);
+  }
+});
+
+/**
+ * DELETE /api/studio/staff/:id/sessions
+ * Botón de pánico: cierra todos los turnos abiertos de una persona sin rotar
+ * el QR (el próximo turno puede volver a escanear el mismo cartel).
+ */
+router.delete('/staff/:id/sessions', authMiddleware, requireVerifiedEmail, requireActiveSubscription, async (req, res, next) => {
+  try {
+    const restaurant = ownerRestaurant(req);
+    if (!restaurant) {
+      return res.status(404).json({ success: false, error: 'Restaurante no encontrado', code: 'RESTAURANT_NOT_FOUND' });
+    }
+    const existing = await db.findStaffById(req.params.id);
+    if (!existing || existing.restaurantId !== restaurant.id) {
+      return res.status(404).json({ success: false, error: 'Integrante no encontrado', code: 'STAFF_NOT_FOUND' });
+    }
+    const active = await db.listStaffSessions({ restaurantId: restaurant.id, staffId: existing.id, activeOnly: true });
+    await db.revokeStaffSessions(existing.id, restaurant.id);
+
+    auditService.logAction({
+      tenantId: restaurant.id,
+      userId: req.user.userId,
+      requestId: req.requestId,
+      action: 'STAFF_SESSIONS_REVOKED',
+      entity: 'staff_session',
+      details: { staffId: existing.id, revoked: active.length }
+    });
+
+    return res.json({ success: true, revoked: active.length });
   } catch (e) {
     return next(e);
   }

@@ -282,6 +282,21 @@ import {
   printOrderTicket as printOrderTicketMod
 } from './studio/printerManager.js';
 
+import {
+  loadStaff as loadStaffMod,
+  saveStaffAssignments as saveStaffAssignmentsMod,
+  openStaffCreateModal as openStaffCreateModalMod,
+  openStaffEditModal as openStaffEditModalMod,
+  closeStaffEditor as closeStaffEditorMod,
+  saveStaffEditor as saveStaffEditorMod,
+  toggleStaffActive as toggleStaffActiveMod,
+  revokeStaffSessions as revokeStaffSessionsMod,
+  deleteStaffMember as deleteStaffMemberMod,
+  rotateStaffCredential as rotateStaffCredentialMod,
+  closeStaffQrModal as closeStaffQrModalMod,
+  copyStaffQrLink as copyStaffQrLinkMod
+} from './studio/staffManager.js';
+
 // ── WebUSB / ESC·POS ── contrato estático (implementación en printerManager.js)
 // Las siguientes referencias garantizan que las herramientas de análisis y los
 // tests de regresión puedan verificar que el soporte WebUSB existe en este módulo.
@@ -1805,6 +1820,7 @@ export function switchTab(tabId, btn) {
   if (tabId === 'branches') renderBranchesList();
   if (tabId === 'dishes') { populateCatFilter(); renderDishesList(); }
   if (tabId === 'qr') generateQrCode();
+  if (tabId === 'staff') loadStaffMod();
   if (tabId === 'notifications') { loadNotificationEvents(); loadRecentOrders(); }
   else { stopOrdersPolling(); }
 }
@@ -2801,6 +2817,20 @@ export function refreshOnboardingChecklist() { refreshOnboardingMod(); }
 export function dismissOnboardingChecklist() { dismissOnboardingMod(); }
 export function onboardGoToStep(tab) { switchTab(tab); }
 
+// ── Equipo y turnos (Sistema de Mozos y Cocina) ────────────────────────────
+export function loadStaff(options) { return loadStaffMod(options); }
+export function saveStaffAssignments() { return saveStaffAssignmentsMod(); }
+export function openStaffCreateModal() { return openStaffCreateModalMod(); }
+export function openStaffEditModal(id) { return openStaffEditModalMod(id); }
+export function closeStaffEditor() { return closeStaffEditorMod(); }
+export function saveStaffEditor(event) { return saveStaffEditorMod(event); }
+export function toggleStaffActive(id) { return toggleStaffActiveMod(id); }
+export function revokeStaffSessions(id) { return revokeStaffSessionsMod(id); }
+export function deleteStaffMember(id) { return deleteStaffMemberMod(id); }
+export function rotateStaffCredential(id) { return rotateStaffCredentialMod(id); }
+export function closeStaffQrModal() { return closeStaffQrModalMod(); }
+export function copyStaffQrLink() { return copyStaffQrLinkMod(); }
+
 // Bind all functions to window for HTML inline event handlers
 const globalExports = {
   initStudio, loadSeoAudit, logout, openDeleteAccountModal, closeDeleteAccountModal, confirmAccountDeletion,
@@ -2836,6 +2866,8 @@ const globalExports = {
   loadRecentOrders, setOrderStatus, toggleOrderSound, toggleOrderTitleFlash, toggleOrderBannerFlash, printOrderTicket, printOrderEscPos, connectUsbPrinter,
   importDemoTemplate, discardDemoTemplate,
   renderOnboardingChecklist, refreshOnboardingChecklist, dismissOnboardingChecklist, onboardGoToStep,
+  loadStaff, saveStaffAssignments, openStaffCreateModal, openStaffEditModal, closeStaffEditor, saveStaffEditor,
+  toggleStaffActive, revokeStaffSessions, deleteStaffMember, rotateStaffCredential, closeStaffQrModal, copyStaffQrLink,
   updateBusinessTypeControls, filterThemeOptionsByBusinessType, resolveIceCreamButtonStyle,
   openAiMenuImportModal, closeAiMenuImportModal, handleAiMenuFilesInput, moveAiMenuPage, removeAiMenuPage, runAiMenuAnalysis, closeAiMenuPreviewModal, confirmAiMenuImportAction, removeDetectedAiDish
 };

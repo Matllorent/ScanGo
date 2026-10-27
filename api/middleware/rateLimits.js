@@ -58,5 +58,11 @@ module.exports = {
   dishCreationLimiter: createRateLimit(30, 'DISH_CREATION_RATE_LIMITED', 'Demasiados platos creados en poco tiempo.'),
   // Guardado masivo con platos (POST /api/studio/save con dishes[]): 5 req/min por tenant
   dishBulkSaveLimiter: createRateLimit(5, 'DISH_BULK_SAVE_RATE_LIMITED', 'Demasiados guardados masivos de carta en poco tiempo.'),
+  // Equipo operativo: el mozo hace polling de mesas cada 30 s durante todo el
+  // turno (≈120 req/15 min por dispositivo). El balde es por IP y generoso.
+  staffLimiter: createRateLimit(300, 'STAFF_RATE_LIMITED', 'Demasiadas operaciones del turno en poco tiempo.'),
+  // Activación del turno: 24 bytes de secreto hacen la fuerza bruta imposible;
+  // el límite corta el abuso antes de que llegue al hash.
+  staffShiftLimiter: createRateLimit(30, 'STAFF_SHIFT_RATE_LIMITED', 'Demasiados intentos de activar un turno.'),
   publicEventKeyGenerator
 };

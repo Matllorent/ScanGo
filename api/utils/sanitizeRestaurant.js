@@ -14,6 +14,7 @@ const {
 const { parseDailyStock } = require('./dailyStockTracker');
 const { sanitizeStation } = require('./dishStation');
 const { sanitizeRefSlug } = require('./viralRef');
+const { sanitizeTableAssignments } = require('./staffCredentials');
 const { z } = require('zod');
 
 // Morfologías y paletas vienen del MANIFEST CANÓNICO (api/utils/themeManifest.js):
@@ -563,6 +564,16 @@ function sanitizeRestaurantPayload(data) {
   clean.eventCustomQR = sanitizeUrl(clean.eventCustomQR, 500);
   clean.scheduleActiveHours = sanitizeString(clean.scheduleActiveHours, 30);
   clean.tableCount = Math.max(1, Math.min(100, parseInt(clean.tableCount) || 1));
+  // Asignación operativa de mesas (Sistema de Mozos, Fase 1): mapa
+  // { "1": "staff_..." }. Se sanea SOLO si vino en el payload: ausente no
+  // borra la asignación existente (el autosave de una pestaña que no abrió la
+  // pestaña Equipo no debe pisarla). El endpoint dedicado
+  // PATCH /api/studio/staff/tables es la vía para cambiarla.
+  if (clean.tableAssignments !== undefined) {
+    const assignments = sanitizeTableAssignments(clean.tableAssignments);
+    if (Object.keys(assignments).length) clean.tableAssignments = assignments;
+    else delete clean.tableAssignments;
+  }
 
   // Media URLs (max 5MB base64)
   if (clean.logoUrl && typeof clean.logoUrl === 'string' && clean.logoUrl.length > 5000000) {

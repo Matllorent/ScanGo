@@ -27,6 +27,8 @@ tags:
     description: Fidelización dual local + red global (`api/routes/loyalty.js`)
   - name: notifications
     description: Push Web y avisos de mesa (`api/routes/notifications.js`)
+  - name: staff
+    description: Turno del equipo operativo — mozos y cocina (`api/routes/staff.js`)
   - name: analytics
     description: Canal público de analítica (`POST /api/public/analytics/event` en `api/index.js`)
   - name: admin
@@ -597,6 +599,506 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Restaurante no encontrado (`RESTAURANT_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/studio/staff:
+    get:
+      tags: [studio]
+      summary: Listar el equipo del local (mozos y cocina) y sus mesas
+      description: |-
+        `authMiddleware` (401) + `requireVerifiedEmail` (403
+        `EMAIL_NOT_CONFIRMED`). Devuelve el equipo con `activeSessions` y las
+        mesas de cada persona, el mapa completo `assignments`
+        (`{"4":"staff_..."}`) y `tables[]` con el nombre resuelto. NUNCA
+        incluye `credentialHash` ni el secreto del QR. 404
+        `RESTAURANT_NOT_FOUND` si el usuario no tiene local.
+      operationId: studioStaffList
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Equipo del local
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, staff, assignments, tables, restaurant]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  staff:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StaffMember'
+                  assignments:
+                    type: object
+                    additionalProperties:
+                      type: string
+                    example: { '4': staff_abc123_def456 }
+                  tables:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StaffTableAssignment'
+                  restaurant:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      tableCount:
+                        type: integer
+                        minimum: 1
+                        maximum: 200
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Email no confirmado (`EMAIL_NOT_CONFIRMED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Restaurante no encontrado (`RESTAURANT_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags: [studio]
+      summary: Dar de alta una persona del equipo y emitir su QR de turno
+      description: |-
+        `authMiddleware` + `requireVerifiedEmail` + `requireActiveSubscription`
+        (402 `SUBSCRIPTION_REQUIRED`). El cuerpo NO acepta `id` ni hashes: los
+        genera el servidor. La respuesta trae `credential` y `enrollmentUrl`
+        UNA SOLA VEZ (el server guarda solo el hash HMAC). El QR apunta a
+        `/mozo?r=<restaurantId>&w=<staffId>#k=<secreto>`: el secreto viaja en
+        el fragmento y el navegador nunca lo manda al servidor.
+      operationId: studioStaffCreate
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                role:
+                  type: string
+                  enum: [waiter, kitchen]
+                  default: waiter
+      responses:
+        '201':
+          description: Integrante creado con su credencial de enrolamiento
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, staff, credential, enrollmentUrl]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  staff:
+                    $ref: '#/components/schemas/StaffMember'
+                  credential:
+                    type: string
+                    description: Secreto del QR, mostrado una sola vez
+                  enrollmentUrl:
+                    type: string
+                    format: uri
+                    description: URL `/mozo?...` con el secreto en el fragmento `#k=`
+        '400':
+          description: Nombre inválido (`INVALID_STAFF_NAME`) o validación (`VALIDATION_ERROR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '402':
+          description: Suscripción requerida (`SUBSCRIPTION_REQUIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Email no confirmado (`EMAIL_NOT_CONFIRMED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Restaurante no encontrado (`RESTAURANT_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/studio/staff/tables:
+    patch:
+      tags: [studio]
+      summary: Asignar mesas a las personas del equipo
+      description: |-
+        `authMiddleware` + `requireVerifiedEmail` + `requireActiveSubscription`.
+        Reemplaza el mapa completo `restaurant.tableAssignments`
+        (`{"4":"staff_..."}`). Rechaza hasta 200 mesas y cualquier id que no
+        pertenezca al local. NO toca `restaurant.updatedAt`: asignar mesas no
+        es editar la carta ni dispara el 409 de concurrencia del autosave.
+        Declarada antes de `/api/studio/staff/{id}` para que `tables` no se
+        interprete como un id.
+      operationId: studioStaffAssignTables
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assignments]
+              properties:
+                assignments:
+                  type: object
+                  maxProperties: 200
+                  additionalProperties:
+                    type: string
+                  example: { '4': staff_abc123_def456, 'Terraza 1': staff_abc123_def456 }
+      responses:
+        '200':
+          description: Asignaciones guardadas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, assignments, tables]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  assignments:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  tables:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StaffTableAssignment'
+        '400':
+          description: >-
+            Mesa inválida (`INVALID_TABLE_NUMBER`), repetida (`DUPLICATE_TABLE`),
+            más de 200 (`TOO_MANY_TABLES`) o persona ajena (`INVALID_STAFF_ID`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '402':
+          description: Suscripción requerida (`SUBSCRIPTION_REQUIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Email no confirmado (`EMAIL_NOT_CONFIRMED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Restaurante no encontrado (`RESTAURANT_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/studio/staff/{id}:
+    patch:
+      tags: [studio]
+      summary: Editar nombre, rol o estado de una persona del equipo
+      description: |-
+        `authMiddleware` + `requireVerifiedEmail` + `requireActiveSubscription`.
+        Desactivar (`active: false`) revoca TODAS sus sesiones de turno; el
+        secreto del QR se conserva hasta regenerarlo. Solo acepta personas del
+        propio local (404 `STAFF_NOT_FOUND` para ids ajenos).
+      operationId: studioStaffUpdate
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                role:
+                  type: string
+                  enum: [waiter, kitchen]
+                active:
+                  type: boolean
+      responses:
+        '200':
+          description: Persona actualizada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, staff]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  staff:
+                    $ref: '#/components/schemas/StaffMember'
+        '400':
+          description: Nombre o rol inválido (`INVALID_STAFF_NAME` / `INVALID_STAFF_ROLE`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '402':
+          description: Suscripción requerida (`SUBSCRIPTION_REQUIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Email no confirmado (`EMAIL_NOT_CONFIRMED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Persona del equipo no encontrada (`STAFF_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [studio]
+      summary: Baja definitiva de una persona del equipo
+      description: |-
+        Borra la persona, sus sesiones de turno y sus mesas asignadas. Solo
+        personas del propio local (404 `STAFF_NOT_FOUND`). Auditoría
+        `STAFF_DELETED`.
+      operationId: studioStaffDelete
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Persona eliminada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, deleted, staffId]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  deleted:
+                    type: boolean
+                    example: true
+                  staffId:
+                    type: string
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '402':
+          description: Suscripción requerida (`SUBSCRIPTION_REQUIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Email no confirmado (`EMAIL_NOT_CONFIRMED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Persona del equipo no encontrada (`STAFF_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/studio/staff/{id}/credential:
+    post:
+      tags: [studio]
+      summary: Rotar el QR de turno y revocar las sesiones abiertas
+      description: |-
+        Genera un secreto nuevo y devuelve `credential` + `enrollmentUrl` UNA
+        SOLA VEZ. El QR anterior deja de servir al instante y TODAS las
+        sesiones vivas se revocan. Una persona desactivada responde 409
+        `STAFF_INACTIVE` (primero hay que reactivarla).
+      operationId: studioStaffRotateCredential
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Credencial rotada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, staff, credential, enrollmentUrl]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  staff:
+                    $ref: '#/components/schemas/StaffMember'
+                  credential:
+                    type: string
+                    description: Secreto nuevo, mostrado una sola vez
+                  enrollmentUrl:
+                    type: string
+                    format: uri
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '402':
+          description: Suscripción requerida (`SUBSCRIPTION_REQUIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Email no confirmado (`EMAIL_NOT_CONFIRMED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Persona del equipo no encontrada (`STAFF_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Persona desactivada (`STAFF_INACTIVE`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/studio/staff/{id}/sessions:
+    delete:
+      tags: [studio]
+      summary: Cerrar todos los turnos abiertos de una persona
+      description: |-
+        Botón de pánico: revoca las sesiones vivas sin rotar el QR (el próximo
+        turno puede volver a escanear el mismo cartel). Solo personas del
+        propio local (404 `STAFF_NOT_FOUND`). Auditoría
+        `STAFF_SESSIONS_REVOKED`.
+      operationId: studioStaffRevokeSessions
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sesiones revocadas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, revoked]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  revoked:
+                    type: integer
+                    minimum: 0
+        '401':
+          description: Sin sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '402':
+          description: Suscripción requerida (`SUBSCRIPTION_REQUIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Email no confirmado (`EMAIL_NOT_CONFIRMED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Persona del equipo no encontrada (`STAFF_NOT_FOUND`)
           content:
             application/json:
               schema:
@@ -2190,6 +2692,391 @@ paths:
           description: Cupo de videos por carta alcanzado (`VIDEO_LIMIT_EXCEEDED`)
         '404':
           description: Restaurante no encontrado
+  /api/staff/shift/activate:
+    post:
+      tags: [staff]
+      summary: Activar un turno escaneando el QR de equipo
+      description: |-
+        Público + `staffShiftLimiter`. Verifica la credencial del QR
+        (`restaurantId`, `staffId`, `secret`) y emite un token opaco de sesión
+        (32 chars, guardado hasheado, TTL 12 h deslizante con tope absoluto de
+        24 h desde la activación). El secreto llega en el body —lo extrae el
+        navegador del fragmento `#k=`— y nunca en query string ni logs.
+        Credencial inválida o local ajeno → 401 `STAFF_CREDENTIAL_INVALID`
+        (misma respuesta, sin enumerar el equipo); persona desactivada → 403
+        `STAFF_INACTIVE`. Auditoría `STAFF_SHIFT_START`.
+      operationId: staffShiftActivate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [restaurantId, staffId, secret]
+              properties:
+                restaurantId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                staffId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                secret:
+                  type: string
+                  minLength: 20
+                  maxLength: 200
+      responses:
+        '200':
+          description: Turno activado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    required: [token, expiresAt, staff, restaurant, tables, pushConfigured]
+                    properties:
+                      token:
+                        type: string
+                        description: Token opaco de sesión (único y solo se devuelve acá)
+                      expiresAt:
+                        type: string
+                        format: date-time
+                      staff:
+                        $ref: '#/components/schemas/StaffMember'
+                      restaurant:
+                        $ref: '#/components/schemas/StaffRestaurant'
+                      tables:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/StaffAssignment'
+                      pushConfigured:
+                        type: boolean
+        '400':
+          description: Body inválido (`VALIDATION_ERROR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Credencial inválida (`STAFF_CREDENTIAL_INVALID`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Persona desactivada (`STAFF_INACTIVE`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Local inexistente (`RESTAURANT_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit del turno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/staff/me:
+    get:
+      tags: [staff]
+      summary: Identidad del turno, local y mesas asignadas
+      description: |-
+        Requiere el token opaco como `Authorization: Bearer <token>`; sin token
+        401 `STAFF_TOKEN_REQUIRED`, token inválido/vencido/revocado 401
+        `STAFF_SESSION_INVALID`. Es la llamada que hace la PWA `/mozo` al abrir
+        y en cada refresco (polling 30 s) sin volver a pedir el QR.
+      operationId: staffMe
+      security:
+        - staffBearerAuth: []
+      responses:
+        '200':
+          description: Turno activo
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    required: [staff, restaurant, session, tables, pushConfigured]
+                    properties:
+                      staff:
+                        $ref: '#/components/schemas/StaffMember'
+                      restaurant:
+                        $ref: '#/components/schemas/StaffRestaurant'
+                      session:
+                        type: object
+                        properties:
+                          expiresAt:
+                            type: string
+                            format: date-time
+                          lastSeenAt:
+                            type: string
+                            format: date-time
+                      tables:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/StaffAssignment'
+                      pushConfigured:
+                        type: boolean
+        '401':
+          description: Token faltante o inválido (`STAFF_TOKEN_REQUIRED` / `STAFF_SESSION_INVALID`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/staff/shift/heartbeat:
+    post:
+      tags: [staff]
+      summary: Renovar el turno vivo
+      description: |-
+        Estira la sesión (TTL 12 h) sin pasar el tope absoluto de 24 h desde la
+        activación y devuelve el vencimiento real. El middleware ya hace un
+        touch throttled; este endpoint es explícito para que la PWA renueve al
+        volver del background.
+      operationId: staffShiftHeartbeat
+      security:
+        - staffBearerAuth: []
+      responses:
+        '200':
+          description: Turno renovado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    required: [expiresAt]
+                    properties:
+                      expiresAt:
+                        type: string
+                        format: date-time
+        '401':
+          description: Token faltante o inválido (`STAFF_TOKEN_REQUIRED` / `STAFF_SESSION_INVALID`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/staff/shift/end:
+    post:
+      tags: [staff]
+      summary: Cerrar el turno
+      description: |-
+        Idempotente: cierra la sesión y el token deja de servir al instante. La
+        suscripción push queda guardada para el próximo turno de la misma
+        persona. Auditoría `STAFF_SHIFT_END`.
+      operationId: staffShiftEnd
+      security:
+        - staffBearerAuth: []
+      responses:
+        '200':
+          description: Turno cerrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+        '401':
+          description: Token faltante o inválido (`STAFF_TOKEN_REQUIRED` / `STAFF_SESSION_INVALID`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/staff/tables:
+    get:
+      tags: [staff]
+      summary: Mesas asignadas a ESTA persona
+      description: |-
+        Solo las mesas cuyo `tableAssignments[mesa]` es esta persona. Sin
+        asignaciones devuelve `tables: []` explícito (la PWA muestra que el
+        dueño todavía no le asignó mesas, no una pizarra vacía silenciosa).
+      operationId: staffTables
+      security:
+        - staffBearerAuth: []
+      responses:
+        '200':
+          description: Mesas del turno
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    required: [tables, restaurant, staff]
+                    properties:
+                      tables:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/StaffAssignment'
+                      restaurant:
+                        $ref: '#/components/schemas/StaffRestaurant'
+                      staff:
+                        $ref: '#/components/schemas/StaffMember'
+        '401':
+          description: Token faltante o inválido (`STAFF_TOKEN_REQUIRED` / `STAFF_SESSION_INVALID`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/staff/push/subscribe:
+    post:
+      tags: [staff]
+      summary: Activar los avisos push del turno
+      description: |-
+        Guarda la suscripción Web Push dirigida por `staff_id` (rol `waiter`),
+        nunca por endpoint ni a todos los mozos: una tablet compartida puede
+        cambiar de turno sin cruzar avisos. Best-effort: envía un push de
+        bienvenida si VAPID está configurado; sin VAPID devuelve
+        `pushConfigured: false` y `skipped: PUSH_NOT_CONFIGURED` sin romper.
+      operationId: staffPushSubscribe
+      security:
+        - staffBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoint, keys]
+              properties:
+                endpoint:
+                  type: string
+                  format: uri
+                  maxLength: 2000
+                keys:
+                  type: object
+                  required: [p256dh, auth]
+                  properties:
+                    p256dh:
+                      type: string
+                      maxLength: 1000
+                    auth:
+                      type: string
+                      maxLength: 1000
+      responses:
+        '200':
+          description: Suscripción guardada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    required: [subscriptionId, pushConfigured, delivered]
+                    properties:
+                      subscriptionId:
+                        type: string
+                      pushConfigured:
+                        type: boolean
+                      delivered:
+                        type: integer
+                        minimum: 0
+                      skipped:
+                        type: string
+                        description: Motivo honesto del skip (p. ej. `PUSH_NOT_CONFIGURED`)
+        '400':
+          description: Endpoint o claves inválidas (`VALIDATION_ERROR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Token faltante o inválido (`STAFF_TOKEN_REQUIRED` / `STAFF_SESSION_INVALID`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [staff]
+      summary: Desactivar los avisos push del turno
+      description: |-
+        Baja SOLO una suscripción propia del turno (no la de otro mozo ni la
+        del dueño). Si el endpoint no pertenece a esta persona → 404
+        `SUBSCRIPTION_NOT_FOUND`.
+      operationId: staffPushUnsubscribe
+      security:
+        - staffBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoint]
+              properties:
+                endpoint:
+                  type: string
+                  format: uri
+                  maxLength: 2000
+      responses:
+        '200':
+          description: Avisos del turno desactivados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+        '400':
+          description: Endpoint inválido (`VALIDATION_ERROR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Token faltante o inválido (`STAFF_TOKEN_REQUIRED` / `STAFF_SESSION_INVALID`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: La suscripción no pertenece a este turno (`SUBSCRIPTION_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/account/delete-request:
     post:
       tags: [account]
@@ -2274,6 +3161,14 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: Mismo JWT de `auth_token` por header `Authorization: Bearer <token>`
+    staffBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: >-
+        Token opaco de turno del equipo (mozos/cocina), emitido por
+        `POST /api/staff/shift/activate` al escanear el QR. NO es el JWT del
+        dueño: muere al cerrar el turno, vencer o rotar el QR.
     adminCookieAuth:
       type: apiKey
       in: cookie
@@ -2859,3 +3754,71 @@ components:
           minimum: 0
           maximum: 2
           description: Tier de popularidad (2 grande / 1 normal / 0 chico) — solo con menuSizing=popularity
+    StaffMember:
+      type: object
+      required: [id, name, role, roleLabel, active]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          maxLength: 80
+        role:
+          type: string
+          enum: [waiter, kitchen]
+        roleLabel:
+          type: string
+          example: Mozo
+        active:
+          type: boolean
+        credentialUpdatedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        activeSessions:
+          type: integer
+          minimum: 0
+          description: Sesiones de turno vivas (solo en el panel del dueño)
+        tables:
+          type: array
+          items:
+            $ref: '#/components/schemas/StaffAssignment'
+    StaffRestaurant:
+      type: object
+      required: [id, name, slug]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+    StaffAssignment:
+      type: object
+      required: [number, label]
+      properties:
+        number:
+          type: string
+          example: '4'
+        label:
+          type: string
+          example: Mesa 4
+    StaffTableAssignment:
+      type: object
+      required: [number, label, staffId, staffName]
+      properties:
+        number:
+          type: string
+          example: '4'
+        label:
+          type: string
+          example: Mesa 4
+        staffId:
+          type: string
+        staffName:
+          type: string
