@@ -2099,16 +2099,16 @@ paths:
       description: |-
         `authMiddleware` + `tenantGuard` + `requireActiveSubscription`.
         Devuelve `{ summary, coupons[] }` con `code`, `label`, `type`, `value`,
-        `createdAt`, `expiresAt`, `usedAt`, `status` (`live|used|expired`),
-        `phoneMasked` y `usedOrderId`. NUNCA expone `boundPhone` ni
-        `usedByPhone` crudos.
+        `createdAt`, `expiresAt`, `usedAt`, `status` (`live|used|expired|revoked`),
+        `revokedAt` (v3), `phoneMasked` y `usedOrderId`. NUNCA expone
+        `boundPhone` ni `usedByPhone` crudos.
       operationId: loyaltyWinbackCoupons
       security:
         - cookieAuth: []
         - bearerAuth: []
       responses:
         '200':
-          description: Cupones + resumen (`total`, `liveCount`, `usedCount`, `expiredCount`, `nextExpiry`)
+          description: Cupones + resumen (`total`, `liveCount`, `usedCount`, `expiredCount`, `revokedCount`, `nextExpiry`)
           content:
             application/json:
               schema:
@@ -2128,6 +2128,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/loyalty/winback/coupons/{code}:
+    delete:
+      tags: [loyalty]
+      summary: Revocar cupón vivo de recupero (dueño, F8-v3)
+      description: |-
+        `authMiddleware` + `tenantGuard` + `requireActiveSubscription`. El dueño
+        baja un cupón VIVO (fuga del código, error del staff): el comensal ve
+        REVOKED en `coupon/validate` («El local canceló este cupón») y el
+        checkout rechaza con `COUPON_REVOKED`. Solo vivos: usado → 409 `COUPON_ALREADY_USED`
+        (el uso ya concreto no se revoca), ya revocado → 409 `COUPON_ALREADY_REVOKED`,
+        vencido → 422 `COUPON_EXPIRED` (nada que revocar). La decisión es
+        cloud-primero (RPC `revoke_recovery_coupon`, migración 012): mismo
+        veredicto en todas las réplicas. El param es `code` (NO `id`).
+      operationId: loyaltyWinbackCouponRevoke
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string, pattern: '^[A-Za-z0-9-]{3,32}$' }
+          example: VOL-ABCD2345
+      responses:
+        '200':
+          description: Revocado (`{ revoked: true, coupon }` con `revokedAt` + `status: revoked`)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '400':
+          description: Código inválido (`COUPON_CODE_REQUIRED`)
+        '401':
+          description: Sin sesión
+        '404':
+          description: Cupón ajeno o inexistente (`COUPON_NOT_FOUND`)
+        '409':
+          description: Usado o ya revocado (`COUPON_ALREADY_USED` / `COUPON_ALREADY_REVOKED`)
+        '422':
+          description: Vencido (`COUPON_EXPIRED`)
   /api/loyalty/winback/telemetry:
     get:
       tags: [loyalty]
@@ -2135,11 +2184,11 @@ paths:
       description: |-
         `authMiddleware` + `tenantGuard` + `requireActiveSubscription`.
         Cohorte por emisión en la ventana (`?days=` 1..365, default 30):
-        `couponsIssued`, `couponsUsed`, `couponsLive`, `couponsExpired`,
-        `recoveredCount`, `attributedRevenueCents` (solo pedidos REALES no
-        cancelados encontrados por `usedOrderId`; si el pedido no está en el
-        espejo no se inventa ingreso) y `conversionRate` (porcentaje con un
-        decimal).
+        `couponsIssued`, `couponsUsed`, `couponsLive`, `couponsRevoked` (v3),
+        `couponsExpired`, `recoveredCount`, `attributedRevenueCents` (solo
+        pedidos REALES no cancelados encontrados por `usedOrderId`; si el
+        pedido no está en el espejo no se inventa ingreso) y `conversionRate`
+        (porcentaje con un decimal).
       operationId: loyaltyWinbackTelemetry
       security:
         - cookieAuth: []

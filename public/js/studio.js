@@ -249,7 +249,8 @@ import {
   loadChurnList as loadChurnListMod,
   sendReactivation as sendReactivationMod,
   launchWinbackCampaign as launchWinbackCampaignMod,
-  loadWinbackCoupons as loadWinbackCouponsMod
+  loadWinbackCoupons as loadWinbackCouponsMod,
+  revokeWinbackCoupon as revokeWinbackCouponMod
 } from './studio/loyaltyManager.js';
 import {
   WEDDING_ITINERARY_ICONS,
@@ -2315,6 +2316,7 @@ async function loadChurnList() { return loadChurnListMod(escapeHtml); }
 async function sendReactivation(customerId) { return sendReactivationMod(customerId, escapeHtml, showConfirmDialog); }
 async function launchWinbackCampaign() { return launchWinbackCampaignMod(escapeHtml, showConfirmDialog); }
 async function loadWinbackCoupons() { return loadWinbackCouponsMod(); }
+async function revokeWinbackCoupon(code) { return revokeWinbackCouponMod(code, showConfirmDialog); }
 
 async function loadNotificationEvents() {
   const list = document.getElementById('notificationInboxList');
@@ -2957,7 +2959,7 @@ const globalExports = {
   validateGoogleReviewLink, testGoogleReviewLink, copyReviewLink, loadReviewFunnel,
   loadNotificationEvents, markNotificationEventRead, sendPromoPush,
   loadChurnList, sendReactivation,
-  launchWinbackCampaign, loadWinbackCoupons,
+  launchWinbackCampaign, loadWinbackCoupons, revokeWinbackCoupon,
   loadRecentOrders, setOrderStatus, toggleOrderSound, toggleOrderTitleFlash, toggleOrderBannerFlash, printOrderTicket, printOrderEscPos, connectUsbPrinter,
   importDemoTemplate, discardDemoTemplate,
   renderOnboardingChecklist, refreshOnboardingChecklist, dismissOnboardingChecklist, onboardGoToStep,

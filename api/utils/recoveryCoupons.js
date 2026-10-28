@@ -7,13 +7,14 @@
  * Qué hace (y qué NO hace):
  *  - Define la forma de un cupón de recupero: { id, code, source:'winback',
  *    type:'percent'|'free_delivery', value, label, createdAt, expiresAt,
- *    usedAt, usedByPhone, usedOrderId }.
+ *    usedAt, usedByPhone, usedOrderId, revokedAt? }.
  *  - Genera códigos no ambiguos con fuente de aleatoriedad INYECTABLE
  *    (el router usa crypto.randomInt; los tests usan PRNG fijo — determinismo
  *    testeable, mismo estilo que test-money-properties).
- *  - Valida vigencia: expiración, uso único y teléfono vinculado (solo si el
- *    pedido declara teléfono y el cupón fue emitido PARA otro teléfono; un
- *    pedido de mesa sin teléfono no queda bloqueado).
+ *  - Valida vigencia: revocación del dueño (v3), expiración, uso único y
+ *    teléfono vinculado (solo si el pedido declara teléfono y el cupón fue
+ *    emitido PARA otro teléfono; un pedido de mesa sin teléfono no queda
+ *    bloqueado).
  *  - NO aplica descuentos (eso es `resolveCouponDiscount` en orderMoney.js);
  *    NO persiste (eso es la capa de servicio, ledger local + espejo webhooks
  *    de Supabase); NO toca el payload público (los códigos NUNCA viajan al
@@ -133,10 +134,13 @@ function normalizePhoneDigits(raw) {
 
 /**
  * isValidRecoveryCoupon — SOLO la semántica de vigencia (percentage/free va en money).
- * @returns {true | 'EXPIRED' | 'ALREADY_USED' | 'NOT_FOR_THIS_PHONE' | 'MALFORMED'}
+ * @returns {true | 'EXPIRED' | 'ALREADY_USED' | 'REVOKED' | 'NOT_FOR_THIS_PHONE' | 'MALFORMED'}
  */
 function isValidRecoveryCoupon(row, { nowMs, phone } = {}) {
   if (!row || typeof row !== 'object' || !row.code || !row.expiresAt) return 'MALFORMED';
+  // La revocación del dueño GANA SIEMPRE (v3): un cupón revocado está muerto
+  // aunque no esté usado ni vencido — el dueño lo bajó del catálogo a propósito.
+  if (row.revokedAt) return 'REVOKED';
   if (row.usedAt) return 'ALREADY_USED';
   const at = Number.isFinite(nowMs) ? nowMs : Date.now();
   if (Date.parse(row.expiresAt) <= at) return 'EXPIRED';
@@ -171,6 +175,7 @@ const RECOVERY_COUPON_REASON_COPY = {
   NOT_FOUND: 'No encontramos ese cupón en este local.',
   EXPIRED: 'Este cupón venció. Pedile al local un código nuevo.',
   ALREADY_USED: 'Este cupón ya fue usado. Cada código sirve una sola vez.',
+  REVOKED: 'El local canceló este cupón. Pedile uno nuevo.',
   NOT_FOR_THIS_PHONE: 'Ese cupón es personal: fue emitido para otro teléfono.',
   MALFORMED: 'El cupón no es válido.',
   NOT_APPLICABLE: 'Tu cupón es de envío gratis: elegí delivery para usarlo.'
@@ -210,36 +215,63 @@ function describeRecoveryCoupon(row, { nowMs, phone, orderMode } = {}) {
 }
 
 /**
- * purgeRecoveryCoupons — recorta el ledger: descarta usados/expirados viejos
- * y conserva los más recientes. NO muta el array de entrada (devuelve uno nuevo).
+ * statusOfRecoveryCoupon — UNA sola derivación de estado para TODO el panel
+ * (la usaba inline el route GET /winback/coupons; el Revocar v3 suma
+ * `revoked`). Orden: used > revoked > live/expired por fecha. Fila basura →
+ * 'expired' (muerta, nunca viva por accidente).
+ */
+function statusOfRecoveryCoupon(row, { nowMs } = {}) {
+  const at = Number.isFinite(nowMs) ? nowMs : Date.now();
+  if (!row || typeof row !== 'object' || !row.code) return 'expired';
+  if (row.usedAt) return 'used';
+  if (row.revokedAt) return 'revoked';
+  return Date.parse(row.expiresAt) > at ? 'live' : 'expired';
+}
+
+/**
+ * purgeRecoveryCoupons — recorta el ledger: descarta usados/revocados/expirados
+ * viejos y conserva los más recientes. NO muta el array de entrada (devuelve uno nuevo).
+ * El tope es POR LOCAL (el archivo es global cross-restaurante): agrupar por
+ * restaurantId para que 500 cupones del local A no expulsen los del B.
  */
 function purgeRecoveryCoupons(rows, { keepTotal = MAX_COUPONS_PER_RESTAURANT, keepUsed = 20, nowMs } = {}) {
   const at = Number.isFinite(nowMs) ? nowMs : Date.now();
-  const live = (Array.isArray(rows) ? rows : []).filter((r) => {
-    if (!r) return false;
-    return !r.usedAt && Date.parse(r.expiresAt) > at;
-  });
-  const retired = (Array.isArray(rows) ? rows : []).filter((r) => {
-    if (!r) return false;
-    return r.usedAt || Date.parse(r.expiresAt) <= at;
-  });
-  return live.concat(retired.slice(-keepUsed)).slice(-keepTotal);
+  const all = (Array.isArray(rows) ? rows : []).filter((r) => r && r.id);
+  const byRestaurant = new Map();
+  for (const row of all) {
+    const key = String(row.restaurantId || '');
+    if (!byRestaurant.has(key)) byRestaurant.set(key, []);
+    byRestaurant.get(key).push(row);
+  }
+  const out = [];
+  for (const group of byRestaurant.values()) {
+    const live = group.filter((r) => !r.usedAt && !r.revokedAt && Date.parse(r.expiresAt) > at);
+    const retired = group.filter((r) => r.usedAt || r.revokedAt || Date.parse(r.expiresAt) <= at);
+    // Ojo footgun: `slice(-0)` === `slice(0)` === TODO el array en JS — un
+    // keepUsed:0 debía retirar TODOS los retired y los conservaba todos.
+    const kept = live.concat(keepUsed > 0 ? retired.slice(-keepUsed) : []);
+    out.push(...kept.slice(keepTotal > 0 ? -keepTotal : live.length));
+  }
+  return out;
 }
 
 /**
  * summarizeRecoveryCoupons — resumen cero-touch para el Studio (data ya local).
- * Devuelve métricas honestas del catálogo de recupero del local.
+ * Devuelve métricas honestas del catálogo de recupero del local. `revokedCount`
+ * es aditivo (v3): los revocados NO son ni vigentes ni vencidos.
  */
 function summarizeRecoveryCoupons(rows, { nowMs } = {}) {
   const at = Number.isFinite(nowMs) ? nowMs : Date.now();
   const all = Array.isArray(rows) ? rows : [];
   const used = all.filter(r => r && r.usedAt);
-  const live = all.filter(r => r && !r.usedAt && Date.parse(r.expiresAt) > at);
+  const revoked = all.filter(r => r && r.revokedAt && !r.usedAt);
+  const live = all.filter(r => r && !r.usedAt && !r.revokedAt && Date.parse(r.expiresAt) > at);
   return {
     total: all.length,
     liveCount: live.length,
     usedCount: used.length,
-    expiredCount: all.length - live.length - used.length,
+    revokedCount: revoked.length,
+    expiredCount: all.length - live.length - used.length - revoked.length,
     nextExpiry: live.length ? live[0].expiresAt : null
   };
 }
@@ -265,7 +297,8 @@ function computeWinbackTelemetry(coupons, { orders = [], nowMs, windowDays = 30,
     return Date.parse(r.createdAt) >= since;
   });
   const used = cohort.filter(r => r.usedAt);
-  const live = cohort.filter(r => !r.usedAt && Date.parse(r.expiresAt) > at);
+  const revoked = cohort.filter(r => r.revokedAt && !r.usedAt);
+  const live = cohort.filter(r => !r.usedAt && !r.revokedAt && Date.parse(r.expiresAt) > at);
 
   const byId = new Map(
     (Array.isArray(orders) ? orders : [])
@@ -289,7 +322,8 @@ function computeWinbackTelemetry(coupons, { orders = [], nowMs, windowDays = 30,
     couponsIssued: cohort.length,
     couponsUsed: used.length,
     couponsLive: live.length,
-    couponsExpired: cohort.length - used.length - live.length,
+    couponsRevoked: revoked.length,
+    couponsExpired: cohort.length - used.length - live.length - revoked.length,
     recoveredCount,
     attributedRevenueCents,
     // % con un decimal (evita "33.333333%" en el panel).
@@ -313,6 +347,7 @@ module.exports = {
   toCatalogShape,
   describeRecoveryCoupon,
   RECOVERY_COUPON_REASON_COPY,
+  statusOfRecoveryCoupon,
   purgeRecoveryCoupons,
   summarizeRecoveryCoupons,
   computeWinbackTelemetry

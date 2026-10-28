@@ -536,7 +536,9 @@ router.get('/winback/coupons', authMiddleware, tenantGuard, requireActiveSubscri
     const summary = recoveryCoupons.summarizeRecoveryCoupons(rows, { nowMs });
     const coupons = rows.slice(0, 200).map((row) => {
       const shape = recoveryCoupons.toCatalogShape(row) || { code: '', type: 'percent', value: 0, label: '' };
-      const status = row.usedAt ? 'used' : (Date.parse(row.expiresAt) > nowMs ? 'live' : 'expired');
+      // v3: la derivación de estado vive en UN lugar (statusOfRecoveryCoupon —
+      // used > revoked > live/expired) y la fila suma `revokedAt`.
+      const status = recoveryCoupons.statusOfRecoveryCoupon(row, { nowMs });
       return {
         code: shape.code,
         label: shape.label,
@@ -545,12 +547,67 @@ router.get('/winback/coupons', authMiddleware, tenantGuard, requireActiveSubscri
         createdAt: row.createdAt || null,
         expiresAt: row.expiresAt || null,
         usedAt: row.usedAt || null,
+        revokedAt: row.revokedAt || null,
         status,
         phoneMasked: loyaltyService.maskPhone(row.usedByPhone || row.boundPhone || ''),
         usedOrderId: row.usedOrderId || null
       };
     });
     return successResponse(res, { summary, coupons }, 'Cupones de recupero');
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * DELETE /api/loyalty/winback/coupons/:code
+ * Dueño: revoca un cupón VIVO de recupero (fuga del código, error del staff).
+ * El comensal ve REVOKED en validate ("El local canceló este cupón. Pedile uno
+ * nuevo.") y el checkout rechaza con 422 COUPON_REVOKED. El param es `:code`
+ * (NO `:id` — tenantGuard lo interpretaría como tenant). Solo vivos: usado →
+ * 409 COUPON_ALREADY_USED (el uso ya concreto no se revoca), ya revocado → 409
+ * COUPON_ALREADY_REVOKED, vencido → 422 COUPON_EXPIRED (ya está muerto, nada
+ * que revocar). La decisión es cloud-primero (RPC 012): el veredicto queda
+ * idéntico en TODAS las réplicas de Vercel.
+ */
+router.delete('/winback/coupons/:code', authMiddleware, tenantGuard, requireActiveSubscription, async (req, res, next) => {
+  try {
+    const code = recoveryCoupons.normalizeCouponCode(req.params.code);
+    if (!code) throw new AppError('Código de cupón inválido', 400, 'COUPON_CODE_REQUIRED');
+    const result = await loyaltyService.revokeRecoveryCoupon({ restaurantId: req.tenantId, code });
+    if (!result || !result.revoked) {
+      const reason = (result && result.reason) || 'NOT_FOUND';
+      const map = {
+        NOT_FOUND: [404, 'COUPON_NOT_FOUND', 'No encontramos ese cupón en este local.'],
+        ALREADY_USED: [409, 'COUPON_ALREADY_USED', 'Ese cupón ya fue usado: no se puede revocar.'],
+        ALREADY_REVOKED: [409, 'COUPON_ALREADY_REVOKED', 'Ese cupón ya estaba revocado.'],
+        EXPIRED: [422, 'COUPON_EXPIRED', 'Ese cupón ya venció: nada que revocar.']
+      };
+      const entry = map[reason] || map.NOT_FOUND;
+      throw new AppError(entry[2], entry[0], entry[1]);
+    }
+    const row = result.row || {};
+    const shape = recoveryCoupons.toCatalogShape(row) || { code, type: 'percent', value: 0, label: '' };
+    await auditService.logAction({
+      tenantId: req.tenantId,
+      userId: req.user && req.user.userId,
+      requestId: req.requestId,
+      action: 'WINBACK_REVOKED',
+      entity: 'loyalty',
+      details: { couponCode: shape.code }
+    });
+    return successResponse(res, {
+      revoked: true,
+      coupon: {
+        code: shape.code,
+        label: shape.label,
+        type: shape.type,
+        value: shape.value,
+        expiresAt: row.expiresAt || null,
+        revokedAt: row.revokedAt || null,
+        status: 'revoked'
+      }
+    }, `Cupón ${shape.code} revocado`);
   } catch (err) {
     next(err);
   }

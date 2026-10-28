@@ -1113,30 +1113,131 @@ async function mirrorCouponRow(provider, eventId, eventType, row) {
   }
 }
 
-/** Lectura cross-instancia de cupones creados en otra réplica (best-effort). */
+/**
+ * Lectura cross-instancia de cupones creados en otra réplica (best-effort).
+ * Ojo con las columnas: la tabla `webhooks` guarda el payload en `data` y el
+ * orden es `received_at` (NO existen `response` ni `created_at` — la forma
+ * vieja consultaba columnas inexistentes, el error se tragaba con `return []`
+ * y la lectura cross-réplica quedaba muerta en silencio; cazado por la 70ª).
+ * El UPSERT in-place de markWebhookProcessed (UNIQUE provider+event_id)
+ * reemplaza la fila en cada cambio de estado y refresca `received_at`.
+ */
 async function mirrorCouponList(restaurantId) {
   const supabase = getSupabaseClient();
   if (!supabase) return [];
   try {
     const { data, error } = await supabase
       .from('webhooks')
-      .select('response')
+      .select('data')
       .eq('provider', 'winback_coupon')
-      .order('created_at', { ascending: false })
+      .order('received_at', { ascending: false })
       .limit(200);
     if (error) return [];
     return (data || [])
-      .map(r => r && r.response && r.response.coupon)
+      .map(r => r && r.data && r.data.coupon)
       .filter(c => c && c.restaurantId === restaurantId);
   } catch (e) {
     return [];
   }
 }
 
+// Warn VISIBLE pero DEDUPADO por proceso: una migración RPC ausente o un
+// drift de esquema jamás queda invisible (lección 007/008 y 011).
+const WARNED_WINBACK_RPC = new Set();
+function warnWinbackRpcOnce(key, err) {
+  if (WARNED_WINBACK_RPC.has(key)) return;
+  WARNED_WINBACK_RPC.add(key);
+  console.warn('[loyalty] RPC winback no disponible (path local): ' + (err && err.message ? err.message : String(err)));
+}
+
+/**
+ * callWinbackRpc — llama UNA RPC de la migración 012 y traduce SIEMPRE:
+ *   { mode:'cloud', ok, reason, coupon, already }  — respuesta real de la RPC
+ *   { mode:'local' }                               — sin cloud / RPC ausente /
+ *                                                    drift de esquema / red:
+ *                                                    el caller degrada al
+ *                                                    path v1 con warn.
+ */
+async function callWinbackRpc(fn, args) {
+  const supabase = getSupabaseClient();
+  if (!supabase) return { mode: 'local' };
+  try {
+    const { data, error } = await supabase.rpc(fn, args);
+    if (error) {
+      // PGRST202 = la función no existe en cloud (migración 012 sin aplicar).
+      warnWinbackRpcOnce(fn, error);
+      return { mode: 'local' };
+    }
+    if (!data || typeof data !== 'object' || (data.ok !== true && data.ok !== false)) {
+      warnWinbackRpcOnce(fn, new Error('respuesta inesperada de la RPC'));
+      return { mode: 'local' };
+    }
+    return {
+      mode: 'cloud',
+      ok: data.ok === true,
+      already: data.already === true,
+      reason: data.reason || null,
+      coupon: data.coupon && typeof data.coupon === 'object' ? data.coupon : null
+    };
+  } catch (e) {
+    warnWinbackRpcOnce(fn, e);
+    return { mode: 'local' };
+  }
+}
+
+/** Claim cloud (RPC 012): firma el claim con el reloj YA normalizado por el caller. */
+function claimRecoveryCouponInCloud({ restaurantId, code, phoneDigits, usedByPhone, nowIso }) {
+  return callWinbackRpc('claim_recovery_coupon', {
+    p_restaurant_id: restaurantId,
+    p_code: code,
+    p_phone_digits: phoneDigits || '',
+    p_used_by_phone: usedByPhone || null,
+    p_now_iso: nowIso
+  });
+}
+
+/** Release cloud (RPC 012): CAS por el usedAt exacto del claim + guard FINALIZED. */
+function releaseRecoveryCouponInCloud({ restaurantId, code, usedAt, nowIso }) {
+  return callWinbackRpc('release_recovery_coupon', {
+    p_restaurant_id: restaurantId,
+    p_code: code,
+    p_used_at: usedAt || null,
+    p_now_iso: nowIso || new Date().toISOString()
+  });
+}
+
+/** Revoke cloud (RPC 012): el dueño baja un cupón vivo. */
+function revokeRecoveryCouponInCloud({ restaurantId, code, nowIso }) {
+  return callWinbackRpc('revoke_recovery_coupon', {
+    p_restaurant_id: restaurantId,
+    p_code: code,
+    p_now_iso: nowIso
+  });
+}
+
+/** Rango de versión de estado para el merge espejo↔local (fila sin stateAt = la más vieja). */
+function couponStateRank(row) {
+  return String(row && row.stateAt || '');
+}
+
 async function listRecoveryCoupons(restaurantId) {
   const byId = new Map();
-  for (const row of mirrorCouponList ? await mirrorCouponList(restaurantId) : []) byId.set(row.id, row);
-  for (const row of rowsForOwner(readRecoveryCouponsLocal(), restaurantId)) byId.set(row.id, row);
+  // El espejo llega newest-first (received_at DESC) y hay UNA fila cloud por
+  // cupón (UPSERT in-place): first-wins no basta — cada id entra una vez, así
+  // que el merge elige por `stateAt` (versión del estado) para que una fila
+  // local STALE no tape una mutación hecha en otra réplica.
+  for (const row of await mirrorCouponList(restaurantId)) {
+    if (!row || !row.id) continue;
+    const existing = byId.get(row.id);
+    if (!existing || couponStateRank(row) > couponStateRank(existing)) byId.set(row.id, row);
+  }
+  for (const row of rowsForOwner(readRecoveryCouponsLocal(), restaurantId)) {
+    if (!row || !row.id) continue;
+    const existing = byId.get(row.id);
+    // El local gana empates (es la escritura de ESTA réplica); pierde solo
+    // contra un estado cloud estrictamente más nuevo (mutación en otra réplica).
+    if (!existing || couponStateRank(row) >= couponStateRank(existing)) byId.set(row.id, row);
+  }
   return [...byId.values()].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
 }
 
@@ -1149,8 +1250,12 @@ async function createWinbackCoupon({ restaurantId, discountType, discountValue, 
   });
   if (!row) return null;
   row.restaurantId = restaurantId;
+  row.stateAt = row.createdAt; // versión de estado (merge espejo↔local elige la más nueva)
   const saved = withWinbackLock(`create:${restaurantId}`, async () => {
-    const rows = rowsForOwner(readRecoveryCouponsLocal(), restaurantId);
+    // TODO el ledger (NO solo este local): el writeJson reemplaza el archivo
+    // completo — filtrar acá BORRABA los cupones de todos los demás locales
+    // (data-loss real de v2, cazado por la 70ª).
+    const rows = readRecoveryCouponsLocal();
     rows.push(row);
     await db.writeJson(RECOVERY_COUPONS_FILE, recoveryCoupons.purgeRecoveryCoupons(rows, { nowMs: row.createdAtMs }));
     return row;
@@ -1161,10 +1266,12 @@ async function createWinbackCoupon({ restaurantId, discountType, discountValue, 
 }
 
 /**
- * claimRecoveryCoupon — consumo atómico (provisional). True → el claim quedó
- * escrito (usado hasta que finalize/release decida); reason describe por qué
- * no si falló. El lock serializa claims del mismo código dentro del proceso;
- * cross-instancia lo respalda el marcador `wbu_` del uso FINAL.
+ * claimRecoveryCoupon — consumo atómico. v3: la decisión cross-réplica vive en
+ * la nube (RPC `claim_recovery_coupon` de la migración 012 — UPDATE condicional
+ * bajo row-lock, el perdedor de la carrera ve ALREADY_USED). El lock in-proceso
+ * serializa claims del mismo código dentro de la réplica; el path local v1
+ * queda como degradación honesta (sin cloud, RPC ausente o fila nunca
+ * espejada) con veredicto del módulo puro + marcador `wbu_` del uso final.
  */
 async function claimRecoveryCoupon({ restaurantId, code, phone, nowMs }) {
   const normalized = recoveryCoupons.normalizeCouponCode(code);
@@ -1178,28 +1285,64 @@ async function claimRecoveryCoupon({ restaurantId, code, phone, nowMs }) {
       }
     }
     if (!row) return { row: null, reason: 'NOT_FOUND' };
+    const atMs = Number.isFinite(nowMs) ? nowMs : Date.now();
+    const atIso = new Date(atMs).toISOString();
+
+    // v3 — el claim atómico vive en la nube: si la RPC decide, su fila es la
+    // fuente (la escribe in-place bajo row-lock; el espejo local solo se
+    // alinea — SIN mirror extra, la fila cloud ya quedó actualizada).
+    const cloud = await claimRecoveryCouponInCloud({
+      restaurantId, code: normalized,
+      phoneDigits: recoveryCoupons.normalizePhoneDigits(phone || ''),
+      usedByPhone: normalizePhone(String(phone || '')) || null,
+      nowIso: atIso
+    });
+    if (cloud.mode === 'cloud' && cloud.ok) {
+      // La RPC devuelve la fila ya reclamada (con stateAt): es la fuente.
+      const claimedRow = cloud.coupon
+        ? { ...row, ...cloud.coupon, restaurantId }
+        : { ...row, usedAt: atIso, usedByPhone: normalizePhone(String(phone || '')) || null };
+      await persistLocalCouponRow(claimedRow, restaurantId, atMs);
+      logger.info(`[loyalty] winback claim(cloud) ${normalized} phone=${maskPhone(claimedRow.usedByPhone || '—')}`);
+      return { row: claimedRow, reason: null, mode: 'cloud' };
+    }
+    if (cloud.mode === 'cloud' && cloud.reason && cloud.reason !== 'NOT_FOUND' && cloud.reason !== 'UNAVAILABLE') {
+      // La nube rechazó con un veredicto determinista: reconciliamos la fila
+      // con el estado cloud (otra réplica pudo reclamar/revocar) para que el
+      // describe del route derive el MISMO veredicto con su copy.
+      if (cloud.coupon) row = { ...row, ...cloud.coupon, restaurantId };
+      return { row, reason: cloud.reason, mode: 'cloud' };
+    }
+    // NOT_FOUND cloud = la fila jamás aterrizó en el espejo (cloud caído al
+    // crear); UNAVAILABLE = la RPC no pudo decidir. Ambos caen al path v1.
+
     const verdict = recoveryCoupons.isValidRecoveryCoupon(row, { nowMs, phone });
     if (verdict !== true) return { row, reason: verdict };
     try {
       const usedElsewhere = await db.hasProcessedWebhookAsync('winback_used', `wbu_${row.id}`);
       if (usedElsewhere) return { row, reason: 'ALREADY_USED' };
     } catch (e) { /* cloud down: el espejo local manda (inspección honesta acotada) */ }
-    const atIso = new Date(Number.isFinite(nowMs) ? nowMs : Date.now()).toISOString();
     row.usedAt = atIso;
     row.usedByPhone = normalizePhone(String(phone || '')) || null;
-    const rows = readRecoveryCouponsLocal();
-    const idx = rows.findIndex(r => r && r.id === row.id);
-    if (idx >= 0) {
-      rows[idx] = { ...row, restaurantId };
-      await db.writeJson(RECOVERY_COUPONS_FILE, recoveryCoupons.purgeRecoveryCoupons(rows, { nowMs: Date.parse(atIso) }));
-    } else {
-      // La fila vive SOLO en la otra réplica: clavamos el claim como nuevo local.
-      rows.push({ ...row, restaurantId });
-      await db.writeJson(RECOVERY_COUPONS_FILE, recoveryCoupons.purgeRecoveryCoupons(rows, { nowMs: Date.parse(atIso) }));
-    }
-    logger.info(`[loyalty] winback claim ${recoveryCoupons.normalizeCouponCode(row.code)} phone=${maskPhone(row.usedByPhone || '—')}`);
-    return { row, reason: null };
+    await persistLocalCouponRow(row, restaurantId, atMs);
+    logger.info(`[loyalty] winback claim ${normalized} phone=${maskPhone(row.usedByPhone || '—')}`);
+    return { row, reason: null, mode: 'local' };
   });
+}
+
+/** Escritura local del estado de un cupón (claim/revocación alinean el espejo). */
+async function persistLocalCouponRow(row, restaurantId, atMs) {
+  const rows = readRecoveryCouponsLocal();
+  const stamped = { ...row, restaurantId, stateAt: new Date(atMs).toISOString() };
+  const idx = rows.findIndex(r => r && r.id === stamped.id);
+  if (idx >= 0) {
+    rows[idx] = stamped;
+  } else {
+    // La fila vive SOLO en la otra réplica: clavamos el estado como nuevo local.
+    rows.push(stamped);
+  }
+  await db.writeJson(RECOVERY_COUPONS_FILE, recoveryCoupons.purgeRecoveryCoupons(rows, { nowMs: atMs }));
+  return stamped;
 }
 
 /** Concreta el uso final (el pedido sí existió): parchea orderId + espejo cloud. */
@@ -1222,6 +1365,7 @@ async function finalizeRecoveryClaim({ restaurantId, code, orderId, phone }) {
     }
     row.usedOrderId = orderId || row.usedOrderId || null;
     row.usedByPhone = normalizePhone(String(phone || '')) || row.usedByPhone || null;
+    row.stateAt = new Date().toISOString(); // versión de estado (el espejo cloud gana en el merge)
     const idx = rows.findIndex(r => r && r.id === row.id);
     if (idx >= 0) rows[idx] = { ...row, restaurantId };
     await db.writeJson(RECOVERY_COUPONS_FILE, recoveryCoupons.purgeRecoveryCoupons(rows, { nowMs: Date.now() }));
@@ -1230,24 +1374,97 @@ async function finalizeRecoveryClaim({ restaurantId, code, orderId, phone }) {
         ...row, usedByPhone: maskPhone(row.usedByPhone || '—')
       });
     }
+    // v3: la fila del cupón en cloud también recibe el orderId (UPSERT in-place
+    // — así el panel y la telemetría ven el uso concreto desde CUALQUIER réplica).
+    await mirrorCouponRow('winback_coupon', `wb_${row.id}`, 'used', { ...row, restaurantId });
     return { confirmed: true, alreadyFinalized };
   });
 }
 
-/** Suelta un claim provisional si el pedido falló ANTES de existir. */
+/**
+ * Suelta un claim provisional si el pedido falló ANTES de existir. v3: si el
+ * claim vive en la nube, el release también (RPC 012 — CAS por el usedAt
+ * exacto del claim + guard FINALIZED). Un fallo de infraestructura NO quema el
+ * cupón; un uso ya concreto (marcador `wbu_` de cualquier réplica) NO se deshace.
+ */
 async function releaseRecoveryClaim({ restaurantId, code }) {
   const normalized = recoveryCoupons.normalizeCouponCode(code);
+  if (!normalized) return { released: false };
   return withWinbackLock(`claim:${restaurantId}:${normalized}`, async () => {
     const rows = readRecoveryCouponsLocal();
     const row = recoveryCoupons.findCouponByCode(rowsForOwner(rows, restaurantId), normalized);
     if (!row || !row.usedAt) return { released: false };
+
+    const cloud = await releaseRecoveryCouponInCloud({ restaurantId, code: normalized, usedAt: row.usedAt });
+    if (cloud.mode === 'cloud' && cloud.reason === 'FINALIZED') {
+      // El pedido SÍ existió (en esta u otra réplica): el uso queda concreto.
+      return { released: false, reason: 'FINALIZED', mode: 'cloud' };
+    }
+    if (cloud.mode === 'cloud' && (cloud.ok || cloud.already)) {
+      const clearedRow = cloud.coupon
+        ? { ...row, ...cloud.coupon, restaurantId }
+        : { ...row, usedAt: null, usedByPhone: null, usedOrderId: null };
+      await persistLocalCouponRow(clearedRow, restaurantId, Date.now());
+      return { released: true, mode: 'cloud' };
+    }
+    // Sin cloud / RPC ausente / fila nunca espejada / CAS no matcheó: path v1
+    // (el espejo local manda — el claim fue provisional, el cupón vuelve a vivo).
     row.usedAt = null;
     row.usedByPhone = null;
     row.usedOrderId = null;
-    const idx = rows.findIndex(r => r && r.id === row.id);
-    if (idx >= 0) rows[idx] = { ...row, restaurantId };
-    await db.writeJson(RECOVERY_COUPONS_FILE, recoveryCoupons.purgeRecoveryCoupons(rows, { nowMs: Date.now() }));
-    return { released: true };
+    await persistLocalCouponRow(row, restaurantId, Date.now());
+    return { released: true, mode: 'local' };
+  });
+}
+
+/**
+ * revokeRecoveryCoupon — v3: el dueño baja un cupón VIVO (fuga del código,
+ * error del staff). El comensal ve REVOKED en validate ("El local canceló este
+ * cupón") y el checkout rechaza con 422 COUPON_REVOKED. Decisión cloud-primero
+ * (RPC 012 — mismo veredicto en TODAS las réplicas); sin cloud / RPC ausente /
+ * fila nunca espejada → revocación local + espejo explícito para que la nube
+ * la vea al volver. Usado → ALREADY_USED (el uso ya concreto no se revoca),
+ * ya revocado → ALREADY_REVOKED, vencido → EXPIRED (nada que revocar).
+ */
+async function revokeRecoveryCoupon({ restaurantId, code, nowMs }) {
+  const normalized = recoveryCoupons.normalizeCouponCode(code);
+  if (!normalized) return { row: null, reason: 'NOT_FOUND', revoked: false };
+  return withWinbackLock(`claim:${restaurantId}:${normalized}`, async () => {
+    const rows = readRecoveryCouponsLocal();
+    let row = recoveryCoupons.findCouponByCode(rowsForOwner(rows, restaurantId), normalized);
+    if (!row) {
+      // El cupón pudo crearse en otra réplica (lag del espejo local).
+      for (const c of await listRecoveryCoupons(restaurantId)) {
+        if (recoveryCoupons.normalizeCouponCode(c.code) === normalized) { row = c; break; }
+      }
+    }
+    if (!row) return { row: null, reason: 'NOT_FOUND', revoked: false };
+    const atMs = Number.isFinite(nowMs) ? nowMs : Date.now();
+    const atIso = new Date(atMs).toISOString();
+
+    const cloud = await revokeRecoveryCouponInCloud({ restaurantId, code: normalized, nowIso: atIso });
+    if (cloud.mode === 'cloud' && cloud.ok) {
+      const revokedRow = { ...row, revokedAt: (cloud.coupon && cloud.coupon.revokedAt) || atIso };
+      await persistLocalCouponRow(revokedRow, restaurantId, atMs);
+      logger.info(`[loyalty] winback coupon revoked(cloud) ${normalized}`);
+      return { row: revokedRow, reason: null, revoked: true, mode: 'cloud' };
+    }
+    if (cloud.mode === 'cloud' && cloud.reason && cloud.reason !== 'NOT_FOUND' && cloud.reason !== 'UNAVAILABLE') {
+      if (cloud.coupon) row = { ...row, ...cloud.coupon, restaurantId };
+      return { row, reason: cloud.reason, revoked: false, mode: 'cloud' };
+    }
+    // Path local: revocación del dueño manda sobre un cupón vivo.
+    const verdict = recoveryCoupons.isValidRecoveryCoupon(row, { nowMs });
+    if (verdict === 'ALREADY_USED') return { row, reason: 'ALREADY_USED', revoked: false };
+    if (verdict === 'REVOKED') return { row, reason: 'ALREADY_REVOKED', revoked: false };
+    if (verdict === 'EXPIRED' || verdict === 'MALFORMED') return { row, reason: 'EXPIRED', revoked: false };
+    row.revokedAt = atIso;
+    const stamped = await persistLocalCouponRow(row, restaurantId, atMs);
+    // Espejo EXPLÍCITO (el RPC cloud dijo NOT_FOUND: la fila no llegó nunca —
+    // este upsert in-place es la única forma de que la nube la conozca).
+    await mirrorCouponRow('winback_coupon', `wb_${row.id}`, 'revoked', stamped);
+    logger.info(`[loyalty] winback coupon revoked ${normalized}`);
+    return { row: stamped, reason: null, revoked: true, mode: 'local' };
   });
 }
 
@@ -1271,6 +1488,7 @@ module.exports = {
   claimRecoveryCoupon,
   finalizeRecoveryClaim,
   releaseRecoveryClaim,
+  revokeRecoveryCoupon,
   // negocio
   findCustomerByPhone,
   findOrCreateCustomer,

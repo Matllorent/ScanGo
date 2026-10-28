@@ -326,8 +326,35 @@ export async function launchWinbackCampaign(escapeHtml, showConfirmDialog) {
   }
 }
 
-const WINBACK_STATUS_COPY = { live: 'Vigente', used: 'Usado', expired: 'Vencido' };
-const WINBACK_STATUS_COLOR = { live: '#68D391', used: '#60a5fa', expired: '#F87171' };
+const WINBACK_STATUS_COPY = { live: 'Vigente', used: 'Usado', expired: 'Vencido', revoked: 'Revocado' };
+const WINBACK_STATUS_COLOR = { live: '#68D391', used: '#60a5fa', expired: '#F87171', revoked: '#9CA3AF' };
+
+/**
+ * v3 — Revocación de cupón vivo (el dueño baja el código: fuga, error del
+ * staff). Diálogo propio (sin window.confirm, CSP-safe) y recarga del panel;
+ * sin UI disponible el default seguro es NO revocar.
+ */
+export async function revokeWinbackCouponMod(code, showConfirmDialog) {
+  if (!code || typeof showConfirmDialog !== 'function') return;
+  const ok = await showConfirmDialog({
+    icon: '🚫',
+    title: 'Revocar cupón',
+    message: `¿Revocás el cupón ${code}? Nadie va a poder canjearlo y el cambio se aplica en todas las réplicas al instante.`,
+    confirmText: 'Sí, revocar',
+    confirmClass: 'btn-danger'
+  });
+  if (!ok) return;
+  try {
+    await apiFetch(`/api/loyalty/winback/coupons/${encodeURIComponent(code)}`, { method: 'DELETE' });
+    loadWinbackCoupons();
+  } catch (e) {
+    const panel = document.getElementById('winbackCouponsPanel');
+    if (panel) {
+      panel.textContent = '';
+      panel.appendChild(winbackEl('div', 'color:#F87171; font-size:11px;', `✕ ${e.message || 'No se pudo revocar el cupón.'}`));
+    }
+  }
+}
 
 /**
  * F8-v2 — Panel "Cupones de recupero": el dueño VE el circuito completo
@@ -350,8 +377,9 @@ export async function loadWinbackCoupons() {
     panel.textContent = '';
 
     if (summaryEl) {
+      const revokedPart = summary.revokedCount ? ` · ${summary.revokedCount} revocados` : '';
       summaryEl.textContent = summary.total
-        ? `${summary.liveCount || 0} vigentes · ${summary.usedCount || 0} usados · ${summary.expiredCount || 0} vencidos`
+        ? `${summary.liveCount || 0} vigentes · ${summary.usedCount || 0} usados · ${summary.expiredCount || 0} vencidos${revokedPart}`
         : '';
     }
     if (!coupons.length) {
@@ -372,6 +400,15 @@ export async function loadWinbackCoupons() {
       row.appendChild(winbackEl('span', 'color:var(--text-dim); font-size:10px;', c.status === 'used' ? `usado ${dateLabel}` : `vence ${dateLabel}`));
       if (c.status === 'used' && !c.usedOrderId) {
         row.appendChild(winbackEl('span', 'color:#fbbf24; font-size:10px;', 'sin pedido atribuido'));
+      }
+      if (c.status === 'live' && c.code) {
+        const revokeBtn = document.createElement('button');
+        revokeBtn.type = 'button';
+        revokeBtn.className = 'btn-nav';
+        revokeBtn.style.cssText = 'font-size:10px; padding:2px 8px; margin-left:auto;';
+        revokeBtn.setAttribute('data-js-click', `revokeWinbackCoupon|${c.code}`);
+        revokeBtn.textContent = '🚫 Revocar';
+        row.appendChild(revokeBtn);
       }
       table.appendChild(row);
     });
