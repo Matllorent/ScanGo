@@ -1,6 +1,6 @@
 # 🚀 Checklist de Puesta en Producción — ScanGo
 
-> Estado: **en ejecución** · Última actualización: 2026-10-15
+> Estado: **en ejecución** · Última actualización: 2026-10-28
 > Dominio objetivo: `scango.uy` (a comprar) · Prod viva: `https://scango-rouge.vercel.app` (healthz healthy, DB cloud OK)
 > Pasarela global elegida: **Lemon Squeezy** · Latam: **Mercado Pago**
 
@@ -8,10 +8,10 @@
 
 | Área | Estado |
 |---|---|
-| Suite de tests (50) | ✅ 50/50 en verde en CI (Node 22+24, sin cloud) y local con cloud |
+| Suite de tests (72) | ✅ 72/72 en verde en CI (Node 22+24, sin cloud) y local con cloud |
 | Semgrep | ✅ 0 hallazgos |
 | OSV-Scanner | ✅ re-auditado 2026-10-12: solo `braces@3.0.3` (dev-only, sin fix publicado, riesgo aceptado documentado) |
-| Supabase cloud | ✅ esquema completo, migraciones 001–006 aplicadas y verificadas en runtime |
+| Supabase cloud | ✅ esquema completo, migraciones 001–012 aplicadas y verificadas en runtime |
 | Commits pusheados a `origin/main` | ✅ (`eb715f4` SEO audit, `6ecd292`–`7141296` Batch 3 SEO local/IndexNow/sucursales) |
 | Secretos generados en `.env` local | ✅ JWT_SECRET, GROUP_CART_SECRET, CRON_SECRET, MERCADOPAGO_WEBHOOK_SECRET, INDEXNOW_KEY (`node -e "console.log(require('crypto').randomUUID())"`) |
 | Fallbacks de dominio → `scango.uy` | ✅ (api/index.js, api/utils/seoDiscovery.js, email.js, orders.js, tests) |

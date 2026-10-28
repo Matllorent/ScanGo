@@ -29,6 +29,14 @@ function writeJson(file, rows) {
 async function runTests() {
   console.log('🧪 Iniciando verificación de Birthday Nudge (QW5)...');
 
+  // Cron hermético: el guard de cron es ABIERTO en dev sin CRON_SECRET (CI no
+  // tiene .env, así que el assert "cron sin secreto → 401" daría 200 y la
+  // suite caería solo en CI). La suite fija SU secreto antes de armar el
+  // server para ejercitar los tres veredictos del guard (401 sin header /
+  // 401 inválido / 200 válido) en cualquier entorno (patrón test-night-summary).
+  const savedCronSecret = process.env.CRON_SECRET;
+  process.env.CRON_SECRET = 'test-bday-cron-secret';
+
   // ── 1) Módulo puro birthdayNudge ────────────────────────────────────────────
   const NOW = Date.parse('2026-10-23T12:00:00.000Z'); // 23 Oct
   const customers = [
@@ -220,6 +228,8 @@ assert.strictEqual(result.length, 1, 'cliente con push sub en r2 aparece en r2')
 
   } finally {
     await new Promise((resolve) => server.close(resolve));
+    if (savedCronSecret === undefined) delete process.env.CRON_SECRET;
+    else process.env.CRON_SECRET = savedCronSecret;
     // Limpieza opt-outs
     try {
       const optoutsFile = path.join(process.cwd(), 'data', 'email_optouts.json');
