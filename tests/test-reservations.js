@@ -481,7 +481,7 @@ async function runTests() {
         id, name: extra.name || 'Ana', phone: extra.phone, email: extra.email,
         date: extra.date, time: extra.time, pax: 2, status: 'requested', source: 'menu',
         createdAt: iso, statusUpdatedAt: iso
-      });
+      }, { skipCloudClaim: true });
       assert.ok(add.success, `seed ${extra.tag} agregada`);
       if (extra.confirm) {
         const up = await db.updateReservationStatus(rest.id, id, { status: 'confirmed' }, iso);
@@ -691,7 +691,10 @@ async function runTests() {
       { id: `resv_wa_cancel_${STAMP}`, name: 'Laura', phone: '59898555126', date: dayPlus, time: '23:00', pax: 2, status: 'cancelled', source: 'menu', createdAt: iso, statusUpdatedAt: iso }
     ];
     for (const r of seedWa) {
-      const saved = await db.addReservation(restMain.id, r);
+      // skipCloudClaim: el seed de agenda (waLink/copy) no corre la capacidad
+      // del claim 011 — Nora/Bruno a 15 min de filas activas de §2 rebota por
+      // buffer y acá no es lo que se prueba.
+      const saved = await db.addReservation(restMain.id, r, { skipCloudClaim: true });
       assert.ok(saved && saved.success, `fila sembrada para §5: ${r.name}`);
     }
     const agendaWa = (await (await fetch(`${base}/api/reservations?date=${dayPlus}`, { headers: { Authorization: `Bearer ${ownerToken(ownerA.id)}` } })).json()).data;

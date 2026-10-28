@@ -1686,6 +1686,32 @@
                 El interruptor para activar o apagar el botón vive en <strong>Mi Local</strong>.
               </p>
 
+              <div id="reservationConfigSection" style="background:var(--bg-base); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:14px;">
+                <div class="section-title" style="font-size:12px;">⚙️ Capacidad de reservas</div>
+                <p style="font-size:10px; color:var(--text-dim); margin:6px 0 10px;">
+                  Reglas server-side de la agenda: la capacidad se valida atómicamente al pedir la reserva.
+                  Vacío = defaults del sistema (4 por hora, 30 min de separación, 12 comensales, 60 días de anticipación).
+                </p>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:8px;">
+                  <div>
+                    <label for="inputResvMaxPerSlot" style="font-size:11px; color:var(--text-dim);">Reservas por hora (mismo día y hora)</label>
+                    <input type="number" id="inputResvMaxPerSlot" class="form-input" min="1" max="50" step="1" placeholder="4" style="width:100%; font-size:12px;">
+                  </div>
+                  <div>
+                    <label for="inputResvSlotBuffer" style="font-size:11px; color:var(--text-dim);">Separación mínima entre reservas (min)</label>
+                    <input type="number" id="inputResvSlotBuffer" class="form-input" min="0" max="240" step="5" placeholder="30" style="width:100%; font-size:12px;">
+                  </div>
+                  <div>
+                    <label for="inputResvMaxPax" style="font-size:11px; color:var(--text-dim);">Comensales por reserva (tope)</label>
+                    <input type="number" id="inputResvMaxPax" class="form-input" min="1" max="50" step="1" placeholder="12" style="width:100%; font-size:12px;">
+                  </div>
+                  <div>
+                    <label for="inputResvMaxAdvance" style="font-size:11px; color:var(--text-dim);">Anticipación máxima (días)</label>
+                    <input type="number" id="inputResvMaxAdvance" class="form-input" min="1" max="365" step="1" placeholder="60" style="width:100%; font-size:12px;">
+                  </div>
+                </div>
+              </div>
+
               <div class="reservations-toolbar">
                 <label for="reservationsDate" class="sr-only">Elegí el día de la agenda</label>
                 <input type="date" id="reservationsDate" class="form-input" style="width:auto; padding:6px 10px; font-size:12px;" data-js-change="changeReservationsDate|this.value">

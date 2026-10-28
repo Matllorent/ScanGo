@@ -36,6 +36,7 @@ const {
   parseReservationInput,
   assertSlotAvailable,
   describeReservationStatus,
+  deriveCountryCodeFromPhone,
   localDayKeyOf,
   normalizeReservationPhone
 } = require('../utils/reservations');
@@ -131,9 +132,15 @@ router.post('/', reservationsPublicLimiter, async (req, res, next) => {
 
     const config = restaurant.reservationConfig || {};
     const offset = restaurant.utcOffsetMinutes;
+    // v2 · teléfonos nacionales (leftover del backlog #9): el código de país
+    // lo aporta el local (derivado de SU teléfono de pedidos) — '099 123 456'
+    // completa a '59899123456' y el wa.me rutea + el Club matchea.
+    const countryPrefix = deriveCountryCodeFromPhone(
+      normalizeReservationPhone(restaurant.phone)
+    );
     const parsed = parseReservationInput(
       { name, date, time, pax, phone, email, notes },
-      { utcOffsetMinutes: offset, config }
+      { utcOffsetMinutes: offset, config, countryPrefix }
     );
     if (!parsed.ok) {
       const first = parsed.errors[0];
@@ -156,8 +163,20 @@ router.post('/', reservationsPublicLimiter, async (req, res, next) => {
       createdAt: nowIso,
       statusUpdatedAt: nowIso
     };
-    const saved = await db.addReservation(restaurant.id, reservation);
+    // v2: el alta es ATÓMICA (db.addReservation): cloud → RPC 011 que re-cuenta
+    // la capacidad contra el doc actual y agrega en la misma sentencia; local →
+    // re-chequeo de capacidad DENTRO del mutex. El pre-chequeo de arriba sigue
+    // siendo el fail-fast de UX; la decisión final es la atómica.
+    const saved = await db.addReservation(restaurant.id, reservation, {
+      config,
+      slotInput: parsed.value
+    });
     if (!saved || !saved.success) {
+      if (saved && saved.code === 'SLOT_UNAVAILABLE') {
+        // La franja se llenó entre el pre-chequeo y el alta (claim atómico).
+        // Un solo código público: no se filtra el detalle de la agenda.
+        return errorResponse(res, 'Esa franja ya no tiene lugar disponible. Probá otro horario.', 409, null, 'SLOT_UNAVAILABLE');
+      }
       return errorResponse(res, 'No se pudo registrar la reserva. Probá de nuevo.', 500, null, 'RESERVATION_SAVE_FAILED');
     }
 
@@ -327,6 +346,19 @@ router.patch('/:id', authMiddleware, requireActiveSubscription, async (req, res,
         ...(status === 'cancelled' ? { cancelReason: typeof cancelReason === 'string' ? cancelReason.slice(0, 200) : 'Cancelada por el local' } : {})
       }
     });
+
+    // Reservas v2: ciclo de vida al COMENSAL (best-effort, fire-and-forget —
+    // la transición ya persistió; sin Resend no rompe el PATCH). Solo estados
+    // con copy definida y solo si el comensal dejó un email en el alta.
+    const guestEmail = typeof current.email === 'string' ? current.email.trim() : '';
+    if (guestEmail && ['confirmed', 'cancelled', 'no_show'].includes(status)) {
+      emailService.sendReservationStatusEmail({
+        to: guestEmail,
+        reservation: result.reservation,
+        restaurantName: restaurant.name || restaurant.bizName || 'Tu local',
+        status
+      }).catch(() => {});
+    }
 
     return successResponse(res, { reservation: publicReservation(result.reservation) });
   } catch (e) {

@@ -24,11 +24,13 @@
  * PRIVILEGED_FIELDS, así el autosave del Studio jamás lo pisa con un
  * snapshot vago (el mismo tratamiento que `recoveryCoupons`).
  *
- * Honesto ante la carrera (deliberate skip de v1, mismo patrón que F8-v2):
- * dos POST para la MISMA franja en el mismo instante pueden pasar la
- * capacidad (el mutex serializa la ESCRITURA, no check+escritura). Un slot
- * sobrecargado por 1 se ve en el Studio y el dueño cancela; nunca corrompe
- * el documento.
+ * Honesto ante la carrera (v2, migración 011): la capacidad por franja se
+ * valida y la reserva se AGREGA en UNA sentencia cloud (RPC
+ * `claim_reservation_slot` sobre el doc del local, advisory lock por
+ * restaurante+fecha — patrón 006 `claim_loyalty_redemption`). Sin nube (o con
+ * la RPC ausente), db.addReservation re-chequea la capacidad DENTRO del mutex
+ * de escritura (atomicidad intra-proceso); el race cross-replica queda
+ * documentado como residual del path fallback.
  */
 
 'use strict';
@@ -49,12 +51,21 @@ const RESERVATION_TRANSITIONS = Object.freeze({
   no_show: []
 });
 
-/** Límites honestos del roadmap §4: defaults server-side, sin config del dueño en v1. */
+/** Límites honestos del roadmap §4: defaults server-side. */
 const RESERVATION_CONFIG_DEFAULTS = Object.freeze({
   maxPerSlot: 4,          // reservas activas simultáneas en la MISMA fecha+hora
   slotBufferMinutes: 30,  // separación mínima entre reservas del mismo día
   maxPax: 12,             // tope de comensales por reserva ("8+" cuenta como 8)
   maxAdvanceDays: 60      // no se reserva más lejos de 60 días
+});
+
+/** Rangos canónicos por campo — fuente ÚNICA para resolveReservationConfig
+ * (defaults) y el sanitizer del Studio (v2: config UI del dueño). */
+const RESERVATION_CONFIG_LIMITS = Object.freeze({
+  maxPerSlot: [1, 50],
+  slotBufferMinutes: [0, 240],
+  maxPax: [1, 50],
+  maxAdvanceDays: [1, 365]
 });
 
 /** Cap del array persistido: un local jamás acumula reservas sin cota. */
@@ -107,6 +118,25 @@ function localReservationStartUtcMs({ date, time }, utcOffsetMinutes = 0) {
 // ── Teléfono ────────────────────────────────────────────────────────────────
 
 /**
+ * Prefijos de país en dígitos (sin +), LatAm primero — longest-first: los
+ * códigos de 3 dígitos (59x/50x) matchean ANTES que los de 2 (5x), si no
+ * '598' matchearía como '59' + resto. Sirve para completar teléfonos
+ * NACIONALES del comensal con el código del local (v2/backlog #9: '099…'
+ * sin código de país producía un wa.me no-ruteable y no matcheaba el Club).
+ */
+const COUNTRY_DIAL_CODES = [
+  '593', '595', '598', '591', '502', '503', '504', '505', '506', '507',
+  '51', '52', '54', '55', '56', '57', '58'
+].sort((a, b) => b.length - a.length);
+
+/** Código de país de un teléfono YA completo del local ('59899123456' → '598'). */
+function deriveCountryCodeFromPhone(digits) {
+  const d = typeof digits === 'string' ? digits.replace(/[^0-9]/g, '') : '';
+  if (!d) return '';
+  return COUNTRY_DIAL_CODES.find(c => d.startsWith(c)) || '';
+}
+
+/**
  * Teléfono del comensal por DÍGITOS (misma semántica que recoveryCoupons/Club:
  * se quitan +/espacios/guiones y el prefijo internacional 00 — backfill #9:
  * sin esto una reserva alta con '00598…' no matcheaba el Club ni armaba un
@@ -114,11 +144,26 @@ function localReservationStartUtcMs({ date, time }, utcOffsetMinutes = 0) {
  * el mismo número. El servicio de notificaciones push y fidelización
  * normalizan por su lado (findCustomerByPhone/suscripciones), así que dígito
  * puro matchea E.164.
+ *
+ * v2 · teléfono NACIONAL: con `countryPrefix` (el código del local derivado
+ * de SU teléfono), un comensal que escribe '099 123 456' o '99123456' queda
+ * completo como '59899123456'. Reglas conservadoras: NUNCA se re-prefija un
+ * número que ya arranca con el código, ni uno largo E.164 de otro país
+ * (empieza con 0 = trunk nacional → se quita el 0 y se prefija; corto ≤10
+ * dígitos sin 0 → nacional de facto → se prefija; largo sin 0 → se respeta).
  */
-function normalizeReservationPhone(raw) {
+function normalizeReservationPhone(raw, { countryPrefix = '' } = {}) {
   if (typeof raw !== 'string') return '';
   let digits = raw.replace(/[^0-9]/g, '');
   if (digits.startsWith('00')) digits = digits.slice(2); // prefijo internacional 00 (Club + recoveryCoupons)
+  if (digits.length < 8 || digits.length > 20) return '';
+  const prefix = typeof countryPrefix === 'string' ? countryPrefix.replace(/[^0-9]/g, '') : '';
+  if (prefix && !digits.startsWith(prefix)) {
+    const national = digits.startsWith('0')
+      ? digits.slice(1)
+      : (digits.length <= 10 ? digits : '');
+    if (national && !national.startsWith(prefix)) digits = prefix + national;
+  }
   if (digits.length < 8 || digits.length > 20) return '';
   return digits;
 }
@@ -136,7 +181,7 @@ function _sanitizeShortText(raw, maxLen) {
  * assertSlotAvailable contra las reservas existentes). Devuelve
  * { ok, errors: [{field, code, message}], value } — errors VACÍO cuando ok.
  */
-function parseReservationInput(raw, { nowMs = Date.now(), utcOffsetMinutes = 0, config = {} } = {}) {
+function parseReservationInput(raw, { nowMs = Date.now(), utcOffsetMinutes = 0, config = {}, countryPrefix = '' } = {}) {
   const cfg = resolveReservationConfig(config);
   const errors = [];
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -151,7 +196,8 @@ function parseReservationInput(raw, { nowMs = Date.now(), utcOffsetMinutes = 0, 
   else value.name = name;
 
   // Teléfono del comensal (obligatorio: recordatorio + anillo con el Club).
-  const phone = normalizeReservationPhone(raw.phone);
+  // v2: con el código del local se completa un número nacional ('099…').
+  const phone = normalizeReservationPhone(raw.phone, { countryPrefix });
   if (!phone) errors.push({ field: 'phone', code: 'RESERVATION_PHONE_INVALID', message: 'Ingresá un teléfono válido (mínimo 8 dígitos).' });
   else value.phone = phone;
 
@@ -215,17 +261,39 @@ function parseReservationInput(raw, { nowMs = Date.now(), utcOffsetMinutes = 0, 
 /** Config con defaults coaccionados (nunca NaN/0 loco): regla única compartida. */
 function resolveReservationConfig(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
-  const int = (v, fallback, min, max) => {
+  const int = (v, fallback, [min, max]) => {
     const n = parseInt(v, 10);
     if (!Number.isFinite(n)) return fallback;
     return Math.max(min, Math.min(max, n));
   };
   return {
-    maxPerSlot: int(src.maxPerSlot, RESERVATION_CONFIG_DEFAULTS.maxPerSlot, 1, 50),
-    slotBufferMinutes: int(src.slotBufferMinutes, RESERVATION_CONFIG_DEFAULTS.slotBufferMinutes, 0, 240),
-    maxPax: int(src.maxPax, RESERVATION_CONFIG_DEFAULTS.maxPax, 1, 50),
-    maxAdvanceDays: int(src.maxAdvanceDays, RESERVATION_CONFIG_DEFAULTS.maxAdvanceDays, 1, 365)
+    maxPerSlot: int(src.maxPerSlot, RESERVATION_CONFIG_DEFAULTS.maxPerSlot, RESERVATION_CONFIG_LIMITS.maxPerSlot),
+    slotBufferMinutes: int(src.slotBufferMinutes, RESERVATION_CONFIG_DEFAULTS.slotBufferMinutes, RESERVATION_CONFIG_LIMITS.slotBufferMinutes),
+    maxPax: int(src.maxPax, RESERVATION_CONFIG_DEFAULTS.maxPax, RESERVATION_CONFIG_LIMITS.maxPax),
+    maxAdvanceDays: int(src.maxAdvanceDays, RESERVATION_CONFIG_DEFAULTS.maxAdvanceDays, RESERVATION_CONFIG_LIMITS.maxAdvanceDays)
   };
+}
+
+/**
+ * Config del dueño para el sanitizer (v2): cada campo se coacciona solo si
+ * llegó algo COACCIONABLE (número finito o string numérica); basura/vacío →
+ * campo fuera. Si NINGUNO es válido devuelve `undefined` = campo ABSENT en
+ * el doc (patrón dailyStock: vaciar la config la REMUEVE, nunca deja `{}` ni
+ * defaults inventados). Los rangos vienen de RESERVATION_CONFIG_LIMITS
+ * (misma tabla que resolveReservationConfig — cero drift).
+ */
+function sanitizeReservationConfig(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const out = {};
+  for (const [key, [min, max]] of Object.entries(RESERVATION_CONFIG_LIMITS)) {
+    const v = raw[key];
+    let n = NaN;
+    if (typeof v === 'number' && Number.isFinite(v)) n = Math.round(v);
+    else if (typeof v === 'string' && v.trim() !== '') n = parseInt(v, 10);
+    if (!Number.isFinite(n)) continue;
+    out[key] = Math.max(min, Math.min(max, n));
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 // ── Capacidad por franja ────────────────────────────────────────────────────
@@ -379,13 +447,17 @@ module.exports = {
   TERMINAL_STATUSES,
   RESERVATION_TRANSITIONS,
   RESERVATION_CONFIG_DEFAULTS,
+  RESERVATION_CONFIG_LIMITS,
   MAX_RESERVATIONS,
   REMINDER_MAX_PER_RUN,
+  COUNTRY_DIAL_CODES,
   localDayKeyOf,
   localReservationStartUtcMs,
   normalizeReservationPhone,
+  deriveCountryCodeFromPhone,
   parseReservationInput,
   resolveReservationConfig,
+  sanitizeReservationConfig,
   assertSlotAvailable,
   trimReservationsList,
   transitionReservationStatus,

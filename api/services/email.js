@@ -315,6 +315,64 @@ const emailService = {
     return this.sendEmail({ to, subject: `⏰ Mañana: tu reserva en ${restaurantName || 'tu local favorito'} a las ${time}`, html });
   },
 
+  /**
+   * Reservas v2 (69ª suite) — ciclo de vida al COMENSAL (best-effort,
+   * fire-and-forget desde el PATCH del dueño). El estado de la reserva es
+   * contractual como el recordatorio 24h: no respeta el opt-out de promos
+   * (nunca es marketing), pero el envío pasa por sendEmail → pie legal.
+   * Un solo método con copys por estado: confirmed / cancelled / no_show.
+   * Todo dato del comensal/local pasa por escapeHtmlText (input de tercero).
+   */
+  async sendReservationStatusEmail({ to, restaurantName, reservation, status }) {
+    if (!to || !reservation) {
+      throw new AppError('El destinatario (to) y la reserva son requeridos', 400, 'MISSING_EMAIL_FIELDS');
+    }
+    const place = escapeHtmlText(restaurantName || 'tu local favorito');
+    const who = reservation.name ? `${escapeHtmlText(reservation.name)}, ` : '';
+    const day = escapeHtmlText(reservation.date || '');
+    const hour = escapeHtmlText(reservation.time || '');
+    const pax = reservation.paxLabel
+      ? escapeHtmlText(reservation.paxLabel) + ' personas'
+      : (reservation.pax ? escapeHtmlText(String(reservation.pax)) + ' personas' : '');
+    const reason = reservation.cancelReason ? escapeHtmlText(reservation.cancelReason) : '';
+
+    const whenBox = day && hour
+      ? `<p style="margin:12px 0; padding:12px 16px; background:#f0fdf4; border-radius:8px;">🗓️ <strong>${day}</strong> a las <strong>${hour}</strong>${pax ? ` · ${pax}` : ''}</p>`
+      : '';
+
+    let title;
+    let body;
+    let subject;
+    if (status === 'confirmed') {
+      title = '✅ Tu reserva quedó confirmada';
+      body = `<p>Hola ${who}tu mesa en ${place} quedó confirmada. ¡Te esperamos!</p>`;
+      subject = `✅ Reserva confirmada — ${restaurantName || 'tu local favorito'}`;
+    } else if (status === 'cancelled') {
+      title = '🚫 Tu reserva fue cancelada';
+      body = `<p>Hola ${who}tu reserva en ${place} fue cancelada por el local.</p>`
+        + (reason ? `<p style="font-size:13px; color:#475569;">Motivo: ${reason}</p>` : '')
+        + '<p>Si fue un malentendido, volvé a reservar desde la carta o respondé este email.</p>';
+      subject = `🚫 Reserva cancelada — ${restaurantName || 'tu local favorito'}`;
+    } else if (status === 'no_show') {
+      title = `😔 No te vimos en ${place}`;
+      body = `<p>Hola ${who}marcamos tu reserva del <strong>${day}</strong> ${hour} como no-asistida.</p>`
+        + '<p>Si llegaste y no te encontramos, avisale al local — y si no pudiste ir, ¡sin drama! Esperamos verte pronto.</p>';
+      subject = `No te vimos en ${restaurantName || 'tu local favorito'}`;
+    } else {
+      // Estado sin email definido (requested/seated): skip honesto, nunca un envío inventado.
+      return { provider: 'local_mock', success: true, skipped: true, reason: 'UNKNOWN_STATUS' };
+    }
+
+    const html = `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
+        <h2>${title}</h2>
+        ${body}
+        ${whenBox}
+      </div>
+    `;
+    return this.sendEmail({ to, subject, html });
+  },
+
   async sendPromotionalEmail({ to, subject, body, restaurantName, promoCode, promoLink }) {    // CAN-SPAM §5(4)+(5): honoring opt-outs no es opcional. Quien pidió la baja
     // no recibe NINGÚN envío comercial, aunque llegue por otra campaña.
     if (isOptedOut(to)) {

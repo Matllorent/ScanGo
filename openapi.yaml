@@ -3110,15 +3110,21 @@ paths:
         reserva nace `requested` dentro del doc del local
         (`restaurant.reservations[]`, columna `profile` — cero migración) y el
         dueño la confirma desde el Studio. Capacidad server-side
-        (`maxPerSlot`, `slotBufferMinutes`, `maxPax`, `maxAdvanceDays`): una
-        franja llena o demasiado cerca → 409 `SLOT_UNAVAILABLE` (un solo
+        (`maxPerSlot`, `slotBufferMinutes`, `maxPax`, `maxAdvanceDays`) con
+        alta ATÓMICA (v2, RPC `claim_reservation_slot` migración 011: el
+        re-cuento de reservas activas del doc actual + el append corren en UNA
+        sentencia bajo advisory lock restaurante+fecha — dos POST concurrentes
+        para la misma franja no la sobrecargan; sin migración aplicada o sin
+        nube, degrada al re-chequeo dentro del mutex del proceso): una franja
+        llena o demasiado cerca → 409 `SLOT_UNAVAILABLE` (un solo
         código público, no se filtra el detalle de la agenda). CAPTCHA
         invisible como el pedido (403 `CAPTCHA_REQUIRED`/`CAPTCHA_INVALID`
         solo con `TURNSTILE_SECRET`). Demos → 200 `{demo:true}` no-op
         (nunca registran data). `allowReservations:false` del dueño → 403
-        `RESERVATIONS_DISABLED`. Email al dueño best-effort (fire-and-forget:
-        la reserva ya existe cuando llega el 201). Auditoría
-        `RESERVATION_CREATED` con teléfono enmascarado.
+        `RESERVATIONS_DISABLED`. Emails best-effort (fire-and-forget):
+        "Nueva reserva" al dueño; teléfonos nacionales del comensal se
+        completan con el código de país del local ('099…' → '59899…').
+        Auditoría `RESERVATION_CREATED` con teléfono enmascarado.
       operationId: createReservation
       requestBody:
         required: true
@@ -3335,6 +3341,9 @@ paths:
         `INVALID_RESERVATION_TRANSITION`. Una reserva de otro local es 404
         `RESERVATION_NOT_FOUND` (igual que orders). Cancelar puede enviar
         `cancelReason` (v1 UI manda el motivo fijo "Cancelada por el local").
+        Reservas v2: si el comensal dejó email en el alta, el PATCH dispara
+        best-effort su aviso de ciclo (`confirmed` → confirmada;
+        `cancelled` → cancelada + motivo; `no_show` → no te vimos).
         Auditoría `RESERVATION_STATUS_CHANGE` (de→a + motivo).
       operationId: updateReservationStatus
       security:
@@ -3675,6 +3684,8 @@ components:
             Interruptor del dueño para el tiempo estimado de preparación (default true). Mide
             `created_at → status_updated_at` de los pedidos ENTREGADOS de los últimos 7 días;
             apagado, el servidor no consulta pedidos ni emite `prepEstimate` (cero costo).
+        reservationConfig:
+          $ref: '#/components/schemas/ReservationConfig'
         prepEstimate:
           type: object
           nullable: true
@@ -4237,7 +4248,7 @@ components:
         email:
           type: string
           format: email
-          description: Opcional — destinatario del recordatorio de 24 h
+          description: Opcional — destinatario del recordatorio de 24 h y de los avisos de ciclo (v2: confirmada / cancelada / no_show, al instante del PATCH del dueño)
         date:
           type: string
           format: date
@@ -4300,3 +4311,34 @@ components:
         globalVisits:
           type: integer
           minimum: 0
+    ReservationConfig:
+      type: object
+      description: |-
+        Capacidad de reservas editable por el dueño (Studio → tab Reservas, v2).
+        Campos ABSENT usan los defaults server-side (4 por franja, 30 min de
+        separación, 12 comensales, 60 días). La validación de capacidad del alta
+        es ATÓMICA (RPC `claim_reservation_slot`, migración 011): re-cuenta las
+        reservas activas del doc actual bajo advisory lock restaurante+fecha y
+        agrega la reserva en la misma sentencia — dos POST concurrentes para la
+        misma franja no la sobrecargan. 409 `SLOT_UNAVAILABLE` público único.
+      properties:
+        maxPerSlot:
+          type: integer
+          minimum: 1
+          maximum: 50
+          description: Reservas activas simultáneas en la MISMA fecha+hora (default 4)
+        slotBufferMinutes:
+          type: integer
+          minimum: 0
+          maximum: 240
+          description: Separación mínima entre reservas de horas distintas del mismo día (default 30)
+        maxPax:
+          type: integer
+          minimum: 1
+          maximum: 50
+          description: Tope de comensales por reserva (default 12; "8+" cuenta como 8)
+        maxAdvanceDays:
+          type: integer
+          minimum: 1
+          maximum: 365
+          description: No se reserva más lejos de N días (default 60)

@@ -1257,6 +1257,27 @@ export function updateLiveState() {
     if (slider) slider.style.backgroundColor = resCheckbox.checked ? '#38A169' : '#2a3a33';
   }
 
+  // Reservas v2 (69ª suite): capacidad editable. Número vacío = campo fuera;
+  // vaciar TODO el bloque REMUEVE reservationConfig (defaults server-side
+  // vuelven a mandar — el sanitizer con el basura remanente también borra).
+  if (el('inputResvMaxPerSlot')) {
+    const resvCfg = {};
+    const resvFields = [
+      ['inputResvMaxPerSlot', 'maxPerSlot'],
+      ['inputResvSlotBuffer', 'slotBufferMinutes'],
+      ['inputResvMaxPax', 'maxPax'],
+      ['inputResvMaxAdvance', 'maxAdvanceDays']
+    ];
+    for (const [id, key] of resvFields) {
+      const raw = el(id).value;
+      if (raw !== '' && raw !== null && Number.isFinite(Number(raw))) {
+        resvCfg[key] = Number(raw);
+      }
+    }
+    if (Object.keys(resvCfg).length) restaurant.reservationConfig = resvCfg;
+    else delete restaurant.reservationConfig;
+  }
+
   const couponsCheckbox = el('inputAllowCoupons');
   if (couponsCheckbox) {
     restaurant.allowCoupons = couponsCheckbox.checked;
@@ -1447,6 +1468,13 @@ export function renderStudioUI() {
     const slider = el('sliderReservations');
     if (slider) slider.style.backgroundColor = resCheckbox.checked ? '#38A169' : '#2a3a33';
   }
+
+  // Reservas v2: config de capacidad → inputs (vacío = default del sistema).
+  const resvCfg = restaurant.reservationConfig || {};
+  if (el('inputResvMaxPerSlot')) el('inputResvMaxPerSlot').value = resvCfg.maxPerSlot !== undefined && resvCfg.maxPerSlot !== null ? String(resvCfg.maxPerSlot) : '';
+  if (el('inputResvSlotBuffer')) el('inputResvSlotBuffer').value = resvCfg.slotBufferMinutes !== undefined && resvCfg.slotBufferMinutes !== null ? String(resvCfg.slotBufferMinutes) : '';
+  if (el('inputResvMaxPax')) el('inputResvMaxPax').value = resvCfg.maxPax !== undefined && resvCfg.maxPax !== null ? String(resvCfg.maxPax) : '';
+  if (el('inputResvMaxAdvance')) el('inputResvMaxAdvance').value = resvCfg.maxAdvanceDays !== undefined && resvCfg.maxAdvanceDays !== null ? String(resvCfg.maxAdvanceDays) : '';
 
   if (el('inputInstagram')) el('inputInstagram').value = restaurant.instagram || '';
   if (el('inputFacebook')) el('inputFacebook').value = restaurant.facebook || '';

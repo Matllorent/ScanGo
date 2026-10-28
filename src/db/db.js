@@ -386,6 +386,73 @@ function warnOnce(message) {
   console.warn(message);
 }
 
+// ── Reservas v2 (migración 011): claim atómico de franja ────────────────────
+/**
+ * Intenta el claim cloud `claim_reservation_slot` (alta + capacidad en UNA
+ * sentencia bajo advisory lock). Devuelve SIEMPRE una de:
+ *   {ok:true, already:boolean}            — franja tomada (o retry idempotente)
+ *   {ok:false, reason}                    — SLOT_FULL / BUFFER_TOO_CLOSE
+ *   {unavailable:true}                    — sin migración / doc ausente / red:
+ *     el caller degrada al path local (NOT_FOUND e INVALID_* son "el doc cloud
+ *     todavía no existe o la forma no sirve" — nunca un rechazo de capacidad).
+ */
+async function claimReservationSlotInCloud(restaurantId, reservation, config) {
+  try {
+    const { resolveReservationConfig, MAX_RESERVATIONS } = require('../../api/utils/reservations');
+    const cfg = resolveReservationConfig(config);
+    const { data, error } = await supabase.rpc('claim_reservation_slot', {
+      p_restaurant_id: restaurantId,
+      p_reservation: reservation,
+      p_max_per_slot: cfg.maxPerSlot,
+      p_buffer_minutes: cfg.slotBufferMinutes,
+      p_max_reservations: MAX_RESERVATIONS
+    });
+    if (error) {
+      // PGRST202 (función ausente) u otro error: path local con aviso visible
+      // (el drift de la 011 no puede quedar invisible — lección de 007/008).
+      warnOnce('[DB] claim_reservation_slot no disponible (path local): ' + (error.message || String(error)));
+      return { unavailable: true };
+    }
+    if (!data || typeof data !== 'object') return { unavailable: true };
+    if (data.ok === true) return { ok: true, already: data.already === true };
+    const reason = String(data.reason || '');
+    if (reason === 'SLOT_FULL' || reason === 'BUFFER_TOO_CLOSE') {
+      return { ok: false, reason };
+    }
+    // NOT_FOUND / INVALID_RESERVATION / INVALID_TIME → degradar (la capacidad
+    // la re-validará el path local).
+    return { unavailable: true };
+  } catch (e) {
+    return { unavailable: true };
+  }
+}
+
+/**
+ * Escritura SOLO del espejo local para una reserva ya persistida en cloud
+ * (claim 011): read-modify-write bajo el mutex, sin trackSupabaseWrite — un
+ * whole-doc write desde el espejo pisaría un claim concurrente de otra
+ * réplica. El fallo del espejo NO revierte la reserva (la nube es la fuente
+ * de verdad y la hidratación lo repara).
+ */
+async function runReservationMirrorWrite(restaurantId, reservation, trimReservationsList, maxReservations) {
+  const run = async () => {
+    const rests = readJson(RESTAURANTS_FILE, []);
+    const rest = rests.find(r => r.id === restaurantId);
+    if (!rest) return { success: false, error: 'Restaurante no encontrado' };
+    if (!Array.isArray(rest.reservations)) rest.reservations = [];
+    if (!rest.reservations.some(r => r && r.id === reservation.id)) {
+      rest.reservations.push(reservation);
+      if (rest.reservations.length > maxReservations) {
+        rest.reservations = trimReservationsList(rest.reservations, maxReservations);
+      }
+      await writeJson(RESTAURANTS_FILE, rests);
+    }
+    return { success: true, restaurant: rest, reservation };
+  };
+  reservationWriteLock = reservationWriteLock.then(run, run);
+  return reservationWriteLock;
+}
+
 // Extrae la columna de un PGRST204 ("Could not find the 'X' column...").
 function parseUnknownColumn(message) {
   const m = String(message || '').match(/could not find the '([^']+)' column/i);
@@ -1352,27 +1419,78 @@ const db = {
   // jamás lo pisa con un snapshot vago.
   //
   // Mutex en proceso: igual que addOrder, el read-modify-write del documento
-  // no es transaccional por más que writeJson sea atómico por archivo.
-  // Deliberate skip v1 (documentado en api/utils/reservations.js): la
-  // capacidad por franja se valida en el route ANTES del mutex — dos POST
-  // para la misma franja en el mismo instante pueden sobrecargarla por 1.
+  // no es transaccional por más que writeJson sea atómico por archivo. En v2
+  // el chequeo de capacidad vive DENTRO del mutex (check+escritura atómicos
+  // en este proceso) y el race cross-replica lo cierra la RPC de la 011.
 
   /**
-   * Agrega una reserva `requested` al documento del local. Con cota
-   * MAX_RESERVATIONS: si el array crece más, se recorta descartando primero
-   * las terminales más viejas (trimReservationsList, módulo puro).
-   * @returns {Promise<{success, reservation?, restaurant?, error?}>}
+   * v2 (migración 011): alta de reserva con capacidad ATÓMICA.
+   * 1. Con cloud: intenta la RPC `claim_reservation_slot` — re-cuenta las
+   *    reservas activas del DOC ACTUAL bajo advisory lock (restaurante+fecha)
+   *    y, si hay lugar, agrega la reserva en la MISMA sentencia (jsonb_set).
+   *    Cierra el race cross-replica del v1 (dos POST para la misma franja).
+   *    NOT_FOUND / INVALID_* / error de red → degradación honesta al path local.
+   * 2. Path local (o tras un claim cloud exitoso para el espejo): read-modify-
+   *    write bajo el mutex de proceso. Con `opts.slotInput` RE-CHEQUEA la
+   *    capacidad DENTRO del mutex (check+escritura atómicos en este proceso).
+   * @param {object} opts { config, slotInput, skipCloudClaim }
+   *   - config: reservationConfig del local (para el re-chequeo local).
+   *   - slotInput: el value parseado del alta ({date,time}) — habilita el
+   *     re-chequeo in-mutex.
+   *   - skipCloudClaim: salta la RPC (usado cuando el claim ya decidió).
+   * @returns {Promise<{success, reservation?, restaurant?, error?, code?, reason?, mode?}>}
+   *   code 'SLOT_UNAVAILABLE' (con reason SLOT_FULL|BUFFER_TOO_CLOSE) cuando
+   *   la franja no tiene lugar — el route lo mapea a 409 público único.
    */
-  async addReservation(restaurantId, reservation) {
+  async addReservation(restaurantId, reservation, opts = {}) {
     if (!restaurantId || !reservation || !reservation.id) {
       return { success: false, error: 'Reserva inválida' };
     }
-    const { trimReservationsList, MAX_RESERVATIONS } = require('../../api/utils/reservations');
+    const resvModule = require('../../api/utils/reservations');
+    const { trimReservationsList, MAX_RESERVATIONS, assertSlotAvailable } = resvModule;
+
+    // ── 1) Cloud primero: capacidad + alta en UNA sentencia (011) ─────────
+    if (supabase && !opts.skipCloudClaim) {
+      const claimed = await claimReservationSlotInCloud(restaurantId, reservation, opts.config);
+      if (!claimed.unavailable) {
+        if (claimed.ok) {
+          // La nube YA tiene la reserva (el claim la agregó al doc atómicamente):
+          // solo hidratar el espejo local, SIN re-escribir el doc cloud (un
+          // whole-doc write desde el espejo pisaría un claim concurrente).
+          const mirrored = await runReservationMirrorWrite(restaurantId, reservation, trimReservationsList, MAX_RESERVATIONS);
+          if (!mirrored.success && mirrored.error === 'Restaurante no encontrado') return mirrored;
+          return { success: true, restaurant: mirrored.restaurant, reservation, mode: 'cloud' };
+        }
+        return {
+          success: false,
+          error: 'Esa franja ya no tiene lugar disponible',
+          code: 'SLOT_UNAVAILABLE',
+          reason: claimed.reason || 'SLOT_FULL',
+          mode: 'cloud'
+        };
+      }
+      // unavailable → cae al path local (mismo contrato que v1, con re-chequeo)
+    }
+
+    // ── 2) Path local: mutex de proceso + re-chequeo in-mutex ─────────────
     const run = async () => {
       const rests = readJson(RESTAURANTS_FILE, []);
       const rest = rests.find(r => r.id === restaurantId);
       if (!rest) return { success: false, error: 'Restaurante no encontrado' };
       if (!Array.isArray(rest.reservations)) rest.reservations = [];
+      if (opts.slotInput) {
+        // v2: el chequeo vive DENTRO del mutex — el check+escritura del MISMO
+        // proceso ya no puede sobrecargar la franja (v1 lo hacía fuera).
+        const slot = assertSlotAvailable(rest.reservations, opts.slotInput, opts.config);
+        if (!slot.ok) {
+          return {
+            success: false,
+            error: 'Esa franja ya no tiene lugar disponible',
+            code: 'SLOT_UNAVAILABLE',
+            reason: slot.reason
+          };
+        }
+      }
       rest.reservations.push(reservation);
       if (rest.reservations.length > MAX_RESERVATIONS) {
         rest.reservations = trimReservationsList(rest.reservations, MAX_RESERVATIONS);
@@ -1389,7 +1507,7 @@ const db = {
       }
       return { success: true, restaurant: rest, reservation };
     };
-    reservationWriteLock = reservationWriteLock.then(() => run(), () => run());
+    reservationWriteLock = reservationWriteLock.then(run, run);
     return reservationWriteLock;
   },
 

@@ -16,6 +16,7 @@ const { sanitizeStation } = require('./dishStation');
 const { sanitizeRefSlug } = require('./viralRef');
 const { sanitizeTableAssignments } = require('./staffCredentials');
 const { sanitizeLoyaltyLevels } = require('./loyaltyLevels');
+const { sanitizeReservationConfig } = require('./reservations');
 const { z } = require('zod');
 
 // Morfologías y paletas vienen del MANIFEST CANÓNICO (api/utils/themeManifest.js):
@@ -461,6 +462,16 @@ function sanitizeRestaurantPayload(data) {
   clean.latitude = sanitizeLatLng(clean.latitude, -90, 90);
   clean.longitude = sanitizeLatLng(clean.longitude, -180, 180);
   clean.allowReservations = Boolean(clean.allowReservations);
+  // Reservas v2 (69ª suite): capacidad editable por el dueño (Studio → tab
+  // Reservas). Cada campo se coacciona con la MISMA tabla de rangos que el
+  // módulo puro; basura/vacío → campo ABSENT — vaciar TODO el bloque REMUEVE
+  // la clave (patrón dailyStock: nunca '{}' ni defaults inventados que
+  // bloqueen los defaults server-side de resolveReservationConfig).
+  if (clean.reservationConfig !== undefined) {
+    const cfg = sanitizeReservationConfig(clean.reservationConfig);
+    if (cfg) clean.reservationConfig = cfg;
+    else delete clean.reservationConfig;
+  }
   clean.allowCoupons = Boolean(clean.allowCoupons);
   clean.allowBillSplitter = Boolean(clean.allowBillSplitter);
   clean.announcement = sanitizeString(clean.announcement, 300);
