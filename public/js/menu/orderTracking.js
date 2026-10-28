@@ -187,6 +187,29 @@ function reviewNudgeCopy() {
   };
 }
 
+// ── F7-v2 · pick del ETA por modalidad ─────────────────────────────────
+// La modalidad del pedido manda SI tiene evidencia propia (≥20 entregados de
+// ESE tipo); si no, la estimación general del local. Puro e importable en
+// Node: lo usan el seguimiento y el checkout (menu.js) — una sola fuente para
+// la decisión y para la palabra de la copy.
+const PREP_MODE_WORDS = { LOCAL: 'en salón', DELIVERY: 'en delivery', TAKEAWAY: 'para llevar' };
+
+/**
+ * @returns {null | {label: string, byMode: boolean, word: string}}
+ *   `byMode=true` cuando el número elegido es el de la modalidad (la copy
+ *   nombra el tipo); `word` es la etiqueta de modalidad para esa copy.
+ */
+function resolvePrepEstimateForMode(prepEstimate, prepEstimateByMode, orderMode) {
+  const overall = prepEstimate && typeof prepEstimate === 'object' ? prepEstimate : null;
+  const byMode = prepEstimateByMode && typeof prepEstimateByMode === 'object' ? prepEstimateByMode : null;
+  const normalizedMode = typeof orderMode === 'string' ? orderMode.trim().toUpperCase() : '';
+  const modeKey = ['LOCAL', 'DELIVERY', 'TAKEAWAY'].includes(normalizedMode) ? normalizedMode : 'LOCAL';
+  const modeEstimate = byMode && byMode[modeKey] && typeof byMode[modeKey] === 'object' ? byMode[modeKey] : null;
+  if (modeEstimate && modeEstimate.label) return { ...modeEstimate, byMode: true, word: PREP_MODE_WORDS[modeKey] };
+  if (overall && overall.label) return { ...overall, byMode: false, word: PREP_MODE_WORDS[modeKey] };
+  return null;
+}
+
 function renderOrderTracking(data, ctx) {
   const body = document.getElementById('orderTrackingBody');
   if (!body) return;
@@ -219,12 +242,14 @@ function renderOrderTracking(data, ctx) {
   const totalLine = (data.total != null && data.currency)
     ? `<div style="border-top:1px solid rgba(255,255,255,0.1); margin-top:12px; padding-top:10px; color:var(--chalk-gold); font-weight:700; font-size:0.9rem;">Total: ${escapeHtml(String(data.currency))} ${Number(data.total).toFixed(2)}</div>`
     : '';
-  // F7 "El Tiempo Real": cuánto tardan los pedidos de este local, con evidencia
-  // real (el servidor exige muestra mínima; si no hay, `prepEstimate` es null
-  // y esta línea no existe). Informativo: el estado real manda.
-  const prep = data && data.prepEstimate;
+  // F7 "El Tiempo Real" + F7-v2: cuánto tardan los pedidos de este local, con
+  // evidencia real (el servidor exige muestra mínima; si no hay, `prepEstimate`
+  // es null y esta línea no existe). La modalidad del pedido manda cuando ESE
+  // tipo tiene evidencia propia; si no, el número del local completo.
+  // Informativo: el estado real manda.
+  const prep = resolvePrepEstimateForMode(data && data.prepEstimate, data && data.prepEstimateByMode, data && data.orderMode);
   const prepLine = (prep && prep.label && status !== 'delivered' && status !== 'cancelled')
-    ? `<div style="margin-top:12px; font-size:0.82rem; color:var(--chalk-dim);">⏱ En este local los pedidos suelen tardar ${escapeHtml(String(prep.label))}.</div>`
+    ? `<div style="margin-top:12px; font-size:0.82rem; color:var(--chalk-dim);">⏱ ${prep.byMode ? `Los pedidos ${prep.word} suelen tardar` : 'En este local los pedidos suelen tardar'} ${escapeHtml(String(prep.label))}.</div>`
     : '';
   // 💬 Nudge post-entrega (una vez por pedido): el momento de mayor
   // conversión para pedir la reseña. Solo si el dueño configuró su link
@@ -556,6 +581,7 @@ export {
   startOrderTrackingPolling,
   renderOrderTracking,
   renderOrderTrackingError,
+  resolvePrepEstimateForMode,
   refreshOrderTracking,
   openOrderTracking,
   closeOrderTracking,

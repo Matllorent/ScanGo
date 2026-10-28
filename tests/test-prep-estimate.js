@@ -377,13 +377,13 @@ async function runTests() {
     'sanitizer server-side con default ON');
 
   const menuRoute = read('api/routes/menu.js');
-  assert.ok(menuRoute.includes('getPrepEstimateForRestaurant'), 'la carta pide la estimación al servicio');
+  assert.ok(menuRoute.includes('getPrepEstimateBundleForRestaurant'), 'la carta pide el bundle de estimación al servicio');
   assert.ok(menuRoute.includes('prepEstimate: prepEstimateValue'), 'el payload público lleva la estimación');
   assert.ok(menuRoute.includes('showPrepEstimate: restaurant.showPrepEstimate !== false'), 'el payload lleva el flag');
   assert.ok(menuRoute.includes('prepEstimate: null'), 'una demo nunca inventa un ETA');
 
   const ordersRoute = read('api/routes/orders.js');
-  assert.ok(/getPrepEstimateForRestaurant\(restaurant\)/.test(ordersRoute), 'el seguimiento pide la estimación');
+  assert.ok(/getPrepEstimateBundleForRestaurant\(restaurant\)/.test(ordersRoute), 'el seguimiento pide el bundle de estimación');
   assert.ok(ordersRoute.includes('prepEstimate,'), 'el seguimiento la devuelve');
 
   const service = read('api/services/prepEstimate.js');

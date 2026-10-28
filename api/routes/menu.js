@@ -19,7 +19,7 @@ const { resolveImageMode, resolveMenuSizing, layoutSupportsMenuSizing } = requir
 const { computePopTiers } = require('../utils/popularityTiers');
 const dailyStockTracker = require('../utils/dailyStockTracker');
 const dishTrending = require('../utils/dishTrending');
-const { getPrepEstimateForRestaurant } = require('../services/prepEstimate');
+const { getPrepEstimateBundleForRestaurant } = require('../services/prepEstimate');
 const escapeHtml = require('../utils/escapeHtml');
 
 const router = express.Router();
@@ -115,6 +115,7 @@ function buildDemoMenuResponse(typeOrSlug, opts = {}) {
     // F7: una demo no tiene pedidos reales, así que nunca inventa un ETA.
     showPrepEstimate: demo.showPrepEstimate !== false,
     prepEstimate: null,
+    prepEstimateByMode: null,
     customCoupons: [],
     allowLoyaltyPoints: false,
     loyaltyConfig: loyaltyService.getPublicLoyaltyConfig(demo),
@@ -384,9 +385,16 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
       // nunca inventar). Informativo: el estado real sigue llegando por el
       // seguimiento. Default encendido; `showPrepEstimate === false` no consulta
       // nada. El servicio cachea 10 min por local y es fail-open.
+      // F7-v2: el bundle trae TAMBIÉN la estimación por modalidad (LOCAL/
+      // DELIVERY/TAKEAWAY) de la MISMA consulta; la general queda intacta.
       let prepEstimateValue = null;
+      let prepEstimateByModeValue = null;
       try {
-        prepEstimateValue = await getPrepEstimateForRestaurant(restaurant);
+        const prepBundle = await getPrepEstimateBundleForRestaurant(restaurant);
+        if (prepBundle) {
+          prepEstimateValue = prepBundle.all;
+          prepEstimateByModeValue = prepBundle.byMode || null;
+        }
       } catch (prepErr) {
         console.warn('[menu] prepEstimate no disponible:', (prepErr && prepErr.message) || prepErr);
       }
@@ -461,6 +469,10 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
         // apagó o si no hay muestra suficiente). Nunca expone pedidos ni PII.
         showPrepEstimate: restaurant.showPrepEstimate !== false,
         prepEstimate: prepEstimateValue,
+        // F7-v2: por modalidad, con las 3 claves canónicas siempre presentes
+        // (objeto estable, patrón soldOutToday); null completo si el dueño
+        // apagó el ETA o si la consulta falló.
+        prepEstimateByMode: prepEstimateByModeValue,
         tableCount: restaurant.tableCount || 10,
         customCoupons: restaurant.customCoupons || [],
         allowLoyaltyPoints: restaurant.allowLoyaltyPoints === true,

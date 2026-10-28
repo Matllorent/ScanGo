@@ -3703,6 +3703,29 @@ components:
             generatedAt:
               type: string
               format: date-time
+        prepEstimateByMode:
+          type: object
+          nullable: true
+          description: |-
+            F7-v2: la MISMA estimación POR MODALIDAD (los valores canónicos de
+            `orders.order_mode`, migración 009). Cada clave lleva el mismo objeto de
+            `prepEstimate` cuando ESA modalidad alcanza 20 entregados en 7 días, y
+            `null` cuando no — omitir antes que inventar. Objeto `null` completo si
+            el dueño apagó el ETA o en demos. La estimación general (`prepEstimate`)
+            sigue siendo la del local completo y NO cambia.
+          properties:
+            LOCAL:
+              type: object
+              nullable: true
+              description: Estimación de pedidos en salón (o `null` sin muestra suficiente)
+            DELIVERY:
+              type: object
+              nullable: true
+              description: Estimación de pedidos delivery (o `null` sin muestra suficiente)
+            TAKEAWAY:
+              type: object
+              nullable: true
+              description: Estimación de pedidos para llevar (o `null` sin muestra suficiente)
         allowIceCreamWizard:
           type: boolean
         categories:
@@ -3910,6 +3933,29 @@ components:
             label:
               type: string
               example: ~12–18 min
+        prepEstimateByMode:
+          type: object
+          nullable: true
+          description: |-
+            F7-v2: la estimación por modalidad del local (misma forma que en la carta).
+            El comensal ve el tiempo de SU modalidad cuando esa evidencia existe; si no,
+            `prepEstimate` (el número del local completo).
+          properties:
+            LOCAL:
+              type: object
+              nullable: true
+            DELIVERY:
+              type: object
+              nullable: true
+            TAKEAWAY:
+              type: object
+              nullable: true
+        orderMode:
+          type: string
+          enum: [LOCAL, DELIVERY, TAKEAWAY]
+          description: |-
+            F7-v2: modalidad canónica del pedido (migración 009). Filas históricas
+            sin modo se reportan como LOCAL. Informativo, sin PII.
         items:
           type: array
           items:

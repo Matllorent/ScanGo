@@ -1747,9 +1747,17 @@ const db = {
         .lt('created_at', endIso)
         .limit(1000);
       try {
-        let { data, error } = await attempt(`${baseColumns}, status_updated_at`);
-        if (error && /status_updated_at/i.test(error.message || '')) {
-          const retry = await attempt(baseColumns);
+        // F7-v2: `order_mode` viaja junto a los timestamps (migración 009) para
+        // estimar POR MODALIDAD sin una segunda consulta. Degradación honesta
+        // de a UNA columna por intento: una nube puede deberse la 004, la 009
+        // o ambas — el espejo local sigue aportando sus filas y sin la columna
+        // la modalidad degrada a LOCAL (asunción legacy de la casa).
+        let columns = `${baseColumns}, status_updated_at, order_mode`;
+        let { data, error } = await attempt(columns);
+        for (let tries = 0; error && tries < 3 && /status_updated_at|order_mode/i.test(error.message || ''); tries++) {
+          if (/status_updated_at/i.test(error.message || '')) columns = columns.replace(', status_updated_at', '');
+          else if (/order_mode/i.test(error.message || '')) columns = columns.replace(', order_mode', '');
+          const retry = await attempt(columns);
           data = retry.data;
           error = retry.error;
         }
@@ -1785,7 +1793,15 @@ const db = {
       }
       const cloudFinished = row.status_updated_at !== undefined ? row.status_updated_at : row.statusUpdatedAt;
       const localFinished = local.status_updated_at !== undefined ? local.status_updated_at : local.statusUpdatedAt;
-      byId.set(key, (!cloudFinished && localFinished) ? { ...row, status_updated_at: localFinished } : row);
+      const merged = (!cloudFinished && localFinished) ? { ...row, status_updated_at: localFinished } : row;
+      // F7-v2: si la nube va detrás de la 009, el espejo aporta la modalidad
+      // (mismo espíritu del timestamp: la nube no borra lo que el espejo sí tiene).
+      const cloudMode = row.order_mode !== undefined ? row.order_mode : row.orderMode;
+      if (cloudMode === undefined || cloudMode === null) {
+        const localMode = local.order_mode !== undefined ? local.order_mode : local.orderMode;
+        if (localMode !== undefined && localMode !== null) merged.order_mode = localMode;
+      }
+      byId.set(key, merged);
     }
     return [...byId.values()];
   },

@@ -19,7 +19,8 @@ const { z } = require('zod');
 const loyaltyService = require('../services/loyalty');
 const recoveryCoupons = require('../utils/recoveryCoupons');
 const notificationsService = require('../services/notifications');
-const { getPrepEstimateForRestaurant } = require('../services/prepEstimate');
+const { getPrepEstimateBundleForRestaurant } = require('../services/prepEstimate');
+const { prepModeForOrder } = require('../utils/prepEstimate');
 const { signOrderToken, verifyOrderToken } = require('../utils/orderTrackingToken');
 const auditService = require('../services/audit');
 const { resolveOptionalStaff } = require('../middleware/staffAuth');
@@ -586,14 +587,17 @@ router.get('/track/:token', async (req, res, next) => {
     const restaurant = db.findRestaurantById(orderRestaurantId);
     const status = ORDER_STATUSES.includes(order.status) ? order.status : 'pending';
 
-    // F7: cuánto tardan los pedidos de este local (null si aún no hay muestra
+    // F7/F7-v2: cuánto tardan los pedidos de este local — la estimación
+    // general y la de la modalidad del pedido (null si aún no hay muestra
     // suficiente o el dueño lo apagó). Es un número del LOCAL, sin PII.
-    let prepEstimate = null;
+    let prepBundle = null;
     try {
-      prepEstimate = await getPrepEstimateForRestaurant(restaurant);
+      prepBundle = await getPrepEstimateBundleForRestaurant(restaurant);
     } catch (prepErr) {
-      prepEstimate = null;
+      prepBundle = null;
     }
+    const prepEstimate = prepBundle ? prepBundle.all : null;
+    const prepEstimateByMode = prepBundle ? prepBundle.byMode : null;
 
     return successResponse(res, {
       orderId: order.id,
@@ -611,6 +615,10 @@ router.get('/track/:token', async (req, res, next) => {
       // Propina opcional declarada por el comensal (0 si no dejó).
       tip: Number(order.tip_amount != null ? order.tip_amount : (order.tipAmount || 0)) || 0,
       prepEstimate,
+      // F7-v2: por modalidad + la modalidad canónica del pedido (migración
+      // 009; filas históricas sin modo → LOCAL). Sin PII.
+      prepEstimateByMode,
+      orderMode: prepModeForOrder(order),
       items: (order.items_snapshot || order.itemsSnapshot || []).map(line => ({
         name: line.name,
         quantity: line.quantity

@@ -20,11 +20,14 @@
  *  - NO consulta la base, NO cachea, NO decide si el dueño lo habilitó:
  *    eso es `api/services/prepEstimate.js` y las rutas.
  *
- * Límite honesto documentado (deliberate skip v1): NO hay estimación por
- * modalidad (mesa / delivery / takeaway) porque `order_mode` no se persiste
- * en la base (ni local ni cloud). El número es del LOCAL completo: "los
- * pedidos de este local tardan ~X–Y min". Una ventana por modalidad
- * requeriría persistir `orders.order_mode` (migración nueva) — fuera de v1.
+ * F7-v2 (migración 009 aplicada): `orders.order_mode` existe en cloud y en el
+ * espejo local, así que el deliberate skip de la v1 murió. `computePrepEstimates`
+ * computa la estimación GENERAL (idéntica a la v1) y la POR MODALIDAD
+ * (LOCAL/DELIVERY/TAKEAWAY) en UNA sola pasada sobre las mismas filas — cero
+ * consultas extra, tope de filas compartido. Cada modalidad exige SU PROPIO
+ * mínimo de muestras: 20 pedidos en total no autorizan un ETA de delivery con
+ * solo 3 delivery. Filas históricas sin modo → 'LOCAL' (la asunción legacy
+ * documentada de la casa: el espejo y el fallback de filas viejas asumían salón).
  */
 
 const PREP_WINDOW_DAYS = 7;
@@ -38,6 +41,8 @@ const PREP_CACHE_MS = 10 * 60 * 1000;
 const PREP_MAX_ROWS = 500;
 // Estados que ya no pueden cambiar: solo esos miden un tiempo completo.
 const PREP_TERMINAL_STATUSES = ['delivered'];
+// Modalidades canónicas de `orders.order_mode` (CHECK de la migración 009).
+const PREP_MODES = ['LOCAL', 'DELIVERY', 'TAKEAWAY'];
 
 const MINUTE_MS = 60 * 1000;
 
@@ -85,6 +90,19 @@ function prepMinutesForOrder(order) {
   return minutes;
 }
 
+/**
+ * Modalidad canónica de UN pedido (dual camel/snake, espejo del KDS y del
+ * comandero). Basura/ausente → 'LOCAL': es la asunción legacy de la casa
+ * para filas históricas — nunca inventa una modalidad que no viajó.
+ * @returns {'LOCAL'|'DELIVERY'|'TAKEAWAY'}
+ */
+function prepModeForOrder(order) {
+  if (!order || typeof order !== 'object') return 'LOCAL';
+  const raw = order.order_mode !== undefined ? order.order_mode : order.orderMode;
+  const normalized = typeof raw === 'string' ? raw.trim().toUpperCase() : '';
+  return PREP_MODES.includes(normalized) ? normalized : 'LOCAL';
+}
+
 /** Percentil por nearest-rank (sin interpolación: no inventa decimales). */
 function percentile(sorted, p) {
   if (!Array.isArray(sorted) || sorted.length === 0) return null;
@@ -104,20 +122,11 @@ function buildPrepLabel(estimate = {}) {
 }
 
 /**
- * Estimación a partir de filas de pedidos (ya recortadas por ventana o no).
- * @returns {null | {samples:number, p50:number, p90:number, min:number, max:number, label:string, windowDays:number}}
+ * Objeto estimación a partir de minutos VÁLIDOS ya recolectados (menos del
+ * mínimo → null: omitir antes que inventar, la regla de la casa).
  */
-function computePrepEstimate(orders, { nowMs = Date.now() } = {}) {
-  const rows = Array.isArray(orders) ? orders.slice(0, PREP_MAX_ROWS) : [];
-  if (rows.length === 0) return null;
-
-  const minutes = [];
-  for (const order of rows) {
-    const value = prepMinutesForOrder(order);
-    if (value !== null) minutes.push(value);
-  }
+function buildEstimateFromMinutes(minutes, nowMs) {
   if (minutes.length < PREP_MIN_SAMPLES) return null;
-
   minutes.sort((a, b) => a - b);
   const p50 = Math.round(percentile(minutes, 50));
   const p90 = Math.round(percentile(minutes, 90));
@@ -136,6 +145,44 @@ function computePrepEstimate(orders, { nowMs = Date.now() } = {}) {
   };
 }
 
+/**
+ * F7-v2: estimación GENERAL + POR MODALIDAD en UNA sola pasada sobre las
+ * mismas filas (cero consultas extra; el tope PREP_MAX_ROWS es compartido).
+ * `all` y cada clave de `byMode` son el MISMO objeto estimación (o null si esa
+ * muestra no alcanza el mínimo).
+ * @returns {{all: (null|object), byMode: {LOCAL: (null|object), DELIVERY: (null|object), TAKEAWAY: (null|object)}}}
+ */
+function computePrepEstimates(orders, { nowMs = Date.now() } = {}) {
+  const rows = Array.isArray(orders) ? orders.slice(0, PREP_MAX_ROWS) : [];
+  const byModeMinutes = { LOCAL: [], DELIVERY: [], TAKEAWAY: [] };
+  for (const order of rows) {
+    const value = prepMinutesForOrder(order);
+    if (value === null) continue;
+    byModeMinutes[prepModeForOrder(order)].push(value);
+  }
+  return {
+    all: buildEstimateFromMinutes(
+      byModeMinutes.LOCAL.concat(byModeMinutes.DELIVERY, byModeMinutes.TAKEAWAY),
+      nowMs
+    ),
+    byMode: {
+      LOCAL: buildEstimateFromMinutes(byModeMinutes.LOCAL, nowMs),
+      DELIVERY: buildEstimateFromMinutes(byModeMinutes.DELIVERY, nowMs),
+      TAKEAWAY: buildEstimateFromMinutes(byModeMinutes.TAKEAWAY, nowMs)
+    }
+  };
+}
+
+/**
+ * Estimación a partir de filas de pedidos (ya recortadas por ventana o no).
+ * Compat F7 (60ª suite): es EXACTAMENTE la estimación general del bundle
+ * (`computePrepEstimates(...).all`) — una sola fuente, cero drift posible.
+ * @returns {null | {samples:number, p50:number, p90:number, min:number, max:number, label:string, windowDays:number}}
+ */
+function computePrepEstimate(orders, { nowMs = Date.now() } = {}) {
+  return computePrepEstimates(orders, { nowMs }).all;
+}
+
 module.exports = {
   PREP_WINDOW_DAYS,
   PREP_MIN_SAMPLES,
@@ -143,10 +190,13 @@ module.exports = {
   PREP_CACHE_MS,
   PREP_MAX_ROWS,
   PREP_TERMINAL_STATUSES,
+  PREP_MODES,
   toMs,
   getPrepWindow,
   prepMinutesForOrder,
+  prepModeForOrder,
   percentile,
   buildPrepLabel,
+  computePrepEstimates,
   computePrepEstimate
 };

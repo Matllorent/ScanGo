@@ -59,7 +59,8 @@ import {
   buildReorderPlan as buildReorderPlanMod,
   describeReorderPlan as describeReorderPlanMod,
   getReorderForSlug as getReorderForSlugMod,
-  saveReorderForSlug as saveReorderForSlugMod
+  saveReorderForSlug as saveReorderForSlugMod,
+  resolvePrepEstimateForMode as resolvePrepEstimateForModeMod
 } from './menu/index.js';
 import { LAYOUT_IDS, CLASSIC_THEME_IDS, HELADERIA_THEME_IDS, PERFUMERY_THEME_IDS } from './menu/themeManifest.js';
 import { initModalA11y } from './modalA11y.js';
@@ -1893,20 +1894,30 @@ Object.defineProperties(window, {
     }
 
     // F7 "El Tiempo Real": el checkout informa cuánto tardan REALMENTE los
-    // pedidos de este local. Es una afirmación con evidencia (pedidos
-    // entregados de los últimos 7 días, mínimo 20 muestras) que calcula el
-    // servidor; acá solo se pinta. Sin estimación, la línea no existe.
+    // pedidos de este local. F7-v2: la modalidad del carrito manda cuando
+    // tiene evidencia propia (≥20 entregados de ESE tipo); si no, el número
+    // del local completo. Es una afirmación con evidencia (pedidos entregados
+    // de los últimos 7 días, mínimo 20 muestras) que calcula el servidor; acá
+    // solo se pinta. Sin estimación, la línea no existe.
     function updatePrepEstimateLine() {
       const line = document.getElementById('prepEstimateLine');
       if (!line) return;
-      const estimate = restaurantData && restaurantData.prepEstimate;
+      const modeEl = document.getElementById('orderMode');
+      const mode = (modeEl && modeEl.value) || 'LOCAL';
+      const estimate = resolvePrepEstimateForModeMod(
+        restaurantData && restaurantData.prepEstimate,
+        restaurantData && restaurantData.prepEstimateByMode,
+        mode
+      );
       const label = estimate && estimate.label ? String(estimate.label) : '';
       if (!label) {
         line.style.display = 'none';
         line.textContent = '';
         return;
       }
-      line.textContent = `⏱ En este local los pedidos suelen tardar ${label}`;
+      line.textContent = estimate.byMode
+        ? `⏱ Los pedidos ${estimate.word} suelen tardar ${label}`
+        : `⏱ En este local los pedidos suelen tardar ${label}`;
       line.style.display = 'block';
     }
 
