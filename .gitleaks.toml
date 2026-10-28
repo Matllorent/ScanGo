@@ -1,8 +1,8 @@
 # Configuración de gitleaks para ScanGo.
 # Extiende las reglas por defecto del proyecto gitleaks y documenta los únicos
 # falsos positivos verificados con `gitleaks detect --source .` sobre TODO el
-# historial (172 commits, ~39 MB, 3 hallazgos 2026-10-15: 2 FP + 1 password
-# real YA ROTADA — ver regex `ScanGoMat2001`).
+# historial (283 commits, ~42.5 MB al 2026-10-28: 8 hallazgos históricos —
+# 7 falsos positivos de documentación + 1 password real YA ROTADA, ver §6 y §7).
 #
 # El job `secret-scan` de CI (`.github/workflows/ci.yml`) corre con
 # `--config .gitleaks.toml` + `--exit-code 1`: si aparece un secreto real en
@@ -34,6 +34,13 @@ description = """Solo falsos positivos, verificados contra el historial completo
      real de Postgres en texto plano. ROTADA el 2026-10-15 por el dueño; el
      árbol actual ya usa `${SUPABASE_DB_PASSWORD}`. Esta entrada existe solo
      para que el historial no rompa el CI — NO reutilizar esa password.
+  7. Docs con JWT truncados y placeholders (commits b95ea46ded y 12948a2d19,
+     2026-10-23): `tests/k6/README.md` usa `--env AUTH_TOKEN=eyJ...` como
+     ejemplo de k6 (el `...` corta el token: un JWT real nunca lleva tres
+     puntos seguidos ahí) y `docs/SECRET_MANAGEMENT_GUIDE.md` documenta los
+     placeholders `replace_me` / `postgres:...@` de las variables de entorno.
+     Regexes quirúrgicas por CONTENIDO (no por path: un secreto real futuro en
+     esos archivos SIGUE marcándose).
 """
 paths = [
   # Plantilla de entorno: solo placeholders; el .env real está en .gitignore.
@@ -53,6 +60,13 @@ regexes = [
   '''(<password>|<ref>|<region>)''',
   # Password histórica de mcp.json, ROTADA 2026-10-15 (ver §6).
   '''ScanGoMat2001''',
+  # §7 — JWT truncados con "..." en docs de ejemplo (k6 README): un token real
+  # jamás lleva tres puntos seguidos justo tras el header HS256.
+  '''eyJhbGciOiJIUzI1Ni(?:IsInR5cCI6IkpXVCJ9|J9)\.{3}''',
+  # §7 — placeholders literales de la guía de secretos (docs):
+  '''\.anon\.replace_me''',
+  '''postgres:replace_me@''',
+  '''postgres(?:ql)?://postgres:\.{3}@''',
 ]
 
 # Regla propia: URL de Postgres con password real nunca va al repo (usar

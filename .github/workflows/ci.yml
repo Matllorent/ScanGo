@@ -13,7 +13,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    # La suite completa (38 tests en secuencia) tarda varios minutos.
+    # La suite completa (72 suites en secuencia) tarda varios minutos.
     timeout-minutes: 20
     strategy:
       fail-fast: false

@@ -516,9 +516,16 @@ async function runTests() {
     });
     assert.strictEqual(push.success, true, 'push no rompe aunque falle la entrega');
     assert.strictEqual(push.delivered, 0, 'endpoint falso: ninguna entrega real');
-    assert.ok(push.payload && push.payload.type === 'winback_coupon', 'payload tipado winback_coupon');
-    assert.ok(push.payload.tag.includes('VOL-TEST-0002'), 'tag por cupón (no pisa otros avisos)');
-    assert.strictEqual(push.payload.url, `/m/${restA.slug}`, 'abre la carta del local');
+    if (push.skipped === 'PUSH_NOT_CONFIGURED') {
+      // Sin VAPID (CI sin .env): el service devuelve el skip honesto SIN
+      // payload — el cupón ya viajó por email/WhatsApp. El payload tipado
+      // solo se puede verificar donde haya llaves VAPID.
+      console.log('  (sin VAPID: skipped honesto PUSH_NOT_CONFIGURED, payload no verificable)');
+    } else {
+      assert.ok(push.payload && push.payload.type === 'winback_coupon', 'payload tipado winback_coupon');
+      assert.ok(push.payload.tag.includes('VOL-TEST-0002'), 'tag por cupón (no pisa otros avisos)');
+      assert.strictEqual(push.payload.url, `/m/${restA.slug}`, 'abre la carta del local');
+    }
 
     // Campaña real con un cliente churn (consent + email) para verificar que
     // el reporte aditivo no rompe los contadores históricos de F8.
