@@ -38,12 +38,19 @@ import {
 import { initModalA11y } from '../modalA11y.js';
 import {
   MAX_LINE_QTY,
+  GUEST_PHONE_MIN_DIGITS,
   normalizeComanderoMenu,
   findComanderoDish,
   dishNeedsOptions,
   dishGroupsOf,
   createDraft,
   setDraftTable,
+  setDraftGuest,
+  setDraftTipAmount,
+  setDraftCoupon,
+  sanitizeGuestPhone,
+  sanitizeCouponCode,
+  describeDraftGuest,
   addDraftLine,
   removeDraftLine,
   clearDraftLines,
@@ -73,7 +80,7 @@ let pushBusy = false;
 let swRegistration = null;
 let booted = false;
 
-// ── Estado del comandero (Fase 2) ────────────────────────────────────────────
+// ── Estado del comandero (Fase 2 + extras del Club de la Fase 3) ─────────────
 const comandero = {
   menu: null,          // modelo normalizado (normalizeComanderoMenu)
   menuBusy: false,
@@ -85,6 +92,7 @@ const comandero = {
   quoteTimer: null,
   quoteAmount: null,
   quoteCurrency: '',
+  couponVerdict: null, // veredicto real de POST /api/orders/coupon/validate
   idempotencyKey: '',
   sending: false
 };
@@ -119,9 +127,17 @@ function cacheDom() {
     'mozoComanderoEmptyTitle',
     'mozoComanderoEmptyHint',
     'mozoDraftLines',
+    'mozoGuestPhone',
+    'mozoGuestName',
+    'mozoGuestPhoneError',
+    'mozoDraftCoupon',
+    'mozoCouponCheck',
+    'mozoCouponVerdict',
+    'mozoDraftTip',
     'mozoComanderoCart',
     'mozoCartCount',
     'mozoCartTable',
+    'mozoCartExtras',
     'mozoCartTotal',
     'mozoCartSendBtn',
     'mozoOptionsModal',
@@ -136,6 +152,7 @@ function cacheDom() {
     'mozoOptionsAdd',
     'mozoSentModal',
     'mozoSentDetail',
+    'mozoSentLoyalty',
     'mozoSentNew',
     'mozoHelpSection',
     'mozoEndSection',
@@ -771,6 +788,7 @@ function resetComanderoState() {
   comandero.pendingSelections = new Map();
   comandero.quoteAmount = null;
   comandero.quoteCurrency = '';
+  comandero.couponVerdict = null;
   comandero.idempotencyKey = '';
   comandero.sending = false;
   closeModalEl(dom.mozoOptionsModal);
@@ -786,8 +804,109 @@ function resetComanderoDraft() {
   comandero.pendingSelections = new Map();
   comandero.quoteAmount = null;
   comandero.quoteCurrency = '';
+  comandero.couponVerdict = null;
   comandero.idempotencyKey = newIdempotencyKey();
+  syncComanderoGuestInputs();
   renderComanderoAll();
+}
+
+/* ── Extras del Club (Fase 3) ──────────────────────────────────────────────── */
+
+/** Sincroniza los inputs de Club/cupón/propina con el borrador (reset). */
+function syncComanderoGuestInputs() {
+  if (dom.mozoGuestPhone) dom.mozoGuestPhone.value = comandero.draft.guestPhone || '';
+  if (dom.mozoGuestName) dom.mozoGuestName.value = comandero.draft.guestName || '';
+  if (dom.mozoDraftCoupon) dom.mozoDraftCoupon.value = comandero.draft.couponCode || '';
+  if (dom.mozoDraftTip) dom.mozoDraftTip.value = comandero.draft.tipAmount > 0 ? String(comandero.draft.tipAmount) : '';
+  setGuestPhoneError('');
+  setCouponVerdict(null);
+}
+
+/** Error honesto del teléfono tipeado (bloquea el envío desde draftIsSubmittable). */
+function setGuestPhoneError(message) {
+  setHidden(dom.mozoGuestPhoneError, !message);
+  setText(dom.mozoGuestPhoneError, message);
+  if (dom.mozoGuestPhone && message) dom.mozoGuestPhone.setAttribute('aria-invalid', 'true');
+  else if (dom.mozoGuestPhone) dom.mozoGuestPhone.removeAttribute('aria-invalid');
+}
+
+/** Veredicto del cupón: la copy la ESCRIBE el server (una sola fuente). */
+function setCouponVerdict(verdict) {
+  comandero.couponVerdict = verdict && verdict.valid ? verdict : null;
+  const el = dom.mozoCouponVerdict;
+  if (!el) return;
+  if (verdict && verdict.message) {
+    el.textContent = verdict.message;
+    el.classList.toggle('is-ok', verdict.valid === true);
+    el.classList.toggle('is-err', verdict.valid !== true);
+    setHidden(el, false);
+  } else {
+    el.textContent = '';
+    el.classList.remove('is-ok', 'is-err');
+    setHidden(el, true);
+  }
+}
+
+/**
+ * Descuento client-side del veredicto VÁLIDO — MISMA matemática que
+ * `resolveCouponDiscount` del server (percent clamps [0,100], 2 decimales;
+ * `free_delivery` solo existe en DELIVERY y el comandero es LOCAL, así que
+ * el validate público ya lo rechaza con NOT_APPLICABLE). El autoritativo
+ * sigue siendo el 201.
+ */
+function comanderoDiscountFor(subtotal) {
+  const verdict = comandero.couponVerdict;
+  if (!verdict || !verdict.coupon) return 0;
+  const coupon = verdict.coupon;
+  if (coupon.type === 'percent') {
+    const value = Math.min(100, Math.max(0, Number(coupon.value) || 0));
+    return Math.round((Number(subtotal) || 0) * (value / 100) * 100) / 100;
+  }
+  return 0;
+}
+
+/**
+ * Valida el cupón del borrador contra el endpoint público existente
+ * (`POST /api/orders/coupon/validate` — sin reclamar). Con el teléfono del
+ * comensal, los cupones de recupero ligados a ESE teléfono funcionan de
+ * verdad; cambiar teléfono o código invalida el veredicto anterior.
+ */
+async function checkComanderoCoupon() {
+  if (!session) return;
+  const code = sanitizeCouponCode(dom.mozoDraftCoupon ? dom.mozoDraftCoupon.value : '');
+  const phone = sanitizeGuestPhone(comandero.draft.guestPhone);
+  if (!code) {
+    setCouponVerdict({ valid: false, message: 'Escribí el código del cupón primero.' });
+    return;
+  }
+  if (dom.mozoCouponCheck) dom.mozoCouponCheck.disabled = true;
+  try {
+    const response = await apiFetch('/api/orders/coupon/validate', {
+      method: 'POST',
+      body: {
+        restaurantId: session.restaurantId,
+        code,
+        phone,
+        orderMode: 'LOCAL'
+      }
+    });
+    const data = response && response.data ? response.data : null;
+    if (!response.ok || !data) {
+      setCouponVerdict({ valid: false, message: resultError(response, 'No pudimos validar el cupón. Reintentá.') });
+      return;
+    }
+    // La copy honesta viene del server (reason/message). Con `valid`, el
+    // veredicto alimenta el descuento del total mostrado.
+    setCouponVerdict({
+      valid: data.valid === true,
+      message: data.message || (data.valid === true ? 'Cupón aplicado.' : 'Este cupón no se puede usar.'),
+      coupon: data.valid === true ? data.coupon || { code } : null
+    });
+  } catch (e) {
+    setCouponVerdict({ valid: false, message: e && e.message ? e.message : 'No pudimos validar el cupón. Reintentá.' });
+  } finally {
+    if (dom.mozoCouponCheck) dom.mozoCouponCheck.disabled = false;
+  }
 }
 
 function renderComanderoEmpty(title, hint) {
@@ -953,14 +1072,34 @@ function updateComanderoCart() {
   setText(dom.mozoComanderoCount, String(lines.length));
   setText(dom.mozoCartCount, lines.length === 1 ? '1 plato' : `${lines.length} platos`);
   setText(dom.mozoCartTable, comandero.draft.tableLabel || '');
-  setText(
-    dom.mozoCartTotal,
-    comandero.quoteAmount != null
-      ? formatMoney(comandero.quoteAmount, comandero.quoteCurrency || '$')
-      : ''
-  );
+  // Total mostrado = quote (platos) − descuento del cupón validado + propina.
+  // La MISMA matemática que el 201 aplica server-side; el autoritativo es él.
+  let total = '';
+  if (comandero.quoteAmount != null) {
+    const subtotal = Number(comandero.quoteAmount) || 0;
+    const discount = comanderoDiscountFor(subtotal);
+    const tip = comandero.draft.tipAmount > 0 ? comandero.draft.tipAmount : 0;
+    const totalValue = Math.max(0, Math.round((subtotal - discount + tip) * 100) / 100);
+    total = formatMoney(totalValue, comandero.quoteCurrency || '$');
+    if (discount > 0 || tip > 0) {
+      const extras = [];
+      if (discount > 0) extras.push(`-${formatMoney(discount, comandero.quoteCurrency || '$')}`);
+      if (tip > 0) extras.push(`+${formatMoney(tip, comandero.quoteCurrency || '$')} propina`);
+      total = `${total} (${extras.join(' ')})`;
+    }
+  }
+  setText(dom.mozoCartTotal, total);
+  setText(dom.mozoCartExtras, describeDraftGuest(comandero.draft));
   const check = draftIsSubmittable(comandero.draft, comandero.menu);
   if (dom.mozoCartSendBtn) dom.mozoCartSendBtn.disabled = !check.ok || comandero.sending;
+  // El teléfono tipeado e incompleto se informa EN VIVO (no solo al enviar).
+  if (comandero.draft.guestPhone && !sanitizeGuestPhone(comandero.draft.guestPhone)) {
+    setGuestPhoneError(
+      `Teléfono incompleto: el Club necesita al menos ${GUEST_PHONE_MIN_DIGITS} dígitos. Corregilo o borralo.`
+    );
+  } else {
+    setGuestPhoneError('');
+  }
 }
 
 function scheduleComanderoQuote() {
@@ -1232,6 +1371,20 @@ function showSentModal(order) {
     parts.push(`Total ${formatMoney(total, (order && order.currency) || comandero.menu.currency || '$')}`);
   }
   setText(dom.mozoSentDetail, parts.join(' · '));
+  // Fase 3: el crédito real del Club que devolvió el 201 (lo decide el
+  // server con creditOrder; el client no promete nada que no venga acá).
+  const loyalty = order && order.loyalty;
+  if (loyalty && loyalty.credited && Number(loyalty.points) > 0) {
+    const stamps = Number(loyalty.stamps) > 0 ? Number(loyalty.stamps) : 0;
+    setText(
+      dom.mozoSentLoyalty,
+      `🎉 +${Number(loyalty.points)} pts en el Club${stamps > 0 ? ` · ${stamps} sellos` : ''}`
+    );
+    setHidden(dom.mozoSentLoyalty, false);
+  } else {
+    setText(dom.mozoSentLoyalty, '');
+    setHidden(dom.mozoSentLoyalty, true);
+  }
   openModalEl(dom.mozoSentModal);
 }
 
@@ -1438,6 +1591,43 @@ function bindEvents() {
   if (dom.mozoOptionsMinus) dom.mozoOptionsMinus.addEventListener('click', () => handleOptionsQty(-1));
   if (dom.mozoOptionsPlus) dom.mozoOptionsPlus.addEventListener('click', () => handleOptionsQty(1));
   if (dom.mozoSentNew) dom.mozoSentNew.addEventListener('click', () => closeModalEl(dom.mozoSentModal));
+  // ── Extras del Club (Fase 3) ──
+  if (dom.mozoGuestPhone) {
+    dom.mozoGuestPhone.addEventListener('input', () => {
+      setDraftGuest(comandero.draft, { phone: dom.mozoGuestPhone.value });
+      // El teléfono decide a QUÉ Club se acredita (los cupones de recupero
+      // están ligados a un teléfono): cambiarlo invalida el veredicto.
+      if (comandero.couponVerdict) setCouponVerdict(null);
+      updateComanderoCart();
+    });
+  }
+  if (dom.mozoGuestName) {
+    dom.mozoGuestName.addEventListener('input', () => {
+      setDraftGuest(comandero.draft, { name: dom.mozoGuestName.value });
+      updateComanderoCart();
+    });
+  }
+  if (dom.mozoDraftCoupon) {
+    dom.mozoDraftCoupon.addEventListener('input', () => {
+      setDraftCoupon(comandero.draft, dom.mozoDraftCoupon.value);
+      // Otro código = otro cupón: el veredicto anterior ya no aplica.
+      if (comandero.couponVerdict) setCouponVerdict(null);
+      updateComanderoCart();
+    });
+    dom.mozoDraftCoupon.addEventListener('keydown', (event) => {
+      if (event && event.key === 'Enter') {
+        event.preventDefault();
+        checkComanderoCoupon();
+      }
+    });
+  }
+  if (dom.mozoCouponCheck) dom.mozoCouponCheck.addEventListener('click', checkComanderoCoupon);
+  if (dom.mozoDraftTip) {
+    dom.mozoDraftTip.addEventListener('input', () => {
+      setDraftTipAmount(comandero.draft, dom.mozoDraftTip.value);
+      updateComanderoCart();
+    });
+  }
   // Delegados (grids re-renderizados: un solo listener sobre el contenedor).
   if (dom.mozoComanderoTables) {
     dom.mozoComanderoTables.addEventListener('click', (event) => {

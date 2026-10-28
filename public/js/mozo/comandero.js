@@ -20,6 +20,16 @@
  *  - Agotados (manual `outOfStock` o derivado `soldOutToday`, F3) se
  *    muestran con badge y se rechazan al agregar — display-only como el
  *    guard del comensal; el server es la última palabra.
+ *  - Fase 3 — el comandero opera el Club: teléfono y nombre del comensal
+ *    (opcionales), cupón y propina. El server ya procesa TODO para cualquier
+ *    pedido (`customerPhone` → creditOrder acredita local+global con el
+ *    multiplicador R3; `coupon.code` → claim atómico de recupero/catálogo;
+ *    `tipAmount` → orders.tip_amount aparte del ticket promedio). Aquí solo
+ *    se sanea con paridad EXACTA a las reglas del server: el teléfono acepta
+ *    lo MISMO que `normalizePhone` del Club (7..15 dígitos, strip `+`/`00`) —
+ *    un teléfono válido para el mozo ES válido para la acreditación. El
+ *    teléfono tipeado pero incompleto BLOQUEA el envío (honesto, nunca un
+ *    drop silencioso del Club que el mozo creía acreditar).
  */
 
 export const MAX_DRAFT_LINES = 60;
@@ -27,11 +37,55 @@ export const MAX_LINE_QTY = 99;
 export const MAX_LINE_NOTE = 250;
 export const MAX_CHOICES_PER_GROUP = 100;
 
+/* Fase 3 — paridad con el server (schema de pedidos + loyalty.normalizePhone). */
+export const GUEST_PHONE_MIN_DIGITS = 7;  // loyalty.normalizePhone: < 7 → null
+export const GUEST_PHONE_MAX_DIGITS = 15; // loyalty.normalizePhone: > 15 → null
+export const MAX_GUEST_PHONE_LEN = 30;    // createOrderSchema.customerPhone max 30
+export const MAX_GUEST_NAME_LEN = 100;    // createOrderSchema.customerName max 100
+export const MAX_COUPON_CODE_LEN = 30;    // createOrderSchema.coupon.code max 30
+export const MAX_TIP_AMOUNT = 1000000;    // createOrderSchema.tipAmount max 1e6
+
 /** Slug con la misma allowlist que `sanitizeRefSlug` (viralRef): [a-z0-9-] máx 64. */
 export function sanitizeComanderoSlug(value) {
   const raw = String(value == null ? '' : value).trim().toLowerCase();
   if (!raw || raw.length > 64) return '';
   return /^[a-z0-9-]+$/.test(raw) ? raw : '';
+}
+
+/**
+ * Teléfono del comensal — PARIDAD EXACTA con `normalizePhone` de
+ * api/services/loyalty.js (la identidad del Club): dígitos con `+` opcional,
+ * strip del `+` inicial y del prefijo internacional `00`, acepta 7..15
+ * dígitos. Con menos dígitos (o basura) devuelve `''` — el mozo ve el error
+ * ANTES de enviar (draftIsSubmittable) y el server nunca acredita basura.
+ */
+export function sanitizeGuestPhone(raw) {
+  if (!raw) return '';
+  let digits = String(raw).replace(/[^\d+]/g, '');
+  if (digits.startsWith('+')) digits = digits.slice(1);
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  if (digits.length < GUEST_PHONE_MIN_DIGITS || digits.length > GUEST_PHONE_MAX_DIGITS) return '';
+  return digits;
+}
+
+/** Nombre del comensal (opcional): limpio, cap 100 — paridad del schema. */
+export function sanitizeGuestName(raw) {
+  return cleanText(raw, MAX_GUEST_NAME_LEN);
+}
+
+/** Código de cupón: trim + uppercase + sin espacios internos, cap 30 (schema). */
+export function sanitizeCouponCode(raw) {
+  const raw2 = String(raw == null ? '' : raw);
+  if (!raw2.trim()) return '';
+  return raw2.replace(/\s+/g, '').toUpperCase().slice(0, MAX_COUPON_CODE_LEN);
+}
+
+/** Propina como MONTO fijo: no negativa, ≤ 1e6, redondeo a 2 decimales (cents-safe). */
+export function sanitizeTipAmount(raw) {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  const capped = Math.min(MAX_TIP_AMOUNT, value);
+  return Math.round(capped * 100) / 100;
 }
 
 function cleanText(value, maxLength) {
@@ -131,9 +185,9 @@ export function findComanderoDish(menu, dishId) {
 
 /* ── Borrador ─────────────────────────────────────────────────────────────── */
 
-/** Borrador del pedido en curso: mesa + líneas + nota general. */
+/** Borrador del pedido en curso: mesa + líneas + nota general + extras del Club (Fase 3). */
 export function createDraft() {
-  return { tableNumber: '', tableLabel: '', note: '', lines: [] };
+  return { tableNumber: '', tableLabel: '', note: '', lines: [], guestPhone: '', guestName: '', tipAmount: 0, couponCode: '' };
 }
 
 /** Fija la mesa del pedido (debe estar asignada al turno). */
@@ -142,6 +196,48 @@ export function setDraftTable(draft, table) {
   draft.tableNumber = cleanText(table.number, 20);
   draft.tableLabel = cleanText(table.label, 40) || (/^\d+$/.test(draft.tableNumber) ? `Mesa ${draft.tableNumber}` : draft.tableNumber);
   return draft;
+}
+
+/**
+ * Extras del comensal (Fase 3 — TODO opcional): el teléfono se guarda CRUDO
+ * (trim, cap 30) para poder bloquear el envío honestamente cuando quedó
+ * tipeado e incompleto — el body lo sanea con la regla del Club; el nombre
+ * se guarda ya saneado (cap 100 del schema). Vaciar el campo lo REMUEVE.
+ */
+export function setDraftGuest(draft, { phone, name } = {}) {
+  if (!draft) return draft || createDraft();
+  if (phone !== undefined) {
+    draft.guestPhone = String(phone == null ? '' : phone).trim().slice(0, MAX_GUEST_PHONE_LEN);
+  }
+  if (name !== undefined) {
+    draft.guestName = sanitizeGuestName(name);
+  }
+  return draft;
+}
+
+/** Propina del comensal como monto fijo (saneada: ≥0, ≤1e6, 2 decimales). */
+export function setDraftTipAmount(draft, value) {
+  if (!draft) return draft || createDraft();
+  draft.tipAmount = sanitizeTipAmount(value);
+  return draft;
+}
+
+/** Cupón aplicado por el mozo (saneado: uppercase, sin espacios, cap 30). */
+export function setDraftCoupon(draft, code) {
+  if (!draft) return draft || createDraft();
+  draft.couponCode = sanitizeCouponCode(code);
+  return draft;
+}
+
+/**
+ * Resumen legible del comensal para la barra ('Lucía · 59899111222') —
+ * vacío sin datos. Puro: la PWA lo pinta con textContent.
+ */
+export function describeDraftGuest(draft) {
+  if (!draft) return '';
+  const name = sanitizeGuestName(draft.guestName);
+  const phone = draft.guestPhone ? String(draft.guestPhone).trim() : '';
+  return [name, phone].filter(Boolean).join(' · ');
 }
 
 /** Valida y agrega una línea al borrador (cota de líneas + qty + nota). */
@@ -292,26 +388,38 @@ export function draftLinesToPayload(draft) {
 
 /**
  * Body para `POST /api/orders/quote` y `POST /api/orders` (mismo schema).
- * `orderMode:'LOCAL'` SIEMPRE (el comandero registra salón) y
- * `customerName` = etiqueta de la mesa (sin PII: no lleva teléfono ni
- * nombre de comensal). La atribución del mozo la agrega el SERVER.
+ * `orderMode:'LOCAL'` SIEMPRE (el comandero registra salón). La atribución
+ * del mozo la agrega el SERVER.
+ *
+ * Fase 3 — extras del Club con SHAPE ESTABLE (patrón soldOutToday): el
+ * teléfono y la propina viajan SIEMPRE ('' y 0 = valores no-op del schema) y
+ * el cupón SOLO cuando hay código (objeto ausente = sin cupón).
+ * `customerName` = nombre del comensal si el mozo lo cargó; sin él conserva
+ * la etiqueta de mesa de la Fase 2 ('Mesa N').
  */
 export function buildComanderoBody(draft, { restaurantId, utcOffsetMinutes = 0 } = {}) {
   if (!draft || !restaurantId) return null;
-  return {
+  const body = {
     restaurantId,
     orderMode: 'LOCAL',
     tableNumber: draft.tableNumber || '1',
-    customerName: draft.tableLabel || 'Mesa',
+    customerName: sanitizeGuestName(draft.guestName) || draft.tableLabel || 'Mesa',
+    customerPhone: sanitizeGuestPhone(draft.guestPhone),
+    tipAmount: sanitizeTipAmount(draft.tipAmount),
     notes: cleanText(draft.note, 300),
     items: draftLinesToPayload(draft),
     utcOffsetMinutes: Math.max(-840, Math.min(840, Math.floor(Number(utcOffsetMinutes) || 0)))
   };
+  const couponCode = sanitizeCouponCode(draft.couponCode);
+  if (couponCode) body.coupon = { code: couponCode };
+  return body;
 }
 
 /**
- * ¿El borrador es enviable? Mesa elegida + ≥1 línea + carta con pedidos ON.
- * La validación de opciones se hace por línea ANTES (validateLineAgainstGroups).
+ * ¿El borrador es enviable? Mesa elegida + ≥1 línea + carta con pedidos ON +
+ * extras del Club coherentes (Fase 3): un teléfono tipeado pero incompleto
+ * BLOQUEA el envío — el mozo tenía la intención de acreditar el Club y un
+ * drop silencioso se lo mentiría.
  */
 export function draftIsSubmittable(draft, menu) {
   if (!draft || !menu) return { ok: false, error: '' };
@@ -321,6 +429,12 @@ export function draftIsSubmittable(draft, menu) {
   if (!draft.tableNumber) return { ok: false, error: 'Elegí la mesa del pedido.' };
   if (!Array.isArray(draft.lines) || !draft.lines.length) {
     return { ok: false, error: 'Agregá al menos un plato al pedido.' };
+  }
+  if (draft.guestPhone && !sanitizeGuestPhone(draft.guestPhone)) {
+    return {
+      ok: false,
+      error: `El teléfono del comensal parece incompleto (mínimo ${GUEST_PHONE_MIN_DIGITS} dígitos). Corregilo o borralo.`
+    };
   }
   return { ok: true, error: '' };
 }

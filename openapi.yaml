@@ -1557,6 +1557,13 @@ paths:
         `STAFF_RESTAURANT_MISMATCH`; Bearer inválido → 401 fail-closed.
         Sin Bearer (comensal) → `source='customer'` igual que siempre.
         Si el local lo exige, el comensal manda `captchaToken`; el staff lo salta.
+        **Comandero Fase 3**: con `customerPhone` el pedido acredita el Club
+        (creditOrder: puntos/sellos local + red global, idempotente por pedido,
+        `loyalty` en la respuesta 201); `coupon.code` se resuelve contra el
+        catálogo del dueño y el ledger de recupero con descuento real (el valor
+        del client se ignora); `tipAmount` persiste aparte del ticket promedio.
+        Extras TODO opcional — sin teléfono no hay crédito y el 201 es la
+        autoridad final del total.
       operationId: createOrder
       parameters:
         - name: Idempotency-Key
@@ -3904,6 +3911,19 @@ components:
           maximum: 1000000
           default: 0
           description: Propina opcional del comensal, aparte del monto de los platos
+        coupon:
+          type: object
+          description: |-
+            Cupón aplicado al pedido (Fase 3 del comandero). El client manda
+            SOLO el `code`; el server recomputa el descuento contra las dos
+            fuentes (catálogo del dueño + ledger de recupero) — el valor del
+            client se ignora.
+          required: [code]
+          properties:
+            code:
+              type: string
+              minLength: 1
+              maxLength: 30
     Order:
       type: object
       required: [id, status]

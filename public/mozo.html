@@ -82,6 +82,33 @@
       <div id="mozoComanderoCats" class="mozo-comandero-cats" role="group" aria-label="Categorías de la carta"></div>
       <div id="mozoComanderoDishes" class="mozo-comandero-dishes"></div>
       <div id="mozoDraftLines" class="mozo-draft-lines" role="list" aria-label="Platos del pedido en curso"></div>
+      <div class="mozo-guest-block">
+        <h3 class="mozo-guest-title">Club & cuenta (opcional)</h3>
+        <div class="mozo-guest-grid">
+          <label class="mozo-field" for="mozoGuestPhone">
+            <span class="mozo-field-label">📱 Teléfono del comensal</span>
+            <input id="mozoGuestPhone" type="tel" inputmode="tel" autocomplete="off" maxlength="30" placeholder="Ej: +598 99 123 456">
+          </label>
+          <label class="mozo-field" for="mozoGuestName">
+            <span class="mozo-field-label">👤 Nombre del comensal</span>
+            <input id="mozoGuestName" type="text" autocomplete="off" maxlength="100" placeholder="Para el ticket y su Club">
+          </label>
+        </div>
+        <p id="mozoGuestPhoneError" class="mozo-guest-phone-error" role="alert" hidden></p>
+        <p class="mozo-guest-hint">Con teléfono, el pedido acredita puntos al Club del comensal (local + red) y los avisos de estado le llegan a su celular.</p>
+        <div class="mozo-coupon-row">
+          <label class="mozo-field" for="mozoDraftCoupon">
+            <span class="mozo-field-label">🎟️ Cupón</span>
+            <input id="mozoDraftCoupon" type="text" autocomplete="off" maxlength="30" placeholder="Ej: VOL-ABCD1234">
+          </label>
+          <button type="button" id="mozoCouponCheck" class="mozo-btn">Validar</button>
+        </div>
+        <p id="mozoCouponVerdict" class="mozo-coupon-verdict" role="status" aria-live="polite" hidden></p>
+        <label class="mozo-field" for="mozoDraftTip">
+          <span class="mozo-field-label">💵 Propina (monto fijo)</span>
+          <input id="mozoDraftTip" type="number" inputmode="decimal" min="0" step="0.01" max="1000000" placeholder="0.00">
+        </label>
+      </div>
       <div id="mozoComanderoEmpty" class="mozo-empty" role="status" hidden>
         <span class="mozo-empty-icon" aria-hidden="true">📋</span>
         <strong id="mozoComanderoEmptyTitle">Cargando la carta…</strong>
@@ -122,6 +149,7 @@
     <div class="mozo-cart-info">
       <strong id="mozoCartCount">0 platos</strong>
       <span id="mozoCartTable"></span>
+      <span id="mozoCartExtras" class="mozo-cart-extras"></span>
     </div>
     <span id="mozoCartTotal" class="mozo-cart-total"></span>
     <button type="button" id="mozoCartSendBtn" class="mozo-btn mozo-btn-primary">Enviar a cocina</button>
@@ -155,6 +183,7 @@
       <span class="mozo-sent-icon" aria-hidden="true">✅</span>
       <h3 id="mozoSentTitle">Pedido enviado a cocina</h3>
       <p id="mozoSentDetail">—</p>
+      <p id="mozoSentLoyalty" class="mozo-sent-loyalty" role="status" hidden></p>
       <button type="button" id="mozoSentNew" class="mozo-btn mozo-btn-primary">Tomar otro pedido</button>
     </div>
   </div>

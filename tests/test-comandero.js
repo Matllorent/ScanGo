@@ -189,7 +189,7 @@ async function runTests() {
 
   // Borrador.
   const draft = C.createDraft();
-  assert.deepStrictEqual(draft, { tableNumber: '', tableLabel: '', note: '', lines: [] });
+  assert.deepStrictEqual(draft, { tableNumber: '', tableLabel: '', note: '', lines: [], guestPhone: '', guestName: '', tipAmount: 0, couponCode: '' });
 
   C.setDraftTable(draft, { number: '2', label: 'Mesa 2' });
   assert.strictEqual(draft.tableNumber, '2');
@@ -268,10 +268,13 @@ async function runTests() {
     orderMode: 'LOCAL',
     tableNumber: '2',
     customerName: 'Mesa 2',
+    customerPhone: '',
+    tipAmount: 0,
     notes: '',
     items: [{ dishId: 'd2', quantity: 1, note: '', choices: [{ groupId: 'g1', selections: [{ optionId: 'o1' }] }] }],
     utcOffsetMinutes: 840
   });
+  assert.ok(!('coupon' in body), 'sin código no hay objeto cupón (shape estable)');
   assert.ok(!('source' in body) && !('waiterId' in body) && !('tableId' in body), 'el body JAMÁS lleva atribución');
   assert.strictEqual(C.buildComanderoBody(bodyDraft, { restaurantId: '' }), null, 'sin restaurantId → null');
   assert.strictEqual(C.buildComanderoBody(null, { restaurantId: 'r' }), null);
