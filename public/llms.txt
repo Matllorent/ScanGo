@@ -18,6 +18,7 @@ ScanGo es una solución tecnológica integral diseñada para locales gastronómi
 - [Documentación Técnica Exhaustiva para LLMs](/llms-full.txt)
 - [Página Principal](/)
 - [Soluciones por Rubro](/soluciones) — restaurantes, heladerías, perfumerías y eventos
+- [Cartas por Ciudad](/ciudades) — cartas reales operando, agrupadas por ciudad (derivadas de los locales publicados)
 - [Descubrir platos (beta)](/descubrir) — feed opt-in de la zona, en prueba
 - [Menú Demo Público](/m/demo)
 - [Demos por Rubro](/m/demo-restaurante) · [Heladería](/m/demo-heladeria) · [Perfumería](/m/demo-perfumeria) · [Evento](/m/demo-evento)

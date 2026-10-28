@@ -233,6 +233,14 @@
       "dest": "/api/index.js"
     },
     {
+      "src": "/ciudades",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/ciudades/(.*)",
+      "dest": "/api/index.js"
+    },
+    {
       "src": "/descubrir",
       "dest": "/public/discover.html"
     },

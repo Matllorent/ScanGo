@@ -11,10 +11,20 @@ const path = require('path');
 const db = require('../../src/db/db');
 const seoDiscovery = require('../utils/seoDiscovery');
 const seoSolutions = require('../utils/seoSolutions');
+const seoCities = require('../utils/seoCities');
 const indexNow = require('../utils/indexNow');
 const { PUBLIC_DIR, SEND_FILE_OPTIONS } = require('../utils/paths');
 
 const router = express.Router();
+
+/**
+ * La lista de locales PÚBLICOS (sin canceladas) — la MISMA regla que alimenta
+ * el sitemap; es la que consumen también las landings por ciudad. Canceladas
+ * fuera; todo lo demás (trial/expired/paused) entra igual que hoy al sitemap.
+ */
+function publicMenuRestaurants() {
+  return db.getAllRestaurants().filter((r) => r.subscription && r.subscription.status !== 'canceled');
+}
 
 // SEO: Dynamic Robots.txt Route (política de rastreo + IA desde el compilador
 // puro api/utils/seoDiscovery.js; /robots.txt también se sirve por Express en
@@ -30,11 +40,12 @@ router.get('/robots.txt', (req, res) => {
 // dejaba a los /m/* fuera del sitemap de producción).
 router.get('/sitemap.xml', (req, res) => {
   res.type('application/xml');
-  const restaurants = db.getAllRestaurants().filter(r => r.subscription && r.subscription.status !== 'canceled');
+  const restaurants = publicMenuRestaurants();
   res.send(seoDiscovery.buildSitemapXml({
     appUrl: process.env.APP_URL,
     restaurants,
-    solutions: seoSolutions.getAllSolutions()
+    solutions: seoSolutions.getAllSolutions(),
+    cities: seoCities.buildCityIndex(restaurants)
   }));
 });
 
@@ -59,6 +70,33 @@ router.get('/soluciones/:slug', (req, res) => {
   // `solution` sale del catálogo puro (no de input libre) y todo dato se
   // escapa en renderSolutionHtml (escapeHtml/safeJsonLd): falso positivo.
   res.send(seoSolutions.renderSolutionHtml(solution, { appUrl: process.env.APP_URL })); // nosemgrep: javascript.express.security.audit.xss.direct-response-write.direct-response-write
+});
+
+// SEO: landings por ciudad (/ciudades y /ciudades/:slug) — espejo del motor
+// /soluciones. Las ciudades se DERIVAN de los locales reales ya publicados
+// (publicMenuRestaurants, el mismo filtro del sitemap): si nadie opera en una
+// ciudad, la página NO existe (404 honesto, nunca inventada). HTML 100%
+// server-rendered desde el módulo puro api/utils/seoCities.js, sin JS ni on*=
+// (CSP script-src-attr 'none'); el hub enlaza a cada ciudad y cada ciudad a
+// sus menús reales /m/:slug.
+router.get('/ciudades', (req, res) => {
+  const cities = seoCities.buildCityIndex(publicMenuRestaurants());
+  res.type('html');
+  res.set('Cache-Control', 'public, max-age=300, s-maxage=3600');
+  res.send(seoCities.renderCitiesIndexHtml({ appUrl: process.env.APP_URL, cities }));
+});
+
+router.get('/ciudades/:slug', (req, res) => {
+  const cities = seoCities.buildCityIndex(publicMenuRestaurants());
+  const city = seoCities.getCityBySlug(cities, req.params.slug);
+  if (!city) {
+    return res.status(404).sendFile(path.join(PUBLIC_DIR, '404.html'), SEND_FILE_OPTIONS);
+  }
+  res.type('html');
+  res.set('Cache-Control', 'public, max-age=300, s-maxage=3600');
+  // `city` sale del índice derivado y todo dato se escapa en renderCityHtml
+  // (escapeHtml/safeJsonLd): falso positivo.
+  res.send(seoCities.renderCityHtml(city, { appUrl: process.env.APP_URL })); // nosemgrep: javascript.express.security.audit.xss.direct-response-write.direct-response-write
 });
 
 // IndexNow: archivo de verificación de dominio en /{key}.txt (espec de Bing,

@@ -108,11 +108,12 @@ function urlToXml(base, loc, { changefreq = 'daily', priority = 0.5, lastmod = '
 
 /**
  * Sitemap XML: `/`, legales, las landings de soluciones por rubro
- * (/soluciones y /soluciones/:slug, si se pasan), cada menú activo (/m/:slug) y
+ * (/soluciones y /soluciones/:slug, si se pasan), el hub de ciudades
+ * (/ciudades y /ciudades/:slug, si se pasan), cada menú activo (/m/:slug) y
  * CADA sucursal real (/m/:slug?branch=x). `restaurants` debe venir YA filtrada
  * por el negocio (p.ej. sin canceladas); el módulo no decide suscripciones.
  */
-function buildSitemapXml({ appUrl, restaurants = [], legalPages = LEGAL_PAGES, solutions = [] }) {
+function buildSitemapXml({ appUrl, restaurants = [], legalPages = LEGAL_PAGES, solutions = [], cities = [] }) {
   const base = cleanBase(appUrl);
   const parts = [urlToXml(base, '/', { changefreq: 'daily', priority: 1.0 })];
   for (const lp of legalPages) {
@@ -124,6 +125,14 @@ function buildSitemapXml({ appUrl, restaurants = [], legalPages = LEGAL_PAGES, s
       const slug = encodeURIComponent((s && s.slug) || '');
       if (!slug) continue;
       parts.push(urlToXml(base, `/soluciones/${slug}`, { changefreq: 'monthly', priority: 0.7 }));
+    }
+  }
+  if (Array.isArray(cities) && cities.length) {
+    parts.push(urlToXml(base, '/ciudades', { changefreq: 'weekly', priority: 0.6 }));
+    for (const c of cities) {
+      const slug = encodeURIComponent((c && c.slug) || '');
+      if (!slug) continue;
+      parts.push(urlToXml(base, `/ciudades/${slug}`, { changefreq: 'weekly', priority: 0.6 }));
     }
   }
   for (const r of restaurants) {

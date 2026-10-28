@@ -81,5 +81,6 @@ Feed público opt-in (`allowDiscovery`, suscripción válida) en `/descubrir` co
   - Heladerías y postres: `/soluciones/menu-digital-para-heladerias`
   - Perfumerías y cosmética: `/soluciones/menu-digital-para-perfumerias`
   - Eventos y catering: `/soluciones/menu-digital-para-eventos`
+- **Cartas por ciudad (hub)**: `/ciudades` — índice de ciudades DERIVADO de los locales reales publicados (sin ciudades inventadas); cada `/ciudades/:slug` lista los menús que ya operan en esa ciudad con JSON-LD (WebPage + BreadcrumbList + FAQPage + ItemList). Ciudad sin locales activos → 404 (la página no se inventa).
 - **Demos públicos** (sin registro): `/m/demo-restaurante`, `/m/demo-heladeria`, `/m/demo-perfumeria`, `/m/demo-evento`.
-- **Archivos de descubrimiento**: `/robots.txt` (política explícita para rastreadores de IA), `/sitemap.xml` (landings de soluciones, menús activos y una URL por sucursal) y este mismo `/llms.txt` + `/llms-full.txt`.
+- **Archivos de descubrimiento**: `/robots.txt` (política explícita para rastreadores de IA), `/sitemap.xml` (landings de soluciones y ciudades, menús activos y una URL por sucursal) y este mismo `/llms.txt` + `/llms-full.txt`.

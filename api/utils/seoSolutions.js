@@ -544,6 +544,7 @@ function renderHeader(registerHref = '/?registro=1') {
     '    <nav class="main-nav" aria-label="Navegación principal">',
     '      <a href="/#funcionalidades" class="nav-link">Funcionalidades</a>',
     '      <a href="/soluciones" class="nav-link">Soluciones</a>',
+    '      <a href="/ciudades" class="nav-link">Ciudades</a>',
     '      <a href="/#precios" class="nav-link">Precios</a>',
     '      <a href="/#faq" class="nav-link">Preguntas</a>',
     '    </nav>',
@@ -806,6 +807,14 @@ module.exports = {
   buildSolutionJsonLd,
   renderSolutionsIndexHtml,
   renderSolutionHtml,
+  // Piezas de render COMPARTIDAS con seoCities.js (mismo head/header/footer/
+  // breadcrumb/FAQ y helpers de escape: una sola marca, cero drift de HTML).
+  cleanBase,
   escapeHtml,
-  safeJsonLd
+  safeJsonLd,
+  renderHead,
+  renderHeader,
+  renderFooter,
+  renderBreadcrumb,
+  renderFaqs
 };
