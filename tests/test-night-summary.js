@@ -312,8 +312,13 @@ async function runTests() {
 
       // El email de cierre de A llegó PRECISO: 4 pedidos, $1.200, ventana local,
       // nombre del local escapado (P2) y sin nota de truncado.
-      const nightMail = outbox.find((m) => m.subject.includes('Tu cierre de hoy'));
-      assert.ok(nightMail, 'el email del cierre salió (con capture de la suite)');
+      // Se filtra por el dueño de ESTA corrida: una corrida standalone previa
+      // deja fixtures `night-*` en data/ hasta el purge del próximo `npm test`
+      // y el cron también les manda su cierre (residuo ajeno a esta suite).
+      const nightMail = outbox.find(
+        (m) => m.subject.includes('Tu cierre de hoy') && m.to === ownerA.email
+      );
+      assert.ok(nightMail, 'el email del cierre salió para el dueño de esta corrida');
       assert.strictEqual(nightMail.to, ownerA.email, 'el cierre le llega al DUEÑO del local');
       assert.ok(/4 pedidos/.test(nightMail.subject), `asunto con la cantidad real: ${nightMail.subject}`);
       assert.ok(/1\.200|1200/.test(nightMail.subject), `asunto con los ingresos sin propinas: ${nightMail.subject}`);
