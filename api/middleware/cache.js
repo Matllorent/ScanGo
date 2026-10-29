@@ -135,15 +135,23 @@ function menuCacheMiddleware(req, res, next) {
   const slug = (req.params.slug || req.params.restaurant_slug || '').toLowerCase().trim();
   if (!slug) return next();
 
-  // Include query params (lang, mealTime, hour, day, branch/sucursal, sizing) in cache key
+  // Include query params (lang, mealTime, hour, day, branch/sucursal, sizing, nowMs) in cache key
   // branch/sucursal NO puede faltar: dos sucursales del mismo restaurante tienen
   // precios override y platillos custom distintos, y un menú cacheado bajo el slug
   // pelado contaminaría la vista sin ?branch= y entre sucursales (60s TTL).
   // sizing tampoco: ?sizing=popularity cambia el payload (menuSizing + popTier),
   // sin la key separada un HIT del menú base enmascararía el preview.
+  // nowMs tampoco (Takeaway Programado, 73ª): el reloj inyectado mueve la grilla
+  // de retiro; sin la key separada un HIT de 60s serviría slots de otro instante
+  // y las suites dejarían de ser deterministas. Gateado a no-producción, igual
+  // que la ruta (`NODE_ENV !== 'production'`).
   const branchParam = req.query.branch || req.query.sucursal || '';
   const sizingParam = req.query.sizing === 'popularity' ? 'popularity' : '';
-  const cacheKey = `${slug}:${req.query.lang || 'es'}:${req.query.mealTime || req.query.hour || ''}:${req.query.day || ''}:${String(branchParam).toLowerCase().trim()}:${sizingParam}`;
+  const rawNowParam = Number(req.query.nowMs);
+  const nowParam = process.env.NODE_ENV !== 'production' && req.query.nowMs && Number.isFinite(rawNowParam)
+    ? String(rawNowParam)
+    : '';
+  const cacheKey = `${slug}:${req.query.lang || 'es'}:${req.query.mealTime || req.query.hour || ''}:${req.query.day || ''}:${String(branchParam).toLowerCase().trim()}:${sizingParam}${nowParam ? `:now:${nowParam}` : ''}`;
 
   const cachedData = memoryCache.get(cacheKey);
   if (cachedData) {

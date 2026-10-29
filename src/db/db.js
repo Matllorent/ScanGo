@@ -1813,14 +1813,37 @@ const db = {
     let cloudRows = [];
     try {
       if (supabase) {
-        const { data, error } = await supabase
+        // Takeaway Programado (73ª): el día de venta es el día del RETIRO.
+        // COALESCE(scheduled_for, created_at) no se expresa directo en
+        // PostgREST → dos ramas AND dentro del OR: (a) retiro dentro de la
+        // ventana, (b) pedido inmediato (scheduled_for NULL) creado dentro de
+        // la ventana. Un pre-order de OTRA fecha no entra por ninguna rama.
+        // Si la nube todavía no tiene la 013 (columna rechazada), degrada al
+        // SQL de created_at.
+        const tryScheduled = async () => supabase
           .from('orders')
           .select('id, items_snapshot, status, created_at')
           .eq('restaurant_id', restaurantId)
-          .gte('created_at', startIso)
-          .lt('created_at', endIso);
-        if (error) throw error;
-        cloudRows = Array.isArray(data) ? data : [];
+          .or(
+            `and(scheduled_for.gte.${startIso},scheduled_for.lt.${endIso}),` +
+            `and(created_at.gte.${startIso},created_at.lt.${endIso},scheduled_for.is.null)`
+          );
+        let rows, err;
+        try {
+          const res = await tryScheduled();
+          rows = res.data; err = res.error;
+        } catch (e) { rows = null; err = e; }
+        if (err && /scheduled_for/i.test(err.message || '')) {
+          const res = await supabase
+            .from('orders')
+            .select('id, items_snapshot, status, created_at')
+            .eq('restaurant_id', restaurantId)
+            .gte('created_at', startIso)
+            .lt('created_at', endIso);
+          rows = res.data; err = res.error;
+        }
+        if (err) throw err;
+        cloudRows = Array.isArray(rows) ? rows : [];
       }
     } catch (err) {
       console.warn('[DB] getSoldQtyForDay cloud no disponible (espejo local:', (err && err.message) || err, ')');
@@ -1835,7 +1858,10 @@ const db = {
       if (!localRow) continue;
       const rid = localRow.restaurant_id || localRow.restaurantId;
       if (rid !== restaurantId) continue;
-      const ts = Date.parse(localRow.created_at || localRow.createdAt || '');
+      // Espejo: mismo re-anclaje al instante de retiro (dual camel/snake).
+      const fulfillIso = localRow.scheduled_for != null ? localRow.scheduled_for
+        : (localRow.scheduledFor != null ? localRow.scheduledFor : (localRow.created_at || localRow.createdAt));
+      const ts = Date.parse(fulfillIso || '');
       if (Number.isNaN(ts)) continue;
       if (ts >= startMs && ts < endMs && localRow.id && !byId.has(String(localRow.id))) {
         byId.set(String(localRow.id), localRow);
@@ -1857,13 +1883,20 @@ const db = {
     let cloudRows = [];
     if (supabase) {
       const baseColumns = 'id, status, created_at';
-      const attempt = async (columns) => supabase
-        .from('orders')
-        .select(columns)
-        .eq('restaurant_id', restaurantId)
-        .gte('created_at', startIso)
-        .lt('created_at', endIso)
-        .limit(1000);
+      const attempt = async (columns, excludeScheduled) => {
+        let q = supabase
+          .from('orders')
+          .select(columns)
+          .eq('restaurant_id', restaurantId)
+          .gte('created_at', startIso)
+          .lt('created_at', endIso)
+          .limit(1000);
+        // Takeaway Programado (73ª): los programados NO miden cocina (el
+        // reloj arranca cuando la comanda despierta, que acá no existe).
+        // Cláusula aparte, con la misma degradación honesta si falta la 013.
+        if (excludeScheduled) q = q.is('scheduled_for', null);
+        return q;
+      };
       try {
         // F7-v2: `order_mode` viaja junto a los timestamps (migración 009) para
         // estimar POR MODALIDAD sin una segunda consulta. Degradación honesta
@@ -1871,13 +1904,24 @@ const db = {
         // o ambas — el espejo local sigue aportando sus filas y sin la columna
         // la modalidad degrada a LOCAL (asunción legacy de la casa).
         let columns = `${baseColumns}, status_updated_at, order_mode`;
-        let { data, error } = await attempt(columns);
-        for (let tries = 0; error && tries < 3 && /status_updated_at|order_mode/i.test(error.message || ''); tries++) {
+        let res = await attempt(columns, true);
+        let data = res.data;
+        let error = res.error;
+        for (let tries = 0; error && tries < 4 && /status_updated_at|order_mode/i.test(error.message || ''); tries++) {
           if (/status_updated_at/i.test(error.message || '')) columns = columns.replace(', status_updated_at', '');
           else if (/order_mode/i.test(error.message || '')) columns = columns.replace(', order_mode', '');
-          const retry = await attempt(columns);
-          data = retry.data;
-          error = retry.error;
+          res = await attempt(columns, true);
+          data = res.data;
+          error = res.error;
+        }
+        // Takeaway Programado: una nube sin la 013 rechaza la exclusión →
+        // reintenta SIN la cláusula (igualmente no tiene filas programadas:
+        // el dual-write se las quitó con cloudWriteTolerant). El espejo local
+        // SIEMPRE filtra las suyas (la nube no borra lo que el espejo sí tiene).
+        if (error && /scheduled_for/i.test(error.message || '')) {
+          res = await attempt(columns, false);
+          data = res.data;
+          error = res.error;
         }
         if (error) throw error;
         cloudRows = Array.isArray(data) ? data : [];
@@ -1895,6 +1939,10 @@ const db = {
       if (!localRow) continue;
       const rid = localRow.restaurant_id || localRow.restaurantId;
       if (rid !== restaurantId) continue;
+      // Takeaway Programado: un pedido programado aún no midió cocina (su
+      // reloj arranca cuando la comanda despierta, no al crear).
+      const scheduledIso = localRow.scheduled_for != null ? localRow.scheduled_for : localRow.scheduledFor;
+      if (scheduledIso != null) continue;
       const ts = Date.parse(localRow.created_at || localRow.createdAt || '');
       if (Number.isNaN(ts)) continue;
       if (ts >= startMs && ts < endMs && localRow.id) {
@@ -1924,6 +1972,56 @@ const db = {
     return [...byId.values()];
   },
 
+  // Takeaway Programado (73ª): filas de pedidos programados (scheduled_for
+  // no null) cerca de un instante, para contar la capacidad del slot contra
+  // `maxPerSlot`. Unión nube ∪ espejo por id (patrón El Cierre/F3): un
+  // pedido cuyo dual-write fue rechazado en cloud NO libera su cupo de la
+  // franja en silencio (la cocina contaría 3 de 4 aunque el dueño vea 4).
+  // Degrada a espejo si la 013 no está aplicada; el llamador hace el conteo
+  // con `countOrdersInSlot` (puro). Ventana ±6h alrededor del retiro.
+  async getSlotOrdersNear(restaurantId, scheduledForIso) {
+    if (!restaurantId || !scheduledForIso) return [];
+    const target = Date.parse(String(scheduledForIso));
+    if (Number.isNaN(target)) return [];
+    const nearIso = (ms) => new Date(ms).toISOString();
+    const startMs = target - 6 * 3600000;
+    const endMs = target + 6 * 3600000;
+    const byId = new Map();
+    for (const localRow of readJson(ORDERS_FILE, [])) {
+      if (!localRow || !localRow.id) continue;
+      const rid = localRow.restaurant_id || localRow.restaurantId;
+      if (rid !== restaurantId) continue;
+      const iso = localRow.scheduled_for != null ? localRow.scheduled_for : localRow.scheduledFor;
+      const ms = Date.parse(String(iso || ''));
+      if (Number.isNaN(ms) || ms < startMs || ms >= endMs) continue;
+      byId.set(String(localRow.id), localRow);
+    }
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('id, status, scheduled_for, created_at')
+          .eq('restaurant_id', restaurantId)
+          .not('scheduled_for', 'is', null)
+          .gte('scheduled_for', nearIso(startMs))
+          .lt('scheduled_for', nearIso(endMs));
+        if (error && /scheduled_for/i.test(error.message || '')) {
+          // Nube sin la 013: no tiene filas programadas → el espejo es la
+          // verdad de ese instante (degradación honesta, warn visible arriba).
+        } else if (error) {
+          throw error;
+        } else if (Array.isArray(data)) {
+          for (const row of data) {
+            if (row && row.id) byId.set(String(row.id), row);
+          }
+        }
+      } catch (err) {
+        console.warn('[DB] getSlotOrdersNear cloud no disponible (espejo local:', (err && err.message) || err, ')');
+      }
+    }
+    return [...byId.values()];
+  },
+
   // Mapeo canónico local → fila cloud de `orders` (misma forma que usa
   // POST /api/orders; fuente única para no diverger).
   toCloudOrder(orderRecord) {
@@ -1947,6 +2045,10 @@ const db = {
       waiter_id: orderRecord.waiter_id || orderRecord.waiterId || null,
       table_id: orderRecord.table_id || orderRecord.tableId || null,
       source: orderRecord.source || 'customer',
+      // Takeaway Programado (73ª suite): instante de retiro programado.
+      // null en pedidos inmediatos/históricos; la nube sin la 013 degrada
+      // vía cloudWriteTolerant y el espejo conserva el dato (camel/snake).
+      scheduled_for: orderRecord.scheduled_for || orderRecord.scheduledFor || null,
       created_at: orderRecord.created_at
     };
   },

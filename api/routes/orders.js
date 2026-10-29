@@ -15,11 +15,13 @@ const { groupCartLimiter } = require('../middleware/rateLimits');
 const { verifyGroupCartToken } = require('../utils/groupCartToken');
 const { computeOpenStatus } = require('../utils/openStatus');
 const { quoteOrderItems, resolveDeliveryFee, resolveCouponDiscount } = require('../utils/orderMoney');
+const pickupSlots = require('../utils/pickupSlots');
+const { getPrepEstimateBundleForRestaurant } = require('../services/prepEstimate');
+const { getPickupBundleForRestaurant } = require('../services/pickup');
 const { z } = require('zod');
 const loyaltyService = require('../services/loyalty');
 const recoveryCoupons = require('../utils/recoveryCoupons');
 const notificationsService = require('../services/notifications');
-const { getPrepEstimateBundleForRestaurant } = require('../services/prepEstimate');
 const { prepModeForOrder } = require('../utils/prepEstimate');
 const { signOrderToken, verifyOrderToken } = require('../utils/orderTrackingToken');
 const auditService = require('../services/audit');
@@ -85,22 +87,34 @@ async function findOrderForTracking(orderId) {
   return null;
 }
 
-router.post('/quote', validateBody(createOrderSchema), (req, res, next) => {
+router.post('/quote', validateBody(createOrderSchema), async (req, res, next) => {
   try {
     const restaurant = db.findRestaurantById(req.body.restaurantId) || db.findRestaurantBySlug(req.body.restaurantId);
     if (!restaurant) throw new AppError('Restaurante no encontrado para la cotización', 404, 'RESTAURANT_NOT_FOUND');
+    // Takeaway Programado (73ª): la franja se valida contra la grilla del
+    // local ANTES de cotizar (errores honestos 400). El quote NO reserva
+    // capacidad — el claim real es el alta en POST /.
+    const pickup = await resolvePickupContext(restaurant, req.body.scheduledFor, req.body.orderMode);
     const quote = quoteOrderItems(restaurant, req.body.items);
     enforceOrderBusinessRules({
       restaurant,
       subtotal: quote.amountInCents / 100,
       orderMode: req.body.orderMode,
       deliveryAddress: req.body.deliveryAddress,
-      utcOffsetMinutes: req.body.utcOffsetMinutes
+      utcOffsetMinutes: req.body.utcOffsetMinutes,
+      closedExempt: Boolean(pickup)
     });
     return successResponse(res, {
       ...quote,
       amount: quote.amountInCents / 100,
-      currency: req.body.currency || restaurant.currency || '$'
+      currency: req.body.currency || restaurant.currency || '$',
+      // El checkout muestra la franja confirmada por el server (la copy la
+      // escribe acá, no el client).
+      ...(pickup ? {
+        scheduledFor: pickup.scheduledFor,
+        scheduledLabel: pickup.label,
+        scheduledLeadMinutes: pickup.leadMinutes
+      } : {})
     }, 'Cotización validada');
   } catch (error) {
     next(error);
@@ -218,7 +232,7 @@ function assertRestaurantOpen(restaurant, utcOffsetMinutes = 0, nowMs = Date.now
   );
 }
 
-function enforceOrderBusinessRules({ restaurant, subtotal, orderMode, deliveryAddress, utcOffsetMinutes }) {
+function enforceOrderBusinessRules({ restaurant, subtotal, orderMode, deliveryAddress, utcOffsetMinutes, closedExempt = false }) {
   // Carta vitrina: el dueño muestra los platos sin aceptar pedidos (ni por
   // WhatsApp ni online). Mismo patrón que ONLINE_PAYMENT_DISABLED.
   if (restaurant.allowMenuOrders === false) {
@@ -235,10 +249,73 @@ function enforceOrderBusinessRules({ restaurant, subtotal, orderMode, deliveryAd
   if (orderMode === 'DELIVERY' && !String(deliveryAddress || '').trim()) {
     throw new AppError('Indicá la dirección de entrega para el delivery.', 400, 'DELIVERY_ADDRESS_REQUIRED');
   }
-  assertRestaurantOpen(restaurant, utcOffsetMinutes);
+  // Takeaway Programado (73ª suite): un retiro PROGRAMADO y VÁLIDO exime el
+  // horario de atención (pre-orders con el local cerrado: el local recolecta
+  // para retirar a la franja elegida). El `forceClosed` del dueño también
+  // queda exento con slot válido (misma razón); feature off o slot inválido
+  // → la excepción NUNCA aplica: sigue 400 RESTAURANT_CLOSED.
+  if (!closedExempt) assertRestaurantOpen(restaurant, utcOffsetMinutes);
 }
 
 /** quoteOrderItems / resolveDeliveryFee / resolveCouponDiscount viven en ../utils/orderMoney (Bloque 2). */
+
+/**
+ * Takeaway Programado (73ª suite) — resuelve el contexto de retiro programado
+ * de un pedido. Con `scheduledFor` vacío devuelve null (pedido inmediato: la
+ * carta sigue igual para los locales actuales). Con horario: exige feature
+ * activo (allowPreOrders) + modalidad TAKEAWAY + slot VÁLIDO contra la grilla
+ * del local (ISO futuro, ≥ lead, alineado, en franja, dentro del horizonte) +
+ * capacidad (conteo de pedidos ACTIVOS con el mismo retiro contra maxPerSlot).
+ * Los veredictos los escribe `pickupSlots` (puro) — el valor del client nunca
+ * es la autoridad. La carrera cross-réplica queda documentada como deliberate
+ * skip (v2: RPC claim_pickup_slot, patrón 011).
+ *
+ * @returns {Promise<object|null>} bundle `{ scheduledFor, leadMinutes,
+ *   slotMinutes, label, wakeAt, config }` que el llamador persiste (dual
+ *   camel/snake) y usa para eximir el horario de atención.
+ */
+async function resolvePickupContext(restaurant, scheduledFor, orderMode) {
+  const raw = String(scheduledFor || '').trim();
+  if (!raw) return null;
+  if (orderMode !== 'TAKEAWAY') {
+    throw new AppError('Los retiros programados solo aplican a la modalidad "Para llevar".', 400, 'SCHEDULED_TAKEAWAY_ONLY');
+  }
+  if (restaurant.allowPreOrders !== true) {
+    throw new AppError('Este local no acepta retiros programados por el momento.', 400, 'PRE_ORDERS_DISABLED');
+  }
+  const config = pickupSlots.sanitizePickupConfig(restaurant.pickupConfig);
+  // El lead derivado del dueño no configurado sale del p50 de TAKEAWAY (F7-v2);
+  // la consulta puede fallar sin romper el alta (solo degrada el DERIVADO).
+  const prepBundle = await getPrepEstimateBundleForRestaurant(restaurant).catch(() => null);
+  const verdict = pickupSlots.verifyScheduledFor({
+    scheduledFor: raw,
+    scheduleActiveHours: restaurant.scheduleActiveHours,
+    scheduleEnabled: restaurant.scheduleEnabled,
+    utcOffsetMinutes: restaurant.utcOffsetMinutes,
+    nowMs: Date.now(),
+    pickupConfig: config,
+    prepEstimateByMode: prepBundle ? prepBundle.byMode : null
+  });
+  const verdictError = pickupSlots.pickupVerdictError(verdict);
+  if (verdictError) throw verdictError;
+
+  // Capacidad por slot (v1 in-request, misma verificación en /quote y POST):
+  // franja llena se descubre al armar el pedido (el quote no reserva).
+  const near = await db.getSlotOrdersNear(restaurant.id, raw).catch(() => []);
+  const maxPerSlot = (config && Number(config.maxPerSlot)) || pickupSlots.DEFAULT_MAX_PER_SLOT;
+  if (pickupSlots.countOrdersInSlot(near, Date.parse(raw)) >= maxPerSlot) {
+    throw new AppError('Ese horario de retiro se llenó. Elegí otro de la grilla.', 400, 'SLOT_FULL');
+  }
+
+  return {
+    scheduledFor: raw,
+    leadMinutes: verdict.leadMinutes,
+    slotMinutes: verdict.slotMinutes,
+    label: pickupSlots.localPickupLabel(raw, restaurant.utcOffsetMinutes, Date.now()),
+    wakeAt: pickupSlots.computeWakeAt(raw, verdict.leadMinutes),
+    config
+  };
+}
 
 /**
  * F8-v2 — canje REAL del cupón de recupero (el `VOL-XXXXXXXX` que sale por
@@ -310,7 +387,7 @@ function recoveryCouponRejectionError(rejected) {
 router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (req, res, next) => {
   let pendingCouponClaim = null;
   try {
-    const { restaurantId, tableNumber, items, currency, customerName, customerPhone, deliveryAddress, notes, tipAmount, captchaToken, orderMode, deliveryFee } = req.body;
+    const { restaurantId, tableNumber, items, currency, customerName, customerPhone, deliveryAddress, notes, tipAmount, captchaToken, orderMode, deliveryFee, scheduledFor } = req.body;
 
     // ── Comandero (Fase 2 del Sistema de Mozos) ──────────────────────────────
     // Si el request trae un Bearer de TURNO válido, el pedido se atribuye al
@@ -372,13 +449,18 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
 
     const { itemsSnapshot, amountInCents } = quoteOrderItems(restaurant, items, utcNow);
 
+    // Takeaway Programado (73ª): el contexto de retiro se resuelve ANTES de
+    // las reglas autoritativas — un slot válido exime el horario de atención.
+    const pickup = await resolvePickupContext(restaurant, scheduledFor, orderMode);
+
     // Reglas autoritativas: pedido mínimo, dirección de delivery y abierto/cerrado.
     enforceOrderBusinessRules({
       restaurant,
       subtotal: amountInCents / 100,
       orderMode,
       deliveryAddress,
-      utcOffsetMinutes: req.body.utcOffsetMinutes
+      utcOffsetMinutes: req.body.utcOffsetMinutes,
+      closedExempt: Boolean(pickup)
     });
 
     // Totales canónicos server-side (lo que se cobra y se muestra en
@@ -466,6 +548,15 @@ router.post('/', idempotencyMiddleware, validateBody(createOrderSchema), async (
       discountAmount: validDiscount,
       tip_amount: validTip,
       tipAmount: validTip,
+      // Takeaway Programado (73ª): instante de retiro programado + el lead
+      // USADO en el alta (dual camel/snake como el resto de la fila). El lead
+      // persistido mantiene `wakeAt` estable aunque cambie el p50 después.
+      ...(pickup ? {
+        scheduled_for: pickup.scheduledFor,
+        scheduledFor: pickup.scheduledFor,
+        scheduled_lead_minutes: pickup.leadMinutes,
+        scheduledLeadMinutes: pickup.leadMinutes
+      } : {}),
       created_at: utcNow
     };
 
@@ -619,6 +710,15 @@ router.get('/track/:token', async (req, res, next) => {
       // 009; filas históricas sin modo → LOCAL). Sin PII.
       prepEstimateByMode,
       orderMode: prepModeForOrder(order),
+      // Takeaway Programado (73ª): la franja de retiro del pedido — SOLO la
+      // etiqueta ("hoy 14:15 hs", en el huso del dueño) y el ISO. Nunca
+      // teléfono, nombre ni dirección.
+      scheduledFor: (order.scheduled_for != null ? order.scheduled_for : (order.scheduledFor || null)),
+      scheduledLabel: pickupSlots.localPickupLabel(
+        order.scheduled_for != null ? order.scheduled_for : order.scheduledFor,
+        restaurant ? restaurant.utcOffsetMinutes : 0,
+        Date.now()
+      ) || null,
       items: (order.items_snapshot || order.itemsSnapshot || []).map(line => ({
         name: line.name,
         quantity: line.quantity
@@ -841,7 +941,7 @@ const mpService = require('../../src/services/mercadopago');
 
 router.post('/mercadopago/preference', validateBody(createOrderSchema), async (req, res, next) => {
   try {
-    const { restaurantId, items, customerName, currency, tipAmount, coupon, orderMode, deliveryFee, deliveryAddress } = req.body;
+    const { restaurantId, items, customerName, currency, tipAmount, coupon, orderMode, deliveryFee, deliveryAddress, scheduledFor } = req.body;
     const restaurant = db.findRestaurantById(restaurantId) || db.findRestaurantBySlug(restaurantId);
     if (!restaurant) {
       throw new AppError('Restaurante no encontrado para el pago', 404, 'RESTAURANT_NOT_FOUND');
@@ -862,8 +962,12 @@ router.post('/mercadopago/preference', validateBody(createOrderSchema), async (r
     const { itemsSnapshot, amountInCents } = quoteOrderItems(restaurant, items);
     const subtotal = amountInCents / 100;
 
+    // Takeaway Programado (73ª): la franja se resuelve igual que en el pedido —
+    // un slot válido exime el horario de atención también al cobro anticipado.
+    const pickup = await resolvePickupContext(restaurant, scheduledFor, orderMode);
+
     // Mismas reglas que el pedido: mínimo, dirección de delivery y abierto/cerrado.
-    enforceOrderBusinessRules({ restaurant, subtotal, orderMode, deliveryAddress, utcOffsetMinutes: req.body.utcOffsetMinutes });
+    enforceOrderBusinessRules({ restaurant, subtotal, orderMode, deliveryAddress, utcOffsetMinutes: req.body.utcOffsetMinutes, closedExempt: Boolean(pickup) });
 
     // Total cobrado = platos + envío validado − cupón validado + propina.
     // (Antes solo iban los platos: se cobraba de menos y la propina se perdía.)

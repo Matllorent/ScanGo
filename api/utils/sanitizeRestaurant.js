@@ -17,6 +17,7 @@ const { sanitizeRefSlug } = require('./viralRef');
 const { sanitizeTableAssignments } = require('./staffCredentials');
 const { sanitizeLoyaltyLevels } = require('./loyaltyLevels');
 const { sanitizeReservationConfig } = require('./reservations');
+const { sanitizePickupConfig } = require('./pickupSlots');
 const { z } = require('zod');
 
 // Morfologías y paletas vienen del MANIFEST CANÓNICO (api/utils/themeManifest.js):
@@ -516,6 +517,17 @@ function sanitizeRestaurantPayload(data) {
   // Carta vitrina: el dueño muestra los platos sin carrito ni pedidos
   // (default encendido: sin cambios para los locales actuales).
   clean.allowMenuOrders = clean.allowMenuOrders !== false;
+  // Takeaway Programado (73ª suite): opt-in explícito del dueño (default
+  // apagado). Con el interruptor prendido, la carta muestra la grilla de
+  // horarios de retiro y el server acepta pre-orders con el local cerrado.
+  clean.allowPreOrders = clean.allowPreOrders === true;
+  // Config de la grilla de retiro: intervalo de la grilla, capacidad por
+  // franja y lead declarado (ABSENT si vacío/basura → lead derivado de F7).
+  if (clean.pickupConfig !== undefined) {
+    const pick = sanitizePickupConfig(clean.pickupConfig);
+    if (pick) clean.pickupConfig = pick;
+    else delete clean.pickupConfig;
+  }
   // Texto configurable del botón principal del armador de helado (vacío → default del frontend).
   clean.iceCreamBuilderLabel = sanitizeString(clean.iceCreamBuilderLabel, 60);
   // Estilo del botón del armador (6 variantes premium de heladería, default clasico).

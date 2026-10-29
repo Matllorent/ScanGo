@@ -142,7 +142,13 @@ const createOrderSchema = z.object({
   // Huso del dispositivo del comensal (minutos, ±840). El reloj del navegador
   // NO es la autoridad de abierto/cerrado: el servidor recalcula la hora local
   // del local con este offset para validar el horario de atención (brecha E).
-  utcOffsetMinutes: z.number().min(-840).max(840).optional().default(0)
+  utcOffsetMinutes: z.number().min(-840).max(840).optional().default(0),
+  // Takeaway Programado (73ª suite): instante de retiro programado (ISO UTC).
+  // Opcional y solo significativo con orderMode='TAKEAWAY' + allowPreOrders.
+  // El veredicto (válido/demasiado pronto/fuera de franja) lo escribe el
+  // server con `pickupSlots.verifyScheduledFor` — el valor del client nunca
+  // es la autoridad.
+  scheduledFor: z.string().max(40).optional().default('')
 });
 
 // Zod 4: compilar el schema una vez por middleware. SafeParse mantiene el mismo

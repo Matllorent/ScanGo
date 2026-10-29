@@ -19,6 +19,7 @@ const { resolveImageMode, resolveMenuSizing, layoutSupportsMenuSizing } = requir
 const { computePopTiers } = require('../utils/popularityTiers');
 const dailyStockTracker = require('../utils/dailyStockTracker');
 const dishTrending = require('../utils/dishTrending');
+const { getPickupBundleForRestaurant } = require('../services/pickup');
 const { getPrepEstimateBundleForRestaurant } = require('../services/prepEstimate');
 const escapeHtml = require('../utils/escapeHtml');
 
@@ -105,6 +106,12 @@ function buildDemoMenuResponse(typeOrSlug, opts = {}) {
     allowWaiterCall: demo.allowWaiterCall !== false,
     allowBillRequest: demo.allowBillRequest !== false,
     allowMenuOrders: demo.allowMenuOrders !== false,
+    // Takeaway Programado (73ª): una demo NUNCA ofrece retiros programados
+    // (sin pedidos reales detrás; vitrina honesta).
+    allowPreOrders: false,
+    pickupConfig: null,
+    pickupSlots: [],
+    pickupLeadMinutes: null,
     announcement: demo.announcement || '',
     paymentLink: '',
     allowOnlinePayment: false,
@@ -197,9 +204,13 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
     // ?branch=centro y el menú base no compartan entrada (5s TTL) y se contaminen.
     // ?sizing=popularity también cambia la respuesta (menuSizing + popTier), así
     // que entra en la key por la misma razón que la sucursal.
+    // Takeaway Programado (73ª): la grilla de retiro depende del reloj —
+    // ?nowMs= entra en la key (patrón ?sizing=) y SOLO en no-producción.
     const reqBranch = (req.query.branch || req.query.sucursal || '').toLowerCase().trim();
     const reqSizing = req.query.sizing === 'popularity' ? ':sizing:popularity' : '';
-    const activeBranchCacheKey = `${slug}:branch:${reqBranch}${reqSizing}`;
+    const reqNowMsRaw = process.env.NODE_ENV !== 'production' && req.query.nowMs ? Number(req.query.nowMs) : null;
+    const reqNowMs = reqNowMsRaw !== null && Number.isFinite(reqNowMsRaw) ? reqNowMsRaw : null;
+    const activeBranchCacheKey = `${slug}:branch:${reqBranch}${reqSizing}${reqNowMs != null ? `:now:${reqNowMs}` : ''}`;
 
     const fetchPromise = getCachedMenu(activeBranchCacheKey, async () => {
       let restaurant = db.findRestaurantBySlug(slug);
@@ -399,6 +410,23 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
         console.warn('[menu] prepEstimate no disponible:', (prepErr && prepErr.message) || prepErr);
       }
 
+      // Takeaway Programado (73ª suite): grilla de horarios de retiro. El flag
+      // viaja SIEMPRE como boolean estable (patrón soldOutToday); la grilla,
+      // el lead y la config del dueño viajan SOLO cuando el dueño activó el
+      // opt-in (allowPreOrders === true). El servicio cachea 60s por local y
+      // es fail-open: un fallo NUNCA rompe el menú. Con reloj inyectado no usa
+      // cache (determinista para las suites).
+      let pickupBundle = null;
+      try {
+        pickupBundle = await getPickupBundleForRestaurant(
+          restaurant,
+          reqNowMs != null ? { nowMs: reqNowMs } : {}
+        );
+      } catch (pickupErr) {
+        pickupBundle = null;
+      }
+      const allowPreOrdersValue = Boolean(pickupBundle && pickupBundle.allowed);
+
       // Sanitize public payload: exclude internal userId, billing identifiers, etc.
       const publicData = {
         id: restaurant.id,
@@ -473,6 +501,14 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
         // (objeto estable, patrón soldOutToday); null completo si el dueño
         // apagó el ETA o si la consulta falló.
         prepEstimateByMode: prepEstimateByModeValue,
+        // Takeaway Programado (73ª): flag boolean SIEMPRE; grilla/config/lead
+        // SOLO con el opt-in del dueño (bundle estable).
+        allowPreOrders: allowPreOrdersValue,
+        ...(allowPreOrdersValue && pickupBundle ? {
+          pickupConfig: pickupBundle.config,
+          pickupSlots: pickupBundle.slots,
+          pickupLeadMinutes: pickupBundle.leadMinutes
+        } : {}),
         tableCount: restaurant.tableCount || 10,
         customCoupons: restaurant.customCoupons || [],
         allowLoyaltyPoints: restaurant.allowLoyaltyPoints === true,

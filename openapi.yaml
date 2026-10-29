@@ -3793,6 +3793,63 @@ components:
               type: object
               nullable: true
               description: Estimación de pedidos para llevar (o `null` sin muestra suficiente)
+        allowPreOrders:
+          type: boolean
+          description: |-
+            Takeaway Programado (73ª suite): el local acepta pedidos con retiro a una hora
+            elegida, incluso con la cocina cerrada. En GET /api/menu es el flag EFECTIVO:
+            `true` solo si el dueño lo prendió Y el feature puede operar (lead explícito o
+            derivado del p50 de TAKEAWAY). En demos siempre `false`.
+        pickupConfig:
+          type: object
+          nullable: true
+          description: |-
+            Solo con `allowPreOrders: true`. Configuración saneada del dueño
+            (`intervalMinutes` 5/10/15/20/30/60, `maxPerSlot` 1..50, `leadMinutes` 0..240
+            opcional). `leadMinutes` ausente = automático (p50 de TAKEAWAY + 10 min).
+          properties:
+            intervalMinutes:
+              type: integer
+              enum: [5, 10, 15, 20, 30, 60]
+              default: 15
+            maxPerSlot:
+              type: integer
+              minimum: 1
+              maximum: 50
+              default: 4
+            leadMinutes:
+              type: integer
+              minimum: 0
+              maximum: 240
+              description: Anticipación mínima. Ausente = derivada de la evidencia real
+        pickupLeadMinutes:
+          type: integer
+          nullable: true
+          description: |-
+            Solo con `allowPreOrders: true`. La anticipación EFECTIVA (explícita o derivada)
+            que el server usa para verificar cada franja. `null` si el feature no opera.
+        pickupSlots:
+          type: array
+          description: |-
+            Solo con `allowPreOrders: true`. Grilla de retiro (hoy + mañana) alineada al
+            intervalo EN EL HUSO DEL DUEÑO, empezando en `now + lead`. Vacía si el feature
+            no opera. `?nowMs=` (solo fuera de producción) permite congelar el reloj.
+          items:
+            type: object
+            required: [scheduledFor, minutes, time, dayKey]
+            properties:
+              scheduledFor:
+                type: string
+                format: date-time
+              minutes:
+                type: integer
+                description: Minuto local del día (0..1439)
+              time:
+                type: string
+                example: '10:30'
+              dayKey:
+                type: string
+                enum: [hoy, mañana]
         allowIceCreamWizard:
           type: boolean
         categories:
@@ -3924,6 +3981,33 @@ components:
               type: string
               minLength: 1
               maxLength: 30
+        orderMode:
+          type: string
+          enum: [LOCAL, DELIVERY, TAKEAWAY]
+          default: LOCAL
+          description: |-
+            Modalidad del pedido (migración 009). El retiro programado SOLO existe en
+            `TAKEAWAY`; con `LOCAL`/`DELIVERY` + `scheduledFor` el server responde 400
+            `SCHEDULED_TAKEAWAY_ONLY`.
+        utcOffsetMinutes:
+          type: integer
+          minimum: -840
+          maximum: 840
+          default: 0
+          description: |-
+            Huso del dueño (`-new Date().getTimezoneOffset()` en el navegador). Gobierna la
+            verificación de horario/franjas y la ventana del stock diario. Se clampea ±840.
+        scheduledFor:
+          type: string
+          maxLength: 40
+          description: |-
+            Takeaway Programado: instante ISO del retiro elegido por el comensal. Debe estar
+            alineado al intervalo del local, dentro de su horario y del horizonte de 2 días,
+            y respetar la anticipación mínima. Un slot válido EXIME el `RESTAURANT_CLOSED`
+            (pre-orders con la cocina cerrada); con el feature apagado se rechaza con
+            `PRE_ORDERS_DISABLED`. Los códigos honestos son `SCHEDULED_INVALID`,
+            `SCHEDULED_PAST`, `SCHEDULED_TOO_SOON`, `SCHEDULED_SLOT_UNAVAILABLE` y, por
+            capacidad de la franja, `SLOT_FULL` (400).
     Order:
       type: object
       required: [id, status]
@@ -3968,6 +4052,16 @@ components:
         trackingToken:
           type: string
           description: Token HMAC sin estado `${orderId}.${firma}` para el seguimiento público
+        scheduledFor:
+          type: string
+          nullable: true
+          description: |-
+            Takeaway Programado: instante ISO del retiro (null en un pedido inmediato).
+            Persiste en `orders.scheduled_for` (migración 013).
+        scheduledLeadMinutes:
+          type: integer
+          nullable: true
+          description: Anticipación con la que se tomó el pre-order (para despertar el KDS)
         itemsSnapshot:
           type: array
           items:
@@ -4036,6 +4130,19 @@ components:
           description: |-
             F7-v2: modalidad canónica del pedido (migración 009). Filas históricas
             sin modo se reportan como LOCAL. Informativo, sin PII.
+        scheduledFor:
+          type: string
+          nullable: true
+          description: |-
+            Takeaway Programado: instante ISO del retiro (null en un pedido inmediato).
+            Informativo, sin PII — el comensal ve cuándo retira.
+        scheduledLabel:
+          type: string
+          nullable: true
+          description: |-
+            Etiqueta humana del retiro EN EL HUSO DEL DUEÑO (`hoy 10:30 hs` /
+            `mañana 09:15 hs`). `null` si el pedido no está programado.
+          example: hoy 10:30 hs
         items:
           type: array
           items:
