@@ -15,8 +15,11 @@
 #
 # Secrets requeridos:
 #   SUPABASE_DB_URL   → cadena postgres del proyecto (ver README del runbook
-#                       docs/produccion-checklist.md): usar la conexión DIRECTA
-#                       (puerto 5432), NO el pooler transaccional 6543.
+#                       docs/produccion-checklist.md). Recomendado: la cadena del
+#                       POOLER en modo SESIÓN (puerto 5432, usuario
+#                       postgres.<ref>), porque la conexión directa es IPv6-only
+#                       y los runners de GitHub no tienen ruta IPv6. Si el secret
+#                       trae la conexión directa, el workflow la reescribe solo.
 name: Backup Supabase (diario)
 
 on:
@@ -32,33 +35,61 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Instalar cliente PostgreSQL (pg_dump/pg_restore)
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
-
       - name: Fecha del volcado (UTC)
         id: date
         run: echo "stamp=$(date -u +%Y-%m-%dT%H%MZ)" >> "$GITHUB_OUTPUT"
 
-      - name: Volcado completo (pg_dump custom format, sin owner/privileges)
+      - name: Volcado completo (pg_dump 17 vía Docker, custom format, sin owner/privileges)
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          STAMP: ${{ steps.date.outputs.stamp }}
         run: |
           set -euo pipefail
           if [ -z "${SUPABASE_DB_URL:-}" ]; then
             echo "::error::Falta el secret SUPABASE_DB_URL. Configuralo en Settings → Secrets and variables → Actions."
             exit 1
           fi
-          pg_dump "$SUPABASE_DB_URL" \
-            --format=custom \
-            --no-owner --no-privileges \
-            --file="scango-backup-${{ steps.date.outputs.stamp }}.dump"
-          test -s "scango-backup-${{ steps.date.outputs.stamp }}.dump"
-          echo "Volcado: $(du -h scango-backup-${{ steps.date.outputs.stamp }}.dump | cut -f1)"
+
+          # La conexión DIRECTA de Supabase es IPv6-only y los runners de GitHub
+          # no tienen ruta IPv6 (error real: "Network is unreachable"). El pooler
+          # es IPv4. pg_dump exige el modo SESIÓN (5432): el transaccional (6543)
+          # no soporta las sentencias de nivel sesión que usa el volcado.
+          DB_URL="$SUPABASE_DB_URL"
+          if [[ "$DB_URL" == *"@db.olqdcudvstbawkcvsfdd.supabase.co"* ]]; then
+            DB_URL="$(printf '%s' "$DB_URL" | sed -e 's#@db\.olqdcudvstbawkcvsfdd\.supabase\.co\(:5432\)\?/#@aws-0-us-east-1.pooler.supabase.com:5432/#' -e 's#//postgres:#//postgres.olqdcudvstbawkcvsfdd:#')"
+            echo "::warning::SUPABASE_DB_URL usa la conexión directa (IPv6-only). Se usa el pooler IPv4 en modo sesión; actualizá el secret a la cadena del pooler cuando puedas."
+          elif [[ "$DB_URL" == *"pooler.supabase.com:6543"* ]]; then
+            DB_URL="${DB_URL/pooler.supabase.com:6543/pooler.supabase.com:5432}"
+            echo "::warning::El pooler transaccional (6543) no soporta pg_dump; se usa el modo sesión (5432)."
+          fi
+
+          echo "Destino: $(printf '%s' "$DB_URL" | sed -E 's#^[a-z]+://[^@]+@##; s#/.*$##')"
+
+          # La URL lleva el password: va por env-file (modo 600), nunca por argv.
+          umask 077
+          printf 'DB_URL=%s\n' "$DB_URL" > "$RUNNER_TEMP/db.env"
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --env-file "$RUNNER_TEMP/db.env" \
+            --env PGSSLMODE=require \
+            --volume "$PWD:/backup" \
+            postgres:17 \
+            sh -c 'pg_dump "$DB_URL" --format=custom --no-owner --no-privileges --file="/backup/scango-backup-'"${STAMP}"'.dump"'
+          rm -f "$RUNNER_TEMP/db.env"
+
+          test -s "scango-backup-${STAMP}.dump"
+          echo "Volcado: $(du -h "scango-backup-${STAMP}.dump" | cut -f1)"
 
       - name: Validar integridad del volcado (pg_restore --list no debe fallar)
+        env:
+          STAMP: ${{ steps.date.outputs.stamp }}
         run: |
           set -euo pipefail
-          pg_restore --list "scango-backup-${{ steps.date.outputs.stamp }}.dump" > /dev/null
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --volume "$PWD:/backup" \
+            postgres:17 \
+            pg_restore --list "/backup/scango-backup-${STAMP}.dump" > /dev/null
           echo "✔ Volcado íntegro"
 
       - name: Subir artifact del backup (retención 90 días)
