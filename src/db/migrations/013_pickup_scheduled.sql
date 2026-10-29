@@ -6,7 +6,14 @@
 -- backend no lo persistía: seguimiento, KDS y analítica no podían distinguir
 -- un pedido "para retirar ya" de un pre-order programado.
 --
---   orders.scheduled_for → instante autoritativo de retiro (timestamptz).
+--   orders.scheduled_for          → instante autoritativo de retiro (timestamptz).
+--   orders.scheduled_lead_minutes → anticipación USADA en el alta (integer,
+--                                   0..240). Es lo que permite al KDS de otra
+--                                   réplica calcular `wakeAt` = retiro − lead
+--                                   sin depender del espejo local (en Vercel
+--                                   `/tmp` es efímero y por instancia): sin
+--                                   este campo el pre-order no despierta antes
+--                                   del retiro y el beep suena al crearse.
 --
 -- Idempotente: podés ejecutarla varias veces (ADD COLUMN IF NOT EXISTS +
 -- CREATE INDEX IF NOT EXISTS). Aplicar en el SQL Editor de Supabase
@@ -23,6 +30,9 @@
 
 ALTER TABLE public.orders
   ADD COLUMN IF NOT EXISTS scheduled_for timestamptz;
+
+ALTER TABLE public.orders
+  ADD COLUMN IF NOT EXISTS scheduled_lead_minutes integer;
 
 CREATE INDEX IF NOT EXISTS idx_orders_scheduled_for
   ON public.orders (restaurant_id, scheduled_for)

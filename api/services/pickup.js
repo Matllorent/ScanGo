@@ -61,9 +61,14 @@ async function getPickupBundleForRestaurant(restaurant, opts = {}) {
 
   // El p50 de TAKEAWAY viaja con la carta: si la consulta falla, el lead
   // explícito del dueño igual opera (el catch solo degrada el DERIVADO).
+  // El reloj inyectado se PROPAGA a F7: el lead derivado queda anclado al
+  // mismo instante que la grilla (suites herméticas y, en producción, misma
+  // ventana de 7 días que el resto del cálculo).
   let prepByMode = null;
   try {
-    prepByMode = await getPrepEstimateBundleForRestaurant(restaurant);
+    prepByMode = passedNow
+      ? await getPrepEstimateBundleForRestaurant(restaurant, { nowMs: now })
+      : await getPrepEstimateBundleForRestaurant(restaurant);
   } catch (err) {
     prepByMode = null;
   }

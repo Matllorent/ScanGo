@@ -201,6 +201,22 @@ export interface Order {
   delivery_address?: string;
   deliveryAddress?: string;
   notes?: string;
+  /** Modalidad del pedido (F0 Mozos/Cocina). Filas históricas → LOCAL. */
+  order_mode?: 'LOCAL' | 'DELIVERY' | 'TAKEAWAY';
+  orderMode?: 'LOCAL' | 'DELIVERY' | 'TAKEAWAY';
+  /** Canal de origen, decidido SIEMPRE por el server (Fase 2 comandero). */
+  source?: 'customer' | 'staff' | 'kiosk';
+  waiter_id?: string | null;
+  waiterId?: string | null;
+  table_id?: string | null;
+  tableId?: string | null;
+  /** Takeaway Programado (73ª): retiro programado + lead usado en el alta. */
+  scheduled_for?: string | null;
+  scheduledFor?: string | null;
+  scheduled_lead_minutes?: number | null;
+  scheduledLeadMinutes?: number | null;
+  /** Etiqueta "hoy 10:30 hs" en el huso del dueño (quote/track). */
+  scheduledLabel?: string;
   created_at: string;
   createdAt?: string | Date;
   updatedAt?: string | Date;

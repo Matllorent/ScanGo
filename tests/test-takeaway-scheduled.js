@@ -42,6 +42,7 @@ const nightSummary = require('../api/utils/nightSummary');
 const { sanitizeRestaurantPayload } = require('../api/utils/sanitizeRestaurant');
 const { stripPrivilegedFields } = require('../api/utils/stripPrivilegedFields');
 const { invalidateMenuCache } = require('../api/middleware/cache');
+const { getSupabaseClient } = require('../api/utils/supabase');
 
 const ROOT = path.join(__dirname, '..');
 const readSource = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -801,6 +802,27 @@ async function runTests() {
     assert.strictEqual(mirrored.scheduled_for, slotA);
     assert.strictEqual(mirrored.scheduled_lead_minutes, 30);
 
+    // El lead DEBE viajar a cloud: el KDS puede caer en otra réplica de Vercel
+    // y `/tmp` (espejo local) es efímero. Sin esta columna `wakeAt` no existe
+    // fuera de la instancia que creó el pedido. Si la 013 v2 todavía no está
+    // aplicada, SKIP honesto (el resto del feature sigue cubierto local).
+    const cloud = getSupabaseClient();
+    if (cloud) {
+      const { data: cloudRow, error: cloudErr } = await cloud
+        .from('orders')
+        .select('scheduled_for, scheduled_lead_minutes')
+        .eq('id', created.id)
+        .maybeSingle();
+      if (cloudErr && /scheduled_lead_minutes/i.test(cloudErr.message || '')) {
+        console.log('    ⚠ SKIP probe cloud del lead: reaplicar la 013 (scheduled_lead_minutes)');
+      } else {
+        assert.ok(!cloudErr, `lectura cloud: ${cloudErr && cloudErr.message}`);
+        assert.ok(cloudRow, 'el pedido llegó a cloud');
+        assert.strictEqual(T(cloudRow.scheduled_for), T(slotA), 'retiro persistido en cloud');
+        assert.strictEqual(Number(cloudRow.scheduled_lead_minutes), 30, 'lead persistido en cloud (wakeAt del KDS)');
+      }
+    }
+
     // ── 3.5 · Seguimiento público: franja + modalidad, sin PII ─────────────
     const track = await request('GET', `/api/orders/track/${created.trackingToken}`);
     assert.strictEqual(track.status, 200);
@@ -916,13 +938,14 @@ async function runTests() {
       utcOffsetMinutes: OFFSET,
       pickupConfig: { intervalMinutes: 15, maxPerSlot: 4 } // sin lead → derivado de F7
     });
-    // Los seeds usan el RELOJ REAL: el servicio de pickup deriva el lead con
-    // `getPrepEstimateBundleForRestaurant(restaurant)` (sin nowMs), así que la
-    // muestra tiene que caer dentro de SU ventana de 7 días. Los deltas
+    // Seeds relativos al RELOJ CONGELADO: el servicio de pickup propaga su
+    // `nowMs` al bundle de F7 (misma ventana de 7 días), así la muestra es
+    // determinista a cualquier hora y fecha de corrida. Antes usaban
+    // `Date.now()` y la suite fallaba pasadas las 12:00 UTC (los seeds caían
+    // DESPUÉS de NOW y quedaban fuera de la ventana). Los deltas
     // created→entregado (20 min) siguen siendo deterministas.
-    const realNow = Date.now();
     for (let i = 0; i < 20; i++) {
-      const created = new Date(realNow - (i + 2) * 10 * MIN).toISOString();
+      const created = new Date(NOW - (i + 2) * 10 * MIN).toISOString();
       await seedOrder(r5.restaurant, {
         dishId: r5.dishId,
         status: 'delivered',
@@ -946,7 +969,7 @@ async function runTests() {
 
     // 5 programados de 90 min NO entran en la muestra de cocina.
     for (let i = 0; i < 5; i++) {
-      const created = new Date(realNow - (i + 2) * 10 * MIN).toISOString();
+      const created = new Date(NOW - (i + 2) * 10 * MIN).toISOString();
       await seedOrder(r5.restaurant, {
         dishId: r5.dishId,
         status: 'delivered',
@@ -1067,7 +1090,12 @@ async function runTests() {
     assert.ok(menuJs.includes(`function ${fn}`), `menu.js define ${fn}`);
   }
   assert.ok(menuJs.includes('pickupScheduledFor = \'\''), 'volver a "ahora" LIMPIA la franja');
-  assert.ok(menuJs.includes('localPickupLabel as localPickupLabelMod'), 'menu.js importa el espejo ESM');
+  const syncPickupFn = menuJs.slice(
+    menuJs.indexOf('function syncPickupScheduleUi'),
+    menuJs.indexOf('function setPickupMode')
+  );
+  assert.ok(syncPickupFn.includes('slot.dayKey') && syncPickupFn.includes('slot.time'), 'el veredicto usa la franja del server (huso del local)');
+  assert.strictEqual(syncPickupFn.includes('getTimezoneOffset'), false, 'el veredicto NO usa el huso del navegador del comensal');
   assert.ok(/\n\s+setPickupMode,\r?\n/.test(menuJs) && /\n\s+setPickupSlot,\r?\n/.test(menuJs), 'ambos exports en window');
 
   const orderSubmit = readSource('public/js/menu/orderSubmit.js');
@@ -1122,12 +1150,14 @@ async function runTests() {
   assert.ok(hasFile(migration), 'existe la migración 013');
   const migrationSql = readSource(migration);
   assert.ok(/scheduled_for\s+timestamptz/i.test(migrationSql), 'columna scheduled_for');
+  assert.ok(/scheduled_lead_minutes\s+integer/i.test(migrationSql), 'columna scheduled_lead_minutes (wakeAt cross-réplica)');
   assert.ok(/add column if not exists/i.test(migrationSql), 'idempotente');
   assert.ok(/idx_orders_scheduled_for/.test(migrationSql), 'índice parcial');
 
   const dbSrc = readSource('src/db/db.js');
   assert.ok(dbSrc.includes('getSlotOrdersNear'), 'db expone la unión para capacidad');
   assert.ok(dbSrc.includes('scheduled_for'), 'dual-write de la franja');
+  assert.ok(dbSrc.includes('scheduled_lead_minutes'), 'dual-write del lead (el KDS no depende de /tmp)');
   assert.ok(dbSrc.includes('scheduledFor != null'), 're-anclaje del stock al retiro');
   assert.ok(dbSrc.includes('and(scheduled_for.gte.'), 'la ventana del stock ancla al retiro también en cloud (dos ramas AND, no un OR suelto)');
   assert.ok(dbSrc.includes("is('scheduled_for', null)"), 'F7 excluye los programados de la muestra de preparación');

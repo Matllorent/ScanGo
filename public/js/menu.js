@@ -65,7 +65,6 @@ import {
 import { LAYOUT_IDS, CLASSIC_THEME_IDS, HELADERIA_THEME_IDS, PERFUMERY_THEME_IDS } from './menu/themeManifest.js';
 import { initModalA11y } from './modalA11y.js';
 import { applyViralFooter } from './utils/viralFooter.js';
-import { localPickupLabel as localPickupLabelMod } from './utils/pickupSlots.js';
 import {
   analyzeCartContextForUpsell as analyzeCartContextForUpsellMod,
   getUpsellCandidates as getUpsellCandidatesMod,
@@ -1838,7 +1837,14 @@ Object.defineProperties(window, {
       if (pillScheduled) pillScheduled.setAttribute('aria-pressed', pickupScheduleMode === 'scheduled' ? 'true' : 'false');
       if (grid) grid.style.display = pickupScheduleMode === 'scheduled' ? 'flex' : 'none';
       if (verdict) {
-        const label = getPickupScheduledFor() ? localPickupLabelMod(pickupScheduledFor, -new Date().getTimezoneOffset()) : '';
+        // El label sale de la franja que YA calculó el server en el huso del
+        // LOCAL (`dayKey`/`time`), no del offset del navegador: un comensal con
+        // el teléfono en otro huso veía "hoy 23:30" para un retiro de las 20:30.
+        const slots = (restaurantData && restaurantData.pickupSlots) || [];
+        const slot = getPickupScheduledFor()
+          ? slots.find((s) => String((s && s.scheduledFor) || '') === pickupScheduledFor)
+          : null;
+        const label = slot ? `${slot.dayKey} ${slot.time} hs` : '';
         verdict.textContent = pickupScheduleMode === 'scheduled' && label
           ? `⏰ ${label}`
           : 'Inmediato';

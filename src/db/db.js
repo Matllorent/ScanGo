@@ -2045,10 +2045,17 @@ const db = {
       waiter_id: orderRecord.waiter_id || orderRecord.waiterId || null,
       table_id: orderRecord.table_id || orderRecord.tableId || null,
       source: orderRecord.source || 'customer',
-      // Takeaway Programado (73ª suite): instante de retiro programado.
-      // null en pedidos inmediatos/históricos; la nube sin la 013 degrada
-      // vía cloudWriteTolerant y el espejo conserva el dato (camel/snake).
+      // Takeaway Programado (73ª suite): instante de retiro programado + el
+      // lead USADO en el alta. El lead DEBE vivir en cloud: el KDS puede caer
+      // en otra réplica de Vercel y el espejo local (/tmp) es efímero, así que
+      // sin este campo `wakeAt` no existe fuera de la instancia que creó el
+      // pedido (la comanda no despertaría antes del retiro). null en pedidos
+      // inmediatos/históricos; la nube sin la 013 degrada vía
+      // cloudWriteTolerant y el espejo conserva el dato (camel/snake).
       scheduled_for: orderRecord.scheduled_for || orderRecord.scheduledFor || null,
+      scheduled_lead_minutes: orderRecord.scheduled_lead_minutes != null
+        ? orderRecord.scheduled_lead_minutes
+        : (orderRecord.scheduledLeadMinutes != null ? orderRecord.scheduledLeadMinutes : null),
       created_at: orderRecord.created_at
     };
   },
