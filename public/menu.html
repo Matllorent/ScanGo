@@ -369,6 +369,23 @@
         </div>
       </div>
 
+      <!-- Takeaway Programado (73ª suite): retiro con horario programado /
+           pre-orders con el local cerrado. El flag viaja en el payload de la
+           carta SIEMPRE (boolean estable); este bloque solo se pinta cuando
+           el dueño activó el opt-in (allowPreOrders) y la modalidad es
+           "Para llevar". -->
+      <div id="pickupScheduleBox" class="form-group" style="display:none; background: rgba(183, 148, 244, 0.06); padding: 10px; border-radius: 8px; border: 1px dashed #B794F4;">
+        <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>⏰ Horario de retiro</span>
+          <span id="pickupScheduleVerdict" role="status" aria-live="polite" style="font-size:11px; font-weight:700; color:#B794F4;"></span>
+        </label>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button type="button" id="pickupModeNow" data-js-click="setPickupMode|now" aria-pressed="true" style="padding:6px 10px; border-radius:8px; border:1px solid var(--border-chalk); background:var(--surface-card, #16201b); color:var(--chalk-white); cursor:pointer; font-weight:700; font-size:0.78rem;">Lo antes posible</button>
+          <button type="button" id="pickupModeScheduled" data-js-click="setPickupMode|scheduled" aria-pressed="false" style="padding:6px 10px; border-radius:8px; border:1px solid var(--border-chalk); background:var(--surface-card, #16201b); color:var(--chalk-white); cursor:pointer; font-weight:700; font-size:0.78rem;">Programar retiro</button>
+        </div>
+        <div id="pickupSlotGrid" style="display:none; gap:6px; flex-wrap:wrap; margin-top:8px;" role="group" aria-label="Horarios disponibles de retiro"></div>
+      </div>
+
       <!-- Total summary -->
       <div class="total-summary">
         <div class="summary-row">

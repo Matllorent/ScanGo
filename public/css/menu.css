@@ -4759,6 +4759,29 @@
     /* #5 "Pedir de nuevo": apilado sobre el de seguimiento (o toma su lugar
        si no hay pedido en seguimiento — menu.js ajusta el bottom inline). */
     #reorderFab { bottom: 146px; }
+    /* Takeaway Programado (73ª suite): pills de la grilla de retiro.
+       Nacen con la superficie del tema; la elegida se pinta violeta con tinta
+       oscura (contraste AA en ambas caras, claro y oscuro). */
+    .pickup-slot-pill {
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border-chalk, rgba(255, 255, 255, 0.18));
+      background: var(--surface-card, #16201b);
+      color: var(--chalk-white, #fff);
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.78rem;
+    }
+    .pickup-slot-pill:hover { border-color: #B794F4; }
+    .pickup-slot-pill[aria-pressed="true"] {
+      background: #B794F4;
+      border-color: #B794F4;
+      color: #1A1025;
+    }
+    .pickup-slot-pill:focus-visible {
+      outline: 2px solid #B794F4;
+      outline-offset: 2px;
+    }
     /* Mientras la barra de controles (sticky) cae en la zona del FAB al abrir
        el menú, el FAB se oculta para no tapar moneda/categorías/buscador.
        Al scrollear y dejar la barra arriba, vuelve a aparecer. */

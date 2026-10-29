@@ -118,6 +118,36 @@ body {
   border-radius: 10px;
   overflow: hidden;
 }
+/* ── Takeaway Programado (73ª): franja de retiros agendados ── */
+.kds-scheduled {
+  grid-column: 1 / -1;
+  background: rgba(183, 148, 244, 0.07);
+  border: 1px dashed #B794F4;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.kds-scheduled[hidden] { display: none; }
+.kds-scheduled-title {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #D6BCFA;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.kds-scheduled-body {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.kds-scheduled-body .kds-card {
+  min-width: 280px;
+  max-width: 340px;
+  flex: 0 0 auto;
+  border-color: #B794F4;
+}
+.kds-chip-scheduled { background: rgba(183, 148, 244, 0.18); color: #D6BCFA; font-weight: 700; }
 .kds-col-head {
   padding: 8px 12px;
   border-bottom: 1px solid var(--kds-border-strong);

@@ -26,8 +26,10 @@ import {
   KITCHEN_COLUMNS,
   buildKitchenCardModel,
   KITCHEN_STATUS_LABELS,
-  nextKitchenStatus
+  nextKitchenStatus,
+  partitionScheduledModels
 } from './kitchenColumns.js';
+import { localPickupLabel } from '../utils/pickupSlots.js';
 import { formatOrderAge, orderAgeLevel, orderAgeStyle } from '../studio/orderAging.js';
 import { showConfirmDialog, closeConfirmDialog } from '../studio/ui/confirmDialog.js';
 import { initModalA11y } from '../modalA11y.js';
@@ -59,10 +61,14 @@ const MAX_PER_COLUMN = 12;    // los entregados no acumulan tarjeta eterna
 let restaurantId = null;
 let restaurantName = '';
 let restaurantCurrency = '$';
+let utcOffsetMinutes = -180; // huso del dueño (lo trae /api/auth/me)
 let orders = [];
 let pollTimer = null;
 let seenNewIds = new Set();   // pedidos YA avisados (beep solo ante novedades)
 let baselineDone = false;
+// Takeaway Programado: ids que estaban en la franja PROGRAMADOS en el render
+// anterior. Cuando uno pasa a una columna (wakeAt llegó) se avisa una vez.
+let previousScheduledIds = new Set();
 
 // F6 "Estaciones de cocina": estación por plato resuelta desde la carta del
 // local (el ítem no la lleva en el snapshot: es config del local, no del
@@ -227,16 +233,36 @@ function renderStationBar(options) {
 
 // ── Avisos de pedidos nuevos (beep WebAudio + live region) ────────────────
 
+/**
+ * ¿El pedido ya "despertó" para cocina? Un pedido con retiro programado no
+ * suena al crearse (la cocina no cocina para dentro de 3 horas): suena cuando
+ * `wakeAt` (retiro − lead) llega. Sin datos parseables → despierto (fail-open:
+ * nunca se esconde trabajo por un dato raro).
+ */
+function isOrderAwake(order, nowMs) {
+  const iso = order && (order.scheduled_for || order.scheduledFor);
+  if (!iso) return true;
+  const rawLead = order.scheduled_lead_minutes != null ? order.scheduled_lead_minutes : order.scheduledLeadMinutes;
+  const lead = Number(rawLead);
+  const slotMs = Date.parse(String(iso));
+  if (Number.isNaN(slotMs) || !Number.isFinite(lead)) return true;
+  return slotMs - lead * 60000 <= nowMs;
+}
+
 function announceNew() {
+  const now = Date.now();
   const fresh = orders.filter((o) => !seenNewIds.has(o.id) && (o.status || 'pending') === 'pending');
   if (!fresh.length) return;
-  if (baselineDone) {
+  // Programados que todavía no despertaron: se marcan como vistos SIN beep
+  // (el aviso llega al despertar, no al reservar).
+  const awake = fresh.filter((o) => isOrderAwake(o, now));
+  if (baselineDone && awake.length) {
     playOrderAlert();
     const live = el('kdsLive');
     if (live) {
-      live.textContent = fresh.length === 1
+      live.textContent = awake.length === 1
         ? 'Nuevo pedido en cola'
-        : `${fresh.length} pedidos nuevos en cola`;
+        : `${awake.length} pedidos nuevos en cola`;
     }
   }
   for (const o of fresh) seenNewIds.add(o.id);
@@ -286,8 +312,18 @@ function renderBoard() {
   if (options.length) activeStation = resolveStoredStation(activeStation, options);
   renderStationBar(options);
 
+  // Takeaway Programado: la partición se calcula sobre TODOS los modelos (no
+  // los filtrados) para detectar el "despertar" una sola vez, aunque la
+  // tarjeta esté oculta por el filtro de estación.
+  const now = Date.now();
+  const partition = partitionScheduledModels(allModels, now);
+  announceWoken(partition);
+
   const visibleModels = filterModelsByStation(allModels, activeStation);
-  for (const model of visibleModels) {
+  const visiblePartition = partitionScheduledModels(visibleModels, now);
+  renderScheduledSection(visiblePartition.scheduled);
+
+  for (const model of visiblePartition.active) {
     const bucket = buckets.get(model.columnId);
     if (bucket) bucket.push(model);
   }
@@ -315,6 +351,50 @@ function renderBoard() {
 
   noteCancelled(cancelledCount);
   baselineDone = true;
+}
+
+/**
+ * Avisa UNA vez cuando un pedido programado "despierta" (wakeAt llegó y la
+ * tarjeta pasó de la franja PROGRAMADOS a su columna). Un terminal que salta
+ * de la franja no suena: ya no hay trabajo que empezar.
+ */
+function announceWoken(partition) {
+  const activeById = new Map(partition.active.map((m) => [m.id, m]));
+  const woken = [];
+  for (const id of previousScheduledIds) {
+    const model = activeById.get(id);
+    if (model && !model.terminal) woken.push(model);
+  }
+  previousScheduledIds = new Set(partition.scheduled.map((m) => m.id));
+  if (!baselineDone || !woken.length) return;
+  playOrderAlert();
+  const live = el('kdsLive');
+  if (live) {
+    const tickets = woken.map((m) => m.ticketNumber).join(', ');
+    live.textContent = woken.length === 1
+      ? `Pedido programado ${tickets} despertó: a cocinar`
+      : `${woken.length} pedidos programados despertaron: a cocinar`;
+  }
+}
+
+/**
+ * Franja "⏰ Programados" del KDS: pedidos con retiro agendado que todavía no
+ * despertaron. Se oculta sola cuando no hay ninguno (cero ruido en la pizarra).
+ */
+function renderScheduledSection(models) {
+  const section = el('kdsScheduled');
+  const body = el('kdsScheduledBody');
+  const count = el('kdsScheduledCount');
+  if (!section || !body || !count) return;
+  body.textContent = '';
+  if (!models.length) {
+    section.hidden = true;
+    count.textContent = '0';
+    return;
+  }
+  section.hidden = false;
+  count.textContent = String(models.length);
+  for (const model of models) body.appendChild(renderCard(model));
 }
 
 function noteCancelled(n) {
@@ -366,6 +446,15 @@ function renderCard(model) {
     waiterChip.className = 'kds-chip kds-chip-waiter';
     waiterChip.textContent = `🧑‍🍳 ${model.waiterName}`;
     head.appendChild(waiterChip);
+  }
+  // Takeaway Programado: el retiro agendado es dato operativo de la tarjeta
+  // (violeta). En la franja PROGRAMADOS y en la columna, la misma etiqueta.
+  if (model.scheduledFor) {
+    const chip = document.createElement('span');
+    chip.className = 'kds-chip kds-chip-scheduled';
+    const label = localPickupLabel(model.scheduledFor, utcOffsetMinutes);
+    chip.textContent = label ? `⏰ Retiro ${label}` : '⏰ Programado';
+    head.appendChild(chip);
   }
   if (model.pending) {
     const chip = document.createElement('span');
@@ -681,6 +770,8 @@ async function boot() {
   restaurantId = restaurant.id || restaurant.slug || null;
   restaurantName = restaurant.bizName || restaurant.name || '';
   restaurantCurrency = restaurant.currency || '$';
+  const offNum = Number(restaurant.utcOffsetMinutes);
+  utcOffsetMinutes = Number.isFinite(offNum) ? Math.max(-840, Math.min(840, offNum)) : -180;
   const place = el('kdsRestaurantName');
   if (place) place.textContent = restaurantName;
   if (!restaurantId) {

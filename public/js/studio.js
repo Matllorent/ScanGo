@@ -21,6 +21,7 @@ import {
 // backend): capacidades por morfología para mostrar/ocultar las filas de
 // imageMode y menuSizing. Paridad garantizada por tests/test-theme-manifest.js.
 import { LAYOUTS, IMAGE_MODES, MENU_SIZING_MODES } from './menu/themeManifest.js';
+import { sanitizePickupConfig } from './utils/pickupSlots.js';
 import { state } from './studio/state.js';
 import { PLANS } from './studio/data/plans.js';
 import { PRESETS } from './studio/data/presetsData.js';
@@ -1338,6 +1339,28 @@ export function updateLiveState() {
     if (sliderO) sliderO.style.backgroundColor = ordersCheckbox.checked ? '#38A169' : '#2a3a33';
   }
 
+  // Takeaway Programado (73ª): opt-in. La config solo viaja con el feature
+  // encendido y se sanea con la MISMA regla del servidor (una sola fuente).
+  // Vaciar el aviso previo REMUEVE la clave (vuelve al automático de F7).
+  const preOrdersCheckbox = el('inputAllowPreOrders');
+  if (preOrdersCheckbox) {
+    restaurant.allowPreOrders = preOrdersCheckbox.checked === true;
+    const sliderP = el('sliderPreOrders');
+    if (sliderP) sliderP.style.backgroundColor = preOrdersCheckbox.checked ? '#38A169' : '#2a3a33';
+    if (restaurant.allowPreOrders) {
+      const nextPickupConfig = sanitizePickupConfig({
+        intervalMinutes: el('inputPickupInterval') ? el('inputPickupInterval').value : undefined,
+        maxPerSlot: el('inputPickupMaxPerSlot') ? el('inputPickupMaxPerSlot').value : undefined,
+        leadMinutes: el('inputPickupLead') ? el('inputPickupLead').value : ''
+      });
+      // Nunca config muerta: si el saneo no devuelve nada, la clave se va.
+      if (nextPickupConfig) restaurant.pickupConfig = nextPickupConfig;
+      else delete restaurant.pickupConfig;
+    } else {
+      delete restaurant.pickupConfig;
+    }
+  }
+
   const schedCheck = el('inputScheduleEnabled');
   if (schedCheck) {
     restaurant.scheduleEnabled = schedCheck.checked;
@@ -1579,6 +1602,18 @@ export function renderStudioUI() {
     ordersLoad.checked = restaurant.allowMenuOrders !== false;
     const sliderO = el('sliderMenuOrders');
     if (sliderO) sliderO.style.backgroundColor = ordersLoad.checked ? '#38A169' : '#2a3a33';
+  }
+
+  // Takeaway Programado (73ª): toggle + config del dueño (defaults del server).
+  const preOrdersLoad = el('inputAllowPreOrders');
+  if (preOrdersLoad) {
+    preOrdersLoad.checked = restaurant.allowPreOrders === true;
+    const sliderP = el('sliderPreOrders');
+    if (sliderP) sliderP.style.backgroundColor = preOrdersLoad.checked ? '#38A169' : '#2a3a33';
+    const cfg = sanitizePickupConfig(restaurant.pickupConfig) || {};
+    if (el('inputPickupInterval')) el('inputPickupInterval').value = String(cfg.intervalMinutes || 15);
+    if (el('inputPickupMaxPerSlot')) el('inputPickupMaxPerSlot').value = String(cfg.maxPerSlot || 4);
+    if (el('inputPickupLead')) el('inputPickupLead').value = cfg.leadMinutes != null ? String(cfg.leadMinutes) : '';
   }
 
   const schedCheck = el('inputScheduleEnabled');

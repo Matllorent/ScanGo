@@ -65,6 +65,7 @@ import {
 import { LAYOUT_IDS, CLASSIC_THEME_IDS, HELADERIA_THEME_IDS, PERFUMERY_THEME_IDS } from './menu/themeManifest.js';
 import { initModalA11y } from './modalA11y.js';
 import { applyViralFooter } from './utils/viralFooter.js';
+import { localPickupLabel as localPickupLabelMod } from './utils/pickupSlots.js';
 import {
   analyzeCartContextForUpsell as analyzeCartContextForUpsellMod,
   getUpsellCandidates as getUpsellCandidatesMod,
@@ -640,6 +641,7 @@ Object.defineProperties(window, {
       maybeShowReorderFab();
       maybeOpenReviewFromLink();
       maybeOpenDishDeepLink();
+      updatePickupScheduleBox();
     }
 
     // ── Seguimiento del pedido + nudges (lógica en orderTracking.js) ──────
@@ -1778,7 +1780,83 @@ Object.defineProperties(window, {
         deliveryFee = 0;
       }
       updateTableServiceUI();
+      updatePickupScheduleBox();
       updateTotals();
+    }
+
+    // ── Takeaway Programado (73ª suite) ─────────────────────────────────────
+    // El comensal elige en el checkout entre "lo antes posible" o una franja
+    // de la grilla del local (pre-orders con el local cerrado). El flag viaja
+    // en quote y alta; el backend SIEMPRE re-verifica — el valor del client
+    // nunca es la autoridad.
+    let pickupScheduleMode = 'now';
+    let pickupScheduledFor = '';
+    function getPickupScheduledFor() { return pickupScheduledFor; }
+
+    function updatePickupScheduleBox() {
+      const box = document.getElementById('pickupScheduleBox');
+      if (!box) return;
+      const modeEl = document.getElementById('orderMode');
+      const checkoutMode = (modeEl && modeEl.value) || 'LOCAL';
+      const slots = (restaurantData && restaurantData.pickupSlots) || [];
+      const allowed = Boolean(restaurantData && restaurantData.allowPreOrders === true && slots.length);
+      if (!allowed || checkoutMode !== 'TAKEAWAY') {
+        box.style.display = 'none';
+        pickupScheduleMode = 'now';
+        pickupScheduledFor = '';
+        return;
+      }
+      box.style.display = 'block';
+      renderPickupSlotGrid(slots);
+      syncPickupScheduleUi();
+    }
+
+    function renderPickupSlotGrid(slots) {
+      const grid = document.getElementById('pickupSlotGrid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      (slots || []).forEach((slot) => {
+        const iso = String(slot.scheduledFor || '');
+        if (!iso) return;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'pickup-slot-pill';
+        btn.dataset.scheduledFor = iso;
+        btn.setAttribute('data-js-click', 'setPickupSlot|' + iso);
+        btn.setAttribute('aria-pressed', pickupScheduledFor === iso ? 'true' : 'false');
+        btn.textContent = (slot.dayKey === 'mañana' ? 'Mañana ' : 'Hoy ') + String(slot.time || '');
+        grid.appendChild(btn);
+      });
+    }
+
+    function syncPickupScheduleUi() {
+      const pillNow = document.getElementById('pickupModeNow');
+      const pillScheduled = document.getElementById('pickupModeScheduled');
+      const grid = document.getElementById('pickupSlotGrid');
+      const verdict = document.getElementById('pickupScheduleVerdict');
+      if (pillNow) pillNow.setAttribute('aria-pressed', pickupScheduleMode === 'now' ? 'true' : 'false');
+      if (pillScheduled) pillScheduled.setAttribute('aria-pressed', pickupScheduleMode === 'scheduled' ? 'true' : 'false');
+      if (grid) grid.style.display = pickupScheduleMode === 'scheduled' ? 'flex' : 'none';
+      if (verdict) {
+        const label = getPickupScheduledFor() ? localPickupLabelMod(pickupScheduledFor, -new Date().getTimezoneOffset()) : '';
+        verdict.textContent = pickupScheduleMode === 'scheduled' && label
+          ? `⏰ ${label}`
+          : 'Inmediato';
+      }
+    }
+
+    function setPickupMode(mode) {
+      pickupScheduleMode = mode === 'scheduled' ? 'scheduled' : 'now';
+      // Volver a "Lo antes posible" LIMPIA la franja elegida: si quedara el
+      // ISO viejo, el checkout enviaría un pedido programado que el comensal
+      // ya no quiere (el server lo aceptaría como válido).
+      if (pickupScheduleMode !== 'scheduled') pickupScheduledFor = '';
+      syncPickupScheduleUi();
+    }
+
+    function setPickupSlot(iso) {
+      pickupScheduledFor = String(iso || '');
+      syncPickupScheduleUi();
     }
 
     function updateDeliveryFee() {
@@ -2073,6 +2151,7 @@ Object.defineProperties(window, {
         getDeliveryFee: () => deliveryFee,
         getAppliedCoupon: () => appliedCoupon,
         getTip: () => ({ percent: tipPercent, custom: tipCustom }),
+        getPickupScheduledFor,
         saveOrderTracking,
         showOrderTrackingFab,
         getSlug,
@@ -2625,6 +2704,8 @@ Object.defineProperties(window, {
       openCartModal,
       closeCartModal,
       handleOrderModeChange,
+      setPickupMode,
+      setPickupSlot,
       handleOrderPaymentChange,
       handleExternalPayClick,
       startOnlinePayment,

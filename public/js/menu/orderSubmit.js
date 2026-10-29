@@ -9,6 +9,7 @@
  *   getCart, getRestaurantData, isRestaurantOpenNow, getCustomerPhone,
  *   toOrderItemPayload, getCaptchaToken, getDeliveryFee: () => number,
  *   getAppliedCoupon: () => object|null, getTip: () => { percent, custom },
+ *   getPickupScheduledFor: () => string,  // franja programada ('' = inmediato)
  *   saveOrderTracking, showOrderTrackingFab, getSlug, trackPublicEvent,
  *   saveReorderSnapshot: (items) => void   // #5 "Pedir de nuevo"
  * }
@@ -25,7 +26,10 @@ import { computeTipAmount } from './tipCalculator.js';
       }
 
       // Local cerrado: no se genera el pedido (el badge ya lo avisa).
-      if (!ctx.isRestaurantOpenNow()) {
+      // Takeaway Programado (73ª): con una franja de retiro PROGRAMADA sí se
+      // puede pedir con el local cerrado (el backend valida el slot; el alta
+      // es la autoridad). Sin franja → comportamiento actual intacto.
+      if (!ctx.isRestaurantOpenNow() && !ctx.getPickupScheduledFor()) {
         alert(ctx.getRestaurantData().forceClosed === true
           ? 'El local está cerrado por el momento. Volvé a consultar en unos minutos.'
           : `El local está cerrado ahora (${ctx.getRestaurantData().scheduleActiveHours} hs). Volvé en horario de atención.`);
@@ -53,6 +57,10 @@ import { computeTipAmount } from './tipCalculator.js';
         const tableNumber = document.getElementById('orderTable').value.trim() || '1';
         const address = document.getElementById('orderAddress').value.trim();
         const isGroupOrder = Boolean(window.groupCartManagerInstance && window.groupCartManagerInstance.isGroupActive());
+        // Takeaway Programado (73ª): franja de retiro elegida en el checkout
+        // ('' = lo antes posible). El server la re-verifica SIEMPRE (la grilla
+        // puede haber cambiado); el valor del client nunca es la autoridad.
+        const scheduledFor = ctx.getPickupScheduledFor();
         const quoteResponse = await fetch('/api/orders/quote', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -71,6 +79,8 @@ import { computeTipAmount } from './tipCalculator.js';
             // y el abierto/cerrado en hora local del local (no confía del todo
             // en el reloj del navegador).
             utcOffsetMinutes: -new Date().getTimezoneOffset(),
+            // Takeaway Programado: el server confirma la franja (o rechaza).
+            scheduledFor,
             items: items.map(item => {
               const p = ctx.toOrderItemPayload(item);
               return {
@@ -136,7 +146,11 @@ import { computeTipAmount } from './tipCalculator.js';
             msg += `\n`;
           }
         } else if (mode === 'TAKEAWAY') {
-          msg += `🛍️ *Modalidad:* Retiro en el local (Take Away)\n\n`;
+          msg += `🛍️ *Modalidad:* Retiro en el local (Take Away)\n`;
+          // Takeaway Programado (73ª): la franja confirmada por el server
+          // viaja en el mensaje (la copy la escribe el server, patrón Fase 3).
+          if (quote.scheduledLabel) msg += `⏰ *HORARIO PROGRAMADO:* ${quote.scheduledLabel}\n`;
+          msg += `\n`;
         } else {
           const zoneName = zoneSelect.options[zoneSelect.selectedIndex]?.text || 'Zona no especificada';
           msg += `🛵 *Modalidad:* Envío a Domicilio\n`;
@@ -208,6 +222,8 @@ import { computeTipAmount } from './tipCalculator.js';
             tipAmount,
             captchaToken: captchaToken || undefined,
             utcOffsetMinutes: -new Date().getTimezoneOffset(),
+            // Takeaway Programado: el server re-verifica la franja al alta.
+            scheduledFor,
             participants: window.groupCartManagerInstance ? Array.from(window.groupCartManagerInstance.participants) : [],
             items: items.map(item => {
               const p = ctx.toOrderItemPayload(item);

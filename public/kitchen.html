@@ -38,6 +38,16 @@
        /js/kitchen/kitchenColumns.js). Cada tarjeta avanza UNS estado por
        toque; cancelar pide confirmación (diálogo propio, nunca window.confirm). -->
   <main id="main-content" tabindex="-1" class="kds-board" aria-label="Pizarra de pedidos en cocina">
+    <!-- Takeaway Programado (73ª suite): los pedidos con retiro agendado viven
+         en esta franja hasta que "despiertan" (retiro − lead); después caen a
+         su columna normal. La decisión es pura (partitionScheduledModels) y el
+         heading usa role=heading para no romper el contrato de 5 columnas h2. -->
+    <section id="kdsScheduled" class="kds-scheduled" aria-labelledby="kdsScheduledTitle" hidden>
+      <div id="kdsScheduledTitle" class="kds-scheduled-title" role="heading" aria-level="2">
+        ⏰ Programados <span id="kdsScheduledCount" class="kds-count">0</span>
+      </div>
+      <div id="kdsScheduledBody" class="kds-scheduled-body"></div>
+    </section>
     <section class="kds-column" data-column="queue" aria-labelledby="colTitleQueue">
       <header class="kds-col-head"><h2 id="colTitleQueue">En cola <span id="colCountQueue" class="kds-count">0</span></h2></header>
       <div class="kds-col-body" id="colBodyQueue"></div>

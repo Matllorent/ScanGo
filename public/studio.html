@@ -424,6 +424,43 @@
               </div>
             </div>
 
+            <!-- Takeaway Programado (73ª suite): el comensal elige horario de
+                 retiro y puede pedir con el local cerrado (solo retiro). -->
+            <div class="form-group" style="margin-top:14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div>
+                  <strong style="font-size:12px; color:#fff;">⏰ Takeaway Programado</strong>
+                  <div style="font-size:10px; color:var(--text-dim);">El comensal elige un horario de retiro y puede pedir con el local cerrado. Solo retiro: no aplica a mesa ni delivery.</div>
+                </div>
+                <label style="position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0;">
+                  <input type="checkbox" id="inputAllowPreOrders" data-js-change="updateLiveState" style="opacity:0; width:0; height:0;" aria-label="Permitir takeaway programado">
+                  <span id="sliderPreOrders" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
+                </label>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px;">
+                <div>
+                  <label class="form-label" for="inputPickupInterval">Franjas (min)</label>
+                  <select id="inputPickupInterval" class="form-input" data-js-change="updateLiveState">
+                    <option value="5">Cada 5 min</option>
+                    <option value="10">Cada 10 min</option>
+                    <option value="15">Cada 15 min</option>
+                    <option value="20">Cada 20 min</option>
+                    <option value="30">Cada 30 min</option>
+                    <option value="60">Cada 60 min</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label" for="inputPickupMaxPerSlot">Máx. por horario</label>
+                  <input type="number" id="inputPickupMaxPerSlot" class="form-input" min="1" max="50" step="1" data-js-input="updateLiveState" aria-label="Máximo de pedidos por horario">
+                </div>
+                <div>
+                  <label class="form-label" for="inputPickupLead">Aviso previo (min)</label>
+                  <input type="number" id="inputPickupLead" class="form-input" min="0" max="240" step="5" placeholder="Auto" data-js-input="updateLiveState" aria-label="Minutos de anticipación mínima">
+                </div>
+              </div>
+              <div class="input-hint">Aviso previo: cuántos minutos antes hay que pedir. Vacío = automático (según tu tiempo real de preparación en retiro).</div>
+            </div>
+
             <!-- Descubrir beta (opt-in): aparecer en el feed tipo tiktok de la zona -->
             <div class="form-group" style="margin-top:14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">

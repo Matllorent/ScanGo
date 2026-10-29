@@ -251,6 +251,11 @@ function renderOrderTracking(data, ctx) {
   const prepLine = (prep && prep.label && status !== 'delivered' && status !== 'cancelled')
     ? `<div style="margin-top:12px; font-size:0.82rem; color:var(--chalk-dim);">⏱ ${prep.byMode ? `Los pedidos ${prep.word} suelen tardar` : 'En este local los pedidos suelen tardar'} ${escapeHtml(String(prep.label))}.</div>`
     : '';
+  // Takeaway Programado (73ª suite): la franja de retiro confirmada en el alta
+  // ("hoy 14:15 hs", en el huso del dueño). Solo informativa: el estado manda.
+  const scheduleLine = data.scheduledLabel && status !== 'cancelled'
+    ? `<div style="margin-top:12px; font-size:0.82rem; color:#B794F4;">⏰ Retiro programado: ${escapeHtml(String(data.scheduledLabel))}</div>`
+    : '';
   // 💬 Nudge post-entrega (una vez por pedido): el momento de mayor
   // conversión para pedir la reseña. Solo si el dueño configuró su link
   // de Google (si no, el Studio lo empuja a configurarlo).
@@ -268,7 +273,7 @@ function renderOrderTracking(data, ctx) {
       </div>`;
     }
   }
-  body.innerHTML = warning + stepsHtml + prepLine + totalLine + nudgeHtml;
+  body.innerHTML = warning + stepsHtml + prepLine + scheduleLine + totalLine + nudgeHtml;
 }
 
 function renderOrderTrackingError(message) {

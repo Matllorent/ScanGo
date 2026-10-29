@@ -173,6 +173,16 @@ export function buildKitchenCardModel(order, stationByDishId) {
   const customer = String(order.customer_name || '').trim();
   const orderMode = normalizeKdsOrderMode(order.order_mode || order.orderMode);
   const orderModeMeta = KDS_ORDER_MODES[orderMode];
+  // Takeaway Programado (73ª suite): un pedido con retiro programado no está
+  // "listo para cocinar" hasta `wakeAt` (retiro − lead). Los campos son
+  // ADITIVOS y tolerantes (fila histórica → ''/null, jamás rompe el render).
+  // `computeKdsWakeAt` es la fórmula espejo de pickupSlots.computeWakeAt —
+  // este módulo se mantiene autocontenido por diseño (la 56ª suite prohíbe
+  // imports acá), la paridad se testea en la 73ª.
+  const scheduledFor = stringSafe(order.scheduled_for || order.scheduledFor);
+  const rawLead = order.scheduled_lead_minutes != null ? order.scheduled_lead_minutes : order.scheduledLeadMinutes;
+  const leadNum = Number(rawLead);
+  const scheduledLeadMinutes = Number.isFinite(leadNum) ? leadNum : null;
   return {
     id: String(order.id || ''),
     columnId: columnIdForStatus(status),
@@ -195,8 +205,43 @@ export function buildKitchenCardModel(order, stationByDishId) {
     pending: status === 'pending',
     terminal: status === 'delivered' || status === 'cancelled',
     cancelled: status === 'cancelled',
-    createdAt: String(order.created_at || order.createdAt || '')
+    createdAt: String(order.created_at || order.createdAt || ''),
+    scheduledFor,
+    scheduledLeadMinutes,
+    wakeAt: computeKdsWakeAt(scheduledFor, scheduledLeadMinutes)
   };
+}
+
+/** Fórmula espejo de pickupSlots.computeWakeAt (retiro − lead). null sin datos. */
+function computeKdsWakeAt(scheduledFor, leadMinutes) {
+  const slotMs = Date.parse(String(scheduledFor || ''));
+  const lead = Number(leadMinutes);
+  if (Number.isNaN(slotMs) || !Number.isFinite(lead)) return null;
+  return new Date(slotMs - lead * 60000).toISOString();
+}
+
+/**
+ * Partición pura de las tarjetas para la sección "PROGRAMADOS" del KDS
+ * (Takeaway Programado, 73ª suite): un pedido programado vive FUERA de las
+ * columnas hasta que su `wakeAt` llega (despierta); al despertar cae en su
+ * columna normal sin intervención. Invariante fail-open: sin `wakeAt`
+ * parseable, o ya despierto, el pedido va a `active` — la cocina NUNCA
+ * pierde trabajo por un dato raro. Terminales (delivered/cancelled) tampoco
+ * quedan en la sección: ya no hay nada que despertar.
+ */
+export function partitionScheduledModels(models, nowMs) {
+  const now = typeof nowMs === 'number' ? nowMs : Date.parse(String(nowMs));
+  const active = [];
+  const scheduled = [];
+  for (const m of (Array.isArray(models) ? models : [])) {
+    if (!m || typeof m !== 'object') continue;
+    const wakeMs = m.wakeAt ? Date.parse(String(m.wakeAt)) : NaN;
+    const isScheduled = Boolean(m.scheduledFor) && !m.terminal
+      && Number.isFinite(wakeMs) && Number.isFinite(now) && wakeMs > now;
+    (isScheduled ? scheduled : active).push(m);
+  }
+  scheduled.sort((a, b) => Date.parse(a.wakeAt) - Date.parse(b.wakeAt));
+  return { active, scheduled };
 }
 
 function stringSafe(v) {
