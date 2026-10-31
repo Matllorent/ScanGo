@@ -11,7 +11,10 @@ const { sanitizeRestaurantPayload, sanitizeDish, DISH_SCHEMA, DISHES_ARRAY_SCHEM
 const { menuCacheMiddleware, invalidateMenuCache, memoryCache } = require('../middleware/cache');
 const { authMiddleware } = require('../middleware/auth');
 const requireVerifiedEmail = require('../middleware/requireVerifiedEmail');
-const { requireActiveSubscription } = require('../middleware/subscriptionGuard');
+const {
+  requireActiveSubscription,
+  requireActiveSubscriptionForStudioSave
+} = require('../middleware/subscriptionGuard');
 const { validateBody } = require('../middleware/validation');
 const { createGroupCartToken } = require('../utils/groupCartToken');
 const { stripPrivilegedFields } = require('../utils/stripPrivilegedFields');
@@ -49,11 +52,65 @@ const MAX_DISHES_LIMIT = 100;
  * como si nada. Los gates de gracia post-trial viven en verifyAccess().
  * Rate limited a 5 req/min por tenant para guardados masivos con platos.
  */
-router.post('/save', authMiddleware, requireVerifiedEmail, requireActiveSubscription, dishBulkSaveLimiter, async (req, res, next) => {
+router.post('/save', authMiddleware, requireVerifiedEmail, requireActiveSubscriptionForStudioSave, dishBulkSaveLimiter, async (req, res, next) => {
   try {
     const payload = req.body.data || req.body;
     if (JSON.stringify(payload).length > 1_000_000) {
       return res.status(413).json({ error: 'El menú excede el tamaño máximo permitido (1MB)' });
+    }
+
+    // El middleware async ya esperó la hidratación cloud y dejó el local
+    // resuelto en req.restaurant (null = usuario sin local). Un fallo de
+    // infraestructura responde 503 ANTES de llegar acá, así que nunca se
+    // confunde con "usuario sin local" ni crea un duplicado.
+    let existing = req.restaurant;
+    if (existing === undefined) {
+      // Defensa por si una ruta futura reutiliza este handler sin el middleware.
+      try {
+        existing = req.user && req.user.userId
+          ? await db.lazyLoadRestaurantByUserId(req.user.userId)
+          : null;
+      } catch (e) {
+        if (e && e.code === 'RESTAURANT_LOAD_FAILED') {
+          return res.status(503).json({
+            success: false,
+            error: 'No pudimos cargar tu local en este momento. Reintentá en unos segundos.',
+            code: 'RESTAURANT_LOAD_FAILED'
+          });
+        }
+        throw e;
+      }
+    }
+
+    // Guard anti-pérdida del cold start: el frontend, si /me falla o llega
+    // antes de la hidratación, arma un local vacío con id ''. Ese payload no
+    // puede tocar un local existente (lo dejaría sin carta) ni crear otro.
+    const payloadId = payload && typeof payload.id === 'string' ? payload.id.trim() : payload && payload.id;
+    const declaredId = req.body && Object.prototype.hasOwnProperty.call(req.body, 'restaurantId')
+      ? req.body.restaurantId
+      : undefined;
+    if (existing && (payloadId === '' || declaredId === '')) {
+      return res.status(409).json({
+        success: false,
+        error: 'Tu local ya existe pero la sesión no lo cargó. Recargá la página antes de guardar.',
+        code: 'RESTAURANT_ID_REQUIRED',
+        currentRestaurantId: existing.id
+      });
+    }
+    if (existing && payloadId && String(payloadId) !== String(existing.id)) {
+      return res.status(409).json({
+        success: false,
+        error: 'El local que intentás guardar no coincide con tu cuenta. Recargá la página.',
+        code: 'RESTAURANT_ID_MISMATCH',
+        currentRestaurantId: existing.id
+      });
+    }
+    if (!existing && payloadId) {
+      return res.status(409).json({
+        success: false,
+        error: 'Ese local ya no existe. Recargá la página para empezar de nuevo.',
+        code: 'RESTAURANT_NOT_FOUND'
+      });
     }
 
     // Concurrencia optimista: el `updatedAt` que trae el cliente no es un campo
@@ -62,7 +119,6 @@ router.post('/save', authMiddleware, requireVerifiedEmail, requireActiveSubscrip
     // este save otra pestaña/empleado guardó, rechazamos con 409 en vez de
     // sobreescribir en silencio (last-write-wins).
     const clientUpdatedAt = payload && payload.updatedAt;
-    const existing = req.user && req.user.userId ? db.findRestaurantByUserId(req.user.userId) : null;
     const serverUpdatedAt = existing && existing.updatedAt;
     if (
       clientUpdatedAt &&

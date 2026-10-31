@@ -3,9 +3,13 @@ const path = require('path');
 const os = require('os');
 
 const IS_VERCEL = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
-const DATA_DIR = IS_VERCEL
-  ? path.join(os.tmpdir(), 'menu-pizarron-saas')
-  : path.join(__dirname, '..', '..', 'data');
+// SCANGO_DATA_DIR permite aislar una instancia (tests de dos réplicas/cold
+// start). En Vercel el default sigue siendo /tmp (efímero por instancia).
+const DATA_DIR = process.env.SCANGO_DATA_DIR
+  ? path.resolve(process.env.SCANGO_DATA_DIR)
+  : IS_VERCEL
+    ? path.join(os.tmpdir(), 'menu-pizarron-saas')
+    : path.join(__dirname, '..', '..', 'data');
 if (!fs.existsSync(DATA_DIR)) {
   try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
 }
@@ -48,7 +52,14 @@ function readRestaurants() {
 // En lugar de descargar toda la tabla al boot, cada lookup consulta Supabase
 // de forma puntual la primera vez y persiste el resultado en el JSON local.
 // Las siguientes llamadas síncronas (findRestaurantBySlug, etc.) lo encuentran.
-let _lazyCache = new Map(); // slug|userId|id → true (evita doble fetch por key)
+//
+// El cache SOLO guarda hydrataciones EXITOSAS y por una ventana corta: antes se
+// marcaba el intento ANTES del fetch, así un fallo transitorio de Supabase
+// dejaba el local invisible para siempre en esa instancia (el Studio lo
+// interpretaba como "usuario sin local" y ofrecía crear uno nuevo).
+const LAZY_RESTAURANT_TTL_MS = 60 * 1000;
+let _lazyCache = new Map(); // slug|userId|id → epoch ms de la última hydratación OK
+const _lazyInflight = new Map(); // slug|userId|id → Promise (dedupe concurrente)
 
 /** Normaliza una fila de Supabase al mismo shape que usa el boot. */
 function _normalizeCloudRestaurantRow(r) {
@@ -84,46 +95,79 @@ function _normalizeCloudRestaurantRow(r) {
 
 /**
  * Descarga UN restaurante de Supabase (por slug, userId o id) y lo mezcla en
- * el JSON local. Best-effort: nunca lanza, el fallo se logea silencioso.
+ * el JSON local. Lanza si la consulta falla: el caller decide si degrada o si
+ * responde 503 (nunca se inventa "no existe" ante un error de infraestructura).
  * @param {'slug'|'userId'|'id'} field  Campo de búsqueda.
  * @param {string} value                Valor a buscar.
+ * @returns {Promise<object|null>} restaurante normalizado o null si no existe.
  */
-async function _lazyHydrateRestaurant(field, value) {
-  if (!supabase || !value) return;
-  const cacheKey = `${field}:${value}`;
-  if (_lazyCache.has(cacheKey)) return; // ya lo intentamos
-  _lazyCache.set(cacheKey, true);
-
+async function _fetchRestaurantFromCloud(field, value) {
+  if (!supabase || !value) return null;
   const colMap = { slug: 'slug', userId: 'user_id', id: 'id' };
   const col = colMap[field];
-  if (!col) return;
+  if (!col) return null;
 
-  try {
-    const { data, error } = await supabase
-      .from('restaurants')
-      .select('*')
-      .eq(col, value)
-      .limit(1)
-      .maybeSingle();
-    if (error || !data) return;
+  const { data, error } = await supabase
+    .from('restaurants')
+    .select('*')
+    .eq(col, value)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message || `restaurants query failed (${field})`);
+  if (!data) return null;
 
-    const normalized = normalizeRestaurantBusinessType(_normalizeCloudRestaurantRow(data));
-    const existing = readJson(RESTAURANTS_FILE, []);
-    const idx = existing.findIndex(r => r.id === normalized.id);
-    if (idx === -1) {
-      existing.push(normalized);
-    } else {
-      // Cloud gana solo si es más nuevo
-      if (tsOf(normalized.updatedAt || normalized.createdAt) >
-          tsOf(existing[idx].updatedAt || existing[idx].createdAt)) {
-        existing[idx] = normalized;
-      }
+  const normalized = normalizeRestaurantBusinessType(_normalizeCloudRestaurantRow(data));
+  const existing = readJson(RESTAURANTS_FILE, []);
+  const idx = existing.findIndex(r => r.id === normalized.id);
+  if (idx === -1) {
+    existing.push(normalized);
+  } else {
+    // Cloud gana solo si es más nuevo
+    if (tsOf(normalized.updatedAt || normalized.createdAt) >
+        tsOf(existing[idx].updatedAt || existing[idx].createdAt)) {
+      existing[idx] = normalized;
     }
-    await writeJson(RESTAURANTS_FILE, existing);
-  } catch (e) {
-    // best-effort: el JSON local puede quedar incompleto pero nunca rompe
-    console.warn(`[DB lazy] No se pudo hidratar ${field}=${value}:`, e.message);
   }
+  await writeJson(RESTAURANTS_FILE, existing);
+  return normalized;
+}
+
+/**
+ * Hidratación lazy tolerante (fire-and-forget de los lookups síncronos).
+ * Devuelve {ok, found, restaurant?} y NUNCA lanza: el caller que necesita
+ * distinguir "no existe" de "la nube falló" mira `ok` y decide (503/retry).
+ * @param {'slug'|'userId'|'id'} field
+ * @param {string} value
+ * @param {{force?: boolean}} [opts]
+ */
+async function _lazyHydrateRestaurant(field, value, opts = {}) {
+  if (!supabase || !value) return { ok: true, found: false };
+  const cacheKey = `${field}:${value}`;
+  const cachedAt = _lazyCache.get(cacheKey);
+  if (!opts.force && cachedAt && Date.now() - cachedAt < LAZY_RESTAURANT_TTL_MS) {
+    return { ok: true, found: true, cached: true };
+  }
+  if (_lazyInflight.has(cacheKey)) return _lazyInflight.get(cacheKey);
+
+  const task = (async () => {
+    try {
+      const restaurant = await _fetchRestaurantFromCloud(field, value);
+      if (restaurant) {
+        _lazyCache.set(cacheKey, Date.now());
+        return { ok: true, found: true, restaurant };
+      }
+      return { ok: true, found: false };
+    } catch (e) {
+      // Best-effort: el JSON local puede quedar incompleto pero nunca rompe el
+      // request que solo quería un lookup síncrono.
+      console.warn(`[DB lazy] No se pudo hidratar ${field}=${value}:`, e.message);
+      return { ok: false, found: false, error: e };
+    } finally {
+      _lazyInflight.delete(cacheKey);
+    }
+  })();
+  _lazyInflight.set(cacheKey, task);
+  return task;
 }
 
 
@@ -878,6 +922,31 @@ const db = {
     return normalizeRestaurantBusinessType(
       rests.find(r => (r.slug || '').toLowerCase() === slug.toLowerCase()) || null
     );
+  },
+
+  /**
+   * Versión async de findRestaurantByUserId que ESPERA la hidratación cloud.
+   * Es la fuente de verdad del Studio: un `null` significa "este usuario no
+   * tiene local" (recién ahí el frontend puede crear uno); si Supabase
+   * falla, LANZA `RESTAURANT_LOAD_FAILED` para que la ruta responda 503 en vez
+   * de crear un local duplicado o dejar que el Studio guarde una carta vacía.
+   * @param {string} userId
+   * @returns {Promise<object|null>}
+   */
+  async lazyLoadRestaurantByUserId(userId) {
+    if (!userId) return null;
+    const local = readRestaurants().find(r => r.userId === userId) || null;
+    if (local) return normalizeRestaurantBusinessType(local);
+
+    const result = await _lazyHydrateRestaurant('userId', userId, { force: true });
+    if (!result.ok) {
+      const err = new Error('No se pudo cargar el local desde la nube');
+      err.code = 'RESTAURANT_LOAD_FAILED';
+      err.cause = result.error;
+      throw err;
+    }
+    const hydrated = readRestaurants().find(r => r.userId === userId) || null;
+    return normalizeRestaurantBusinessType(hydrated);
   },
 
   /**

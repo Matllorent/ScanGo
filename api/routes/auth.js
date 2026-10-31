@@ -16,6 +16,27 @@ const { isDemoSlug } = require('../utils/demoRestaurants');
 
 const router = express.Router();
 
+/**
+ * Resuelve el local del usuario esperando la hidratación cloud (cold start de
+ * Vercel). Un null es "no tiene local"; un fallo de Supabase es 503: nunca se
+ * responde null ante un error de infraestructura porque el Studio lo tomaría
+ * como usuario nuevo y ofrecería crear/guardar un local vacío.
+ */
+async function loadRestaurantForSession(userId) {
+  try {
+    return await db.lazyLoadRestaurantByUserId(userId);
+  } catch (e) {
+    if (e && e.code === 'RESTAURANT_LOAD_FAILED') {
+      throw new AppError(
+        'No pudimos cargar tu local en este momento. Reintentá en unos segundos.',
+        503,
+        'RESTAURANT_LOAD_FAILED'
+      );
+    }
+    throw e;
+  }
+}
+
 if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
   throw new Error('FATAL: JWT_SECRET debe estar definido en el entorno de producción para garantizar la seguridad');
 }
@@ -720,7 +741,10 @@ router.post('/login', normalizeEmailInput, validateBody(loginSchema), async (req
     const { email, password } = req.body;
     const user = await verifyUserCredentials(email, password);
 
-    const restaurant = db.findRestaurantByUserId(user.id);
+    // Espera la hidratación cloud: en un cold start el JSON local todavía no
+    // tiene el restaurante y el login no debe devolver null (el Studio lo
+    // interpretaría como cuenta sin local).
+    const restaurant = await loadRestaurantForSession(user.id);
     const token = mintSessionToken(user);
     res.cookie('auth_token', token, COOKIE_OPTIONS);
 
@@ -734,18 +758,30 @@ router.post('/login', normalizeEmailInput, validateBody(loginSchema), async (req
 /**
  * GET /api/auth/me
  */
-router.get('/me', (req, res, next) => {
+router.get('/me', async (req, res, next) => {
   try {
     const decoded = authenticateRequest(req);
     const user = db.findUserById(decoded.userId);
-    const restaurant = db.findRestaurantByUserId(decoded.userId);
-
     if (!user) {
       throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
     }
 
+    const restaurant = await loadRestaurantForSession(decoded.userId);
+
     const { password: _, ...safeUser } = user;
-    return successResponse(res, { user: safeUser, restaurant }, 'Operación exitosa', 200, { flatData: true });
+    return successResponse(
+      res,
+      {
+        user: safeUser,
+        restaurant,
+        // Solo un "no existe confirmado" habilita al frontend a crear el local.
+        // Si la hidratación falla, esta ruta responde 503 y no llega acá.
+        canCreateRestaurant: !restaurant
+      },
+      'Operación exitosa',
+      200,
+      { flatData: true }
+    );
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
       return next(new AppError('Token inválido o expirado', 401, 'INVALID_TOKEN'));

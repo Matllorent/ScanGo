@@ -21,6 +21,107 @@ import { handleBillingReturn } from './billing.js';
 
 const TOKEN_KEY = 'menu_pizarron_token'; // legacy: ya no se emite ni se usa (solo limpieza)
 
+// El cold start de Vercel puede tardar en hidratar el restaurante desde
+// Supabase. Reintentamos SOLO el 503 de carga (nunca un 401/403): si el server
+// no confirma "no tenés local", el Studio no debe inventar uno vacío.
+const ME_RETRY_DELAYS_MS = [0, 400, 900];
+
+async function fetchSessionWithRetry(headers) {
+  let last = null;
+  for (const delay of ME_RETRY_DELAYS_MS) {
+    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+    last = await fetch('/api/auth/me', { headers, cache: 'no-store' });
+    if (last.status !== 503) return last;
+  }
+  return last;
+}
+
+/**
+ * Pantalla de error honesta: nunca se renderiza el Studio vacío sobre un local
+ * que existe. Sin UI disponible el default seguro es NO permitir guardar.
+ */
+function showRestaurantLoadError() {
+  if (document.getElementById('studioLoadError')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'studioLoadError';
+  overlay.setAttribute('role', 'alert');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0E1412;color:#F5F5F5;display:flex;align-items:center;justify-content:center;padding:24px;';
+
+  const box = document.createElement('div');
+  box.style.cssText = 'max-width:520px;background:#17211D;border:1px solid rgba(212,168,83,.35);border-radius:16px;padding:28px;text-align:center;';
+
+  const title = document.createElement('h1');
+  title.textContent = 'No pudimos cargar tu local';
+  title.style.cssText = 'font-size:1.25rem;margin:0 0 10px;';
+
+  const text = document.createElement('p');
+  text.textContent = 'La sesión está bien, pero el local no llegó desde la nube. No guardes nada todavía: recargá en unos segundos.';
+  text.style.cssText = 'font-size:.92rem;line-height:1.5;color:#C9D1CC;margin:0 0 18px;';
+
+  const retry = document.createElement('button');
+  retry.type = 'button';
+  retry.textContent = 'Reintentar';
+  retry.style.cssText = 'padding:9px 18px;border-radius:8px;border:none;background:#38A169;color:#fff;font-weight:700;cursor:pointer;margin-right:8px;';
+  retry.addEventListener('click', () => window.location.reload());
+
+  const exit = document.createElement('button');
+  exit.type = 'button';
+  exit.textContent = 'Cerrar sesión';
+  exit.style.cssText = 'padding:9px 18px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:transparent;color:#fff;font-weight:700;cursor:pointer;';
+  exit.addEventListener('click', () => logout());
+
+  box.append(title, text, retry, exit);
+  overlay.append(box);
+  document.body.append(overlay);
+}
+
+function buildDefaultRestaurant(currentUser) {
+  const defaultSlug = (currentUser.name || 'mi-restaurante')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 30);
+
+  return {
+    id: '',
+    userId: currentUser.id,
+    name: currentUser.name || 'Mi Restaurante',
+    slogan: '',
+    slug: defaultSlug,
+    currency: '$',
+    phone: '',
+    theme: 'emerald',
+    themeFont: 'sans',
+    layout: 'classic',
+    bannerUrl: null,
+    city: '',
+    smartWeatherEnabled: false,
+    businessType: 'restaurant',
+    allowLoyaltyPoints: false,
+    allowIceCreamWizard: false,
+    allowPerfumery: false,
+    instagram: '',
+    facebook: '',
+    tiktok: '',
+    x: '',
+    googleReview: '',
+    allowReservations: false,
+    allowCoupons: false,
+    allowBillSplitter: false,
+    announcement: '',
+    paymentLink: '',
+    allowOnlinePayment: false,
+    scheduleEnabled: false,
+    scheduleActiveHours: '12:00-23:30',
+    tableCount: 1,
+    wifi: { ssid: '', password: '' },
+    categories: [],
+    dishes: [],
+    deliveryZones: [],
+    analytics: { visits: 0, orders: 0, reservations: 0, waiterCalls: 0 }
+  };
+}
+
 /**
  * Inicializa el Studio: verifica la sesión contra /api/auth/me.
  * Web: cookie httpOnly (viaja sola). App nativa: Bearer de dispositivo
@@ -35,16 +136,30 @@ export async function initStudio(state, renderStudioUI, normalizeBusinessType) {
     handleBillingReturn();
 
     const headers = (window.AuthClient ? window.AuthClient.getAuthHeaders() : {});
-    const res = await fetch('/api/auth/me', { headers });
+    const res = await fetchSessionWithRetry(headers);
 
     if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      if (body && body.code === 'RESTAURANT_LOAD_FAILED') {
+        showRestaurantLoadError();
+        return;
+      }
       window.location.href = '/?auth=expired';
       return;
     }
 
     const data = await res.json();
     state.currentUser = data.user || {};
-    state.restaurant = data.restaurant || {};
+
+    // El servidor es la autoridad: `restaurant:null` + `canCreateRestaurant:true`
+    // es el ÚNICO caso en que se arma un local vacío. Si el campo no vino (server
+    // viejo) o la hidratación falló, se muestra el error y NO se scaffoldea.
+    const serverRestaurant = data.restaurant || null;
+    if (!serverRestaurant && data.canCreateRestaurant !== true) {
+      showRestaurantLoadError();
+      return;
+    }
+    state.restaurant = serverRestaurant || buildDefaultRestaurant(state.currentUser);
 
     // La suscripción vive en el RESTAURANTE ({user, restaurant} es lo que
     // devuelve /api/auth/me). Normalizar la del user fabricaba un trial nuevo
@@ -53,54 +168,6 @@ export async function initStudio(state, renderStudioUI, normalizeBusinessType) {
       (state.restaurant && state.restaurant.subscription) || state.currentUser.subscription
     );
     if (state.restaurant) state.restaurant.subscription = state.currentUser.subscription;
-
-    // If user has no restaurant yet, scaffold a clean default
-    if (!state.restaurant.id) {
-      const defaultSlug = (state.currentUser.name || 'mi-restaurante')
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '-')
-        .replace(/-+/g, '-')
-        .slice(0, 30);
-
-      state.restaurant = {
-        id: '',
-        userId: state.currentUser.id,
-        name: state.currentUser.name || 'Mi Restaurante',
-        slogan: '',
-        slug: defaultSlug,
-        currency: '$',
-        phone: '',
-        theme: 'emerald',
-        themeFont: 'sans',
-        layout: 'classic',
-        bannerUrl: null,
-        city: '',
-        smartWeatherEnabled: false,
-        businessType: 'restaurant',
-        allowLoyaltyPoints: false,
-        allowIceCreamWizard: false,
-        allowPerfumery: false,
-        instagram: '',
-        facebook: '',
-        tiktok: '',
-        x: '',
-        googleReview: '',
-        allowReservations: false,
-        allowCoupons: false,
-        allowBillSplitter: false,
-        announcement: '',
-        paymentLink: '',
-        allowOnlinePayment: false,
-        scheduleEnabled: false,
-        scheduleActiveHours: '12:00-23:30',
-        tableCount: 1,
-        wifi: { ssid: '', password: '' },
-        categories: [],
-        dishes: [],
-        deliveryZones: [],
-        analytics: { visits: 0, orders: 0, reservations: 0, waiterCalls: 0 }
-      };
-    }
 
     if (typeof normalizeBusinessType === 'function') {
       normalizeBusinessType(state.restaurant);
