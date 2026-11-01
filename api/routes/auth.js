@@ -50,8 +50,8 @@ const COOKIE_OPTIONS = {
   maxAge: 7 * 24 * 3600 * 1000 // 7 días: acompaña a expiresIn '7d' del JWT
 };
 
-const { revokeJti, checkSessionFreshness } = require('../utils/tokenRevocation');
-const { issueDeviceToken, listDeviceTokens, revokeDeviceToken, revokeAllUserDevices, verifyDeviceToken } = require('../utils/deviceTokens');
+const { revokeJti } = require('../utils/tokenRevocation');
+const { issueDeviceToken, listDeviceTokens, revokeDeviceToken, revokeAllUserDevices } = require('../utils/deviceTokens');
 const { fetchWithTimeout } = require('../utils/fetchWithTimeout');
 const { timingSafeEqualHex } = require('../utils/adminSession');
 
@@ -73,6 +73,23 @@ function mintSessionToken(user) {
 }
 
 /**
+ * Vista pública del usuario: NUNCA viaja el hash, los flags internos del
+ * outbox cloud (`_cloudPending`) ni el marcador de tombstone.
+ */
+function publicUser(user) {
+  if (!user) return null;
+  const {
+    password: _password,
+    _cloudPending: _pending,
+    _cloudPendingAt: _pendingAt,
+    deleted: _deleted,
+    deletedAt: _deletedAt,
+    ...safe
+  } = user;
+  return safe;
+}
+
+/**
  * Alta/login unificado desde un perfil verificado de Google. Lo comparten
  * POST /api/auth/google (GIS) y el callback del flujo redirect (mobile),
  * así el email_verified, la carta starter y el email de bienvenida son UNA
@@ -81,19 +98,47 @@ function mintSessionToken(user) {
 async function upsertGoogleUser(googleProfile, requestedType, requestedRestaurantName) {
   const email = googleProfile.email.trim().toLowerCase();
 
-  let user = db.findUserByEmail(email);
-  let restaurant = user ? db.findRestaurantByUserId(user.id) : null;
+  // Lookup FRESCO: una réplica con el usuario viejo en su JSON no puede
+  // autenticar una cuenta borrada en otra (P0-2).
+  const lookup = await db.getUserByEmailFresh(email);
+  if (!lookup.ok) {
+    throw new AppError('No pudimos verificar tu cuenta en este momento. Reintentá en unos segundos.', 503, 'USER_LOOKUP_UNAVAILABLE');
+  }
+  let user = lookup.user;
+  // Espera la hidratación del local (cold start): sin esto el login Google
+  // crearía un segundo restaurante para el mismo dueño.
+  let restaurant = user ? await loadRestaurantForSession(user.id) : null;
 
   const isNewUser = !user;
   if (!user) {
     const randomPassword = crypto.randomBytes(48).toString('hex');
-    user = await db.createUser({
-      id: 'usr_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex'),
-      email,
-      password: await hashPassword(randomPassword),
-      name: String(googleProfile.name || 'Responsable').slice(0, 80),
-      email_confirmed_at: new Date().toISOString()
-    });
+    try {
+      user = await db.createUser({
+        id: 'usr_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex'),
+        email,
+        password: await hashPassword(randomPassword),
+        name: String(googleProfile.name || 'Responsable').slice(0, 80),
+        email_confirmed_at: new Date().toISOString()
+      });
+    } catch (e) {
+      // Carrera de dos logins Google simultáneos: el que perdió reusa la
+      // cuenta que ganó en vez de duplicarla.
+      if (e && e.code === 'EMAIL_ALREADY_EXISTS') {
+        const again = await db.getUserByEmailFresh(email);
+        if (again.ok && again.user) user = again.user;
+        else throw new AppError('El email ya está registrado', 409, 'EMAIL_ALREADY_EXISTS');
+      } else if (e && e.code === 'USER_LOOKUP_UNAVAILABLE') {
+        throw new AppError('No pudimos verificar tu email en este momento. Reintentá en unos segundos.', 503, 'USER_LOOKUP_UNAVAILABLE');
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  // Si el usuario se resolvió en la carrera del alta, su local también hay que
+  // resolverlo antes de decidir si hace falta crear uno.
+  if (user && !restaurant) {
+    restaurant = await loadRestaurantForSession(user.id);
   }
 
   if (!restaurant) {
@@ -191,7 +236,14 @@ async function withResetLock(jti, fn) {
  * Compartido por /login y /device para no duplicar la lógica.
  */
 async function verifyUserCredentials(email, password) {
-  const user = db.findUserByEmail(email);
+  // Lookup FRESCO (P0-2): la nube manda. Un tombstone de otra réplica no
+  // puede loguear contra el espejo local; si la nube no responde y no hay
+  // espejo, es 503 — nunca "credenciales incorrectas" por infraestructura.
+  const lookup = await db.getUserByEmailFresh(email);
+  if (!lookup.ok) {
+    throw new AppError('No pudimos verificar tus credenciales en este momento. Reintentá en unos segundos.', 503, 'USER_LOOKUP_UNAVAILABLE');
+  }
+  const user = lookup.user;
   if (!user || typeof user.password !== 'string') {
     throw new AppError('Credenciales incorrectas', 401, 'INVALID_CREDENTIALS');
   }
@@ -299,7 +351,7 @@ router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
     const token = mintSessionToken(user);
     res.cookie('auth_token', token, COOKIE_OPTIONS);
 
-    const { password: _, ...safeUser } = user;
+    const safeUser = publicUser(user);
     return successResponse(res, { user: safeUser, restaurant }, 'Acceso con Google exitoso. Sesión guardada en cookie segura.', 200, { flatData: true });
   } catch (err) {
     next(err);
@@ -497,18 +549,38 @@ router.post('/supabase-callback', checkSubscriptionKillSwitch, async (req, res, 
       ? req.body.businessType
       : 'restaurant';
     const requestedRestaurantName = String(req.body?.restaurantName || '').trim().slice(0, 80);
-    let user = db.findUserByEmail(email);
-    let restaurant = user ? db.findRestaurantByUserId(user.id) : null;
+    const lookup = await db.getUserByEmailFresh(email);
+    if (!lookup.ok) {
+      throw new AppError('No pudimos verificar tu cuenta en este momento. Reintentá en unos segundos.', 503, 'USER_LOOKUP_UNAVAILABLE');
+    }
+    let user = lookup.user;
+    let restaurant = user ? await loadRestaurantForSession(user.id) : null;
 
     if (!user) {
       const randomPassword = crypto.randomBytes(48).toString('hex');
-      user = await db.createUser({
-        id: supabaseUser.id,
-        email,
-        password: await hashPassword(randomPassword),
-        name: String(supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || 'Responsable').slice(0, 80),
-        email_confirmed_at: new Date().toISOString()
-      });
+      try {
+        user = await db.createUser({
+          id: supabaseUser.id,
+          email,
+          password: await hashPassword(randomPassword),
+          name: String(supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || 'Responsable').slice(0, 80),
+          email_confirmed_at: new Date().toISOString()
+        });
+      } catch (e) {
+        if (e && e.code === 'EMAIL_ALREADY_EXISTS') {
+          const again = await db.getUserByEmailFresh(email);
+          if (again.ok && again.user) user = again.user;
+          else throw new AppError('El email ya está registrado', 409, 'EMAIL_ALREADY_EXISTS');
+        } else if (e && e.code === 'USER_LOOKUP_UNAVAILABLE') {
+          throw new AppError('No pudimos verificar tu email en este momento. Reintentá en unos segundos.', 503, 'USER_LOOKUP_UNAVAILABLE');
+        } else {
+          throw e;
+        }
+      }
+    }
+
+    if (user && !restaurant) {
+      restaurant = await loadRestaurantForSession(user.id);
     }
 
     if (!restaurant) {
@@ -532,7 +604,7 @@ router.post('/supabase-callback', checkSubscriptionKillSwitch, async (req, res, 
 
     const token = mintSessionToken(user);
     res.cookie('auth_token', token, COOKIE_OPTIONS);
-    const { password: _, ...safeUser } = user;
+    const safeUser = publicUser(user);
     return successResponse(res, { user: safeUser, restaurant }, 'Google sign-in successful. Session stored in secure cookie.', 200, { flatData: true });
   } catch (err) {
     next(err);
@@ -600,7 +672,13 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
       throw new AppError('No se permiten correos temporales o desechables. Usá tu email profesional.', 400, 'DISPOSABLE_EMAIL_REJECTED');
     }
 
-    const existing = db.findUserByEmail(email);
+    // Lookup FRESCO (P0-2): el chequeo de duplicado mira la nube, no solo el
+    // espejo de esta réplica. Si no se puede verificar, 503 honesto.
+    const existingLookup = await db.getUserByEmailFresh(email);
+    if (!existingLookup.ok) {
+      throw new AppError('No pudimos verificar tu email en este momento. Reintentá en unos segundos.', 503, 'USER_LOOKUP_UNAVAILABLE');
+    }
+    const existing = existingLookup.user;
     if (existing) {
       // Anti-enumeración: la respuesta es idéntica haya o no cuenta (200
       // genérico), así un atacante no puede probar qué emails existen. Se
@@ -653,13 +731,32 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
     const hashedPassword = await hashPassword(password);
     const userId = sbUser ? sbUser.id : undefined;
 
-    const user = await db.createUser({
-      ...(userId ? { id: userId } : {}),
-      email,
-      password: hashedPassword,
-      name: name || 'Responsable',
-      email_confirmed_at: sbUser ? (sbUser.email_confirmed_at || null) : new Date().toISOString()
-    });
+    let user;
+    try {
+      user = await db.createUser({
+        ...(userId ? { id: userId } : {}),
+        email,
+        password: hashedPassword,
+        name: name || 'Responsable',
+        email_confirmed_at: sbUser ? (sbUser.email_confirmed_at || null) : new Date().toISOString()
+      });
+    } catch (e) {
+      if (e && e.code === 'EMAIL_ALREADY_EXISTS') {
+        // Carrera: otra alta ganó entre el chequeo y el insert. Misma
+        // respuesta genérica anti-enumeración que el caso "ya existe".
+        return successResponse(
+          res,
+          { registered: false, requiresEmailVerification: true },
+          'Si el email es válido, te enviamos las instrucciones a tu casilla. Revisá tu correo.',
+          200,
+          { flatData: true }
+        );
+      }
+      if (e && e.code === 'USER_LOOKUP_UNAVAILABLE') {
+        throw new AppError('No pudimos verificar tu email en este momento. Reintentá en unos segundos.', 503, 'USER_LOOKUP_UNAVAILABLE');
+      }
+      throw e;
+    }
 
     const finalBizName = restaurantName || bizName || 'Mi Restaurante';
     // F4 · Atribución viral: el `?ref=` de la landing se honra SOLO si apunta a
@@ -714,7 +811,7 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
       console.error('[NewClientNotification]', err.message);
     });
 
-    const { password: _, ...safeUser } = user;
+    const safeUser = publicUser(user);
     // Con Supabase activo, la casilla recién se confirma desde el link del correo:
     // el frontend usa este flag para mostrar la pantalla "revisá tu correo"
     // en vez de tirar al usuario a un Studio donde no puede guardar nada (403).
@@ -748,7 +845,7 @@ router.post('/login', normalizeEmailInput, validateBody(loginSchema), async (req
     const token = mintSessionToken(user);
     res.cookie('auth_token', token, COOKIE_OPTIONS);
 
-    const { password: _, ...safeUser } = user;
+    const safeUser = publicUser(user);
     return successResponse(res, { user: safeUser, restaurant }, 'Inicio de sesión exitoso. Sesión guardada en cookie segura.', 200, { flatData: true });
   } catch (err) {
     next(err);
@@ -760,15 +857,17 @@ router.post('/login', normalizeEmailInput, validateBody(loginSchema), async (req
  */
 router.get('/me', async (req, res, next) => {
   try {
-    const decoded = authenticateRequest(req);
-    const user = db.findUserById(decoded.userId);
+    // authenticateRequest ya validó frescura (cloud/local) y dejó el usuario
+    // fresco en req.authUser; el findUserById es solo un fallback.
+    const decoded = await authenticateRequest(req);
+    const user = req.authUser || db.findUserById(decoded.userId);
     if (!user) {
       throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
     }
 
     const restaurant = await loadRestaurantForSession(decoded.userId);
 
-    const { password: _, ...safeUser } = user;
+    const safeUser = publicUser(user);
     return successResponse(
       res,
       {
@@ -819,7 +918,11 @@ router.post('/device', normalizeEmailInput, validateBody(deviceLoginSchema), asy
   try {
     const { email, password, deviceName } = req.body;
     const user = await verifyUserCredentials(email, password);
-    const { raw, record } = issueDeviceToken(user.id, deviceName);
+    // pwdTs del usuario al emitir: un reset posterior mata el token en todas
+    // las réplicas (verifyDeviceToken + getUserSessionState en el middleware).
+    const { raw, record } = issueDeviceToken(user.id, deviceName, {
+      pwdTs: user.updatedAt || user.createdAt || null
+    });
     return successResponse(res, { deviceToken: raw, device: record }, 'Dispositivo vinculado. Guardá el token: no se muestra de nuevo.', 201);
   } catch (err) {
     next(err);
@@ -862,7 +965,13 @@ router.post('/forgot-password', normalizeEmailInput, async (req, res, next) => {
     if (!email) {
       throw new AppError('El email es requerido', 400, 'EMAIL_REQUIRED');
     }
-    const user = db.findUserByEmail(email);
+    // Lookup FRESCO: el enlace no puede emitirse para una cuenta borrada en
+    // otra réplica. Un fallo de verificación es 503 honesto (no 200 falso).
+    const lookup = await db.getUserByEmailFresh(email);
+    if (!lookup.ok) {
+      throw new AppError('No pudimos verificar tu email en este momento. Reintentá en unos segundos.', 503, 'USER_LOOKUP_UNAVAILABLE');
+    }
+    const user = lookup.user;
     if (user) {
       const jti = crypto.randomUUID();
       const expiresInSeconds = 15 * 60; // 15 minutos estrictos (entre 15 y 30 minutos)
@@ -978,10 +1087,16 @@ router.post('/reset-password', async (req, res, next) => {
         throw new AppError('Este enlace de recuperación ya fue utilizado previamente o ha expirado.', 400, 'TOKEN_ALREADY_USED');
       }
 
-      const user = db.findUserById(decoded.userId);
-      if (!user) {
+      // Estado FRESCO: un reset de una cuenta borrada en otra réplica no
+      // puede revivirla; si la nube no responde y no hay espejo, 503.
+      const state = await db.getUserSessionState(decoded.userId);
+      if (state.status === 'unavailable') {
+        throw new AppError('No pudimos verificar tu cuenta en este momento. Reintentá en unos segundos.', 503, 'USER_LOOKUP_UNAVAILABLE');
+      }
+      if (state.status !== 'active' || !state.user) {
         throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
       }
+      const user = state.user;
 
       // Immediately revoke/invalidate the JTI to prevent reuse
       await db.invalidateResetToken(decoded.jti);

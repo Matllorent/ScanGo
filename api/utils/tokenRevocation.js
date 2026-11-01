@@ -19,9 +19,13 @@ const os = require('os');
 const path = require('path');
 
 const IS_VERCEL = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
-const DATA_DIR = IS_VERCEL
-  ? path.join(os.tmpdir(), 'menu-pizarron-saas')
-  : path.join(__dirname, '..', '..', 'data');
+// SCANGO_DATA_DIR aísla una instancia completa (tests de dos réplicas): la
+// denylist de jtis debe vivir en el mismo directorio que el resto del espejo.
+const DATA_DIR = process.env.SCANGO_DATA_DIR
+  ? path.resolve(process.env.SCANGO_DATA_DIR)
+  : IS_VERCEL
+    ? path.join(os.tmpdir(), 'menu-pizarron-saas')
+    : path.join(__dirname, '..', '..', 'data');
 const REVOKED_FILE = path.join(DATA_DIR, 'revoked_tokens.json');
 const MAX_ENTRIES = 5000;
 
@@ -86,9 +90,14 @@ function isJtiRevoked(jti) {
 
 /**
  * Valida frescura de una sesión decodificada (post-verify).
+ *
+ * @param {object} decoded - JWT verificado.
+ * @param {object|null|undefined} userOverride - Usuario FRESCO resuelto por el
+ *   llamador (lookup cloud). `undefined` = no hay override → se usa el espejo
+ *   local (sync, compat). `null` = el llamador confirmó que no existe.
  * @returns {null|{status:number, error:string, code:string}} null = vigente.
  */
-function checkSessionFreshness(decoded) {
+function checkSessionFreshness(decoded, userOverride) {
   if (!decoded || typeof decoded !== 'object') {
     return { status: 401, error: 'No autorizado', code: 'UNAUTHORIZED' };
   }
@@ -97,20 +106,40 @@ function checkSessionFreshness(decoded) {
   }
   // Tokens no-usuario (admin_master, group-cart, tracking) no pasan por acá.
   if (!decoded.userId) return null;
-  let user = null;
-  try {
-    // require perezoso: evita ciclos (db no importa este módulo).
-    const db = require('../../src/db/db');
-    user = db.findUserById(decoded.userId);
-  } catch { /* fail-open acotado: sin DB no se puede validar */ }
+
+  let user;
+  if (userOverride === undefined) {
+    try {
+      // require perezoso: evita ciclos (db no importa este módulo).
+      const db = require('../../src/db/db');
+      user = db.findUserById(decoded.userId);
+    } catch { /* fail-open acotado: sin DB no se puede validar */ }
+  } else {
+    user = userOverride;
+  }
+
   if (!user) {
     return { status: 401, error: 'Usuario no encontrado', code: 'USER_NOT_FOUND' };
   }
+  // Tombstone sin PII: la cuenta fue borrada y no puede autenticarse.
+  const email = String(user.email || '').toLowerCase();
+  if (user.deleted === true || email.endsWith('@deleted.invalid')) {
+    return { status: 401, error: 'Usuario no encontrado', code: 'USER_NOT_FOUND' };
+  }
+
   const current = user.updatedAt || user.createdAt || null;
   if (decoded.pwdTs) {
-    if (current && decoded.pwdTs !== current) {
+    // Comparación por INSTANTE: el mismo momento puede venir como ISO con o
+    // sin milisegundos (Postgres/JSON) y no debe matar una sesión válida.
+    const tokenTs = new Date(decoded.pwdTs).getTime();
+    const currentTs = current ? new Date(current).getTime() : NaN;
+    if (!Number.isFinite(tokenTs)) {
       return { status: 401, error: 'Sesión revocada por cambio de credenciales. Iniciá sesión nuevamente.', code: 'SESSION_REVOKED' };
     }
+    if (Number.isFinite(currentTs) && tokenTs !== currentTs) {
+      return { status: 401, error: 'Sesión revocada por cambio de credenciales. Iniciá sesión nuevamente.', code: 'SESSION_REVOKED' };
+    }
+    // `current` ilegible (legacy sin createdAt): no se puede probar staleness.
   } else if (user.updatedAt) {
     // Token legacy (sin pwdTs) posterior a un cambio de clave.
     return { status: 401, error: 'Sesión anterior al cambio de credenciales. Iniciá sesión nuevamente.', code: 'SESSION_REVOKED' };

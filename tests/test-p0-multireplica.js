@@ -63,7 +63,18 @@ function request(port, method, route, opts = {}) {
 }
 
 function sessionToken(user) {
-  return jwt.sign({ userId: user.id, email: user.email }, SECRET, { expiresIn: '10m' });
+  // Mismo payload que mintSessionToken (auth.js): pwdTs permite verificar el
+  // reset cross-réplica. Sin pwdTs el token es "legacy" y muere ante cualquier
+  // updatedAt, que es justo lo que NO queremos medir acá.
+  return jwt.sign(
+    {
+      userId: user.id,
+      email: user.email,
+      pwdTs: user.updatedAt || user.createdAt || null
+    },
+    SECRET,
+    { expiresIn: '10m' }
+  );
 }
 
 function startChild(env) {
@@ -238,8 +249,12 @@ async function runLocalRegression() {
   } finally {
     if (server.closeAllConnections) server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
-    await db.deleteRestaurantData(user.id, restaurant.id);
-    if (newUserId) await db.deleteRestaurantData(newUserId, newRestaurantId);
+    // El borrado ahora es cloud-first y puede lanzar ACCOUNT_DELETE_FAILED:
+    // el cleanup de un test nunca debe tumbar la suite.
+    try { await db.deleteRestaurantData(user.id, restaurant.id); } catch (e) { /* best-effort */ }
+    if (newUserId) {
+      try { await db.deleteRestaurantData(newUserId, newRestaurantId); } catch (e) { /* best-effort */ }
+    }
   }
 }
 
@@ -310,7 +325,210 @@ async function runCloudColdStartProbe() {
     if (tempDir) {
       try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (e) { /* best-effort */ }
     }
-    await db.deleteRestaurantData(user.id, restaurant.id);
+    try { await db.deleteRestaurantData(user.id, restaurant.id); } catch (e) { /* best-effort */ }
+  }
+}
+
+function readJsonFile(dir, name, fallback) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
+  } catch (e) {
+    return fallback;
+  }
+}
+
+async function startReplica(prefix) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  const child = await startChild({
+    ...process.env,
+    SCANGO_DATA_DIR: dir,
+    JWT_SECRET: SECRET,
+    NODE_ENV: process.env.NODE_ENV || 'test',
+    // Sin caché de frescura: cada request de la réplica consulta la nube, que
+    // es exactamente lo que hay que probar (token viejo vs tombstone/reset).
+    USER_FRESH_TTL_MS: '0'
+  });
+  return { child, dir };
+}
+
+async function stopReplica(replica) {
+  if (!replica) return;
+  await stopChild(replica.child);
+  if (replica.dir) {
+    try { fs.rmSync(replica.dir, { recursive: true, force: true }); } catch (e) { /* best-effort */ }
+  }
+}
+
+/**
+ * P0-2 · Borrado cross-réplica: una réplica borra la cuenta y las demás deben
+ * ver el tombstone (nunca resucitar desde su JSON viejo).
+ */
+async function runCloudDeleteProbe() {
+  const { createClient } = require('@supabase/supabase-js');
+  const cloud = createClient(process.env.SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+  const stamp = Date.now();
+  const email = `p0-del-${stamp}@example.com`;
+  const user = await db.createUser({
+    email,
+    password: bcrypt.hashSync('delete_password', 10),
+    name: 'P0 Delete Owner',
+    email_confirmed_at: new Date().toISOString()
+  });
+  const restaurant = await db.saveRestaurant(user.id, {
+    name: 'P0 Delete Bistro',
+    bizName: 'P0 Delete Bistro',
+    slug: `p0-del-${stamp}`,
+    categories: [{ id: 'cat_del', name: 'Carta' }],
+    dishes: [{ id: 'dish_del', categoryId: 'cat_del', name: 'Milanesa', price: 130 }]
+  });
+  const token = sessionToken(user);
+  let replicaB = null;
+  let replicaC = null;
+  try {
+    await db.flushCloudWrites();
+    await waitCloudRow(cloud, 'users', 'id', user.id);
+    await waitCloudRow(cloud, 'restaurants', 'id', restaurant.id);
+
+    // Réplica B: arranca con DATA_DIR vacío y borra la cuenta por la API real.
+    replicaB = await startReplica('scango-p0-del-b-');
+    const del = await request(replicaB.child.port, 'POST', '/api/account/delete-request', {
+      cookie: `auth_token=${token}`,
+      body: { confirm: true, reason: 'P0-2 cross-replica delete' }
+    });
+    assert.strictEqual(del.status, 200, 'borrado cross-réplica → 200');
+    assert.strictEqual(del.body.deleted, true, 'el borrado confirma deleted:true');
+
+    const meDead = await request(replicaB.child.port, 'GET', '/api/auth/me', { token });
+    assert.strictEqual(meDead.status, 401, 'token viejo en la réplica que borró → 401');
+
+    // Nube: tombstone sin PII + restaurante realmente borrado.
+    const { data: cloudUser, error: userErr } = await cloud
+      .from('users')
+      .select('email,email_confirmed_at')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (userErr) throw userErr;
+    assert.ok(cloudUser, 'la fila cloud sigue existiendo como tombstone');
+    assert.ok(/^deleted\+.+@deleted\.invalid$/i.test(cloudUser.email), 'tombstone con email marcador, sin PII');
+    assert.strictEqual(cloudUser.email_confirmed_at, null, 'tombstone sin email confirmado');
+
+    const { data: cloudRest, error: restErr } = await cloud
+      .from('restaurants')
+      .select('id')
+      .eq('id', restaurant.id)
+      .maybeSingle();
+    if (restErr) throw restErr;
+    assert.strictEqual(cloudRest, null, 'el restaurante cloud se borró (el tombstone no dispara el CASCADE)');
+
+    // Réplica A (padre): el lookup fresco ve el tombstone y tombstonea su JSON.
+    const state = await db.getUserSessionState(user.id);
+    assert.strictEqual(state.status, 'deleted', 'la réplica A ve deleted por la nube');
+    assert.strictEqual(db.findUserById(user.id), null, 'findUserById ya no devuelve la cuenta');
+    assert.strictEqual(db.findUserByEmail(email), null, 'findUserByEmail tampoco');
+
+    // Réplica C: cold start de cero; el boot hidrata el tombstone y no resucita.
+    replicaC = await startReplica('scango-p0-del-c-');
+    const meCold = await request(replicaC.child.port, 'GET', '/api/auth/me', { token });
+    assert.strictEqual(meCold.status, 401, 'cold start con tombstone → 401');
+
+    const loginCold = await request(replicaC.child.port, 'POST', '/api/auth/login', {
+      body: { email, password: 'delete_password' }
+    });
+    assert.strictEqual(loginCold.status, 401, 'login de una cuenta borrada → 401');
+
+    const localUsers = readJsonFile(replicaC.dir, 'users.json', []);
+    const tombstone = localUsers.find((u) => u && u.id === user.id);
+    assert.ok(tombstone, 'la réplica C hidrató el tombstone');
+    assert.ok(/^deleted\+/.test(tombstone.email), 'el tombstone local no guarda el email original');
+    assert.strictEqual(tombstone.email_confirmed_at, null, 'el tombstone local no conserva confirmación');
+
+    const localRests = readJsonFile(replicaC.dir, 'restaurants.json', []);
+    assert.ok(
+      !localRests.some((r) => r && r.id === restaurant.id),
+      'la réplica C no resucita el restaurante borrado'
+    );
+
+    console.log('✓ P0-2 cloud: borrado cross-réplica deja tombstone, mata el token viejo y no resucita en cold start');
+  } finally {
+    await stopReplica(replicaB);
+    await stopReplica(replicaC);
+    try { await db.deleteRestaurantData(user.id, restaurant.id); } catch (e) { /* best-effort */ }
+  }
+}
+
+/**
+ * P0-2 · Reset cross-réplica: el `pwdTs` se persiste en la nube ANTES de
+ * responder; otra réplica con DATA_DIR vacío rechaza el token viejo y acepta
+ * la clave nueva.
+ */
+async function runCloudResetProbe() {
+  const { createClient } = require('@supabase/supabase-js');
+  const cloud = createClient(process.env.SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+  const stamp = Date.now();
+  const email = `p0-reset-${stamp}@example.com`;
+  const user = await db.createUser({
+    email,
+    password: bcrypt.hashSync('old_password', 10),
+    name: 'P0 Reset Owner',
+    email_confirmed_at: new Date().toISOString()
+  });
+  const restaurant = await db.saveRestaurant(user.id, {
+    name: 'P0 Reset Bistro',
+    bizName: 'P0 Reset Bistro',
+    slug: `p0-reset-${stamp}`,
+    categories: [{ id: 'cat_reset', name: 'Carta' }],
+    dishes: [{ id: 'dish_reset', categoryId: 'cat_reset', name: 'Milanesa', price: 140 }]
+  });
+  const oldToken = sessionToken(user);
+  let replica = null;
+  try {
+    await db.flushCloudWrites();
+    await waitCloudRow(cloud, 'users', 'id', user.id);
+    await waitCloudRow(cloud, 'restaurants', 'id', restaurant.id);
+
+    // Reset en la réplica A (padre): cloud-first, pwdTs = updated_at nuevo.
+    const updated = await db.updateUserPassword(user.id, bcrypt.hashSync('new_password', 10));
+    assert.ok(updated && updated.updatedAt, 'updateUserPassword devuelve updatedAt');
+    assert.notStrictEqual(
+      updated.updatedAt,
+      user.updatedAt || user.createdAt,
+      'el reset cambia el pwdTs'
+    );
+    await db.flushCloudWrites();
+
+    const { data: cloudRow, error: cloudErr } = await cloud
+      .from('users')
+      .select('updated_at')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (cloudErr) throw cloudErr;
+    assert.ok(cloudRow && cloudRow.updated_at, 'el updated_at del reset está en la nube');
+    assert.strictEqual(
+      new Date(cloudRow.updated_at).getTime(),
+      new Date(updated.updatedAt).getTime(),
+      'la nube tiene EXACTAMENTE el pwdTs del reset'
+    );
+
+    // Réplica B: DATA_DIR vacío, sin caché de frescura.
+    replica = await startReplica('scango-p0-reset-');
+    const meOld = await request(replica.child.port, 'GET', '/api/auth/me', { token: oldToken });
+    assert.strictEqual(meOld.status, 401, 'token emitido antes del reset → 401 en otra réplica');
+
+    const loginOld = await request(replica.child.port, 'POST', '/api/auth/login', {
+      body: { email, password: 'old_password' }
+    });
+    assert.strictEqual(loginOld.status, 401, 'la clave vieja ya no entra');
+
+    const loginNew = await request(replica.child.port, 'POST', '/api/auth/login', {
+      body: { email, password: 'new_password' }
+    });
+    assert.strictEqual(loginNew.status, 200, 'la clave nueva entra en la réplica fría');
+    assert.ok(loginNew.body && loginNew.body.user, 'el login devuelve el usuario');
+
+    console.log('✓ P0-2 cloud: reset cross-réplica persiste pwdTs, mata el token viejo y la clave nueva entra');
+  } finally {
+    await stopReplica(replica);
+    try { await db.deleteRestaurantData(user.id, restaurant.id); } catch (e) { /* best-effort */ }
   }
 }
 
@@ -321,11 +539,13 @@ async function runTests() {
   await runLocalRegression();
   if (HAS_CLOUD) {
     await runCloudColdStartProbe();
+    await runCloudDeleteProbe();
+    await runCloudResetProbe();
   } else {
-    console.log('↷ P0-1 cloud probe SKIP: sin SUPABASE_URL + service key (no se inventan resultados)');
+    console.log('↷ P0-1/P0-2 cloud probes SKIP: sin SUPABASE_URL + service key (no se inventan resultados)');
   }
 
-  console.log('\n🎉 LOTE 0 / P0-1 VERIFICADO CON SERVER REAL');
+  console.log('\n🎉 LOTE 0 / P0-1 + P0-2 VERIFICADO CON SERVER REAL');
 }
 
 runTests()

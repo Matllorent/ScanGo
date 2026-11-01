@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 
 const IS_VERCEL = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
 // SCANGO_DATA_DIR permite aislar una instancia (tests de dos réplicas/cold
@@ -21,6 +22,17 @@ const RESET_TOKENS_FILE = path.join(DATA_DIR, 'reset_tokens.json');
 const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
 const STAFF_FILE = path.join(DATA_DIR, 'staff.json');
 const STAFF_SESSIONS_FILE = path.join(DATA_DIR, 'staff_sessions.json');
+
+// ── Usuarios: tombstones, frescura y outbox (P0-2) ─────────────────────────
+// El borrado de cuenta deja un TOMBSTONE sin PII en `users` (email
+// `deleted+<id>@deleted.invalid`, password aleatorio, deleted:true). El dominio
+// ES el marcador: no hace falta migración y un tombstone jamás puede loguearse
+// (findUserByEmail/ById los devuelven como null). Además, un usuario borrado en
+// OTRA réplica de Vercel no revive por la unión cloud↔local del boot.
+const USER_TOMBSTONE_DOMAIN = 'deleted.invalid';
+const USER_CLOUD_PENDING_TTL_MS = 60 * 60 * 1000; // 1 h para reparar un alta
+const USER_CLOUD_ABSENCE_GRACE_MS = 10 * 60 * 1000; // margen de una ausencia cloud
+const CLOUD_USERS_PAGE_SIZE = 1000; // límite real de PostgREST por request
 
 function readJson(file, def = []) {
   if (!fs.existsSync(file)) return def;
@@ -211,6 +223,159 @@ function tsOf(value) {
   return Number.isFinite(t) ? t : -1;
 }
 
+// ── Usuarios: tombstones, frescura y outbox (P0-2) ─────────────────────────
+
+function isTombstoneEmail(email) {
+  return String(email || '').trim().toLowerCase().endsWith(`@${USER_TOMBSTONE_DOMAIN}`);
+}
+
+function isDeletedUser(user) {
+  if (!user || typeof user !== 'object') return false;
+  if (user.deleted === true) return true;
+  return isTombstoneEmail(user.email);
+}
+
+function buildUserTombstone(user) {
+  const source = user && typeof user === 'object' ? user : {};
+  const now = new Date().toISOString();
+  return {
+    id: source.id,
+    email: `deleted+${source.id}@${USER_TOMBSTONE_DOMAIN}`,
+    // Password aleatorio (no es un hash bcrypt válido): aunque alguien fuerce
+    // el lookup, comparePassword nunca puede autenticar.
+    password: crypto.randomBytes(32).toString('hex'),
+    name: '',
+    email_confirmed_at: null,
+    createdAt: source.createdAt || source.created_at || now,
+    updatedAt: now,
+    deleted: true,
+    deletedAt: now
+  };
+}
+
+function normalizeCloudUserRow(row) {
+  if (!row || typeof row !== 'object' || !row.id) return null;
+  const normalized = {
+    ...row,
+    id: String(row.id),
+    email: String(row.email || ''),
+    name: row.name || '',
+    createdAt: row.createdAt || row.created_at || null,
+    updatedAt: row.updatedAt || row.updated_at || null,
+    email_confirmed_at: row.email_confirmed_at ?? row.emailConfirmedAt ?? null
+  };
+  if (isTombstoneEmail(normalized.email)) {
+    normalized.deleted = true;
+    normalized.deletedAt = normalized.updatedAt || null;
+  }
+  return normalized;
+}
+
+function toCloudUserRow(user) {
+  // El tombstone se identifica por el dominio del email: NO viaja un flag
+  // `deleted` que la tabla cloud no tiene (cloudWriteTolerant lo quitaría y
+  // ensuciaría el log de drift en cada borrado).
+  return {
+    id: user.id,
+    email: user.email,
+    password: user.password,
+    name: user.name || '',
+    email_confirmed_at: user.email_confirmed_at || user.emailConfirmedAt || null,
+    created_at: user.createdAt || null,
+    updated_at: user.updatedAt || null
+  };
+}
+
+function isUserCloudPending(user, nowMs = Date.now()) {
+  if (!user || typeof user !== 'object' || !user._cloudPending) return false;
+  const at = tsOf(user._cloudPendingAt || user.createdAt);
+  // Sin timestamp no se puede probar que venció: conservar es lo seguro.
+  if (at < 0) return true;
+  return nowMs - at <= USER_CLOUD_PENDING_TTL_MS;
+}
+
+function getUserFreshTtlMs() {
+  const raw = process.env.USER_FRESH_TTL_MS;
+  if (raw === undefined || raw === '') return 30 * 1000;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : 30 * 1000;
+}
+
+/**
+ * Fusión de usuarios con DOS reglas que `mergeById` no puede expresar:
+ * 1) un tombstone cloud SIEMPRE gana (una réplica con el usuario viejo en su
+ *    JSON no puede resucitar una cuenta borrada en otra);
+ * 2) un usuario activo cloud gana sobre un tombstone local (una réplica que
+ *    borró y otra que todavía no vio el cambio convergen al estado cloud).
+ * El resto sigue siendo last-writer-wins con empate → local (altas del request
+ * en curso durante el boot).
+ */
+function mergeUsers(localUsers, cloudUsers) {
+  const byId = new Map();
+  for (const row of (Array.isArray(cloudUsers) ? cloudUsers : [])) {
+    const normalized = normalizeCloudUserRow(row);
+    if (normalized) byId.set(normalized.id, normalized);
+  }
+  for (const row of (Array.isArray(localUsers) ? localUsers : [])) {
+    if (!row || typeof row !== 'object' || !row.id) continue;
+    const key = String(row.id);
+    const cloudRow = byId.get(key);
+    if (!cloudRow) {
+      byId.set(key, row);
+      continue;
+    }
+    const cloudDeleted = isDeletedUser(cloudRow);
+    const localDeleted = isDeletedUser(row);
+    if (cloudDeleted) {
+      // El tombstone cloud manda; conservamos createdAt local si existe.
+      byId.set(key, {
+        ...row,
+        ...cloudRow,
+        createdAt: row.createdAt || cloudRow.createdAt,
+        deleted: true
+      });
+      continue;
+    }
+    if (localDeleted) {
+      byId.set(key, cloudRow);
+      continue;
+    }
+    if (tsOf(row.updatedAt || row.createdAt) >= tsOf(cloudRow.updatedAt || cloudRow.createdAt)) {
+      // Local gana el empate, pero conserva campos que solo están en cloud
+      // (email_confirmed_at, etc.).
+      byId.set(key, { ...cloudRow, ...row });
+    }
+  }
+  return [...byId.values()];
+}
+
+/**
+ * Poda conservadora de usuarios locales que ya no existen en cloud. Requisitos
+ * para borrar una fila: cloud NO vacío (nunca podar contra un fallo de lectura),
+ * ausencia fuera de la ventana de gracia, timestamp verificable y sin
+ * `_cloudPending` vigente (un alta cuyo insert cloud falló no es un borrado).
+ * Filas sin timestamp y tombstones se conservan siempre.
+ */
+function pruneUsersByCloudAbsence(users, cloudUsers, opts = {}) {
+  const cloud = Array.isArray(cloudUsers) ? cloudUsers : [];
+  if (cloud.length === 0) return users;
+  const cloudIds = new Set(
+    cloud.filter((r) => r && typeof r === 'object' && r.id).map((r) => String(r.id))
+  );
+  const nowMs = Number.isFinite(opts.nowMs) ? opts.nowMs : Date.now();
+  const graceMs = Number.isFinite(opts.graceMs) ? opts.graceMs : USER_CLOUD_ABSENCE_GRACE_MS;
+  return users.filter((row) => {
+    if (!row || typeof row !== 'object' || !row.id) return false;
+    if (cloudIds.has(String(row.id))) return true;
+    if (isDeletedUser(row)) return true; // el tombstone local rechaza tokens viejos
+    if (isUserCloudPending(row, nowMs)) return true;
+    const stamp = tsOf(row.updatedAt || row.createdAt);
+    if (stamp < 0) return true; // sin timestamp no se puede probar stale
+    return nowMs - stamp < graceMs;
+  });
+}
+
+
 /**
  * Fusión cloud ↔ local por id (last-writer-wins por updatedAt, empate → local).
  * NUNCA clobbera: antes, si la nube tenía filas "con sentido", se DESCARTABA
@@ -236,8 +401,8 @@ function mergeById(localRows, cloudRows) {
   return [...byId.values()];
 }
 
-function resolveHydrationData(cloudUsers, localUsers, cloudRestaurants, localRestaurants) {
-  const users = mergeById(localUsers, cloudUsers);
+function resolveHydrationData(cloudUsers, localUsers, cloudRestaurants, localRestaurants, opts = {}) {
+  const users = pruneUsersByCloudAbsence(mergeUsers(localUsers, cloudUsers), cloudUsers, opts);
   const restaurants = mergeById(localRestaurants, cloudRestaurants).map(normalizeRestaurantBusinessType);
   return { users, restaurants };
 }
@@ -314,6 +479,18 @@ function isExpectedSupabaseSchemaWarning(error) {
     normalized.includes('column') && normalized.includes('does not exist') ||
     error?.code === '42703'
   );
+}
+
+/**
+ * Tabla inexistente en la nube (proyecto nuevo sin una migración aplicada).
+ * Un DELETE contra una tabla ausente no tiene datos que borrar: se tolera y se
+ * sigue con las demás. Cualquier otro error SÍ aborta el borrado de cuenta.
+ */
+function isMissingTableError(error) {
+  const code = String((error && error.code) || '');
+  if (code === 'PGRST205' || code === '42P01') return true;
+  const message = String((error && error.message) || error || '').toLowerCase();
+  return message.includes('could not find the table') || message.includes('relation') && message.includes('does not exist');
 }
 
 /**
@@ -562,6 +739,31 @@ async function cloudWriteTolerant(table, rows, { onConflict, match } = {}) {
   return { ok: false, error: 'column-drop retries exhausted' };
 }
 
+/**
+ * Descarga TODOS los usuarios paginando (PostgREST corta en 1000 filas por
+ * request). La hidratación del boot necesita la lista COMPLETA para poder podar
+ * con honestidad las filas locales que ya no existen en cloud: una lectura
+ * truncada parecería una ausencia masiva.
+ */
+async function fetchAllCloudUsers(client) {
+  const rows = [];
+  for (let from = 0; ; from += CLOUD_USERS_PAGE_SIZE) {
+    const { data, error } = await client
+      .from('users')
+      .select('*')
+      .order('id', { ascending: true })
+      .range(from, from + CLOUD_USERS_PAGE_SIZE - 1);
+    if (error) throw error;
+    const page = Array.isArray(data) ? data : [];
+    for (const row of page) {
+      const normalized = normalizeCloudUserRow(row);
+      if (normalized) rows.push(normalized);
+    }
+    if (page.length < CLOUD_USERS_PAGE_SIZE) break;
+  }
+  return rows;
+}
+
 if (process.env.SUPABASE_URL && supabaseKey) {
   try {
     const { createClient } = require('@supabase/supabase-js');
@@ -580,29 +782,35 @@ if (process.env.SUPABASE_URL && supabaseKey) {
         // tiempo de arranque en Vercel. Los restaurantes se hidratan on-demand
         // mediante _lazyHydrateRestaurant() la primera vez que se accede a uno
         // por slug/userId/id (ver findRestaurantBySlug et al. más abajo).
-        const usersResult = await supabase.from('users').select('*');
-        if (usersResult.error) throw usersResult.error;
-
-        const cloudUsers = (usersResult.data || []).map(user => ({
-          ...user,
-          createdAt: user.createdAt || user.created_at,
-          updatedAt: user.updatedAt || user.updated_at
-        }));
+        const cloudUsers = await fetchAllCloudUsers(supabase);
 
         const localUsers = readJson(USERS_FILE, []);
         if (cloudUsers.length === 0 && localUsers.length > 0) {
           console.warn('[DB] Snapshot de Supabase vacío para usuarios; conservando datos locales válidos.');
         }
 
-        // Re-lectura antes de escribir (ver comentario original).
+        // Re-lectura antes de escribir (ver comentario original). La fusión
+        // respeta tombstones cloud y poda ausencias verificadas (ver mergeUsers
+        // y pruneUsersByCloudAbsence).
         const freshUsers = readJson(USERS_FILE, []);
-        const finalUsers = mergeById(freshUsers, cloudUsers);
+        const finalUsers = resolveHydrationData(cloudUsers, freshUsers, [], []).users;
 
         if (!await writeJson(USERS_FILE, finalUsers)) {
           throw new Error('No se pudo hidratar el snapshot local de usuarios desde Supabase.');
         }
 
         console.log(`✅ [DB] Usuarios hidratados (${finalUsers.length}). Restaurantes: carga diferida por slug/id.`);
+
+        // Outbox de usuarios: un alta cuyo upsert cloud falló queda con
+        // `_cloudPending` y se repara acá. Best-effort, nunca rompe el boot.
+        try {
+          const repairUsers = await db.repairCloudPendingUsers();
+          if (repairUsers && (repairUsers.repaired > 0 || repairUsers.remaining > 0)) {
+            console.log(`[DB] Usuarios pendientes reparados: ${repairUsers.repaired} subidos, ${repairUsers.remaining} restantes.`);
+          }
+        } catch (e) {
+          console.warn('[DB] Reparación de usuarios pendientes falló (best-effort):', e.message);
+        }
 
         // Reparación outbox: pedidos que quedaron solo en local (insert cloud
         // fallido en caliente) se suben ahora. Best-effort, nunca rompe el boot.
@@ -782,6 +990,60 @@ async function fetchCloudStaffSessionRows({ restaurantId, staffId } = {}) {
   }
 }
 
+// Serializa read-modify-write sobre users.json (el alta y la hidratación
+// corren en el mismo proceso). El lock es una promesa encadenada: un fallo no
+// rompe la cadena (then(run, run)).
+let usersWriteLock = Promise.resolve();
+function withUsersLock(run) {
+  usersWriteLock = usersWriteLock.then(run, run);
+  return usersWriteLock;
+}
+
+// Caché de frescura de sesión (userId → {at, result}). Se invalida en toda
+// mutación del usuario (clave, tombstone, hidratación).
+const _userFreshCache = new Map();
+function invalidateUserFreshCache(userId) {
+  if (userId) _userFreshCache.delete(String(userId));
+  else _userFreshCache.clear();
+}
+
+/**
+ * Verifica que el email no esté tomado, también en cloud cuando está
+ * configurado. Fail-closed: si la nube no se puede consultar lanza
+ * USER_LOOKUP_UNAVAILABLE (nunca se asume libre y se crea un duplicado).
+ * Usa `.eq` y no `.ilike`: el `_` del local-part es wildcard en SQL.
+ */
+async function assertUserEmailAvailable(email, { excludeId } = {}) {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized) return;
+  const local = readJson(USERS_FILE, []).find(
+    (u) => u && u.id !== excludeId && !isDeletedUser(u)
+      && String(u.email || '').toLowerCase() === normalized
+  );
+  if (local) {
+    const err = new Error('El email ya está registrado');
+    err.code = 'EMAIL_ALREADY_EXISTS';
+    throw err;
+  }
+  if (!supabase) return;
+  const { data, error } = await supabase
+    .from('users')
+    .select('id,email')
+    .eq('email', normalized)
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    const err = new Error('No se pudo verificar el email');
+    err.code = 'USER_LOOKUP_UNAVAILABLE';
+    throw err;
+  }
+  if (data && String(data.id) !== String(excludeId || '') && !isTombstoneEmail(data.email)) {
+    const err = new Error('El email ya está registrado');
+    err.code = 'EMAIL_ALREADY_EXISTS';
+    throw err;
+  }
+}
+
 const db = {
   ready: databaseReady,
   async flushCloudWrites() {
@@ -791,56 +1053,395 @@ const db = {
   },
 
   // Users
+  // Los tombstones (`@deleted.invalid`) NUNCA se devuelven como usuarios: el
+  // estado `deleted` se consulta por getUserSessionState(). Así una cuenta
+  // borrada no puede autenticarse ni "reaparecer" por un lookup local.
   findUserByEmail(email) {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized) return null;
     const users = readJson(USERS_FILE, []);
-    return users.find(u => u.email.toLowerCase() === (email || '').toLowerCase()) || null;
+    return users.find(
+      (u) => u && !isDeletedUser(u) && String(u.email || '').toLowerCase() === normalized
+    ) || null;
   },
   findUserById(id) {
+    if (!id) return null;
     const users = readJson(USERS_FILE, []);
-    return users.find(u => u.id === id) || null;
+    return users.find((u) => u && u.id === id && !isDeletedUser(u)) || null;
   },
-  async createUser(userData) {
-    const users = readJson(USERS_FILE, []);
-    const id = 'usr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-    const newUser = { id, createdAt: new Date().toISOString(), ...userData };
-    users.push(newUser);
-    await writeJson(USERS_FILE, users);
 
-    // Sync to Supabase in background if connected (tolerante a drift: si la
-    // nube es anterior al schema.sql, se quitan las columnas que rechace).
-    if (supabase) {
-      trackSupabaseWrite(
-        cloudWriteTolerant('users', [{
-          id: newUser.id,
-          email: newUser.email,
-          password: newUser.password,
-          name: newUser.name,
-          email_confirmed_at: newUser.email_confirmed_at || null,
-          created_at: newUser.createdAt
-        }]).then((r) => {
-          if (!r.ok && !r.skipped) throw new Error(r.error || 'users insert failed');
-          return r;
-        }),
-        'Insert User'
-      );
+  /**
+   * Lookup FRESCO por email para login/registro/reset. La nube es la fuente de
+   * verdad multi-réplica: una réplica con el usuario viejo en su JSON no puede
+   * loguear una cuenta borrada en otra. Contrato:
+   *   { ok:true, user, source }                 → resultado confiable
+   *   { ok:true, user:null, deleted:true }      → tombstone (no autenticable)
+   *   { ok:true, user, degraded:true }          → cloud caído, se usa el espejo
+   *   { ok:false }                              → no se pudo verificar y no hay
+   *                                               espejo: el route responde 503
+   */
+  async getUserByEmailFresh(email) {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized) return { ok: true, user: null, source: 'local' };
+    const local = readJson(USERS_FILE, []).find(
+      (u) => u && !isDeletedUser(u) && String(u.email || '').toLowerCase() === normalized
+    ) || null;
+    if (!supabase) return { ok: true, user: local, source: 'local' };
+
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', normalized)
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+
+      if (data) {
+        const cloudUser = normalizeCloudUserRow(data);
+        if (!cloudUser) return { ok: true, user: null, source: 'cloud' };
+        await this.cacheUserLocally(cloudUser);
+        if (isDeletedUser(cloudUser)) {
+          return { ok: true, user: null, deleted: true, source: 'cloud' };
+        }
+        return { ok: true, user: cloudUser, source: 'cloud' };
+      }
+
+      if (!local) return { ok: true, user: null, source: 'cloud' };
+
+      // Sin fila por email puede ser un TOMBSTONE (el email cambió al borrar)
+      // o un alta cuyo insert cloud falló. Segunda consulta por id para no
+      // confundir un borrado con un alta pendiente.
+      const byId = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', local.id)
+        .limit(1)
+        .maybeSingle();
+      if (byId.error) throw byId.error;
+      if (byId.data) {
+        const cloudUser = normalizeCloudUserRow(byId.data);
+        await this.cacheUserLocally(cloudUser);
+        if (!cloudUser || isDeletedUser(cloudUser)) {
+          return { ok: true, user: null, deleted: true, source: 'cloud' };
+        }
+        return { ok: true, user: cloudUser, source: 'cloud' };
+      }
+      if (isUserCloudPending(local)) {
+        return { ok: true, user: local, source: 'local-pending', degraded: true };
+      }
+      // Ausencia cloud verificada (no está por email ni por id): cuenta
+      // inexistente. El espejo local es basura de una réplica vieja.
+      return { ok: true, user: null, source: 'cloud' };
+    } catch (e) {
+      if (local) {
+        return { ok: true, user: local, source: 'local-degraded', degraded: true };
+      }
+      return { ok: false, user: null, source: 'unavailable', error: e };
     }
-    return newUser;
   },
+
+  /**
+   * Estado de sesión por userId (middleware). `active|deleted|missing|
+   * unavailable`. Cachea el resultado TTL corto (USER_FRESH_TTL_MS) para no
+   * consultar la nube en cada request; NUNCA cachea degraded/unavailable.
+   */
+  async getUserSessionState(userId) {
+    const key = String(userId || '');
+    if (!key) return { ok: false, status: 'missing' };
+    const ttl = getUserFreshTtlMs();
+    const cached = _userFreshCache.get(key);
+    if (cached && ttl > 0 && Date.now() - cached.at <= ttl) {
+      return { ...cached.result };
+    }
+    const local = readJson(USERS_FILE, []).find((u) => u && u.id === key) || null;
+    if (!supabase) {
+      if (!local) return { ok: false, status: 'missing' };
+      return {
+        ok: true,
+        status: isDeletedUser(local) ? 'deleted' : 'active',
+        user: local,
+        source: 'local'
+      };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', key)
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+
+      if (!data) {
+        if (local && isDeletedUser(local)) {
+          // El tombstone local solo se escribe después de verificar el borrado
+          // cloud: sin fila cloud, el tombstone local es la verdad.
+          return { ok: true, status: 'deleted', user: local, source: 'local' };
+        }
+        if (local && isUserCloudPending(local)) {
+          return { ok: true, status: 'active', user: local, source: 'local-pending', degraded: true };
+        }
+        return { ok: true, status: 'missing' };
+      }
+
+      const cloudUser = normalizeCloudUserRow(data);
+      if (!cloudUser) return { ok: true, status: 'missing' };
+      await this.cacheUserLocally(cloudUser);
+      const result = isDeletedUser(cloudUser)
+        ? { ok: true, status: 'deleted', user: cloudUser, source: 'cloud' }
+        : { ok: true, status: 'active', user: cloudUser, source: 'cloud' };
+      if (ttl > 0) _userFreshCache.set(key, { at: Date.now(), result });
+      return { ...result };
+    } catch (e) {
+      if (local) {
+        return {
+          ok: true,
+          status: isDeletedUser(local) ? 'deleted' : 'active',
+          user: local,
+          source: 'local-degraded',
+          degraded: true
+        };
+      }
+      return { ok: false, status: 'unavailable', error: e };
+    }
+  },
+
+  /**
+   * Escribe el espejo local de un usuario cloud con reglas de borrado:
+   * tombstone cloud SIEMPRE gana; cloud activo gana sobre tombstone local;
+   * entre activos, last-writer-wins. Un tombstone local JAMÁS se pisa con una
+   * fila cloud más vieja.
+   */
+  async cacheUserLocally(cloudUser) {
+    const normalized = normalizeCloudUserRow(cloudUser);
+    if (!normalized) return null;
+    await withUsersLock(async () => {
+      const users = readJson(USERS_FILE, []);
+      const idx = users.findIndex((u) => u && u.id === normalized.id);
+      if (idx < 0) {
+        users.push(normalized);
+      } else {
+        const local = users[idx];
+        const localDeleted = isDeletedUser(local);
+        const incomingDeleted = isDeletedUser(normalized);
+        const incomingTs = tsOf(normalized.updatedAt || normalized.createdAt);
+        const localTs = tsOf(local.updatedAt || local.createdAt);
+        if (incomingDeleted || localDeleted || incomingTs >= localTs) {
+          const next = { ...local, ...normalized };
+          if (incomingDeleted) {
+            next.deleted = true;
+          } else if (localDeleted) {
+            delete next.deleted;
+            delete next.deletedAt;
+          }
+          // Sin cambios reales no se reescribe el archivo: con
+          // USER_FRESH_TTL_MS=0 cada request consulta la nube y un write por
+          // request sería ruido puro.
+          const unchanged = Object.keys(next).every(
+            (k) => JSON.stringify(next[k]) === JSON.stringify(local[k])
+          );
+          if (unchanged) return;
+          users[idx] = next;
+        } else {
+          return;
+        }
+      }
+      await writeJson(USERS_FILE, users);
+    });
+    invalidateUserFreshCache(normalized.id);
+    return normalized;
+  },
+
+  async clearUserCloudPending(userId) {
+    let changed = false;
+    await withUsersLock(async () => {
+      const users = readJson(USERS_FILE, []);
+      const user = users.find((u) => u && u.id === userId);
+      if (!user || (!user._cloudPending && !user._cloudPendingAt)) return;
+      delete user._cloudPending;
+      delete user._cloudPendingAt;
+      changed = true;
+      await writeJson(USERS_FILE, users);
+    });
+    if (changed) invalidateUserFreshCache(userId);
+  },
+
+  invalidateUserFreshCache(userId) {
+    invalidateUserFreshCache(userId);
+  },
+
+  /**
+   * Alta local-first con outbox: si el upsert cloud falla, el usuario queda
+   * `_cloudPending` y el boot lo repara (repairCloudPendingUsers). La
+   * unicidad de email se verifica contra local Y cloud (fail-closed).
+   * NO setea updatedAt: los tokens legacy sin pwdTs siguen válidos.
+   */
+  async createUser(userData, opts = {}) {
+    const data = { ...(userData || {}) };
+    const email = String(data.email || '').trim().toLowerCase();
+    if (!email) {
+      const err = new Error('El email es requerido');
+      err.code = 'EMAIL_REQUIRED';
+      throw err;
+    }
+    const id = String(data.id || ('usr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)));
+    const checkEmailUniqueness = opts.checkEmailUniqueness !== false;
+    if (checkEmailUniqueness) {
+      await assertUserEmailAvailable(email, { excludeId: id });
+    }
+
+    const now = new Date().toISOString();
+    const newUser = {
+      id,
+      email,
+      createdAt: now,
+      ...data,
+      // id/email normalizados ganan aunque userData traiga otra grafía.
+      _cloudPending: true,
+      _cloudPendingAt: now
+    };
+    newUser.id = id;
+    newUser.email = email;
+    if (!newUser.createdAt) newUser.createdAt = now;
+
+    await withUsersLock(async () => {
+      const users = readJson(USERS_FILE, []);
+      if (checkEmailUniqueness) {
+        // Re-chequeo DENTRO del mutex: dos registros concurrentes en el mismo
+        // proceso no pueden crear el mismo email.
+        const dup = users.find(
+          (u) => u && u.id !== id && !isDeletedUser(u)
+            && String(u.email || '').toLowerCase() === email
+        );
+        if (dup) {
+          const err = new Error('El email ya está registrado');
+          err.code = 'EMAIL_ALREADY_EXISTS';
+          throw err;
+        }
+      }
+      const idx = users.findIndex((u) => u && u.id === id);
+      if (idx >= 0) users[idx] = { ...users[idx], ...newUser };
+      else users.push(newUser);
+      await writeJson(USERS_FILE, users);
+    });
+    invalidateUserFreshCache(id);
+
+    if (supabase) {
+      try {
+        const res = await cloudWriteTolerant('users', [toCloudUserRow(newUser)], { onConflict: 'id' });
+        if (res.ok) {
+          await this.clearUserCloudPending(id);
+        } else if (!res.skipped) {
+          warnOnce(`[DB] Alta de usuario pendiente en cloud: ${res.error || 'sin detalle'}`);
+        }
+      } catch (e) {
+        warnOnce(`[DB] Alta de usuario pendiente en cloud: ${e.message || String(e)}`);
+      }
+    } else {
+      await this.clearUserCloudPending(id);
+    }
+
+    const { _cloudPending: _pending, _cloudPendingAt: _pendingAt, ...clean } = newUser;
+    return clean;
+  },
+
+  /**
+   * Cambio de clave cloud-first: la nube es la fuente de verdad multi-réplica
+   * y el `updated_at` (pwdTs) debe persistir ANTES de responder, o una réplica
+   * con el hash viejo seguiría aceptando la clave anterior. Si el UPDATE afecta
+   * 0 filas (usuario ausente en cloud) se verifica con un select y se degrada
+   * al espejo solo si el usuario tampoco existe en cloud.
+   */
   async updateUserPassword(userId, newHashedPassword) {
-    const users = readJson(USERS_FILE, []);
-    const user = users.find(u => u.id === userId);
-    if (!user) return null;
-    user.password = newHashedPassword;
-    user.updatedAt = new Date().toISOString();
-    await writeJson(USERS_FILE, users);
-
+    const updatedAt = new Date().toISOString();
+    const localUser = readJson(USERS_FILE, []).find(
+      (u) => u && u.id === userId && !isDeletedUser(u)
+    ) || null;
+    // Un alta local cuyo dual-write falló NO existe todavía en la nube: su
+    // cambio de clave se escribe local y queda pendiente para el boot. Sin
+    // esta excepción, el upgrade legacy de hash (login) rompía con 500.
+    let cloudAbsentPending = false;
+    let cloudConfirmed = false;
     if (supabase) {
-      trackSupabaseWrite(supabase.from('users').update({
-        password: newHashedPassword,
-        updated_at: user.updatedAt
-      }).eq('id', userId), 'Update Password');
+      try {
+        const { error } = await supabase
+          .from('users')
+          .update({ password: newHashedPassword, updated_at: updatedAt })
+          .eq('id', userId);
+        if (error) throw error;
+        const { data, error: checkErr } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', userId)
+          .limit(1)
+          .maybeSingle();
+        if (checkErr) throw checkErr;
+        if (!data) {
+          if (localUser && isUserCloudPending(localUser)) {
+            cloudAbsentPending = true;
+          } else {
+            const err = new Error('Usuario inexistente en la nube');
+            err.code = 'USER_NOT_FOUND_CLOUD';
+            throw err;
+          }
+        } else {
+          cloudConfirmed = true;
+        }
+      } catch (e) {
+        if (e && e.code === 'USER_NOT_FOUND_CLOUD' && localUser && isUserCloudPending(localUser)) {
+          cloudAbsentPending = true;
+        } else {
+          const err = new Error(`No se pudo actualizar la clave en la nube: ${e.message || String(e)}`);
+          err.code = 'PASSWORD_UPDATE_FAILED';
+          err.cause = e;
+          throw err;
+        }
+      }
     }
-    return user;
+
+    let updated = null;
+    await withUsersLock(async () => {
+      const users = readJson(USERS_FILE, []);
+      const user = users.find((u) => u && u.id === userId && !isDeletedUser(u));
+      if (!user) return;
+      user.password = newHashedPassword;
+      user.updatedAt = updatedAt;
+      if (cloudAbsentPending) {
+        user._cloudPending = true;
+        user._cloudPendingAt = updatedAt;
+      }
+      updated = { ...user };
+      await writeJson(USERS_FILE, users);
+    });
+    if (cloudConfirmed) await this.clearUserCloudPending(userId);
+    invalidateUserFreshCache(userId);
+    return updated;
+  },
+
+  /**
+   * Outbox de usuarios: re-sube los `_cloudPending` del espejo. Un tombstone
+   * local también se re-sube (es el estado correcto). Best-effort: lo que falle
+   * queda pendiente para el próximo boot.
+   */
+  async repairCloudPendingUsers() {
+    if (!supabase) return { repaired: 0, remaining: 0 };
+    const pending = readJson(USERS_FILE, []).filter((u) => u && isUserCloudPending(u));
+    let repaired = 0;
+    for (const user of pending) {
+      try {
+        const res = await cloudWriteTolerant('users', [toCloudUserRow(user)], { onConflict: 'id' });
+        if (res.ok) {
+          await this.clearUserCloudPending(user.id);
+          repaired++;
+        }
+      } catch { /* queda pendiente para el próximo boot */ }
+    }
+    return {
+      repaired,
+      remaining: readJson(USERS_FILE, []).filter((u) => u && isUserCloudPending(u)).length
+    };
   },
 
   // Password Recovery Tokens (Single-use with JTI & Expiry)
@@ -2243,8 +2844,8 @@ const db = {
     const branches = this.getRestaurantBranches(restaurant);
     return branches.find(b => b.id === branchId) || null;
   },
-  resolveHydrationData(cloudUsers, localUsers, cloudRestaurants, localRestaurants) {
-    return resolveHydrationData(cloudUsers, localUsers, cloudRestaurants, localRestaurants);
+  resolveHydrationData(cloudUsers, localUsers, cloudRestaurants, localRestaurants, opts = {}) {
+    return resolveHydrationData(cloudUsers, localUsers, cloudRestaurants, localRestaurants, opts);
   },
   /**
    * Primitiva atómica de escritura JSON (temp-file + rename, retries con
@@ -2263,100 +2864,237 @@ const db = {
   },
   /**
    * Derecho al olvido (RGPD / Ley 18.331 / Google Play): borra el usuario, su
-   * restaurante y TODOS los datos asociados — local (JSON) y nube (Supabase,
-   * best-effort: nunca rompe el flujo si la nube falla).
+   * restaurante y TODOS los datos asociados — nube (Supabase) y local (JSON).
+   *
+   * ORDEN CRÍTICO (P0-2): la nube primero y VERIFICADA. Antes el borrado local
+   * se hacía aunque el DELETE cloud fallara: la respuesta era 200 "borrado" y
+   * el próximo boot resucitaba la cuenta desde la nube. Ahora, si la nube no
+   * confirma, se lanza `ACCOUNT_DELETE_FAILED` (503 en la ruta) sin tocar el
+   * espejo local. El usuario cloud NO se borra: se reemplaza por un TOMBSTONE
+   * sin PII (email `deleted+<id>@deleted.invalid`), porque una fila ausente no
+   * impide que una réplica con el JSON viejo siga autenticando.
    *
    * No borra: la tabla `audit_logs` (registro de procesamiento propio) ni la
-   * tabla `webhooks` (registro contable de pagos, requisito legal de facturación).
-   * Tampoco toca `customer_profiles`/`loyalty_*`: son datos de los COMENSALES,
-   * no del dueño que se da de baja (su borrado es otro derecho, del comensal).
+   * tabla `webhooks` cloud (registro contable de pagos). Tampoco toca
+   * `customer_profiles` (identidad global del comensal): su borrado es otro
+   * derecho, del comensal.
    * Idempotente: si no existe nada, no falla.
    *
    * @param {string} userId - ID del dueño
    * @param {string|null} restaurantId - ID de su restaurante (si existe)
-   * @returns {Promise<{usersRemoved: number}>}
+   * @returns {Promise<{usersRemoved: number, restaurantsRemoved: number}>}
    */
   async deleteRestaurantData(userId, restaurantId) {
     // Primero drena las escrituras pendientes a la nube: un upsert encolado
     // hace 1 s podría re-insertar el restaurante DESPUÉS de borrarlo.
     await this.flushCloudWrites();
 
-    // ── Local JSON ──────────────────────────────────────────────────────────
-    await writeJson(USERS_FILE, readJson(USERS_FILE, []).filter((u) => u.id !== userId));
+    const localUsers = readJson(USERS_FILE, []);
+    const localUser = localUsers.find((u) => u && u.id === userId) || null;
+    const localRestaurants = readJson(RESTAURANTS_FILE, []);
+    const restaurantIds = new Set();
+    if (restaurantId) restaurantIds.add(String(restaurantId));
+    for (const r of localRestaurants) {
+      if (!r || !r.id) continue;
+      if (String(r.id) === String(restaurantId) || r.userId === userId || r.user_id === userId) {
+        restaurantIds.add(String(r.id));
+      }
+    }
 
-    await writeJson(RESTAURANTS_FILE, readJson(RESTAURANTS_FILE, []).filter((r) => r.id !== restaurantId));
+    // ── Cloud primero (fuente de verdad multi-réplica) ─────────────────────
+    if (supabase) {
+      try {
+        // Resolver TODOS los locales del dueño en la nube: una réplica pudo
+        // haber creado un local que este JSON todavía no conoce.
+        const { data: cloudRests, error: restErr } = await supabase
+          .from('restaurants')
+          .select('id')
+          .eq('user_id', userId);
+        if (restErr && !isMissingTableError(restErr)) throw restErr;
+        for (const row of (cloudRests || [])) {
+          if (row && row.id) restaurantIds.add(String(row.id));
+        }
+
+        // Hijos por restaurant_id. Una tabla inexistente (proyecto sin esa
+        // migración) no tiene datos que borrar: se tolera. Cualquier otro
+        // error aborta y NO se toca nada local.
+        for (const rid of restaurantIds) {
+          for (const table of [
+            'staff_sessions',
+            'staff',
+            'orders',
+            'reviews',
+            'customer_feedback',
+            'group_carts',
+            'push_subscriptions',
+            'telemetry_events',
+            'notification_events',
+            'loyalty_redemptions',
+            'loyalty_ledger',
+            'loyalty_accounts'
+          ]) {
+            const { error } = await supabase.from(table).delete().eq('restaurant_id', rid);
+            if (error && !isMissingTableError(error)) throw error;
+          }
+        }
+
+        // Restaurantes: por id (explícito) y por user_id (cubre réplicas con
+        // locales que este JSON no conoce). El tombstone es un UPDATE, así que
+        // NO dispara el ON DELETE CASCADE de la FK: hay que borrarlos a mano.
+        if (restaurantIds.size) {
+          const { error } = await supabase
+            .from('restaurants')
+            .delete()
+            .in('id', [...restaurantIds]);
+          if (error && !isMissingTableError(error)) throw error;
+        }
+        const { error: delByUserErr } = await supabase
+          .from('restaurants')
+          .delete()
+          .eq('user_id', userId);
+        if (delByUserErr && !isMissingTableError(delByUserErr)) throw delByUserErr;
+
+        // Verificación: no puede quedar NINGÚN local del dueño.
+        const { data: leftover, error: checkErr } = await supabase
+          .from('restaurants')
+          .select('id')
+          .eq('user_id', userId);
+        if (checkErr && !isMissingTableError(checkErr)) throw checkErr;
+        if (Array.isArray(leftover) && leftover.length > 0) {
+          throw new Error(`Quedaron ${leftover.length} restaurantes sin borrar`);
+        }
+
+        // Tombstone sin PII + verificación de que se persistió. Si la fila no
+        // existe en cloud no hay nada que resucitar (la verificación lo acepta).
+        const tombstone = buildUserTombstone(localUser || { id: userId });
+        const { error: tombErr } = await supabase
+          .from('users')
+          .update({
+            email: tombstone.email,
+            password: tombstone.password,
+            name: '',
+            email_confirmed_at: null,
+            updated_at: tombstone.updatedAt
+          })
+          .eq('id', userId);
+        if (tombErr && !isMissingTableError(tombErr)) throw tombErr;
+
+        const { data: checkUser, error: checkUserErr } = await supabase
+          .from('users')
+          .select('id,email')
+          .eq('id', userId)
+          .limit(1)
+          .maybeSingle();
+        if (checkUserErr && !isMissingTableError(checkUserErr)) throw checkUserErr;
+        if (checkUser && !isTombstoneEmail(checkUser.email)) {
+          throw new Error('El tombstone del usuario no se persistió en la nube');
+        }
+      } catch (e) {
+        const err = new Error(`No se pudo completar el borrado en la nube: ${e.message || String(e)}`);
+        err.code = 'ACCOUNT_DELETE_FAILED';
+        err.cause = e;
+        throw err;
+      }
+    }
+
+    // ── Local JSON (solo después de que la nube confirmó) ──────────────────
+    // El tombstone local se CONSERVA: aunque la nube esté caída en el próximo
+    // request, un token viejo no puede volver a autenticar contra el espejo.
+    const tombstone = buildUserTombstone(localUser || { id: userId });
+    const nextUsers = localUsers.some((u) => u && u.id === userId)
+      ? localUsers.map((u) => (u && u.id === userId ? { ...tombstone } : u))
+      : [...localUsers, tombstone];
+    await writeJson(USERS_FILE, nextUsers);
+    invalidateUserFreshCache(userId);
+
+    const belongsToRestaurant = (row) => {
+      if (!row || typeof row !== 'object') return false;
+      const rid = row.restaurantId || row.restaurant_id;
+      return Boolean(rid) && restaurantIds.has(String(rid));
+    };
+
+    const removedRestaurants = localRestaurants.filter(
+      (r) => r && r.id && restaurantIds.has(String(r.id))
+    ).length;
+    await writeJson(
+      RESTAURANTS_FILE,
+      localRestaurants.filter(
+        (r) => r && r.id !== restaurantId && r.userId !== userId && r.user_id !== userId
+      )
+    );
 
     const reviewsFile = path.join(DATA_DIR, 'reviews.json');
-    await writeJson(
-      reviewsFile,
-      readJson(reviewsFile, []).filter((r) => r.restaurant_id !== restaurantId && r.restaurantId !== restaurantId)
-    );
+    await writeJson(reviewsFile, readJson(reviewsFile, []).filter((r) => !belongsToRestaurant(r)));
 
     const feedbackFile = path.join(DATA_DIR, 'feedback.json');
-    await writeJson(
-      feedbackFile,
-      readJson(feedbackFile, []).filter((f) => f.restaurantId !== restaurantId)
-    );
+    await writeJson(feedbackFile, readJson(feedbackFile, []).filter((f) => !belongsToRestaurant(f)));
 
     const tokensFile = path.join(DATA_DIR, 'reset_tokens.json');
     await writeJson(
       tokensFile,
-      readJson(tokensFile, []).filter((t) => t.userId !== userId && t.user_id !== userId)
+      readJson(tokensFile, []).filter((t) => t && t.userId !== userId && t.user_id !== userId)
     );
 
     const hooksFile = path.join(DATA_DIR, 'webhooks.json');
     await writeJson(
       hooksFile,
-      readJson(hooksFile, []).filter(
-        (h) => !h.data || (h.data.restaurant_id !== restaurantId && h.data.restaurantId !== restaurantId)
-      )
+      readJson(hooksFile, []).filter((h) => {
+        if (!h || !h.data) return true;
+        const rid = h.data.restaurant_id || h.data.restaurantId;
+        return !rid || !restaurantIds.has(String(rid));
+      })
     );
 
     const ordersFile = path.join(DATA_DIR, 'orders.json');
-    await writeJson(
-      ordersFile,
-      readJson(ordersFile, []).filter((o) => o.restaurant_id !== restaurantId && o.restaurantId !== restaurantId)
-    );
+    await writeJson(ordersFile, readJson(ordersFile, []).filter((o) => !belongsToRestaurant(o)));
 
     // Equipo operativo: sesiones y personas del local. El token de sesión y el
     // hash de credencial son datos del dueño → caen con su cuenta.
     await writeJson(
       STAFF_SESSIONS_FILE,
-      readJson(STAFF_SESSIONS_FILE, []).filter(
-        (s) => s && s.restaurantId !== restaurantId && s.restaurant_id !== restaurantId
-      )
+      readJson(STAFF_SESSIONS_FILE, []).filter((s) => !belongsToRestaurant(s))
     );
     await writeJson(
       STAFF_FILE,
-      readJson(STAFF_FILE, []).filter(
-        (s) => s && s.restaurantId !== restaurantId && s.restaurant_id !== restaurantId
+      readJson(STAFF_FILE, []).filter((s) => !belongsToRestaurant(s))
+    );
+
+    // Dispositivos nativos y avisos: pertenecen al usuario o a su local.
+    const deviceTokensFile = path.join(DATA_DIR, 'device_tokens.json');
+    await writeJson(
+      deviceTokensFile,
+      readJson(deviceTokensFile, []).filter((d) => d && d.userId !== userId)
+    );
+
+    const pushSubsFile = path.join(DATA_DIR, 'push_subscriptions.json');
+    await writeJson(
+      pushSubsFile,
+      readJson(pushSubsFile, []).filter(
+        (s) => s && s.userId !== userId && !belongsToRestaurant(s)
       )
     );
 
-    // ── Supabase (best-effort; un fallo no debe impedir el derecho al olvido) ─
-    if (supabase) {
-      const deletes = [];
-      if (restaurantId) {
-        for (const table of [
-          'staff_sessions',
-          'staff',
-          'orders',
-          'reviews',
-          'customer_feedback',
-          'group_carts',
-          'push_subscriptions',
-          'telemetry_events',
-          'notification_events'
-        ]) {
-          deletes.push(supabase.from(table).delete().eq('restaurant_id', restaurantId));
-        }
-        deletes.push(supabase.from('restaurants').delete().eq('id', restaurantId));
-      }
-      deletes.push(supabase.from('users').delete().eq('id', userId));
-      await Promise.allSettled(deletes);
+    const notificationEventsFile = path.join(DATA_DIR, 'notification_events.json');
+    await writeJson(
+      notificationEventsFile,
+      readJson(notificationEventsFile, []).filter(
+        (e) => e && e.userId !== userId && !belongsToRestaurant(e)
+      )
+    );
+
+    // Ledger y cupones del local. El ledger GLOBAL del comensal
+    // (`restaurant_id` NULL) NO se toca: es de la red, no del dueño.
+    for (const file of [
+      'recovery_coupons.json',
+      'loyalty_accounts.json',
+      'loyalty_ledger.json',
+      'loyalty_redemptions.json'
+    ]) {
+      const target = path.join(DATA_DIR, file);
+      await writeJson(target, readJson(target, []).filter((row) => !belongsToRestaurant(row)));
     }
 
-    return { usersRemoved: 1 };
+    return { usersRemoved: 1, restaurantsRemoved: removedRestaurants };
   }
 };
 

@@ -154,6 +154,12 @@ function purgeLocalFixtures() {
       && keptRestIds.has(r.restaurantId)
       && (r.customerId == null || keptProfileIds.has(r.customerId)))
     : [];
+  // Cupones de recupero (F8): viven por local; un cupón de un local purgado
+  // queda huérfano y acumula (archivo global, no por tenant).
+  const recoveryCoupons = readData('recovery_coupons.json', []);
+  const keptRecoveryCoupons = Array.isArray(recoveryCoupons)
+    ? recoveryCoupons.filter((c) => c && keptRestIds.has(c.restaurantId))
+    : [];
 
   const keptUserIds = new Set(keptUsers.map((u) => u.id));
 
@@ -192,6 +198,7 @@ function purgeLocalFixtures() {
   add('customer_profiles.json', profiles, keptProfiles, 'perfiles de cliente');
   add('loyalty_ledger.json', ledger, keptLedger, 'movimientos de ledger');
   add('loyalty_redemptions.json', redemptions, keptRedemptions, 'canjes');
+  add('recovery_coupons.json', recoveryCoupons, keptRecoveryCoupons, 'cupones de recupero');
   add('notification_events.json', notifs, keptNotifs, 'notificaciones');
   add('device_tokens.json', devTokens, keptDevTokens, 'device tokens');
   add('reset_tokens.json', resetTokens, keptResetTokens, 'reset tokens');

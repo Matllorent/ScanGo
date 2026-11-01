@@ -6,7 +6,13 @@ console.log('🧪 Iniciando pruebas de la Pasarela de Pagos & Escalabilidad...')
 
 async function runTests() {
   // 1. Crear restaurante de prueba
-  const user = await db.createUser({ email: 'test-restaurante@pizarron.com', password: 'secret_demo_pwd' });
+  // Email único por corrida: con la unicidad cloud (P0-2) un email fijo
+  // rebotaba en la segunda corrida standalone. El prefijo `test-` sigue
+  // matcheando el cleanup de fixtures.
+  const user = await db.createUser({
+    email: `test-restaurante_${Date.now()}@pizarron.com`,
+    password: 'secret_demo_pwd'
+  });
   const rest = await db.saveRestaurant(user.id, { bizName: 'La Esquina Gourmet', slug: 'esquina-gourmet' });
   console.log('✓ Restaurante creado con id:', rest.id, 'en estado trial');
 

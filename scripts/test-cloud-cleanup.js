@@ -49,6 +49,15 @@ const TEST_EMAIL_RES = [
   /^(test[-._]|session-owner-|diag_api_|qa[-._])/i,
 ];
 
+// Tombstone RGPD (P0-2): `deleted+<id>@deleted.invalid` es el marcador de una
+// cuenta borrada. NUNCA es víctima del cleanup: borrar la fila permitiría que
+// una réplica con el JSON viejo "resucite" la cuenta en el próximo boot.
+const TOMBSTONE_EMAIL_RE = /^deleted\+.+@deleted\.invalid$/i;
+
+function isTombstoneEmail(email) {
+  return TOMBSTONE_EMAIL_RE.test(String(email || ''));
+}
+
 // Webhooks de idempotencia: cada corrida (también standalone) marca eventos
 // con IDs fixture — `evt_test_<epoch-13>`, `evt_recency_*_<epoch>`,
 // `sub_evt_<epoch>`, `idem-<epoch>` — y se replicaban a la nube SIN limpieza.
@@ -67,6 +76,8 @@ function isTestSlug(slug) {
 }
 
 function isTestEmail(email) {
+  // Un tombstone jamás cuenta como fixture, aunque alguien amplíe los regex.
+  if (isTombstoneEmail(email)) return false;
   return TEST_EMAIL_RES.some((re) => re.test(String(email || '')));
 }
 

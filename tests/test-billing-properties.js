@@ -20,6 +20,10 @@ console.log('🧪 Propiedades de billing (PRNG mulberry32 determinista, sin depe
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SEED = 20261009;
+// Fixtures únicos por corrida: la unicidad de email cloud (P0-2) haría rebotar
+// la segunda corrida con los mismos 500 emails/slugs. El valor de las
+// propiedades no depende del identificador.
+const RUN_ID = Date.now().toString(36);
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -151,10 +155,15 @@ async function runTests() {
       if (rng.maybe(0.25)) sub.downgradedAt = new Date(t0 - rng.int(1, 30) * DAY_MS).toISOString();
       if (rng.maybe(0.15)) sub.previousPlan = 'pro_monthly';
 
-      const user = await db.createUser({ email: `propdiff_${SEED}_${i}@test.local`, password: 'x' });
+      // Fixture puro: no se valida unicidad (500 altas) porque el email ya es
+      // único por corrida; así el test no paga 500 SELECTs extra a la nube.
+      const user = await db.createUser({
+        email: `propdiff_${SEED}_${RUN_ID}_${i}@test.local`,
+        password: 'x'
+      }, { checkEmailUniqueness: false });
       const rest = await db.saveRestaurant(user.id, {
         bizName: `PropDiff ${i}`,
-        slug: `propdiff-${SEED}-${i}`,
+        slug: `propdiff-${SEED}-${RUN_ID}-${i}`,
         subscription: sub
       });
       const stored = db.findRestaurantById(rest.id);

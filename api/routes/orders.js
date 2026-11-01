@@ -48,10 +48,11 @@ const ORDER_STATUS_LABELS = {
 /**
  * Auth middleware inline (mirrors api/index.js) to protect order routes.
  * Verifies JWT from cookie or Authorization header and attaches req.user.
+ * Async desde P0-2: la frescura de sesión se valida contra la nube.
  */
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   try {
-    req.user = authenticateRequest(req);
+    req.user = await authenticateRequest(req);
     next();
   } catch (e) {
     const status = (e && typeof e.statusCode === 'number') ? e.statusCode : 401;

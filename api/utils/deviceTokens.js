@@ -20,9 +20,12 @@ const os = require('os');
 const path = require('path');
 
 const IS_VERCEL = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
-const DATA_DIR = IS_VERCEL
-  ? path.join(os.tmpdir(), 'menu-pizarron-saas')
-  : path.join(__dirname, '..', '..', 'data');
+// SCANGO_DATA_DIR aísla una instancia completa (tests de dos réplicas).
+const DATA_DIR = process.env.SCANGO_DATA_DIR
+  ? path.resolve(process.env.SCANGO_DATA_DIR)
+  : IS_VERCEL
+    ? path.join(os.tmpdir(), 'menu-pizarron-saas')
+    : path.join(__dirname, '..', '..', 'data');
 const DEVICES_FILE = path.join(DATA_DIR, 'device_tokens.json');
 
 const DEVICE_TOKEN_PREFIX = 'scango_dev_';
@@ -66,7 +69,7 @@ function publicDevice(row) {
 /**
  * Emite (o rota) el token del dispositivo. Devuelve el crudo UNA vez.
  */
-function issueDeviceToken(userId, deviceName) {
+function issueDeviceToken(userId, deviceName, opts = {}) {
   const name = String(deviceName || 'dispositivo').trim().slice(0, 60) || 'dispositivo';
   const raw = DEVICE_TOKEN_PREFIX
     + crypto.randomBytes(32).toString('base64url');
@@ -88,7 +91,10 @@ function issueDeviceToken(userId, deviceName) {
     createdAt: now,
     expiresAt: new Date(Date.now() + DEVICE_TOKEN_TTL_MS).toISOString(),
     lastUsedAt: null,
-    revokedAt: null
+    revokedAt: null,
+    // pwdTs del usuario al emitir: un reset posterior (updatedAt nuevo) mata
+    // el token en TODAS las réplicas, igual que las sesiones JWT.
+    pwdTs: opts.pwdTs || null
   };
   kept.push(record);
   writeDevices(kept);
@@ -115,7 +121,7 @@ function verifyDeviceToken(raw) {
   if (row.expiresAt && new Date(row.expiresAt).getTime() <= Date.now()) return null;
   row.lastUsedAt = new Date().toISOString();
   writeDevices(rows);
-  return { userId: row.userId, tokenId: row.id };
+  return { userId: row.userId, tokenId: row.id, pwdTs: row.pwdTs || null };
 }
 
 function listDeviceTokens(userId) {
@@ -149,11 +155,24 @@ function revokeAllUserDevices(userId) {
   return count;
 }
 
+/**
+ * Borrado FÍSICO de las credenciales del usuario (derecho al olvido): a
+ * diferencia de revokeAllUserDevices, no deja hashes ni nombres de dispositivo.
+ */
+function deleteUserDevices(userId) {
+  const rows = readDevices();
+  const kept = rows.filter((r) => !(r && r.userId === userId));
+  const removed = rows.length - kept.length;
+  if (removed) writeDevices(kept);
+  return removed;
+}
+
 module.exports = {
   DEVICE_TOKEN_PREFIX,
   issueDeviceToken,
   verifyDeviceToken,
   listDeviceTokens,
   revokeDeviceToken,
-  revokeAllUserDevices
+  revokeAllUserDevices,
+  deleteUserDevices
 };

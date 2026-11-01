@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const AppError = require('../utils/AppError');
-const { checkSessionFreshness } = require('../utils/tokenRevocation');
+const { checkSessionFreshness, isJtiRevoked } = require('../utils/tokenRevocation');
 const { verifyDeviceToken } = require('../utils/deviceTokens');
 
 // Fail-closed en producción: sin JWT_SECRET no se arranca (en dev se mantiene
@@ -22,37 +22,92 @@ const COOKIE_OPTIONS = {
  * Autenticación dual centralizada (una sola implementación):
  * 1) JWT de sesión (navegador, cookie httpOnly) + frescura (jti/pwdTs).
  * 2) Credencial opaca de dispositivo (app nativa, Bearer).
- * @throws {{status, error, code}} en cualquier fallo.
+ *
+ * P0-2: es ASYNC porque la frescura se verifica contra la nube (fuente de
+ * verdad multi-réplica): una réplica con el usuario viejo en su JSON no puede
+ * autenticar una cuenta borrada en otra. Orden deliberado:
+ *   1. firma del JWT,
+ *   2. jti revocado (logout) — NO depende de la nube,
+ *   3. estado de la sesión en cloud/local,
+ *   4. pwdTs contra el usuario FRESCO.
+ * Si la nube no responde y tampoco hay espejo local → 503, nunca 401/404
+ * (un corte de infraestructura no puede parecer un token inválido).
+ *
+ * @throws {AppError} en cualquier fallo.
  */
-function authenticateRequest(req) {
+async function authenticateRequest(req) {
   const authorization = req.headers.authorization || '';
-  const token = req.cookies?.auth_token || (authorization.startsWith('Bearer ') ? authorization.slice(7) : '');
+  const bearer = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+  const token = req.cookies?.auth_token || bearer;
   if (!token) throw new AppError('No autorizado', 401, 'UNAUTHORIZED');
+
+  const db = require('../../src/db/db');
+
+  // ── 1) JWT de sesión ────────────────────────────────────────────────────
+  let decoded = null;
   try {
-    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
-    const stale = checkSessionFreshness(decoded);
-    if (stale) throw new AppError(stale.error, stale.status, stale.code);
-    return decoded;
-  } catch (e) {
-    if (e instanceof AppError) throw e;
-    // El reset borra las filas de dispositivo; acá solo resta exigir usuario vigente.
-    const device = verifyDeviceToken(authorization.startsWith('Bearer ') ? authorization.slice(7) : token);
-    if (!device) throw new AppError('Token inválido o expirado', 401, 'INVALID_TOKEN');
-    try {
-      const db = require('../../src/db/db');
-      if (!db.findUserById(device.userId)) {
-        throw new AppError('Usuario no encontrado', 401, 'USER_NOT_FOUND');
-      }
-    } catch (dbErr) {
-      if (dbErr instanceof AppError) throw dbErr;
-    }
-    return { userId: device.userId, deviceTokenId: device.tokenId };
+    decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+  } catch {
+    decoded = null;
   }
+
+  if (decoded) {
+    // jti ANTES del lookup cloud: un logout debe dar 401 aunque la nube esté
+    // fría o caída (antes el cold start devolvía USER_NOT_FOUND falso).
+    if (decoded.jti && isJtiRevoked(decoded.jti)) {
+      throw new AppError('Sesión revocada. Iniciá sesión nuevamente.', 401, 'SESSION_REVOKED');
+    }
+    if (!decoded.userId) return decoded;
+
+    const state = await db.getUserSessionState(decoded.userId);
+    if (state.status === 'unavailable') {
+      throw new AppError('No se pudo verificar la sesión. Reintentá en unos segundos.', 503, 'USER_LOOKUP_UNAVAILABLE');
+    }
+    if (state.status === 'deleted' || state.status === 'missing') {
+      throw new AppError('Usuario no encontrado', 401, 'USER_NOT_FOUND');
+    }
+    const stale = checkSessionFreshness(decoded, state.user || null);
+    if (stale) throw new AppError(stale.error, stale.status, stale.code);
+    req.authUser = state.user || null;
+    return decoded;
+  }
+
+  // ── 2) Credencial opaca de dispositivo (app nativa) ─────────────────────
+  if (!bearer) throw new AppError('Token inválido o expirado', 401, 'INVALID_TOKEN');
+  const device = verifyDeviceToken(bearer);
+  if (!device) throw new AppError('Token inválido o expirado', 401, 'INVALID_TOKEN');
+
+  const state = await db.getUserSessionState(device.userId);
+  if (state.status === 'unavailable') {
+    throw new AppError('No se pudo verificar la sesión. Reintentá en unos segundos.', 503, 'USER_LOOKUP_UNAVAILABLE');
+  }
+  if (state.status === 'deleted' || state.status === 'missing') {
+    throw new AppError('Usuario no encontrado', 401, 'USER_NOT_FOUND');
+  }
+
+  // El token de dispositivo lleva el pwdTs con el que se emitió: un reset en
+  // otra réplica (updatedAt nuevo) lo mata acá.
+  const current = (state.user && (state.user.updatedAt || state.user.createdAt)) || null;
+  if (device.pwdTs) {
+    const deviceTs = new Date(device.pwdTs).getTime();
+    const currentTs = current ? new Date(current).getTime() : NaN;
+    if (!Number.isFinite(deviceTs)) {
+      throw new AppError('Sesión revocada por cambio de credenciales. Iniciá sesión nuevamente.', 401, 'SESSION_REVOKED');
+    }
+    if (Number.isFinite(currentTs) && deviceTs !== currentTs) {
+      throw new AppError('Sesión revocada por cambio de credenciales. Iniciá sesión nuevamente.', 401, 'SESSION_REVOKED');
+    }
+  } else if (state.user && state.user.updatedAt) {
+    throw new AppError('Sesión anterior al cambio de credenciales. Iniciá sesión nuevamente.', 401, 'SESSION_REVOKED');
+  }
+
+  req.authUser = state.user || null;
+  return { userId: device.userId, deviceTokenId: device.tokenId };
 }
 
-function authMiddleware(req, res, next) {
+async function authMiddleware(req, res, next) {
   try {
-    req.user = authenticateRequest(req);
+    req.user = await authenticateRequest(req);
     return next();
   } catch (e) {
     const status = (e && typeof e.statusCode === 'number') ? e.statusCode : 401;

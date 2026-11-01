@@ -13,6 +13,7 @@ const db = require('../../src/db/db');
 const auditService = require('../services/audit');
 const storageService = require('../services/storage');
 const sentry = require('../utils/sentry');
+const AppError = require('../utils/AppError');
 const { authMiddleware } = require('../middleware/auth');
 const { invalidateMenuCache } = require('../middleware/cache');
 
@@ -47,11 +48,24 @@ router.post('/delete-request', accountDeleteLimiter, authMiddleware, async (req,
       });
     }
 
-    const user = db.findUserById(req.user.userId);
+    // authenticateRequest ya validó frescura (cloud/local) y dejó el usuario
+    // fresco en req.authUser; el findUserById es solo fallback.
+    const user = req.authUser || db.findUserById(req.user.userId);
     if (!user) {
       return res.status(404).json({ success: false, error: 'Cuenta no encontrada', code: 'ACCOUNT_NOT_FOUND' });
     }
-    const restaurant = db.findRestaurantByUserId(user.id);
+
+    // Resolver el local esperando la hidratación cloud (cold start): si la nube
+    // no responde, 503 honesto — nunca borrar "a medias" un local que no se vio.
+    let restaurant = null;
+    try {
+      restaurant = await db.lazyLoadRestaurantByUserId(user.id);
+    } catch (e) {
+      if (e && e.code === 'RESTAURANT_LOAD_FAILED') {
+        throw new AppError('No pudimos verificar tu local en este momento. Reintentá en unos segundos.', 503, 'RESTAURANT_LOAD_FAILED');
+      }
+      throw e;
+    }
 
     // Auditoría ANTES del borrado: queda como registro de procesamiento propio
     // (tabla audit_logs, no se borra con la cuenta).
@@ -67,7 +81,21 @@ router.post('/delete-request', accountDeleteLimiter, authMiddleware, async (req,
       }
     });
 
-    // 1) Imágenes del tenant en el bucket público (no quedan huérfanas).
+    // 1) Datos PRIMERO: usuario + restaurante + asociados (nube verificada y
+    //    después espejo local). Si la nube no confirma, lanza
+    //    ACCOUNT_DELETE_FAILED y NO se toca el storage ni el JSON local: la
+    //    cuenta sigue existiendo y el dueño puede reintentar.
+    try {
+      await db.deleteRestaurantData(user.id, restaurant ? restaurant.id : null);
+    } catch (e) {
+      if (e && e.code === 'ACCOUNT_DELETE_FAILED') {
+        throw new AppError('No pudimos completar la eliminación en la nube. NO se borró nada; reintentá en unos minutos.', 503, 'ACCOUNT_DELETE_FAILED');
+      }
+      throw e;
+    }
+
+    // 2) Imágenes del tenant en el bucket público (no quedan huérfanas). Es
+    //    best-effort: los datos ya se borraron y el storage no resucita cuentas.
     if (restaurant) {
       await storageService.deleteTenantFiles(user.id).catch((e) => {
         sentry.captureException(e, { source: 'account.delete.storage', tags: { userId: user.id } });
@@ -75,9 +103,6 @@ router.post('/delete-request', accountDeleteLimiter, authMiddleware, async (req,
       });
       await invalidateMenuCache(restaurant.slug).catch(() => {});
     }
-
-    // 2) Datos: usuario + restaurante + asociados (local JSON + Supabase).
-    await db.deleteRestaurantData(user.id, restaurant ? restaurant.id : null);
 
     return res.json({ success: true, deleted: true });
   } catch (e) {
