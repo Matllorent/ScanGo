@@ -19,8 +19,13 @@
  *       (400 RESTAURANT_CLOSED) en quote y POST; sin horario o rango 24h → 201.
  *  - F) Observabilidad: percentiles p50/p95/p99 del LatencyTracker puro +
  *       /api/healthz expone `latency` con grupos poblados.
+ *  - G) Config de crons: `vercel.json` NUNCA declara una expresión sub-diaria
+ *       (el plan Hobby la rechaza y bloquea el deploy COMPLETO, sin logs) y los
+ *       2 jobs horarios viven en el workflow de GitHub Actions.
  */
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 const http = require('http');
 const jwt = require('jsonwebtoken');
 const app = require('../api/index');
@@ -42,6 +47,71 @@ const makeUser = async (tag) =>
 
 async function runTests() {
   console.log('🧪 Iniciando verificación de Endurecimiento (timeouts, retención, concurrencia, heatmap, horarios, SLO)...');
+
+  // ── G) Config de crons: cero expresiones sub-diarias en vercel.json ──────
+  // Un cron que corre más de una vez por día hace que Vercel (plan Hobby)
+  // rechace la CONFIG y bloquee el deploy completo: el deployment queda en
+  // `● Error` sin logs y el sitio sigue sirviendo la versión vieja. Pasó en
+  // oct-2026 y costó ~9 días de deploys. Este guard expande los campos de
+  // minuto (0-59) y hora (0-23) y falla si la expresión dispara más de una vez
+  // por día; los jobs horarios viven en GitHub Actions, no acá.
+  const expandCronField = (field, min, max) => {
+    const out = new Set();
+    for (const part of String(field).split(',')) {
+      const [range, stepRaw] = part.split('/');
+      const step = stepRaw === undefined ? 1 : Number(stepRaw);
+      assert.ok(Number.isInteger(step) && step > 0, `paso de cron inválido: ${field}`);
+      let lo = min;
+      let hi = max;
+      if (range !== '*') {
+        const [a, b] = range.split('-');
+        lo = Number(a);
+        hi = b === undefined ? Number(a) : Number(b);
+        assert.ok(Number.isInteger(lo) && Number.isInteger(hi), `campo de cron inválido: ${field}`);
+        assert.ok(lo >= min && hi <= max && lo <= hi, `campo de cron fuera de rango: ${field}`);
+      }
+      for (let v = lo; v <= hi; v += step) out.add(v);
+    }
+    return out;
+  };
+  const runsPerDay = (schedule) => {
+    const fields = String(schedule || '').trim().split(/\s+/);
+    assert.strictEqual(fields.length, 5, `expresión cron de 5 campos esperada en vercel.json: "${schedule}"`);
+    const minutes = expandCronField(fields[0], 0, 59);
+    const hours = expandCronField(fields[1], 0, 23);
+    return minutes.size * hours.size;
+  };
+
+  const vercelConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'vercel.json'), 'utf8'));
+  const crons = Array.isArray(vercelConfig.crons) ? vercelConfig.crons : [];
+  for (const cron of crons) {
+    assert.ok(
+      typeof cron.path === 'string' && cron.path.startsWith('/api/cron/'),
+      `cron de vercel.json fuera de /api/cron/: ${cron.path}`
+    );
+    assert.ok(
+      runsPerDay(cron.schedule) <= 1,
+      `"${cron.path}" corre más de una vez por día (${cron.schedule}): el plan Hobby de Vercel rechaza la config y bloquea TODO el deploy. Los crons horarios van en .github/workflows/cron-hourly.yml`
+    );
+  }
+
+  const hourlyWorkflow = fs.readFileSync(
+    path.join(__dirname, '..', '.github', 'workflows', 'cron-hourly.yml'),
+    'utf8'
+  );
+  for (const hourlyPath of ['/api/cron/night-summary', '/api/cron/reservation-reminders']) {
+    assert.ok(
+      !crons.some((cron) => cron.path === hourlyPath),
+      `${hourlyPath} no puede estar en vercel.json (sub-diario): vive en el workflow`
+    );
+    assert.ok(hourlyWorkflow.includes(hourlyPath), `el workflow horario debe llamar ${hourlyPath}`);
+  }
+  assert.ok(
+    /secrets\.CRON_SECRET/.test(hourlyWorkflow),
+    'el workflow horario debe autenticarse con secrets.CRON_SECRET'
+  );
+  assert.ok(/\bschedule\s*:/.test(hourlyWorkflow), 'el workflow horario debe declarar un schedule');
+  console.log(`✓ G: ${crons.length} crons en vercel.json, todos ≤ 1 vez/día; los 2 horarios viven en el workflow`);
 
   // ── A) fetchWithTimeout: proveedor colgado aborta, proveedor sano pasa ──
   const hangServer = http.createServer(() => { /* acepta y nunca responde */ });

@@ -1,0 +1,78 @@
+# Crons horarios fuera de Vercel Hobby
+# ────────────────────────────────────
+# El plan Hobby de Vercel rechaza expresiones que corran más de una vez por día
+# y, con eso, bloquea el deploy COMPLETO del proyecto (no solo el cron). Los dos
+# jobs que necesitan tick horario se llaman desde acá:
+#
+#   GET /api/cron/night-summary           → franja de envío 3..5 en el huso de
+#                                           CADA local (utcOffsetMinutes), así
+#                                           que un solo horario fijo no sirve.
+#   GET /api/cron/reservation-reminders   → ventana [23,25]h; con un tick diario
+#                                           se perdería ~92% de las reservas.
+#
+# Los dos endpoints exigen el mismo secreto que valida api/middleware/cronAuth.js
+# (`Authorization: Bearer <CRON_SECRET>`). El resto de los crons (diarios y
+# mensuales) siguen declarados en vercel.json.
+#
+# Configuración (repo → Settings → Secrets and variables → Actions):
+#   Secret  CRON_SECRET   → mismo valor que la env var de Vercel (obligatorio).
+#   Variable CRON_BASE_URL → opcional; base de la app. Default: https://www.scango.uy
+#
+# Notas honestas:
+#   - GitHub puede demorar el `schedule` entre 5 y 30 min. Las ventanas de los
+#     dos crons (3 h y 2 h) absorben esa demora sin perder envíos.
+#   - GitHub desactiva los workflows programados tras 60 días sin actividad en
+#     el repo; se reactivan desde la pestaña Actions (o con cualquier push).
+name: Crons horarios (night-summary + reservation-reminders)
+
+on:
+  schedule:
+    - cron: "7 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cron-hourly
+  cancel-in-progress: false
+
+jobs:
+  hourly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Llamar los crons horarios
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          CRON_BASE_URL: ${{ vars.CRON_BASE_URL }}
+        run: |
+          set -uo pipefail
+          base="${CRON_BASE_URL:-https://www.scango.uy}"
+          base="${base%/}"
+
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "::error::Falta el secret CRON_SECRET (repo → Settings → Secrets and variables → Actions). Debe tener el mismo valor que la env var de Vercel."
+            exit 1
+          fi
+
+          fail=0
+          for path in /api/cron/night-summary /api/cron/reservation-reminders; do
+            body="$(mktemp)"
+            code="$(curl -sS -o "$body" -w '%{http_code}' --max-time 120 \
+              -H "Authorization: Bearer ${CRON_SECRET}" \
+              "${base}${path}")" || code="000"
+            echo "── ${base}${path} → HTTP ${code}"
+            cat "$body" 2>/dev/null || true
+            echo
+            case "$code" in
+              2??) ;;
+              *)
+                echo "::error::${path} respondió HTTP ${code} (ver el cuerpo arriba)"
+                fail=1
+                ;;
+            esac
+            rm -f "$body"
+          done
+
+          exit "$fail"

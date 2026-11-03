@@ -176,6 +176,7 @@ Correr localmente: `npm test` (46 suites) y los individuales `npm run test:accou
 ## Notas de riesgo
 
 - **`braces@3.0.3`** (CVE-2026-93687, HIGH, dev-only vía nodemon): sin versión corregida publicada. No bloquear; re-auditar en cada bump (`osv-scanner scan source -L package-lock.json`).
-- **Cron en Vercel**: `vercel.json` lo define (`0 2 * * *`). Verificar que el plan de Vercel permita crons; caso contrario mover el dunning a un cron externo (GitHub Actions/UptimeRobot) apuntando al endpoint con `CRON_SECRET`.
+- **Cron en Vercel**: el plan **Hobby rechaza expresiones que corran más de una vez por día** (`0 * * * *`), y con eso **bloquea el deploy COMPLETO** (el deployment queda en `● Error` sin logs, sin llegar al build). Por eso `vercel.json` declara solo los 5 crons diarios/mensuales y los 2 horarios (`night-summary`, `reservation-reminders`) se invocan desde `.github/workflows/cron-hourly.yml` con `Bearer $CRON_SECRET` (secret obligatorio en **Settings → Secrets and variables → Actions**). Nunca agregar un cron sub-diario a `vercel.json` sin pasar a Pro.
+- **`APP_URL` debe ser un host limpio**: un valor con Markdown pegado (`[https://x](https://x)`) no rompe el build pero corrompe el canonical/OG/JSON-LD del SSR y `CORS_ALLOWLIST`. Verificar el `<link rel="canonical">` de `/m/demo-heladeria` después de tocarla.
 - **Cambiar APP_URL en prod invalida sesiones OAuth/cookies** (dominio de cookie): planificar el corte cuando se migre de `*.vercel.app` al dominio propio (mismo día, ventana baja).
 - **No commitear `.env`**: está en `.gitignore`; los secretos ya generados viven solo en local + Vercel dashboard.
