@@ -21,9 +21,18 @@ const router = express.Router();
  * La lista de locales PÚBLICOS (sin canceladas) — la MISMA regla que alimenta
  * el sitemap; es la que consumen también las landings por ciudad. Canceladas
  * fuera; todo lo demás (trial/expired/paused) entra igual que hoy al sitemap.
+ *
+ * Es ASYNC a propósito: en Vercel `data/` vive en /tmp, es efímero por réplica y
+ * arranca vacío en cada cold start; leer solo el espejo local publicaba los
+ * locales "por goteo" (únicamente los que alguien había visitado en esa
+ * instancia). `getAllRestaurantsAsync` pagina la nube, fusiona con el espejo y
+ * cachea ~60 s (ver src/db/db.js).
  */
-function publicMenuRestaurants() {
-  return db.getAllRestaurants().filter((r) => r.subscription && r.subscription.status !== 'canceled');
+async function publicMenuRestaurants() {
+  const all = db.getAllRestaurantsAsync
+    ? await db.getAllRestaurantsAsync()
+    : (db.getAllRestaurants ? db.getAllRestaurants() : []);
+  return all.filter((r) => r.subscription && r.subscription.status !== 'canceled');
 }
 
 // SEO: Dynamic Robots.txt Route (política de rastreo + IA desde el compilador
@@ -38,15 +47,31 @@ router.get('/robots.txt', (req, res) => {
 // por restaurante; los estáticos public/robots.txt y public/sitemap.xml fueron
 // ELIMINADOS a propósito: en Vercel el archivo estático pisaba al dinámico y
 // dejaba a los /m/* fuera del sitemap de producción).
-router.get('/sitemap.xml', (req, res) => {
-  res.type('application/xml');
-  const restaurants = publicMenuRestaurants();
-  res.send(seoDiscovery.buildSitemapXml({
-    appUrl: process.env.APP_URL,
-    restaurants,
-    solutions: seoSolutions.getAllSolutions(),
-    cities: seoCities.buildCityIndex(restaurants)
-  }));
+router.get('/sitemap.xml', async (req, res, next) => {
+  try {
+    res.type('application/xml');
+    const restaurants = await publicMenuRestaurants();
+    res.send(seoDiscovery.buildSitemapXml({
+      appUrl: process.env.APP_URL,
+      restaurants,
+      solutions: seoSolutions.getAllSolutions(),
+      cities: seoCities.buildCityIndex(restaurants)
+    }));
+  } catch (e) {
+    // Fail-open honesto: un fallo del listado degrada al sitemap sin menús, no
+    // a un 500 que Google interpreta como sitemap inexistente.
+    try {
+      res.type('application/xml');
+      res.send(seoDiscovery.buildSitemapXml({
+        appUrl: process.env.APP_URL,
+        restaurants: [],
+        solutions: seoSolutions.getAllSolutions(),
+        cities: []
+      }));
+    } catch (inner) {
+      next(e);
+    }
+  }
 });
 
 // SEO: landings de "soluciones por rubro" (/soluciones y /soluciones/:slug).
@@ -79,15 +104,15 @@ router.get('/soluciones/:slug', (req, res) => {
 // server-rendered desde el módulo puro api/utils/seoCities.js, sin JS ni on*=
 // (CSP script-src-attr 'none'); el hub enlaza a cada ciudad y cada ciudad a
 // sus menús reales /m/:slug.
-router.get('/ciudades', (req, res) => {
-  const cities = seoCities.buildCityIndex(publicMenuRestaurants());
+router.get('/ciudades', async (req, res) => {
+  const cities = seoCities.buildCityIndex(await publicMenuRestaurants());
   res.type('html');
   res.set('Cache-Control', 'public, max-age=300, s-maxage=3600');
   res.send(seoCities.renderCitiesIndexHtml({ appUrl: process.env.APP_URL, cities }));
 });
 
-router.get('/ciudades/:slug', (req, res) => {
-  const cities = seoCities.buildCityIndex(publicMenuRestaurants());
+router.get('/ciudades/:slug', async (req, res) => {
+  const cities = seoCities.buildCityIndex(await publicMenuRestaurants());
   const city = seoCities.getCityBySlug(cities, req.params.slug);
   if (!city) {
     return res.status(404).sendFile(path.join(PUBLIC_DIR, '404.html'), SEND_FILE_OPTIONS);

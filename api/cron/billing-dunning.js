@@ -52,7 +52,12 @@ router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
   try {
     const supabase = getSupabaseClient();
     const now = new Date();
-    const allRestaurants = db.getAllRestaurants ? db.getAllRestaurants() : [];
+    // Listado COMPLETO cross-réplica: el espejo local en Vercel vive en /tmp y
+    // arranca vacío en cada cold start, así que leer solo lo local dejaba los
+    // trials sin vencer ni pausar (checked:0). Ver db.getAllRestaurantsAsync.
+    const allRestaurants = db.getAllRestaurantsAsync
+      ? await db.getAllRestaurantsAsync()
+      : (db.getAllRestaurants ? db.getAllRestaurants() : []);
 
     // También obtener de Supabase si está disponible
     let supabaseRestaurants = [];
@@ -88,7 +93,9 @@ router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
     const DAY_MS = 24 * 3600 * 1000;
     const TRIAL_GRACE_DAYS = 3;
     const trialResults = { warned3d: 0, warned1d: 0, expired: 0, paused: 0 };
-    const allRestaurantsForTrial = db.getAllRestaurants ? db.getAllRestaurants() : [];
+    const allRestaurantsForTrial = db.getAllRestaurantsAsync
+      ? await db.getAllRestaurantsAsync()
+      : (db.getAllRestaurants ? db.getAllRestaurants() : []);
 
     for (const restaurant of allRestaurantsForTrial) {
       const sub = restaurant.subscription;

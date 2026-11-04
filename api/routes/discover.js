@@ -68,7 +68,10 @@ router.get('/feed', discoverLimiter, async (req, res, next) => {
     }
 
     const pools = [];
-    for (const r of db.getAllRestaurants()) {
+    const discoverRestaurants = db.getAllRestaurantsAsync
+      ? await db.getAllRestaurantsAsync()
+      : (db.getAllRestaurants ? db.getAllRestaurants() : []);
+    for (const r of discoverRestaurants) {
       if (!isDiscoverEligible(r)) continue;
       if (city && String(r.city || '').toLowerCase().indexOf(city) === -1) continue;
       let distanceKm = null;

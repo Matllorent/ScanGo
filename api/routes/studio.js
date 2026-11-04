@@ -564,7 +564,9 @@ router.post('/events', authMiddleware, requireVerifiedEmail, requireActiveSubscr
 router.get('/events', authMiddleware, requireVerifiedEmail, async (req, res, next) => {
   try {
     const userId = req.user.userId;
-    const rests = db.getAllRestaurants ? db.getAllRestaurants() : [];
+    const rests = db.getAllRestaurantsAsync
+      ? await db.getAllRestaurantsAsync()
+      : (db.getAllRestaurants ? db.getAllRestaurants() : []);
     const userEvents = rests.filter(r => r.userId === userId && r.businessType === 'events');
 
     // Separate active and expired
@@ -622,7 +624,9 @@ router.delete('/events/:id', authMiddleware, requireVerifiedEmail, async (req, r
  */
 router.get('/seo-audit', authMiddleware, requireVerifiedEmail, async (req, res, next) => {
   try {
-    const rests = db.getAllRestaurants ? db.getAllRestaurants() : [];
+    const rests = db.getAllRestaurantsAsync
+      ? await db.getAllRestaurantsAsync()
+      : (db.getAllRestaurants ? db.getAllRestaurants() : []);
     const restaurant = rests.find((r) => r && r.userId === req.user.userId) || null;
     if (!restaurant) {
       return res.status(404).json({ success: false, error: 'Restaurante no encontrado', code: 'RESTAURANT_NOT_FOUND' });

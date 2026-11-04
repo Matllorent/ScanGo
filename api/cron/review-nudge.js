@@ -59,7 +59,9 @@ router.get('/review-nudge', verifyCronAuth, async (req, res) => {
   try {
     const startedAt = Date.now();
     const supabase = getSupabaseClient();
-    const restaurants = (db.getAllRestaurants ? db.getAllRestaurants() : []).filter(r => r && r.slug);
+    const restaurants = (db.getAllRestaurantsAsync
+      ? await db.getAllRestaurantsAsync()
+      : (db.getAllRestaurants ? db.getAllRestaurants() : [])).filter(r => r && r.slug);
     const byId = new Map(restaurants.map(r => [r.id, r]));
 
     const rawOrders = await fetchRecentDeliveredOrders(supabase);

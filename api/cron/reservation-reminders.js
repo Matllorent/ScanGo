@@ -51,7 +51,9 @@ router.get('/reservation-reminders', verifyCronAuth, async (req, res) => {
       if (parsed.length === 2 && parsed.every(Number.isFinite)) windowHours = parsed;
     }
 
-    const restaurants = (db.getAllRestaurants ? db.getAllRestaurants() : []);
+    const restaurants = (db.getAllRestaurantsAsync
+      ? await db.getAllRestaurantsAsync()
+      : (db.getAllRestaurants ? db.getAllRestaurants() : []));
     const candidates = selectReservationReminders(restaurants, { nowMs, ...(windowHours ? { windowHours } : {}) });
 
     const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;

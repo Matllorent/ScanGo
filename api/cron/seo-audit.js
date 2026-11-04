@@ -23,7 +23,9 @@ const router = express.Router();
  */
 router.get('/seo-audit', verifyCronAuth, async (req, res) => {
   try {
-    const restaurants = db.getAllRestaurants ? db.getAllRestaurants() : [];
+    const restaurants = db.getAllRestaurantsAsync
+      ? await db.getAllRestaurantsAsync()
+      : (db.getAllRestaurants ? db.getAllRestaurants() : []);
     const results = restaurants
       .map((r) => ({ id: r.id, userId: r.userId, slug: String(r.slug || ''), ...runSeoAudit(r, { allRestaurants: restaurants }) }))
       .filter((r) => r.slug);

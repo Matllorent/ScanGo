@@ -10,6 +10,14 @@
  *         local ya existe; el frontend solo scaffoldea con
  *         `canCreateRestaurant:true`.
  *
+ *  P0-3 · El listado de locales no puede depender del espejo efímero. En Vercel
+ *         `data/` vive en /tmp (vacío en cada cold start) y solo se hidrataba
+ *         por slug/id: los crons, el sitemap, `/ciudades`, `/descubrir` y el
+ *         chequeo de slug único del Studio veían 0 locales hasta que alguien
+ *         visitaba cada carta. `db.getAllRestaurantsAsync()` pagina la nube,
+ *         fusiona con el espejo local y cachea ~60 s; el hot path del menú
+ *         mantiene la hidratación lazy.
+ *
  * Cero mocks: server HTTP real + store real. La parte cloud corre como probe
  * real con un PROCESO HIJO que tiene `SCANGO_DATA_DIR` vacío (otra réplica) y
  * la misma Supabase; si no hay credenciales, el probe se SKIPea honestamente.
@@ -132,6 +140,52 @@ function stopChild(child) {
   });
 }
 
+/**
+ * Corre un helper en un proceso hijo y resuelve cuando su stdout contiene
+ * `marker` (p. ej. `P0_LIST=`). El proceso se mata al resolver y el probe
+ * FALLA si nunca imprime el marcador o si excede `timeoutMs`: nunca hay un
+ * "pasó por silencio".
+ */
+function runChildScript(scriptRel, env, marker, timeoutMs = 30000) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [path.join(__dirname, scriptRel)], {
+      cwd: REPO_ROOT,
+      env,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    let timer = null;
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      try { child.kill(); } catch (e) { /* best-effort */ }
+      fn(value);
+    };
+    timer = setTimeout(() => {
+      finish(reject, new Error(`child ${scriptRel} timeout.\\nstdout:\\n${stdout}\\nstderr:\\n${stderr}`));
+    }, timeoutMs);
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+      if (!settled && stdout.includes(marker)) finish(resolve, { stdout, stderr });
+    });
+    child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+    child.on('exit', (code) => {
+      finish(reject, new Error(`child ${scriptRel} exited (${code}) sin "${marker}".\\nstdout:\\n${stdout}\\nstderr:\\n${stderr}`));
+    });
+  });
+}
+
+function readMarkerPayload(stdout, marker) {
+  const at = stdout.indexOf(marker);
+  assert.ok(at >= 0, `el hijo debe imprimir ${marker}`);
+  const rest = stdout.slice(at + marker.length);
+  const line = rest.split('\n')[0].trim();
+  return JSON.parse(line);
+}
+
 async function waitCloudRow(cloud, table, column, value, timeoutMs = 15000) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
@@ -141,6 +195,69 @@ async function waitCloudRow(cloud, table, column, value, timeoutMs = 15000) {
     await sleep(250);
   }
   throw new Error(`La fila cloud ${table}.${column}=${value} no apareció en ${timeoutMs}ms`);
+}
+
+/**
+ * Archivos que NECESITAN la lista COMPLETA de locales (no solo el local del
+ * request): crons que recorren TODO el padrón, sitemap/ciudades y el chequeo de
+ * unicidad de slug del Studio/Admin. Todos deben usar la variante async
+ * (nube ∪ espejo). El hot path del menú (`/m/*`, `/api/menu/:slug`) sigue con
+ * la hidratación lazy a propósito: no se le suma un full-scan por request.
+ */
+const FULL_LISTING_CONSUMERS = [
+  'api/cron/billing-dunning.js',
+  'api/cron/night-summary.js',
+  'api/cron/review-nudge.js',
+  'api/cron/reservation-reminders.js',
+  'api/cron/seo-audit.js',
+  'api/routes/studio.js',
+  'api/routes/discover.js',
+  'api/routes/admin.js',
+  'api/routes/discovery.js'
+];
+
+/**
+ * Guard estático P0-3: la primitiva del listado completo vive en UN lugar y los
+ * consumidores de padrón completo no pueden volver al listado síncrono (que en
+ * una réplica fría devuelve 0). Sin este guard el bug reaparece en silencio en
+ * el próximo refactor.
+ */
+function guardListRestaurantsSources() {
+  const read = (rel) => fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+
+  const dbSource = read('src/db/db.js');
+  assert.ok(
+    /async function fetchAllCloudRestaurants\s*\(/.test(dbSource),
+    'src/db/db.js debe paginar la nube (fetchAllCloudRestaurants)'
+  );
+  assert.ok(
+    dbSource.includes('async getAllRestaurantsAsync(opts)'),
+    'src/db/db.js debe exponer getAllRestaurantsAsync(opts)'
+  );
+  assert.ok(
+    dbSource.includes('ALL_RESTAURANTS_TTL_MS'),
+    'src/db/db.js debe cachear el listado completo (ALL_RESTAURANTS_TTL_MS)'
+  );
+
+  for (const rel of FULL_LISTING_CONSUMERS) {
+    const src = read(rel);
+    assert.ok(
+      src.includes('getAllRestaurantsAsync'),
+      `${rel} debe listar con db.getAllRestaurantsAsync() (en una réplica fría el espejo local está vacío)`
+    );
+  }
+
+  const discovery = read('api/routes/discovery.js');
+  assert.ok(
+    discovery.includes('async function publicMenuRestaurants'),
+    'discovery.js: publicMenuRestaurants() debe ser async (nube ∪ espejo)'
+  );
+  assert.ok(
+    discovery.includes("router.get('/sitemap.xml', async"),
+    'discovery.js: /sitemap.xml debe esperar el listado async'
+  );
+
+  console.log(`✓ P0-3 static: ${FULL_LISTING_CONSUMERS.length} consumidores usan el listado completo (nube ∪ espejo)`);
 }
 
 async function runLocalRegression() {
@@ -234,7 +351,26 @@ async function runLocalRegression() {
     assert.strictEqual(meAfter.body.restaurant.id, newRestaurantId);
     assert.strictEqual(meAfter.body.canCreateRestaurant, false, 'tras crear el local ya no puede crear otro');
 
-    // 6. El frontend solo scaffoldea con la autorización explícita del server.
+    // 6. P0-3 · El listado COMPLETO incluye los locales recién creados. Sin
+    // Supabase el async ES el espejo local: cero comportamiento nuevo en modo
+    // JSON (los tests corren con datos locales y no deben cambiar de forma).
+    const asyncList = await db.getAllRestaurantsAsync();
+    assert.ok(Array.isArray(asyncList), 'getAllRestaurantsAsync() devuelve un array');
+    assert.ok(
+      asyncList.some((r) => r && r.id === restaurant.id),
+      'el listado completo incluye el local del dueño'
+    );
+    assert.ok(
+      asyncList.some((r) => r && r.id === newRestaurantId),
+      'el listado completo incluye el local recién creado'
+    );
+    if (!HAS_CLOUD) {
+      const syncIds = db.getAllRestaurants().map((r) => r && r.id).sort();
+      const asyncIds = asyncList.map((r) => r && r.id).sort();
+      assert.deepStrictEqual(asyncIds, syncIds, 'sin Supabase el listado async ES el espejo local');
+    }
+
+    // 7. El frontend solo scaffoldea con la autorización explícita del server.
     const authSource = fs.readFileSync(path.join(REPO_ROOT, 'public', 'js', 'studio', 'auth.js'), 'utf8');
     assert.ok(
       authSource.includes('data.canCreateRestaurant !== true'),
@@ -532,20 +668,88 @@ async function runCloudResetProbe() {
   }
 }
 
+/**
+ * P0-3 · Listado completo cross-réplica: una réplica FRÍA (`SCANGO_DATA_DIR`
+ * vacío, como /tmp en Vercel) no ve NADA en su espejo local, pero
+ * `getAllRestaurantsAsync()` debe traer la nube paginada. Es exactamente el bug
+ * que dejaba `checked:0` en los crons y un sitemap sin `/m/*` hasta que alguien
+ * visitaba cada carta.
+ */
+async function runCloudListProbe() {
+  const { createClient } = require('@supabase/supabase-js');
+  const cloud = createClient(process.env.SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+  const stamp = Date.now();
+  const email = `p0-list-${stamp}@example.com`;
+  const user = await db.createUser({
+    email,
+    password: bcrypt.hashSync('test_password', 10),
+    name: 'P0 List Owner',
+    email_confirmed_at: new Date().toISOString()
+  });
+  // La FK restaurants.user_id exige el usuario en cloud ANTES del local.
+  await db.flushCloudWrites();
+  const restaurant = await db.saveRestaurant(user.id, {
+    name: 'P0 List Bistro',
+    bizName: 'P0 List Bistro',
+    slug: `p0-list-${stamp}`,
+    categories: [{ id: 'cat_list', name: 'Carta' }],
+    dishes: [{ id: 'dish_list', categoryId: 'cat_list', name: 'Milanesa', price: 130 }]
+  });
+
+  let tempDir = null;
+  try {
+    await db.flushCloudWrites();
+    await waitCloudRow(cloud, 'users', 'id', user.id);
+    await waitCloudRow(cloud, 'restaurants', 'id', restaurant.id);
+
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scango-p0-list-'));
+    const { stdout } = await runChildScript(
+      'helpers/p0-list-restaurants.js',
+      { ...process.env, SCANGO_DATA_DIR: tempDir },
+      'P0_LIST='
+    );
+    const payload = readMarkerPayload(stdout, 'P0_LIST=');
+
+    assert.ok(Array.isArray(payload.sync), 'el hijo reporta el listado síncrono como array');
+    assert.ok(Array.isArray(payload.full), 'el hijo reporta el listado completo como array');
+    assert.ok(
+      !payload.sync.includes(restaurant.slug),
+      `el espejo local de la réplica fría NO ve ${restaurant.slug} (el bug original)`
+    );
+    assert.ok(
+      payload.full.includes(restaurant.slug),
+      `getAllRestaurantsAsync() trae ${restaurant.slug} desde la nube en una réplica fría`
+    );
+    assert.ok(
+      payload.full.length > payload.sync.length,
+      'el listado completo supera al espejo efímero de una réplica fría'
+    );
+
+    console.log(
+      `✓ P0-3 cloud: réplica fría ve ${payload.sync.length} locales en el espejo y ${payload.full.length} con el listado completo`
+    );
+  } finally {
+    if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
+    try { await db.deleteRestaurantData(user.id, restaurant.id); } catch (e) { /* best-effort */ }
+  }
+}
+
 async function runTests() {
   assert.ok(db.ready && typeof db.ready.then === 'function', 'db.ready debe existir');
   await db.ready;
 
   await runLocalRegression();
+  guardListRestaurantsSources();
   if (HAS_CLOUD) {
     await runCloudColdStartProbe();
     await runCloudDeleteProbe();
     await runCloudResetProbe();
+    await runCloudListProbe();
   } else {
-    console.log('↷ P0-1/P0-2 cloud probes SKIP: sin SUPABASE_URL + service key (no se inventan resultados)');
+    console.log('↷ P0-1/P0-2/P0-3 cloud probes SKIP: sin SUPABASE_URL + service key (no se inventan resultados)');
   }
 
-  console.log('\n🎉 LOTE 0 / P0-1 + P0-2 VERIFICADO CON SERVER REAL');
+  console.log('\n🎉 LOTE 0 / P0-1 + P0-2 + P0-3 VERIFICADO CON SERVER REAL');
 }
 
 runTests()

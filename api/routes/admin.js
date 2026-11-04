@@ -125,7 +125,9 @@ router.get('/overview', adminMiddleware, async (req, res) => {
     // restaurantes creados hace ms (rompió test-admin-panel al reparar el
     // dual-write, que llenó la nube con filas viejas).
     {
-      const localR = db.getAllRestaurants();
+      const localR = db.getAllRestaurantsAsync
+        ? await db.getAllRestaurantsAsync()
+        : (db.getAllRestaurants ? db.getAllRestaurants() : []);
       if (Array.isArray(localR) && localR.length) {
         const byId = new Map();
         for (const r of restaurants) {

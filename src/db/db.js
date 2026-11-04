@@ -33,6 +33,8 @@ const USER_TOMBSTONE_DOMAIN = 'deleted.invalid';
 const USER_CLOUD_PENDING_TTL_MS = 60 * 60 * 1000; // 1 h para reparar un alta
 const USER_CLOUD_ABSENCE_GRACE_MS = 10 * 60 * 1000; // margen de una ausencia cloud
 const CLOUD_USERS_PAGE_SIZE = 1000; // límite real de PostgREST por request
+const CLOUD_RESTAURANTS_PAGE_SIZE = 1000; // idem para el listado completo de locales
+const ALL_RESTAURANTS_TTL_MS = 60 * 1000; // caché del listado cross-réplica
 
 function readJson(file, def = []) {
   if (!fs.existsSync(file)) return def;
@@ -72,6 +74,20 @@ function readRestaurants() {
 const LAZY_RESTAURANT_TTL_MS = 60 * 1000;
 let _lazyCache = new Map(); // slug|userId|id → epoch ms de la última hydratación OK
 const _lazyInflight = new Map(); // slug|userId|id → Promise (dedupe concurrente)
+
+// ── Listado COMPLETO de restaurantes (crons, sitemap, Descubrir, Admin) ─────
+// El hot path (menú público, tenantGuard) sigue hidratando UN local por slug /
+// userId / id: bajar la tabla entera en cada request sería el costo de cold
+// start que el boot lazy eliminó. Pero los consumidores que necesitan "TODOS
+// los locales" (crons de dunning/El Cierre/nudges, sitemap, landings por
+// ciudad, feed Descubrir, overview del admin, unicidad de slug del Studio) NO
+// pueden leer solo el espejo local: en Vercel `data/` vive en /tmp, es efímero
+// por instancia y arranca vacío en cada cold start. Leer únicamente el JSON
+// hacía que los trials nunca vencieran (checked:0 en billing-dunning), que El
+// Cierre no procesara nada y que el sitemap publicara locales por goteo (solo
+// los que alguien visitó en esa réplica). `getAllRestaurantsAsync()` pagina la
+// nube, la fusiona con el espejo (mergeById) y cachea ~60 s en proceso.
+let _allRestaurantsCache = { at: 0, rows: null, inflight: null };
 
 /** Normaliza una fila de Supabase al mismo shape que usa el boot. */
 function _normalizeCloudRestaurantRow(r) {
@@ -194,7 +210,14 @@ async function writeJson(file, data, retries = 3, delay = 100) {
     try {
       fs.writeFileSync(temporaryFile, JSON.stringify(data, null, 2), 'utf8');
       fs.renameSync(temporaryFile, file);
-      if (file === RESTAURANTS_FILE) _restCache = { key: '', rows: null };
+      if (file === RESTAURANTS_FILE) {
+        _restCache = { key: '', rows: null };
+        // Un guardado local puede cambiar slug/suscripción: el listado cacheado
+        // deja de ser confiable (unicidad de slug, overview, sitemap).
+        if (_allRestaurantsCache.rows) {
+          _allRestaurantsCache = { at: 0, rows: null, inflight: _allRestaurantsCache.inflight };
+        }
+      }
       return true;
     } catch (e) {
       console.error(`Error writing to ${file} (attempt ${attempt}/${retries}):`, e.message);
@@ -762,6 +785,95 @@ async function fetchAllCloudUsers(client) {
     if (page.length < CLOUD_USERS_PAGE_SIZE) break;
   }
   return rows;
+}
+
+/**
+ * Descarga TODOS los restaurantes paginando (PostgREST corta en 1000 filas).
+ * Se normaliza igual que las hydrataciones puntuales (`_normalizeCloudRestaurantRow`
+ * + `normalizeRestaurantBusinessType`) para que el espejo local escrito acá sea
+ * indistinguible del que produce el boot/lazy hydration.
+ */
+async function fetchAllCloudRestaurants(client) {
+  const rows = [];
+  for (let from = 0; ; from += CLOUD_RESTAURANTS_PAGE_SIZE) {
+    const { data, error } = await client
+      .from('restaurants')
+      .select('*')
+      .order('id', { ascending: true })
+      .range(from, from + CLOUD_RESTAURANTS_PAGE_SIZE - 1);
+    if (error) throw error;
+    const page = Array.isArray(data) ? data : [];
+    for (const row of page) {
+      const normalized = _normalizeCloudRestaurantRow(row);
+      if (normalized && normalized.id) rows.push(normalizeRestaurantBusinessType(normalized));
+    }
+    if (page.length < CLOUD_RESTAURANTS_PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+/** Firma barata para detectar si el listado cambió (evita reescribir el JSON). */
+function restaurantsSignature(rows) {
+  return (Array.isArray(rows) ? rows : [])
+    .map((r) => `${r && r.id}:${(r && (r.updatedAt || r.createdAt)) || ''}`)
+    .join('|');
+}
+
+/**
+ * Listado COMPLETO de restaurantes, cross-réplica.
+ *
+ * Contrato:
+ * - Sin Supabase configurado → espejo local (modo JSON, dev/test): idéntico a
+ *   `getAllRestaurants()`, cero comportamiento nuevo.
+ * - Con Supabase → nube paginada ∪ espejo local (`mergeById`, local gana
+ *   empates), escritura del espejo SOLO si cambió, caché de 60 s por proceso y
+ *   dedupe de llamadas concurrentes.
+ * - Nube vacía con espejo local no vacío NO pisa el espejo (una lectura
+ *   truncada o un proyecto recién vaciado no debe borrar la lista local).
+ * - Cualquier error degrade al espejo local con warn: un cron o el sitemap
+ *   nunca se caen por la nube.
+ */
+async function _getAllRestaurantsAsync(opts = {}) {
+  if (!supabase) return readRestaurants();
+  const ttlMs = Number.isFinite(opts.ttlMs) ? Math.max(0, opts.ttlMs) : ALL_RESTAURANTS_TTL_MS;
+  if (!opts.force && _allRestaurantsCache.rows && Date.now() - _allRestaurantsCache.at < ttlMs) {
+    // Copia superficial: un consumidor que ordene/mute el array no ensucia la caché.
+    return _allRestaurantsCache.rows.slice();
+  }
+  if (_allRestaurantsCache.inflight) return _allRestaurantsCache.inflight;
+
+  const task = (async () => {
+    try {
+      const cloud = await fetchAllCloudRestaurants(supabase);
+      // Se re-lee DESPUÉS del fetch: un alta/guardado local ocurrido durante la
+      // descarga entra en la fusión (no se pisa con una foto vieja).
+      const base = readRestaurants();
+      if (cloud.length === 0 && base.length > 0) {
+        console.warn('[DB] Listado cloud de restaurantes vacío; se conserva el espejo local');
+        _allRestaurantsCache = { at: Date.now(), rows: base, inflight: null };
+        return base.slice();
+      }
+      const merged = mergeById(base, cloud).map(normalizeRestaurantBusinessType);
+      if (restaurantsSignature(merged) !== restaurantsSignature(base)) {
+        await writeJson(RESTAURANTS_FILE, merged);
+      }
+      _allRestaurantsCache = { at: Date.now(), rows: merged, inflight: null };
+      return merged.slice();
+    } catch (e) {
+      // No se cachea el fallo: el próximo consumidor reintenta la nube.
+      console.warn('[DB] No se pudo listar restaurantes desde Supabase; degradando al espejo local:', e.message);
+      _allRestaurantsCache = { at: 0, rows: null, inflight: null };
+      return readRestaurants();
+    }
+  })();
+
+  _allRestaurantsCache = { ..._allRestaurantsCache, inflight: task };
+  task.finally(() => {
+    if (_allRestaurantsCache.inflight === task) {
+      _allRestaurantsCache = { ..._allRestaurantsCache, inflight: null };
+    }
+  });
+  return task;
 }
 
 if (process.env.SUPABASE_URL && supabaseKey) {
@@ -2359,6 +2471,15 @@ const db = {
   // Admin & Monitoring
   getAllRestaurants() {
     return readRestaurants();
+  },
+  /**
+   * Listado completo cross-réplica (nube paginada ∪ espejo local, caché 60 s).
+   * Usarlo SOLO en consumidores que necesitan TODOS los locales (crons,
+   * sitemap/ciudades, Descubrir, overview, unicidad de slug). El hot path
+   * conserva la hydratación puntual por slug/userId/id.
+   */
+  async getAllRestaurantsAsync(opts) {
+    return _getAllRestaurantsAsync(opts);
   },
   getAllUsers() {
     const users = readJson(USERS_FILE, []);

@@ -97,7 +97,9 @@ router.get('/night-summary', verifyCronAuth, async (req, res) => {
     const startedAt = injectMs > 0 && process.env.NODE_ENV !== 'production' ? injectMs : Date.now();
     const wallClock = Date.now(); // solo para ms de log real (el inyectado no corre)
     const supabase = getSupabaseClient();
-    const restaurants = (db.getAllRestaurants ? db.getAllRestaurants() : []).filter(r => r && r.slug);
+    const restaurants = (db.getAllRestaurantsAsync
+      ? await db.getAllRestaurantsAsync()
+      : (db.getAllRestaurants ? db.getAllRestaurants() : [])).filter(r => r && r.slug);
     const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
 
     const results = { checked: restaurants.length, sent: 0, skipped: 0, reasons: {} };
