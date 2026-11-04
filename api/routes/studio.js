@@ -165,7 +165,7 @@ router.post('/save', authMiddleware, requireVerifiedEmail, requireActiveSubscrip
         indexNowThrottle.set(restaurant.slug, now);
         indexNow.dispatchIndexNowPing({
           key: indexNow.getIndexNowKey(),
-          urls: indexNow.getMenuUrlsForPing(process.env.APP_URL || 'https://scango.app', restaurant)
+          urls: indexNow.getMenuUrlsForPing(process.env.APP_URL || 'https://www.scango.uy', restaurant)
         });
       }
     }
@@ -545,7 +545,7 @@ router.post('/events', authMiddleware, requireVerifiedEmail, requireActiveSubscr
     }
 
     // Generate custom QR for event
-    const eventQRUrl = `${process.env.APP_URL || 'https://scango.app'}/m/${event.slug}?event=true`;
+    const eventQRUrl = `${process.env.APP_URL || 'https://www.scango.uy'}/m/${event.slug}?event=true`;
 
     return res.json({
       success: true,

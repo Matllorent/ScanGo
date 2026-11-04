@@ -82,7 +82,7 @@ async function runTests() {
     const keys = webpush.generateVAPIDKeys();
     process.env.VAPID_PUBLIC_KEY = keys.publicKey;
     process.env.VAPID_PRIVATE_KEY = keys.privateKey;
-    process.env.VAPID_SUBJECT = origSubject || 'mailto:soporte@menu-pizarron.com';
+    process.env.VAPID_SUBJECT = origSubject || 'mailto:soporte@scango.uy';
 
     const keyRes2 = await fetch(`${base}/api/notifications/vapid-public-key`);
     assert.strictEqual(keyRes2.status, 200, 'Con VAPID la clave pública se sirve');

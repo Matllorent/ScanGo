@@ -14,14 +14,14 @@
  *   Valida atomicidad: solo 1 éxito, resto 409.
  *
  * Requisitos:
- *   - BASE_URL (ej: https://scango-rouge.vercel.app)
+ *   - BASE_URL (ej: https://www.scango.uy)
  *   - SLUGS_CSV opcional: CSV con columna 'slug' de restaurantes reales
  *   - AUTH_TOKEN opcional: JWT para endpoints autenticados (dueño)
  *   - WINBACK_COUPON opcional: código de cupón específico a testear (default genera uno)
  *
  * Ejecución:
- *   k6 run --env BASE_URL=https://scango-rouge.vercel.app tests/k6/load-test-checkout.js
- *   k6 run --env BASE_URL=https://scango-rouge.vercel.app --env SLUGS_CSV=./test-data/slugs.csv tests/k6/load-test-checkout.js
+ *   k6 run --env BASE_URL=https://www.scango.uy tests/k6/load-test-checkout.js
+ *   k6 run --env BASE_URL=https://www.scango.uy --env SLUGS_CSV=./test-data/slugs.csv tests/k6/load-test-checkout.js
  */
 
 import http from 'k6/http';

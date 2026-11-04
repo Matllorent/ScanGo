@@ -11,7 +11,7 @@ info:
 servers:
   - url: http://localhost:3000
     description: Desarrollo local (`npm run dev`)
-  - url: https://scango.app
+  - url: https://www.scango.uy
     description: Producción (Vercel)
 security: []
 tags:

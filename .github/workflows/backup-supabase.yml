@@ -110,7 +110,7 @@ jobs:
           mkdir -p backup-repo && cd backup-repo
           git init -q -b main
           git config user.name "scango-backup-bot"
-          git config user.email "backups@menu-pizarron.com"
+          git config user.email "backups@scango.uy"
           cp "../scango-backup-${{ steps.date.outputs.stamp }}.dump" ./latest.dump
           git add latest.dump
           git -c commit.gpgsign=false commit -q -m "backup ${{ steps.date.outputs.stamp }}"

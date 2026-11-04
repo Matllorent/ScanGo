@@ -21,7 +21,7 @@
  *   - RESTAURANT_ID: id del restaurante (para construir la key del carrito)
  *
  * Ejecución:
- *   k6 run --env BASE_URL=https://scango-rouge.vercel.app \
+ *   k6 run --env BASE_URL=https://www.scango.uy \
  *          --env GROUP_CART_TOKEN=<token> \
  *          --env RESTAURANT_ID=rest_xxx \
  *          tests/k6/load-test-groupcart.js

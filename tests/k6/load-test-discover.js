@@ -18,8 +18,8 @@
  *   - CITY opcional: ciudad para filtrar
  *
  * Ejecución:
- *   k6 run --env BASE_URL=https://scango-rouge.vercel.app tests/k6/load-test-discover.js
- *   k6 run --env BASE_URL=https://scango-rouge.vercel.app --env LAT=-34.9011 --env LNG=-56.1645 --env CITY=montevideo tests/k6/load-test-discover.js
+ *   k6 run --env BASE_URL=https://www.scango.uy tests/k6/load-test-discover.js
+ *   k6 run --env BASE_URL=https://www.scango.uy --env LAT=-34.9011 --env LNG=-56.1645 --env CITY=montevideo tests/k6/load-test-discover.js
  */
 
 import http from 'k6/http';

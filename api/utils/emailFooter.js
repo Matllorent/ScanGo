@@ -51,7 +51,7 @@ function verifyUnsubscribeToken(token) {
 
 /** Pie legal completo (HTML). `unsubscribeToken` opcional (email 1 a 1). */
 function buildEmailFooterHtml({ unsubscribeToken, appUrl } = {}) {
-  const base = process.env.APP_URL || process.env.PUBLIC_URL || appUrl || 'https://scango-rouge.vercel.app';
+  const base = process.env.APP_URL || process.env.PUBLIC_URL || appUrl || 'https://www.scango.uy';
   const postal = process.env.COMPANY_POSTAL_ADDRESS || DEFAULT_POSTAL;
   const unsubLine = unsubscribeToken
     ? `<p style="margin: 0;">Si ya no quer&eacute;s recibir estos correos, <a href="${base}/api/email/unsubscribe/${unsubscribeToken}" style="color:#64748b;">cancel&aacute; la suscripci&oacute;n aqu&iacute;</a>. Pod&eacute;s escribirnos para preguntas: respond&eacute; a este correo.</p>`

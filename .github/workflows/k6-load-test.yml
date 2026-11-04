@@ -17,7 +17,7 @@ on:
         description: 'Base URL (production or staging)'
         type: string
         required: true
-        default: 'https://scango-rouge.vercel.app'
+        default: 'https://www.scango.uy'
       slugs_csv:
         description: 'Path to CSV with restaurant slugs (optional, uses demo slugs if empty)'
         type: string

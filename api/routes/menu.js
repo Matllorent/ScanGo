@@ -558,7 +558,7 @@ router.get('/menu/:slug', menuCacheMiddleware, async (req, res) => {
         response.eventDate = restaurant.eventDate;
         response.eventType = restaurant.eventType;
         response.expiresAt = restaurant.expiresAt;
-        response.eventCustomQR = restaurant.eventCustomQR || `${process.env.APP_URL || 'https://scango.app'}/m/${slug}?event=true`;
+        response.eventCustomQR = restaurant.eventCustomQR || `${process.env.APP_URL || 'https://www.scango.uy'}/m/${slug}?event=true`;
       } else {
         response.access = {
           inGracePeriod: access.inGracePeriod,

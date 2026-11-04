@@ -122,7 +122,7 @@ Estos son gestionados por la infraestructura y **no** deben renombrarse ni reuti
 | `SCANGO_VAPID_PRIVATE_KEY` | Clave privada VAPID (push web) | Solo backend |
 | `SCANGO_VAPID_SUBJECT` | Subject (mailto) de VAPID | `mailto:admin@scango.uy` |
 | `SCANGO_CRON_SECRET` | Bearer/header para endpoints de cron en prod | `verifyCronAuth` fail-closed |
-| `SCANGO_APP_URL` | URL base de la aplicación | `https://scango-rouge.vercel.app` |
+| `SCANGO_APP_URL` | URL base de la aplicación | `https://www.scango.uy` |
 | `SCANGO_HEALTH_URL` | URL del health check para uptime | `/api/healthz` |
 | `SCANGO_TELEMETRY_RETENTION_DAYS` | Días de retención de telemetría | clamp `[30,730]`, default `183` |
 | `SCANGO_ALLOW_NEW_SUBSCRIPTIONS` | Pausa registro y checkout global | `false\|0\|no\|off` → 503 en todas las instancias |

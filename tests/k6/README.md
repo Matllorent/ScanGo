@@ -26,7 +26,7 @@ tests/k6/
 
 | Variable | Descripción | Requerida |
 |----------|-------------|-----------|
-| `BASE_URL` | URL base del deployment (ej: `https://scango-rouge.vercel.app`) | ✅ Sí |
+| `BASE_URL` | URL base del deployment (ej: `https://www.scango.uy`) | ✅ Sí |
 | `SLUGS_CSV` | Path a CSV con columna `slug` (usa `tests/k6/test-data/slugs.csv` por defecto) | No |
 | `AUTH_TOKEN` | JWT de dueño para endpoints autenticados (`/api/loyalty/validate`, `/api/loyalty/winback`) | Para test winback |
 | `WINBACK_COUPON` | Código de cupón específico a testear (default: genera `VOL-XXXXXXXX`) | No |
@@ -55,20 +55,20 @@ tests/k6/
 
 ```bash
 # Básico (usa slugs demo, sin auth)
-k6 run --env BASE_URL=https://scango-rouge.vercel.app tests/k6/load-test-checkout.js
+k6 run --env BASE_URL=https://www.scango.uy tests/k6/load-test-checkout.js
 
 # Con slugs reales CSV
-k6 run --env BASE_URL=https://scango-rouge.vercel.app \
+k6 run --env BASE_URL=https://www.scango.uy \
        --env SLUGS_CSV=./tests/k6/test-data/slugs.csv \
        tests/k6/load-test-checkout.js
 
 # Con auth para test winback (requiere JWT dueño)
-k6 run --env BASE_URL=https://scango-rouge.vercel.app \
+k6 run --env BASE_URL=https://www.scango.uy \
        --env AUTH_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... \
        tests/k6/load-test-checkout.js
 
 # Con cupón winback específico
-k6 run --env BASE_URL=https://scango-rouge.vercel.app \
+k6 run --env BASE_URL=https://www.scango.uy \
        --env AUTH_TOKEN=... \
        --env WINBACK_COUPON=VOL-A1B2C3D4 \
        tests/k6/load-test-checkout.js
@@ -94,14 +94,14 @@ k6 run --env BASE_URL=https://scango-rouge.vercel.app \
 # Requiere token de mesa y restaurantId
 # Generar token: node -e "const {signGroupCartToken}=require('./api/utils/groupCartToken'); console.log(signGroupCartToken('rest_xxx','1'))"
 
-k6 run --env BASE_URL=https://scango-rouge.vercel.app \
+k6 run --env BASE_URL=https://www.scango.uy \
        --env GROUP_CART_TOKEN=eyJhbGciOiJIUzI1NiJ9... \
        --env RESTAURANT_ID=rest_abc123 \
        --env TABLE_NUMBER=5 \
        tests/k6/load-test-groupcart.js
 
 # Con slugs CSV
-k6 run --env BASE_URL=https://scango-rouge.vercel.app \
+k6 run --env BASE_URL=https://www.scango.uy \
        --env SLUGS_CSV=./tests/k6/test-data/slugs.csv \
        --env GROUP_CART_TOKEN=... \
        --env RESTAURANT_ID=rest_abc123 \
@@ -128,10 +128,10 @@ k6 run --env BASE_URL=https://scango-rouge.vercel.app \
 
 ```bash
 # Básico
-k6 run --env BASE_URL=https://scango-rouge.vercel.app tests/k6/load-test-discover.js
+k6 run --env BASE_URL=https://www.scango.uy tests/k6/load-test-discover.js
 
 # Con geo personalizado (ej: Punta del Este)
-k6 run --env BASE_URL=https://scango-rouge.vercel.app \
+k6 run --env BASE_URL=https://www.scango.uy \
        --env LAT=-34.9598 --env LNG=-54.9479 \
        --env RADIUS_KM=15 --env CITY=pdeleste \
        tests/k6/load-test-discover.js
@@ -212,7 +212,7 @@ Workflow: `.github/workflows/k6-load-test.yml`
 
 ### Secrets Requeridos en GitHub
 ```
-K6_BASE_URL          # https://scango-rouge.vercel.app (o staging)
+K6_BASE_URL          # https://www.scango.uy (o staging)
 K6_AUTH_TOKEN        # JWT dueño (generar y rotar periódicamente)
 K6_GROUP_CART_TOKEN  # HMAC token mesa
 K6_RESTAURANT_ID     # rest_xxx

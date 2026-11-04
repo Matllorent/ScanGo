@@ -1,7 +1,7 @@
 # 🚀 Checklist de Puesta en Producción — ScanGo
 
-> Estado: **en ejecución** · Última actualización: 2026-10-28
-> Dominio objetivo: `scango.uy` (a comprar) · Prod viva: `https://scango-rouge.vercel.app` (healthz healthy, DB cloud OK)
+> Estado: **en ejecución** · Última actualización: 2026-11-03
+> Dominio objetivo: `scango.uy` (**activo**) · Prod viva: `https://www.scango.uy` (healthz healthy, DB cloud OK; apex → 308 → www)
 > Pasarela global elegida: **Lemon Squeezy** · Latam: **Mercado Pago**
 
 ## Resumen de estado
@@ -16,12 +16,12 @@
 | Secretos generados en `.env` local | ✅ JWT_SECRET, GROUP_CART_SECRET, CRON_SECRET, MERCADOPAGO_WEBHOOK_SECRET, INDEXNOW_KEY (`node -e "console.log(require('crypto').randomUUID())"`) |
 | Fallbacks de dominio → `scango.uy` | ✅ (api/index.js, api/utils/seoDiscovery.js, email.js, orders.js, tests) |
 | Verificador de env | ✅ `node scripts/check-prod-env.js` |
-| Vercel CLI | ✅ instalado v63.1.2 (`npm i -g vercel`) — ⛔ **deslogueado**: falta `vercel login` + `vercel link` (`whoami`: Logged out) |
-| Dominio DNS | ⛔ `scango.uy` NO resuelve — hay que registrarlo/comprarlo |
-| Email real | ⛔ `EMAIL_FROM` usa `@resend.dev` — falta verificar dominio en Resend |
+| Vercel CLI | ✅ instalado v63.1.2 (`npm i -g vercel`) + logueado/linkeado — el token de `%APPDATA%\com.vercel.cli\Data\auth.json` está **vencido** para la API REST: usar la CLI (`vercel ls`, `vercel inspect`, `vercel env`), no la API |
+| Dominio DNS | ✅ `scango.uy` + `www.scango.uy` resuelven; `APP_URL=https://www.scango.uy` en Vercel |
+| Email real | ⛔ `EMAIL_FROM` usa `@resend.dev` — falta verificar dominio en Resend (y **no hay MX** en `scango.uy`: los buzones publicados aún no reciben correo) |
 | Pasarela global | ⛔ sin Lemon Squeezy (API key, store, webhook, variants) |
 | Google OAuth origin | ⛔ falta agregar el dominio de prod en Google Cloud Console |
-| Deploy en Vercel | ✅ `https://scango-rouge.vercel.app` viva (healthz 200, DB cloud, SSR, robots/sitemap dinámicos) — verificado 2026-10-15 |
+| Deploy en Vercel | ✅ `https://www.scango.uy` viva (healthz 200, DB cloud, SSR, robots/sitemap dinámicos) — verificado 2026-11-03 |
 | Sentry DSN | ⛔ pendiente (recomendado) |
 | UptimeRobot | ⛔ pendiente (recomendado) |
 | Play Store | ⏸️ fase 2 (Capacitor no instalado aún) |

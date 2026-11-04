@@ -52,7 +52,7 @@ async function createPreference(options) {
     })),
     payer: {
       name: options.payer && options.payer.name ? String(options.payer.name).slice(0, 100) : undefined,
-      email: options.payer && options.payer.email ? String(options.payer.email).slice(0, 100) : 'cliente@scango.app'
+      email: options.payer && options.payer.email ? String(options.payer.email).slice(0, 100) : 'cliente@scango.uy'
     },
     external_reference: options.externalReference ? String(options.externalReference).slice(0, 255) : `ref_${Date.now()}`,
     statement_descriptor: 'SCANGO',
