@@ -41,12 +41,28 @@ const TEST_SLUG_RES = [
   /^(tracking|security-test|csp-guard|admin-(paying|trial|left|conv)|pay|horario|hardening|consent-qa|push-qa|loyalty-[ab]|discover|schema-bistro|evento-preview|seo-local|seo-audit|claim|contract|analytics-qa|pent-[ab]|erasable|propdiff|recency|video|heladeria|drill|local-test|session-test|vanguardia-test|esquina-gourmet|perfil-predeterminado|helader-a)-/i,
   /^(esquina-gourmet|perfil-predeterminado|helader-a-(test|off)|scan-go-bistro)$/i,
   /^claim-\d+$/i,
+  // Slugs genéricos de fixture sin dueño resoluble (oct-2026): sobrevivían a
+  // cada purga porque el email de su dueño ya no estaba y el slug no matcheaba
+  // ninguna regla. `refund-test-<epoch>` (test-billing) y `dbg<epoch>` son
+  // sintéticos por construcción; `mi-local`/`demo` son los nombres genéricos
+  // de los helpers (el `demo` exacto no es la demo pública, que es `demo-*`).
+  /^(demo|mi-local)$/i,
+  /^refund-test-\d+$/i,
+  /^dbg\d+$/i,
 ];
 
 // Email de prueba: dominio reservado o prefijo sintético del local-part.
+// RFC 2606/6761 reserva `example.com|org|net`, `*.test`, `*.invalid` y
+// `*.localhost`: nadie real recibe correo ahí, así que un dueño con esos
+// dominios es un fixture por definición (lección oct-2026: 60 locales de
+// `@example.test` sobrevivían a cada corrida porque la regla solo miraba
+// `example.com`, y quedaban indexados en el sitemap de producción). Los
+// prefijos cubren las suites que usan un dominio de la casa con local-part
+// sintético (`refund-owner_*` del flujo de reembolsos).
 const TEST_EMAIL_RES = [
-  /@(example\.com|test\.local|bistro\.com)$/i,
-  /^(test[-._]|session-owner-|diag_api_|qa[-._])/i,
+  /@(example\.com|example\.org|example\.net|test\.local|bistro\.com)$/i,
+  /@([a-z0-9-]+\.)+(test|invalid|localhost)$/i,
+  /^(test[-._]|session-owner-|diag_api_|qa[-._]|refund-owner_)/i,
 ];
 
 // Tombstone RGPD (P0-2): `deleted+<id>@deleted.invalid` es el marcador de una

@@ -260,6 +260,84 @@ function guardListRestaurantsSources() {
   console.log(`✓ P0-3 static: ${FULL_LISTING_CONSUMERS.length} consumidores usan el listado completo (nube ∪ espejo)`);
 }
 
+/**
+ * Guard estático de las reglas de limpieza cloud (`scripts/test-cloud-cleanup.js`).
+ * Oct-2026: el fix P0-3 hizo visible que 92 locales fixture sobrevivían a cada
+ * corrida (60 con `@example.test`, 15 `refund-owner_*@pizarron.com`, 17
+ * `@example.com`) porque la regla de email solo cubría `example.com`. Los
+ * dominios reservados por RFC 2606/6761 no pueden pertenecer a un cliente real,
+ * y los tombstones RGPD NUNCA son víctimas (borrarlos habilitaría la
+ * resurrección de una cuenta borrada).
+ */
+function guardCloudCleanupRules() {
+  const { isTestEmail, isTestSlug } = require('../scripts/test-cloud-cleanup');
+
+  const fixtures = [
+    // Dominios reservados RFC 2606/6761 (cualquier local-part).
+    'takeaway-r1-1790000000000@example.test',
+    'owner@example.com',
+    'owner@example.org',
+    'owner@example.net',
+    'owner@sub.example.test',
+    'persona@dev.localhost',
+    'printer@casa.invalid',
+    'dueno@test.local',
+    // Prefijos sintéticos sobre dominios de la casa.
+    'refund-owner_1792726267027@pizarron.com',
+    'test-restaurante@pizarron.com',
+    'qa_owner@pizarron.com',
+    'session-owner-123@pizarron.com',
+    'diag_api_user@pizarron.com',
+    'owner@bistro.com'
+  ];
+  for (const email of fixtures) {
+    assert.strictEqual(isTestEmail(email), true, `${email} debe reconocerse como fixture`);
+  }
+
+  const real = [
+    'matias@gmail.com',
+    'duena@parrilla.uy',
+    'hola@scango.uy',
+    'info@restaurante.com.uy',
+    'contacto@pizzeria.testimonial.com'
+  ];
+  for (const email of real) {
+    assert.strictEqual(isTestEmail(email), false, `${email} NO es fixture (nunca borrar un dueño real)`);
+  }
+
+  assert.strictEqual(
+    isTestEmail('deleted+abc123@deleted.invalid'),
+    false,
+    'un tombstone RGPD jamás es víctima del cleanup (resucitaría la cuenta borrada)'
+  );
+
+  // Fallback por slug: huérfanos cuyo dueño ya no existe en el archivo.
+  const fixtureSlugs = [
+    'refund-test-1792512713986',
+    'mi-local',
+    'demo',
+    'dbg1793248054506',
+    'tracking-1790000000000',
+    'claim-123'
+  ];
+  for (const slug of fixtureSlugs) {
+    assert.strictEqual(isTestSlug(slug), true, `el slug fixture ${slug} debe limpiarse`);
+  }
+
+  const realSlugs = [
+    'parrilla-del-puerto',
+    'demo-heladeria',
+    'casa-aromas',
+    'mi-local-nuevo',
+    'demolicion'
+  ];
+  for (const slug of realSlugs) {
+    assert.strictEqual(isTestSlug(slug), false, `el slug real ${slug} NO debe borrarse`);
+  }
+
+  console.log('✓ P0-3 static: las reglas de limpieza cloud cubren dominios reservados y respetan tombstones');
+}
+
 async function runLocalRegression() {
   const stamp = Date.now();
   const email = `p0-local-${stamp}@example.com`;
@@ -740,6 +818,7 @@ async function runTests() {
 
   await runLocalRegression();
   guardListRestaurantsSources();
+  guardCloudCleanupRules();
   if (HAS_CLOUD) {
     await runCloudColdStartProbe();
     await runCloudDeleteProbe();
