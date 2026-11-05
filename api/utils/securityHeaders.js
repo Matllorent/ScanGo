@@ -109,6 +109,14 @@ function buildCspDirectives({ strictMenu = false } = {}) {
     // www.clarity.ms/tag carga el loader real desde scripts.clarity.ms.
     'script-src': ["'self'", ...SCRIPT_EXTERNALS, 'https://www.clarity.ms', 'https://scripts.clarity.ms', ...computeInlineScriptHashes()],
     'script-src-attr': ["'none'"], // Etapa 2 completa: cero handlers inline en TODO public/
+    // Google Identity Services (landing) NO se limita al <script>: también
+    // inyecta su hoja de estilos (accounts.google.com/gsi/style) y consulta el
+    // estado de credenciales por fetch (accounts.google.com/gsi/status). Sin
+    // estos dos hosts el botón de Google carga pero One Tap queda mudo
+    // ("Check credential status returns invalid response"). Solo en la variante
+    // transitional: el menú público no usa GIS.
+    'style-src': [...common['style-src'], 'https://accounts.google.com'],
+    'connect-src': [...common['connect-src'], 'https://accounts.google.com'],
     'frame-src': ["'self'", 'https://accounts.google.com']
   };
 }
