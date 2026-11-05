@@ -446,6 +446,10 @@ router.get('/google/callback', async (req, res, next) => {
     if (code && state) {
       const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
       const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
+      // Mismo redirect_uri ABSOLUTO que /google/start (Google exige coincidencia
+      // exacta al canjear el código). Sin esta definición el exchange lanzaba
+      // ReferenceError y el flujo redirect moría con 500.
+      const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
       // Redirects relativos (mismo origen): nunca abrimos la puerta a un
       // APP_URL desincronizado (anti open-redirect tras autenticar).
       const landing = '/?registro=1';

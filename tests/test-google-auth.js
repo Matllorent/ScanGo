@@ -143,6 +143,19 @@ async function runTests() {
     assert.strictEqual(forgedRes.status, 302);
     const forgedLoc = forgedRes.headers.get('location') || '';
     assert.ok(forgedLoc.includes('google=state') || forgedLoc.includes('google=noconfig'), `state forjado no sesiona: ${forgedLoc}`);
+
+    // Regresión: el callback del flujo redirect usaba `appUrl` sin declararlo.
+    // El state forjado sale ANTES del exchange, así que ningún test lo veía
+    // (en producción el canje del código moría con ReferenceError → 500).
+    const authSource = fs.readFileSync(path.join(__dirname, '..', 'api', 'routes', 'auth.js'), 'utf8');
+    const callbackStart = authSource.indexOf("router.get('/google/callback'");
+    const callbackEnd = authSource.indexOf("router.post('/supabase-callback'", callbackStart);
+    assert.ok(callbackStart > -1 && callbackEnd > callbackStart, 'el callback de Google existe en auth.js');
+    const callbackBlock = authSource.slice(callbackStart, callbackEnd);
+    const appUrlDecl = callbackBlock.indexOf('const appUrl');
+    const appUrlUse = callbackBlock.indexOf('${appUrl}');
+    assert.ok(appUrlDecl > -1, 'el callback declara appUrl (mismo redirect_uri que /google/start)');
+    assert.ok(appUrlUse === -1 || appUrlDecl < appUrlUse, 'appUrl se declara ANTES de usarse en el callback');
   } finally {
     if (server.closeAllConnections) server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));
