@@ -38,6 +38,12 @@ async function runTests() {
       if (url === '/api/auth/google/config') {
         return { ok: true, json: async () => ({ clientId: 'test-client.apps.googleusercontent.com' }) };
       }
+      if (url === '/api/auth/google/start?probe=1') {
+        return {
+          ok: true,
+          json: async () => ({ ready: true, salesClosed: false, clientId: 'test-client.apps.googleusercontent.com' })
+        };
+      }
       return {
         ok: true,
         json: async () => ({
@@ -47,7 +53,12 @@ async function runTests() {
       };
     },
     window: {
-      location: { href: '', origin: 'http://localhost:3000', hostname: 'localhost' },
+      location: {
+        href: '',
+        origin: 'http://localhost:3000',
+        hostname: 'localhost',
+        assign(target) { this.href = target; }
+      },
       addEventListener: () => {},
       loadGoogleIdentityServices: async () => {}
     },
@@ -108,6 +119,56 @@ async function runTests() {
   promptResult = Promise.reject(Object.assign(new Error('The FedCM request was aborted.'), { name: 'AbortError' }));
   await context.startGoogleSignup();
   assert.ok(elements.authError.textContent.includes('http://localhost:3000'), 'An aborted FedCM prompt should recover with actionable guidance');
+
+  // FedCM sin sesión de Google: GIS notifica un skipped con unknown_reason.
+  // No es un cierre del usuario: se navega al flujo redirect, que sí completa el login.
+  promptResult = undefined;
+  promptListener = null;
+  elements.authError.textContent = '';
+  context.window.location.href = '';
+  await context.startGoogleSignup();
+  assert.strictEqual(typeof promptListener, 'function', 'El CTA debe abrir One Tap antes de decidir el fallback');
+  promptListener({
+    isSkippedMoment: () => true,
+    getSkippedReason: () => 'unknown_reason',
+    isDismissedMoment: () => false
+  });
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.strictEqual(
+    context.window.location.href,
+    '/api/auth/google/start?businessType=restaurant',
+    'Sin sesión de Google (skipped unknown_reason) se navega al flujo redirect, que sí puede completar el login'
+  );
+  assert.ok(
+    requests.some(request => request.url === '/api/auth/google/start?probe=1'),
+    'El redirect pregunta primero si el servidor puede completar el login'
+  );
+
+  // user_cancel sí es una decisión del usuario: se explica, no se navega.
+  promptResult = undefined;
+  promptListener = null;
+  elements.authError.textContent = '';
+  context.window.location.href = '';
+  await context.startGoogleSignup();
+  promptListener({
+    isSkippedMoment: () => true,
+    getSkippedReason: () => 'user_cancel',
+    isDismissedMoment: () => false
+  });
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.strictEqual(context.window.location.href, '', 'Cerrar One Tap no debe navegar a Google');
+  assert.ok(elements.authError.textContent.length > 0, 'Se mantiene el mensaje de ayuda cuando el usuario cierra One Tap');
+
+  // prompt() puede resolver undefined (FedCM actual): no se decide nada en falso.
+  promptResult = undefined;
+  promptListener = null;
+  elements.authError.textContent = '';
+  context.window.location.href = '';
+  await context.startGoogleSignup();
+  promptListener(undefined);
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.strictEqual(elements.authError.textContent, '', 'Una notificación vacía no debe mostrar un error en falso');
+  assert.strictEqual(context.window.location.href, '', 'Una notificación vacía no debe navegar');
 
   const server = http.createServer(app);
   await new Promise(resolve => server.listen(0, resolve));

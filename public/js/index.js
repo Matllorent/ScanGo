@@ -490,13 +490,33 @@ async function startGoogleSignup() {
       promptTimer = null;
     }
   };
+  // FedCM saltea One Tap cuando NO hay identidad disponible (un navegador sin
+  // sesión de Google: get() rechaza con NetworkError y GIS notifica un skipped
+  // con unknown_reason). Ahí el usuario no cerró nada y el flujo redirect
+  // full-page ES el camino que sí funciona. user_cancel / tap_outside sí son
+  // decisiones del usuario: no corresponde navegar.
+  const skippedReasonNeedsRedirect = notification => {
+    let reason = '';
+    try {
+      reason = typeof notification?.getSkippedReason === 'function' ? notification.getSkippedReason() : '';
+    } catch (error) { /* sin razón legible: se mantiene el mensaje de ayuda */ }
+    return ['unknown_reason', 'auto_cancel', 'issuing_disabled'].includes(reason);
+  };
   const handleMoment = notification => {
     if (promptHandled) return;
+    // Algunas versiones resuelven la promesa de prompt() con undefined: sin
+    // notificación no hay nada que decidir y el respaldo por tiempo sigue vivo.
+    if (!notification || typeof notification !== 'object') return;
     try {
-      // 1) El usuario vio y cerró One Tap (o el navegador lo saltó): se explica.
+      // 1) El usuario vio y cerró One Tap: se explica.
       if (notification?.isSkippedMoment?.() || notification?.isDismissedMoment?.()) {
         promptHandled = true;
         finishPrompt();
+        if (skippedReasonNeedsRedirect(notification)) {
+          console.info('[Google Identity Services] One Tap no tiene sesión de Google disponible; se usa el flujo redirect.');
+          void startGoogleRedirectFlow();
+          return;
+        }
         handleGooglePromptFailure();
         return;
       }
