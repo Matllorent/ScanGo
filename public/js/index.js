@@ -353,7 +353,10 @@ async function ensureGoogleIdentityReady() {
   // Sin aceptación de cookies de terceros no se carga Google (ver /cookies).
   if (window.CookieConsent && !window.CookieConsent.hasThirdPartyConsent()) {
     window.CookieConsent.show();
-    throw new Error('Para entrar con Google aceptá primero las cookies de terceros en el aviso inferior.');
+    const consentError = new Error('Para entrar con Google aceptá primero las cookies de terceros en el aviso inferior.');
+    // El consentimiento se resuelve en el aviso: no se navega a Google.
+    consentError.code = 'CONSENT_REQUIRED';
+    throw consentError;
   }
   googleIdentityPromise = (async () => {
     const configResponse = await fetch('/api/auth/google/config');
@@ -398,7 +401,14 @@ async function handleGoogleCredential(credentialResponse) {
       })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'No se pudo validar tu cuenta de Google.');
+    if (!res.ok) {
+      // El kill-switch de ventas responde en inglés técnico ("New registrations
+      // are paused."): el comensal merece la verdad en su idioma y un canal.
+      if (data?.code === 'SALES_CLOSED') {
+        throw new Error('Las altas nuevas están pausadas en este momento. Escribinos a hola@scango.uy y te avisamos cuando se reactiven.');
+      }
+      throw new Error(data.error || 'No se pudo validar tu cuenta de Google.');
+    }
     
     // Sesión por cookie httpOnly (la fija el backend). Sin token en JS.
     // En app nativa se usa credencial de dispositivo (ver loginAppDevice).
@@ -431,13 +441,19 @@ async function startGoogleRedirectFlow() {
   try {
     const res = await fetch('/api/auth/google/start?probe=1');
     const data = await res.json();
-    if (data?.ready) {
+    if (data?.ready && !data?.salesClosed) {
       const businessType = document.getElementById('regBusinessType')?.value || 'restaurant';
       window.location.assign('/api/auth/google/start?businessType=' + encodeURIComponent(businessType));
       return;
     }
     setGoogleButtonsDisabled(false);
-    showError('El acceso con Google en móvil todavía no está configurado en el servidor (falta GOOGLE_CLIENT_SECRET). Registrándote por correo funciona igual.');
+    // El probe dice la verdad: si las altas están pausadas no tiene sentido
+    // culpar a la configuración de Google.
+    if (data?.salesClosed) {
+      showError('Las altas nuevas están pausadas en este momento. Escribinos a hola@scango.uy y te avisamos cuando se reactiven.');
+      return;
+    }
+    showError('El acceso con Google todavía no está configurado en el servidor. Registrándote por correo funciona igual.');
   } catch (error) {
     setGoogleButtonsDisabled(false);
     showError('No se pudo iniciar el acceso con Google. Verificá tu conexión e intentá de nuevo.');
@@ -453,17 +469,74 @@ async function startGoogleSignup() {
   }
   try {
     await ensureGoogleIdentityReady();
-    const promptResult = google.accounts.id.prompt(notification => {
-      try {
-        if (notification?.isSkippedMoment?.()) handleGooglePromptFailure();
-      } catch (error) {
-        handleGooglePromptFailure(error);
+  } catch (error) {
+    // El consentimiento de cookies se resuelve en el aviso inferior: no se navega.
+    if (error?.code === 'CONSENT_REQUIRED') {
+      showError(error.message);
+      return;
+    }
+    // Si GIS no carga (CSP, red, bloqueador) o falta configuración, el flujo
+    // redirect NO depende del script: abre Google igual (o explica por qué no).
+    console.info('[Google Identity Services] No se pudo preparar One Tap; se usa el flujo redirect.', error?.message || error);
+    await startGoogleRedirectFlow();
+    return;
+  }
+
+  let promptHandled = false;
+  let promptTimer = null;
+  const finishPrompt = () => {
+    if (promptTimer) {
+      clearTimeout(promptTimer);
+      promptTimer = null;
+    }
+  };
+  const handleMoment = notification => {
+    if (promptHandled) return;
+    try {
+      // 1) El usuario vio y cerró One Tap (o el navegador lo saltó): se explica.
+      if (notification?.isSkippedMoment?.() || notification?.isDismissedMoment?.()) {
+        promptHandled = true;
+        finishPrompt();
+        handleGooglePromptFailure();
+        return;
       }
-    });
+      // 2) One Tap nunca apareció (origen no autorizado, FedCM en cooldown,
+      //    navegador sin soporte): antes el click quedaba mudo.
+      if (notification?.isNotDisplayed?.()) {
+        promptHandled = true;
+        finishPrompt();
+        void startGoogleRedirectFlow();
+        return;
+      }
+      // Cualquier otro momento (display) cancela el respaldo por tiempo.
+      finishPrompt();
+    } catch (error) {
+      promptHandled = true;
+      finishPrompt();
+      handleGooglePromptFailure(error);
+    }
+  };
+
+  try {
+    const promptResult = google.accounts.id.prompt(handleMoment);
+    // Respaldo: si GIS no notifica NADA, el botón no puede quedar mudo. El
+    // sandbox de los tests no expone setTimeout, por eso el guard.
+    if (typeof setTimeout === 'function') {
+      promptTimer = setTimeout(() => {
+        promptTimer = null;
+        if (promptHandled) return;
+        promptHandled = true;
+        void startGoogleRedirectFlow();
+      }, 3000);
+    }
     if (promptResult && typeof promptResult.then === 'function') {
-      await promptResult.catch(handleGooglePromptFailure);
+      await promptResult.then(handleMoment, error => {
+        finishPrompt();
+        handleGooglePromptFailure(error);
+      });
     }
   } catch (error) {
+    finishPrompt();
     handleGooglePromptFailure(error);
   }
 }

@@ -365,19 +365,31 @@ router.post('/google', checkSubscriptionKillSwitch, async (req, res, next) => {
  * OAuth embebido en WebViews, pero una navegación top-level al consentimiento
  * funciona en cualquier navegador real; sin popup = sin bloqueador.
  * Fail-closed: 503 sin GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET.
- * `?probe=1` devuelve JSON {ready} para que el frontend pregunte sin navegar.
+ * `?probe=1` devuelve JSON {ready, salesClosed} para que el frontend pregunte
+ * sin navegar. El probe NUNCA navega ni crea sesión: informa configuración, así
+ * que NO lo tapa el gate de ventas (antes devolvía 503 SALES_CLOSED y el menú
+ * culpaba falsamente a GOOGLE_CLIENT_SECRET).
  */
 router.get('/google/start', (req, res, next) => {
   try {
-    if (process.env.ALLOW_NEW_SUBSCRIPTIONS && ['false', '0', 'no', 'off'].includes(String(process.env.ALLOW_NEW_SUBSCRIPTIONS).toLowerCase())) {
-      throw new AppError('New registrations are paused.', 503, 'SALES_CLOSED');
-    }
     const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
     const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
     const ready = Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
+    const salesClosed = Boolean(process.env.ALLOW_NEW_SUBSCRIPTIONS)
+      && ['false', '0', 'no', 'off'].includes(String(process.env.ALLOW_NEW_SUBSCRIPTIONS).toLowerCase());
 
     if (req.query.probe === '1') {
-      return successResponse(res, { ready, clientId: GOOGLE_CLIENT_ID || '' }, 'Google OAuth config', 200, { flatData: true });
+      return successResponse(
+        res,
+        { ready, salesClosed, clientId: GOOGLE_CLIENT_ID || '' },
+        'Google OAuth config',
+        200,
+        { flatData: true }
+      );
+    }
+
+    if (salesClosed) {
+      throw new AppError('New registrations are paused.', 503, 'SALES_CLOSED');
     }
 
     if (!ready) {
