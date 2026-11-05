@@ -1,30 +1,48 @@
 # 🚀 Checklist de Puesta en Producción — ScanGo
 
-> Estado: **en ejecución** · Última actualización: 2026-11-03
-> Dominio objetivo: `scango.uy` (**activo**) · Prod viva: `https://www.scango.uy` (healthz healthy, DB cloud OK; apex → 308 → www)
+> Estado: **en ejecución** · Última actualización: 2026-11-05
+> Dominio objetivo: `scango.uy` (**activo**) · Prod viva: `https://www.scango.uy` (healthz healthy, DB cloud OK)
+> **Host canónico: `https://www.scango.uy`** — el apex (`https://scango.uy`) también responde 200 (no hay redirect configurado): la cookie de sesión es host-only, así que el canónico debe ser www. El canonical/OG/JSON-LD de la landing y el sitemap ya apuntan a www; falta (manual, opcional) redirect apex→www en Vercel Domains.
 > Pasarela global elegida: **Lemon Squeezy** · Latam: **Mercado Pago**
 
 ## Resumen de estado
 
 | Área | Estado |
 |---|---|
-| Suite de tests (72) | ✅ 72/72 en verde en CI (Node 22+24, sin cloud) y local con cloud |
+| Suite de tests (74) | ✅ 74/74 en verde en CI (Node 22+24, sin cloud) y local con cloud |
 | Semgrep | ✅ 0 hallazgos |
 | OSV-Scanner | ✅ re-auditado 2026-10-12: solo `braces@3.0.3` (dev-only, sin fix publicado, riesgo aceptado documentado) |
-| Supabase cloud | ✅ esquema completo, migraciones 001–012 aplicadas y verificadas en runtime |
-| Commits pusheados a `origin/main` | ✅ (`eb715f4` SEO audit, `6ecd292`–`7141296` Batch 3 SEO local/IndexNow/sucursales) |
-| Secretos generados en `.env` local | ✅ JWT_SECRET, GROUP_CART_SECRET, CRON_SECRET, MERCADOPAGO_WEBHOOK_SECRET, INDEXNOW_KEY (`node -e "console.log(require('crypto').randomUUID())"`) |
+| Supabase cloud | ✅ esquema completo, migraciones 001–013 aplicadas y verificadas en runtime |
+| Commits pusheados a `origin/main` | ✅ (migración de dominio `6b77654`…`fd59b2a`: CSP del hash inline, CSP de GIS, fallback FedCM, canonical www) |
+| Secretos generados en `.env` local | ✅ JWT_SECRET, GROUP_CART_SECRET, CRON_SECRET (rotado), MERCADOPAGO_WEBHOOK_SECRET, INDEXNOW_KEY (`node -e "console.log(require('crypto').randomUUID())"`) |
 | Fallbacks de dominio → `scango.uy` | ✅ (api/index.js, api/utils/seoDiscovery.js, email.js, orders.js, tests) |
 | Verificador de env | ✅ `node scripts/check-prod-env.js` |
 | Vercel CLI | ✅ instalado v63.1.2 (`npm i -g vercel`) + logueado/linkeado — el token de `%APPDATA%\com.vercel.cli\Data\auth.json` está **vencido** para la API REST: usar la CLI (`vercel ls`, `vercel inspect`, `vercel env`), no la API |
-| Dominio DNS | ✅ `scango.uy` + `www.scango.uy` resuelven; `APP_URL=https://www.scango.uy` en Vercel |
-| Email real | ⛔ `EMAIL_FROM` usa `@resend.dev` — falta verificar dominio en Resend (y **no hay MX** en `scango.uy`: los buzones publicados aún no reciben correo) |
+| Dominio DNS | ✅ `scango.uy` + `www.scango.uy` resuelven y sirven 200; `APP_URL=https://www.scango.uy`; MX raíz `mx1/mx2.improvmx.com`, SPF `include:spf.improvmx.com`, DMARC `p=none` (sin `rua`), DKIM `resend._domainkey` + `send.scango.uy` → `send.forge.rmta.net` publicados |
+| Email real | ⛔ **BLOQUEANTE**: Resend responde 403 "The scango.uy domain is not verified" al enviar desde `pedidos@`/`hola@scango.uy`; `EMAIL_FROM` sigue en el sandbox `onboarding@resend.dev`, que **solo entrega al email del dueño de la cuenta** (`mat2001llorent@gmail.com`) y rebota 403 a cualquier otro destinatario. DNS publicados ≠ dominio verificado en la cuenta (la key del `.env` es send-only: `GET /domains` → 401 `restricted_api_key`) |
 | Pasarela global | ⛔ sin Lemon Squeezy (API key, store, webhook, variants) |
-| Google OAuth origin | ⛔ falta agregar el dominio de prod en Google Cloud Console |
-| Deploy en Vercel | ✅ `https://www.scango.uy` viva (healthz 200, DB cloud, SSR, robots/sitemap dinámicos) — verificado 2026-11-03 |
+| Google OAuth | ⚠️ flujo **verificado end-to-end en prod** (`/google/start?probe=1` → `ready:true`, `redirect_uri=https://www.scango.uy/api/auth/google/callback`, llega a `accounts.google.com`) + fallback FedCM en móvil; **falta confirmar que la pantalla de consentimiento esté en "Production"** (si está en *Testing*, solo entran los test users) |
+| Deploy en Vercel | ✅ `https://www.scango.uy` viva (healthz 200, DB cloud, SSR, robots/sitemap dinámicos, IndexNow 200) — verificado 2026-11-05 |
 | Sentry DSN | ⛔ pendiente (recomendado) |
-| UptimeRobot | ⛔ pendiente (recomendado) |
+| UptimeRobot | ⛔ pendiente (recomendado; hoy solo el workflow `uptime-check.yml` cada 6 h) |
 | Play Store | ⏸️ fase 2 (Capacitor no instalado aún) |
+
+### Verificación de producción — 2026-11-05 (medida, no supuesta)
+
+| Check | Evidencia |
+|---|---|
+| Landing | `canonical`, `og:url`, `og:image`, `twitter:image` y el `url` del JSON-LD = `https://www.scango.uy` · **0** apariciones del apex en el HTML |
+| Menú SSR | `/m/demo-heladeria` → canonical `https://www.scango.uy/m/demo-heladeria`, CSP estricta |
+| Menús fantasma de fixtures | los 3 `csp-guard-*` → **404** (antes 200: menús de test indexados en producción) y fuera del sitemap |
+| `/sitemap.xml` | 11 `<loc>`, todos bajo `https://www.scango.uy` |
+| `/robots.txt` | dinámico, con `GPTBot`/`OAI-SearchBot`/`PerplexityBot`/`ClaudeBot`/`Google-Extended` y `Disallow` de `/studio`, `/admin`, `/el-jefe`, `/api/` |
+| `/llms.txt` + `/llms-full.txt` | 200 |
+| `/api/healthz` | `status: healthy` |
+| `/api/menu/demo-heladeria` | 200 |
+| IndexNow | `GET /<INDEXNOW_KEY>.txt` → 200 `text/plain`, body idéntico a la key |
+| Altas | `POST /api/auth/register` con `{}` → **400** de validación (ya no 503 `SALES_CLOSED`; `ALLOW_NEW_SUBSCRIPTIONS=true` en Production y Preview) |
+| Google | ver 2.5 |
+| Email | ver 2.2 (único bloqueante real) |
 
 ---
 
@@ -49,17 +67,32 @@
 2. **Comprar `scango.uy`** (registrar .uy: NIC Uruguay; o cualquier registrar para otro TLD).
 3. Al estar disponible, en Vercel: *Project → Settings → Domains → Add `scango.uy`*.
 4. DNS en el registrar: registro **A → `76.76.21.21`** (o CNAME `cname.vercel-dns.com`).
-5. ⚠️ Al activar el dominio final:
-   - Actualizar `APP_URL` en Vercel a `https://scango.uy` (es la base que usan `api/utils/seoDiscovery.js` y el SSR `/m/*`).
-   - `public/index.html` (OG/canonical hardcodeados) y `public/llms.txt`.
+5. ⚠️ Al activar el dominio final (**hecho**):
+   - `APP_URL` en Vercel = `https://www.scango.uy` (es la base que usan `api/utils/seoDiscovery.js`, el JSON-LD de las landings y el SSR `/m/*`).
+   - `public/index.html` (OG/canonical/JSON-LD) apuntan a `https://www.scango.uy` desde `fd59b2a` — antes decían el apex y el sitemap decía www (señal contradictoria para Google).
+   - `public/llms.txt` / `public/llms-full.txt`: enlaces relativos al host servido.
    - Re-deployar.
+   - **Pendiente manual (opcional)**: configurar en *Vercel → Domains* el redirect `scango.uy` → `www.scango.uy`. Hoy **ambos hosts sirven 200** y el apex muestra el mismo sitio (contenido duplicado). El canónico ya apunta a www, así que Google consolida; el redirect solo lo hace explícito.
 
 ### 2.2. Resend (emails transaccionales) — BLOQUEANTE para clientes reales
-1. En [Resend](https://resend.com/domains): **Add Domain → `scango.uy`** (o el dominio comprado).
-2. Agregar los registros DNS que da Resend (SPF `include:amazonses.com`… y DKIM `resend._domainkey`).
-3. Verificar el dominio (botón *Verify*).
-4. Crear remitente: *Email Addresses* → `pedidos@scango.uy` (o el que quieras).
-5. Actualizar en Vercel: `EMAIL_FROM=pedidos@scango.uy` (NUNCA `onboarding@resend.dev`).
+
+**Estado verificado 2026-11-05 (API real, sin mocks):**
+
+| Prueba | Resultado |
+|---|---|
+| `from: pedidos@scango.uy` / `hola@scango.uy` | ❌ 403 — `The scango.uy domain is not verified. Please add and verify your domain on https://resend.com/domains` |
+| `from: onboarding@resend.dev` → `delivered@resend.dev` | ✅ 200 |
+| `from: onboarding@resend.dev` → `destinatario.prueba.2026@gmail.com` | ❌ 403 — `You can only send testing emails to your own email address (mat2001llorent@gmail.com)` |
+| `example.com` | ❌ 422 |
+| `GET /domains` con la key del `.env` | ❌ 401 `restricted_api_key` (la key es send-only: no puede listar/crear dominios) |
+
+Los registros DNS **ya están publicados** (DKIM `resend._domainkey.scango.uy`, `send.scango.uy` → `send.forge.rmta.net`, MX de ImprovMX en la raíz), pero el dominio **no está verificado en la cuenta de Resend**: publicar DNS no verifica nada por sí solo.
+
+1. En [Resend](https://resend.com/domains): **Add Domain → `scango.uy`** (o reclamar el dominio si ya existe en otra cuenta/equipo).
+2. Comparar los registros que da Resend con los publicados; si coincide todo, **Verify** debería pasar en minutos (si no, copiar los valores exactos que muestra Resend — pueden diferir de los actuales).
+3. Crear remitente: *Email Addresses* → `pedidos@scango.uy` (o el que quieras).
+4. Actualizar en Vercel (Production + Preview): `EMAIL_FROM=ScanGo <pedidos@scango.uy>` (NUNCA `onboarding@resend.dev`).
+5. Redeployar y **enviar una prueba real a un Gmail que no sea el del dueño de la cuenta**: si llega, el bloqueante está cerrado (el 403 de "testing emails" es la señal exacta de que sigue en sandbox).
 
 ### 2.3. Lemon Squeezy (pasarela global) — BLOQUEANTE para vender fuera de UY/AR
 1. Crear cuenta en [lemonSqueezy](https://www.lemonsqueezy.com) y completar merchant onboarding.
@@ -73,10 +106,20 @@
 ### 2.4. Mercado Pago (Latam)
 - Ya está el token de producción. Falta **configurar el deep link de cobro**: el server genera el `notification_url` con `?secret=<MERCADOPAGO_WEBHOOK_SECRET>` (ya generado). Verificar en [MP Developers](https://www.mercadopago.com.uy/developers) que la app acepte webhooks del dominio.
 
-### 2.5. Google OAuth
-- En [Google Cloud Console](https://console.cloud.google.com/) → Credenciales → el OAuth Client del `GOOGLE_CLIENT_ID`:
-  - *Authorized JavaScript origins*: agregar `https://<tu-dominio>`.
-  - *Authorized redirect URIs*: `https://<tu-dominio>/api/auth/google/callback`.
+### 2.5. Google OAuth — verificado end-to-end, falta confirmar Consent Screen
+
+**Estado verificado 2026-11-05 (producción real):**
+- `GET /api/auth/google/start?probe=1&cb=…` → `{ready:true, salesClosed:false, clientId:"130484003654-…"}`.
+- `GET /api/auth/google/start` responde alcanzando `accounts.google.com` con
+  `redirect_uri=https://www.scango.uy/api/auth/google/callback` (el `GOOGLE_CLIENT_SECRET` está en Vercel).
+- En navegador real (Playwright, service worker purgado): el click del modal de Google abre la pantalla de Google con el `client_id` y el `redirect_uri` correctos.
+- Fallback FedCM (commit `03e3398`): en móvil/WebView, si `google.accounts.id.prompt()` no muestra nada (sin sesión de Google, `reason: 'unknown_reason'`), la landing navega al flujo redirect en vez de quedarse muda.
+
+**Pendiente manual (1 solo punto):**
+1. En [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services → OAuth consent screen**: confirmar que el *Publishing status* está en **In production** (no en *Testing*, que solo deja entrar a los *test users*).
+2. En **Credentials** → el OAuth Client del `GOOGLE_CLIENT_ID`:
+   - *Authorized JavaScript origins*: `https://www.scango.uy` (y opcionalmente `https://scango.uy` mientras el apex siga sirviendo 200).
+   - *Authorized redirect URIs*: `https://www.scango.uy/api/auth/google/callback`.
 
 ### 2.6. Sentry (monitoreo) — recomendado
 1. Proyecto nuevo → copiar DSN.
@@ -94,7 +137,7 @@ Con `vercel link` hecho, setear en **Vercel → Project → Settings → Environ
 | `ADMIN_TOTP_SECRET` | de `.env` |
 | `GROUP_CART_SECRET` | de `.env` (generado) |
 | `CRON_SECRET` | de `.env` (generado) |
-| `APP_URL` | `https://<tu-dominio.vercel.app>` |
+| `APP_URL` | `https://www.scango.uy` (host limpio, sin Markdown ni barra final) |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_ANON_KEY` | de `.env` |
 | `RESEND_API_KEY` / `EMAIL_FROM` | EMAIL_FROM = remitente verificado |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | de `.env` |
