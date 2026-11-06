@@ -111,12 +111,13 @@ Los registros DNS **ya están publicados** (DKIM `resend._domainkey.scango.uy`, 
 
 ### 2.3. Lemon Squeezy (pasarela global) — BLOQUEANTE para vender fuera de UY/AR
 1. Crear cuenta en [lemonSqueezy](https://www.lemonsqueezy.com) y completar merchant onboarding.
-2. **Productos** (uno por plan, con los precios de `src/billing/plans.json`):
+2. **Productos** (precios de `src/billing/plans.json`, fuente única):
    - Starter Mensual — USD 9 · Starter Anual — USD 79
-   - Pro Mensual — USD 19 · Pro Anual — USD 159
+   - Evento único — USD 12 (pago único; solo si vendés eventos)
+   - Los `pro_*` son **alias legacy** que resuelven al Starter: no crear productos Pro.
 3. Anotar el **variant ID** de cada uno (URL del store `/buy/<variant_id>` o API).
-4. **Settings → Webhooks → Add**: URL `https://<tu-dominio>/api/billing/webhook/lemonsqueezy`, secret random → ese es `LEMONSQUEEZY_WEBHOOK_SECRET`.
-5. En Vercel: `LEMONSQUEEZY_API_KEY`, `LEMONSQUEEZY_STORE_ID`, `LEMONSQUEEZY_WEBHOOK_SECRET`, `LEMONSQUEEZY_PLAN_MONTHLY_VARIANT_ID`, `LEMONSQUEEZY_PLAN_ANNUAL_VARIANT_ID`, `DEFAULT_BILLING_PROVIDER=lemonsqueezy`.
+4. **Settings → Webhooks → Add**: URL `https://www.scango.uy/api/billing/webhook/lemonsqueezy`, secret random → ese es `LEMONSQUEEZY_WEBHOOK_SECRET`.
+5. En Vercel: `LEMONSQUEEZY_API_KEY`, `LEMONSQUEEZY_STORE_ID`, `LEMONSQUEEZY_WEBHOOK_SECRET`, `LEMONSQUEEZY_VARIANT_STARTER_MONTHLY`, `LEMONSQUEEZY_VARIANT_STARTER_ANNUAL` y `LEMONSQUEEZY_VARIANT_EVENT_ONCE` (si aplica), `DEFAULT_BILLING_PROVIDER=lemonsqueezy`. Fallback legacy solo para Starter: `LEMONSQUEEZY_PLAN_MONTHLY_VARIANT_ID` / `LEMONSQUEEZY_PLAN_ANNUAL_VARIANT_ID` (no cubre `event_once`).
 
 ### 2.4. Mercado Pago (Latam)
 - Ya está el token de producción. Falta **configurar el deep link de cobro**: el server genera el `notification_url` con `?secret=<MERCADOPAGO_WEBHOOK_SECRET>` (ya generado). Verificar en [MP Developers](https://www.mercadopago.com.uy/developers) que la app acepte webhooks del dominio.
@@ -229,7 +230,7 @@ Implementado en el repo y verificado por tests; resta solo lo que depende del de
 | 8 | PII en logs de email | `maskEmail`/`maskEmailList` en `api/services/email.js`: logs `To:` redactados (`j***@x.com`) | ✔ |
 | 9 | Monitoreo $0 | `.github/workflows/uptime-check.yml` (cron 6h → `curl /api/healthz` → issue `[CAIDO]`) + checklist UptimeRobot/Sentry arriba | ⬅ **Crear UptimeRobot + `SENTRY_DSN`** |
 
-Correr localmente: `npm test` (46 suites) y los individuales `npm run test:account-erasure`, `npm run test:billing`, `npm run test:analytics`, `npm run test:contract`.
+Correr localmente: `npm test` (74 suites) y los individuales `npm run test:account-erasure`, `npm run test:billing`, `npm run test:analytics`, `npm run test:contract`.
 
 ## Notas de riesgo
 
