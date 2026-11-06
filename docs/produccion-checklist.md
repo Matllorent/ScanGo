@@ -1,6 +1,6 @@
 # 🚀 Checklist de Puesta en Producción — ScanGo
 
-> Estado: **en ejecución** · Última actualización: 2026-11-05
+> Estado: **en ejecución** · Última actualización: 2026-11-06
 > Dominio objetivo: `scango.uy` (**activo**) · Prod viva: `https://www.scango.uy` (healthz healthy, DB cloud OK)
 > **Host canónico: `https://www.scango.uy`** — el apex (`https://scango.uy`) también responde 200 (no hay redirect configurado): la cookie de sesión es host-only, así que el canónico debe ser www. El canonical/OG/JSON-LD de la landing y el sitemap ya apuntan a www; falta (manual, opcional) redirect apex→www en Vercel Domains.
 > Pasarela global elegida: **Lemon Squeezy** · Latam: **Mercado Pago**
@@ -22,7 +22,7 @@
 | Email real | ⛔ **BLOQUEANTE**: Resend responde 403 "The scango.uy domain is not verified" al enviar desde `pedidos@`/`hola@scango.uy`; `EMAIL_FROM` sigue en el sandbox `onboarding@resend.dev`, que **solo entrega al email del dueño de la cuenta** (`mat2001llorent@gmail.com`) y rebota 403 a cualquier otro destinatario. DNS publicados ≠ dominio verificado en la cuenta (la key del `.env` es send-only: `GET /domains` → 401 `restricted_api_key`) |
 | Pasarela global | ⛔ sin Lemon Squeezy (API key, store, webhook, variants) |
 | Google OAuth | ⚠️ flujo **verificado end-to-end en prod** (`/google/start?probe=1` → `ready:true`, `redirect_uri=https://www.scango.uy/api/auth/google/callback`, llega a `accounts.google.com`) + fallback FedCM en móvil; **falta confirmar que la pantalla de consentimiento esté en "Production"** (si está en *Testing*, solo entran los test users) |
-| Deploy en Vercel | ✅ `https://www.scango.uy` viva (healthz 200, DB cloud, SSR, robots/sitemap dinámicos, IndexNow 200) — verificado 2026-11-05 |
+| Deploy en Vercel | ✅ `https://www.scango.uy` viva (healthz 200, DB cloud, SSR, robots/sitemap dinámicos, IndexNow 200) — verificado 2026-11-05; último deploy 2026-11-06 `dpl_88SwHPFcxQjMsJLZBpd3RQtmQD5Y` (commit `5ff2e59`) |
 | Contacto y datos legales | ✅ teléfono oficial `+598 93 640 039` (`wa.me/59893640039`) en landing, Studio, legales y `llms*.txt`; domicilio `Rambla República del Perú 815, Montevideo` en `/privacidad` y `/terminos`; sin razón social ni RUT (titular persona física); DMCA `soporte@scango.uy` |
 | Sentry DSN | ⛔ pendiente (recomendado) |
 | UptimeRobot | ⛔ pendiente (recomendado; hoy solo el workflow `uptime-check.yml` cada 6 h) |
@@ -44,6 +44,20 @@
 | Altas | `POST /api/auth/register` con `{}` → **400** de validación (ya no 503 `SALES_CLOSED`; `ALLOW_NEW_SUBSCRIPTIONS=true` en Production y Preview) |
 | Google | ver 2.5 |
 | Email | ver 2.2 (único bloqueante real) |
+
+### Verificación de producción — 2026-11-06 (contacto y datos legales)
+
+| Check | Evidencia |
+|---|---|
+| Landing | 200 · `wa.me/59893640039` en footer, modal de recuperación y FAB · `+598 93 640 039` visible · **0** apariciones de `97089957` |
+| Studio | 200 · badge del teléfono oficial `+598 93 640 039` |
+| `/privacidad` + `/terminos` | 200 · domicilio `Rambla República del Perú 815, Montevideo` · WhatsApp oficial · **0** apariciones de `[RAZÓN SOCIAL]`, `[RUT]`, `[DOMICILIO`, `[DMCA_EMAIL]` |
+| `/privacidad.html` + `/terminos.html` | 200 · domicilio y WhatsApp en la sección de contacto |
+| `/llms.txt` + `/llms-full.txt` | 200 · WhatsApp, email y domicilio oficiales |
+| Pie legal de emails | `DEFAULT_POSTAL` = `ScanGo — Rambla República del Perú 815, Montevideo, Uruguay`; **`COMPANY_POSTAL_ADDRESS` no está seteada en Vercel** (confirmado con `vercel env ls production`) → aplica el default del código |
+| DMCA | agente designado `soporte@scango.uy`; registro ante la U.S. Copyright Office **pendiente** |
+| Salud general | `/api/healthz` 200 `healthy`, Supabase conectada (`latencyMs` real), `schema.missing: []`; `/robots.txt`, `/sitemap.xml`, `/m/demo-heladeria` y `/api/menu/demo-heladeria` 200 |
+| Responsive | badge del hero a 327px: 2 líneas, teléfono `+598 93 640 039` intacto, sin overflow horizontal |
 
 ---
 
