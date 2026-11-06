@@ -480,8 +480,8 @@ SCANGO_LEMONSQUEEZY_WEBHOOK_SECRET=replace_me_lemon_webhook_secret
 SCANGO_RESEND_API_KEY=re_replace_me
 SCANGO_EMAIL_FROM=no-reply@scango.uy
 # Pie legal de emails (dirección postal + motivo + baja).
-COMPANY_POSTAL_ADDRESS=ScanGo, Calle Falsa 123, Montevideo, Uruguay
-DMCA_EMAIL=dma@scango.uy
+COMPANY_POSTAL_ADDRESS=ScanGo, Rambla República del Perú 815, Montevideo, Uruguay
+DMCA_EMAIL=soporte@scango.uy
 
 # --- Push Web (VAPID) ------------------------------------------------------
 # Generar con: node -e "const w=require('web-push');console.log(w.generateVAPIDKeys())"

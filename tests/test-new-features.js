@@ -40,10 +40,10 @@ async function runTests() {
   console.log('✓ Botón redundante "Probar Menú en Vivo 📱" eliminado');
 
   // 1.6 WhatsApp button & Uruguay phone number
-  if (!indexHtml.includes('59897089957') || !indexHtml.includes('id="waFloatBtn"')) {
+  if (!indexHtml.includes('59893640039') || !indexHtml.includes('id="waFloatBtn"')) {
     throw new Error('Falta el botón flotante de WhatsApp o el número de Uruguay');
   }
-  console.log('✓ Botón flotante de WhatsApp configurado con número de Uruguay (+598 97 089 957)');
+  console.log('✓ Botón flotante de WhatsApp configurado con número de Uruguay (+598 93 640 039)');
 
   // 1.7 Password Recovery Modal
   if (!indexHtml.includes('id="forgotPasswordModal"') || !indexHtml.includes('openForgotPasswordModal')) {

@@ -23,6 +23,7 @@
 | Pasarela global | ⛔ sin Lemon Squeezy (API key, store, webhook, variants) |
 | Google OAuth | ⚠️ flujo **verificado end-to-end en prod** (`/google/start?probe=1` → `ready:true`, `redirect_uri=https://www.scango.uy/api/auth/google/callback`, llega a `accounts.google.com`) + fallback FedCM en móvil; **falta confirmar que la pantalla de consentimiento esté en "Production"** (si está en *Testing*, solo entran los test users) |
 | Deploy en Vercel | ✅ `https://www.scango.uy` viva (healthz 200, DB cloud, SSR, robots/sitemap dinámicos, IndexNow 200) — verificado 2026-11-05 |
+| Contacto y datos legales | ✅ teléfono oficial `+598 93 640 039` (`wa.me/59893640039`) en landing, Studio, legales y `llms*.txt`; domicilio `Rambla República del Perú 815, Montevideo` en `/privacidad` y `/terminos`; sin razón social ni RUT (titular persona física); DMCA `soporte@scango.uy` |
 | Sentry DSN | ⛔ pendiente (recomendado) |
 | UptimeRobot | ⛔ pendiente (recomendado; hoy solo el workflow `uptime-check.yml` cada 6 h) |
 | Play Store | ⏸️ fase 2 (Capacitor no instalado aún) |

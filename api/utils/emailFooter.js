@@ -2,7 +2,7 @@
  * Pie de email legal (CAN-SPAM §5 + RGPD):
  * TODOS los emails transaccionales/comerciales que salen del servicio llevan:
  *  1. Identidad remitente (ScanGo) + dirección postal física válida
- *     (COMPANY_POSTAL_ADDRESS; placeholder honesto hasta comprar el dominio).
+ *     (COMPANY_POSTAL_ADDRESS; default: domicilio del titular).
  *  2. Motivo del contacto ("porque registraste tu negocio").
  *  3. Enlace de baja con token HMAC (GET /api/email/unsubscribe/:token):
  *     la baja bloquea envíos COMERCIALES futuros a esa dirección
@@ -11,7 +11,7 @@
  */
 const crypto = require('crypto');
 
-const DEFAULT_POSTAL = 'ScanGo — Av. 18 de Julio 1234, Montevideo, Uruguay';
+const DEFAULT_POSTAL = 'ScanGo — Rambla República del Perú 815, Montevideo, Uruguay';
 
 function base64url(buf) {
   return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
