@@ -22,7 +22,7 @@
 | Email real | ⛔ **BLOQUEANTE**: Resend responde 403 "The scango.uy domain is not verified" al enviar desde `pedidos@`/`hola@scango.uy`; `EMAIL_FROM` sigue en el sandbox `onboarding@resend.dev`, que **solo entrega al email del dueño de la cuenta** (`mat2001llorent@gmail.com`) y rebota 403 a cualquier otro destinatario. DNS publicados ≠ dominio verificado en la cuenta (la key del `.env` es send-only: `GET /domains` → 401 `restricted_api_key`) |
 | Pasarela global | ⛔ sin Lemon Squeezy (API key, store, webhook, variants) |
 | Google OAuth | ⚠️ flujo **verificado end-to-end en prod** (`/google/start?probe=1` → `ready:true`, `redirect_uri=https://www.scango.uy/api/auth/google/callback`, llega a `accounts.google.com`) + fallback FedCM en móvil; **falta confirmar que la pantalla de consentimiento esté en "Production"** (si está en *Testing*, solo entran los test users) |
-| Deploy en Vercel | ✅ `https://www.scango.uy` viva (healthz 200, DB cloud, SSR, robots/sitemap dinámicos, IndexNow 200) — verificado 2026-11-05; último deploy de código 2026-11-07 `dpl_Ej19VpLNo37L8LyJ2P3Y3smh6fhM` (commit `a0ccee0`, FAQ visible y navegación interna); la actualización posterior de documentación (`40235b2`, `dpl_FfKUh8o6rEvCBrzCKuXtuWdyMmri`) no cambia la app |
+| Deploy en Vercel | ✅ `https://www.scango.uy` viva (healthz 200, DB cloud, SSR, robots/sitemap dinámicos, IndexNow 200) — verificado 2026-11-05; último deploy de código 2026-11-07 `dpl_FrotNUZnFrbG9VZRxKMVTVhkYQYB` (commit `035d589`, registro móvil scrolleable); las actualizaciones de documentación posteriores no cambian la app |
 | Contacto y datos legales | ✅ teléfono oficial `+598 93 640 039` (`wa.me/59893640039`) en landing, Studio, legales y `llms*.txt`; domicilio `Rambla República del Perú 815, Montevideo` en `/privacidad` y `/terminos`; sin razón social ni RUT (titular persona física); DMCA `soporte@scango.uy` |
 | Sentry DSN | ⛔ pendiente (recomendado) |
 | UptimeRobot | ⛔ pendiente (recomendado; hoy solo el workflow `uptime-check.yml` cada 6 h) |
@@ -86,6 +86,19 @@
 | `/ciudades` | 200 · 27 enlaces internos, **0** con `target`; hoy no hay ciudades publicadas (el hub no inventa páginas) |
 | Navegación externa | los links a WhatsApp/Maps/redes conservan `target="_blank"` + `rel="noopener noreferrer"` solo por ser externos (justificado) |
 | Regresión | `test-frontend-structure`, `test-solutions-seo`, `test-seo-cities`, `test-landing-conversion`, `test-a11y`, `test-frontend-esm-syntax` y `test-csp` (53/53) en verde |
+
+### Verificación de producción — 2026-11-07 (registro móvil scrolleable)
+
+| Check | Evidencia |
+|---|---|
+| Deploy | `dpl_FrotNUZnFrbG9VZRxKMVTVhkYQYB` READY, aliased a `https://www.scango.uy` (commit `035d589`) |
+| Causa raíz | `.modal-overlay` era `position:fixed` + `align-items:center` sin `overflow-y`: el registro (~1.100px) se centraba en un viewport de 844px y quedaba recortado arriba y abajo, con el checkbox 18+ y el submit inalcanzables |
+| CSS servido | `/css/index.css` 200 con `overflow-y:auto`, `overscroll-behavior:contain`, `-webkit-overflow-scrolling:touch`, `align-items:flex-start`, `margin:auto` en `.modal-card` y media ≤600px (overlay 12px; tarjeta 26/18/22; close 12px) |
+| 390×844 | overlay `scrollTop` 0→259 (máximo); `#regAgeConfirm` y `#btnSubmitRegister` visibles al final; **0** overflow horizontal |
+| 360×640 | overlay `scrollTop` 0→489 (máximo); checkbox y submit visibles; **0** overflow horizontal |
+| Reset al reabrir | scroll al fondo → cerrar → `openAuthModal('register')` → `scrollTop = 0` |
+| Consola | único error: `401 /api/auth/me` esperado para visitante anónimo; **0** violaciones CSP |
+| Regresión | `test-frontend-structure` (§K), `test-landing-conversion`, `test-a11y`, `test-csp` (53/53) y `test-frontend-esm-syntax` en verde |
 
 ---
 
