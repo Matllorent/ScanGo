@@ -538,6 +538,54 @@ function runFrontendStructureTests() {
 
   console.log(`✓ Legal: ${legalBackPages.length} páginas con default "/" y decisión por referrer same-origin /studio`);
 
+  // ---------- K: modal de registro scrolleable en móvil ----------
+  // Bug real: .modal-overlay era position:fixed con height:100% y
+  // align-items:center pero SIN overflow-y. El formulario de registro (~1100px)
+  // se centraba en un viewport de 844px y quedaba recortado arriba y abajo: el
+  // checkbox de edad y el botón de envío eran inalcanzables, y la pantalla no
+  // scrolleaba. El overlay ahora es el que scrollea y la tarjeta se centra con
+  // margin:auto (arranca arriba cuando no entra). El padding móvil reducido
+  // evita que selects/file inputs se corten horizontalmente.
+  const landingCss = read('public/css/index.css');
+  const overlayRule = (landingCss.match(/\.modal-overlay\s*\{([^}]*)\}/) || [])[1] || '';
+  assert.ok(
+    /overflow-y\s*:\s*auto/.test(overlayRule),
+    'REGRESIÓN: .modal-overlay debe scrollear (overflow-y:auto) para que el registro largo sea alcanzable en móvil'
+  );
+  assert.ok(
+    /align-items\s*:\s*flex-start/.test(overlayRule),
+    'REGRESIÓN: .modal-overlay debe alinear arriba (flex-start); con center el top de una tarjeta alta queda fuera del scroll'
+  );
+  assert.ok(
+    /-webkit-overflow-scrolling\s*:\s*touch/.test(overlayRule),
+    'REGRESIÓN: falta el scroll táctil inercial del overlay móvil'
+  );
+  assert.ok(
+    /overscroll-behavior\s*:\s*contain/.test(overlayRule),
+    'REGRESIÓN: el scroll del overlay no debe encadenarse con el body'
+  );
+  const modalCardRule = (landingCss.match(/\.modal-card\s*\{([^}]*)\}/) || [])[1] || '';
+  assert.ok(
+    /margin\s*:\s*auto/.test(modalCardRule),
+    'REGRESIÓN: .modal-card debe usar margin:auto para centrarse cuando entra y arrancar arriba cuando no'
+  );
+  const landingJsClient = read('public/js/index.js');
+  for (const fnName of ['openAuthModal', 'openForgotPasswordModal']) {
+    const start = landingJsClient.indexOf(`function ${fnName}`);
+    assert.ok(start !== -1, `No se encontró ${fnName} en public/js/index.js`);
+    const end = landingJsClient.indexOf('\n}', start);
+    const body = landingJsClient.slice(start, end === -1 ? undefined : end);
+    assert.ok(
+      /scrollTop\s*=\s*0/.test(body),
+      `REGRESIÓN: ${fnName} debe resetear el scroll del overlay al abrir`
+    );
+  }
+  assert.ok(
+    /@media \(max-width: 600px\) \{[\s\S]*?\.modal-card \{ padding: 26px 18px 22px; border-radius: 14px; \}/.test(landingCss),
+    'REGRESIÓN: el modal móvil debe reducir padding para no cortar inputs horizontalmente'
+  );
+  console.log('✓ Registro móvil: overlay scrolleable, tarjeta centrada/arriba y reset de scroll al abrir');
+
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE ESTRUCTURA FRONTEND PASARON AL 100%!');
 }
 

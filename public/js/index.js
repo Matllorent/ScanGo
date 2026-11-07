@@ -38,6 +38,9 @@ document.addEventListener('keydown', (e) => {
 function openAuthModal(mode = 'register') {
   const modal = document.getElementById('authModal');
   modal.classList.add('active');
+  // Reabrir siempre desde arriba: si el formulario se scrolleó antes, el
+  // modal no debe aparecer a mitad de camino.
+  modal.scrollTop = 0;
   switchAuthTab(mode);
   focusModal(modal);
   // El registro hereda el rubro de la pestaña de precios que miraba el
@@ -770,6 +773,7 @@ function openForgotPasswordModal() {
     alertBox.textContent = '';
   }
   if (modal) modal.classList.add('active');
+  if (modal) modal.scrollTop = 0;
   focusModal(modal);
 }
 

@@ -1100,9 +1100,16 @@
       backdrop-filter: blur(8px);
       z-index: 100000;
       display: none;
-      align-items: center;
+      /* El registro puede ser más alto que el viewport móvil: el overlay es el
+         que scrollea. align-items:flex-start + margin:auto en la tarjeta la
+         centra cuando entra y la deja empezar arriba cuando no entra (con
+         align-items:center el top quedaba fuera del área scrolleable). */
+      align-items: flex-start;
       justify-content: center;
       padding: 20px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
     }
     .modal-overlay.active { display: flex; }
     .modal-card {
@@ -1114,6 +1121,7 @@
       padding: 32px;
       box-shadow: 0 24px 60px rgba(0,0,0,0.8);
       position: relative;
+      margin: auto;
     }
     .modal-close {
       position: absolute;
@@ -1124,6 +1132,13 @@
       color: var(--text-dim);
       font-size: 20px;
       cursor: pointer;
+    }
+    @media (max-width: 600px) {
+      /* Menos padding en celular: más ancho útil para inputs/selects y menos
+         altura total del formulario de registro. */
+      .modal-overlay { padding: 12px; }
+      .modal-card { padding: 26px 18px 22px; border-radius: 14px; }
+      .modal-close { top: 12px; right: 12px; }
     }
     .modal-tabs {
       display: flex;
