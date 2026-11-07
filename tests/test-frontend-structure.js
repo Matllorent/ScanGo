@@ -18,6 +18,9 @@
  *   D) El CTA de instalación PWA está cableado (pwa-install-ready → triggerPWAInstall).
  *   E) Menú: las pills de categoría y los filtros dietéticos son toggle (tocar el
  *      activo vuelve a "Todos"), y ni las categorías ni los filtros sin platos se muestran.
+ *   J) Páginas legales: botón "Volver" con default seguro "/" y decisión por
+ *      referrer same-origin (/studio o /studio.html → panel; resto → inicio).
+ *      Nunca se hardcodea /studio en el HTML.
  *
  * Son assert de fuente (estilo house: test-menu-componentization §9/§10) — sin DOM.
  */
@@ -364,6 +367,92 @@ function runFrontendStructureTests() {
     'REGRESIÓN: el panel móvil muestra los links con .nav-open'
   );
   console.log('✓ Landing: un CTA primario, simulador sin ($0), tooltip que se retira y nav hamburguesa móvil');
+
+  // ---------- J: botón "Volver" de las páginas legales ----------
+  // Bug real: las 5 páginas de public/legal/ hardcodeaban "Volver al Panel" con
+  // href="/studio"; un visitante que llegaba desde la landing, Google o un link
+  // directo terminaba en el panel. El HTML trae el default seguro "/" y el
+  // script externo solo mejora a /studio cuando el referrer same-origin es
+  // /studio o /studio.html (dueño navegando dentro del panel).
+  const legalBackPages = [
+    'public/legal/privacy.html',
+    'public/legal/terms.html',
+    'public/legal/cookies.html',
+    'public/legal/refunds.html',
+    'public/legal/disclaimer.html',
+    'public/privacidad.html',
+    'public/terminos.html'
+  ];
+
+  for (const rel of legalBackPages) {
+    const html = read(rel);
+    const backTag = (html.match(/<a\b[^>]*\bdata-legal-back\b[^>]*>[\s\S]*?<\/a>/i) || [])[0] || '';
+    assert.ok(backTag, `${rel}: falta el botón con data-legal-back`);
+    assert.ok(
+      /href\s*=\s*["']\/["']/.test(backTag),
+      `${rel}: el default sin JS debe ser href="/" (nunca /studio)`
+    );
+    assert.ok(
+      /Volver al inicio/i.test(backTag),
+      `${rel}: el label default debe ser "Volver al inicio"`
+    );
+    assert.ok(
+      !/href\s*=\s*["']\/studio(?:\/|\.html)?["']/i.test(backTag),
+      `${rel}: el botón no debe hardcodear /studio`
+    );
+
+    const scriptTag = (html.match(/<script\b[^>]*\bsrc\s*=\s*["']\/js\/legalBack\.js["'][^>]*><\/script>/i) || [])[0] || '';
+    assert.ok(scriptTag, `${rel}: falta el script externo CSP-safe /js/legalBack.js`);
+    assert.ok(/\bdefer\b/i.test(scriptTag), `${rel}: legalBack.js debe cargarse con defer`);
+  }
+
+  const legalBack = require(path.join(root, 'public/js/legalBack.js'));
+  const legalOrigin = 'https://www.scango.uy';
+  const legalBackCases = [
+    ['https://www.scango.uy/studio', 'studio'],
+    ['https://www.scango.uy/studio/', 'studio'],
+    ['https://www.scango.uy/studio?tab=billing', 'studio'],
+    ['https://www.scango.uy/studio.html', 'studio'],
+    ['https://www.scango.uy/studio.html?x=1', 'studio'],
+    ['https://www.scango.uy/', 'home'],
+    ['https://www.scango.uy/privacidad', 'home'],
+    ['https://www.scango.uy/terminos.html', 'home'],
+    ['https://www.google.com/', 'home'],
+    ['https://www.scango.uy.evil.com/studio', 'home'],
+    ['//evil.example/studio', 'home'],
+    ['javascript:alert(1)', 'home'],
+    ['', 'home']
+  ];
+  for (const [referrer, expected] of legalBackCases) {
+    assert.strictEqual(
+      legalBack.resolveLegalBackTarget(referrer, legalOrigin),
+      expected,
+      `legalBack: ${JSON.stringify(referrer)} debe resolver ${expected}`
+    );
+  }
+  assert.strictEqual(
+    legalBack.resolveLegalBackTarget('https://www.scango.uy/studio', ''),
+    'home',
+    'legalBack: sin origin no se puede confiar en el referrer'
+  );
+
+  const fakeAnchor = {
+    attrs: {},
+    textContent: '',
+    setAttribute(name, value) {
+      this.attrs[name] = value;
+    }
+  };
+  legalBack.applyLegalBack(fakeAnchor, 'studio');
+  assert.strictEqual(fakeAnchor.attrs.href, '/studio');
+  assert.strictEqual(fakeAnchor.textContent, '← Volver al panel');
+  assert.strictEqual(fakeAnchor.attrs['data-legal-back-target'], 'studio');
+  legalBack.applyLegalBack(fakeAnchor, 'home');
+  assert.strictEqual(fakeAnchor.attrs.href, '/');
+  assert.strictEqual(fakeAnchor.textContent, '← Volver al inicio');
+  assert.strictEqual(fakeAnchor.attrs['data-legal-back-target'], 'home');
+
+  console.log(`✓ Legal: ${legalBackPages.length} páginas con default "/" y decisión por referrer same-origin /studio`);
 
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE ESTRUCTURA FRONTEND PASARON AL 100%!');
 }
