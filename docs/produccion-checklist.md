@@ -22,7 +22,7 @@
 | Email real | ⛔ **BLOQUEANTE**: Resend responde 403 "The scango.uy domain is not verified" al enviar desde `pedidos@`/`hola@scango.uy`; `EMAIL_FROM` sigue en el sandbox `onboarding@resend.dev`, que **solo entrega al email del dueño de la cuenta** (`mat2001llorent@gmail.com`) y rebota 403 a cualquier otro destinatario. DNS publicados ≠ dominio verificado en la cuenta (la key del `.env` es send-only: `GET /domains` → 401 `restricted_api_key`) |
 | Pasarela global | ⛔ sin Lemon Squeezy (API key, store, webhook, variants) |
 | Google OAuth | ⚠️ flujo **verificado end-to-end en prod** (`/google/start?probe=1` → `ready:true`, `redirect_uri=https://www.scango.uy/api/auth/google/callback`, llega a `accounts.google.com`) + fallback FedCM en móvil; **falta confirmar que la pantalla de consentimiento esté en "Production"** (si está en *Testing*, solo entran los test users) |
-| Deploy en Vercel | ✅ `https://www.scango.uy` viva (healthz 200, DB cloud, SSR, robots/sitemap dinámicos, IndexNow 200) — verificado 2026-11-05; último deploy 2026-11-06 `dpl_88SwHPFcxQjMsJLZBpd3RQtmQD5Y` (commit `5ff2e59`) |
+| Deploy en Vercel | ✅ `https://www.scango.uy` viva (healthz 200, DB cloud, SSR, robots/sitemap dinámicos, IndexNow 200) — verificado 2026-11-05; último deploy 2026-11-06 `dpl_6qaz421GHj4iCfP9NopAitvKmY19` (commit `265c801`, botón Volver de legales) |
 | Contacto y datos legales | ✅ teléfono oficial `+598 93 640 039` (`wa.me/59893640039`) en landing, Studio, legales y `llms*.txt`; domicilio `Rambla República del Perú 815, Montevideo` en `/privacidad` y `/terminos`; sin razón social ni RUT (titular persona física); DMCA `soporte@scango.uy` |
 | Sentry DSN | ⛔ pendiente (recomendado) |
 | UptimeRobot | ⛔ pendiente (recomendado; hoy solo el workflow `uptime-check.yml` cada 6 h) |
@@ -58,6 +58,20 @@
 | DMCA | agente designado `soporte@scango.uy`; registro ante la U.S. Copyright Office **pendiente** |
 | Salud general | `/api/healthz` 200 `healthy`, Supabase conectada (`latencyMs` real), `schema.missing: []`; `/robots.txt`, `/sitemap.xml`, `/m/demo-heladeria` y `/api/menu/demo-heladeria` 200 |
 | Responsive | badge del hero a 327px: 2 líneas, teléfono `+598 93 640 039` intacto, sin overflow horizontal |
+
+### Verificación de producción — 2026-11-06 (botón "Volver" de páginas legales)
+
+| Check | Evidencia |
+|---|---|
+| Deploy | `dpl_6qaz421GHj4iCfP9NopAitvKmY19` READY, aliased a `https://www.scango.uy` (commit `265c801`) |
+| 5 legales canónicas | `/privacidad`, `/terminos`, `/cookies`, `/reembolsos`, `/aviso-legal` → 200, default `href="/"` + "← Volver al inicio", `legalBack.js` cargado, sin `href="/studio"` hardcodeado en el botón |
+| 2 legales legacy | `/privacidad.html`, `/terminos.html` → 200, mismo default seguro y script cargado |
+| Entrada directa | `document.referrer` vacío → "← Volver al inicio" y `href="/"` |
+| Desde landing | click real en `/privacidad` desde `/` → referrer `https://www.scango.uy/` → "← Volver al inicio" y `href="/"` |
+| Desde Studio canónico | click real `target="_blank"` a `/legal/cookies.html` desde `/studio` → referrer `https://www.scango.uy/studio` → "← Volver al panel" y `href="/studio"` |
+| Desde Studio legacy | click real `target="_blank"` a `/terminos.html` desde `/studio.html` → referrer `https://www.scango.uy/studio.html` → "← Volver al panel" y `href="/studio"` |
+| Consola/CSP | 0 errores y 0 warnings en las páginas verificadas; el script externo same-origin carga con la CSP transicional (`script-src 'self'`, `script-src-attr 'none'`) |
+| Regresión | `test-frontend-structure` (§J), `test-frontend-esm-syntax`, `test-a11y`, `test-csp` (53/53) y `test-architecture-guards` en verde |
 
 ---
 
