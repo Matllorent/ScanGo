@@ -37,6 +37,13 @@ function countOccurrences(haystack, needle) {
   return haystack.split(needle).length - 1;
 }
 
+/** Enlaces internos (rutas y anchors) que abren pestaña nueva: no debe haber ninguno. */
+function internalBlankTargets(html) {
+  return [...html.matchAll(/<a\b[^>]*href=["'](?:\/|#)[^"']*["'][^>]*>/gi)]
+    .map((m) => m[0])
+    .filter((tag) => /\btarget\s*=/i.test(tag));
+}
+
 /** Restaurante QA de referencia (el owner queda @example.com → lo purga el guard). */
 function cityRestaurant(ownerId, slug, city, businessType, extra = {}) {
   return {
@@ -207,6 +214,11 @@ async function runTests() {
   assert.strictEqual(countOccurrences(html, '<script'), 1, 'render ciudad: un único <script> (JSON-LD)');
   assert.ok(html.includes('<script type="application/ld+json">'), 'ese script es el JSON-LD');
   assert.ok(!html.includes('<script src'), 'sin scripts externos');
+  assert.deepStrictEqual(
+    internalBlankTargets(html),
+    [],
+    'render ciudad: los enlaces internos deben navegar en la misma pestaña (sin target)'
+  );
 
   // Hostilidad: nombre de local y ciudad con tags → escapados, nunca crudos.
   const hostile = seoCities.renderCityHtml(
@@ -232,6 +244,11 @@ async function runTests() {
   assert.ok(hubHtml.includes('2 locales con cartas reales'), 'hub con count real');
   assert.ok(!INLINE_EVENT_ATTR.test(hubHtml), 'hub: cero atributos on*=');
   assert.strictEqual(countOccurrences(hubHtml, '<script'), 1, 'hub: un único <script>');
+  assert.deepStrictEqual(
+    internalBlankTargets(hubHtml),
+    [],
+    'hub: los enlaces internos deben navegar en la misma pestaña (sin target)'
+  );
   const emptyHub = seoCities.renderCitiesIndexHtml({ appUrl, cities: [] });
   assert.ok(emptyHub.includes('Todavía no hay cartas publicadas'), 'hub vacío: honesto, sin ciudades inventadas');
   assert.ok(!INLINE_EVENT_ATTR.test(emptyHub), 'hub vacío: cero on*=');
@@ -341,6 +358,11 @@ async function runTests() {
     assert.ok(hubText.includes(`/ciudades/${slugDos}`), 'hub lista testciudad-dos');
     assert.ok(hubText.includes('2 locales con cartas reales'), 'hub con el count real (2 en testciudad-uno)');
     assert.ok(!INLINE_EVENT_ATTR.test(hubText), 'hub runtime: cero on*=');
+    assert.deepStrictEqual(
+      internalBlankTargets(hubText),
+      [],
+      'hub runtime: los enlaces internos deben navegar en la misma pestaña (sin target)'
+    );
 
     // 2. Ciudad 200: sus dos menús (grafías distintas, MISMA ciudad), sin demo.
     const cityRes = await fetch(`${base}/ciudades/${slugUno}`);
@@ -354,6 +376,11 @@ async function runTests() {
     assert.ok(cityText.includes('"@type":"ItemList"') && cityText.includes('"@type":"FAQPage"'), 'JSON-LD completo en runtime');
     assert.ok(!INLINE_EVENT_ATTR.test(cityText), 'ciudad runtime: cero on*=');
     assert.strictEqual(countOccurrences(cityText, '<script'), 1, 'ciudad runtime: un único <script>');
+    assert.deepStrictEqual(
+      internalBlankTargets(cityText),
+      [],
+      'ciudad runtime: los enlaces internos deben navegar en la misma pestaña (sin target)'
+    );
 
     // 3. Slug en MAYÚSCULAS matchea por normalización (canonical queda en lower).
     const upperRes = await fetch(`${base}/ciudades/${slugUno.toUpperCase()}`);

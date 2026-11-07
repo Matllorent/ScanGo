@@ -26,6 +26,13 @@ function countOccurrences(haystack, needle) {
   return haystack.split(needle).length - 1;
 }
 
+/** Enlaces internos (rutas y anchors) que abren pestaña nueva: no debe haber ninguno. */
+function internalBlankTargets(html) {
+  return [...html.matchAll(/<a\b[^>]*href=["'](?:\/|#)[^"']*["'][^>]*>/gi)]
+    .map((m) => m[0])
+    .filter((tag) => /\btarget\s*=/i.test(tag));
+}
+
 async function runTests() {
   // ── Fase A · módulo puro ────────────────────────────────────────────────
 
@@ -97,6 +104,11 @@ async function runTests() {
   assert.strictEqual(countOccurrences(html, '<script'), 1, 'render landing: un único <script> (JSON-LD)');
   assert.ok(html.includes('<script type="application/ld+json">'), 'ese script es el JSON-LD');
   assert.ok(!html.includes('<script src'), 'sin scripts externos');
+  assert.deepStrictEqual(
+    internalBlankTargets(html),
+    [],
+    'render landing: los enlaces internos deben navegar en la misma pestaña (sin target)'
+  );
 
   const hubHtml = seoSolutions.renderSolutionsIndexHtml({ appUrl });
   for (const s of solutions) {
@@ -104,6 +116,11 @@ async function runTests() {
   }
   assert.ok(!INLINE_EVENT_ATTR.test(hubHtml), 'hub: cero atributos on*=');
   assert.strictEqual(countOccurrences(hubHtml, '<script'), 1, 'hub: un único <script>');
+  assert.deepStrictEqual(
+    internalBlankTargets(hubHtml),
+    [],
+    'hub: los enlaces internos deben navegar en la misma pestaña (sin target)'
+  );
 
   // 5. Utilidades puras de escape.
   assert.strictEqual(seoSolutions.escapeHtml('<img onerror=x>'), '&lt;img onerror=x&gt;', 'escapeHtml neutraliza tags');
@@ -126,6 +143,11 @@ async function runTests() {
       assert.ok(hubText.includes(`/soluciones/${s.slug}`), `hub runtime enlaza a ${s.slug}`);
     }
     assert.ok(hubText.includes('"@type":"CollectionPage"'), 'hub runtime incluye CollectionPage');
+    assert.deepStrictEqual(
+      internalBlankTargets(hubText),
+      [],
+      'hub runtime: los enlaces internos deben navegar en la misma pestaña (sin target)'
+    );
 
     // 7. Cada landing responde 200 con su canonical y su FAQPage.
     for (const s of solutions) {
@@ -135,6 +157,11 @@ async function runTests() {
       assert.ok(text.includes(`<link rel="canonical" href="${appUrl}/soluciones/${s.slug}"`), `${s.slug}: canonical`);
       assert.ok(text.includes('"@type":"FAQPage"'), `${s.slug}: FAQPage`);
       assert.ok(text.includes(`<h1>${s.h1}</h1>`), `${s.slug}: H1 único`);
+      assert.deepStrictEqual(
+        internalBlankTargets(text),
+        [],
+        `${s.slug} runtime: los enlaces internos deben navegar en la misma pestaña (sin target)`
+      );
       // CSP transicional con script-src-attr 'none' aplicada por el middleware.
       const csp = res.headers.get('content-security-policy') || '';
       assert.ok(csp.includes("script-src-attr 'none'"), `${s.slug}: CSP con script-src-attr 'none'`);

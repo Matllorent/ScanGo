@@ -76,11 +76,42 @@ function scanDivs(markup) {
   return { finalDepth: depth, minDepth, negatives, modals };
 }
 
+/** Balance de <section> para detectar cierres mal formados (ej: </div</section>). */
+function scanSections(markup) {
+  const tokenRe = /<(\/?)section\b[^>]*>/gi;
+  let depth = 0;
+  let minDepth = 0;
+  let negatives = 0;
+
+  let m;
+  while ((m = tokenRe.exec(markup)) !== null) {
+    if (m[1] === '/') {
+      depth -= 1;
+      if (depth < 0) negatives += 1;
+      if (depth < minDepth) minDepth = depth;
+    } else {
+      depth += 1;
+    }
+  }
+  return { finalDepth: depth, minDepth, negatives };
+}
+
+/** Profundidad de `tagName` justo antes de `index` (0 = top-level). */
+function depthBeforeTag(markup, tagName, index) {
+  const re = new RegExp(`<(\\/?)${tagName}\\b[^>]*>`, 'gi');
+  let depth = 0;
+  let m;
+  while ((m = re.exec(markup)) !== null && m.index < index) {
+    depth += m[1] ? -1 : 1;
+  }
+  return depth;
+}
+
 function runFrontendStructureTests() {
   console.log('🧪 Iniciando verificación de estructura HTML frontend + orden de importación IA ...');
 
   // ---------- A + B: balance de <div> y modales de nivel body ----------
-  const htmlFiles = ['public/studio.html', 'public/menu.html', 'public/admin.html'];
+  const htmlFiles = ['public/index.html', 'public/studio.html', 'public/menu.html', 'public/admin.html'];
   const problems = [];
 
   for (const rel of htmlFiles) {
@@ -104,6 +135,59 @@ function runFrontendStructureTests() {
   }
 
   assert.deepStrictEqual(problems, [], `Estructura HTML rota:\n  - ${problems.join('\n  - ')}`);
+
+  // ---------- A.2: landing — FAQ en el flujo principal, no dentro del pricing grid ----------
+  // Bug real: un cierre mal formado (`</div</section>`) dejó abierto
+  // #pricingEventGrid (display:none), así que Testimonios y FAQ quedaron
+  // anidados dentro de un contenedor invisible (FAQ medía 0px en producción).
+  // La FAQ debe ser una <section> top-level dentro de <main>, con sus links
+  // de navegación y sin abrir pestañas nuevas para rutas internas.
+  const landingMarkup = markupOnly(read('public/index.html'));
+  const sectionScan = scanSections(landingMarkup);
+  assert.strictEqual(
+    sectionScan.finalDepth,
+    0,
+    `index.html: <section> desbalanceados — profundidad final ${sectionScan.finalDepth} (cierres mal formados como </div</section>)`
+  );
+  assert.strictEqual(
+    sectionScan.minDepth,
+    0,
+    `index.html: ${sectionScan.negatives} </section> sin apertura correspondiente`
+  );
+
+  const faqOpenIndex = landingMarkup.indexOf('<section id="faq"');
+  assert.notStrictEqual(faqOpenIndex, -1, 'index.html: falta la sección #faq');
+  assert.strictEqual(
+    depthBeforeTag(landingMarkup, 'section', faqOpenIndex),
+    0,
+    'REGRESIÓN: #faq está anidada dentro de otra <section> (el pricing grid oculto la volvía invisible)'
+  );
+  const mainOpenIndex = landingMarkup.indexOf('<main');
+  const mainCloseIndex = landingMarkup.indexOf('</main>');
+  assert.ok(
+    mainOpenIndex !== -1 && mainCloseIndex !== -1 && faqOpenIndex > mainOpenIndex && faqOpenIndex < mainCloseIndex,
+    'REGRESIÓN: #faq debe estar dentro de <main>, antes de </main>'
+  );
+  assert.strictEqual(
+    (landingMarkup.match(/class="faq-question"/g) || []).length,
+    6,
+    'REGRESIÓN: la landing debe publicar las 6 preguntas frecuentes'
+  );
+  const faqLinks = landingMarkup.match(/<a\b[^>]*href=["']#faq["'][^>]*>/gi) || [];
+  assert.ok(
+    faqLinks.length >= 2,
+    'REGRESIÓN: la FAQ debe estar enlazada desde la navegación y el footer (href="#faq")'
+  );
+  const internalAnchors = [
+    ...landingMarkup.matchAll(/<a\b[^>]*href=["'](?:#|\/)[^"']*["'][^>]*>/gi)
+  ].map((m) => m[0]);
+  const internalBlank = internalAnchors.filter((tag) => /\btarget\s*=\s*["']_blank["']/i.test(tag));
+  assert.deepStrictEqual(
+    internalBlank,
+    [],
+    `REGRESIÓN: los enlaces internos de la landing no deben abrir pestaña nueva:\n  - ${internalBlank.join('\n  - ')}`
+  );
+  console.log('✓ Landing: #faq top-level dentro de <main>, 6 preguntas y links internos sin target="_blank"');
 
   // ---------- C: orden en runAiMenuAnalysis ----------
   const src = read('public/js/studio/aiMenuImport.js');
