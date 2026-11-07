@@ -1,6 +1,6 @@
 # 🚀 Checklist de Puesta en Producción — ScanGo
 
-> Estado: **en ejecución** · Última actualización: 2026-11-06
+> Estado: **en ejecución** · Última actualización: 2026-11-07
 > Dominio objetivo: `scango.uy` (**activo**) · Prod viva: `https://www.scango.uy` (healthz healthy, DB cloud OK)
 > **Host canónico: `https://www.scango.uy`** — el apex (`https://scango.uy`) también responde 200 (no hay redirect configurado): la cookie de sesión es host-only, así que el canónico debe ser www. El canonical/OG/JSON-LD de la landing y el sitemap ya apuntan a www; falta (manual, opcional) redirect apex→www en Vercel Domains.
 > Pasarela global elegida: **Lemon Squeezy** · Latam: **Mercado Pago**
@@ -22,7 +22,7 @@
 | Email real | ⛔ **BLOQUEANTE**: Resend responde 403 "The scango.uy domain is not verified" al enviar desde `pedidos@`/`hola@scango.uy`; `EMAIL_FROM` sigue en el sandbox `onboarding@resend.dev`, que **solo entrega al email del dueño de la cuenta** (`mat2001llorent@gmail.com`) y rebota 403 a cualquier otro destinatario. DNS publicados ≠ dominio verificado en la cuenta (la key del `.env` es send-only: `GET /domains` → 401 `restricted_api_key`) |
 | Pasarela global | ⛔ sin Lemon Squeezy (API key, store, webhook, variants) |
 | Google OAuth | ⚠️ flujo **verificado end-to-end en prod** (`/google/start?probe=1` → `ready:true`, `redirect_uri=https://www.scango.uy/api/auth/google/callback`, llega a `accounts.google.com`) + fallback FedCM en móvil; **falta confirmar que la pantalla de consentimiento esté en "Production"** (si está en *Testing*, solo entran los test users) |
-| Deploy en Vercel | ✅ `https://www.scango.uy` viva (healthz 200, DB cloud, SSR, robots/sitemap dinámicos, IndexNow 200) — verificado 2026-11-05; último deploy 2026-11-06 `dpl_6qaz421GHj4iCfP9NopAitvKmY19` (commit `265c801`, botón Volver de legales) |
+| Deploy en Vercel | ✅ `https://www.scango.uy` viva (healthz 200, DB cloud, SSR, robots/sitemap dinámicos, IndexNow 200) — verificado 2026-11-05; último deploy 2026-11-07 `dpl_Ej19VpLNo37L8LyJ2P3Y3smh6fhM` (commit `a0ccee0`, FAQ visible y navegación interna) |
 | Contacto y datos legales | ✅ teléfono oficial `+598 93 640 039` (`wa.me/59893640039`) en landing, Studio, legales y `llms*.txt`; domicilio `Rambla República del Perú 815, Montevideo` en `/privacidad` y `/terminos`; sin razón social ni RUT (titular persona física); DMCA `soporte@scango.uy` |
 | Sentry DSN | ⛔ pendiente (recomendado) |
 | UptimeRobot | ⛔ pendiente (recomendado; hoy solo el workflow `uptime-check.yml` cada 6 h) |
@@ -72,6 +72,20 @@
 | Desde Studio legacy | click real `target="_blank"` a `/terminos.html` desde `/studio.html` → referrer `https://www.scango.uy/studio.html` → "← Volver al panel" y `href="/studio"` |
 | Consola/CSP | 0 errores y 0 warnings en las páginas verificadas; el script externo same-origin carga con la CSP transicional (`script-src 'self'`, `script-src-attr 'none'`) |
 | Regresión | `test-frontend-structure` (§J), `test-frontend-esm-syntax`, `test-a11y`, `test-csp` (53/53) y `test-architecture-guards` en verde |
+
+### Verificación de producción — 2026-11-07 (FAQ visible y navegación interna)
+
+| Check | Evidencia |
+|---|---|
+| Deploy | `dpl_Ej19VpLNo37L8LyJ2P3Y3smh6fhM` READY, aliased a `https://www.scango.uy` (commit `a0ccee0`) |
+| FAQ visible | `#faq` es hija directa de `<main>` (ya no de `.pricing-grid`), altura medida 1101px, 6 preguntas de 71px cada una |
+| Acordeón | click real sobre la primera pregunta alterna `aria-expanded` (`true` → `false`) y la respuesta conserva altura (69px) |
+| Enlaces a la FAQ | 1 link en la navegación principal + 1 en el footer, ambos `href="#faq"` |
+| `/soluciones` | 200 · 31 enlaces internos auditados en runtime, **0** con `target`; hub y landings navegan en la misma pestaña |
+| `/soluciones/menu-digital-para-restaurantes` | 200 · 30 enlaces internos, **0** con `target` |
+| `/ciudades` | 200 · 27 enlaces internos, **0** con `target`; hoy no hay ciudades publicadas (el hub no inventa páginas) |
+| Navegación externa | los links a WhatsApp/Maps/redes conservan `target="_blank"` + `rel="noopener noreferrer"` solo por ser externos (justificado) |
+| Regresión | `test-frontend-structure`, `test-solutions-seo`, `test-seo-cities`, `test-landing-conversion`, `test-a11y`, `test-frontend-esm-syntax` y `test-csp` (53/53) en verde |
 
 ---
 
