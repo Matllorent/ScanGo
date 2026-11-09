@@ -286,6 +286,10 @@ function runA11yTests() {
   assert.ok(/['"]Escape['"]/.test(modalA11y), 'modalA11y.js debe cerrar el modal con Escape');
   assert.ok(/['"]Tab['"]/.test(modalA11y), 'modalA11y.js debe atrapar el foco dentro del modal (Tab)');
   assert.ok(/MutationObserver/.test(modalA11y), 'modalA11y.js debe observar la apertura/cierre de modales');
+  assert.ok(
+    /focus\(\{\s*preventScroll:\s*true\s*\}\)/.test(modalA11y),
+    'modalA11y.js debe restaurar el foco al disparador SIN robar el scroll (preventScroll: true): si no, pisa el scroll propio del flujo que acaba de terminar (alta de plato)'
+  );
 
   const studioJs = read('public/js/studio.js');
   assert.ok(

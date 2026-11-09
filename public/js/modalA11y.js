@@ -50,6 +50,26 @@ function focusablesWithin(root) {
 }
 
 /**
+ * Devuelve el foco sin arrastrar el scroll de la página. `focus()` a secas
+ * re-scrollea hasta el disparador (p. ej. "+ Nuevo Plato", arriba de la lista)
+ * y pisa el scroll propio del flujo que acaba de terminar. Bug real: al crear
+ * un plato, la tarjeta nueva quedaba fuera de vista porque el foco restaurado
+ * devolvía el panel a 0 justo después del `scrollIntoView`.
+ */
+function focusWithoutScroll(el) {
+  if (!el || typeof el.focus !== 'function') return;
+  try {
+    el.focus({ preventScroll: true });
+  } catch (_) {
+    try {
+      el.focus();
+    } catch (_) {
+      /* foco best-effort */
+    }
+  }
+}
+
+/**
  * Cablea la accesibilidad de todos los `.modal-overlay` de la página, presentes
  * ahora o agregados después. Idempotente: si ya se cableó, no vuelve a hacerlo.
  */
@@ -97,13 +117,7 @@ export function initModalA11y() {
     overlay.setAttribute('aria-hidden', 'true');
     if (activeOverlay === overlay) {
       activeOverlay = null;
-      if (opener && typeof opener.focus === 'function' && opener.isConnected) {
-        try {
-          opener.focus();
-        } catch (_) {
-          /* foco best-effort */
-        }
-      }
+      if (opener && opener.isConnected) focusWithoutScroll(opener);
       opener = null;
     }
   }

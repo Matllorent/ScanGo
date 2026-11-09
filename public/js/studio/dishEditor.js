@@ -50,6 +50,30 @@ export function populateCatFilter(restaurant) {
 // Plato recién creado/editado: se resalta al volver a renderizar la lista.
 let pendingScrollDishId = null;
 
+/**
+ * Desplaza la lista hasta la tarjeta del plato recién creado/editado. Corre en
+ * el frame siguiente al cierre del modal: el enhancer de accesibilidad devuelve
+ * el foco al disparador (ya con `preventScroll`) y el reveal del plato debe ser
+ * la última intención de scroll del flujo de guardado.
+ */
+function revealDishCard(container, dishId) {
+  const reveal = () => {
+    const card = Array.from(container.querySelectorAll('[data-dish-id]'))
+      .find(node => node.dataset.dishId === dishId);
+    if (!card) return;
+    const reduceMotion = window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    card.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+  };
+  if (typeof window.requestAnimationFrame === 'function') {
+    // Doble frame: deja pasar el cierre del modal y cualquier re-render del
+    // autosave antes de mover la lista.
+    window.requestAnimationFrame(() => window.requestAnimationFrame(reveal));
+  } else {
+    reveal();
+  }
+}
+
 export function renderDishesList(restaurant, escapeHtml) {
   const container = document.getElementById('studioDishesList');
   const filterSelect = document.getElementById('selectCatFilter');
@@ -96,16 +120,11 @@ export function renderDishesList(restaurant, escapeHtml) {
   if (scrollHost) scrollHost.scrollTop = previousScrollTop;
 
   if (pendingScrollDishId) {
-    const card = Array.from(container.querySelectorAll('[data-dish-id]'))
-      .find(node => node.dataset.dishId === pendingScrollDishId);
-    if (card) {
-      const reduceMotion = window.matchMedia
-        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      card.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
-    }
+    const dishId = pendingScrollDishId;
     // Se consume SIEMPRE: si el plato quedó fuera del filtro activo, no debe
     // saltar la lista en un render posterior.
     pendingScrollDishId = null;
+    revealDishCard(container, dishId);
   }
 }
 
