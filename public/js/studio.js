@@ -22,6 +22,17 @@ import {
 // imageMode y menuSizing. Paridad garantizada por tests/test-theme-manifest.js.
 import { LAYOUTS, IMAGE_MODES, MENU_SIZING_MODES } from './menu/themeManifest.js';
 import { sanitizePickupConfig } from './utils/pickupSlots.js';
+import {
+  normalizeMenuSlug,
+  buildPublicMenuUrl,
+  sanitizeOrigin
+} from './studio/slugField.js';
+import {
+  parseCoordinate,
+  formatCoordinate,
+  describeGeoError,
+  buildGoogleMapsUrl
+} from './studio/locationField.js';
 import { state } from './studio/state.js';
 import { PLANS } from './studio/data/plans.js';
 import { PRESETS } from './studio/data/presetsData.js';
@@ -383,6 +394,9 @@ export function normalizeRestaurantBusinessType(profile) {
 // (nunca se pisa nada sin clic en «Importar a mi local»).
 const DEMO_TYPES = ['restaurant', 'heladeria', 'perfumery', 'events'];
 let demoMode = null; // { type, slug, name, authenticated } o null
+// Última dirección pública válida. El campo vacío NUNCA borra la dirección
+// viva: al salir del input se restaura esta (o se propone una del nombre).
+let lastValidSlug = '';
 
 // El checklist de puesta en marcha no aplica al modo demo (estás viendo una
 // plantilla, no tu local). El predicado lee el estado VIVO de `demoMode`, así
@@ -1078,7 +1092,11 @@ export function updateLiveState() {
   const el = id => document.getElementById(id);
   restaurant.name = el('inputLocalName')?.value || '';
   restaurant.slogan = el('inputLocalSlogan')?.value || '';
-  restaurant.slug = (el('inputLocalSlug')?.value || '').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  // Misma regla de normalización que el server (api/utils/menuSlug.js): acentos
+  // fuera, minúsculas, guiones colapsados y tope de 30. La URL mostrada y el
+  // preview usan el slug ya normalizado.
+  restaurant.slug = normalizeMenuSlug(el('inputLocalSlug')?.value || '');
+  if (restaurant.slug) lastValidSlug = restaurant.slug;
   restaurant.currency = el('inputLocalCurrency')?.value || '$';
   restaurant.phone = el('inputPhone')?.value || '';
   restaurant.city = el('inputRestaurantCity')?.value.trim().slice(0, 100) || '';
@@ -1185,10 +1203,24 @@ export function updateLiveState() {
   restaurant.priceRange = el('inputPriceRange')?.value || '';
   const sameAsValue = el('inputSameAs')?.value.trim() || '';
   restaurant.sameAs = sameAsValue ? [sameAsValue] : [];
-  const latValue = el('inputLatitude')?.value.trim();
-  const lngValue = el('inputLongitude')?.value.trim();
-  restaurant.latitude = latValue === '' ? null : Number(latValue);
-  restaurant.longitude = lngValue === '' ? null : Number(lngValue);
+  // Coordenadas: vacío = null (el dueño las borró a propósito); un valor
+  // inválido MIENTRAS se tipea no pisa el último válido (el blur lo corrige).
+  // `Number(null)` era 0 y un campo a medio escribir guardaba coordenadas falsas.
+  const latRaw = el('inputLatitude')?.value ?? '';
+  const lngRaw = el('inputLongitude')?.value ?? '';
+  if (String(latRaw).trim() === '') {
+    restaurant.latitude = null;
+  } else {
+    const parsedLat = parseCoordinate(latRaw, 'lat');
+    if (parsedLat !== null) restaurant.latitude = parsedLat;
+  }
+  if (String(lngRaw).trim() === '') {
+    restaurant.longitude = null;
+  } else {
+    const parsedLng = parseCoordinate(lngRaw, 'lng');
+    if (parsedLng !== null) restaurant.longitude = parsedLng;
+  }
+  updateLocationUi();
 
   const layoutSelect = el('inputMenuLayout');
   if (layoutSelect) restaurant.layout = layoutSelect.value || 'classic';
@@ -1405,8 +1437,9 @@ export function updateLiveState() {
   if (el('inputTableCount')) restaurant.tableCount = parseInt(el('inputTableCount').value) || 10;
 
   if (el('studioNavRestaurantName')) el('studioNavRestaurantName').textContent = restaurant.name;
-  if (el('previewFullUrl')) el('previewFullUrl').textContent = `/m/${restaurant.slug}`;
-  if (el('btnLiveMenu')) el('btnLiveMenu').href = `/m/${restaurant.slug}`;
+  // URL pública real (https + dominio de la app) en vez de `/m/slug` a secas:
+  // el dueño ve el enlace que comparte y puede copiarlo o abrirlo.
+  updatePublicMenuLink();
 
   generateQrCode();
   syncLivePreviewIframe();
@@ -1458,16 +1491,306 @@ export function setPreviewView(mode) {
   // Mobile / desktop preview viewport toggles
 }
 
+// ── Enlace público de la carta (slug + URL real) ──────────────────────────
+// El dueño ve y comparte `https://<dominio>/m/<slug>`. En desarrollo el origen
+// es localhost; en la app nativa el origen es `https://localhost` (shell
+// Capacitor) y se usa el dominio oficial para que el enlace sirva.
+function getPublicMenuOrigin() {
+  let origin = '';
+  try {
+    origin = window.location.origin;
+  } catch (e) {
+    origin = '';
+  }
+  return sanitizeOrigin(origin);
+}
+
+let slugStatusTimer = null;
+
+function setSlugStatus(message, isError = false) {
+  const status = document.getElementById('menuUrlStatus');
+  if (!status) return;
+  status.textContent = message || '';
+  status.style.color = isError ? '#FEB2B2' : 'var(--text-dim)';
+}
+
+function setSlugStatusTransient(message, isError = false) {
+  setSlugStatus(message, isError);
+  clearTimeout(slugStatusTimer);
+  if (message && !isError) {
+    slugStatusTimer = setTimeout(() => setSlugStatus(''), 6000);
+  }
+}
+
+/**
+ * Sincroniza la URL pública mostrada, el link del navbar y las acciones
+ * (copiar/abrir). Sin slug válido se desactivan y se muestra el estado vacío.
+ * @returns {string} la URL pública o '' si todavía no hay dirección
+ */
+export function updatePublicMenuLink() {
+  if (!restaurant) return '';
+  // Si el campo está vacío mientras se edita, la dirección VIVA sigue siendo
+  // la última válida (el save omite el slug vacío y el server conserva la
+  // existente): mostramos/compartimos esa, no un estado vacío mentiroso.
+  const normalized = normalizeMenuSlug(restaurant.slug || '') || normalizeMenuSlug(lastValidSlug);
+  const url = buildPublicMenuUrl(getPublicMenuOrigin(), normalized);
+
+  const link = document.getElementById('publicMenuUrl');
+  if (link) {
+    if (url) {
+      link.href = url;
+      link.textContent = url;
+      link.style.color = 'var(--accent-gold)';
+    } else {
+      link.removeAttribute('href');
+      link.textContent = 'Todavía no elegiste una dirección';
+      link.style.color = 'var(--text-dim)';
+    }
+  }
+  const copyBtn = document.getElementById('btnCopyMenuUrl');
+  if (copyBtn) copyBtn.disabled = !url;
+  const openBtn = document.getElementById('btnOpenPublicMenu');
+  if (openBtn) openBtn.disabled = !url;
+  const liveBtn = document.getElementById('btnLiveMenu');
+  if (liveBtn) {
+    if (url) liveBtn.href = url;
+    else liveBtn.removeAttribute('href');
+  }
+  return url;
+}
+
+/**
+ * Al salir del campo (blur) se normaliza de verdad: acentos fuera, guiones
+ * colapsados y tope de 30. Vacío NO borra: restaura la última dirección válida
+ * o propone una a partir del nombre (el server usa la misma regla).
+ */
+export function normalizeSlugInput() {
+  const input = document.getElementById('inputLocalSlug');
+  if (!input || !restaurant) return;
+  let normalized = normalizeMenuSlug(input.value || '');
+  if (!normalized) {
+    normalized = lastValidSlug || normalizeMenuSlug(restaurant.name || '');
+  }
+  if (normalized) lastValidSlug = normalized;
+  input.value = normalized;
+  restaurant.slug = normalized;
+  updatePublicMenuLink();
+}
+
+export async function copyPublicMenuUrl() {
+  const url = updatePublicMenuLink();
+  if (!url) {
+    setSlugStatusTransient('Primero elegí una dirección para tu carta y guardá los cambios.', true);
+    return;
+  }
+  let copied = false;
+  try {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      await navigator.clipboard.writeText(url);
+      copied = true;
+    }
+  } catch (e) {
+    copied = false;
+  }
+  if (!copied) {
+    // Fallback para navegadores sin Clipboard API (o contextos no seguros).
+    try {
+      const area = document.createElement('textarea');
+      area.value = url;
+      area.setAttribute('readonly', '');
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      copied = document.execCommand('copy');
+      document.body.removeChild(area);
+    } catch (e) {
+      copied = false;
+    }
+  }
+  setSlugStatusTransient(
+    copied
+      ? '✅ Enlace copiado. Ya lo podés pegar en Instagram, WhatsApp o tu QR.'
+      : `No se pudo copiar automáticamente. El enlace es: ${url}`,
+    !copied
+  );
+}
+
+export function openPublicMenu() {
+  const url = updatePublicMenuLink();
+  if (!url) {
+    setSlugStatusTransient('Todavía no hay una dirección pública. Elegí una arriba y guardá los cambios.', true);
+    return;
+  }
+  // El binder hace preventDefault en los <a>: abrimos la pestaña acá.
+  window.open(url, '_blank', 'noopener');
+}
+
+// ── Ubicación del local (latitud / longitud) ──────────────────────────────
+function setLocationStatus(message, isError = false) {
+  const status = document.getElementById('locationStatus');
+  if (!status) return;
+  status.textContent = message || '';
+  status.style.color = isError ? '#FEB2B2' : 'var(--text-dim)';
+}
+
+let locationBusy = false;
+
+/**
+ * Pide la ubicación al navegador y completa lat/lng. Es una acción EXPLÍCITA
+ * del dueño (no dispara prompts sorpresivos): la automatización solo reintenta
+ * si el permiso YA estaba concedido (ver maybeAutoFillLocation).
+ */
+export function useCurrentLocation() {
+  if (!restaurant || locationBusy) return;
+  if (!navigator.geolocation || typeof navigator.geolocation.getCurrentPosition !== 'function') {
+    setLocationStatus(
+      'Este navegador no permite obtener la ubicación. Escribí las coordenadas a mano (las sacás de Google Maps).',
+      true
+    );
+    return;
+  }
+  const btn = document.getElementById('btnUseLocation');
+  locationBusy = true;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '📍 Buscando…';
+  }
+  setLocationStatus('Buscando tu ubicación… Aceptá el permiso del navegador si te lo pide.');
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      locationBusy = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '📍 Usar mi ubicación';
+      }
+      const lat = parseCoordinate(position.coords.latitude, 'lat');
+      const lng = parseCoordinate(position.coords.longitude, 'lng');
+      if (lat === null || lng === null) {
+        setLocationStatus('El navegador devolvió una ubicación inválida. Escribí las coordenadas a mano.', true);
+        return;
+      }
+      restaurant.latitude = lat;
+      restaurant.longitude = lng;
+      const latInput = document.getElementById('inputLatitude');
+      const lngInput = document.getElementById('inputLongitude');
+      if (latInput) latInput.value = String(lat);
+      if (lngInput) lngInput.value = String(lng);
+      updateLocationUi();
+      const accuracy = Number(position.coords.accuracy);
+      const accuracyText = Number.isFinite(accuracy) && accuracy > 0
+        ? ` Precisión aproximada: ±${Math.round(accuracy)} m.`
+        : '';
+      setLocationStatus(
+        `✅ Ubicación cargada.${accuracyText} Revisá el pin en el mapa y movelo a mano si hace falta.`
+      );
+      triggerAutoSave();
+    },
+    (error) => {
+      locationBusy = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '📍 Usar mi ubicación';
+      }
+      setLocationStatus(describeGeoError(error), true);
+    },
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 300000 }
+  );
+}
+
+/**
+ * Autocompletado silencioso SOLO si el dueño ya concedió el permiso antes
+ * (nunca abre un prompt solo): el botón 📍 queda siempre disponible.
+ */
+export function maybeAutoFillLocation() {
+  if (!restaurant) return;
+  if (!navigator.geolocation) return;
+  if (!navigator.permissions || typeof navigator.permissions.query !== 'function') return;
+  // Hay coordenadas si el campo tiene algo escrito O si el local ya las tenía
+  // guardadas. Mirar SOLO el input podía pisar las guardadas cuando el render
+  // todavía no las había volcado (camino de paywall / carga lenta).
+  const hasSavedCoordinate = () => {
+    const latInput = document.getElementById('inputLatitude');
+    const lngInput = document.getElementById('inputLongitude');
+    const latFilled = Boolean(latInput && String(latInput.value || '').trim()) ||
+      parseCoordinate(restaurant.latitude, 'lat') !== null;
+    const lngFilled = Boolean(lngInput && String(lngInput.value || '').trim()) ||
+      parseCoordinate(restaurant.longitude, 'lng') !== null;
+    return latFilled || lngFilled;
+  };
+  if (hasSavedCoordinate()) return;
+  navigator.permissions.query({ name: 'geolocation' })
+    .then((status) => {
+      if (!status || status.state !== 'granted' || !restaurant) return;
+      // Re-chequear: el render pudo haber volcado coordenadas mientras tanto.
+      if (!hasSavedCoordinate()) useCurrentLocation();
+    })
+    .catch(() => { /* Permissions API no disponible: el dueño usa el botón */ });
+}
+
+/**
+ * Al salir del campo de coordenadas: normaliza coma decimal, redondea a 6
+ * decimales y rechaza fuera de rango. Un valor inválido restaura el anterior.
+ * @param {'lat'|'lng'} kind
+ */
+export function normalizeCoordinateInput(kind) {
+  if (!restaurant) return;
+  const isLng = kind === 'lng';
+  const key = isLng ? 'longitude' : 'latitude';
+  const input = document.getElementById(isLng ? 'inputLongitude' : 'inputLatitude');
+  if (!input) return;
+  const raw = String(input.value || '').trim();
+  if (!raw) {
+    restaurant[key] = null;
+    input.value = '';
+    updateLocationUi();
+    setLocationStatus('');
+    return;
+  }
+  const parsed = parseCoordinate(raw, isLng ? 'lng' : 'lat');
+  if (parsed === null) {
+    const previous = parseCoordinate(restaurant[key], isLng ? 'lng' : 'lat');
+    input.value = previous === null ? '' : String(previous);
+    setLocationStatus(
+      isLng
+        ? 'Longitud inválida: usá un número entre -180 y 180 (por ejemplo -56.1916).'
+        : 'Latitud inválida: usá un número entre -90 y 90 (por ejemplo -34.9053).',
+      true
+    );
+    return;
+  }
+  restaurant[key] = parsed;
+  input.value = String(parsed);
+  updateLocationUi();
+  setLocationStatus('');
+}
+
+function updateLocationUi() {
+  const mapsLink = document.getElementById('btnOpenLocationMaps');
+  if (!mapsLink) return;
+  const latInput = document.getElementById('inputLatitude');
+  const lngInput = document.getElementById('inputLongitude');
+  const lat = parseCoordinate(latInput ? latInput.value : restaurant && restaurant.latitude, 'lat');
+  const lng = parseCoordinate(lngInput ? lngInput.value : restaurant && restaurant.longitude, 'lng');
+  const mapsUrl = buildGoogleMapsUrl(lat, lng);
+  if (mapsUrl) {
+    mapsLink.href = mapsUrl;
+    mapsLink.hidden = false;
+  } else {
+    mapsLink.removeAttribute('href');
+    mapsLink.hidden = true;
+  }
+}
+
 // Main UI Renderer
 export function renderStudioUI() {
   const el = id => document.getElementById(id);
   if (el('studioNavRestaurantName')) el('studioNavRestaurantName').textContent = restaurant.name;
   if (el('studioNavUserEmail')) el('studioNavUserEmail').textContent = currentUser.email;
   
-  const liveUrl = `/m/${restaurant.slug}`;
-  const btnLive = el('btnLiveMenu');
-  if (btnLive) btnLive.href = liveUrl;
-  if (el('previewFullUrl')) el('previewFullUrl').textContent = liveUrl;
+  lastValidSlug = normalizeMenuSlug(restaurant.slug || '') || lastValidSlug;
+  updatePublicMenuLink();
 
   renderSubscriptionBadge(currentUser.subscription);
   checkSubscriptionAlerts(currentUser.subscription);
@@ -1477,7 +1800,7 @@ export function renderStudioUI() {
 
   if (el('inputLocalName')) el('inputLocalName').value = restaurant.name || '';
   if (el('inputLocalSlogan')) el('inputLocalSlogan').value = restaurant.slogan || '';
-  if (el('inputLocalSlug')) el('inputLocalSlug').value = restaurant.slug || '';
+  if (el('inputLocalSlug')) el('inputLocalSlug').value = lastValidSlug;
   if (el('inputLocalCurrency')) el('inputLocalCurrency').value = restaurant.currency || '$';
   if (el('inputPhone')) el('inputPhone').value = restaurant.phone || '';
 
@@ -1515,11 +1838,12 @@ export function renderStudioUI() {
   }
 
   // Visibilidad SEO local: priceRange con allowlist, sameAs como [url],
-  // lat/lng numérico (0 es válido — Ecuador pasa el Number.isFinite).
+  // lat/lng numérico (0 es válido — Ecuador está sobre el ecuador).
   if (el('inputPriceRange')) el('inputPriceRange').value = restaurant.priceRange || '';
   if (el('inputSameAs')) el('inputSameAs').value = (Array.isArray(restaurant.sameAs) ? restaurant.sameAs[0] : restaurant.sameAs) || '';
-  if (el('inputLatitude')) el('inputLatitude').value = Number.isFinite(Number(restaurant.latitude)) ? restaurant.latitude : '';
-  if (el('inputLongitude')) el('inputLongitude').value = Number.isFinite(Number(restaurant.longitude)) ? restaurant.longitude : '';
+  if (el('inputLatitude')) el('inputLatitude').value = formatCoordinate(restaurant.latitude, 'lat');
+  if (el('inputLongitude')) el('inputLongitude').value = formatCoordinate(restaurant.longitude, 'lng');
+  updateLocationUi();
 
   const layoutSelect = el('inputMenuLayout');
   if (layoutSelect) layoutSelect.value = restaurant.layout || 'classic';
@@ -2069,6 +2393,10 @@ export async function initStudio() {
     currentUser = state.currentUser || currentUser;
     restaurant = state.restaurant || restaurant;
   }
+
+  // Ubicación del local: si el dueño ya concedió el permiso, completamos
+  // lat/lng en silencio (sin prompt). En demo NO se toca la plantilla.
+  if (!demoMode) maybeAutoFillLocation();
 
   // Setup Drag & Drop on AI Menu Dropzone
   const dropzone = document.getElementById('aiMenuDropzone');
@@ -2967,6 +3295,8 @@ export function toggleLoyaltyLevels(inputEl) {
 const globalExports = {
   initStudio, loadSeoAudit, logout, openDeleteAccountModal, closeDeleteAccountModal, confirmAccountDeletion,
   renderStudioUI, updateLiveState, saveStudioChanges, triggerAutoSave, reloadPreviewIframe, syncLivePreviewIframe, setPreviewView,
+  updatePublicMenuLink, normalizeSlugInput, copyPublicMenuUrl, openPublicMenu,
+  useCurrentLocation, maybeAutoFillLocation, normalizeCoordinateInput,
   switchTab, showConfirmDialog, closeConfirmDialog, showSaveFeedback,
   handleLogoUpload, removeLogo, handleBannerUpload, handleBannerUrlInput, removeBanner, renderBannerPreviewUI, handleBannerImageError,
   openBillingModal, closeBillingModal, startCheckout, cancelSubscription,

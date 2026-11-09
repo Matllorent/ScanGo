@@ -18,6 +18,7 @@ const {
 const { validateBody } = require('../middleware/validation');
 const { createGroupCartToken } = require('../utils/groupCartToken');
 const { stripPrivilegedFields } = require('../utils/stripPrivilegedFields');
+const { normalizeMenuSlug } = require('../utils/menuSlug');
 const aiRouter = require('./ai');
 const auditService = require('../services/audit');
 const { runSeoAudit } = require('../utils/seoAudit');
@@ -496,8 +497,11 @@ router.post('/events', authMiddleware, requireVerifiedEmail, requireActiveSubscr
     }
 
     const userId = req.user.userId;
-    const cleanSlug = (slug || name).toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30);
-    const eventSlug = `event-${cleanSlug}-${Date.now().toString(36)}`;
+    // El slug del evento se arma DENTRO del tope canónico de 30 (la firma
+    // `event-<base>-<ts>` no puede truncarse después sin perder la unicidad):
+    // base ≤14 + prefijo 6 + guion + base36 del timestamp (8) = 29.
+    const eventBase = normalizeMenuSlug(slug || name).slice(0, 14).replace(/-+$/g, '') || 'evento';
+    const eventSlug = `event-${eventBase}-${Date.now().toString(36)}`;
 
     const expiresAtDate = expiresAt ? new Date(expiresAt) : new Date(new Date(eventDate).getTime() + 24 * 3600 * 1000); // Default: 24h after event
 

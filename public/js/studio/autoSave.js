@@ -5,6 +5,8 @@
  * Extraído de studio.js: triggerAutoSave, saveStudioChanges, reloadPreviewIframe, setPreviewView.
  */
 
+import { normalizeMenuSlug } from './slugField.js';
+
 const TOKEN_KEY = 'menu_pizarron_token'; // legacy: ya no se emite ni se usa
 
 /**
@@ -66,6 +68,12 @@ export async function saveStudioChanges(restaurant, showSaveFeedback, reloadPrev
     // vars por huso. getTimezoneOffset es negativo por spec (UTC-3 → +180).
     const offsetNow = -new Date().getTimezoneOffset();
     const dataToSend = { ...restaurant, utcOffsetMinutes: offsetNow };
+    // La dirección pública se normaliza UNA vez (misma regla que el server).
+    // Vacía se OMITE: un update conserva la que ya existe y un alta la deriva
+    // del nombre (nunca se manda '' y se borra la dirección viva).
+    const normalizedSlug = normalizeMenuSlug(restaurant.slug);
+    if (normalizedSlug) dataToSend.slug = normalizedSlug;
+    else delete dataToSend.slug;
     const res = await fetch('/api/studio/save', {
       method: 'POST',
       headers,
@@ -122,6 +130,15 @@ export async function saveStudioChanges(restaurant, showSaveFeedback, reloadPrev
     if (savedBody && savedBody.restaurant && savedBody.restaurant.updatedAt) {
       restaurant.updatedAt = savedBody.restaurant.updatedAt;
     }
+    // El server es la autoridad del slug (en el alta lo deriva del nombre):
+    // sincronizamos el estado y el input para que la URL mostrada sea la real.
+    if (savedBody && savedBody.restaurant && savedBody.restaurant.slug) {
+      restaurant.slug = savedBody.restaurant.slug;
+      const slugInput = document.getElementById('inputLocalSlug');
+      if (slugInput && document.activeElement !== slugInput) {
+        slugInput.value = savedBody.restaurant.slug;
+      }
+    }
     finishSave('✓ Guardado', 'saved');
     showSaveFeedback('saved');
     if (typeof reloadPreviewIframeFn === 'function') reloadPreviewIframeFn();
@@ -134,11 +151,25 @@ export async function saveStudioChanges(restaurant, showSaveFeedback, reloadPrev
 
 /**
  * Recarga el iframe de preview con cache-buster.
+ * Sin dirección válida NO se navega (antes se pedía `/m/` o `/m/demo` y el
+ * simulador mostraba "Restaurante no encontrado"): se muestra un estado vacío
+ * honesto hasta que exista un slug real.
  * @param {string} slug — slug del restaurante
  */
 export function reloadPreviewIframe(slug) {
   const iframe = document.getElementById('previewIframe');
-  if (iframe) iframe.src = `/m/${slug}?t=${Date.now()}`;
+  const device = document.getElementById('previewDevice');
+  const empty = document.getElementById('previewEmptyState');
+  const normalized = normalizeMenuSlug(slug);
+  if (!normalized) {
+    if (iframe) iframe.removeAttribute('src');
+    if (device) device.hidden = true;
+    if (empty) empty.hidden = false;
+    return;
+  }
+  if (device) device.hidden = false;
+  if (empty) empty.hidden = true;
+  if (iframe) iframe.src = `/m/${normalized}?t=${Date.now()}`;
 }
 
 /**
@@ -146,6 +177,7 @@ export function reloadPreviewIframe(slug) {
  * @param {object} restaurant  — datos completos del restaurante
  */
 export function syncLivePreviewIframe(restaurant) {
+  if (!restaurant || !normalizeMenuSlug(restaurant.slug)) return;
   const iframe = document.getElementById('previewIframe');
   if (iframe && iframe.contentWindow) {
     iframe.contentWindow.postMessage({ type: 'UPDATE_LIVE_PREVIEW', data: restaurant }, window.location.origin);

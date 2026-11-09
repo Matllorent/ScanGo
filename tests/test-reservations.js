@@ -469,7 +469,7 @@ async function runTests() {
     fixtureUserIds.push(ownerDemo.id);
     const restDemo = await db.saveRestaurant(ownerDemo.id, {
       name: 'Reservas Demo', bizName: 'Reservas Demo',
-      slug: `reservas-cron-demo-${STAMP}`, utcOffsetMinutes: -180, dishes: [], categories: [], isDemo: true
+      slug: `resv-cron-demo-${STAMP}`, utcOffsetMinutes: -180, dishes: [], categories: [], isDemo: true
     });
     fixtureRestIds.push(restDemo.id);
 
@@ -496,6 +496,11 @@ async function runTests() {
     await db.updateReservationStatus(restCand.id, `resv_${STAMP}_d`, { status: 'cancelled' }, iso);                                                                // ...luego cancelada → fuera
     await mkSeed(restCand, { tag: 'e', phone: '59899111005', date: '2026-01-14', time: '23:00', confirm: true });                                                   // +2h → fuera
     await mkSeed(restDemo, { tag: 'f', phone: '59899111006', email: 'demo@example.com', date: '2026-01-15', time: '21:00', confirm: true });                        // demo → fuera
+    // addReservation/updateReservationStatus replican el perfil a la nube con
+    // trackSupabaseWrite (fire-and-forget). El cron lee el padrón completo y
+    // fusiona nube ∪ espejo con `updatedAt`: sin drenar, una foto cloud previa
+    // (p. ej. solo la reserva `_a`) gana el merge y pisa los seeds locales.
+    await db.flushCloudWrites();
 
     // Cron auth fail-closed: sin header → 401, header errado → 401.
     const cronUrl = `${base}/api/cron/reservation-reminders?nowMs=${FIXED_NOW_MS}`;

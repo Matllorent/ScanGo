@@ -47,7 +47,7 @@
         <span id="saveFeedbackIcon">🔄</span>
         <span id="saveFeedbackText">Guardando...</span>
       </div>
-      <a id="btnLiveMenu" href="#" target="_blank" class="btn-nav">
+      <a id="btnLiveMenu" href="#" target="_blank" rel="noopener" class="btn-nav" data-js-click="openPublicMenu">
         <span>🌐 Ver Menú Público</span>
       </a>
       <button class="btn-nav btn-nav-gold" data-js-click="openBillingModal">
@@ -200,9 +200,20 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="inputLocalSlug">Slug de Enlace Público (/m/:slug)</label>
-              <input type="text" id="inputLocalSlug" class="form-input" placeholder="ej: la-trattoria" data-js-input="updateLiveState">
-              <div class="input-hint">Tu enlace web será: <code id="previewFullUrl">/m/slug</code></div>
+              <label class="form-label" for="inputLocalSlug">Dirección de tu carta en internet</label>
+              <input type="text" id="inputLocalSlug" class="form-input" placeholder="ej: la-trattoria" maxlength="30" autocomplete="off" spellcheck="false" data-js-input="updateLiveState" data-js-blur="normalizeSlugInput">
+              <div class="input-hint">
+                Es la parte final de tu enlace público: lo que la gente escribe después de <code>/m/</code>.
+                Usá letras, números y guiones, sin espacios ni acentos. Ejemplo: <code>la-trattoria</code>.
+              </div>
+              <div class="public-url-row">
+                <a id="publicMenuUrl" class="public-url-link" target="_blank" rel="noopener">Todavía no elegiste una dirección</a>
+                <div class="public-url-actions">
+                  <button type="button" class="btn-nav" id="btnCopyMenuUrl" data-js-click="copyPublicMenuUrl" disabled>📋 Copiar</button>
+                  <button type="button" class="btn-nav" id="btnOpenPublicMenu" data-js-click="openPublicMenu" disabled>↗ Abrir</button>
+                </div>
+              </div>
+              <div class="input-hint" id="menuUrlStatus" role="status" aria-live="polite"></div>
             </div>
 
             <div class="form-group">
@@ -301,14 +312,19 @@
               <div class="field-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                 <div class="form-group">
                   <label class="form-label" for="inputLatitude">Latitud</label>
-                  <input type="number" step="any" id="inputLatitude" class="form-input" placeholder="Ej: -34.9053" data-js-input="updateLiveState">
+                  <input type="text" inputmode="decimal" id="inputLatitude" class="form-input" placeholder="Ej: -34.9053" autocomplete="off" data-js-input="updateLiveState" data-js-blur="normalizeCoordinateInput|lat">
                 </div>
                 <div class="form-group">
                   <label class="form-label" for="inputLongitude">Longitud</label>
-                  <input type="number" step="any" id="inputLongitude" class="form-input" placeholder="Ej: -56.1916" data-js-input="updateLiveState">
+                  <input type="text" inputmode="decimal" id="inputLongitude" class="form-input" placeholder="Ej: -56.1916" autocomplete="off" data-js-input="updateLiveState" data-js-blur="normalizeCoordinateInput|lng">
                 </div>
               </div>
-              <div class="input-hint">Coordenadas del local (<code>GeoCoordinates</code>). En Google Maps: clic derecho sobre el local → copiar coordenadas.</div>
+              <div class="location-actions">
+                <button type="button" class="btn-nav" id="btnUseLocation" data-js-click="useCurrentLocation">📍 Usar mi ubicación</button>
+                <a class="btn-nav" id="btnOpenLocationMaps" target="_blank" rel="noopener" hidden>🗺️ Ver el pin en Google Maps</a>
+              </div>
+              <div class="input-hint" id="locationStatus" role="status" aria-live="polite"></div>
+              <div class="input-hint">Coordenadas del local (<code>GeoCoordinates</code>) para que los mapas y Google muestren el pin correcto. Usá el botón 📍 o pegá las coordenadas a mano desde Google Maps (clic derecho sobre el local → copiar coordenadas).</div>
             </div>
 
             <!-- Logo Upload for Menu & QR Center -->
@@ -1838,8 +1854,13 @@
       </div>
 
       <div class="preview-stage">
-        <div class="preview-device-phone">
-          <iframe id="previewIframe" class="phone-screen-iframe" src="/m/demo"></iframe>
+        <div class="preview-empty-state" id="previewEmptyState">
+          <span class="preview-empty-icon" aria-hidden="true">🔗</span>
+          <strong>Tu carta todavía no tiene dirección</strong>
+          <p>Elegí la dirección pública en <b>Mi Local</b> (por ejemplo <code>la-trattoria</code>). Cuando guardes, acá vas a ver tu menú tal como lo ve el comensal.</p>
+        </div>
+        <div class="preview-device-phone" id="previewDevice" hidden>
+          <iframe id="previewIframe" class="phone-screen-iframe" title="Vista previa de tu carta pública"></iframe>
         </div>
       </div>
     </main>

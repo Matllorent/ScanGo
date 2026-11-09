@@ -454,7 +454,7 @@ async function runTests() {
 
     const loyaltyManager = fs.readFileSync(path.join(ROOT, 'public', 'js', 'studio', 'loyaltyManager.js'), 'utf8');
     assert.ok(loyaltyManager.includes("revoked: 'Revocado'"), 'copy de estado revoked en el panel');
-    assert.ok(loyaltyManager.includes('revokeWinbackCouponMod'), 'revocación cableada en loyaltyManager');
+    assert.ok(loyaltyManager.includes('export async function revokeWinbackCoupon('), 'revocación cableada en loyaltyManager');
     assert.ok(loyaltyManager.includes("revokeWinbackCoupon|${c.code}") && loyaltyManager.includes("'data-js-click'"), 'botón 🚫 con binder CSP-safe (data-js-click por setAttribute)');
     assert.ok(loyaltyManager.includes('revokedCount'), 'summary con revocados');
     const revokeSection = loyaltyManager.slice(loyaltyManager.indexOf('function winbackEl'));

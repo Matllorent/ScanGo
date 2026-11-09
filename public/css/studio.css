@@ -62,6 +62,7 @@
       color: var(--text-main);
       font-family: var(--font-body);
       height: 100vh;
+      height: 100dvh; /* barras del navegador móvil sin cortar el panel */
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -129,7 +130,9 @@
     /* Workspace layout with Studio + Live Preview */
     .workspace-layout {
       display: grid;
-      grid-template-columns: minmax(400px, 480px) 1fr;
+      /* El editor necesita ancho real en escritorio: con 400px los campos de
+         dos columnas y los tabs de 13 secciones quedaban cortados. */
+      grid-template-columns: minmax(440px, 560px) 1fr;
       flex: 1;
       min-height: 0;
       overflow: hidden;
@@ -148,17 +151,17 @@
       overflow: hidden;
     }
 
-    /* 5 Fixed Responsive Tabs with anti-overflow protection */
+    /* Tabs en grilla: 13 secciones en 5 columnas (3 filas). Los nombres
+       envuelven en vez de cortarse con "…" — antes "Notificac…" no se entendía. */
     .tab-nav-grid {
       display: grid;
-      grid-template-columns: repeat(8, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       background: #111715;
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
       width: 100%;
-      overflow-x: auto;
+      overflow-x: hidden;
       overflow-y: hidden;
-      scrollbar-width: thin;
       position: sticky;
       top: 0;
       z-index: 40;
@@ -168,7 +171,7 @@
       border: none;
       border-bottom: 3px solid transparent;
       color: var(--text-dim);
-      padding: 10px 2px;
+      padding: 9px 4px;
       font-family: var(--font-body);
       font-size: 11px;
       font-weight: 600;
@@ -180,15 +183,17 @@
       justify-content: center;
       gap: 3px;
       min-width: 0;
-      overflow: hidden;
       transition: all 0.2s;
     }
     .tab-btn span:not(.tab-icon) {
       width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      line-height: 1.15;
       display: block;
+    }
+    @media (max-width: 620px) {
+      .tab-nav-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
     .tab-btn span.tab-icon { font-size: 16px; flex-shrink: 0; }
     .tab-btn:hover {
@@ -251,6 +256,38 @@
       border-color: var(--accent-gold);
     }
     .input-hint { font-size: 10px; color: var(--text-dim); margin-top: 3px; }
+    .input-hint code { background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 3px; }
+
+    /* Dirección pública de la carta (URL real + copiar/abrir) */
+    .public-url-row {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    .public-url-link {
+      flex: 1;
+      min-width: 180px;
+      font-size: 12px;
+      font-weight: 600;
+      word-break: break-all;
+      text-decoration: none;
+      color: var(--accent-gold);
+    }
+    .public-url-link:hover { text-decoration: underline; }
+    .public-url-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .public-url-actions .btn-nav { padding: 5px 9px; font-size: 11px; }
+    .public-url-actions .btn-nav:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* Ubicación del local (geolocalización + edición manual) */
+    .location-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .location-actions .btn-nav { padding: 6px 10px; font-size: 11px; }
+    .location-actions .btn-nav[hidden] { display: none; }
 
     .dish-options-panel {
       margin: 14px 0;
@@ -402,8 +439,11 @@
       overflow-y: auto;
     }
     .preview-device-phone {
-      width: 375px;
-      height: 680px;
+      box-sizing: border-box;
+      width: min(395px, 100%);
+      /* Alto relativo al viewport útil: 680px fijos se cortaban en notebooks. */
+      height: clamp(420px, calc(100dvh - 190px), 720px);
+      flex-shrink: 0;
       background: #151D1A;
       border: 10px solid #283730;
       border-radius: 36px;
@@ -412,12 +452,27 @@
       display: flex;
       flex-direction: column;
     }
+    /* `display:flex` de la regla base pisa el atributo hidden del navegador:
+       sin esto el marco vacío se ve junto al estado vacío. */
+    .preview-device-phone[hidden] { display: none; }
     .phone-screen-iframe {
       width: 100%;
       height: 100%;
       border: none;
       background: #151D1A;
     }
+    .preview-empty-state {
+      max-width: 340px;
+      text-align: center;
+      color: var(--text-dim);
+      background: var(--surface-1);
+      border: 1px dashed var(--border);
+      border-radius: 16px;
+      padding: 28px 24px;
+    }
+    .preview-empty-icon { display: block; font-size: 34px; margin-bottom: 10px; }
+    .preview-empty-state strong { display: block; color: var(--text-main); font-size: 14px; margin-bottom: 8px; }
+    .preview-empty-state p { margin: 0; font-size: 12px; line-height: 1.55; }
 
     /* Modals */
     .modal-overlay {

@@ -334,7 +334,7 @@ const WINBACK_STATUS_COLOR = { live: '#68D391', used: '#60a5fa', expired: '#F871
  * staff). Diálogo propio (sin window.confirm, CSP-safe) y recarga del panel;
  * sin UI disponible el default seguro es NO revocar.
  */
-export async function revokeWinbackCouponMod(code, showConfirmDialog) {
+export async function revokeWinbackCoupon(code, showConfirmDialog) {
   if (!code || typeof showConfirmDialog !== 'function') return;
   const ok = await showConfirmDialog({
     icon: '🚫',

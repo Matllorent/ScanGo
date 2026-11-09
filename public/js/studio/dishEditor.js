@@ -47,19 +47,13 @@ export function populateCatFilter(restaurant) {
   });
 }
 
+// Plato recién creado/editado: se resalta al volver a renderizar la lista.
+let pendingScrollDishId = null;
+
 export function renderDishesList(restaurant, escapeHtml) {
   const container = document.getElementById('studioDishesList');
   const filterSelect = document.getElementById('selectCatFilter');
   if (!container || !filterSelect) return;
-
-  // Cleanup previous virtual list if exists
-  if (container._virtualListCleanup) {
-    container._virtualListCleanup();
-  }
-  if (container._virtualListResizeObserver) {
-    container._virtualListResizeObserver.disconnect();
-    container._virtualListResizeObserver = null;
-  }
 
   // Cobertura de fotos: cuántos platos no tienen imagen (cualquier campo
   // legacy cuenta como "con foto"; el backend ya normaliza todo a photoUrl).
@@ -90,8 +84,29 @@ export function renderDishesList(restaurant, escapeHtml) {
     return;
   }
 
-  // Virtual list implementation
-  initVirtualDishList(container, filtered, cats, currency, safeEscape);
+  // Render completo: el plan más alto tiene 200 platos (nada que virtualizar).
+  // Antes una virtual list con altura estimada (72px) distinta a la real (80px)
+  // desincronizaba el rango visible y, al scrollear después de crear un plato,
+  // la lista se pintaba vacía. El scroll ahora es el natural del panel.
+  const scrollHost = container.closest('.tab-content-scroll');
+  const previousScrollTop = scrollHost ? scrollHost.scrollTop : 0;
+
+  renderDishCards(container, filtered, cats, currency, safeEscape);
+
+  if (scrollHost) scrollHost.scrollTop = previousScrollTop;
+
+  if (pendingScrollDishId) {
+    const card = Array.from(container.querySelectorAll('[data-dish-id]'))
+      .find(node => node.dataset.dishId === pendingScrollDishId);
+    if (card) {
+      const reduceMotion = window.matchMedia
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      card.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+    }
+    // Se consume SIEMPRE: si el plato quedó fuera del filtro activo, no debe
+    // saltar la lista en un render posterior.
+    pendingScrollDishId = null;
+  }
 }
 
 /**
@@ -136,74 +151,47 @@ export function updateQuotaWarningBanner(restaurant) {
 }
 
 /**
- * Virtual list para platos (estilo react-window vanilla).
- * Renderiza solo los items visibles + buffer, con IntersectionObserver para cargar más.
+ * Render completo de las tarjetas de plato (sin virtualización).
+ * El máximo del plan es 200 platos: renderizar todo simplifica el scroll y
+ * elimina la clase de bug donde el rango virtual se desincronizaba al crear
+ * un plato y scrollear (la lista quedaba vacía).
  */
-function initVirtualDishList(container, dishes, cats, currency, safeEscape) {
-  const ITEM_HEIGHT = 72; // Altura estimada de cada tarjeta de plato
-  const BUFFER = 5; // Items extra arriba/abajo
+function renderDishCards(container, dishes, cats, currency, safeEscape) {
   const tagLabels = { star: '⭐', veggie: '🥬', vegan: '🌱', celiac: '🌾', sinlactosa: '🥛', picante: '🌶️' };
 
-  // Estado del virtual list
-  let scrollTop = 0;
-  let containerHeight = container.clientHeight;
-  let visibleStart = 0;
-  let visibleEnd = Math.min(dishes.length, Math.ceil(containerHeight / ITEM_HEIGHT) + BUFFER * 2);
-  let renderScheduled = false;
+  // Limpia estilos que pudo haber dejado la virtual list anterior.
+  container.style.position = '';
+  container.style.overflowY = '';
+  container.style.maxHeight = '';
 
-  // Wrapper para el virtual list
-  container.style.position = 'relative';
-  container.style.overflowY = 'auto';
-  container.style.maxHeight = '600px'; // Altura fija para virtualización
-
-  // Spacer superior (simula items no renderizados arriba)
-  let topSpacer = container.querySelector('.virtual-list-top-spacer');
-  if (!topSpacer) {
-    topSpacer = document.createElement('div');
-    topSpacer.className = 'virtual-list-top-spacer';
-    topSpacer.style.height = '0px';
-    container.insertBefore(topSpacer, container.firstChild);
-  }
-
-  // Spacer inferior
-  let bottomSpacer = container.querySelector('.virtual-list-bottom-spacer');
-  if (!bottomSpacer) {
-    bottomSpacer = document.createElement('div');
-    bottomSpacer.className = 'virtual-list-bottom-spacer';
-    bottomSpacer.style.height = '0px';
-    container.appendChild(bottomSpacer);
-  }
-
-  // Contenedor de items renderizados
-  let itemsContainer = container.querySelector('.virtual-list-items');
-  if (!itemsContainer) {
-    itemsContainer = document.createElement('div');
-    itemsContainer.className = 'virtual-list-items';
-    itemsContainer.style.position = 'relative';
-    itemsContainer.style.zIndex = '1';
-    container.insertBefore(itemsContainer, bottomSpacer);
-  }
-
-  function renderItem(d, index) {
+  const cards = dishes.map((d, index) => {
     const cat = cats.find(c => c.id === d.categoryId);
-    const tags = (d.tags || []).filter(t => t !== 'star' && t !== 'chef_special').map(t => tagLabels[t] || '').join(' ');
+    const tags = (d.tags || [])
+      .filter(t => t !== 'star' && t !== 'chef_special')
+      .map(t => tagLabels[t] || '')
+      .join(' ');
     const starBadge = (d.tags || []).includes('star') ? '<span style="color:var(--accent-gold); margin-right:4px;">⭐</span>' : '';
     const chefBadge = (d.isChefSpecial || (d.tags || []).includes('chef_special')) ? '<span style="background:rgba(236,201,75,0.2); color:var(--accent-gold); font-size:9px; font-weight:800; padding:1px 6px; border-radius:4px; margin-right:4px; border:1px solid rgba(236,201,75,0.4);">👨‍🍳 CHEF</span>' : '';
     const outBadge = d.outOfStock ? '<span style="background:#E53E3E; color:#fff; font-size:9px; font-weight:800; padding:1px 6px; border-radius:4px; margin-left:6px;">AGOTADO</span>' : '';
     const opacity = d.outOfStock ? 'opacity:0.5;' : '';
-    const photoThumb = d.photoUrl 
-      ? `<img src="${d.photoUrl}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid var(--border); flex-shrink:0;">` 
+    const photoThumb = d.photoUrl
+      ? `<img src="${safeEscape(d.photoUrl)}" alt="" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid var(--border); flex-shrink:0;">`
       : '';
-    const priceDisplay = (d.originalPrice && Number(d.originalPrice) > Number(d.price)) 
-      ? `<span style="text-decoration:line-through; opacity:0.6; margin-right:4px;">${currency} ${d.originalPrice}</span> ${currency} ${d.price}` 
-      : `${currency} ${d.price}`;
+
+    const priceNumber = Number(d.price);
+    const hasPrice = Number.isFinite(priceNumber) && priceNumber > 0;
+    const priceText = hasPrice ? `${currency} ${d.price}` : 'Sin costo';
+    const originalNumber = Number(d.originalPrice);
+    const priceDisplay = (Number.isFinite(originalNumber) && originalNumber > priceNumber)
+      ? `<span style="text-decoration:line-through; opacity:0.6; margin-right:4px;">${safeEscape(`${currency} ${d.originalPrice}`)}</span> ${safeEscape(priceText)}`
+      : safeEscape(priceText);
 
     const cleanName = safeEscape(d.name || 'Sin nombre');
     const cleanCatName = safeEscape(cat ? cat.name : 'Sin cat.');
     const cleanDishId = safeEscape(d.id || '');
 
     return `
-      <div class="dish-editor-card" style="${opacity} display:flex; align-items:center; gap:8px; height:${ITEM_HEIGHT}px;" data-dish-index="${index}" data-dish-id="${cleanDishId}">
+      <div class="dish-editor-card" style="${opacity}" data-dish-index="${index}" data-dish-id="${cleanDishId}">
         ${photoThumb}
         <div style="flex:1; min-width:0;">
           <div style="font-size:12px; font-weight:700; color:#fff; display:flex; align-items:center; flex-wrap:wrap; gap:2px;">
@@ -218,61 +206,9 @@ function initVirtualDishList(container, dishes, cats, currency, safeEscape) {
         <button class="btn-icon btn-icon-danger" data-js-click="deleteDish|${cleanDishId}" title="Eliminar">🗑️</button>
       </div>
     `;
-  }
+  }).join('');
 
-  function renderVisible() {
-    topSpacer.style.height = `${visibleStart * ITEM_HEIGHT}px`;
-    bottomSpacer.style.height = `${Math.max(0, (dishes.length - visibleEnd) * ITEM_HEIGHT)}px`;
-    
-    let html = '';
-    for (let i = visibleStart; i < visibleEnd; i++) {
-      html += renderItem(dishes[i], i);
-    }
-    itemsContainer.innerHTML = html;
-  }
-
-  function updateVisibleRange() {
-    const newStart = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - BUFFER);
-    const newEnd = Math.min(dishes.length, Math.ceil((scrollTop + containerHeight) / ITEM_HEIGHT) + BUFFER);
-    
-    if (newStart !== visibleStart || newEnd !== visibleEnd) {
-      visibleStart = newStart;
-      visibleEnd = newEnd;
-      renderVisible();
-    }
-  }
-
-  function onScroll() {
-    scrollTop = container.scrollTop;
-    containerHeight = container.clientHeight;
-    if (!renderScheduled) {
-      renderScheduled = true;
-      requestAnimationFrame(() => {
-        updateVisibleRange();
-        renderScheduled = false;
-      });
-    }
-  }
-
-  // Initial render
-  renderVisible();
-  
-  // Scroll listener
-  container.addEventListener('scroll', onScroll, { passive: true });
-  
-  // Cleanup on filter change (re-init will be called)
-  container._virtualListCleanup = () => {
-    container.removeEventListener('scroll', onScroll);
-    container._virtualListCleanup = null;
-  };
-  
-  // Re-render on resize
-  const resizeObserver = new ResizeObserver(() => {
-    containerHeight = container.clientHeight;
-    updateVisibleRange();
-  });
-  resizeObserver.observe(container);
-  container._virtualListResizeObserver = resizeObserver;
+  container.innerHTML = cards;
 }
 
 /**
@@ -774,10 +710,12 @@ export function saveDishFromModal(restaurant, event, onSaved) {
       delete dish.variantSelectionMode;
       delete dish.variantsRequired;
       delete dish.variantsPerItem;
+      pendingScrollDishId = dish.id;
     }
   } else {
+    const newDishId = 'd_' + Date.now();
     restaurant.dishes.push({
-      id: 'd_' + Date.now(),
+      id: newDishId,
       name,
       price,
       originalPrice: originalPrice,
@@ -795,6 +733,7 @@ export function saveDishFromModal(restaurant, event, onSaved) {
       weatherTags,
       ...optionConfig
     });
+    pendingScrollDishId = newDishId;
   }
 
   closeDishEditModal();

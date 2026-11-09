@@ -282,7 +282,7 @@ async function runTests() {
     // `/` (index.html estático servido por Express en dev) → CSP transitional
     const indexRes = await fetch(`${base}/`);
     assert.ok(indexRes.headers.get('Content-Security-Policy').includes("script-src-attr 'none'"), 'index: CSP transitional con script-src-attr none (Etapa 2)');
-    assertHeader(indexRes, 'Permissions-Policy', 'geolocation=()', 'index');
+    assertHeader(indexRes, 'Permissions-Policy', 'geolocation=(self)', 'index');
     console.log('✓ / responde con CSP transitional (script-src-attr none)');
 
     // /studio sin sesión → redirect 302, pero headers presentes (middleware va antes que el guard)

@@ -16,7 +16,7 @@
       "headers": {
         "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline' https://accounts.google.com; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.clarity.ms https://*.clarity.ms https://accounts.google.com; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com https://www.mercadopago.com; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com https://www.clarity.ms https://scripts.clarity.ms 'sha256-V/mk2Y44wLW2bojIzzxNi4qCn3ZPbGIhJ49bOw1SbqI=' 'sha256-5OrHp69xB6jZgZ5vw4aBO7AaCndiMpYYqu7mv9/YGWY=' 'sha256-B2JfjHS0efn7vRf83uZXkLg0RfNq6xQDs2me9WXS3Qs='; script-src-attr 'none'; frame-src 'self' https://accounts.google.com",
         "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Permissions-Policy": "camera=(), geolocation=(), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
+        "Permissions-Policy": "camera=(), geolocation=(self), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
         "Cross-Origin-Opener-Policy": "same-origin",
         "Cross-Origin-Resource-Policy": "same-origin",
         "X-Content-Type-Options": "nosniff",
@@ -30,7 +30,7 @@
       "headers": {
         "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline' https://accounts.google.com; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.clarity.ms https://*.clarity.ms https://accounts.google.com; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com https://www.mercadopago.com; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com https://www.clarity.ms https://scripts.clarity.ms 'sha256-V/mk2Y44wLW2bojIzzxNi4qCn3ZPbGIhJ49bOw1SbqI=' 'sha256-5OrHp69xB6jZgZ5vw4aBO7AaCndiMpYYqu7mv9/YGWY=' 'sha256-B2JfjHS0efn7vRf83uZXkLg0RfNq6xQDs2me9WXS3Qs='; script-src-attr 'none'; frame-src 'self' https://accounts.google.com",
         "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Permissions-Policy": "camera=(), geolocation=(), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
+        "Permissions-Policy": "camera=(), geolocation=(self), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
         "Cross-Origin-Opener-Policy": "same-origin",
         "Cross-Origin-Resource-Policy": "same-origin",
         "X-Content-Type-Options": "nosniff",
@@ -44,7 +44,7 @@
       "headers": {
         "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline' https://accounts.google.com; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.clarity.ms https://*.clarity.ms https://accounts.google.com; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com https://www.mercadopago.com; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com https://www.clarity.ms https://scripts.clarity.ms 'sha256-V/mk2Y44wLW2bojIzzxNi4qCn3ZPbGIhJ49bOw1SbqI=' 'sha256-5OrHp69xB6jZgZ5vw4aBO7AaCndiMpYYqu7mv9/YGWY=' 'sha256-B2JfjHS0efn7vRf83uZXkLg0RfNq6xQDs2me9WXS3Qs='; script-src-attr 'none'; frame-src 'self' https://accounts.google.com",
         "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Permissions-Policy": "camera=(), geolocation=(), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
+        "Permissions-Policy": "camera=(), geolocation=(self), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
         "Cross-Origin-Opener-Policy": "same-origin",
         "Cross-Origin-Resource-Policy": "same-origin",
         "X-Content-Type-Options": "nosniff",
@@ -58,7 +58,7 @@
       "headers": {
         "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline' https://accounts.google.com; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.clarity.ms https://*.clarity.ms https://accounts.google.com; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com https://www.mercadopago.com; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com https://www.clarity.ms https://scripts.clarity.ms 'sha256-V/mk2Y44wLW2bojIzzxNi4qCn3ZPbGIhJ49bOw1SbqI=' 'sha256-5OrHp69xB6jZgZ5vw4aBO7AaCndiMpYYqu7mv9/YGWY=' 'sha256-B2JfjHS0efn7vRf83uZXkLg0RfNq6xQDs2me9WXS3Qs='; script-src-attr 'none'; frame-src 'self' https://accounts.google.com",
         "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Permissions-Policy": "camera=(), geolocation=(), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
+        "Permissions-Policy": "camera=(), geolocation=(self), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
         "Cross-Origin-Opener-Policy": "same-origin",
         "Cross-Origin-Resource-Policy": "same-origin",
         "X-Content-Type-Options": "nosniff",
@@ -72,7 +72,7 @@
       "headers": {
         "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline' https://accounts.google.com; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.clarity.ms https://*.clarity.ms https://accounts.google.com; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com https://www.mercadopago.com; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com https://www.clarity.ms https://scripts.clarity.ms 'sha256-V/mk2Y44wLW2bojIzzxNi4qCn3ZPbGIhJ49bOw1SbqI=' 'sha256-5OrHp69xB6jZgZ5vw4aBO7AaCndiMpYYqu7mv9/YGWY=' 'sha256-B2JfjHS0efn7vRf83uZXkLg0RfNq6xQDs2me9WXS3Qs='; script-src-attr 'none'; frame-src 'self' https://accounts.google.com",
         "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Permissions-Policy": "camera=(), geolocation=(), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
+        "Permissions-Policy": "camera=(), geolocation=(self), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
         "Cross-Origin-Opener-Policy": "same-origin",
         "Cross-Origin-Resource-Policy": "same-origin",
         "X-Content-Type-Options": "nosniff",
@@ -86,7 +86,7 @@
       "headers": {
         "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline' https://accounts.google.com; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.clarity.ms https://*.clarity.ms https://accounts.google.com; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com https://www.mercadopago.com; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com https://www.clarity.ms https://scripts.clarity.ms 'sha256-V/mk2Y44wLW2bojIzzxNi4qCn3ZPbGIhJ49bOw1SbqI=' 'sha256-5OrHp69xB6jZgZ5vw4aBO7AaCndiMpYYqu7mv9/YGWY=' 'sha256-B2JfjHS0efn7vRf83uZXkLg0RfNq6xQDs2me9WXS3Qs='; script-src-attr 'none'; frame-src 'self' https://accounts.google.com",
         "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Permissions-Policy": "camera=(), geolocation=(), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
+        "Permissions-Policy": "camera=(), geolocation=(self), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
         "Cross-Origin-Opener-Policy": "same-origin",
         "Cross-Origin-Resource-Policy": "same-origin",
         "X-Content-Type-Options": "nosniff",
@@ -100,7 +100,7 @@
       "headers": {
         "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline' https://accounts.google.com; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.clarity.ms https://*.clarity.ms https://accounts.google.com; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com https://www.mercadopago.com; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com https://www.clarity.ms https://scripts.clarity.ms 'sha256-V/mk2Y44wLW2bojIzzxNi4qCn3ZPbGIhJ49bOw1SbqI=' 'sha256-5OrHp69xB6jZgZ5vw4aBO7AaCndiMpYYqu7mv9/YGWY=' 'sha256-B2JfjHS0efn7vRf83uZXkLg0RfNq6xQDs2me9WXS3Qs='; script-src-attr 'none'; frame-src 'self' https://accounts.google.com",
         "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Permissions-Policy": "camera=(), geolocation=(), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
+        "Permissions-Policy": "camera=(), geolocation=(self), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
         "Cross-Origin-Opener-Policy": "same-origin",
         "Cross-Origin-Resource-Policy": "same-origin",
         "X-Content-Type-Options": "nosniff",
@@ -114,7 +114,7 @@
       "headers": {
         "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline' https://accounts.google.com; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.clarity.ms https://*.clarity.ms https://accounts.google.com; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com https://www.mercadopago.com; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com https://www.clarity.ms https://scripts.clarity.ms 'sha256-V/mk2Y44wLW2bojIzzxNi4qCn3ZPbGIhJ49bOw1SbqI=' 'sha256-5OrHp69xB6jZgZ5vw4aBO7AaCndiMpYYqu7mv9/YGWY=' 'sha256-B2JfjHS0efn7vRf83uZXkLg0RfNq6xQDs2me9WXS3Qs='; script-src-attr 'none'; frame-src 'self' https://accounts.google.com",
         "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Permissions-Policy": "camera=(), geolocation=(), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
+        "Permissions-Policy": "camera=(), geolocation=(self), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
         "Cross-Origin-Opener-Policy": "same-origin",
         "Cross-Origin-Resource-Policy": "same-origin",
         "X-Content-Type-Options": "nosniff",
@@ -128,7 +128,7 @@
       "headers": {
         "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline' https://accounts.google.com; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.clarity.ms https://*.clarity.ms https://accounts.google.com; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com https://www.mercadopago.com; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com https://www.clarity.ms https://scripts.clarity.ms 'sha256-V/mk2Y44wLW2bojIzzxNi4qCn3ZPbGIhJ49bOw1SbqI=' 'sha256-5OrHp69xB6jZgZ5vw4aBO7AaCndiMpYYqu7mv9/YGWY=' 'sha256-B2JfjHS0efn7vRf83uZXkLg0RfNq6xQDs2me9WXS3Qs='; script-src-attr 'none'; frame-src 'self' https://accounts.google.com",
         "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Permissions-Policy": "camera=(), geolocation=(), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
+        "Permissions-Policy": "camera=(), geolocation=(self), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
         "Cross-Origin-Opener-Policy": "same-origin",
         "Cross-Origin-Resource-Policy": "same-origin",
         "X-Content-Type-Options": "nosniff",
@@ -142,7 +142,7 @@
       "headers": {
         "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline' https://accounts.google.com; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.clarity.ms https://*.clarity.ms https://accounts.google.com; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com https://www.mercadopago.com; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com https://www.clarity.ms https://scripts.clarity.ms 'sha256-V/mk2Y44wLW2bojIzzxNi4qCn3ZPbGIhJ49bOw1SbqI=' 'sha256-5OrHp69xB6jZgZ5vw4aBO7AaCndiMpYYqu7mv9/YGWY=' 'sha256-B2JfjHS0efn7vRf83uZXkLg0RfNq6xQDs2me9WXS3Qs='; script-src-attr 'none'; frame-src 'self' https://accounts.google.com",
         "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Permissions-Policy": "camera=(), geolocation=(), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
+        "Permissions-Policy": "camera=(), geolocation=(self), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
         "Cross-Origin-Opener-Policy": "same-origin",
         "Cross-Origin-Resource-Policy": "same-origin",
         "X-Content-Type-Options": "nosniff",
@@ -156,7 +156,7 @@
       "headers": {
         "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline' https://accounts.google.com; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.clarity.ms https://*.clarity.ms https://accounts.google.com; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com https://www.mercadopago.com; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com https://www.clarity.ms https://scripts.clarity.ms 'sha256-V/mk2Y44wLW2bojIzzxNi4qCn3ZPbGIhJ49bOw1SbqI=' 'sha256-5OrHp69xB6jZgZ5vw4aBO7AaCndiMpYYqu7mv9/YGWY=' 'sha256-B2JfjHS0efn7vRf83uZXkLg0RfNq6xQDs2me9WXS3Qs='; script-src-attr 'none'; frame-src 'self' https://accounts.google.com",
         "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Permissions-Policy": "camera=(), geolocation=(), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
+        "Permissions-Policy": "camera=(), geolocation=(self), microphone=(), payment=(), usb=(self), serial=(), magnetometer=(), gyroscope=()",
         "Cross-Origin-Opener-Policy": "same-origin",
         "Cross-Origin-Resource-Policy": "same-origin",
         "X-Content-Type-Options": "nosniff",

@@ -18,6 +18,7 @@ const { sanitizeTableAssignments } = require('./staffCredentials');
 const { sanitizeLoyaltyLevels } = require('./loyaltyLevels');
 const { sanitizeReservationConfig } = require('./reservations');
 const { sanitizePickupConfig } = require('./pickupSlots');
+const { normalizeMenuSlug } = require('./menuSlug');
 const { z } = require('zod');
 
 // Morfologías y paletas vienen del MANIFEST CANÓNICO (api/utils/themeManifest.js):
@@ -425,6 +426,13 @@ function sanitizeRestaurantPayload(data) {
   if (!data || typeof data !== 'object') return {};
 
   const clean = { ...data };
+
+  // Dirección pública de la carta (/m/:slug): UNA regla compartida con el
+  // Studio (api/utils/menuSlug.js ↔ public/js/studio/slugField.js). Vacío o
+  // basura se ELIMINA del payload: en un update se conserva la dirección
+  // existente y en el alta db.saveRestaurant deriva una del nombre.
+  clean.slug = normalizeMenuSlug(clean.slug);
+  if (!clean.slug) delete clean.slug;
 
   // Campos básicos
   clean.name = sanitizeString(clean.name, 80);

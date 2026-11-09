@@ -415,7 +415,7 @@ async function runTests() {
       assert.ok(await waitCloudRow('users', ownerC.id), 'owner del fixture visible en cloud (FK del restaurante)');
       const restC = await db.saveRestaurant(ownerC.id, {
         name: 'Restaurante Claim', bizName: 'Restaurante Claim',
-        slug: `reservas-v2-claim-${STAMP}`, utcOffsetMinutes: -180,
+        slug: `resv-v2-claim-${STAMP}`, utcOffsetMinutes: -180,
         phone: '+598 99 777 222', dishes: [], categories: []
       });
       assert.ok(await waitCloudRow('restaurants', restC.id), 'dual-write del fixture visible en cloud antes del claim');

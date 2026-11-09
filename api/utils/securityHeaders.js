@@ -132,10 +132,14 @@ const REFERRER_POLICY = 'strict-origin-when-cross-origin';
 // ESC/POS (public/js/studio.js, §27). Denegarlo por completo deshabilitaba la
 // función en producción. `self` = el propio origen (el dueño conecta SU
 // impresora con un gesto), no iframes de terceros.
+// `geolocation=(self)` (y NO `geolocation=()`): el Studio completa la latitud
+// y longitud del local con un gesto del dueño (📍 Usar mi ubicación) y
+// `/descubrir` usa el botón 📍 para ordenar por cercanía. Denegarla por
+// completo rompía ambas funciones en producción.
 // Sin `ambient-light-sensor`: Chrome ya no reconoce esa feature y el header
 // ensuciaba la consola con "Unrecognized feature" en cada carga.
 const PERMISSIONS_POLICY =
-  'camera=(), geolocation=(), microphone=(), payment=(), usb=(self), serial=(), ' +
+  'camera=(), geolocation=(self), microphone=(), payment=(), usb=(self), serial=(), ' +
   'magnetometer=(), gyroscope=()';
 const HSTS = 'max-age=15552000; includeSubDomains';
 

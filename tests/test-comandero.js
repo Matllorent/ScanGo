@@ -377,7 +377,7 @@ async function runTests() {
   const restA = await db.saveRestaurant(ownerA.id, {
     name: 'Comandero Local A',
     bizName: 'Comandero Local A',
-    slug: `comandero-local-a-${stamp}`,
+    slug: `cmd-local-a-${stamp}`,
     phone: '59899333333',
     currency: 'USD',
     tableCount: 6,
@@ -410,7 +410,7 @@ async function runTests() {
   const restB = await db.saveRestaurant(ownerB.id, {
     name: 'Comandero Local B',
     bizName: 'Comandero Local B',
-    slug: `comandero-local-b-${stamp}`,
+    slug: `cmd-local-b-${stamp}`,
     phone: '59899444444',
     currency: 'USD',
     tableCount: 2,

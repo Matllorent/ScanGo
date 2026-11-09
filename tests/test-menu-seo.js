@@ -4,8 +4,40 @@ const http = require('http');
 const path = require('path');
 const app = require('../api/index');
 const db = require('../src/db/db');
+const menuSlug = require('../api/utils/menuSlug');
 
 async function runTests() {
+  // ── §0 Slug canónico: UNA regla en backend (CJS) y Studio (ESM) ────────────
+  // Un slug que el Studio muestra como válido TIENE que ser el mismo que el
+  // servidor persiste; si divergen, la URL copiada puede dar 404.
+  {
+    const slugField = await import('../public/js/studio/slugField.js');
+    assert.strictEqual(slugField.MENU_SLUG_MAX_LENGTH, menuSlug.MENU_SLUG_MAX_LENGTH, 'tope idéntico CJS↔ESM');
+    const corpus = [
+      null, undefined, '', '   ', 'Café Ñandú', '  --Hola--Mundo--  ',
+      'a'.repeat(60), `${'A'.repeat(29)} b`, 'über straße', '100% café',
+      0, 12345, {}, [], 'emoji 🍕 pizza', 'a_'.repeat(20), 'schema-bistro-1234567890123'
+    ];
+    for (const raw of corpus) {
+      assert.strictEqual(
+        slugField.normalizeMenuSlug(raw),
+        menuSlug.normalizeMenuSlug(raw),
+        `paridad normalizeMenuSlug para ${JSON.stringify(raw)}`
+      );
+      assert.strictEqual(
+        slugField.isValidMenuSlug(raw),
+        menuSlug.isValidMenuSlug(raw),
+        `paridad isValidMenuSlug para ${JSON.stringify(raw)}`
+      );
+    }
+    const long = 'x'.repeat(40);
+    assert.strictEqual(menuSlug.normalizeMenuSlug(long).length, 30, 'tope de 30 aplicado');
+    assert.strictEqual(slugField.buildPublicMenuUrl('https://localhost', 'Café Ñandú'), 'https://www.scango.uy/m/cafe-nandu', 'shell nativo → dominio oficial');
+    assert.strictEqual(slugField.buildPublicMenuUrl('javascript:alert(1)', 'x'), 'https://www.scango.uy/m/x', 'origen hostil neutralizado');
+    assert.strictEqual(slugField.buildPublicMenuUrl('https://www.scango.uy', ''), '', 'sin slug no hay URL');
+    console.log('✓ §0 slug canónico: paridad CJS↔ESM + tope 30 + URL pública honesta');
+  }
+
   const unique = Date.now();
   const slug = `schema-bistro-${unique}`;
   const user = await db.createUser({
@@ -109,7 +141,9 @@ async function runTests() {
     // §Evento — el preview OG debe contar la celebración (pareja/fecha/lugar),
     // no el genérico "ScanGo" (invitaciones estéticas al compartir).
     const evtUnique = `${unique}-evt`;
-    const evtSlug = `evento-preview-${evtUnique}`;
+    // El slug canónico tiene tope 30 (api/utils/menuSlug.js): el fixture debe
+    // respetarlo o la URL quedaría fuera del límite (y el SSR serviría el 404).
+    const evtSlug = `evento-${evtUnique}`;
     const evtUser = await db.createUser({ email: `evento-preview-${evtUnique}@example.com`, password: 'test_password' });
     await db.saveRestaurant(evtUser.id, {
       name: 'Estancia La Ribera',

@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+const { normalizeMenuSlug } = require('../../api/utils/menuSlug');
 
 const IS_VERCEL = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
 // SCANGO_DATA_DIR permite aislar una instancia (tests de dos réplicas/cold
@@ -1972,11 +1973,10 @@ const db = {
     let rest = rests.find(r => r.userId === userId);
     if (!rest) {
       const id = 'rest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-      const rawSlug = (data.slug || data.bizName || 'mi-local').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30);
       rest = {
         id,
         userId,
-        slug: rawSlug || 'local-' + Date.now().toString(36),
+        slug: '',
         subscription: {
           status: 'trialing',
           plan: 'pro_monthly',
@@ -1988,10 +1988,26 @@ const db = {
         createdAt: new Date().toISOString(),
         ...data
       };
+      // La dirección pública SIEMPRE sale normalizada (misma regla que el
+      // Studio y el sanitizer). El `...data` de arriba pisa el slug inicial,
+      // así que la decisión va DESPUÉS del spread: un slug crudo inválido o
+      // vacío deriva del nombre y, sin nombre usable, usa `local-<ts>`.
+      rest.slug = normalizeMenuSlug(data.slug)
+        || normalizeMenuSlug(data.bizName || data.name)
+        || ('local-' + Date.now().toString(36));
       normalizeRestaurantBusinessType(rest);
       rests.push(rest);
     } else {
+      const previousSlug = rest.slug;
       Object.assign(rest, data);
+      // Un slug vacío (cliente viejo o campo limpiado) NO borra la dirección
+      // viva; uno válido se normaliza con la misma regla del Studio.
+      if (Object.prototype.hasOwnProperty.call(data, 'slug')) {
+        rest.slug = normalizeMenuSlug(data.slug)
+          || previousSlug
+          || normalizeMenuSlug(rest.name || rest.bizName)
+          || rest.id;
+      }
       normalizeRestaurantBusinessType(rest);
       rest.updatedAt = new Date().toISOString();
     }
