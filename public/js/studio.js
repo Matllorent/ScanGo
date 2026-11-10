@@ -49,6 +49,7 @@ import {
 // Quick Win #8: nudge de instalación PWA del dueño (superficie propia del
 // Studio; suprime la píldora de pwa.js en esta página).
 import { initStudioPwaNudge } from './studio/pwaNudge.js';
+import './studio/helpTooltips.js';
 
 // Belt and suspenders: el flag queda seteado en la evaluación del módulo
 // (initStudioPwaNudge también lo setea al correr).
@@ -76,6 +77,7 @@ import {
   addDeliveryZone as addZoneMod,
   deleteDeliveryZone as deleteZoneMod
 } from './studio/deliveryZones.js';
+import { getWeddingItineraryRef } from './studio/eventManager.js';
 
 import {
   triggerAutoSave as triggerAutoSaveMod,
@@ -890,10 +892,17 @@ export function handleReviewPhotoFile(e) {
 }
 
 export function check30DaysMilestone() {
-  if (!sessionStorage.getItem('scango_30d_milestone_shown') && localStorage.getItem('scango_milestone_30d_dismissed') !== 'true') {
-    setTimeout(openMilestone30DaysModal, 1500);
-    sessionStorage.setItem('scango_30d_milestone_shown', 'true');
-  }
+  // El aviso de "primer mes cumplido" debe calcularse estrictamente desde la
+  // fecha real de alta del usuario/restaurante, nunca desde el mero hecho de
+  // entrar al Studio (evita el falso positivo de cuenta nueva).
+  if (sessionStorage.getItem('scango_30d_milestone_shown') === 'true') return;
+  if (localStorage.getItem('scango_milestone_30d_dismissed') === 'true') return;
+  const createdAt = restaurant?.createdAt || currentUser?.createdAt;
+  if (!createdAt) return; // sin fecha de alta no mostramos nada
+  const daysSinceCreation = Math.max(0, Math.ceil((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)));
+  if (daysSinceCreation < 30) return; // solo aparece cuando transcurren 30 días reales
+  setTimeout(openMilestone30DaysModal, 1500);
+  sessionStorage.setItem('scango_30d_milestone_shown', 'true');
 }
 
 export function openMilestone30DaysModal() {
@@ -1175,7 +1184,7 @@ export function updateLiveState() {
   // Itinerario visual de boda (sólo rubro Eventos; las filas viven en el array)
   const weddingEnabled = el('inputWeddingItineraryEnabled');
   if (weddingEnabled || el('inputWeddingTitle') || el('inputWeddingCouple') || el('inputWeddingDate') || el('inputWeddingVenue') || restaurant.weddingItinerary) {
-    const it = getWeddingItineraryRef() || (restaurant.weddingItinerary = { enabled: false, title: '', coupleNames: '', date: '', venue: '', items: [] });
+    const it = getWeddingItineraryRef(restaurant) || (restaurant.weddingItinerary = { enabled: false, title: '', coupleNames: '', date: '', venue: '', items: [] });
     if (weddingEnabled) {
       it.enabled = weddingEnabled.checked;
       const sliderW = el('sliderWeddingItinerary');
@@ -1254,6 +1263,13 @@ export function updateLiveState() {
     restaurant.theme = nextTheme;
   }
   if (el('inputThemeFont')) restaurant.themeFont = el('inputThemeFont').value;
+
+  // Reactividad en tiempo real del tema y tipografía: el preview del comensal
+  // se actualiza al instante y el cambio se programa para guardarse (debounce
+  // de 1200 ms), igual que hacen banner y logo, sin esperar a "Guardar Cambios".
+  syncLivePreviewIframe();
+  triggerAutoSave();
+
   // Acento neón (sólo layout neon; el backend valida el allowlist).
   // 'custom' NO se persiste como accent (el allowlist exige un preset):
   // se guarda el preset previo/base 'mint' + neonCustomColor con el HEX.
@@ -1859,7 +1875,7 @@ export function renderStudioUI() {
     el('inputMenuSizing').value = restaurant.menuSizing === 'popularity' ? 'popularity' : 'uniform';
   }
   updateLayoutCapabilityRows();
-  if (el('inputThemeBg')) el('inputThemeBg').value = restaurant.theme || 'emerald';
+  if (el('inputThemeBg')) el('inputThemeBg').value = restaurant.theme || 'smash-urban';
   if (el('inputThemeFont')) el('inputThemeFont').value = restaurant.themeFont || 'serif';
   // Color libre: opción 'custom' del select + picker/text con el hex guardado.
   const storedCustomRaw = String(restaurant.neonCustomColor || '').trim();

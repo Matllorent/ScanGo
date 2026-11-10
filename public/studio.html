@@ -22,6 +22,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/css/studio.css">
+  <link rel="stylesheet" href="/css/helpTooltips.css">
 </head>
 <body>
 
@@ -292,7 +293,7 @@
               <p style="font-size:10px; color:var(--text-dim); margin-bottom:10px;">Google y los asistentes de IA leen estos datos para mostrar tu ficha con coherencia en tu página pública (<code>/m/tu-slug</code>).</p>
 
               <div class="form-group">
-                <label class="form-label" for="inputPriceRange">Rango de Precios</label>
+                <label class="form-label" for="inputPriceRange">Rango de Precios <span class="help-icon" data-js-help="Se publica como priceRange en el marcado JSON-LD del menú público para que Google y los asistentes de IA muestren tu ficha con coherencia.">i</span></label>
                 <select id="inputPriceRange" class="form-select" data-js-change="updateLiveState">
                   <option value="">— Sin especificar —</option>
                   <option value="$">$ · Económico</option>
@@ -311,7 +312,7 @@
 
               <div class="field-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                 <div class="form-group">
-                  <label class="form-label" for="inputLatitude">Latitud</label>
+                  <label class="form-label" for="inputLatitude">Latitud <span class="help-icon" data-js-help="Coordenada del local para que Google Maps y los mapas ubiquen el pin correctamente. Pegala desde Google Maps (clic derecho sobre el local → copiar coordenadas).">i</span></label>
                   <input type="text" inputmode="decimal" id="inputLatitude" class="form-input" placeholder="Ej: -34.9053" autocomplete="off" data-js-input="updateLiveState" data-js-blur="normalizeCoordinateInput|lat">
                 </div>
                 <div class="form-group">
@@ -470,7 +471,7 @@
                   <input type="number" id="inputPickupMaxPerSlot" class="form-input" min="1" max="50" step="1" data-js-input="updateLiveState" aria-label="Máximo de pedidos por horario">
                 </div>
                 <div>
-                  <label class="form-label" for="inputPickupLead">Aviso previo (min)</label>
+                  <label class="form-label" for="inputPickupLead">Aviso previo (min) <span class="help-icon" data-js-help="Cuántos minutos antes hay que pedir el retiro. Vacío = automático (según tu tiempo real de preparación en retiro; necesita 20 retiros entregados en 7 días).">i</span></label>
                   <input type="number" id="inputPickupLead" class="form-input" min="0" max="240" step="5" placeholder="Auto" data-js-input="updateLiveState" aria-label="Minutos de anticipación mínima">
                 </div>
               </div>
@@ -509,7 +510,7 @@
               </div>
               <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);">
                 <div>
-                  <strong style="font-size:12px; color:#FEB2B2;">🔴 Local cerrado ahora (cierre manual)</strong>
+                  <strong style="font-size:12px; color:#FEB2B2;">🔴 Local cerrado ahora (cierre manual) <span class="help-icon" data-js-help="Pisa al horario: el menú muestra "Cerrado" y no acepta pedidos hasta que lo apagues. Gana siempre al horario programado.">i</span></strong>
                   <div style="font-size:10px; color:var(--text-dim);">Pisa al horario: el menú muestra "Cerrado" y no acepta pedidos hasta apagarlo.</div>
                 </div>
                 <label style="position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0;">
@@ -718,7 +719,7 @@
               <label class="form-label" for="inputThemeBg">Fondo y Paleta del Pizarrón <span id="themeCountHint" style="font-weight:400; opacity:.7;">(21 clásicas; las exclusivas por rubro solo en ese rubro)</span></label>
               <select id="inputThemeBg" class="form-select" data-js-change="updateLiveState">
                 <option value="classic">Pizarrón Clásico</option>
-                <option value="emerald" selected>Esmeralda Bistro</option>
+                <option value="emerald">Esmeralda Bistro</option>
                 <option value="rustic">Café Rústico</option>
                 <option value="taqueria">Taquería Fiesta</option>
                 <option value="bar">Bar Nocturno</option>
@@ -731,7 +732,7 @@
                 <option value="alegre">Alegre</option>
                 <option value="basketball">Basketball</option>
                 <option value="football">Football</option>
-                <option value="smash-urban">Smash Urban</option>
+                <option value="smash-urban" selected>Smash Urban (Predeterminado)</option>
                 <option value="glass-gastro">Glass Gastro</option>
                 <option value="ticket">Ticket Térmico</option>
                 <option value="nordico">Bistró Nordico</option>
@@ -890,7 +891,7 @@
               <div style="border-top:1px solid var(--border); margin:10px 0 8px; padding-top:10px;">
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
                   <div>
-                    <div style="font-size:11px; font-weight:700; color:#fff;">🎯 Niveles de lealtad</div>
+                    <div style="font-size:11px; font-weight:700; color:#fff;">🎯 Niveles de lealtad <span class="help-icon" data-js-help="El comensal con más visitas en TU local gana más puntos por pedido (ej: Bronce 0 visitas 1×, Plata 5 visitas 1,5×, Oro 12 visitas 2×). Sin niveles, todos ganan lo mismo.">i</span></div>
                     <div style="font-size:10px; color:var(--text-dim); margin-top:2px;">El comensal con más visitas a TU local gana más puntos por pedido. Sin niveles, todos ganan lo mismo.</div>
                   </div>
                   <label style="position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0;" aria-label="Activar niveles de lealtad">
@@ -1029,7 +1030,7 @@
           </div>
 
           <div class="form-section">
-            <div class="section-title">🛵 Zonas de Entrega y Costos de Delivery</div>
+            <div class="section-title">🛵 Zonas de Entrega y Costos de Delivery <span class="help-icon" data-js-help="Configura los costos de envío por barrio o radio de distancia (ej: Centro $50, Periferia $100, retiro en local $0).">i</span></div>
             <p style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">
               Configura los costos de envío según el barrio o radio del cliente.
             </p>

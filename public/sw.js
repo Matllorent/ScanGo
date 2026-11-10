@@ -1,5 +1,5 @@
 // ScanGo Service Worker — Offline Resilience & PWA Caching + Push Notifications
-const CACHE_NAME = 'scango-cache-v6';
+const CACHE_NAME = 'scango-cache-v7';
 const STATIC_ASSETS = [
   '/',
   '/menu.html',
@@ -63,11 +63,20 @@ self.addEventListener('fetch', (event) => {
 
   const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
   const isHtmlRequest = event.request.mode === 'navigate' || event.request.headers.get('accept')?.includes('text/html');
+  const isStaticAsset = STATIC_ASSETS.includes(url.pathname);
+  // Archivos que cambian con cada deploy (JS/CSS/HTML del Studio y del menú)
+  // NO se cachean de forma agresiva: siempre se intenta la red primero.
+  const isMutable = /\.(js|css|html)$/i.test(url.pathname) || isHtmlRequest;
 
   event.respondWith(
+    // Estrategia NETWORK FIRST para todo lo que puede cambiar.
+    // Así un cambio en studio.js o studio.css se ve inmediatamente sin
+    // que el usuario tenga que hacer hard refresh.
     fetch(event.request)
       .then((response) => {
-        if (response && response.status === 200 && response.type === 'basic') {
+        // Solo cachear assets estáticos inmutables (iconos, manifest, etc.).
+        // Nunca cachear JS/CSS/HTML mutables ni respuestas de API.
+        if (response && response.status === 200 && response.type === 'basic' && isStaticAsset) {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseClone);
@@ -76,7 +85,8 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() => {
-        if (!isOffline && !isHtmlRequest) {
+        // Sin conexión: intentar servir desde caché solo como fallback.
+        if (!isOffline && !isHtmlRequest && !isStaticAsset) {
           return Response.error();
         }
 

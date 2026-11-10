@@ -1,0 +1,24 @@
+/* Tooltips de ayuda contextual del Studio — Módulo 2 */
+.help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--accent-gold, #ECC94B);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  margin-left: 6px;
+  cursor: help;
+  user-select: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  vertical-align: middle;
+}
+.help-icon:hover {
+  background: var(--accent-gold, #ECC94B);
+  color: #101614;
+  border-color: var(--accent-gold, #ECC94B);
+}

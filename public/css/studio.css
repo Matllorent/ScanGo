@@ -435,15 +435,20 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
-      overflow-y: auto;
+      padding: 16px;
+      overflow: auto;
     }
     .preview-device-phone {
       box-sizing: border-box;
-      width: min(395px, 100%);
-      /* Alto relativo al viewport útil: 680px fijos se cortaban en notebooks. */
-      height: clamp(420px, calc(100dvh - 190px), 720px);
-      flex-shrink: 0;
+      /* En laptop/notebook el panel de preview queda más estrecho que un
+         teléfono de 395px fijos, por lo que se cortaba sin scroll horizontal.
+         Ahora se adapta al ancho disponible (máx 395px) y permite scroll en
+         ambos ejes si el dispositivo no cabe por completo. */
+      width: min(90%, 395px);
+      max-width: min(90%, 395px);
+      /* Alto relativo al viewport útil: no se corta en notebooks. */
+      height: clamp(380px, calc(100dvh - 200px), 680px);
+      flex-shrink: 1;
       background: #151D1A;
       border: 10px solid #283730;
       border-radius: 36px;
