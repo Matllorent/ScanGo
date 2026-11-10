@@ -34,7 +34,7 @@ export const EYE_SHAPES = ['square', 'rounded', 'dot', 'frame'];
 export const DEFAULT_OPTIONS = {
   primaryColor: '#ECC94B',      // oro ScanGo
   secondaryColor: '#0E1412',    // oscuro ScanGo
-  backgroundColor: '#FFFFFF',
+  backgroundColor: '#FFFFFF',   // fondo del canvas (personalizable, no forzado a blanco)
   moduleShape: 'square',
   eyeShape: 'square',
   logoUrl: null,
@@ -44,7 +44,10 @@ export const DEFAULT_OPTIONS = {
   ctaText: 'Escaneá para pedir',
   showCta: true,
   ctaColor: '#0E1412',
-  ctaFontSize: 14,
+  ctaFontSize: 18,              // letra más grande y estética
+  ctaFontWeight: '800',         // negrita pronunciada
+  ctaLetterSpacing: 2,          // espaciado entre letras para look premium
+  ctaFontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   quietZoneModules: 4           // módulos de silencio alrededor
 };
 
@@ -327,14 +330,31 @@ export async function generateStyledQR(container, restaurant, options = {}) {
     }
   }
 
-  // 6. CTA (llamada a la acción) debajo del QR
+  // 6. CTA (llamada a la acción) debajo del QR — tipografía premium
   if (cfg.showCta && cfg.ctaText) {
     ctx.fillStyle = cfg.ctaColor;
-    ctx.font = `bold ${cfg.ctaFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const ctaY = qrSizePx + 30;
-    ctx.fillText(cfg.ctaText, centerX, ctaY);
+    const ctaY = qrSizePx + 40;
+    const letterSpacing = cfg.ctaLetterSpacing || 0;
+
+    if (letterSpacing > 0) {
+      // Dibujar carácter por carácter para aplicar letter-spacing real en canvas
+      const font = `${cfg.ctaFontWeight} ${cfg.ctaFontSize}px ${cfg.ctaFontFamily}`;
+      ctx.font = font;
+      const text = String(cfg.ctaText);
+      const totalWidth = ctx.measureText(text).width + letterSpacing * (text.length - 1);
+      let x = centerX - totalWidth / 2;
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const charWidth = ctx.measureText(char).width;
+        ctx.fillText(char, x, ctaY);
+        x += charWidth + letterSpacing;
+      }
+    } else {
+      ctx.font = `${cfg.ctaFontWeight} ${cfg.ctaFontSize}px ${cfg.ctaFontFamily}`;
+      ctx.fillText(cfg.ctaText, centerX, ctaY);
+    }
   }
 
   // 7. Insertar en contenedor (reemplazar contenido previo)

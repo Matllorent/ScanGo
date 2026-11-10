@@ -2226,10 +2226,12 @@ export function generateQrCode() {
   const eyeInput = document.getElementById('inputQrEyeShape');
   const ctaInput = document.getElementById('inputQrCtaText');
   const showCtaInput = document.getElementById('inputQrShowCta');
+  const bgInput = document.getElementById('inputQrBgColor');
 
   const options = {
     primaryColor: primaryInput ? primaryInput.value : '#ECC94B',
     secondaryColor: secondaryInput ? secondaryInput.value : '#0E1412',
+    backgroundColor: bgInput ? bgInput.value : '#FFFFFF',
     moduleShape: moduleInput && MODULE_SHAPES.includes(moduleInput.value) ? moduleInput.value : 'square',
     eyeShape: eyeInput && EYE_SHAPES.includes(eyeInput.value) ? eyeInput.value : 'square',
     logoUrl: restaurant.qrLogoUrl || restaurant.logoUrl || null,
