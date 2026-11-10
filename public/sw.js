@@ -72,34 +72,40 @@ self.addEventListener('fetch', (event) => {
     // Estrategia NETWORK FIRST para todo lo que puede cambiar.
     // Así un cambio en studio.js o studio.css se ve inmediatamente sin
     // que el usuario tenga que hacer hard refresh.
-    fetch(event.request)
-      .then((response) => {
+    (async () => {
+      try {
+        const response = await fetch(event.request);
         // Solo cachear assets estáticos inmutables (iconos, manifest, etc.).
         // Nunca cachear JS/CSS/HTML mutables ni respuestas de API.
         if (response && response.status === 200 && response.type === 'basic' && isStaticAsset) {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
+            cache.put(event.request, responseClone).catch(() => {});
           });
         }
         return response;
-      })
-      .catch(() => {
-        // Sin conexión: intentar servir desde caché solo como fallback.
+      } catch (fetchErr) {
+        // Fallo de red: intentar servir desde caché solo como fallback.
+        // No lanzar Response.error() para evitar errores de FetchEvent no
+        // manejados en consola del navegador.
         if (!isOffline && !isHtmlRequest && !isStaticAsset) {
-          return Response.error();
+          return new Response('', { status: 204, statusText: 'No Content' });
         }
 
-        return caches.match(event.request).then((cachedResponse) => {
+        try {
+          const cachedResponse = await caches.match(event.request);
           if (cachedResponse) return cachedResponse;
+        } catch (cacheErr) {
+          // Caché inaccesible: seguir abajo.
+        }
 
-          if (isHtmlRequest) {
-            return caches.match('/menu.html') || caches.match('/') || new Response('Sin conexión', { status: 503, statusText: 'Offline Fallback' });
-          }
+        if (isHtmlRequest) {
+          return caches.match('/menu.html') || caches.match('/') || new Response('Sin conexión', { status: 503, statusText: 'Offline Fallback' });
+        }
 
-          return Response.error();
-        });
-      })
+        return new Response('', { status: 204, statusText: 'No Content' });
+      }
+    })()
   );
 });
 
