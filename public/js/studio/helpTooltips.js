@@ -63,21 +63,27 @@
   }
 
   document.addEventListener('mouseenter', function (e) {
-    const t = e.target.closest('[data-js-help]');
-    if (!t) return;
-    show(t, t.getAttribute('data-js-help'));
+    const t = e.target;
+    if (!t || !t.closest) return;
+    const el = t.closest('[data-js-help]');
+    if (!el) return;
+    show(el, el.getAttribute('data-js-help'));
   }, true);
 
   document.addEventListener('mouseleave', function (e) {
-    const t = e.target.closest('[data-js-help]');
-    if (!t) return;
+    const t = e.target;
+    if (!t || !t.closest) return;
+    const el = t.closest('[data-js-help]');
+    if (!el) return;
     hide();
   }, true);
 
   document.addEventListener('focus', function (e) {
-    const t = e.target.closest('[data-js-help]');
-    if (!t) return;
-    show(t, t.getAttribute('data-js-help'));
+    const t = e.target;
+    if (!t || !t.closest) return;
+    const el = t.closest('[data-js-help]');
+    if (!el) return;
+    show(el, el.getAttribute('data-js-help'));
   }, true);
 
   document.addEventListener('blur', hide, true);
