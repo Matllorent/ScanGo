@@ -144,6 +144,13 @@ import {
   printReviewTent as printReviewTentMod,
   downloadAllTablesPDF as downloadAllTablesPDFMod
 } from './studio/qrGenerator.js';
+import {
+  generateStyledQR as generateStyledQRMod,
+  downloadStyledQR as downloadStyledQRMod,
+  printTableStandStyled as printTableStandStyledMod,
+  MODULE_SHAPES,
+  EYE_SHAPES
+} from './studio/qrStyling.js';
 
 import {
   getRestaurantModifierGroups,
@@ -812,6 +819,23 @@ export function removeLogo() {
   document.getElementById('btnRemoveLogo').style.display = 'none';
   generateQrCode();
   triggerAutoSave();
+}
+
+export async function handleQrLogoUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 12 * 1024 * 1024) {
+    alert('La imagen no debe superar los 12MB.');
+    return;
+  }
+  try {
+    const compressed = await compressImageFile(file);
+    restaurant.qrLogoUrl = compressed.dataUrl;
+    generateQrCode();
+    triggerAutoSave();
+  } catch (error) {
+    alert(error.message || 'No se pudo procesar el logo para el QR.');
+  }
 }
 
 // Stats & Quick Metrics
@@ -2190,26 +2214,51 @@ export function loadSafeLogo(url) {
   });
 }
 
-export function generateQrCode() { generateQrCodeMod(restaurant); }
+export function generateQrCode() {
+  if (!restaurant) return;
+  const container = document.getElementById('qrcodeCanvasContainer');
+  if (!container) return;
+
+  // Leer controles de estilo del panel QR (si existen); si no, usar defaults de marca.
+  const primaryInput = document.getElementById('inputQrPrimaryColor');
+  const secondaryInput = document.getElementById('inputQrSecondaryColor');
+  const moduleInput = document.getElementById('inputQrModuleShape');
+  const eyeInput = document.getElementById('inputQrEyeShape');
+  const ctaInput = document.getElementById('inputQrCtaText');
+  const showCtaInput = document.getElementById('inputQrShowCta');
+
+  const options = {
+    primaryColor: primaryInput ? primaryInput.value : '#ECC94B',
+    secondaryColor: secondaryInput ? secondaryInput.value : '#0E1412',
+    moduleShape: moduleInput && MODULE_SHAPES.includes(moduleInput.value) ? moduleInput.value : 'square',
+    eyeShape: eyeInput && EYE_SHAPES.includes(eyeInput.value) ? eyeInput.value : 'square',
+    logoUrl: restaurant.qrLogoUrl || restaurant.logoUrl || null,
+    ctaText: ctaInput ? ctaInput.value : 'Escaneá para pedir',
+    showCta: showCtaInput ? showCtaInput.checked : true
+  };
+
+  generateStyledQRMod(container, restaurant, options);
+}
+
 export function downloadQrPng() {
   const canvas = document.querySelector('#qrcodeCanvasContainer canvas');
   if (canvas) {
-    try {
-      const a = document.createElement('a');
-      a.href = canvas.toDataURL('image/png');
-      a.download = `QR-${restaurant?.slug || 'menu'}-scango.png`;
-      a.click();
-      return;
-    } catch (e) {}
+    downloadStyledQRMod(canvas, `QR-${restaurant?.slug || 'menu'}-scango.png`, 2);
+    return;
   }
   downloadQrPngMod(restaurant);
 }
+
 export function printTableStand() {
   const canvas = document.querySelector('#qrcodeCanvasContainer canvas');
   if (canvas) {
-    try {
-      const _ = canvas.toDataURL('image/png');
-    } catch (e) {}
+    const opts = {
+      primaryColor: document.getElementById('inputQrPrimaryColor')?.value || '#ECC94B',
+      secondaryColor: document.getElementById('inputQrSecondaryColor')?.value || '#0E1412',
+      ctaText: document.getElementById('inputQrCtaText')?.value || 'Escaneá para pedir'
+    };
+    printTableStandStyledMod(restaurant, canvas, opts);
+    return;
   }
   printTableStandMod(restaurant);
 }
@@ -3315,6 +3364,7 @@ const globalExports = {
   useCurrentLocation, maybeAutoFillLocation, normalizeCoordinateInput,
   switchTab, showConfirmDialog, closeConfirmDialog, showSaveFeedback,
   handleLogoUpload, removeLogo, handleBannerUpload, handleBannerUrlInput, removeBanner, renderBannerPreviewUI, handleBannerImageError,
+  handleQrLogoUpload,
   openBillingModal, closeBillingModal, startCheckout, cancelSubscription,
   renderDeliveryZones, addDeliveryZone, deleteDeliveryZone,
   renderBranchesList, addBranch, deleteBranch, editBranch, closeBranchEdit, saveBranchEdit, addBranchOverrideRow, removeBranchOverrideRow, addBranchCustomDishRow, removeBranchCustomDishRow, resetBranchForm,

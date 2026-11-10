@@ -1047,12 +1047,57 @@
           <div class="form-section" style="text-align: center;">
             <div class="section-title" style="justify-content: center;">🏷️ Código QR General con Logo</div>
             <p style="font-size:11px; color:var(--text-dim); margin-bottom:14px;">
-              QR con logo centrado en alta definición para afiches, vidriera y redes.
+              QR con logo centrado, colores de marca y corrección de error alta (nivel H) para afiches, vidriera y redes.
             </p>
 
-            <div id="qrcodeCanvasContainer" style="display: inline-block; background: #fff; padding: 16px; border-radius: 12px; margin-bottom: 14px;"></div>
+            <!-- Controles de diseño del QR -->
+            <div id="qrDesignControls" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; max-width:600px; margin:0 auto 14px; background:var(--bg-base); padding:14px; border-radius:10px; border:1px solid var(--border);">
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" for="inputQrPrimaryColor" style="font-size:10px; display:block; margin-bottom:4px;">🎨 Color módulos (oscuro)</label>
+                <input type="color" id="inputQrPrimaryColor" value="#0E1412" style="width:100%; height:32px; border:none; border-radius:6px; cursor:pointer; background:none;">
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" for="inputQrSecondaryColor" style="font-size:10px; display:block; margin-bottom:4px;">✨ Color marco/logo/CTA</label>
+                <input type="color" id="inputQrSecondaryColor" value="#ECC94B" style="width:100%; height:32px; border:none; border-radius:6px; cursor:pointer; background:none;">
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" for="inputQrModuleShape" style="font-size:10px; display:block; margin-bottom:4px;">▣ Forma de módulos</label>
+                <select id="inputQrModuleShape" class="form-select" style="font-size:11px; width:100%;">
+                  <option value="square">Cuadrado</option>
+                  <option value="rounded">Redondeado</option>
+                  <option value="dot">Punto</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" for="inputQrEyeShape" style="font-size:10px; display:block; margin-bottom:4px;">👁️ Forma de ojos</label>
+                <select id="inputQrEyeShape" class="form-select" style="font-size:11px; width:100%;">
+                  <option value="square">Cuadrado</option>
+                  <option value="rounded">Redondeado</option>
+                  <option value="dot">Punto</option>
+                  <option value="frame">Marco</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom:0; display:flex; flex-direction:column; gap:4px;">
+                <label class="form-label" for="inputQrCtaText" style="font-size:10px; margin-bottom:2px;">💬 Texto CTA</label>
+                <input type="text" id="inputQrCtaText" class="form-input" value="Escaneá para pedir" maxlength="40" style="font-size:11px; padding:6px 8px;">
+              </div>
+              <div class="form-group" style="margin-bottom:0; display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" id="inputQrShowCta" checked style="accent-color:var(--accent-gold);">
+                <label for="inputQrShowCta" style="font-size:10px; margin:0; cursor:pointer;">Mostrar llamada a la acción</label>
+              </div>
+              <div class="form-group" style="margin-bottom:0; display:flex; align-items:center; gap:8px;">
+                <label style="font-size:10px; margin:0;">🖼️ Logo del QR</label>
+                <button type="button" class="btn-nav" style="font-size:11px; padding:4px 10px;" data-js-click="fireClick|inputQrLogoFile">Usar logo de Mi Local</button>
+              </div>
+              <input type="file" id="inputQrLogoFile" accept="image/*" style="display:none;" data-js-change="handleQrLogoUpload|event">
+            </div>
 
-            <div style="display: flex; gap: 8px; justify-content: center;">
+            <div id="qrcodeCanvasContainer" style="display: inline-block; background: #fff; padding: 16px; border-radius: 12px; margin-bottom: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);"></div>
+
+            <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+              <button class="btn-nav btn-nav-gold" data-js-click="generateQrCode">
+                🎨 Aplicar estilos al QR
+              </button>
               <button class="btn-nav btn-nav-gold" data-js-click="downloadQrPng">
                 📥 Descargar PNG (Alta Resolución)
               </button>
