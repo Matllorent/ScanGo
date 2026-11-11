@@ -413,6 +413,7 @@ Object.defineProperties(window, {
         window.history.replaceState({}, '', url.toString());
       } catch (e) {}
       renderHeader();
+      renderDishes();
       renderDemoThemeBar();
     }
     function setDemoMorph(morph) {
@@ -481,6 +482,7 @@ Object.defineProperties(window, {
         window.history.replaceState({}, '', url.toString());
       } catch (e) {}
       renderHeader();
+      renderDishes();
       renderDemoThemeBar();
     }
     function sendWaiterCall(type) {
