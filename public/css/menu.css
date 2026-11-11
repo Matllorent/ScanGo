@@ -6428,14 +6428,22 @@
       -webkit-backdrop-filter: blur(16px) saturate(130%);
       background: linear-gradient(
         180deg,
-        rgba(0, 0, 0, 0.35) 0%,
-        rgba(0, 0, 0, 0.18) 45%,
+        rgba(0, 0, 0, 0.25) 0%,
+        rgba(0, 0, 0, 0.12) 45%,
         transparent 100%
       );
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-top: none;
-      padding-top: 48px;
+      padding-top: 52px;
       padding-bottom: 20px;
+    }
+    /* Con banner, el título y el slogan necesitan text-shadow para resaltar
+       sobre la imagen de fondo que queda visible a través del gradiente. */
+    body.has-hero-banner .restaurant-title {
+      text-shadow: 0 2px 12px rgba(0, 0, 0, 0.55);
+    }
+    body.has-hero-banner .restaurant-slogan {
+      text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
     }
     /* Tema ticket: cuando hay banner, el fondo sólido claro (#FAF6EE)
        del tema tapa la imagen. Se usa fondo transparente + gradiente oscuro
