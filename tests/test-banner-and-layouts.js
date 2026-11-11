@@ -83,7 +83,7 @@ async function runTests() {
   assert.ok(menuCss.includes('object-fit: cover;'), 'La foto del hero debe llenar el ancho del banner');
   assert.ok(menuCss.includes('linear-gradient(to bottom,'), 'El hero debe aplicar el degradado inferior de transición suave');
   assert.ok(menuCss.includes('rgba(0, 0, 0, 0.70) 100%'), 'El hero debe oscurecer la zona baja para legibilidad sobre cualquier foto');
-  assert.ok(menuCss.includes('min-height: 210px'), 'El hero debe conservar altura mínima en móviles estrechos');
+  assert.ok(menuCss.includes('min-height: 200px'), 'El hero debe conservar altura mínima en móviles estrechos');
   console.log('✓ Estilos de Banner Hero (portada superior) verificados en menu.css');
 
   // 3b. 3 Nuevos Layouts

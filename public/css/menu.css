@@ -6416,9 +6416,9 @@
       z-index: 1;
     }
     body.has-hero-banner .menu-header {
-      /* Tarjeta flotante: se solapa ligeramente al banner para eliminar
-         el corte seco y dar sensación de portada integrada. */
-      margin-top: -52px;
+      /* Tarjeta flotante: se solapa sutilmente al banner para eliminar
+         el corte seco sin tapar la foto ni dejar huecos raros. */
+      margin-top: -34px;
       position: relative;
       z-index: 3;
       border-bottom: none;
@@ -6434,21 +6434,21 @@
       );
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-top: none;
-      padding-top: 62px;
+      padding-top: 48px;
       padding-bottom: 20px;
     }
-    /* Responsive: en móviles el solapamiento es más moderado para no tapar
-       controles críticos y el banner pierde algo de altura. */
+    /* Responsive: en móviles el solapamiento es aún más moderado para no
+       tapar controles críticos y el banner pierde algo de altura. */
     @media (max-width: 640px) {
       .menu-banner-hero {
-        height: 240px;
-        min-height: 210px;
-        max-height: 280px;
+        height: 220px;
+        min-height: 200px;
+        max-height: 260px;
       }
       body.has-hero-banner .menu-header {
-        margin-top: -38px;
+        margin-top: -26px;
         border-radius: 0 0 20px 20px;
-        padding-top: 52px;
+        padding-top: 40px;
       }
     }
     .menu-banner-logo-slot {
