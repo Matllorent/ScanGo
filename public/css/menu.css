@@ -6377,9 +6377,9 @@
     .menu-banner-hero {
       position: relative;
       width: 100%;
-      height: 320px;
-      min-height: 280px;
-      max-height: 420px;
+      height: 260px;
+      min-height: 220px;
+      max-height: 340px;
       margin-bottom: 0;
       overflow: visible;
     }
@@ -6436,6 +6436,29 @@
       border-top: none;
       padding-top: 48px;
       padding-bottom: 20px;
+    }
+    /* Tema ticket: cuando hay banner, el fondo sólido claro (#FAF6EE)
+       del tema tapa la imagen. Se usa fondo transparente + gradiente oscuro
+       para que el cartel de información se integre con la portada. */
+    body.theme-ticket.has-hero-banner .menu-header {
+      background: linear-gradient(
+        180deg,
+        rgba(28, 25, 23, 0.45) 0%,
+        rgba(28, 25, 23, 0.25) 45%,
+        transparent 100%
+      );
+      border: none;
+      border-top: none;
+      padding-top: 40px;
+    }
+    body.theme-ticket.has-hero-banner .restaurant-title,
+    body.theme-ticket.has-hero-banner .restaurant-slogan,
+    body.theme-ticket.has-hero-banner .restaurant-meta-bar {
+      color: #1C1917;
+    }
+    body.theme-ticket.has-hero-banner .status-pill {
+      background: rgba(250, 246, 238, 0.85) !important;
+      color: #1C1917 !important;
     }
     /* Responsive: en móviles el solapamiento es aún más moderado para no
        tapar controles críticos y el banner pierde algo de altura. */
