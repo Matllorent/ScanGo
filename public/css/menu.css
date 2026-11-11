@@ -2862,6 +2862,30 @@
       box-shadow: none;
       padding: 20px 16px 88px;
     }
+    /* smash-urban con banner: el header transparente se solapa con la foto.
+       Agregamos un fondo semi-oscuro sutil solo en la zona baja para que el
+       título blanco sea legible sobre cualquier imagen, sin tapar el arte. */
+    body.theme-smash-urban.has-hero-banner .menu-header {
+      background: linear-gradient(
+        180deg,
+        transparent 0%,
+        rgba(7, 7, 7, 0.30) 55%,
+        rgba(7, 7, 7, 0.55) 100%
+      );
+      padding-bottom: 60px;
+    }
+    body.theme-smash-urban.has-hero-banner .restaurant-title {
+      text-shadow: 0 2px 16px rgba(0, 0, 0, 0.7);
+    }
+    body.theme-smash-urban.has-hero-banner .restaurant-slogan {
+      text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
+      color: #F0F2F5;
+    }
+    body.theme-smash-urban.has-hero-banner .restaurant-meta-bar,
+    body.theme-smash-urban.has-hero-banner .meta-chip,
+    body.theme-smash-urban.has-hero-banner .meta-chip:hover {
+      color: #F0F2F5 !important;
+    }
     body.theme-smash-urban .restaurant-title {
       font-family: 'Bungee', 'Anton', sans-serif;
       color: #FFFFFF;
