@@ -270,7 +270,7 @@
     </div>
     <div class="header-actions">
       <a href="/studio" class="btn btn-outline"><i class="fa-solid fa-sliders"></i> Abrir Studio</a>
-      <a href="/" class="btn btn-outline" target="_blank"><i class="fa-solid fa-globe"></i> Ver Web</a>
+      <a href="/" class="btn btn-outline" target="_blank" rel="noopener"><i class="fa-solid fa-globe"></i> Ver Web</a>
       <button id="btn-logout" class="btn btn-outline" style="display:none;" data-js-click="logout"><i class="fa-solid fa-right-from-bracket"></i> Salir</button>
     </div>
   </header>
@@ -983,7 +983,7 @@
               <div style="font-size: 0.75rem; color: var(--text-muted);">${cleanPhone}</div>
             </td>
             <td>
-              <a href="/m/${cleanSlug}" target="_blank" style="color: var(--gold); text-decoration: none; font-weight: 600;">
+              <a href="/m/${cleanSlug}" target="_blank" rel="noopener" style="color: var(--gold); text-decoration: none; font-weight: 600;">
                 /m/${cleanSlug} <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.7rem;"></i>
               </a>
             </td>
@@ -1006,7 +1006,7 @@
                       : `<button class="btn btn-success btn-xs" data-js-click="updateStatus|${cleanId}|active"><i class="fa-solid fa-check"></i> Activar PRO</button>`
                     )
                 }
-                <a href="/m/${cleanSlug}" target="_blank" class="btn btn-outline btn-xs"><i class="fa-solid fa-eye"></i> Ver</a>
+                <a href="/m/${cleanSlug}" target="_blank" rel="noopener" class="btn btn-outline btn-xs"><i class="fa-solid fa-eye"></i> Ver</a>
               </div>
             </td>
           </tr>
@@ -1072,7 +1072,7 @@
               <div style="font-size:0.75rem; color:var(--text-muted);">Le toca pagar el ${new Date(r.renewsAt).toLocaleDateString('es-UY')}</div>
             </td>
             <td>
-              <a href="/m/${encodeURIComponent(r.slug || '')}" target="_blank" style="color:#fff; font-weight:600; text-decoration:none;">${escapeHtml(r.name || 'Sin nombre')}</a>
+              <a href="/m/${encodeURIComponent(r.slug || '')}" target="_blank" rel="noopener" style="color:#fff; font-weight:600; text-decoration:none;">${escapeHtml(r.name || 'Sin nombre')}</a>
             </td>
             <td style="color:var(--text-muted);">${new Date(r.renewsAt).toLocaleDateString('es-UY')}</td>
             <td style="color:var(--gold); font-weight:700;">$${(r.amountMonthly ?? 0).toFixed(2)} / mes</td>
@@ -1086,7 +1086,7 @@
               <div style="font-size:0.75rem; color:var(--text-muted);">Si no paga, su menú queda en pausa</div>
             </td>
             <td>
-              <a href="/m/${encodeURIComponent(r.slug || '')}" target="_blank" style="color:#fff; font-weight:600; text-decoration:none;">${escapeHtml(r.name || 'Sin nombre')}</a>
+              <a href="/m/${encodeURIComponent(r.slug || '')}" target="_blank" rel="noopener" style="color:#fff; font-weight:600; text-decoration:none;">${escapeHtml(r.name || 'Sin nombre')}</a>
             </td>
             <td style="color:var(--text-muted);">${new Date(r.trialEndsAt).toLocaleDateString('es-UY')}</td>
             <td style="color:var(--text-muted);">—</td>

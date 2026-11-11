@@ -132,6 +132,8 @@
 
 ### 2.2. Resend (emails transaccionales) — BLOQUEANTE para clientes reales
 
+**🔑 CUENTA DE RESEND: `matllorent30@gmail.com`** — Iniciar sesión con este correo en https://resend.com/domains para agregar y verificar el dominio `scango.uy`. La API key del `.env` pertenece a esta cuenta.
+
 **Estado verificado 2026-11-05 (API real, sin mocks):**
 
 | Prueba | Resultado |

@@ -42,3 +42,4 @@ previews/
 # OpenCode plugins y workspace local
 .opencode/
 
+.env*
