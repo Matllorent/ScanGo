@@ -13,6 +13,14 @@ const crypto = require('crypto');
 // demo (mismo trato que cuota agotada / imagen ilegible).
 const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS) || 25000;
 
+// Reintentos para errores transitorios (cuota, timeout, 503, etc.)
+const GEMINI_MAX_RETRIES = Number(process.env.GEMINI_MAX_RETRIES) || 2;
+const GEMINI_RETRY_DELAY_MS = Number(process.env.GEMINI_RETRY_DELAY_MS) || 3000;
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 function withGeminiTimeout(promise) {
   let timer;
   const timeout = new Promise((_, reject) => {
@@ -136,15 +144,17 @@ Tu misión es digitalizar fielmente una carta de restaurante físico a partir de
 
 Reglas de extracción y normalización:
 1. Analiza todas las imágenes en conjunto como un único menú coherente.
-2. Extrae todas las categorías en orden lógico de servicio (ej: Entradas, Principales, Guarniciones, Postres, Bebidas / Tragos).
-3. Para cada plato:
+2. Si una imagen está borrosa, oscura o no se puede leer, no inventes platos: omite esa imagen y continúa con las demás.
+3. Extrae todas las categorías en orden lógico de servicio (ej: Entradas, Principales, Guarniciones, Postres, Bebidas / Tragos).
+4. Para cada plato:
    - Nombre: limpio, sin números de ítem ni símbolos raros.
    - Descripción: ingredientes, método de cocción o detalles indicados en la carta.
    - Precio: convierte cualquier formato monetario ($ 1.200, 12.50, €15, etc.) a un valor numérico positivo (ej: 1200 o 12.5). Si no tiene precio o dice 'S/P', pon 0.
-4. Análisis de Estilo Visual (detectedStyle):
+5. Análisis de Estilo Visual (detectedStyle):
    - Infiere los colores primario y acento más representativos de la tipografía, logotipo, bordes o papel del menú en formato HEX (#RRGGBB).
    - Identifica la "vibe" o personalidad del lugar (ej. "Rústico y Cálido", "Bistró Elegante", "Urbano & Smash Burgers", "Café de Especialidad").
-5. La salida DEBE ser estrictamente un objeto JSON que respete el esquema solicitado. No incluyas markdown adicional fuera del JSON.`;
+6. Si NO hay platos legibles en ninguna imagen, devuelve categories: [] (array vacío). No inventes platos.
+7. La salida DEBE ser estrictamente un objeto JSON que respete el esquema solicitado. No incluyas markdown adicional fuera del JSON.`;
 
 /**
  * Parses menu images using Gemini 3.8 Flash multimodal API.
@@ -172,31 +182,7 @@ async function parseMenuWithGemini(images) {
   if (cached) return cached;
 
   const ai = new GoogleGenAI({ apiKey });
-  const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
-
-  const fallbackToDemo = (err, reason) => {
-    const errText = [
-      err?.message,
-      err?.code,
-      err?.status,
-      err?.error?.message,
-      err?.body?.error?.message,
-      err?.details,
-      JSON.stringify(err)
-    ].filter(Boolean).join(' ');
-
-    const hasTemporaryIssue = /UNAVAILABLE|RESOURCE_EXHAUSTED|quota|RATE_LIMIT|429|503|high demand|temporarily|too many requests|capacity|overloaded|GEMINI_TIMEOUT|timeout/i.test(errText);
-    const isUnprocessableImage = /400|INVALID_ARGUMENT|Unable to process input image|bad image|cannot process|unsupported image/i.test(errText);
-    if (hasTemporaryIssue || isUnprocessableImage) {
-      if (isUnprocessableImage) {
-        console.warn(`[GEMINI-MENU-PARSER] Image not readable by Gemini (${reason}). Falling back to demo menu. Tip: use JPG/PDF with good lighting.`);
-      } else {
-        console.warn(`[GEMINI-MENU-PARSER] Gemini temporarily unavailable (${reason}). Returning demo fallback menu.`);
-      }
-      return getFallbackDemoMenu();
-    }
-    return null;
-  };
+  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash-latest';
 
   // Format parts for Google GenAI SDK (supports images and PDF documents)
   const formattedParts = images.map((img, idx) => {
@@ -218,46 +204,96 @@ async function parseMenuWithGemini(images) {
     };
   });
 
-  try {
-    const response = await withGeminiTimeout(ai.models.generateContent({
-      model,
-      contents: formattedParts,
-      config: {
-        systemInstruction: SYSTEM_PROMPT,
-        responseMimeType: 'application/json',
-        // responseJsonSchema es la vía canónica (responseSchema era el alias
-        // legacy y ya no figura en la documentación del SDK).
-        responseJsonSchema: MENU_RESPONSE_SCHEMA
+  let lastError = null;
+
+  // Reintentos para errores transitorios (cuota, timeout, 503, etc.)
+  for (let attempt = 0; attempt <= GEMINI_MAX_RETRIES; attempt++) {
+    try {
+      const response = await withGeminiTimeout(ai.models.generateContent({
+        model,
+        contents: formattedParts,
+        config: {
+          systemInstruction: SYSTEM_PROMPT,
+          responseMimeType: 'application/json',
+          // responseJsonSchema es la vía canónica (responseSchema era el alias
+          // legacy y ya no figura en la documentación del SDK).
+          responseJsonSchema: MENU_RESPONSE_SCHEMA
+        }
+      }));
+
+      let jsonString = response.text;
+      if (!jsonString && response.candidates && response.candidates[0]?.content?.parts) {
+        jsonString = response.candidates[0].content.parts.map(p => p.text).filter(Boolean).join('');
       }
-    }));
 
-    let jsonString = response.text;
-    if (!jsonString && response.candidates && response.candidates[0]?.content?.parts) {
-      jsonString = response.candidates[0].content.parts.map(p => p.text).filter(Boolean).join('');
+      if (!jsonString) {
+        throw new Error('Gemini no devolvió texto en la respuesta.');
+      }
+
+      const parsed = JSON.parse(jsonString);
+      const result = sanitizeParsedMenu(parsed);
+      // Marcar el origen para que el frontend sepa si vino de Gemini real o fallback
+      result.source = 'gemini';
+      result.isDemoFallback = false;
+      geminiCacheSet(cacheKey, result);
+      return result;
+    } catch (err) {
+      lastError = err;
+      console.error(`[GEMINI-MENU-PARSER-ERROR] Intento ${attempt + 1}/${GEMINI_MAX_RETRIES + 1}`, err);
+
+      const errText = [
+        err?.message,
+        err?.code,
+        err?.status,
+        err?.error?.message,
+        err?.body?.error?.message,
+        err?.details,
+        JSON.stringify(err)
+      ].filter(Boolean).join(' ');
+
+      const hasTemporaryIssue = /UNAVAILABLE|RESOURCE_EXHAUSTED|quota|RATE_LIMIT|429|503|high demand|temporarily|too many requests|capacity|overloaded|GEMINI_TIMEOUT|timeout/i.test(errText);
+
+      // Si es un error transitorio y nos quedan reintentos, esperamos y reintentamos
+      if (hasTemporaryIssue && attempt < GEMINI_MAX_RETRIES) {
+        await sleep(GEMINI_RETRY_DELAY_MS * (attempt + 1));
+        continue;
+      }
+
+      // Si es imagen ilegible, devolver resultado vacío (no fallback demo) para
+      // que el usuario sepa que se intentó pero no se leyó nada
+      const isUnprocessableImage = /400|INVALID_ARGUMENT|Unable to process input image|bad image|cannot process|unsupported image/i.test(errText);
+      if (isUnprocessableImage) {
+        console.warn(`[GEMINI-MENU-PARSER] Imagen no legible por Gemini. Devolviendo resultado vacío.`);
+        return {
+          detectedStyle: {
+            primaryColor: '#1F2937',
+            accentColor: '#ECC94B',
+            vibe: 'No detectado'
+          },
+          categories: [],
+          source: 'gemini',
+          isDemoFallback: false,
+          warning: 'No se pudo leer contenido de las imágenes subidas. Verificá que las fotos sean claras y tengan buena iluminación.'
+        };
+      }
+
+      // Error no recuperable: lanzar al usuario
+      break;
     }
-
-    if (!jsonString) {
-      throw new Error('Gemini no devolvió texto en la respuesta.');
-    }
-
-    const parsed = JSON.parse(jsonString);
-    const result = sanitizeParsedMenu(parsed);
-    geminiCacheSet(cacheKey, result);
-    return result;
-  } catch (err) {
-    console.error('[GEMINI-MENU-PARSER-ERROR]', err);
-
-    const fallback = fallbackToDemo(err, 'generateContent failed');
-    if (fallback) return fallback;
-
-    let msg = err.message || 'Error desconocido';
-    if (msg.includes('API_KEY_INVALID') || msg.includes('API key not valid')) {
-      msg = 'La clave GEMINI_API_KEY no es válida o está deshabilitada.';
-    } else if (msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Quota exceeded')) {
-      msg = 'Se ha superado la cuota de la API de Gemini. Espera unos segundos o revisa tus límites en Google AI Studio.';
-    }
-    throw new Error(`Error al procesar la carta con Gemini: ${msg}`);
   }
+
+  // Si llegamos acá, todos los reintentos fallaron o hubo un error no transitorio
+  console.error('[GEMINI-MENU-PARSER-ERROR-FINAL]', lastError);
+
+  let msg = lastError.message || 'Error desconocido';
+  if (msg.includes('API_KEY_INVALID') || msg.includes('API key not valid')) {
+    msg = 'La clave GEMINI_API_KEY no es válida o está deshabilitada.';
+  } else if (msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Quota exceeded')) {
+    msg = 'Se ha superado la cuota de la API de Gemini. Espera unos segundos o revisa tus límites en Google AI Studio.';
+  } else if (msg.includes('GEMINI_TIMEOUT') || msg.includes('timeout')) {
+    msg = 'Gemini tardó demasiado en responder. Intentá de nuevo con menos imágenes o imágenes más pequeñas.';
+  }
+  throw new Error(`Error al procesar la carta con Gemini: ${msg}`);
 }
 
 /**
@@ -340,7 +376,9 @@ function getFallbackDemoMenu() {
         ]
       }
     ],
-    isDemoFallback: true
+    source: 'demo',
+    isDemoFallback: true,
+    warning: 'Modo demostración: se usó un menú de ejemplo porque no está configurada GEMINI_API_KEY. Para usar la IA real, configurá tu clave en .env.'
   };
 }
 

@@ -16,7 +16,7 @@ async function runAiImportTests() {
   assert(MENU_RESPONSE_SCHEMA.properties.categories, 'El esquema debe contener categories');
   assert.deepStrictEqual(MENU_RESPONSE_SCHEMA.required, ['detectedStyle', 'categories']);
   const parserSrc = fs.readFileSync(path.join(__dirname, '../api/services/geminiMenuParser.js'), 'utf8');
-  assert.ok(parserSrc.includes("process.env.GEMINI_MODEL || 'gemini-3.8-flash'"), 'El parser debe usar por defecto el modelo Gemini vigente');
+  assert.ok(parserSrc.includes("process.env.GEMINI_MODEL || 'gemini-1.5-flash-latest'"), 'El parser debe usar por defecto el modelo Gemini vigente');
   console.log('✓ Esquema JSON de Gemini Flash estructurado correctamente');
 
   // 2. Verify fallback demo menu
