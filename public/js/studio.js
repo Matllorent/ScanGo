@@ -1125,6 +1125,10 @@ export function updateLiveState() {
   const el = id => document.getElementById(id);
   restaurant.name = el('inputLocalName')?.value || '';
   restaurant.slogan = el('inputLocalSlogan')?.value || '';
+  // Modo simple / avanzado: oculta opciones avanzadas del Studio para dueños
+  // que no manejan bien la tecnología.
+  restaurant.simpleMode = el('inputSimpleMode')?.checked === true;
+  restaurant.slug = normalizeMenuSlug(el('inputLocalSlug')?.value || '');
   // Misma regla de normalización que el server (api/utils/menuSlug.js): acentos
   // fuera, minúsculas, guiones colapsados y tope de 30. La URL mostrada y el
   // preview usan el slug ya normalizado.
@@ -1495,6 +1499,29 @@ export function updateLiveState() {
   triggerAutoSave();
 }
 
+export function toggleSimpleMode(checked) {
+  if (!restaurant) return;
+  restaurant.simpleMode = checked === true;
+  const el = id => document.getElementById(id);
+  const cb = el('inputSimpleMode');
+  if (cb) cb.checked = checked === true;
+  const slider = el('sliderSimpleMode');
+  if (slider) slider.style.backgroundColor = checked ? '#38A169' : '#2a3a33';
+  applySimpleModeVisibility();
+  triggerAutoSave();
+}
+
+export function applySimpleModeVisibility() {
+  const simple = restaurant && restaurant.simpleMode === true;
+  document.querySelectorAll('[data-simple-mode="hide"]').forEach(el => {
+    el.style.display = simple ? 'none' : '';
+  });
+  // También ocultar/mostrar el toggle de modo simple en el header para que
+  // se vea su estado actual.
+  const hint = document.getElementById('simpleModeHint');
+  if (hint) hint.textContent = simple ? 'Modo simple activo' : 'Modo avanzado';
+}
+
 export function triggerAutoSave() {
   triggerAutoSaveMod({ autoSaveTimeout }, showSaveFeedback, saveStudioChanges);
   refreshOnboardingMod();
@@ -1828,7 +1855,16 @@ export function renderStudioUI() {
   const el = id => document.getElementById(id);
   if (el('studioNavRestaurantName')) el('studioNavRestaurantName').textContent = restaurant.name;
   if (el('studioNavUserEmail')) el('studioNavUserEmail').textContent = currentUser.email;
-  
+
+  // Modo simple / avanzado: aplicar visibilidad de secciones avanzadas
+  const simpleCb = el('inputSimpleMode');
+  if (simpleCb) {
+    simpleCb.checked = restaurant.simpleMode === true;
+    const slider = el('sliderSimpleMode');
+    if (slider) slider.style.backgroundColor = restaurant.simpleMode === true ? '#38A169' : '#2a3a33';
+  }
+  applySimpleModeVisibility();
+
   lastValidSlug = normalizeMenuSlug(restaurant.slug || '') || lastValidSlug;
   updatePublicMenuLink();
 

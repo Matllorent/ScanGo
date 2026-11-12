@@ -36,6 +36,14 @@
         <div class="brand-title" id="studioNavRestaurantName">ScanGo Studio</div>
         <div style="font-size: 10px; color: var(--text-dim);" id="studioNavUserEmail">Cargando...</div>
       </div>
+      <!-- Modo Simple / Avanzado: simplifica la UI del Studio para dueños que no manejan bien la tecnología -->
+      <div style="margin-left:12px; display:flex; align-items:center; gap:8px;">
+        <label style="font-size:11px; color:var(--text-dim); white-space:nowrap;">Modo simple</label>
+        <label style="position:relative; display:inline-block; width:42px; height:24px; cursor:pointer;">
+          <input type="checkbox" id="inputSimpleMode" data-js-change="toggleSimpleMode|this.checked" style="opacity:0; width:0; height:0;">
+          <span id="sliderSimpleMode" style="position:absolute; inset:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
+        </label>
+      </div>
       <div id="subscriptionBadge" class="sub-badge badge-trial">⏳ 7 días de prueba</div>
       <div style="margin-left:8px;">
         <span class="badge-uy" style="font-size:0.75rem; padding:3px 8px;">🇺🇾 +598 93 640 039</span>
@@ -253,7 +261,7 @@
               </select>
             </div>
 
-            <div class="field-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px;">
+            <div class="field-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px;" data-simple-mode="hide">
               <div class="form-group">
                 <label class="form-label" for="inputInstagram">Instagram (@usuario)</label>
                 <input type="text" id="inputInstagram" class="form-input" placeholder="Ej: @tulocal" data-js-input="updateLiveState">
@@ -263,7 +271,7 @@
                 <input type="text" id="inputFacebook" class="form-input" placeholder="https://facebook.com/tulocal" data-js-input="updateLiveState">
               </div>
             </div>
-            <div class="field-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px;">
+            <div class="field-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px;" data-simple-mode="hide">
               <div class="form-group">
                 <label class="form-label" for="inputTiktok">TikTok (link)</label>
                 <input type="text" id="inputTiktok" class="form-input" placeholder="https://tiktok.com/@tulocal" data-js-input="updateLiveState">
@@ -285,7 +293,7 @@
             </div>
 
             <!-- Visibilidad SEO Local (marcado JSON-LD de /m/:slug) -->
-            <div style="margin-top:14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+            <div style="margin-top:14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);" data-simple-mode="hide">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <strong style="font-size:12px; color:#fff;">📡 Visibilidad en Buscadores (SEO Local)</strong>
                 <span style="font-size:9px; color:var(--text-dim);">JSON-LD del menú público</span>
@@ -381,7 +389,7 @@
             </div>
 
             <!-- Pago Online del Comensal (opcional: lo habilita el dueño) -->
-            <div class="form-group" style="margin-top:14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+            <div class="form-group" style="margin-top:14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);" data-simple-mode="hide">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <div>
                   <strong style="font-size:12px; color:#fff;">💳 Ofrecer Pago Online al Comensal</strong>
@@ -443,7 +451,7 @@
 
             <!-- Takeaway Programado (73ª suite): el comensal elige horario de
                  retiro y puede pedir con el local cerrado (solo retiro). -->
-            <div class="form-group" style="margin-top:14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+            <div class="form-group" style="margin-top:14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);" data-simple-mode="hide">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <div>
                   <strong style="font-size:12px; color:#fff;">⏰ Takeaway Programado</strong>
@@ -479,7 +487,7 @@
             </div>
 
             <!-- Descubrir beta (opt-in): aparecer en el feed tipo tiktok de la zona -->
-            <div class="form-group" style="margin-top:14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+            <div class="form-group" style="margin-top:14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);" data-simple-mode="hide">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <div>
                   <strong style="font-size:12px; color:#fff;">🧭 Aparecer en Descubrir <span style="font-size:9px; color:var(--accent-gold); font-weight:700;">BETA</span></strong>
@@ -493,7 +501,7 @@
             </div>
 
             <!-- Schedule / Timed Menus -->
-            <div class="form-group" style="margin-top: 14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+            <div class="form-group" style="margin-top: 14px; background:var(--bg-base); padding:10px 12px; border-radius:8px; border:1px solid var(--border);" data-simple-mode="hide">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <div>
                   <strong style="font-size:12px; color:#fff;">⏰ Programar Horario de Disponibilidad</strong>
@@ -558,7 +566,7 @@
             </div>
           </div>
 
-          <div class="form-section">
+          <div class="form-section" data-simple-mode="hide">
             <div class="section-title">📶 Conectividad Wi-Fi para Clientes</div>
             <div class="form-group">
               <label class="form-label" for="inputWifiSsid">Nombre de Red Wi-Fi (SSID)</label>
