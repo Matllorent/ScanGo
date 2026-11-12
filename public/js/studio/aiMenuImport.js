@@ -318,8 +318,57 @@ export function openAiMenuPreviewModal(result) {
   const styleBox = document.getElementById('aiPreviewStyleBox');
   const statsBox = document.getElementById('aiPreviewStats');
   const categoriesList = document.getElementById('aiPreviewCategoriesList');
+  const originBox = document.getElementById('aiPreviewOriginBox');
 
-  // Render detected style
+  // --- Origen y advertencias (demo vs IA real, imágenes ilegibles, etc.) ---
+  if (originBox) {
+    let originHtml = '';
+    const isDemo = result.isDemoFallback === true;
+    const isGemini = result.source === 'gemini';
+
+    // Advertencia si la hay (imágenes ilegibles, etc.)
+    if (result.warning) {
+      originHtml += `
+        <div style="background:rgba(229,62,62,0.12); border:1px solid rgba(229,62,62,0.35); border-radius:8px; padding:10px 12px; margin-bottom:8px; font-size:11px; color:#FEB2B2; display:flex; gap:8px; align-items:flex-start;">
+          <span style="font-size:16px;">⚠️</span>
+          <div>${escapeHtml(result.warning)}</div>
+        </div>
+      `;
+    }
+
+    // Indicador de origen
+    if (isDemo) {
+      originHtml += `
+        <div style="background:rgba(236,201,75,0.15); border:1px solid rgba(236,201,75,0.4); border-radius:8px; padding:10px 12px; margin-bottom:8px; font-size:11px; color:#FEFCBF; display:flex; gap:8px; align-items:center;">
+          <span style="font-size:18px;">💡</span>
+          <div>
+            <strong>Modo Demostración:</strong> Se utilizó una extracción simulada porque aún no se configuró <code>GEMINI_API_KEY</code> en tu <code>.env</code>. Los platos mostrados son de ejemplo y no corresponden a tu carta real.
+          </div>
+        </div>
+      `;
+    } else if (isGemini) {
+      originHtml += `
+        <div style="background:rgba(34,211,238,0.12); border:1px solid rgba(34,211,238,0.35); border-radius:8px; padding:10px 12px; margin-bottom:8px; font-size:11px; color:#22D3EE; display:flex; gap:8px; align-items:center;">
+          <span style="font-size:18px;">🤖</span>
+          <div>
+            <strong>Analizado con Gemini IA:</strong> los platos, categorías y precios se extrajeron de las imágenes subidas. Revisalos antes de importar.
+          </div>
+        </div>
+      `;
+    } else {
+      originHtml += `
+        <div style="background:rgba(236,201,75,0.15); border:1px solid rgba(236,201,75,0.4); border-radius:8px; padding:10px 12px; margin-bottom:8px; font-size:11px; color:#FEFCBF; display:flex; gap:8px; align-items:center;">
+          <span style="font-size:18px;">💡</span>
+          <div>
+            <strong>Extracción sin origen definido:</strong> revisa los datos antes de importar.
+          </div>
+        </div>
+      `;
+    }
+
+    originBox.innerHTML = originHtml;
+  }
+
   // Render detected style
   if (styleBox) {
     let html = '';
@@ -370,32 +419,44 @@ export function openAiMenuPreviewModal(result) {
 
   // Render categories and dishes preview
   if (categoriesList && Array.isArray(result.categories)) {
-    categoriesList.innerHTML = result.categories.map((cat, cIdx) => `
-      <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px;">
-        <div style="font-size:12px; font-weight:700; color:var(--accent-gold); margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
-          <span>📁 ${escapeHtml(cat.name)}</span>
-          <span style="font-size:10px; color:var(--text-dim);">${cat.items?.length || 0} platos</span>
+    if (result.categories.length === 0) {
+      categoriesList.innerHTML = `
+        <div style="background:var(--bg-base); border:1px dashed var(--border); border-radius:8px; padding:24px 12px; text-align:center; color:var(--text-dim); margin-bottom:14px;">
+          <div style="font-size:24px; margin-bottom:8px;">📭</div>
+          <div style="font-size:12px; font-weight:600; color:#fff; margin-bottom:4px;">No se detectaron platos en las imágenes</div>
+          <div style="font-size:10px; max-width:400px; margin:0 auto;">
+            Verificá que las fotos sean claras, tengan buena iluminación y que los platos y precios sean legibles. Podés volver a subir imágenes más nítidas o agregar los platos manualmente desde la pestaña "Carta & Platos".
+          </div>
         </div>
-        <div style="display:flex; flex-direction:column; gap:4px; max-height:160px; overflow-y:auto;">
-          ${(cat.items || []).map((item, itemIdx) => `
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; padding:3px 0; border-bottom:1px dashed rgba(255,255,255,0.06);">
-              <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:65%;">
-                <strong style="color:#fff;">${escapeHtml(item.name)}</strong>
-                ${item.description ? `<span style="color:var(--text-dim); font-size:10px; display:block; text-overflow:ellipsis; overflow:hidden;">${escapeHtml(item.description)}</span>` : ''}
+      `;
+    } else {
+      categoriesList.innerHTML = result.categories.map((cat, cIdx) => `
+        <div style="background:var(--bg-base); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px;">
+          <div style="font-size:12px; font-weight:700; color:var(--accent-gold); margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+            <span>📁 ${escapeHtml(cat.name)}</span>
+            <span style="font-size:10px; color:var(--text-dim);">${cat.items?.length || 0} platos</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px; max-height:160px; overflow-y:auto;">
+            ${(cat.items || []).map((item, itemIdx) => `
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; padding:3px 0; border-bottom:1px dashed rgba(255,255,255,0.06);">
+                <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:65%;">
+                  <strong style="color:#fff;">${escapeHtml(item.name)}</strong>
+                  ${item.description ? `<span style="color:var(--text-dim); font-size:10px; display:block; text-overflow:ellipsis; overflow:hidden;">${escapeHtml(item.description)}</span>` : ''}
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="color:#68D391; font-weight:700; font-family:var(--font-mono); white-space:nowrap;">
+                    $ ${(Number(item.price) || 0).toFixed(2)}
+                  </span>
+                  <button type="button" data-js-click="removeDetectedAiDish|${cIdx}|${itemIdx}" style="background:transparent; border:none; color:#E53E3E; cursor:pointer; font-size:12px; padding:2px 4px;" title="Descartar este plato">
+                    ✕
+                  </button>
+                </div>
               </div>
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span style="color:#68D391; font-weight:700; font-family:var(--font-mono); white-space:nowrap;">
-                  $ ${(Number(item.price) || 0).toFixed(2)}
-                </span>
-                <button type="button" data-js-click="removeDetectedAiDish|${cIdx}|${itemIdx}" style="background:transparent; border:none; color:#E53E3E; cursor:pointer; font-size:12px; padding:2px 4px;" title="Descartar este plato">
-                  ✕
-                </button>
-              </div>
-            </div>
-          `).join('')}
+            `).join('')}
+          </div>
         </div>
-      </div>
-    `).join('');
+      `).join('');
+    }
   }
 
   modal.classList.add('active');
@@ -427,6 +488,25 @@ export function closeAiMenuPreviewModal() {
 export function confirmAiMenuImport(callbacks = {}) {
   if (!parsedResult || !Array.isArray(parsedResult.categories)) {
     alert('No hay datos válidos para importar.');
+    return;
+  }
+
+  // Advertencia si es modo demostración (sin GEMINI_API_KEY real)
+  if (parsedResult.isDemoFallback === true) {
+    const confirmed = confirm(
+      '⚠️ MODO DEMOSTRACIÓN: Los platos que se mostrarán son de ejemplo (no se usaron tus imágenes reales).\n\n'
+      + 'Para usar la IA real con tus fotos, configurá GEMINI_API_KEY en tu .env.\n\n'
+      + '¿Igual querés importar estos platos de ejemplo?'
+    );
+    if (!confirmed) return;
+  }
+
+  // Advertencia si no hay categorías detectadas
+  if (parsedResult.categories.length === 0) {
+    const confirmed = confirm(
+      '⚠️ No se detectaron platos en las imágenes subidas.\n\n'
+      + 'No hay nada que importar. Volvé a subir imágenes más claras o agregá los platos manualmente desde "Carta & Platos".'
+    );
     return;
   }
 
