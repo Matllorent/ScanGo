@@ -228,6 +228,9 @@ router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
 
           // Enviar email de recordatorio de dunning en día 3 y día 1 de gracia
           if (daysLeft === 3 || daysLeft === 1) {
+            const reminderDay = daysLeft === 3 ? 'dunningReminderDay3Sent' : 'dunningReminderDay1Sent';
+            if (sub[reminderDay]) continue; // Ya se envió este recordatorio hoy
+
             try {
               const user = db.findUserById(restaurant.userId);
               if (user) {
@@ -243,6 +246,7 @@ router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
                 });
                 if (emailResult.success) {
                   logger.info(`[Dunning Cron] Dunning reminder (${daysLeft} days) sent to ${user.email} for restaurant ${restaurantId}`);
+                  updates[reminderDay] = now.toISOString();
                 } else {
                   logger.warn(`[Dunning Cron] Failed to send dunning reminder to ${user.email}:`, emailResult.error);
                 }
