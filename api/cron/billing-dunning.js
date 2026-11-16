@@ -116,30 +116,38 @@ router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
           if (daysLeft <= 1 && !sub.trialWarning1dSent) {
             const user = db.findUserById(restaurant.userId);
             if (user) {
-              emailService.sendTrialWarningEmail({
+              const emailResult = await emailService.sendTrialWarningEmail({
                 to: user.email,
                 userName: user.name,
                 restaurantName: restaurant.name || restaurant.bizName,
                 daysLeft: 1,
                 studioUrl: `${process.env.APP_URL || ''}/studio`
-              }).catch(e => logger.warn(`[Dunning Cron] Failed to send trial warning: ${e.message}`));
-              trialResults.warned1d++;
+              });
+              if (emailResult.success) {
+                trialResults.warned1d++;
+                updates.trialWarning1dSent = now.toISOString();
+                if (!sub.trialWarning3dSent) updates.trialWarning3dSent = now.toISOString();
+              } else {
+                logger.warn(`[Dunning Cron] Failed to send trial warning 1d to ${user.email}:`, emailResult.error);
+              }
             }
-            updates.trialWarning1dSent = now.toISOString();
-            if (!sub.trialWarning3dSent) updates.trialWarning3dSent = now.toISOString();
           } else if (daysLeft <= 3 && !sub.trialWarning3dSent) {
             const user = db.findUserById(restaurant.userId);
             if (user) {
-              emailService.sendTrialWarningEmail({
+              const emailResult = await emailService.sendTrialWarningEmail({
                 to: user.email,
                 userName: user.name,
                 restaurantName: restaurant.name || restaurant.bizName,
                 daysLeft: Math.min(3, daysLeft),
                 studioUrl: `${process.env.APP_URL || ''}/studio`
-              }).catch(e => logger.warn(`[Dunning Cron] Failed to send trial warning: ${e.message}`));
-              trialResults.warned3d++;
+              });
+              if (emailResult.success) {
+                trialResults.warned3d++;
+                updates.trialWarning3dSent = now.toISOString();
+              } else {
+                logger.warn(`[Dunning Cron] Failed to send trial warning 3d to ${user.email}:`, emailResult.error);
+              }
             }
-            updates.trialWarning3dSent = now.toISOString();
           }
         } else {
           // Día 8+: el trial venció. Se marca el estado y se avisa una sola vez.
@@ -150,17 +158,21 @@ router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
           if (!sub.trialExpiredEmailSent) {
             const user = db.findUserById(restaurant.userId);
             if (user) {
-              emailService.sendTrialExpiredEmail({
+              const emailResult = await emailService.sendTrialExpiredEmail({
                 to: user.email,
                 userName: user.name,
                 restaurantName: restaurant.name || restaurant.bizName,
                 graceDays: TRIAL_GRACE_DAYS,
                 studioUrl: `${process.env.APP_URL || ''}/studio`,
                 menuUrl: `${process.env.APP_URL || ''}/m/${restaurant.slug}`
-              }).catch(e => logger.warn(`[Dunning Cron] Failed to send trial expired email: ${e.message}`));
-              trialResults.expired++;
+              });
+              if (emailResult.success) {
+                trialResults.expired++;
+                updates.trialExpiredEmailSent = now.toISOString();
+              } else {
+                logger.warn(`[Dunning Cron] Failed to send trial expired email to ${user.email}:`, emailResult.error);
+              }
             }
-            updates.trialExpiredEmailSent = now.toISOString();
           }
 
           // Día 11+: terminó la gracia post-trial y el menú queda pausado
@@ -168,15 +180,19 @@ router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
           if (now > graceEnd && !sub.menuPausedEmailSent) {
             const user = db.findUserById(restaurant.userId);
             if (user) {
-              emailService.sendMenuPausedEmail({
+              const emailResult = await emailService.sendMenuPausedEmail({
                 to: user.email,
                 userName: user.name,
                 restaurantName: restaurant.name || restaurant.bizName,
                 studioUrl: `${process.env.APP_URL || ''}/studio`
-              }).catch(e => logger.warn(`[Dunning Cron] Failed to send menu paused email: ${e.message}`));
-              trialResults.paused++;
+              });
+              if (emailResult.success) {
+                trialResults.paused++;
+                updates.menuPausedEmailSent = now.toISOString();
+              } else {
+                logger.warn(`[Dunning Cron] Failed to send menu paused email to ${user.email}:`, emailResult.error);
+              }
             }
-            updates.menuPausedEmailSent = now.toISOString();
           }
         }
 
@@ -216,7 +232,7 @@ router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
               const user = db.findUserById(restaurant.userId);
               if (user) {
                 const planName = (restaurant.subscription && restaurant.subscription.plan) || 'starter_monthly';
-                emailService.sendDunningReminderEmail({
+                const emailResult = await emailService.sendDunningReminderEmail({
                   to: user.email,
                   userName: user.name,
                   restaurantName: restaurant.name || restaurant.bizName,
@@ -224,8 +240,12 @@ router.get('/billing-dunning', verifyCronAuth, async (req, res) => {
                   daysLeft,
                   gracePeriodDays: GRACE_PERIOD_DAYS,
                   updatePaymentUrl: `${process.env.APP_URL || ''}/studio?tab=billing`
-                }).catch(e => logger.warn(`[Dunning Cron] Failed to send dunning reminder: ${e.message}`));
-                logger.info(`[Dunning Cron] Dunning reminder (${daysLeft} days) sent to ${user.email} for restaurant ${restaurantId}`);
+                });
+                if (emailResult.success) {
+                  logger.info(`[Dunning Cron] Dunning reminder (${daysLeft} days) sent to ${user.email} for restaurant ${restaurantId}`);
+                } else {
+                  logger.warn(`[Dunning Cron] Failed to send dunning reminder to ${user.email}:`, emailResult.error);
+                }
               }
             } catch (e) {
               logger.warn(`[Dunning Cron] Failed to send dunning reminder: ${e.message}`);
