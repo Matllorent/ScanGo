@@ -1030,7 +1030,7 @@ router.post('/forgot-password', normalizeEmailInput, async (req, res, next) => {
       const expiresAt = Date.now() + expiresInSeconds * 1000;
 
       // Guardar el token ANTES de enviar el email para garantizar single-use
-      await db.savePasswordResetToken(user.id, resetToken, expiresAt);
+      await db.savePasswordResetToken(user.id, jti, expiresAt);
 
       const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
       const resetUrl = `${appUrl}/reset-password.html?token=${resetToken}`;
