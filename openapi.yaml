@@ -107,6 +107,178 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/auth/forgot-password:
+    post:
+      tags: [auth]
+      summary: Solicitar recuperación de contraseña
+      description: |-
+        Genera un token JWT de un solo uso (JTI) válido 15 min y envía email
+        con enlace de restablecimiento. Anti-enumeración: siempre responde 200
+        genérico aunque el email no exista. Cooldown de 15 min entre emails.
+        El enlace usa `APP_URL` (nunca localhost hardcodeado).
+      operationId: authForgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: Respuesta genérica (anti-enumeración)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Email requerido (`EMAIL_REQUIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: No se pudo verificar el usuario (`USER_LOOKUP_UNAVAILABLE`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/auth/verify-reset-token:
+    get:
+      tags: [auth]
+      summary: Validar token de recuperación
+      description: |-
+        Valida que el token JWT exista, no haya expirado, no haya sido usado
+        previamente y tenga propósito `reset-password`. No consume el token
+        (solo lectura).
+      operationId: authVerifyResetToken
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema:
+            type: string
+          description: Token JWT de recuperación
+      responses:
+        '200':
+          description: Token válido
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, valid]
+                properties:
+                  success:
+                    type: boolean
+                  valid:
+                    type: boolean
+                  email:
+                    type: string
+        '400':
+          description: Token requerido / inválido / ya usado (`INVALID_TOKEN`, `INVALID_TOKEN_PURPOSE`, `TOKEN_ALREADY_USED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Token expirado (`TOKEN_EXPIRED`) o inválido (`INVALID_TOKEN`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/auth/reset-password:
+    post:
+      tags: [auth]
+      summary: Restablecer contraseña con token
+      description: |-
+        Valida el token (single-use, claim atómico con mutex por JTI), verifica
+        que el usuario exista y esté activo, y actualiza la contraseña. El token
+        se invalida tras el uso exitoso. Todas las sesiones previas se revocan
+        por cambio de `pwdTs`.
+      operationId: authResetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Contraseña restablecida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Token requerido / contraseña corta / token ya usado (`TOKEN_REQUIRED`, `PASSWORD_TOO_SHORT`, `TOKEN_ALREADY_USED`, `INVALID_TOKEN_PURPOSE`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Token inválido o expirado (`INVALID_TOKEN`, `TOKEN_EXPIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Usuario no encontrado (`USER_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: No se pudo verificar el usuario (`USER_LOOKUP_UNAVAILABLE`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/auth/set-password:
+    post:
+      tags: [auth]
+      summary: Establecer primera contraseña (usuario Google)
+      description: |-
+        Permite a un usuario que se autentica por Google (no tiene contraseña
+        tradicional) establecer su primera contraseña. Requiere sesión válida
+        (cookie `auth_token`). Después de establecerla, revoca todas las sesiones
+        y dispositivos previos.
+      operationId: authSetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPasswordRequest'
+      responses:
+        '200':
+          description: Contraseña establecida exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Contraseña corta / body vacío (`PASSWORD_TOO_SHORT`, `VALIDATION_ERROR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sin autenticación (`UNAUTHORIZED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Usuario no encontrado (`USER_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: No se pudo verificar el usuario (`USER_LOOKUP_UNAVAILABLE`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/auth/device:
     post:
       tags: [auth]
@@ -3623,6 +3795,39 @@ components:
           maxLength: 100
         password:
           type: string
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 100
+      description: |-
+        Solicitud de recuperación de contraseña. Anti-enumeración: siempre
+        responde 200 genérico aunque el email no exista (no revela si el email
+        está registrado).
+    ResetPasswordRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token:
+          type: string
+          description: Token JWT de recuperación (single-use, expira en 15 min)
+        password:
+          type: string
+          minLength: 6
+          maxLength: 100
+          description: Nueva contraseña (mínimo 6 caracteres)
+    SetPasswordRequest:
+      type: object
+      required: [newPassword]
+      properties:
+        newPassword:
+          type: string
+          minLength: 6
+          maxLength: 100
+          description: Nueva contraseña para usuario de Google (requiere sesión válida)
     AuthResponse:
       type: object
       required: [success]
