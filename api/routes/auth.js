@@ -1053,7 +1053,7 @@ router.post('/forgot-password', normalizeEmailInput, async (req, res, next) => {
       } catch (mailErr) {
         console.warn('Advertencia al enviar email de recuperación:', mailErr.message);
         // Si el email falló, invalidar el token para que no quede huérfano
-        await db.invalidateResetToken(resetToken);
+        await db.invalidateResetToken(jti);
       }
     }
     return successResponse(res, null, 'Si el correo está registrado en ScanGo, recibirás las instrucciones para restablecer tu contraseña en los próximos minutos.');
