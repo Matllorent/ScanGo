@@ -868,6 +868,64 @@ const notificationsService = {
     return ev;
   },
 
+  /**
+   * Dedupe del nudge de cumpleaños: ¿ya se le envió el email/push de cumpleaños
+   * a este cliente hoy? Marca en notification_events (type `birthday_nudge`,
+   * data.customerId + data.birthdayDate).
+   */
+  async hasBirthdayNudgeSent(customerId, dateStr) {
+    if (!customerId || !dateStr) return false;
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('notification_events')
+          .select('id')
+          .eq('type', 'birthday_nudge')
+          .eq('data->>customerId', String(customerId))
+          .eq('data->>birthdayDate', String(dateStr))
+          .limit(1);
+        if (!error && data && data.length > 0) return true;
+        if (error) console.warn('[Supabase Birthday Nudge Dedupe Warning]', error.message);
+      } catch (e) {
+        console.warn('[Supabase Birthday Nudge Dedupe Exception]', e.message);
+      }
+    }
+    return readNotificationEvents().some(
+      e => e && e.type === 'birthday_nudge' && e.data && String(e.data.customerId) === String(customerId) && String(e.data.birthdayDate) === String(dateStr)
+    );
+  },
+
+  /** Graba el marcador de cumpleaños enviado (espejo local + nube best-effort). */
+  async recordBirthdayNudgeSent({ customerId, birthdayDate, channels }) {
+    if (!customerId || !birthdayDate) return null;
+    const events = readNotificationEvents();
+    const existing = events.find(
+      e => e && e.type === 'birthday_nudge' && e.data && String(e.data.customerId) === String(customerId) && String(e.data.birthdayDate) === String(birthdayDate)
+    );
+    if (existing) return existing;
+    const ev = {
+      id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : `bn_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+      restaurantId: null,
+      branchId: null,
+      type: 'birthday_nudge',
+      title: 'Nudge de cumpleaños enviado',
+      body: 'Email y/o push de cumpleaños al cliente.',
+      data: { customerId: String(customerId), birthdayDate: String(birthdayDate), ...(channels ? { channels } : {}) },
+      isRead: true,
+      createdAt: new Date().toISOString()
+    };
+    await writeNotificationEvents([...events, ev]);
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      retryQueue.enqueue(async () => {
+        const { error } = await supabase.from('notification_events').upsert([toEventCloudRow(ev)], { onConflict: 'id' });
+        if (error) throw new Error(error.message);
+      }, { taskName: 'birthday_nudge_record_replicate' });
+    }
+    return ev;
+  },
+
   /** Marca un evento como leído (solo del propio restaurante). */
   async markNotificationEventRead(id, restaurantId) {
     const events = await this.listNotificationEvents({ restaurantId, limit: 500 });

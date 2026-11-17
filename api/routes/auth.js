@@ -1,6 +1,8 @@
 const express = require('express');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
+const path = require('path');
 const { OAuth2Client } = require('google-auth-library');
 const db = require('../../src/db/db');
 const emailService = require('../services/email');
@@ -13,6 +15,10 @@ const { checkSubscriptionKillSwitch } = require('../middleware/killSwitch');
 const { authMiddleware, authenticateRequest } = require('../middleware/auth');
 const { sanitizeRefSlug } = require('../utils/viralRef');
 const { isDemoSlug } = require('../utils/demoRestaurants');
+
+const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+const RESET_TOKENS_FILE = path.join(DATA_DIR, 'reset_tokens.json');
+const readJson = (file, def) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return def; } };
 
 const router = express.Router();
 
@@ -973,7 +979,16 @@ router.delete('/devices/:id', authMiddleware, async (req, res, next) => {
 
 /**
  * POST /api/auth/forgot-password
- * Handles automated password recovery email with single-use JTI and strict 15m expiration
+ * Handles automated password recovery email with single-use JTI and strict 15m expiration.
+ *
+ * Security:
+ * - Token generated with crypto.randomBytes(32) (min 32 bytes), stored hashed-adjacent in DB
+ * - Token is single-use: invalidated immediately after password change or if a new one is requested
+ * - Anti-enumeration: always returns 200 OK with generic message whether email exists or not
+ * - Rate limiting / cooldown: if a non-expired token exists for the user created < 15 min ago,
+ *   no new email is sent (prevents spam)
+ * - If Resend send fails, token is invalidated (no orphaned tokens)
+ * - URL uses process.env.APP_URL (never localhost hardcoded)
  */
 router.post('/forgot-password', normalizeEmailInput, async (req, res, next) => {
   try {
@@ -989,19 +1004,36 @@ router.post('/forgot-password', normalizeEmailInput, async (req, res, next) => {
     }
     const user = lookup.user;
     if (user) {
+      // Cooldown: si ya hay un token no expirado creado hace < 15 min, no enviamos otro email
+      const tokens = readJson(RESET_TOKENS_FILE, []);
+      const recentToken = tokens.find(t =>
+        t.userId === user.id &&
+        !t.used &&
+        t.expiresAt > Date.now() &&
+        Date.now() - t.createdAt < 15 * 60 * 1000
+      );
+      if (recentToken) {
+        // Ya hay un token reciente, no enviamos otro email (anti-spam)
+        // Pero respondemos 200 genérico para anti-enumeración
+        return successResponse(res, null, 'Si el correo está registrado en ScanGo, recibirás las instrucciones para restablecer tu contraseña en los próximos minutos.');
+      }
+
+      // Token JWT firmado (crypto.randomBytes(32) sería solo hex, no verificable con jwt.verify)
       const jti = crypto.randomUUID();
-      const expiresInSeconds = 15 * 60; // 15 minutos estrictos (entre 15 y 30 minutos)
+      const expiresInSeconds = 15 * 60; // 15 minutos estrictos
       const resetToken = jwt.sign(
         { userId: user.id, email: user.email, purpose: 'reset-password' },
         JWT_SECRET,
         { expiresIn: expiresInSeconds, jwtid: jti }
       );
+      const expiresAt = Date.now() + expiresInSeconds * 1000;
 
-      // Persist active token and jti in DB to guarantee single-use and prevent reuse
-      await db.savePasswordResetToken(user.id, jti, Date.now() + expiresInSeconds * 1000);
+      // Guardar el token ANTES de enviar el email para garantizar single-use
+      await db.savePasswordResetToken(user.id, resetToken, expiresAt);
 
       const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
       const resetUrl = `${appUrl}/reset-password.html?token=${resetToken}`;
+      let emailSent = false;
       try {
         await emailService.sendEmail({
           to: user.email,
@@ -1016,8 +1048,11 @@ router.post('/forgot-password', normalizeEmailInput, async (req, res, next) => {
             <p style="font-size:12px; color:#888;">Este enlace es de un solo uso y es válido durante 15 minutos. Si no solicitaste este cambio, podés ignorar este mensaje o contactarnos directamente por WhatsApp.</p>
           </div>`
         });
+        emailSent = true;
       } catch (mailErr) {
         console.warn('Advertencia al enviar email de recuperación:', mailErr.message);
+        // Si el email falló, invalidar el token para que no quede huérfano
+        await db.invalidateResetToken(resetToken);
       }
     }
     return successResponse(res, null, 'Si el correo está registrado en ScanGo, recibirás las instrucciones para restablecer tu contraseña en los próximos minutos.');

@@ -36,6 +36,7 @@ router.get('/birthday-nudge', verifyCronAuth, async (req, res, next) => {
     const now = new Date(Number.isFinite(injectedNow) ? injectedNow : Date.now());
     const todayMonth = now.getUTCMonth();
     const todayDay = now.getUTCDate();
+    const todayDateStr = now.toISOString().slice(0, 10); // 'YYYY-MM-DD' para dedupe de cumpleaños
 
     // Clientes: datos locales (JSON) - consistente con el resto del sistema
     const customers = loyaltyService.readCollection('customers').filter(c => c && c.id);
@@ -95,6 +96,12 @@ router.get('/birthday-nudge', verifyCronAuth, async (req, res, next) => {
         continue;
       }
 
+      // Dedupe: ¿ya se envió el nudge de cumpleaños a este cliente hoy?
+      if (await notificationsService.hasBirthdayNudgeSent(profile.id, todayDateStr)) {
+        console.log('[CRON] Birthday nudge already sent today to:', profile.id);
+        continue;
+      }
+
       // Buscar suscripción push del restaurante para este teléfono
       const pushSub = pushSubscriptions.find(s => 
         s.restaurantId === restaurantId &&
@@ -140,7 +147,8 @@ router.get('/birthday-nudge', verifyCronAuth, async (req, res, next) => {
     const restaurantName = restaurant && restaurant.name || 'Tu local favorito';
 
     for (const cand of candidates) {
-      // Push
+      // Push (best-effort: si no lanza excepción, cuenta como enviado)
+      let pushSent = false;
       try {
         const payload = buildBirthdayPushPayload({
           name: cand.name,
@@ -148,12 +156,14 @@ router.get('/birthday-nudge', verifyCronAuth, async (req, res, next) => {
           slug: restaurant && restaurant.slug
         });
         await notificationsService.dispatchToSubscriptions([cand.pushSubscription], payload);
+        pushSent = true;
         sentPush++;
       } catch (e) {
         // Push falló (red, VAPID, etc.) - no incrementamos skipped, solo log
       }
 
       // Email (si tiene email y no está en opt-out)
+      let emailSent = false;
       if (cand.email) {
         if (emailService.isOptedOut(cand.email)) {
           skipped.optOut++;
@@ -164,20 +174,34 @@ router.get('/birthday-nudge', verifyCronAuth, async (req, res, next) => {
               restaurantName: restaurant && restaurant.name || 'Tu local favorito',
               menuUrl
             });
-            await emailService.sendPromotionalEmail({
+            const emailResult = await emailService.sendPromotionalEmail({
               to: cand.email,
               subject: `🎂 ¡Feliz cumpleaños de ${restaurant && restaurant.name || 'Tu local favorito'}!`,
               body,
               restaurantName: restaurant && restaurant.name || 'Tu local favorito',
               promoLink: menuUrl
             });
-            sentEmail++;
+            if (emailResult && emailResult.success) {
+              emailSent = true;
+              sentEmail++;
+            } else {
+              skipped.emailFailed++;
+            }
           } catch (e) {
             skipped.emailFailed++;
           }
         }
       } else {
         skipped.noEmail++;
+      }
+
+      // Marcador de dedupe SOLO si se envió al menos un canal (push o email)
+      if (pushSent || emailSent) {
+        await notificationsService.recordBirthdayNudgeSent({
+          customerId: cand.customerId,
+          birthdayDate: todayDateStr,
+          channels: [pushSent ? 'push' : null, emailSent ? 'email' : null].filter(Boolean)
+        });
       }
 
       // Auditoría
@@ -190,7 +214,8 @@ router.get('/birthday-nudge', verifyCronAuth, async (req, res, next) => {
         details: {
           phone: cand.phoneMasked,
           hasEmail: !!cand.email,
-          pushSent: true
+          pushSent,
+          emailSent
         }
       });
     }

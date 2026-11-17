@@ -92,13 +92,18 @@ router.get('/review-nudge', verifyCronAuth, async (req, res) => {
           restaurantName: restaurant.name || '',
           reviewUrl
         });
-        results.sent++;
-        if (result && result.skipped) {
-          results.reasons.OPT_OUT_AT_SEND = (results.reasons.OPT_OUT_AT_SEND || 0) + 1;
+        if (result && result.success) {
+          results.sent++;
+          if (result && result.skipped) {
+            results.reasons.OPT_OUT_AT_SEND = (results.reasons.OPT_OUT_AT_SEND || 0) + 1;
+          }
+          // El marcador se persiste SOLO si el email realmente se envió.
+          await notificationsService.recordOrderReviewNudge({ restaurantId: candidate.restaurantId, orderId: candidate.orderId });
+        } else {
+          results.skipped++;
+          results.reasons.EMAIL_FAILED = (results.reasons.EMAIL_FAILED || 0) + 1;
+          logger.warn('[Review Nudge] Email falló, no se marca marcador (reintento al próximo tick):', result && result.error);
         }
-        // El marcador se persiste SIEMPRE (enviado u opt-out: no re-enviar a
-        // quien pidió la baja; no duplicar al que ya dijo sí).
-        await notificationsService.recordOrderReviewNudge({ restaurantId: candidate.restaurantId, orderId: candidate.orderId });
       } catch (e) {
         results.skipped++; results.reasons.ERROR = (results.reasons.ERROR || 0) + 1;
         logger.info('[Review Nudge] error por pedido, se continúa', { details: String(e.message || e) });

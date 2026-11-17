@@ -93,7 +93,7 @@ router.get('/reservation-reminders', verifyCronAuth, async (req, res) => {
               time: cand.time,
               menuUrl: `${appUrl}/m/${encodeURIComponent(cand.restaurantSlug)}`
             });
-            emailSent = !(result && result.skipped);
+            emailSent = result && result.success === true;
           } catch (e) {
             emailSent = false;
           }
@@ -108,7 +108,7 @@ router.get('/reservation-reminders', verifyCronAuth, async (req, res) => {
 
         results.sent++;
         const channels = [pushSent ? 'push' : null, emailSent ? 'email' : null].filter(Boolean);
-        // El marcador se persiste SIEMPRE al haber enviado (no re-enviar).
+        // El marcador se persiste SOLO si se envió al menos un canal con éxito.
         await notificationsService.recordReservationReminder({
           restaurantId: cand.restaurantId,
           reservationId: cand.reservationId,
