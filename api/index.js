@@ -182,6 +182,17 @@ const authLimiter = rateLimit({
   legacyHeaders: false
 });
 
+// Login específico: más estricto para prevenir fuerza bruta en contraseñas
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // 5 intentos/15min por IP para login con contraseña
+  keyGenerator: authIpKeyGenerator,
+  validate: { keyGeneratorIpFallback: false },
+  message: { success: false, error: 'Demasiados intentos fallidos de inicio de sesión. Por favor intentá nuevamente en 15 minutos.', code: 'LOGIN_RATE_LIMIT_EXCEEDED' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 const reviewsLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,

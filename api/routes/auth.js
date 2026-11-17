@@ -13,6 +13,7 @@ const { successResponse, errorResponse } = require('../utils/response');
 const AppError = require('../utils/AppError');
 const { checkSubscriptionKillSwitch } = require('../middleware/killSwitch');
 const { authMiddleware, authenticateRequest } = require('../middleware/auth');
+const { loginLimiter } = require('../middleware/rateLimits');
 const { sanitizeRefSlug } = require('../utils/viralRef');
 const { isDemoSlug } = require('../utils/demoRestaurants');
 
@@ -855,7 +856,7 @@ router.post('/register', checkSubscriptionKillSwitch, normalizeEmailInput, valid
 /**
  * POST /api/auth/login
  */
-router.post('/login', normalizeEmailInput, validateBody(loginSchema), async (req, res, next) => {
+router.post('/login', loginLimiter, normalizeEmailInput, validateBody(loginSchema), async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const user = await verifyUserCredentials(email, password);
@@ -1160,6 +1161,50 @@ router.post('/reset-password', async (req, res, next) => {
 
       return successResponse(res, null, 'Contraseña restablecida exitosamente. Ya podés iniciar sesión.');
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/auth/set-password
+ * Establece la primera contraseña para un usuario que se autentica por
+ * Google (no tiene contraseña tradicional) o quiere crear su primera
+ * clave. Requiere sesión válida (JWT cookie).
+ * El cuerpo debe traer: { newPassword: string }
+ */
+router.post('/set-password', authMiddleware, async (req, res, next) => {
+  try {
+    const { newPassword } = req.body;
+
+    if (!newPassword || String(newPassword).length < 6) {
+      throw new AppError('La contraseña debe tener al menos 6 caracteres', 400, 'PASSWORD_TOO_SHORT');
+    }
+
+    const userId = req.authUser?.id;
+    if (!userId) {
+      throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
+    }
+
+    // Estado fresco: verificar que el usuario exista y esté activo
+    const state = await db.getUserSessionState(userId);
+    if (state.status === 'unavailable') {
+      throw new AppError('No pudimos verificar tu cuenta en este momento. Reintentá en unos segundos.', 503, 'USER_LOOKUP_UNAVAILABLE');
+    }
+    if (state.status !== 'active' || !state.user) {
+      throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
+    }
+
+    const user = state.user;
+
+    // Hashear y guardar la nueva contraseña
+    const hashedPassword = await hashPassword(newPassword);
+    await db.updateUserPassword(user.id, hashedPassword);
+
+    // Revocar todas las sesiones y dispositivos previos para forzar re-autenticación
+    revokeAllUserDevices(user.id);
+
+    return successResponse(res, null, 'Contraseña establecida exitosamente. Ya podés iniciar sesión con email y contraseña.');
   } catch (err) {
     next(err);
   }

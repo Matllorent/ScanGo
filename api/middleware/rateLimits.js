@@ -23,6 +23,9 @@ function publicEventKeyGenerator(req) {
   return slug ? `slug:${slug}` : `ip:${req?.ip || 'unknown'}`;
 }
 
+// Generator de clave por IP real para auth (se usa en loginLimiter y authLimiter de index.js)
+const authIpKeyGenerator = (req) => req.ip;
+
 module.exports = {
   publicAnalyticsLimiter: createRateLimit(
     120,
@@ -54,6 +57,15 @@ module.exports = {
     'ADMIN_RATE_LIMIT_EXCEEDED',
     'Acceso temporalmente bloqueado por seguridad: has superado el límite de 5 intentos. Esperá 15 minutos antes de volver a intentar.'
   ),
+  // Login de comensal (POST /api/auth/login): 5 intentos por IP cada 15 min.
+  // Más estricto que authLimiter general para prevenir fuerza bruta en
+  // contraseñas de comensal.
+  loginLimiter: createRateLimit(
+    5,
+    'LOGIN_RATE_LIMIT_EXCEEDED',
+    'Demasiados intentos fallidos de inicio de sesión. Por favor intentá nuevamente en 15 minutos.',
+    { keyGenerator: authIpKeyGenerator, validate: { keyGeneratorIpFallback: false } }
+  ),
   // Creación individual de platos (POST /api/studio/dishes): 30 req/min por tenant
   dishCreationLimiter: createRateLimit(30, 'DISH_CREATION_RATE_LIMITED', 'Demasiados platos creados en poco tiempo.'),
   // Guardado masivo con platos (POST /api/studio/save con dishes[]): 5 req/min por tenant
@@ -73,6 +85,5 @@ module.exports = {
     'RESERVATIONS_RATE_LIMITED',
     'Demasiadas solicitudes de reserva en poco tiempo.',
     { keyGenerator: publicEventKeyGenerator, validate: { keyGeneratorIpFallback: false } }
-  ),
-  publicEventKeyGenerator
+  )
 };
