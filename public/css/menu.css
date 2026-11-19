@@ -552,7 +552,7 @@
       box-shadow: 0 3px 14px rgba(20, 8, 5, 0.35);
     }
     body.theme-taqueria .restaurant-cover-banner {
-      background: linear-gradient(180deg, rgba(42, 19, 16, 0.35), #2A1310), url('/logo-scango.svg') center/cover no-repeat;
+      background: linear-gradient(180deg, rgba(42, 19, 16, 0.35), #2A1310), url('/logo-scango.png') center/cover no-repeat;
     }
 
     /* ── Portada (hero): se funde con la cabecera, sin franja ──── */
@@ -4404,22 +4404,6 @@
       background: #151E1A;
     }
 
-    /* Placeholder para platos sin foto — usa SVG inline con currentColor */
-    .dish-thumb-placeholder {
-      width: 76px;
-      height: 76px;
-      border-radius: 10px;
-      flex-shrink: 0;
-      border: 1px solid var(--border-chalk);
-      background: #151E1A;
-      color: var(--chalk-dim, #6E6E6E);
-    }
-    .dish-thumb-placeholder svg {
-      width: 32px;
-      height: 32px;
-      opacity: 0.5;
-    }
-
     /* Bill Splitter Tool in Cart */
     .bill-splitter-box {
       background: rgba(255,255,255,0.04);
@@ -5976,7 +5960,7 @@
     .restaurant-cover-banner {
       width: 100%;
       height: 140px;
-      background: linear-gradient(180deg, rgba(0,0,0,0.2), #101614), url('/logo-scango.svg') center/cover no-repeat;
+      background: linear-gradient(180deg, rgba(0,0,0,0.2), #101614), url('/logo-scango.png') center/cover no-repeat;
       position: relative;
     }
     .header-top-row {

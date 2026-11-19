@@ -19,7 +19,6 @@ import { isDishSoldOut } from '../utils/dishAvailability.js';
 import { computeOpenStatus } from './openStatus.js';
 import { parseGuestContext, resolveEventTheme } from './eventGuestMode.js';
 import { renderWeddingItineraryHTML as renderWeddingItineraryHTMLMod } from './weddingItinerary.js';
-import { getPlaceholderDishSvg } from '../utils/placeholderDishSvg.js';
 
 let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
 
@@ -491,7 +490,7 @@ let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
 
       const photoHtml = d.photoUrl 
         ? `<img src="${escapeHtml(d.photoUrl)}" alt="${escapeHtml(d.name)}" class="dish-thumb" loading="lazy" decoding="async" style="aspect-ratio:16/9">` 
-        : `<div class="dish-thumb dish-thumb-placeholder" style="aspect-ratio:16/9; display:flex; align-items:center; justify-content:center; background:var(--surface-card, #16201b);">${getPlaceholderDishSvg()}</div>`;
+        : '';
 
       // Kicker de horario ("Solo de 08:00 a 12:00"): dato del plato visible en
       // TODOS los temas (#6 Happy Hour visible; el precio en oferta con strike

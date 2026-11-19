@@ -288,10 +288,6 @@ router.get('/:slug', async (req, res) => {
     if (req.headers['if-none-match'] === menuEtag) {
       return res.status(304).end();
     }
-    // Declaración explícita de charset UTF-8 para que rastreadores externos
-    // (WhatsApp, Telegram, Facebook, etc.) lean los OG tags con los caracteres
-    // especiales (ú, •, —, etc.) correctamente y sin mojibake.
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
     return res.send(html); // nosemgrep: javascript.express.security.audit.xss.direct-response-write.direct-response-write
   }
 
