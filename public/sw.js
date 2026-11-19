@@ -7,6 +7,7 @@ const STATIC_ASSETS = [
   '/favicon.ico',
   '/logo-scango.png',
   '/logo-scango.svg',
+  '/splash-logo.svg',
   '/icon-192.png',
   '/icon-512.png',
   '/apple-touch-icon.png',

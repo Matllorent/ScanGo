@@ -11,6 +11,18 @@
   "orientation": "any",
   "icons": [
     {
+      "src": "/logo-scango.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-scango.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
       "src": "/favicon.ico",
       "sizes": "32x32",
       "type": "image/x-icon"
@@ -43,6 +55,22 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/splash-logo.svg",
+      "sizes": "1024x1024",
+      "type": "image/svg+xml",
+      "form_factor": "narrow",
+      "label": "Splash screen ScanGo — menú digital con QR y pedidos por WhatsApp"
+    },
+    {
+      "src": "/splash-logo.svg",
+      "sizes": "1024x1024",
+      "type": "image/svg+xml",
+      "form_factor": "wide",
+      "label": "ScanGo — splash screen para tablet y escritorio"
     }
   ]
 }

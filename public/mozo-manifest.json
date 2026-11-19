@@ -11,6 +11,12 @@
   "theme_color": "#0E1412",
   "icons": [
     {
+      "src": "/logo-scango.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
       "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
