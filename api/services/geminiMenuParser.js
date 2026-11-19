@@ -182,7 +182,7 @@ async function parseMenuWithGemini(images) {
   if (cached) return cached;
 
   const ai = new GoogleGenAI({ apiKey });
-  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+  const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 
   // Format parts for Google GenAI SDK (supports images and PDF documents)
   const formattedParts = images.map((img, idx) => {
