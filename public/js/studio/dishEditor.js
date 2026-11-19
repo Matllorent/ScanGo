@@ -237,15 +237,44 @@ function renderDishCards(container, dishes, cats, currency, safeEscape) {
 export function updatePhotoCoverageBanner(restaurant) {
   const banner = document.getElementById('photoCoverageBanner');
   if (!banner) return;
+
+  const dismissed = localStorage.getItem('scango_photo_coverage_dismissed') === '1';
   const dishes = restaurant?.dishes || [];
-  const hasPhoto = (d) => Boolean(d.photoUrl || d.imageUrl || d.image || d.photo);
   const missing = dishes.filter(d => !hasPhoto(d)).length;
-  if (dishes.length > 0 && missing > 0) {
-    banner.style.display = 'block';
-    banner.textContent = `📷 ${missing} de ${dishes.length} platos sin foto. La carta con fotos vende más: editalos con ✏️ y sumales imagen.`;
-  } else {
+
+  if (!missing || dismissed) {
     banner.style.display = 'none';
     banner.textContent = '';
+    return;
+  }
+
+  const total = dishes.length;
+  const percent = total > 0 ? Math.round((missing / total) * 100) : 0;
+
+  banner.style.display = 'block';
+  banner.innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+      <div style="display:flex; align-items:center; gap:6px;">
+        <span style="font-size:14px;">📷</span>
+        <span style="font-weight:700; color:#111827;">${missing} plato${missing !== 1 ? 's' : ''} sin foto</span>
+        <span style="font-size:11px; color:var(--text-dim); opacity:0.8;">(${percent}% de ${total})</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <span style="font-size:11px; color:var(--text-dim); opacity:0.8;">Agregáles imagen para que se vean mejor en tu carta digital.</span>
+        <button type="button" id="photoCoverageDismiss" style="background:transparent; border:none; color:var(--text-dim); font-size:11px; cursor:pointer; padding:2px 8px; border-radius:4px; text-decoration:underline;">
+          No volver a mostrar
+        </button>
+      </div>
+    </div>
+  `;
+
+  const dismissBtn = document.getElementById('photoCoverageDismiss');
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', () => {
+      localStorage.setItem('scango_photo_coverage_dismissed', '1');
+      banner.style.display = 'none';
+      banner.textContent = '';
+    });
   }
 }
 
