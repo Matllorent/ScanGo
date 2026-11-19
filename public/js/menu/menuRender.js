@@ -404,7 +404,7 @@ let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
           const heroDish = catDishes.find(d => d.photoUrl && (d.is_chef_recommended || d.isChefSpecial))
             || catDishes.find(d => d.photoUrl);
           if (heroDish) {
-            html += `<img src="${escapeHtml(heroDish.photoUrl)}" alt="${escapeHtml(heroDish.name)}" class="category-hero-img" loading="lazy" decoding="async">`;
+            html += `<img src="${escapeHtml(heroDish.photoUrl)}" alt="${escapeHtml(heroDish.name)}" class="category-hero-img" loading="lazy" decoding="async" fetchpriority="high">`;
           }
         }
         html += `<div class="dishes-grid">`;
@@ -565,6 +565,16 @@ let weddingItineraryTimer = null; // re-render del timeline en vivo cada 30s
         </div>
       `;
     }
+
+  // Lazy loading reveal: las imágenes de platos aparecen con fade-in al cargar.
+  // Usa capture phase para capturar eventos load de imágenes inyectadas dinámicamente.
+  document.addEventListener('load', (e) => {
+    const img = e.target;
+    if (img.tagName === 'IMG' && img.classList.contains('dish-thumb')) {
+      img.classList.add('dish-thumb-loaded');
+    }
+  }, true);
+
 export {
   getDishScheduleStatus,
   renderChefSpecials,

@@ -4404,6 +4404,16 @@
       background: #151E1A;
     }
 
+    /* Lazy loading reveal para imágenes de platos: placeholder tenue +
+       fade-in suave cuando la imagen termina de cargar */
+    .dish-thumb:not(.dish-thumb-loaded) {
+      opacity: 0.45;
+      transition: opacity 0.3s ease;
+    }
+    .dish-thumb-loaded {
+      opacity: 1;
+    }
+
     /* Bill Splitter Tool in Cart */
     .bill-splitter-box {
       background: rgba(255,255,255,0.04);
