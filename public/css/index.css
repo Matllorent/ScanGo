@@ -1798,8 +1798,23 @@
     }
     .stat-counted.count-done { animation: countPulse 0.5s ease; }
 
+    /* Logo ScanGo animado en header de landing */
+    .brand-logo-svg {
+      animation: scanGoPulse 5s ease-in-out infinite;
+      transform-origin: center;
+    }
+
+    @keyframes scanGoPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      40% { opacity: 0.85; transform: scale(1.03); }
+      60% { opacity: 0.9; transform: scale(1.01); }
+    }
+
     /* --- 7 · Respeta la preferencia del sistema: sin motion --- */
     @media (prefers-reduced-motion: reduce) {
+      .brand-logo-svg {
+        animation: none !important;
+      }
       .motion-ready .hero-content > *,
       .motion-ready .hero-mockup-wrapper,
       .motion-ready .section-header,

@@ -61,7 +61,7 @@ function adminHtmlAuthMiddleware(req, res, next) {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>403 — Acceso Restringido • ScanGo</title>
-  <link rel="icon" type="image/png" href="/logo-scango.png" />
+  <link rel="icon" type="image/svg+xml" href="/logo-scango.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -265,7 +265,7 @@ function adminHtmlAuthMiddleware(req, res, next) {
 </head>
 <body>
   <div class="card">
-    <img src="/logo-scango.png" alt="ScanGo" class="brand-logo" data-js-error-style-display="none">
+    <img src="/logo-scango.svg" alt="ScanGo" class="brand-logo" data-js-error-style-display="none">
     <div><span class="status-badge">403 • ACCESO RESTRINGIDO</span></div>
     <h2>Acceso Maestro ScanGo</h2>
     <p>Ingresá la clave maestra configurada en el servidor (ADMIN_KEY) para acceder al panel de administración.</p>

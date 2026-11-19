@@ -25,6 +25,7 @@
 const DEFAULT_BASE_URL = 'https://scango.uy';
 const SOLUTION_BASE_PATH = '/soluciones';
 const TRIAL_DAYS = 7;
+const logoSvg = require('./logoSvg');
 
 /**
  * Catálogo de rubros. `demoSlug` enlaza a un demo REAL (/m/demo-*) y todas las
@@ -538,7 +539,7 @@ function renderHeader(registerHref = '/?registro=1') {
     '<header class="site-header">',
     '  <div class="header-container">',
     '    <a href="/" class="brand-link" aria-label="ScanGo — inicio">',
-    '      <img src="/logo-scango.png" alt="ScanGo" width="45" height="44" fetchpriority="high" decoding="async" style="height:44px;width:auto;object-fit:contain;">',
+    `      <span class="brand-logo-inline" style="display:inline-block; width:45px; height:44px;">${logoSvg.getLogoSvgBrand({ idSuffix: 'soluciones' })}</span>`,
     `      ${BRAND_HTML}`,
     '    </a>',
     '    <nav class="main-nav" aria-label="Navegación principal">',
