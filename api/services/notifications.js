@@ -304,13 +304,20 @@ const notificationsService = {
       timestamp: new Date().toISOString()
     };
 
-    const dispatch = await dispatchToSubscriptions(targets, payload);
-    return {
-      success: true,
-      ...dispatch,
-      skipped: null,
-      payload
-    };
+    let dispatch;
+    try {
+      dispatch = await dispatchToSubscriptions(targets, payload);
+    } catch (e) {
+      return {
+        success: true,
+        checked: targets.length,
+        delivered: 0,
+        failed: 0,
+        removed: 0,
+        skipped: e.code || 'PUSH_FAILED'
+      };
+    }
+    return { success: true, ...dispatch, skipped: null, payload };
   },
 
   /**
@@ -451,13 +458,23 @@ const notificationsService = {
       timestamp: new Date().toISOString()
     };
 
-    const dispatch = await dispatchToSubscriptions(targets, payload);
-    return {
-      success: true,
-      ...dispatch,
-      skipped: null,
-      payload
-    };
+    let dispatch;
+    try {
+      dispatch = await dispatchToSubscriptions(targets, payload);
+    } catch (e) {
+      // Sin VAPID (o push caído) NO rompe el flujo del estado del pedido:
+      // el comensal sigue viendo el estado en /track sin push. Devuelve
+      // skipped honesto para que el llamador pueda decidir.
+      return {
+        success: true,
+        checked: targets.length,
+        delivered: 0,
+        failed: 0,
+        removed: 0,
+        skipped: e.code || 'PUSH_FAILED'
+      };
+    }
+    return { success: true, ...dispatch, skipped: null, payload };
   },
 
   /**
@@ -804,7 +821,19 @@ const notificationsService = {
       timestamp: new Date().toISOString()
     };
 
-    const dispatch = await dispatchToSubscriptions(targets, payload);
+    let dispatch;
+    try {
+      dispatch = await dispatchToSubscriptions(targets, payload);
+    } catch (e) {
+      return {
+        success: true,
+        checked: targets.length,
+        delivered: 0,
+        failed: 0,
+        removed: 0,
+        skipped: e.code || 'PUSH_FAILED'
+      };
+    }
     return { success: true, ...dispatch, skipped: null, payload };
   },
 
