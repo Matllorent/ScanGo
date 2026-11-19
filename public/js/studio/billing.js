@@ -117,7 +117,7 @@ export function openBillingModal(currentUser, restaurant) {
     if (isEvent) {
       pricingContainer.innerHTML = `
         <div style="background:rgba(236,201,75,0.08); border:1px solid rgba(236,201,75,0.3); border-radius:8px; padding:12px; margin-bottom:16px;">
-          <div style="font-size:11px; font-weight:700; color:var(--accent-gold); text-transform:uppercase; margin-bottom:8px;">🎉 Evento Único (por fiesta)</div>
+          <div style="font-size:11px; font-weight:700; color:var(--accent-gold); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Evento único · por fiesta</div>
           <div style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">Pago único de <strong style="color:#fff;">$${basePrice.toFixed(2)} USD</strong> · tu menú queda online hasta la fecha de tu evento y luego se pausa automáticamente.</div>
         </div>
       `;
@@ -140,14 +140,14 @@ export function openBillingModal(currentUser, restaurant) {
 
     pricingContainer.innerHTML = `
       <div style="background:rgba(236,201,75,0.08); border:1px solid rgba(236,201,75,0.3); border-radius:8px; padding:12px; margin-bottom:16px;">
-        <div style="font-size:11px; font-weight:700; color:var(--accent-gold); text-transform:uppercase; margin-bottom:8px;">📊 Precio por Sucursales (${branchCount} activa${branchCount > 1 ? 's' : ''})</div>
+        <div style="font-size:11px; font-weight:700; color:var(--accent-gold); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Precio por sucursales activas</div>
         <div style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">Descuentos: 1ª 100% · 2ª 20% · 3ª 35% · 4ª+ 50%</div>
         ${breakdownHtml}
         <div style="display:flex; justify-content:space-between; margin-top:10px; padding-top:10px; border-top:1px solid rgba(236,201,75,0.3); font-size:13px; font-weight:700;">
           <span>Total Mensual:</span>
           <span style="color:var(--accent-gold);">$${totalPrice.toFixed(2)} USD</span>
         </div>
-        ${branchCount > 1 ? `<div style="font-size:11px; color:var(--accent-green); margin-top:4px;">💰 Ahorro vs. precio sin descuento: $${totalSavings.toFixed(2)} USD (${savingsPct}%)</div>` : ''}
+        ${branchCount > 1 ? `<div style="font-size:11px; color:var(--accent-green); margin-top:4px;">Ahorro vs. precio sin descuento: $${totalSavings.toFixed(2)} USD (${savingsPct}%)</div>` : ''}
       </div>
     `;
     }
@@ -165,6 +165,16 @@ export function openBillingModal(currentUser, restaurant) {
   if (cancelBlock) {
     const cancellable = ['active', 'past_due'].includes(sub?.status);
     cancelBlock.style.display = cancellable ? 'block' : 'none';
+  }
+
+  // Actualizar precios de los planes desde PLANS (fuente única de verdad)
+  const annualPriceEl = document.getElementById('planAnnualPrice');
+  const monthlyPriceEl = document.getElementById('planMonthlyPrice');
+  if (annualPriceEl && PLANS.starter_annual) {
+    annualPriceEl.textContent = `$${PLANS.starter_annual.priceUsd}`;
+  }
+  if (monthlyPriceEl && PLANS.starter_monthly) {
+    monthlyPriceEl.textContent = `$${PLANS.starter_monthly.priceUsd}`;
   }
 
   const modal = document.getElementById('billingModal');

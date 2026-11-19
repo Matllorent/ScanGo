@@ -44,10 +44,7 @@
           <span id="sliderSimpleMode" style="position:absolute; inset:0; background-color:#2a3a33; border-radius:24px; transition:.3s;"></span>
         </label>
       </div>
-      <div id="subscriptionBadge" class="sub-badge badge-trial">⏳ 7 días de prueba</div>
-      <div style="margin-left:8px;">
-        <span class="badge-uy" style="font-size:0.75rem; padding:3px 8px;">🇺🇾 +598 93 640 039</span>
-      </div>
+      <div id="subscriptionBadge" class="sub-badge badge-trial"></div>
     </div>
 
     <div class="nav-actions">
@@ -57,16 +54,16 @@
         <span id="saveFeedbackText">Guardando...</span>
       </div>
       <a id="btnLiveMenu" href="#" target="_blank" rel="noopener" class="btn-nav" data-js-click="openPublicMenu">
-        <span>🌐 Ver Menú Público</span>
+        <span>Ver Menú Público</span>
       </a>
       <button class="btn-nav btn-nav-gold" data-js-click="openBillingModal">
-        <span>💎 Ver Mi Plan</span>
+        <span>Ver Mi Plan</span>
       </button>
       <button id="btnSaveStudio" class="btn-nav btn-nav-green" data-js-click="saveStudioChanges">
-        <span id="saveBtnText">💾 Guardar Cambios</span>
+        <span id="saveBtnText">Guardar Cambios</span>
       </button>
       <button class="btn-nav" data-js-click="logout" title="Cerrar sesión">
-        <span>🚪 Salir</span>
+        <span>Salir</span>
       </button>
     </div>
   </header>
@@ -2280,50 +2277,71 @@
     <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="billingModalTitle" style="text-align: center;">
       <button class="modal-close" data-js-click="closeBillingModal" aria-label="Cerrar">✕</button>
       <h3 class="modal-title" id="billingModalTitle">Gestionar Suscripción — ScanGo</h3>
-      
-      <div style="background:var(--surface-2); padding:16px; border-radius:10px; margin-bottom:16px; text-align:left;">
-        <div style="font-size:12px; color:var(--text-dim);">Estado Actual:</div>
-        <div id="modalSubState" style="font-size:14px; font-weight:700; color:var(--accent-gold); margin-bottom:6px;"></div>
-        <div id="modalSubDetail" style="font-size:11px; color:var(--text-muted);"></div>
+
+      <div style="background:var(--surface-2); padding:16px; border-radius:10px; margin-bottom:18px; text-align:left;">
+        <div style="font-size:12px; color:var(--text-dim); font-weight:700; letter-spacing:0.5px; text-transform:uppercase;">Estado actual de tu plan</div>
+        <div id="modalSubState" style="font-size:15px; font-weight:800; color:var(--accent-gold); margin-bottom:6px;"></div>
+        <div id="modalSubDetail" style="font-size:12px; color:var(--text-muted); line-height:1.5;"></div>
       </div>
 
       <!-- Block para eventos: pago único one-off (plan event_once) -->
-      <div id="eventBillingBlock" style="display:none; margin-bottom:16px;">
-        <div style="background:var(--surface-3); padding:14px; border-radius:8px; border:1px solid var(--accent-gold);">
-          <div style="font-size:10px; color:var(--accent-gold); font-weight:800; text-transform:uppercase; margin-bottom:4px;">🎉 Evento Único · Por Fiesta</div>
-          <div style="font-size:18px; font-weight:700; color:#fff;">$12 <span style="font-size:10px;">USD</span></div>
-          <div style="font-size:10px; color:var(--text-dim); margin-bottom:8px;">Pago único · tu menú queda online hasta la fecha del evento. Sin renovación automática.</div>
-          <button class="btn-nav btn-nav-gold" style="width:100%;" data-js-click="startCheckout|event_once|event">💳 Pagar mi Evento</button>
+      <div id="eventBillingBlock" style="display:none; margin-bottom:18px;">
+        <div style="background:var(--surface-3); padding:14px; border-radius:8px; border:1px solid var(--accent-gold); text-align:left;">
+          <div style="font-size:10px; color:var(--accent-gold); font-weight:800; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Evento único · por fiesta</div>
+          <div style="font-size:18px; font-weight:800; color:#fff;">$12 <span style="font-size:10px; color:var(--text-muted);">USD</span></div>
+          <div style="font-size:11px; color:var(--text-dim); margin-top:6px; line-height:1.5;">Pago único · tu menú queda online hasta la fecha de tu evento y luego se pausa automáticamente. Sin renovación.</div>
+          <button class="btn-nav btn-nav-gold" style="width:100%; margin-top:8px;" data-js-click="startCheckout|event_once|event">Pagar mi Evento</button>
         </div>
       </div>
 
       <!-- Tiered Pricing Visualizer -->
       <div id="billingTieredPricing"></div>
 
-      <div id="billingPlansGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
-        <div style="background:var(--surface-3); padding:12px; border-radius:8px; border:1px solid var(--border);">
-          <div style="font-size:12px; font-weight:700;">Plan · Mensual</div>
-          <div style="font-size:18px; font-weight:700; color:#fff;">$9 <span style="font-size:10px;">USD/mes</span></div>
-          <div style="font-size:10px; color:var(--text-dim); margin-bottom:6px;">Todo incluido · sin permanencia</div>
-          <button class="btn-nav btn-nav-gold" style="width:100%;" data-js-click="startCheckout|starter_monthly|event">Elegir Mensual</button>
+      <!-- Planes recurrentes -->
+      <div id="billingPlansGrid" class="billing-plans-grid" style="display:grid; gap:12px; margin-bottom:18px;">
+        <!-- Plan Anual: destacado (recomendado) -->
+        <div style="background:linear-gradient(135deg, var(--surface-3), rgba(212,168,83,0.06)); padding:16px; border-radius:10px; border:1px solid var(--accent-gold); position:relative; text-align:left;">
+          <div style="font-size:10px; color:var(--accent-gold); font-weight:800; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Plan recomendado · mejor precio</div>
+          <div style="font-size:13px; font-weight:700; color:var(--text-main); margin-bottom:2px;">Plan Anual</div>
+          <div style="font-size:26px; font-weight:800; color:#fff; line-height:1;"><span id="planAnnualPrice">$79</span> <span style="font-size:12px; font-weight:600; color:var(--text-muted);">USD/año</span></div>
+          <div style="font-size:11px; color:var(--accent-green); font-weight:700; margin-top:6px;">Ahorrás 27% vs. el plan mensual</div>
+          <div style="font-size:11px; color:var(--text-dim); margin-top:8px; line-height:1.4;">$6,58 USD/mes promedio · todo incluido · sin permanencia mínima</div>
+          <button class="btn-nav btn-nav-gold" style="width:100%; margin-top:12px; font-size:13px; padding:10px;" data-js-click="startCheckout|starter_annual|event">Activar Plan Anual</button>
           <div class="plan-renewal-note" style="font-size:9px; color:var(--text-dim); margin-top:6px; text-align:center; line-height:1.5;">Renovación automática hasta que la canceles.</div>
         </div>
-        <div style="background:var(--surface-3); padding:12px; border-radius:8px; border:1px solid var(--accent-gold);">
-          <div style="font-size:10px; color:var(--accent-gold); font-weight:800;">RECOMENDADO</div>
-          <div style="font-size:12px; font-weight:700;">Plan · Anual</div>
-          <div style="font-size:18px; font-weight:700; color:#fff;">$79 <span style="font-size:10px;">USD/año</span></div>
-          <div style="font-size:10px; color:var(--accent-green); margin-bottom:6px;">Ahorrá 27% vs. mensual</div>
-          <button class="btn-nav btn-nav-gold" style="width:100%;" data-js-click="startCheckout|starter_annual|event">Activar Anual</button>
+        <!-- Plan Mensual -->
+        <div style="background:var(--surface-3); padding:16px; border-radius:10px; border:1px solid var(--border); text-align:left;">
+          <div style="font-size:13px; font-weight:700; color:var(--text-main); margin-bottom:2px;">Plan Mensual</div>
+          <div style="font-size:26px; font-weight:800; color:#fff; line-height:1;"><span id="planMonthlyPrice">$9</span> <span style="font-size:12px; font-weight:600; color:var(--text-muted);">USD/mes</span></div>
+          <div style="font-size:11px; color:var(--text-dim); margin-top:6px; line-height:1.4;">Todo incluido · sin permanencia mínima · ideal para probar</div>
+          <button class="btn-nav" style="width:100%; margin-top:12px; font-size:13px; padding:10px;" data-js-click="startCheckout|starter_monthly|event">Elegir Plan Mensual</button>
           <div class="plan-renewal-note" style="font-size:9px; color:var(--text-dim); margin-top:6px; text-align:center; line-height:1.5;">Renovación automática hasta que la canceles.</div>
         </div>
       </div>
 
-      <div id="billingCheckoutError" style="display:none; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.4); color:#fca5a5; border-radius:8px; padding:10px 12px; font-size:12px; text-align:left; margin-bottom:12px;"></div>
-
-      <div style="font-size:11px; color:var(--text-dim);">
-        🛡️ Pasarelas seguras: Mercado Pago (Uruguay y Argentina) y Lemon Squeezy (internacional).<br>
-        7 días de prueba gratis · Smart Dunning con 7 días de gracia ante rechazo de tarjeta · Sin permanencia mínima.
+      <!-- Desglose por sucursales (precio efectivo según cantidad de sucursales activas) -->
+      <div id="billingBranchBreakdown" style="margin-bottom:18px; display:none;">
+        <div style="font-size:11px; color:var(--accent-gold); font-weight:800; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Precio por sucursales activas</div>
+        <div style="font-size:11px; color:var(--text-dim); line-height:1.5;">1ª sucursal 100% · 2ª 80% · 3ª 65% · 4ª+ 50% del precio base. Se aplica al total mensual o anual.</div>
       </div>
+
+      <div id="billingCheckoutError" style="display:none; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.4); color:#fca5a5; border-radius:8px; padding:10px 12px; font-size:12px; text-align:left; margin-bottom:14px;"></div>
+
+      <!-- Confianza y métodos de pago -->
+      <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-bottom:14px; text-align:left;">
+        <div style="font-size:11px; color:var(--accent-gold); font-weight:800; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Pago seguro y confianza</div>
+        <div style="font-size:11px; color:var(--text-main); line-height:1.6; margin-bottom:6px;">
+          Procesamos los pagos a través de pasarelas reconocidas: <strong>Mercado Pago</strong> (Uruguay y Argentina) y <strong>Lemon Squeezy</strong> (resto del mundo). ScanGo nunca toca ni almacena los datos de tu tarjeta.
+        </div>
+        <div style="font-size:11px; color:var(--text-main); line-height:1.6;">
+          Sin permanencia mínima · podés cancelar tu plan en cualquier momento y el menú se pausa hasta que decidas reactivarlo.
+        </div>
+      </div>
+
+      <!-- Botón de WhatsApp para consultas (sobrio, sin robar protagonismo al CTA principal) -->
+      <a href="https://wa.me/59893640039?text=Hola,%20tengo%20una%20consulta%20sobre%20la%20suscripci%C3%B3n%20y%20los%20m%C3%A9todos%20de%20pago%20de%20ScanGo." target="_blank" rel="noopener noreferrer" class="billing-wa-btn" style="display:inline-flex; align-items:center; gap:8px; width:100%; padding:10px 14px; border:1px solid var(--border); border-radius:8px; background:transparent; color:var(--text-main); font-size:12px; font-weight:600; text-decoration:none; transition:all 0.2s;">
+        <span>¿Tenés dudas sobre cómo pagar o activar tu plan? Consultanos por WhatsApp</span>
+      </a>
 
       <div id="billingCancelBlock" style="display:none; margin-top:14px; padding-top:12px; border-top:1px solid var(--border);">
         <button type="button" class="btn-nav" data-js-click="cancelSubscription" style="width:100%; justify-content:center; font-size:11px; border-color:rgba(229,62,62,0.5); color:#F87171;">

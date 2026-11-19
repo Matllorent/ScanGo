@@ -162,13 +162,13 @@ export function renderSubscriptionBadge(sub) {
       ? Math.max(0, Math.ceil((trialEnd - new Date()) / (1000 * 60 * 60 * 24)))
       : 7;
     badge.className = 'sub-badge badge-trial';
-    badge.textContent = `⏳ Prueba (${days} días)`;
+    badge.textContent = `Prueba (${days} días)`;
   } else if (status === 'active') {
     badge.className = 'sub-badge badge-active';
-    badge.textContent = `✓ ACTIVO (${plan.toUpperCase()})`;
+    badge.textContent = `ACTIVO (${plan.toUpperCase()})`;
   } else if (status === 'past_due') {
     badge.className = 'sub-badge badge-grace';
-    badge.textContent = `⚠️ GRACIA`;
+    badge.textContent = `GRACIA`;
   } else {
     // Vencido: si seguimos dentro de la gracia post-trial, lo decimos con el contador
     const trialEnd = sub?.trialEndsAt ? new Date(sub.trialEndsAt) : null;
@@ -176,8 +176,8 @@ export function renderSubscriptionBadge(sub) {
     const graceDaysLeft = graceEnd ? Math.max(0, Math.ceil((graceEnd.getTime() - Date.now()) / DAY_MS)) : 0;
     badge.className = 'sub-badge badge-grace';
     badge.textContent = graceDaysLeft > 0
-      ? `⚠️ VENCIDO (gracia ${graceDaysLeft}d)`
-      : `✕ VENCIDO`;
+      ? `VENCIDO (gracia ${graceDaysLeft}d)`
+      : `VENCIDO`;
   }
 }
 
@@ -203,7 +203,7 @@ export function checkSubscriptionAlerts(sub) {
     const daysLeft = trialEnd ? Math.ceil((trialEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 7;
     if (daysLeft <= 2 && daysLeft > 0) {
       alertLevel = 'warning';
-      alertMsg = `⚠️ Tu prueba gratuita expira en ${daysLeft} día${daysLeft === 1 ? '' : 's'}. Activá tu plan para mantener tu menú activo.`;
+      alertMsg = `Tu prueba gratuita expira en ${daysLeft} día${daysLeft === 1 ? '' : 's'}. Activá tu plan para mantener tu menú activo.`;
       btnText = 'Activar Plan';
       btnBg = '#f59e0b';
       btnColor = '#0d1312';
@@ -216,9 +216,11 @@ export function checkSubscriptionAlerts(sub) {
     btnText = 'Activar mi plan';
     btnBg = '#ef4444';
     btnColor = '#fff';
-    alertMsg = daysLeft > 0
-      ? `🚨 Tu prueba terminó. Tu menú deja de estar online en ${daysLeft} día${daysLeft === 1 ? '' : 's'} si no activás tu plan.`
-      : '🚨 Tu menú está pausado. Activá tu plan para volver a estar online al instante.';
+    if (daysLeft > 0) {
+      alertMsg = `Tu prueba gratuita terminó. Durante ${daysLeft} día${daysLeft === 1 ? '' : 's'} más tu menú público sigue online (período de gracia). Si no activás tu plan antes, tu menú se pausará y tus clientes dejarán de ver la carta al escanear el QR.`;
+    } else {
+      alertMsg = `Tu menú está pausado porque la prueba gratuita finalizó. Activá tu plan para reactivarlo al instante y que tus clientes sigan accediendo al menú sin cortes.`;
+    }
   } else if (status === 'past_due') {
     const graceEnd = sub?.currentPeriodEnd
       ? new Date(new Date(sub.currentPeriodEnd).getTime() + 7 * 24 * 3600 * 1000)
@@ -228,7 +230,7 @@ export function checkSubscriptionAlerts(sub) {
       : 0;
     if (daysLeft <= 3) {
       alertLevel = 'danger';
-      alertMsg = `🚨 Tu suscripción está vencida. Tu menú se pausará en ${daysLeft} día${daysLeft === 1 ? '' : 's'} si no regularizás el pago.`;
+      alertMsg = `Tu suscripción está vencida. Tu menú se pausará en ${daysLeft} día${daysLeft === 1 ? '' : 's'} si no regularizás el pago.`;
       btnText = 'Regularizar Pago';
       btnBg = '#ef4444';
       btnColor = '#fff';
@@ -323,23 +325,23 @@ export function showSubscriptionRequiredScreen(access, options = {}) {
 
   if (workspace) {
     workspace.innerHTML = `
-      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:70vh; padding:40px 20px; text-align:center;">
-        <div style="font-size:3.5rem; margin-bottom:16px;">${inGrace ? '⏳' : '⚠️'}</div>
-        <h2 style="color:var(--accent-gold); margin-bottom:12px; font-size:1.5rem;">
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:70vh; padding:40px 20px; text-align:center; overflow-x:hidden;" role="dialog" aria-modal="true" aria-labelledby="paywallTitle">
+        <div style="font-size:2.5rem; margin-bottom:16px; color:var(--accent-gold);">${inGrace ? '●' : '▲'}</div>
+        <h2 id="paywallTitle" style="color:var(--accent-gold); margin-bottom:12px; font-size:1.5rem; overflow-wrap:break-word;">
           ${inGrace ? 'Tu prueba gratuita terminó' : 'Menú pausado'}
         </h2>
-        <p style="color:var(--text-muted); margin-bottom:8px; font-size:0.95rem; max-width:440px;">
+        <p style="color:var(--text-muted); margin-bottom:8px; font-size:0.95rem; max-width:440px; line-height:1.5; overflow-wrap:break-word;">
           ${access.warning || 'Tu suscripción está inactiva.'}
         </p>
-        <p style="color:var(--text-muted); margin-bottom:24px; font-size:0.8rem;">
+        <p style="color:var(--text-muted); margin-bottom:24px; font-size:0.8rem; overflow-wrap:break-word;">
           Estado: <strong style="color:${inGrace ? '#fbbf24' : '#f87171'};">${statusLabel}</strong>
           ${inGrace ? ' · Tu menú público sigue <strong style="color:#4ade80;">ONLINE</strong>' : ''}
         </p>
-        <button data-action="activate-plan" style="padding:12px 28px; background:var(--accent-gold); color:#101614; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.9rem;">
-          💎 Activar mi plan
+        <button data-action="activate-plan" style="padding:12px 28px; background:var(--accent-gold); color:#101614; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.9rem; width:100%; max-width:320px;">
+          Activar mi plan
         </button>
         ${inGrace && typeof options.onContinue === 'function' ? `
-          <button data-action="continue-editing" style="margin-top:14px; padding:10px 22px; background:transparent; color:var(--text-muted); border:1px solid var(--border-color, rgba(255,255,255,0.18)); border-radius:8px; cursor:pointer; font-size:0.82rem;">
+          <button data-action="continue-editing" style="margin-top:12px; padding:10px 22px; background:transparent; color:var(--text-muted); border:1px solid var(--border-color, rgba(255,255,255,0.18)); border-radius:8px; cursor:pointer; font-size:0.82rem; width:100%; max-width:320px;">
             Seguir editando (quedan ${access.graceDaysLeft} día${access.graceDaysLeft === 1 ? '' : 's'} de gracia)
           </button>
         ` : ''}

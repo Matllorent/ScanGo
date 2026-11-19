@@ -976,3 +976,68 @@
     @media (max-width: 600px) {
       .staff-assignment-row { grid-template-columns: 1fr; gap: 3px; }
     }
+
+    /* ── Billing modal: planes grid responsivo (sin scroll horizontal en móvil) ─── */
+    .billing-plans-grid { grid-template-columns: 1fr; }
+    @media (min-width: 640px) {
+      .billing-plans-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    /* Botón WhatsApp del billing modal — sobrio, hover sutil, sin robar protagonismo */
+    .billing-wa-btn:hover {
+      border-color: rgba(255,255,255,0.35);
+      background: rgba(255,255,255,0.04);
+    }
+
+    /* ── Header Studio: cero scroll horizontal en móvil (regla absoluta) ─── */
+    .top-navbar {
+      overflow-x: hidden;
+    }
+    .top-navbar .brand-area,
+    .top-navbar .nav-actions {
+      min-width: 0;
+    }
+    .top-navbar .nav-actions .btn-nav {
+      flex-shrink: 0;
+      white-space: normal;
+      text-align: center;
+      max-width: 150px;
+      box-sizing: border-box;
+    }
+    .top-navbar .nav-actions .btn-nav span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+    }
+    .sub-badge {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 150px;
+    }
+
+    /* Modal billing: sin desbordes en móvil y contención de ancho */
+    #billingModal .modal-box {
+      max-width: min(520px, 92vw);
+      width: 100%;
+      box-sizing: border-box;
+    }
+    #billingModal .modal-box [style*="text-align:left"],
+    #billingModal .plan-renewal-note {
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+    }
+
+    /* Ajuste móvil muy estrecho (< 375px): padding reducido en billing modal */
+    @media (max-width: 375px) {
+      #billingModal .modal-box {
+        padding: 16px;
+        max-width: min(460px, 94vw);
+      }
+      #billingModal .billing-plans-grid > div {
+        padding: 12px;
+      }
+    }
